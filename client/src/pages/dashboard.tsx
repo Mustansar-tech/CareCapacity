@@ -586,48 +586,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-900 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Alert & Quick Actions Panel */}
-        <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Capacity Alerts */}
-          <div className="lg:col-span-2 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-8 w-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <Bell className="h-4 w-4 text-white" />
-              </div>
-              <h3 className="font-semibold text-amber-800 dark:text-amber-200">Scheduling Alerts</h3>
-            </div>
-            <div className="space-y-2">
-              {kpis.capacityGap < 0 && (
-                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>Critical: {Math.abs(kpis.capacityGap)}h shortage this week - Urgent staffing needed</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-                <Clock className="h-4 w-4" />
-                <span>Today: {employeeCapacityData.filter(e => e.availabilityWindow !== "Not Available").length} staff available</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-white/20">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="h-5 w-5 text-blue-600" />
-              <h3 className="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
-            </div>
-            <div className="space-y-2">
-              <Button size="sm" variant="outline" className="w-full justify-start">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Data
-              </Button>
-              <Button size="sm" variant="outline" className="w-full justify-start">
-                <Eye className="h-4 w-4 mr-2" />
-                View Schedule
-              </Button>
-            </div>
-          </div>
-        </div>
 
         {/* Modern Header */}
         <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
@@ -680,12 +639,15 @@ export default function Dashboard() {
         {/* Modern Dashboard Tabs */}
         <Tabs defaultValue="overview" className="space-y-8">
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-white/20">
-            <TabsList className="grid w-full grid-cols-3 bg-transparent gap-2">
+            <TabsList className="grid w-full grid-cols-4 bg-transparent gap-2">
               <TabsTrigger value="overview" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
                 Overview
               </TabsTrigger>
               <TabsTrigger value="daily" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
                 Daily Capacity
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
+                Performance Analytics
               </TabsTrigger>
               <TabsTrigger value="export" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
                 Export Reports
@@ -877,112 +839,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Performance Analytics Section */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance Analytics</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Key insights for capacity optimization</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Weekly Utilization */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Utilization Rate</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                    {weekSummary.length > 0 ? 
-                      Math.round((weekSummary.reduce((sum, day) => sum + day.clientRequired, 0) / 
-                                 weekSummary.reduce((sum, day) => sum + day.netCapacity, 0)) * 100) : 0}%
-                  </div>
-                  <div className="text-xs text-blue-600 dark:text-blue-400">Weekly average</div>
-                </div>
 
-                {/* Staff Efficiency */}
-                <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-4 w-4 text-emerald-600" />
-                    <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Active Staff</span>
-                  </div>
-                  <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
-                    {employeeCapacityData.filter(e => e.netCapacity > 0).length}/{employeeCapacityData.length}
-                  </div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Available today</div>
-                </div>
-
-                {/* Peak Demand Day */}
-                <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm font-medium text-purple-800 dark:text-purple-200">Peak Demand</span>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                    {Math.max(...weekSummary.map(day => day.clientRequired))}h
-                  </div>
-                  <div className="text-xs text-purple-600 dark:text-purple-400">Highest this week</div>
-                </div>
-
-                {/* Critical Shortage Alert */}
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Critical Days</span>
-                  </div>
-                  <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
-                    {weekSummary.filter(day => day.capacityGap < -2).length}
-                  </div>
-                  <div className="text-xs text-amber-600 dark:text-amber-400">Days with 2h+ shortage</div>
-                </div>
-              </div>
-
-              {/* Quick Recommendations */}
-              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
-                  <Zap className="h-4 w-4" />
-                  Smart Recommendations
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  {kpis.capacityGap < 0 && (
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-blue-800 dark:text-blue-200">
-                        Critical shortage detected. Consider increasing staff availability or overtime authorization.
-                      </span>
-                    </div>
-                  )}
-                  {employeeCapacityData.filter(e => e.netCapacity > 0).length < 3 && (
-                    <div className="flex items-start gap-2">
-                      <Users className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-blue-800 dark:text-blue-200">
-                        Low staff availability today. Review backup staff or agency cover options.
-                      </span>
-                    </div>
-                  )}
-                  {kpis.sicknessHours > 10 && (
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-blue-800 dark:text-blue-200">
-                        High sickness levels ({kpis.sicknessHours}h). Monitor for patterns and consider wellbeing support.
-                      </span>
-                    </div>
-                  )}
-                  {weekSummary.filter(day => day.capacityGap >= 5).length > 2 && (
-                    <div className="flex items-start gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-blue-800 dark:text-blue-200">
-                        Strong capacity surplus detected. Consider optimizing staff schedules or taking on additional clients.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </TabsContent>
 
           {/* Daily Capacity Tab */}
@@ -1269,7 +1126,320 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
+          {/* Performance Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6">
+            {/* Key Performance Metrics */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Key Performance Metrics</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Comprehensive capacity performance analysis</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Weekly Utilization Rate */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Capacity Utilization</span>
+                  </div>
+                  <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+                    {weekSummary.length > 0 ? 
+                      Math.round((weekSummary.reduce((sum, day) => sum + day.clientRequired, 0) / 
+                                 weekSummary.reduce((sum, day) => sum + day.netCapacity, 0)) * 100) : 0}%
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-2">Weekly average utilization rate</div>
+                  <div className="mt-3 h-2 bg-blue-200 dark:bg-blue-800 rounded-full">
+                    <div 
+                      className="h-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" 
+                      style={{ 
+                        width: `${Math.min(100, weekSummary.length > 0 ? 
+                          Math.round((weekSummary.reduce((sum, day) => sum + day.clientRequired, 0) / 
+                                     weekSummary.reduce((sum, day) => sum + day.netCapacity, 0)) * 100) : 0)}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
 
+                {/* Staff Availability Ratio */}
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl p-5 border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="h-5 w-5 text-emerald-600" />
+                    <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Staff Availability</span>
+                  </div>
+                  <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
+                    {employeeCapacityData.filter(e => e.netCapacity > 0).length}/{employeeCapacityData.length}
+                  </div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                    {employeeCapacityData.length > 0 ? Math.round((employeeCapacityData.filter(e => e.netCapacity > 0).length / employeeCapacityData.length) * 100) : 0}% active today
+                  </div>
+                  <div className="mt-3 h-2 bg-emerald-200 dark:bg-emerald-800 rounded-full">
+                    <div 
+                      className="h-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full" 
+                      style={{ 
+                        width: `${employeeCapacityData.length > 0 ? Math.round((employeeCapacityData.filter(e => e.netCapacity > 0).length / employeeCapacityData.length) * 100) : 0}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Peak Demand Analysis */}
+                <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-5 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="h-5 w-5 text-purple-600" />
+                    <span className="text-sm font-medium text-purple-800 dark:text-purple-200">Peak Demand</span>
+                  </div>
+                  <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">
+                    {Math.max(...weekSummary.map(day => day.clientRequired))}h
+                  </div>
+                  <div className="text-xs text-purple-600 dark:text-purple-400 mt-2">
+                    Highest single day this week
+                  </div>
+                  <div className="text-xs text-purple-500 dark:text-purple-300 mt-1">
+                    Avg: {weekSummary.length > 0 ? Math.round(weekSummary.reduce((sum, day) => sum + day.clientRequired, 0) / weekSummary.length) : 0}h daily
+                  </div>
+                </div>
+
+                {/* Critical Shortage Analysis */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-5 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Risk Assessment</span>
+                  </div>
+                  <div className="text-3xl font-bold text-amber-900 dark:text-amber-100">
+                    {weekSummary.filter(day => day.capacityGap < -2).length}
+                  </div>
+                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-2">Critical shortage days (2h+)</div>
+                  <div className="text-xs text-amber-500 dark:text-amber-300 mt-1">
+                    {weekSummary.filter(day => day.capacityGap < 0).length} total shortage days
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Advanced Analytics Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Capacity Trend Analysis */}
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-8 w-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 text-white" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Weekly Capacity Trends</h4>
+                </div>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weekSummary.map(d => ({
+                      date: formatDate(d.date),
+                      capacity: d.netCapacity,
+                      demand: d.clientRequired,
+                      utilization: d.netCapacity > 0 ? Math.round((d.clientRequired / d.netCapacity) * 100) : 0
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis yAxisId="hours" label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                      <YAxis yAxisId="percent" orientation="right" label={{ value: 'Utilization %', angle: 90, position: 'insideRight' }} tick={{ fontSize: 11 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                          border: 'none', 
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)'
+                        }} 
+                      />
+                      <Legend />
+                      <Line yAxisId="hours" type="monotone" dataKey="capacity" stroke="#10b981" strokeWidth={3} name="Net Capacity" />
+                      <Line yAxisId="hours" type="monotone" dataKey="demand" stroke="#8b5cf6" strokeWidth={3} name="Client Demand" />
+                      <Line yAxisId="percent" type="monotone" dataKey="utilization" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" name="Utilization %" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Staff Performance Distribution */}
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-8 w-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                    <Users className="h-4 w-4 text-white" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Staff Capacity Distribution</h4>
+                </div>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value, percent }) => `${name}: ${value} (${(percent).toFixed(0)}%)`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {statusDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Smart Recommendations */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Smart Recommendations & Strategic Insights</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">AI-powered recommendations for optimal capacity management</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Critical Actions */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    Critical Actions Required
+                  </h4>
+                  <div className="space-y-3">
+                    {kpis.capacityGap < -5 && (
+                      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium text-red-800 dark:text-red-200">Severe Capacity Shortage</div>
+                            <div className="text-sm text-red-700 dark:text-red-300 mt-1">
+                              {Math.abs(kpis.capacityGap)}h weekly shortage detected. Immediate action required:
+                              <ul className="mt-2 ml-4 space-y-1 text-xs">
+                                <li>• Contact agency staff for emergency cover</li>
+                                <li>• Review overtime authorization for existing staff</li>
+                                <li>• Consider temporary schedule adjustments</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {employeeCapacityData.filter(e => e.netCapacity > 0).length < 3 && (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <Users className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium text-amber-800 dark:text-amber-200">Low Staff Availability</div>
+                            <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                              Only {employeeCapacityData.filter(e => e.netCapacity > 0).length} staff available today. Actions needed:
+                              <ul className="mt-2 ml-4 space-y-1 text-xs">
+                                <li>• Activate backup staffing plan</li>
+                                <li>• Review sick leave and holiday patterns</li>
+                                <li>• Consider cross-training opportunities</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {kpis.sicknessHours > 15 && (
+                      <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium text-orange-800 dark:text-orange-200">High Sickness Levels</div>
+                            <div className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                              {kpis.sicknessHours}h of sickness this week. Consider:
+                              <ul className="mt-2 ml-4 space-y-1 text-xs">
+                                <li>• Wellness program implementation</li>
+                                <li>• Pattern analysis for recurring absences</li>
+                                <li>• Workload distribution review</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Optimization Opportunities */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-500" />
+                    Optimization Opportunities
+                  </h4>
+                  <div className="space-y-3">
+                    {weekSummary.filter(day => day.capacityGap >= 5).length > 2 && (
+                      <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <TrendingUp className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium text-green-800 dark:text-green-200">Capacity Surplus Detected</div>
+                            <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                              Strong surplus on {weekSummary.filter(day => day.capacityGap >= 5).length} days. Opportunities:
+                              <ul className="mt-2 ml-4 space-y-1 text-xs">
+                                <li>• Accept additional client bookings</li>
+                                <li>• Offer training sessions during quiet periods</li>
+                                <li>• Schedule equipment maintenance tasks</li>
+                                <li>• Implement continuous improvement projects</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {employeeCapacityData.filter(e => e.skillLevel === 'Advanced').length > 0 && (
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <Star className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium text-blue-800 dark:text-blue-200">Skill Development Opportunities</div>
+                            <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                              {employeeCapacityData.filter(e => e.skillLevel === 'Advanced').length} advanced staff available for:
+                              <ul className="mt-2 ml-4 space-y-1 text-xs">
+                                <li>• Mentoring junior staff members</li>
+                                <li>• Leading specialized client programs</li>
+                                <li>• Developing best practice procedures</li>
+                                <li>• Training delivery and assessment</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Target className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-purple-800 dark:text-purple-200">Strategic Planning Insights</div>
+                          <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                            Based on current trends:
+                            <ul className="mt-2 ml-4 space-y-1 text-xs">
+                              <li>• Peak demand occurs on {weekSummary.reduce((max, day) => day.clientRequired > max.clientRequired ? day : max, weekSummary[0])?.date ? formatDate(weekSummary.reduce((max, day) => day.clientRequired > max.clientRequired ? day : max, weekSummary[0]).date) : 'N/A'}</li>
+                              <li>• Average utilization rate: {weekSummary.length > 0 ? Math.round((weekSummary.reduce((sum, day) => sum + day.clientRequired, 0) / weekSummary.reduce((sum, day) => sum + day.netCapacity, 0)) * 100) : 0}%</li>
+                              <li>• Consider flexible scheduling for high-demand periods</li>
+                              <li>• Review staff contracts for optimal coverage</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
 
           {/* Export Tab */}
           <TabsContent value="export" className="space-y-6">
