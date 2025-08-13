@@ -4,7 +4,6 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell
 } from "recharts";
-import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,11 +17,11 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Upload, Download, FileSpreadsheet, Calendar, Users, Clock, 
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle, 
-  XCircle, Info, UserCheck, UserX, Target
+  UserCheck, Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ====================== ENHANCED MOCK DATA ======================
+// ====================== MOCK DATA ======================
 
 const MOCK_employees = [
   { 
@@ -31,8 +30,7 @@ const MOCK_employees = [
     contractedWeeklyHours: 37.5, 
     workingDays: ["Mon","Tue","Wed","Thu","Fri"],
     role: "Senior Caregiver",
-    skillLevel: "Advanced",
-    hourlyRate: 18.50
+    skillLevel: "Advanced"
   },
   { 
     id: "E2", 
@@ -40,8 +38,7 @@ const MOCK_employees = [
     contractedWeeklyHours: 30, 
     workingDays: ["Mon","Tue","Thu","Fri"],
     role: "Caregiver",
-    skillLevel: "Intermediate", 
-    hourlyRate: 16.00
+    skillLevel: "Intermediate"
   },
   { 
     id: "E3", 
@@ -49,8 +46,7 @@ const MOCK_employees = [
     contractedWeeklyHours: 20, 
     workingDays: ["Mon","Wed","Fri"],
     role: "Support Worker",
-    skillLevel: "Basic",
-    hourlyRate: 14.50
+    skillLevel: "Basic"
   },
   { 
     id: "E4", 
@@ -58,8 +54,7 @@ const MOCK_employees = [
     contractedWeeklyHours: 25, 
     workingDays: ["Tue","Wed","Thu","Sat"],
     role: "Night Caregiver",
-    skillLevel: "Advanced",
-    hourlyRate: 19.00
+    skillLevel: "Advanced"
   },
   { 
     id: "E5", 
@@ -67,8 +62,7 @@ const MOCK_employees = [
     contractedWeeklyHours: 16, 
     workingDays: ["Mon","Tue","Wed","Thu"],
     role: "Part-time Support",
-    skillLevel: "Basic",
-    hourlyRate: 13.50
+    skillLevel: "Basic"
   },
 ];
 
@@ -107,13 +101,6 @@ const MOCK_holidays = [
   { employeeId: "E1", date: "2025-08-19", hours: 4, reason: "Annual leave" },
   { employeeId: "E3", date: "2025-08-20", hours: 3.5, reason: "Personal day" },
   { employeeId: "E2", date: "2025-08-22", hours: 8, reason: "Pre-booked holiday" },
-];
-
-const MOCK_assignments = [
-  { employeeId: "E1", date: "2025-08-18", hours: 6, clientName: "Mrs. Johnson", timeSlot: "08:00-14:00" },
-  { employeeId: "E2", date: "2025-08-18", hours: 4, clientName: "Mr. Brown", timeSlot: "09:00-13:00" },
-  { employeeId: "E2", date: "2025-08-19", hours: 7, clientName: "Mrs. Wilson", timeSlot: "09:00-16:00" },
-  { employeeId: "E4", date: "2025-08-19", hours: 5, clientName: "Mr. Davis", timeSlot: "12:00-17:00" },
 ];
 
 const MOCK_clientDemandDaily = [
@@ -175,7 +162,6 @@ interface Employee {
   workingDays: string[];
   role: string;
   skillLevel: string;
-  hourlyRate: number;
 }
 
 interface AvailabilitySlot {
@@ -194,14 +180,6 @@ interface AbsenceRecord {
   reason: string;
 }
 
-interface Assignment {
-  employeeId: string;
-  date: string;
-  hours: number;
-  clientName: string;
-  timeSlot: string;
-}
-
 interface ClientDemand {
   date: string;
   client_hours: number;
@@ -214,17 +192,15 @@ interface ClientDemand {
 
 interface DailySummary {
   date: string;
-  avail: number;
+  totalAvailable: number;
   sickness: number;
   holiday: number;
-  net: number;
-  client: number;
-  delta: number;
-  assigned: number;
-  remaining: number;
+  netCapacity: number;
+  clientRequired: number;
+  capacityGap: number;
 }
 
-interface SchedulingEmployeeRow {
+interface EmployeeCapacityRow {
   employeeId: string;
   name: string;
   role: string;
@@ -236,14 +212,8 @@ interface SchedulingEmployeeRow {
   availableHours: number;
   sicknessHours: number;
   holidayHours: number;
-  netAvailable: number;
-  currentAssignments: number;
-  maxCanAssign: number;
-  remainingCapacity: number;
-  utilizationRate: number;
-  status: 'Available' | 'Partially Available' | 'Unavailable' | 'Sick' | 'Holiday';
-  hourlyRate: number;
-  estimatedCost: number;
+  netCapacity: number;
+  status: 'Available' | 'Unavailable' | 'Sick' | 'Holiday' | 'Partial';
 }
 
 // ====================== HELPERS ======================
@@ -270,12 +240,13 @@ const sumBy = <T,>(arr: T[], fn: (item: T) => number): number =>
 const formatDate = (iso: string) => dayjs(iso).format("ddd DD MMM");
 const formatDateLong = (iso: string) => dayjs(iso).format("dddd, MMMM DD, YYYY");
 
-const formatDelta = (value: number) => {
-  if (value > 0) return `+${value}`;
-  return value.toString();
+const formatCapacityGap = (value: number) => {
+  if (value > 0) return `+${value} surplus`;
+  if (value < 0) return `${Math.abs(value)} shortage`;
+  return "Balanced";
 };
 
-const getDeltaColor = (value: number) => {
+const getCapacityColor = (value: number) => {
   if (value > 0) return "text-green-600 dark:text-green-400";
   if (value < 0) return "text-red-600 dark:text-red-400";
   return "text-gray-600 dark:text-gray-400";
@@ -284,7 +255,7 @@ const getDeltaColor = (value: number) => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'Available': return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    case 'Partially Available': return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+    case 'Partial': return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
     case 'Unavailable': return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     case 'Sick': return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
     case 'Holiday': return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
@@ -294,18 +265,16 @@ const getStatusColor = (status: string) => {
 
 // ====================== CORE AGGREGATIONS ======================
 
-const aggregateAvailabilityForWeek = (
+const aggregateCapacityForWeek = (
   availability: AvailabilitySlot[], 
   sickness: AbsenceRecord[], 
   holidays: AbsenceRecord[], 
-  assignments: Assignment[],
   clientDemandDaily: ClientDemand[], 
   weekDates: string[]
 ): DailySummary[] => {
   const availByDate = new Map<string, number>();
   const sickByDate = new Map<string, number>();
   const holByDate = new Map<string, number>();
-  const assignedByDate = new Map<string, number>();
 
   // Calculate availability hours
   availability.forEach(a => {
@@ -313,10 +282,9 @@ const aggregateAvailabilityForWeek = (
     availByDate.set(a.date, (availByDate.get(a.date) || 0) + hours);
   });
 
-  // Calculate sickness, holiday, and assignment hours
+  // Calculate sickness and holiday hours
   sickness.forEach(s => sickByDate.set(s.date, (sickByDate.get(s.date) || 0) + s.hours));
   holidays.forEach(h => holByDate.set(h.date, (holByDate.get(h.date) || 0) + h.hours));
-  assignments.forEach(a => assignedByDate.set(a.date, (assignedByDate.get(a.date) || 0) + a.hours));
 
   // Client demand map
   const clientMap = new Map(clientDemandDaily.map(d => [d.date, d.client_hours]));
@@ -329,31 +297,35 @@ const aggregateAvailabilityForWeek = (
   ])).sort();
 
   return allDates.map(date => {
-    const avail = +(availByDate.get(date) || 0).toFixed(2);
+    const totalAvailable = +(availByDate.get(date) || 0).toFixed(2);
     const sick = +(sickByDate.get(date) || 0).toFixed(2);
     const hol = +(holByDate.get(date) || 0).toFixed(2);
-    const assigned = +(assignedByDate.get(date) || 0).toFixed(2);
-    const net = Math.max(0, +(avail - sick - hol).toFixed(2));
-    const client = +(clientMap.get(date) || 0);
-    const delta = +(net - client).toFixed(2);
-    const remaining = Math.max(0, +(net - assigned).toFixed(2));
+    const netCapacity = Math.max(0, +(totalAvailable - sick - hol).toFixed(2));
+    const clientRequired = +(clientMap.get(date) || 0);
+    const capacityGap = +(netCapacity - clientRequired).toFixed(2);
     
-    return { date, avail, sickness: sick, holiday: hol, net, client, delta, assigned, remaining };
+    return { 
+      date, 
+      totalAvailable, 
+      sickness: sick, 
+      holiday: hol, 
+      netCapacity, 
+      clientRequired, 
+      capacityGap 
+    };
   });
 };
 
-const buildSchedulingEmployeeRows = (
+const buildEmployeeCapacityRows = (
   date: string, 
   employees: Employee[], 
   availability: AvailabilitySlot[], 
   sickness: AbsenceRecord[], 
-  holidays: AbsenceRecord[],
-  assignments: Assignment[]
-): SchedulingEmployeeRow[] => {
+  holidays: AbsenceRecord[]
+): EmployeeCapacityRow[] => {
   const avForDay = availability.filter(a => a.date === date);
   const sickForDay = sickness.filter(s => s.date === date);
   const holForDay = holidays.filter(h => h.date === date);
-  const assignedForDay = assignments.filter(a => a.date === date);
 
   const byEmpAvail = new Map<string, Array<{start: string, end: string, hours: number, shift: string}>>();
   avForDay.forEach(a => {
@@ -365,7 +337,6 @@ const buildSchedulingEmployeeRows = (
 
   const sickMap = new Map(sickForDay.map(s => [s.employeeId, s.hours]));
   const holMap = new Map(holForDay.map(h => [h.employeeId, h.hours]));
-  const assignedMap = new Map(assignedForDay.map(a => [a.employeeId, a.hours]));
 
   return employees.map(e => {
     const slots = byEmpAvail.get(e.id) || [];
@@ -373,26 +344,18 @@ const buildSchedulingEmployeeRows = (
     const availabilityWindow = slots.map(s => `${s.start}-${s.end} (${s.shift})`).join("; ") || "Not Available";
     const sicknessHours = +(sickMap.get(e.id) || 0);
     const holidayHours = +(holMap.get(e.id) || 0);
-    const currentAssignments = +(assignedMap.get(e.id) || 0);
-    const netAvailable = Math.max(0, +(availableHours - sicknessHours - holidayHours).toFixed(2));
+    const netCapacity = Math.max(0, +(availableHours - sicknessHours - holidayHours).toFixed(2));
     
     const wdCount = e.workingDays?.length || 5;
     const contractedDailyHours = +((e.contractedWeeklyHours / wdCount) || 0).toFixed(2);
     
-    // Calculate max assignable hours (lesser of net available and contracted daily)
-    const maxCanAssign = Math.min(netAvailable, contractedDailyHours);
-    const remainingCapacity = Math.max(0, +(maxCanAssign - currentAssignments).toFixed(2));
-    const utilizationRate = maxCanAssign > 0 ? +((currentAssignments / maxCanAssign) * 100).toFixed(1) : 0;
-    
     // Determine status
-    let status: SchedulingEmployeeRow['status'] = 'Unavailable';
+    let status: EmployeeCapacityRow['status'] = 'Unavailable';
     if (sicknessHours > 0) status = 'Sick';
     else if (holidayHours > 0) status = 'Holiday';
-    else if (netAvailable === 0) status = 'Unavailable';
-    else if (remainingCapacity > 0) status = 'Available';
-    else if (currentAssignments > 0) status = 'Partially Available';
-    
-    const estimatedCost = +(remainingCapacity * e.hourlyRate).toFixed(2);
+    else if (netCapacity === 0) status = 'Unavailable';
+    else if (netCapacity > 0 && netCapacity < contractedDailyHours) status = 'Partial';
+    else if (netCapacity >= contractedDailyHours) status = 'Available';
 
     return {
       employeeId: e.id,
@@ -406,14 +369,8 @@ const buildSchedulingEmployeeRows = (
       availableHours,
       sicknessHours,
       holidayHours,
-      netAvailable,
-      currentAssignments,
-      maxCanAssign,
-      remainingCapacity,
-      utilizationRate,
+      netCapacity,
       status,
-      hourlyRate: e.hourlyRate,
-      estimatedCost,
     };
   });
 };
@@ -423,26 +380,24 @@ const buildSchedulingEmployeeRows = (
 const exportToExcel = (
   selectedDate: string,
   dailySummary: DailySummary,
-  employeeRows: SchedulingEmployeeRow[],
+  employeeRows: EmployeeCapacityRow[],
   clientDemand: ClientDemand | undefined
 ) => {
   const wb = XLSX.utils.book_new();
   
   // Daily Summary Sheet
   const summaryData = [
-    ['Care Hours Analysis Report'],
+    ['Employee Capacity Analysis Report'],
     ['Date:', formatDateLong(selectedDate)],
     [''],
-    ['DAILY SUMMARY'],
+    ['DAILY CAPACITY SUMMARY'],
     ['Metric', 'Hours', 'Notes'],
-    ['Total Available Hours', dailySummary.avail, 'Raw availability before absences'],
+    ['Total Available Hours', dailySummary.totalAvailable, 'Raw availability before absences'],
     ['Sickness Hours', dailySummary.sickness, 'Hours lost to sickness'],
     ['Holiday Hours', dailySummary.holiday, 'Hours lost to holidays'],
-    ['Net Available Hours', dailySummary.net, 'Available after absences'],
-    ['Client Required Hours', dailySummary.client, 'Total client demand'],
-    ['Current Assignments', dailySummary.assigned, 'Already scheduled hours'],
-    ['Remaining Capacity', dailySummary.remaining, 'Hours still available to assign'],
-    ['Surplus/Deficit', dailySummary.delta, dailySummary.delta >= 0 ? 'Sufficient capacity' : 'Shortage - needs attention'],
+    ['Net Capacity', dailySummary.netCapacity, 'Available capacity after absences'],
+    ['Client Required Hours', dailySummary.clientRequired, 'Total client demand'],
+    ['Capacity Gap', dailySummary.capacityGap, dailySummary.capacityGap >= 0 ? 'Sufficient capacity' : 'Capacity shortage'],
   ];
   
   const summaryWS = XLSX.utils.aoa_to_sheet(summaryData);
@@ -450,10 +405,9 @@ const exportToExcel = (
   
   // Employee Details Sheet
   const employeeHeaders = [
-    'Employee Name', 'Role', 'Skill Level', 'Contracted Daily Hours', 
-    'Available Window', 'Available Hours', 'Sickness Hours', 'Holiday Hours',
-    'Net Available', 'Current Assignments', 'Max Can Assign', 'Remaining Capacity',
-    'Utilization %', 'Status', 'Hourly Rate', 'Estimated Cost', 'Working Days'
+    'Employee Name', 'Role', 'Skill Level', 'Contracted Weekly Hours', 'Contracted Daily Hours',
+    'Working Days', 'Availability Window', 'Available Hours', 'Sickness Hours', 'Holiday Hours',
+    'Net Capacity', 'Status'
   ];
   
   const employeeData = [
@@ -462,25 +416,20 @@ const exportToExcel = (
       emp.name,
       emp.role,
       emp.skillLevel,
+      emp.contractedWeeklyHours,
       emp.contractedDailyHours,
+      emp.workingDays.join(', '),
       emp.availabilityWindow,
       emp.availableHours,
       emp.sicknessHours,
       emp.holidayHours,
-      emp.netAvailable,
-      emp.currentAssignments,
-      emp.maxCanAssign,
-      emp.remainingCapacity,
-      emp.utilizationRate + '%',
-      emp.status,
-      '£' + emp.hourlyRate,
-      '£' + emp.estimatedCost,
-      emp.workingDays.join(', ')
+      emp.netCapacity,
+      emp.status
     ])
   ];
   
   const employeeWS = XLSX.utils.aoa_to_sheet(employeeData);
-  XLSX.utils.book_append_sheet(wb, employeeWS, 'Employee Details');
+  XLSX.utils.book_append_sheet(wb, employeeWS, 'Employee Capacity');
   
   // Client Demand Breakdown Sheet
   if (clientDemand) {
@@ -504,7 +453,7 @@ const exportToExcel = (
   }
   
   // Download the file
-  XLSX.writeFile(wb, `care-hours-scheduling-${dayjs(selectedDate).format('YYYY-MM-DD')}.xlsx`);
+  XLSX.writeFile(wb, `employee-capacity-${dayjs(selectedDate).format('YYYY-MM-DD')}.xlsx`);
 };
 
 // ====================== DASHBOARD COMPONENT ======================
@@ -515,7 +464,6 @@ export default function Dashboard() {
   const [availability] = useState<AvailabilitySlot[]>(MOCK_availability);
   const [sickness] = useState<AbsenceRecord[]>(MOCK_sickness);
   const [holidays] = useState<AbsenceRecord[]>(MOCK_holidays);
-  const [assignments] = useState<Assignment[]>(MOCK_assignments);
   const [clientDemandDaily] = useState<ClientDemand[]>(MOCK_clientDemandDaily);
   const [weekDates] = useState<string[]>(DEFAULT_WEEK);
   
@@ -525,13 +473,13 @@ export default function Dashboard() {
 
   // Calculate aggregated data
   const weekSummary = useMemo(() => 
-    aggregateAvailabilityForWeek(availability, sickness, holidays, assignments, clientDemandDaily, weekDates),
-    [availability, sickness, holidays, assignments, clientDemandDaily, weekDates]
+    aggregateCapacityForWeek(availability, sickness, holidays, clientDemandDaily, weekDates),
+    [availability, sickness, holidays, clientDemandDaily, weekDates]
   );
 
-  const schedulingEmployeeData = useMemo(() => 
-    buildSchedulingEmployeeRows(selectedDate, employees, availability, sickness, holidays, assignments),
-    [selectedDate, employees, availability, sickness, holidays, assignments]
+  const employeeCapacityData = useMemo(() => 
+    buildEmployeeCapacityRows(selectedDate, employees, availability, sickness, holidays),
+    [selectedDate, employees, availability, sickness, holidays]
   );
 
   // Get selected day data
@@ -547,21 +495,18 @@ export default function Dashboard() {
 
   // Calculate KPIs
   const kpis = useMemo(() => {
-    const totalNet = sumBy(weekSummary, d => d.net);
-    const totalClient = sumBy(weekSummary, d => d.client);
+    const totalNet = sumBy(weekSummary, d => d.netCapacity);
+    const totalClient = sumBy(weekSummary, d => d.clientRequired);
     const totalSickness = sumBy(weekSummary, d => d.sickness);
     const totalHolidays = sumBy(weekSummary, d => d.holiday);
-    const totalAssigned = sumBy(weekSummary, d => d.assigned);
-    const delta = totalNet - totalClient;
+    const capacityGap = totalNet - totalClient;
 
     return {
-      netAvailability: +totalNet.toFixed(2),
+      netCapacity: +totalNet.toFixed(2),
       clientRequired: +totalClient.toFixed(2),
-      delta: +delta.toFixed(2),
+      capacityGap: +capacityGap.toFixed(2),
       sicknessHours: +totalSickness.toFixed(2),
       holidayHours: +totalHolidays.toFixed(2),
-      assignedHours: +totalAssigned.toFixed(2),
-      utilizationRate: totalNet > 0 ? +((totalAssigned / totalNet) * 100).toFixed(1) : 0,
     };
   }, [weekSummary]);
 
@@ -572,25 +517,25 @@ export default function Dashboard() {
     return [
       { 
         name: 'Morning', 
-        available: schedulingEmployeeData.filter(e => e.availabilityWindow.includes('Morning')).reduce((sum, e) => sum + e.remainingCapacity, 0),
+        capacity: employeeCapacityData.filter(e => e.availabilityWindow.includes('Morning')).reduce((sum, e) => sum + e.netCapacity, 0),
         required: selectedDayClientDemand.morning_hours,
       },
       { 
         name: 'Day', 
-        available: schedulingEmployeeData.filter(e => e.availabilityWindow.includes('Day')).reduce((sum, e) => sum + e.remainingCapacity, 0),
+        capacity: employeeCapacityData.filter(e => e.availabilityWindow.includes('Day')).reduce((sum, e) => sum + e.netCapacity, 0),
         required: selectedDayClientDemand.day_hours,
       },
       { 
         name: 'Evening', 
-        available: schedulingEmployeeData.filter(e => e.availabilityWindow.includes('Evening')).reduce((sum, e) => sum + e.remainingCapacity, 0),
+        capacity: employeeCapacityData.filter(e => e.availabilityWindow.includes('Evening')).reduce((sum, e) => sum + e.netCapacity, 0),
         required: selectedDayClientDemand.evening_hours,
       },
     ];
-  }, [selectedDayData, selectedDayClientDemand, schedulingEmployeeData]);
+  }, [selectedDayData, selectedDayClientDemand, employeeCapacityData]);
 
   // Status distribution for pie chart
   const statusDistribution = useMemo(() => {
-    const distribution = schedulingEmployeeData.reduce((acc, emp) => {
+    const distribution = employeeCapacityData.reduce((acc, emp) => {
       acc[emp.status] = (acc[emp.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -598,9 +543,9 @@ export default function Dashboard() {
     return Object.entries(distribution).map(([status, count]) => ({
       name: status,
       value: count,
-      percentage: ((count / schedulingEmployeeData.length) * 100).toFixed(1)
+      percentage: ((count / employeeCapacityData.length) * 100).toFixed(1)
     }));
-  }, [schedulingEmployeeData]);
+  }, [employeeCapacityData]);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -615,8 +560,8 @@ export default function Dashboard() {
 
   const handleExcelExport = useCallback(() => {
     if (!selectedDayData) return;
-    exportToExcel(selectedDate, selectedDayData, schedulingEmployeeData, selectedDayClientDemand);
-  }, [selectedDate, selectedDayData, schedulingEmployeeData, selectedDayClientDemand]);
+    exportToExcel(selectedDate, selectedDayData, employeeCapacityData, selectedDayClientDemand);
+  }, [selectedDate, selectedDayData, employeeCapacityData, selectedDayClientDemand]);
 
   const COLORS = ['#10b981', '#f59e0b', '#6b7280', '#ef4444', '#3b82f6'];
 
@@ -626,10 +571,10 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Care Hours vs Client Demand Dashboard
+            Employee Capacity & Availability Dashboard
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Comprehensive scheduling tool for care team management
+            Understanding staff availability and capacity for effective scheduling
           </p>
         </div>
 
@@ -664,7 +609,7 @@ export default function Dashboard() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="daily">Daily Scheduling</TabsTrigger>
+            <TabsTrigger value="daily">Daily Capacity</TabsTrigger>
             <TabsTrigger value="absence">Sickness & Holidays</TabsTrigger>
             <TabsTrigger value="export">Export Reports</TabsTrigger>
           </TabsList>
@@ -672,27 +617,27 @@ export default function Dashboard() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             {/* Enhanced KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
-              <Card className="lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                     <Target className="h-4 w-4" />
-                    Net Available Hours
+                    Net Capacity
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {kpis.netAvailability}h
+                    {kpis.netCapacity}h
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Total capacity this week</p>
+                  <p className="text-xs text-gray-500 mt-1">Available capacity this week</p>
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-2">
+              <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    Client Required Hours
+                    Client Required
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -706,14 +651,14 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                    Difference
-                    {kpis.delta > 0 ? <TrendingUp className="h-4 w-4" /> : 
-                     kpis.delta < 0 ? <TrendingDown className="h-4 w-4" /> : null}
+                    Capacity Gap
+                    {kpis.capacityGap > 0 ? <TrendingUp className="h-4 w-4" /> : 
+                     kpis.capacityGap < 0 ? <TrendingDown className="h-4 w-4" /> : null}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={cn("text-2xl font-bold", getDeltaColor(kpis.delta))}>
-                    {formatDelta(kpis.delta)}h
+                  <div className={cn("text-2xl font-bold", getCapacityColor(kpis.capacityGap))}>
+                    {formatCapacityGap(kpis.capacityGap)}
                   </div>
                 </CardContent>
               </Card>
@@ -745,12 +690,12 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Weekly Overview Chart */}
+            {/* Weekly Capacity Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Weekly Capacity vs Demand Overview</CardTitle>
+                <CardTitle>Weekly Capacity vs Demand</CardTitle>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Green line shows your team's available capacity, purple line shows client demand
+                  Green line shows your team's capacity, purple line shows client demand
                 </p>
               </CardHeader>
               <CardContent>
@@ -758,9 +703,8 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={weekSummary.map(d => ({
                       date: formatDate(d.date),
-                      'Available Capacity': d.net,
-                      'Client Demand': d.client,
-                      'Already Assigned': d.assigned,
+                      'Net Capacity': d.netCapacity,
+                      'Client Required': d.clientRequired,
                     }))}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
@@ -769,22 +713,15 @@ export default function Dashboard() {
                       <Legend />
                       <Line 
                         type="monotone" 
-                        dataKey="Available Capacity" 
+                        dataKey="Net Capacity" 
                         stroke="#10b981" 
                         strokeWidth={3}
                       />
                       <Line 
                         type="monotone" 
-                        dataKey="Client Demand" 
+                        dataKey="Client Required" 
                         stroke="#8b5cf6" 
                         strokeWidth={3}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="Already Assigned" 
-                        stroke="#3b82f6" 
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -803,9 +740,9 @@ export default function Dashboard() {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Available</TableHead>
-                      <TableHead className="text-right">Demand</TableHead>
-                      <TableHead className="text-right">Assigned</TableHead>
-                      <TableHead className="text-right">Remaining</TableHead>
+                      <TableHead className="text-right">Net Capacity</TableHead>
+                      <TableHead className="text-right">Required</TableHead>
+                      <TableHead className="text-right">Gap</TableHead>
                       <TableHead className="text-right">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -813,12 +750,14 @@ export default function Dashboard() {
                     {weekSummary.map((day) => (
                       <TableRow key={day.date}>
                         <TableCell className="font-medium">{formatDate(day.date)}</TableCell>
-                        <TableCell className="text-right">{day.net}h</TableCell>
-                        <TableCell className="text-right">{day.client}h</TableCell>
-                        <TableCell className="text-right">{day.assigned}h</TableCell>
-                        <TableCell className="text-right font-semibold">{day.remaining}h</TableCell>
+                        <TableCell className="text-right">{day.totalAvailable}h</TableCell>
+                        <TableCell className="text-right font-semibold">{day.netCapacity}h</TableCell>
+                        <TableCell className="text-right">{day.clientRequired}h</TableCell>
+                        <TableCell className={cn("text-right", getCapacityColor(day.capacityGap))}>
+                          {day.capacityGap >= 0 ? `+${day.capacityGap}` : day.capacityGap}h
+                        </TableCell>
                         <TableCell className="text-right">
-                          {day.delta >= 0 ? (
+                          {day.capacityGap >= 0 ? (
                             <Badge className="bg-green-100 text-green-800">Sufficient</Badge>
                           ) : (
                             <Badge className="bg-red-100 text-red-800">Shortage</Badge>
@@ -832,15 +771,15 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* Enhanced Daily Scheduling Tab */}
+          {/* Daily Capacity Tab */}
           <TabsContent value="daily" className="space-y-6">
-            {/* Date Selection with Quick Stats */}
+            {/* Date Selection */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
-                    Select Date for Scheduling
+                    Select Date
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -869,23 +808,25 @@ export default function Dashboard() {
                     <CardContent>
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-sm">Available:</span>
-                          <span className="font-semibold">{selectedDayData.net}h</span>
+                          <span className="text-sm">Net Capacity:</span>
+                          <span className="font-semibold">{selectedDayData.netCapacity}h</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm">Required:</span>
-                          <span className="font-semibold">{selectedDayData.client}h</span>
+                          <span className="font-semibold">{selectedDayData.clientRequired}h</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-sm">Remaining:</span>
-                          <span className="font-semibold text-green-600">{selectedDayData.remaining}h</span>
+                          <span className="text-sm">Gap:</span>
+                          <span className={cn("font-semibold", getCapacityColor(selectedDayData.capacityGap))}>
+                            {selectedDayData.capacityGap >= 0 ? `+${selectedDayData.capacityGap}` : selectedDayData.capacityGap}h
+                          </span>
                         </div>
                         <Progress 
-                          value={(selectedDayData.assigned / selectedDayData.net) * 100} 
+                          value={selectedDayData.netCapacity > 0 ? (selectedDayData.clientRequired / selectedDayData.netCapacity) * 100 : 0} 
                           className="mt-2" 
                         />
                         <p className="text-xs text-gray-500">
-                          {((selectedDayData.assigned / selectedDayData.net) * 100).toFixed(1)}% utilized
+                          {selectedDayData.netCapacity > 0 ? ((selectedDayData.clientRequired / selectedDayData.netCapacity) * 100).toFixed(1) : 0}% capacity needed
                         </p>
                       </div>
                     </CardContent>
@@ -893,7 +834,7 @@ export default function Dashboard() {
 
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Staff Availability</CardTitle>
+                      <CardTitle className="text-sm font-medium">Staff Status</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
@@ -929,7 +870,7 @@ export default function Dashboard() {
                       <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="available" fill="#3b82f6" name="Available Capacity" />
+                      <Bar dataKey="capacity" fill="#3b82f6" name="Available Capacity" />
                       <Bar dataKey="required" fill="#8b5cf6" name="Client Demand" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -937,80 +878,15 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Staff Status Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Staff Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-60">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={statusDistribution}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({name, percentage}) => `${name}: ${percentage}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {statusDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button 
-                    onClick={handleExcelExport} 
-                    className="w-full flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export Daily Schedule
-                  </Button>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
-                    <div className="flex justify-between">
-                      <span>Total Staff:</span>
-                      <span className="font-semibold">{schedulingEmployeeData.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Available Today:</span>
-                      <span className="font-semibold text-green-600">
-                        {schedulingEmployeeData.filter(e => e.status === 'Available' || e.status === 'Partially Available').length}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Remaining Hours:</span>
-                      <span className="font-semibold text-blue-600">
-                        {schedulingEmployeeData.reduce((sum, e) => sum + e.remainingCapacity, 0).toFixed(1)}h
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Comprehensive Employee Scheduling Table */}
+            {/* Comprehensive Employee Capacity Table */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UserCheck className="h-5 w-5" />
-                  Employee Scheduling Details - {formatDate(selectedDate)}
+                  Employee Capacity Details - {formatDate(selectedDate)}
                 </CardTitle>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Complete overview for scheduling team: availability, contracted hours, current assignments, and remaining capacity
+                  Complete capacity overview: availability, contracted hours, and net capacity for scheduling
                 </p>
               </CardHeader>
               <CardContent>
@@ -1024,15 +900,13 @@ export default function Dashboard() {
                         <TableHead>Availability Window</TableHead>
                         <TableHead className="text-right">Contracted Daily</TableHead>
                         <TableHead className="text-right">Available Hours</TableHead>
-                        <TableHead className="text-right">Current Assignments</TableHead>
-                        <TableHead className="text-right">Can Still Assign</TableHead>
-                        <TableHead className="text-right">Utilization</TableHead>
-                        <TableHead className="text-right">Hourly Rate</TableHead>
-                        <TableHead className="text-right">Est. Cost Available</TableHead>
+                        <TableHead className="text-right">Sickness</TableHead>
+                        <TableHead className="text-right">Holiday</TableHead>
+                        <TableHead className="text-right">Net Capacity</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {schedulingEmployeeData.map((emp) => (
+                      {employeeCapacityData.map((emp) => (
                         <TableRow key={emp.employeeId}>
                           <TableCell>
                             <div>
@@ -1056,25 +930,12 @@ export default function Dashboard() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-semibold">{emp.contractedDailyHours}h</TableCell>
-                          <TableCell className="text-right">{emp.netAvailable}h</TableCell>
-                          <TableCell className="text-right">{emp.currentAssignments}h</TableCell>
+                          <TableCell className="text-right">{emp.availableHours}h</TableCell>
+                          <TableCell className="text-right text-red-600">{emp.sicknessHours}h</TableCell>
+                          <TableCell className="text-right text-orange-600">{emp.holidayHours}h</TableCell>
                           <TableCell className="text-right">
-                            {emp.remainingCapacity > 0 ? (
-                              <span className="font-semibold text-green-600">{emp.remainingCapacity}h</span>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Progress value={emp.utilizationRate} className="w-12 h-2" />
-                              <span className="text-sm">{emp.utilizationRate}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">£{emp.hourlyRate}</TableCell>
-                          <TableCell className="text-right">
-                            {emp.estimatedCost > 0 ? (
-                              <span className="font-semibold">£{emp.estimatedCost}</span>
+                            {emp.netCapacity > 0 ? (
+                              <span className="font-semibold text-green-600">{emp.netCapacity}h</span>
                             ) : (
                               <span className="text-gray-400">—</span>
                             )}
@@ -1087,29 +948,23 @@ export default function Dashboard() {
                 
                 {/* Summary Row */}
                 <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600 dark:text-gray-400">Total Available:</span>
                       <div className="font-semibold text-lg">
-                        {schedulingEmployeeData.reduce((sum, e) => sum + e.netAvailable, 0).toFixed(1)}h
+                        {employeeCapacityData.reduce((sum, e) => sum + e.availableHours, 0).toFixed(1)}h
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-600 dark:text-gray-400">Currently Assigned:</span>
-                      <div className="font-semibold text-lg">
-                        {schedulingEmployeeData.reduce((sum, e) => sum + e.currentAssignments, 0).toFixed(1)}h
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">Still Can Assign:</span>
+                      <span className="text-gray-600 dark:text-gray-400">Net Capacity:</span>
                       <div className="font-semibold text-lg text-green-600">
-                        {schedulingEmployeeData.reduce((sum, e) => sum + e.remainingCapacity, 0).toFixed(1)}h
+                        {employeeCapacityData.reduce((sum, e) => sum + e.netCapacity, 0).toFixed(1)}h
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-600 dark:text-gray-400">Total Cost Available:</span>
+                      <span className="text-gray-600 dark:text-gray-400">Staff Available:</span>
                       <div className="font-semibold text-lg">
-                        £{schedulingEmployeeData.reduce((sum, e) => sum + e.estimatedCost, 0).toFixed(2)}
+                        {employeeCapacityData.filter(e => e.status === 'Available' || e.status === 'Partial').length}
                       </div>
                     </div>
                   </div>
@@ -1118,7 +973,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* Sickness & Holidays Tab - Same as before */}
+          {/* Sickness & Holidays Tab */}
           <TabsContent value="absence" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
@@ -1192,7 +1047,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* Enhanced Export Tab */}
+          {/* Export Tab */}
           <TabsContent value="export" className="space-y-6">
             <Card>
               <CardHeader>
@@ -1201,7 +1056,7 @@ export default function Dashboard() {
                   Daily Excel Export
                 </CardTitle>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Export comprehensive daily scheduling report for your team
+                  Export comprehensive daily capacity report for your team
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1242,19 +1097,19 @@ export default function Dashboard() {
                       <div>
                         <strong>Daily Summary Sheet:</strong>
                         <ul className="ml-4 mt-1 space-y-1">
-                          <li>• Available hours: {selectedDayData.net}h</li>
-                          <li>• Client demand: {selectedDayData.client}h</li>
-                          <li>• Capacity remaining: {selectedDayData.remaining}h</li>
+                          <li>• Net capacity: {selectedDayData.netCapacity}h</li>
+                          <li>• Client demand: {selectedDayData.clientRequired}h</li>
+                          <li>• Capacity gap: {selectedDayData.capacityGap}h</li>
                           <li>• Absence breakdown</li>
                         </ul>
                       </div>
                       <div>
-                        <strong>Employee Details Sheet:</strong>
+                        <strong>Employee Capacity Sheet:</strong>
                         <ul className="ml-4 mt-1 space-y-1">
-                          <li>• {schedulingEmployeeData.length} employee records</li>
+                          <li>• {employeeCapacityData.length} employee records</li>
                           <li>• Availability windows</li>
                           <li>• Contracted vs available hours</li>
-                          <li>• Assignment capacity & costs</li>
+                          <li>• Net capacity calculations</li>
                         </ul>
                       </div>
                       <div>
@@ -1268,59 +1123,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Quick Export Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Export Summary - {formatDate(selectedDate)}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Metric</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedDayData && (
-                      <>
-                        <TableRow>
-                          <TableCell>Staff Available</TableCell>
-                          <TableCell className="text-right">{schedulingEmployeeData.filter(e => e.status === 'Available' || e.status === 'Partially Available').length}</TableCell>
-                          <TableCell>
-                            <Badge className="bg-green-100 text-green-800">Ready to Schedule</Badge>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Total Capacity</TableCell>
-                          <TableCell className="text-right">{selectedDayData.net}h</TableCell>
-                          <TableCell>
-                            {selectedDayData.net >= selectedDayData.client ? (
-                              <Badge className="bg-green-100 text-green-800">Sufficient</Badge>
-                            ) : (
-                              <Badge className="bg-red-100 text-red-800">Insufficient</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Unassigned Hours</TableCell>
-                          <TableCell className="text-right">{selectedDayData.remaining}h</TableCell>
-                          <TableCell>
-                            {selectedDayData.remaining > 0 ? (
-                              <Badge className="bg-blue-100 text-blue-800">Available</Badge>
-                            ) : (
-                              <Badge className="bg-gray-100 text-gray-800">Fully Utilized</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      </>
-                    )}
-                  </TableBody>
-                </Table>
               </CardContent>
             </Card>
           </TabsContent>
