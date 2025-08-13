@@ -1,6 +1,16 @@
 # Overview
 
-This is a people planning dashboard application built with React/TypeScript frontend and Express.js backend. The system provides workforce management capabilities including employee scheduling, availability tracking, and analytics visualization. It features Excel/CSV file upload functionality for bulk data import and comprehensive dashboard views with charts and metrics for operational insights.
+This is a comprehensive Care Hours vs Client Demand dashboard specifically designed for care home scheduling teams. The application provides detailed workforce management capabilities with a focus on daily scheduling decisions, capacity planning, and Excel-based reporting. The system addresses critical scheduling team needs by consolidating employee availability, contracted hours, client demand, and assignment data into intuitive, actionable views.
+
+## Recent Major Updates (August 2025)
+
+- **Enhanced Daily Scheduling Tab**: Complete redesign with detailed employee tables showing contracted hours, availability windows, current assignments, and remaining capacity
+- **Excel Export Functionality**: Replaced JSON exports with comprehensive Excel reports containing multiple sheets (Daily Summary, Employee Details, Client Demand)
+- **Daily-Focused Reporting**: Shifted from weekly to daily reporting approach for scheduling team workflow
+- **Scheduling Team Tools**: Added comprehensive employee scheduling table with all required information in one view
+- **User-Friendly Visualizations**: Improved charts with clear labels and explanations for non-technical users
+- **Real-time Cost Calculations**: Added hourly rates and estimated costs for remaining capacity
+- **Status-based Employee Management**: Visual status indicators and filtering for scheduling decisions
 
 # User Preferences
 
