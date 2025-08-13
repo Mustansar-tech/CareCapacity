@@ -67,28 +67,28 @@ const MOCK_employees = [
 ];
 
 const MOCK_availability = [
-  { employeeId: "E1", date: "2025-08-18", slotStart: "08:00", slotEnd: "16:00", preferredShift: "Day" },
-  { employeeId: "E2", date: "2025-08-18", slotStart: "09:00", slotEnd: "17:00", preferredShift: "Day" },
-  { employeeId: "E3", date: "2025-08-18", slotStart: "07:00", slotEnd: "12:00", preferredShift: "Morning" },
-  { employeeId: "E4", date: "2025-08-18", slotStart: "22:00", slotEnd: "06:00", preferredShift: "Night" },
+  { employeeId: "E1", date: "2025-08-18", slotStart: "07:30", slotEnd: "15:30" },
+  { employeeId: "E2", date: "2025-08-18", slotStart: "09:15", slotEnd: "17:45" },
+  { employeeId: "E3", date: "2025-08-18", slotStart: "06:45", slotEnd: "11:15" },
+  { employeeId: "E4", date: "2025-08-18", slotStart: "22:30", slotEnd: "06:30" },
   
-  { employeeId: "E1", date: "2025-08-19", slotStart: "08:00", slotEnd: "12:00", preferredShift: "Morning" },
-  { employeeId: "E2", date: "2025-08-19", slotStart: "09:00", slotEnd: "17:00", preferredShift: "Day" },
-  { employeeId: "E3", date: "2025-08-19", slotStart: "10:00", slotEnd: "16:00", preferredShift: "Day" },
-  { employeeId: "E4", date: "2025-08-19", slotStart: "12:00", slotEnd: "18:00", preferredShift: "Evening" },
+  { employeeId: "E1", date: "2025-08-19", slotStart: "08:15", slotEnd: "12:45" },
+  { employeeId: "E2", date: "2025-08-19", slotStart: "10:30", slotEnd: "18:00" },
+  { employeeId: "E3", date: "2025-08-19", slotStart: "09:45", slotEnd: "16:15" },
+  { employeeId: "E4", date: "2025-08-19", slotStart: "13:30", slotEnd: "19:00" },
   
-  { employeeId: "E1", date: "2025-08-20", slotStart: "08:00", slotEnd: "16:00", preferredShift: "Day" },
-  { employeeId: "E2", date: "2025-08-20", slotStart: "09:00", slotEnd: "17:00", preferredShift: "Day" },
-  { employeeId: "E3", date: "2025-08-20", slotStart: "08:00", slotEnd: "11:00", preferredShift: "Morning" },
-  { employeeId: "E5", date: "2025-08-20", slotStart: "14:00", slotEnd: "18:00", preferredShift: "Evening" },
+  { employeeId: "E1", date: "2025-08-20", slotStart: "07:45", slotEnd: "16:15" },
+  { employeeId: "E2", date: "2025-08-20", slotStart: "08:30", slotEnd: "16:45" },
+  { employeeId: "E3", date: "2025-08-20", slotStart: "07:15", slotEnd: "10:45" },
+  { employeeId: "E5", date: "2025-08-20", slotStart: "14:30", slotEnd: "18:15" },
   
-  { employeeId: "E4", date: "2025-08-21", slotStart: "08:00", slotEnd: "13:00", preferredShift: "Morning" },
-  { employeeId: "E2", date: "2025-08-21", slotStart: "09:00", slotEnd: "17:00", preferredShift: "Day" },
-  { employeeId: "E3", date: "2025-08-21", slotStart: "10:00", slotEnd: "14:00", preferredShift: "Day" },
+  { employeeId: "E4", date: "2025-08-21", slotStart: "07:30", slotEnd: "13:15" },
+  { employeeId: "E2", date: "2025-08-21", slotStart: "09:45", slotEnd: "17:30" },
+  { employeeId: "E3", date: "2025-08-21", slotStart: "10:30", slotEnd: "14:30" },
   
-  { employeeId: "E1", date: "2025-08-22", slotStart: "08:00", slotEnd: "15:00", preferredShift: "Day" },
-  { employeeId: "E2", date: "2025-08-22", slotStart: "09:00", slotEnd: "16:00", preferredShift: "Day" },
-  { employeeId: "E5", date: "2025-08-22", slotStart: "10:00", slotEnd: "15:00", preferredShift: "Day" },
+  { employeeId: "E1", date: "2025-08-22", slotStart: "08:00", slotEnd: "15:15" },
+  { employeeId: "E2", date: "2025-08-22", slotStart: "11:30", slotEnd: "19:00" },
+  { employeeId: "E5", date: "2025-08-22", slotStart: "09:45", slotEnd: "14:45" },
 ];
 
 const MOCK_sickness = [
@@ -169,7 +169,6 @@ interface AvailabilitySlot {
   date: string;
   slotStart: string;
   slotEnd: string;
-  preferredShift: string;
   slotHours?: number;
 }
 
@@ -327,11 +326,11 @@ const buildEmployeeCapacityRows = (
   const sickForDay = sickness.filter(s => s.date === date);
   const holForDay = holidays.filter(h => h.date === date);
 
-  const byEmpAvail = new Map<string, Array<{start: string, end: string, hours: number, shift: string}>>();
+  const byEmpAvail = new Map<string, Array<{start: string, end: string, hours: number}>>();
   avForDay.forEach(a => {
     const hours = a.slotHours ?? parseHours(a.slotStart, a.slotEnd);
     const arr = byEmpAvail.get(a.employeeId) || [];
-    arr.push({ start: a.slotStart, end: a.slotEnd, hours, shift: a.preferredShift });
+    arr.push({ start: a.slotStart, end: a.slotEnd, hours });
     byEmpAvail.set(a.employeeId, arr);
   });
 
@@ -341,7 +340,7 @@ const buildEmployeeCapacityRows = (
   return employees.map(e => {
     const slots = byEmpAvail.get(e.id) || [];
     const availableHours = +(sumBy(slots, s => s.hours).toFixed(2));
-    const availabilityWindow = slots.map(s => `${s.start}-${s.end} (${s.shift})`).join("; ") || "Not Available";
+    const availabilityWindow = slots.map(s => `${s.start}-${s.end}`).join("; ") || "Not Available";
     const sicknessHours = +(sickMap.get(e.id) || 0);
     const holidayHours = +(holMap.get(e.id) || 0);
     const netCapacity = Math.max(0, +(availableHours - sicknessHours - holidayHours).toFixed(2));
@@ -510,24 +509,42 @@ export default function Dashboard() {
     };
   }, [weekSummary]);
 
-  // Chart data for capacity visualization
+  // Chart data for time-based capacity visualization
   const capacityChartData = useMemo(() => {
     if (!selectedDayData || !selectedDayClientDemand) return [];
     
+    // Categorize availability by time periods based on start times
+    const getTimePeriod = (timeSlot: string) => {
+      if (!timeSlot || timeSlot === "Not Available") return "None";
+      const startTime = timeSlot.split('-')[0];
+      const hour = parseInt(startTime.split(':')[0]);
+      
+      if (hour >= 6 && hour < 12) return 'Morning (6AM-12PM)';
+      if (hour >= 12 && hour < 18) return 'Afternoon (12PM-6PM)';
+      if (hour >= 18 && hour < 22) return 'Evening (6PM-10PM)';
+      return 'Night (10PM-6AM)';
+    };
+
+    const periodCapacity = employeeCapacityData.reduce((acc, emp) => {
+      const period = getTimePeriod(emp.availabilityWindow);
+      acc[period] = (acc[period] || 0) + emp.netCapacity;
+      return acc;
+    }, {} as Record<string, number>);
+
     return [
       { 
-        name: 'Morning', 
-        capacity: employeeCapacityData.filter(e => e.availabilityWindow.includes('Morning')).reduce((sum, e) => sum + e.netCapacity, 0),
+        name: 'Morning (6AM-12PM)', 
+        capacity: periodCapacity['Morning (6AM-12PM)'] || 0,
         required: selectedDayClientDemand.morning_hours,
       },
       { 
-        name: 'Day', 
-        capacity: employeeCapacityData.filter(e => e.availabilityWindow.includes('Day')).reduce((sum, e) => sum + e.netCapacity, 0),
+        name: 'Afternoon (12PM-6PM)', 
+        capacity: periodCapacity['Afternoon (12PM-6PM)'] || 0,
         required: selectedDayClientDemand.day_hours,
       },
       { 
-        name: 'Evening', 
-        capacity: employeeCapacityData.filter(e => e.availabilityWindow.includes('Evening')).reduce((sum, e) => sum + e.netCapacity, 0),
+        name: 'Evening (6PM-10PM)', 
+        capacity: periodCapacity['Evening (6PM-10PM)'] || 0,
         required: selectedDayClientDemand.evening_hours,
       },
     ];
@@ -566,209 +583,258 @@ export default function Dashboard() {
   const COLORS = ['#10b981', '#f59e0b', '#6b7280', '#ef4444', '#3b82f6'];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-900 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Employee Capacity & Availability Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Understanding staff availability and capacity for effective scheduling
-          </p>
+        {/* Modern Header */}
+        <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                Employee Capacity & Availability Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 text-lg">
+                Real-time capacity insights for smart scheduling decisions
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* File Upload */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Excel File Upload
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
+        {/* Modern File Upload */}
+        <div className="mb-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center">
+              <Upload className="h-5 w-5 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Import Availability Data
+            </h3>
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="relative flex-1 max-w-md">
               <Input
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileUpload}
-                className="max-w-sm"
+                className="border-dashed border-2 border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-700/50 hover:border-blue-400 transition-colors"
               />
-              <Button variant="outline" className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                Choose File
-              </Button>
             </div>
-            {uploadStatus && (
-              <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">{uploadStatus}</p>
-            )}
-          </CardContent>
-        </Card>
+            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg transition-all duration-200 transform hover:scale-105">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Upload Excel File
+            </Button>
+          </div>
+          {uploadStatus && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-700 dark:text-blue-300">{uploadStatus}</p>
+            </div>
+          )}
+        </div>
 
-        {/* Main Dashboard Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="daily">Daily Capacity</TabsTrigger>
-            <TabsTrigger value="absence">Sickness & Holidays</TabsTrigger>
-            <TabsTrigger value="export">Export Reports</TabsTrigger>
-          </TabsList>
+        {/* Modern Dashboard Tabs */}
+        <Tabs defaultValue="overview" className="space-y-8">
+          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-white/20">
+            <TabsList className="grid w-full grid-cols-4 bg-transparent gap-2">
+              <TabsTrigger value="overview" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="daily" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
+                Daily Capacity
+              </TabsTrigger>
+              <TabsTrigger value="absence" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
+                Sickness & Holidays
+              </TabsTrigger>
+              <TabsTrigger value="export" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
+                Export Reports
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Enhanced KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <Target className="h-4 w-4" />
-                    Net Capacity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {kpis.netCapacity}h
+            {/* Modern KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Target className="h-5 w-5 text-white" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Available capacity this week</p>
-                </CardContent>
-              </Card>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Net Capacity</span>
+                </div>
+                <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  {kpis.netCapacity}h
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Available capacity this week</p>
+              </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Client Required
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {kpis.clientRequired}h
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="h-5 w-5 text-white" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Total demand this week</p>
-                </CardContent>
-              </Card>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Client Required</span>
+                </div>
+                <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  {kpis.clientRequired}h
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Total demand this week</p>
+              </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                    Capacity Gap
-                    {kpis.capacityGap > 0 ? <TrendingUp className="h-4 w-4" /> : 
-                     kpis.capacityGap < 0 ? <TrendingDown className="h-4 w-4" /> : null}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={cn("text-2xl font-bold", getCapacityColor(kpis.capacityGap))}>
-                    {formatCapacityGap(kpis.capacityGap)}
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    {kpis.capacityGap > 0 ? <TrendingUp className="h-5 w-5 text-white" /> : 
+                     kpis.capacityGap < 0 ? <TrendingDown className="h-5 w-5 text-white" /> : 
+                     <CheckCircle className="h-5 w-5 text-white" />}
                   </div>
-                </CardContent>
-              </Card>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Capacity Gap</span>
+                </div>
+                <div className={cn("text-3xl font-bold", 
+                  kpis.capacityGap > 0 ? "bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" :
+                  kpis.capacityGap < 0 ? "bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent" :
+                  "bg-gradient-to-r from-gray-600 to-slate-600 bg-clip-text text-transparent"
+                )}>
+                  {formatCapacityGap(kpis.capacityGap)}
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Sickness
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {kpis.sicknessHours}h
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <AlertTriangle className="h-5 w-5 text-white" />
                   </div>
-                </CardContent>
-              </Card>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Sickness</span>
+                </div>
+                <div className="text-3xl font-bold bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent">
+                  {kpis.sicknessHours}h
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Holidays
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {kpis.holidayHours}h
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calendar className="h-5 w-5 text-white" />
                   </div>
-                </CardContent>
-              </Card>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Holidays</span>
+                </div>
+                <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                  {kpis.holidayHours}h
+                </div>
+              </div>
             </div>
 
-            {/* Weekly Capacity Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Capacity vs Demand</CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Green line shows your team's capacity, purple line shows client demand
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weekSummary.map(d => ({
-                      date: formatDate(d.date),
-                      'Net Capacity': d.netCapacity,
-                      'Client Required': d.clientRequired,
-                    }))}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="Net Capacity" 
-                        stroke="#10b981" 
-                        strokeWidth={3}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="Client Required" 
-                        stroke="#8b5cf6" 
-                        strokeWidth={3}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+            {/* Modern Weekly Capacity Chart */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Weekly Capacity vs Demand</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Green line shows your team's capacity, purple line shows client demand
+                  </p>
+                </div>
+              </div>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weekSummary.map(d => ({
+                    date: formatDate(d.date),
+                    'Net Capacity': d.netCapacity,
+                    'Client Required': d.clientRequired,
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 12 }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+                        border: 'none', 
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                      }} 
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Net Capacity" 
+                      stroke="url(#greenGradient)" 
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Client Required" 
+                      stroke="url(#purpleGradient)" 
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
+                    />
+                    <defs>
+                      <linearGradient id="greenGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#06d6a0" />
+                      </linearGradient>
+                      <linearGradient id="purpleGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#8b5cf6" />
+                        <stop offset="100%" stopColor="#a855f7" />
+                      </linearGradient>
+                    </defs>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-            {/* Daily Summary Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Daily Capacity Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
+            {/* Modern Daily Summary Table */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Daily Capacity Summary</h3>
+              </div>
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Available</TableHead>
-                      <TableHead className="text-right">Net Capacity</TableHead>
-                      <TableHead className="text-right">Required</TableHead>
-                      <TableHead className="text-right">Gap</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
+                    <TableRow className="border-gray-200 dark:border-gray-700">
+                      <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Date</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-300 font-semibold">Available</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-300 font-semibold">Net Capacity</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-300 font-semibold">Required</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-300 font-semibold">Gap</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-300 font-semibold">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {weekSummary.map((day) => (
-                      <TableRow key={day.date}>
-                        <TableCell className="font-medium">{formatDate(day.date)}</TableCell>
-                        <TableCell className="text-right">{day.totalAvailable}h</TableCell>
-                        <TableCell className="text-right font-semibold">{day.netCapacity}h</TableCell>
-                        <TableCell className="text-right">{day.clientRequired}h</TableCell>
-                        <TableCell className={cn("text-right", getCapacityColor(day.capacityGap))}>
+                      <TableRow key={day.date} className="border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                        <TableCell className="font-medium text-gray-900 dark:text-white">{formatDate(day.date)}</TableCell>
+                        <TableCell className="text-right text-gray-700 dark:text-gray-300">{day.totalAvailable}h</TableCell>
+                        <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">{day.netCapacity}h</TableCell>
+                        <TableCell className="text-right text-gray-700 dark:text-gray-300">{day.clientRequired}h</TableCell>
+                        <TableCell className={cn("text-right font-semibold", getCapacityColor(day.capacityGap))}>
                           {day.capacityGap >= 0 ? `+${day.capacityGap}` : day.capacityGap}h
                         </TableCell>
                         <TableCell className="text-right">
                           {day.capacityGap >= 0 ? (
-                            <Badge className="bg-green-100 text-green-800">Sufficient</Badge>
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700">
+                              Sufficient
+                            </Badge>
                           ) : (
-                            <Badge className="bg-red-100 text-red-800">Shortage</Badge>
+                            <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-700">
+                              Shortage
+                            </Badge>
                           )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Daily Capacity Tab */}
@@ -853,30 +919,62 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Shift-based Capacity Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Capacity vs Demand by Shift - {formatDate(selectedDate)}</CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Blue bars show available capacity, purple bars show client demand
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="h-60">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={capacityChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="capacity" fill="#3b82f6" name="Available Capacity" />
-                      <Bar dataKey="required" fill="#8b5cf6" name="Client Demand" />
-                    </BarChart>
-                  </ResponsiveContainer>
+            {/* Time-based Capacity Chart */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Capacity vs Demand by Time Period - {formatDate(selectedDate)}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Blue bars show available capacity, purple bars show client demand for each time period
+                  </p>
+                </div>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={capacityChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 12 }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+                        border: 'none', 
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                      }} 
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="capacity" 
+                      fill="url(#blueGradient)" 
+                      name="Available Capacity" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar 
+                      dataKey="required" 
+                      fill="url(#purpleGradient2)" 
+                      name="Client Demand" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <defs>
+                      <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" />
+                        <stop offset="100%" stopColor="#1e40af" />
+                      </linearGradient>
+                      <linearGradient id="purpleGradient2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8b5cf6" />
+                        <stop offset="100%" stopColor="#7c3aed" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
             {/* Comprehensive Employee Capacity Table */}
             <Card>
