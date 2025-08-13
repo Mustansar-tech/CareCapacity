@@ -680,15 +680,12 @@ export default function Dashboard() {
         {/* Modern Dashboard Tabs */}
         <Tabs defaultValue="overview" className="space-y-8">
           <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-white/20">
-            <TabsList className="grid w-full grid-cols-4 bg-transparent gap-2">
+            <TabsList className="grid w-full grid-cols-3 bg-transparent gap-2">
               <TabsTrigger value="overview" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
                 Overview
               </TabsTrigger>
               <TabsTrigger value="daily" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
                 Daily Capacity
-              </TabsTrigger>
-              <TabsTrigger value="absence" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
-                Sickness & Holidays
               </TabsTrigger>
               <TabsTrigger value="export" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white rounded-xl transition-all duration-200">
                 Export Reports
@@ -1272,79 +1269,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* Sickness & Holidays Tab */}
-          <TabsContent value="absence" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Total Sickness Hours
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-                    {kpis.sicknessHours}h
-                  </div>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-orange-600 dark:text-orange-400 flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Total Holiday Hours
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                    {kpis.holidayHours}h
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Sickness & Holiday Hours</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weekSummary.map(d => ({
-                      date: formatDate(d.date),
-                      sickness: d.sickness,
-                      holidays: d.holiday,
-                    }))}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Area
-                        type="monotone"
-                        dataKey="sickness"
-                        stackId="1"
-                        stroke="#dc2626"
-                        fill="#dc2626"
-                        fillOpacity={0.6}
-                        name="Sickness Hours"
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="holidays"
-                        stackId="1"
-                        stroke="#ea580c"
-                        fill="#ea580c"
-                        fillOpacity={0.6}
-                        name="Holiday Hours"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Export Tab */}
           <TabsContent value="export" className="space-y-6">
