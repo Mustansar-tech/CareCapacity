@@ -510,47 +510,6 @@ export default function Dashboard() {
     };
   }, [weekSummary]);
 
-  // Chart data for time-based capacity visualization
-  const capacityChartData = useMemo(() => {
-    if (!selectedDayData || !selectedDayClientDemand) return [];
-    
-    // Categorize availability by time periods based on start times
-    const getTimePeriod = (timeSlot: string) => {
-      if (!timeSlot || timeSlot === "Not Available") return "None";
-      const startTime = timeSlot.split('-')[0];
-      const hour = parseInt(startTime.split(':')[0]);
-      
-      if (hour >= 6 && hour < 12) return 'Morning (6AM-12PM)';
-      if (hour >= 12 && hour < 18) return 'Afternoon (12PM-6PM)';
-      if (hour >= 18 && hour < 22) return 'Evening (6PM-10PM)';
-      return 'Night (10PM-6AM)';
-    };
-
-    const periodCapacity = employeeCapacityData.reduce((acc, emp) => {
-      const period = getTimePeriod(emp.availabilityWindow);
-      acc[period] = (acc[period] || 0) + emp.netCapacity;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return [
-      { 
-        name: 'Morning (6AM-12PM)', 
-        capacity: periodCapacity['Morning (6AM-12PM)'] || 0,
-        required: selectedDayClientDemand.morning_hours,
-      },
-      { 
-        name: 'Afternoon (12PM-6PM)', 
-        capacity: periodCapacity['Afternoon (12PM-6PM)'] || 0,
-        required: selectedDayClientDemand.day_hours,
-      },
-      { 
-        name: 'Evening (6PM-10PM)', 
-        capacity: periodCapacity['Evening (6PM-10PM)'] || 0,
-        required: selectedDayClientDemand.evening_hours,
-      },
-    ];
-  }, [selectedDayData, selectedDayClientDemand, employeeCapacityData]);
-
   // Status distribution for pie chart
   const statusDistribution = useMemo(() => {
     const distribution = employeeCapacityData.reduce((acc, emp) => {
@@ -728,68 +687,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Modern Weekly Capacity Chart */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Weekly Capacity vs Demand</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Green line shows your team's capacity, purple line shows client demand
-                  </p>
-                </div>
-              </div>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weekSummary.map(d => ({
-                    date: formatDate(d.date),
-                    'Net Capacity': d.netCapacity,
-                    'Client Required': d.clientRequired,
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
-                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                    <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-                        border: 'none', 
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
-                      }} 
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="Net Capacity" 
-                      stroke="url(#greenGradient)" 
-                      strokeWidth={4}
-                      strokeLinecap="round"
-                      dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="Client Required" 
-                      stroke="url(#purpleGradient)" 
-                      strokeWidth={4}
-                      strokeLinecap="round"
-                      dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
-                    />
-                    <defs>
-                      <linearGradient id="greenGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#10b981" />
-                        <stop offset="100%" stopColor="#06d6a0" />
-                      </linearGradient>
-                      <linearGradient id="purpleGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#a855f7" />
-                      </linearGradient>
-                    </defs>
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+
 
             {/* Modern Daily Summary Table */}
             <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
@@ -974,62 +872,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Time-based Capacity Chart */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Capacity vs Demand by Time Period - {formatDate(selectedDate)}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Blue bars show available capacity, purple bars show client demand for each time period
-                  </p>
-                </div>
-              </div>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={capacityChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-                        border: 'none', 
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
-                      }} 
-                    />
-                    <Legend />
-                    <Bar 
-                      dataKey="capacity" 
-                      fill="url(#blueGradient)" 
-                      name="Available Capacity" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar 
-                      dataKey="required" 
-                      fill="url(#purpleGradient2)" 
-                      name="Client Demand" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <defs>
-                      <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#1e40af" />
-                      </linearGradient>
-                      <linearGradient id="purpleGradient2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#7c3aed" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+
 
             {/* Comprehensive Employee Capacity Table */}
             <Card>
