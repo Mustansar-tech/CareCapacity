@@ -155,19 +155,58 @@ function getCloseMatches(target: string, choices: string[], cutoff: number = 0.7
   return matches.length > 0 ? [matches[0].choice] : [];
 }
 
-// Parse DD/MM/YYYY date format
-function parseDate(dateStr: string): Date {
-  try {
-    // Try DD/MM/YYYY first
-    return parse(dateStr, 'dd/MM/yyyy', new Date());
-  } catch {
+// Parse various date formats flexibly
+function parseDate(dateStr: any): Date {
+  if (!dateStr) {
+    throw new Error('Date value is empty');
+  }
+
+  // Handle Excel date serial numbers
+  if (typeof dateStr === 'number') {
+    const excelEpoch = new Date(1899, 11, 30); // Excel epoch
+    return new Date(excelEpoch.getTime() + dateStr * 24 * 60 * 60 * 1000);
+  }
+
+  // Handle Date objects
+  if (dateStr instanceof Date) {
+    return dateStr;
+  }
+
+  // Handle string dates - try multiple formats
+  const str = String(dateStr).trim();
+  
+  const formats = [
+    'dd/MM/yyyy',
+    'dd/MM/yy', 
+    'MM/dd/yyyy',
+    'yyyy-MM-dd',
+    'dd-MM-yyyy',
+    'dd.MM.yyyy',
+    'yyyy/MM/dd'
+  ];
+
+  for (const format of formats) {
     try {
-      // Try DD/MM/YY
-      return parse(dateStr, 'dd/MM/yy', new Date());
+      const parsed = parse(str, format, new Date());
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
     } catch {
-      throw new Error(`Invalid date format: ${dateStr}. Expected DD/MM/YYYY`);
+      // Continue to next format
     }
   }
+
+  // Try native Date parsing as last resort
+  try {
+    const nativeDate = new Date(str);
+    if (!isNaN(nativeDate.getTime())) {
+      return nativeDate;
+    }
+  } catch {
+    // Continue
+  }
+
+  throw new Error(`Could not parse date: ${dateStr}. Tried multiple formats.`);
 }
 
 // Parse and validate Excel data
@@ -254,17 +293,34 @@ export function parseExcelFiles(
     }
   });
 
-  // Process demand data
+  // Process demand data with flexible date parsing
   const validatedDemand: ClientDemandRow[] = [];
   demandData.forEach((row, index) => {
     try {
-      if (!row.Date || typeof row["Required Client Hours"] !== 'number') {
-        warnings.push(`Client demand row ${index + 1}: Missing or invalid required fields`);
+      if (!row.Date) {
+        warnings.push(`Client demand row ${index + 1}: Missing Date field`);
         return;
       }
+      
+      // Handle different column names for required hours (with type assertion)
+      const rowAny = row as any;
+      const requiredHours = row["Required Client Hours"] || 
+                           rowAny["Required Hours"] || 
+                           rowAny["Client Hours"] || 
+                           rowAny["Hours Required"] ||
+                           rowAny["Demand Hours"];
+      
+      if (typeof requiredHours !== 'number' || requiredHours < 0) {
+        warnings.push(`Client demand row ${index + 1}: Missing or invalid required hours field`);
+        return;
+      }
+      
       // Validate that date can be parsed
       parseDate(row.Date);
-      validatedDemand.push(row);
+      validatedDemand.push({
+        Date: row.Date,
+        "Required Client Hours": requiredHours
+      });
     } catch (error) {
       warnings.push(`Client demand row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
