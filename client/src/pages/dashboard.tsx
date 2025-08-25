@@ -300,6 +300,55 @@ export default function Dashboard() {
       {/* Results Tabs */}
       {processedData && (
         <>
+          {/* Data Period Information */}
+          <Card className="mb-4" data-testid="data-period-info">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <div className="font-semibold text-lg">
+                        Week of {(() => {
+                          const data = filteredData || processedData;
+                          if (!data.dailySummary || data.dailySummary.length === 0) return 'Unknown';
+                          const startDate = new Date(data.dailySummary[0].date).toLocaleDateString();
+                          const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString();
+                          return `${startDate} - ${endDate}`;
+                        })()}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {(() => {
+                          const data = filteredData || processedData;
+                          if (!data.dailySummary || data.dailySummary.length === 0) return '';
+                          const startDate = new Date(data.dailySummary[0].date);
+                          const monthYear = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                          return monthYear;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days
+                    </Badge>
+                    <Badge variant="secondary">
+                      Processed: {(() => {
+                        // Check if we have upload timestamp from historical data
+                        const timestamp = latestData?.uploadedAt;
+                        if (timestamp) {
+                          return new Date(timestamp).toLocaleDateString();
+                        }
+                        return 'Today';
+                      })()}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Button
@@ -311,9 +360,6 @@ export default function Dashboard() {
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
               </Button>
-              <Badge variant="secondary">
-                {filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days
-              </Badge>
             </div>
           </div>
         
@@ -455,7 +501,21 @@ export default function Dashboard() {
           <TabsContent value="daily-capacity" data-testid="content-daily-capacity">
             <Card>
               <CardHeader>
-                <CardTitle>Daily Capacity Summary</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Daily Capacity Summary</span>
+                  <Badge variant="outline" className="text-xs">
+                    {(() => {
+                      const data = filteredData || processedData;
+                      if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
+                      const startDate = new Date(data.dailySummary[0].date);
+                      const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date);
+                      const monthStart = startDate.toLocaleDateString('en-US', { month: 'short' });
+                      const monthEnd = endDate.toLocaleDateString('en-US', { month: 'short' });
+                      const year = startDate.getFullYear();
+                      return monthStart === monthEnd ? `${monthStart} ${year}` : `${monthStart} - ${monthEnd} ${year}`;
+                    })()}
+                  </Badge>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -514,7 +574,12 @@ export default function Dashboard() {
                   <div className="mt-6" data-testid="drilldown-section">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" data-testid="drilldown-title">
                       <Calendar className="h-5 w-5" />
-                      Employee Details for {new Date(selectedDate).toLocaleDateString()}
+                      Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
                       <Badge variant="outline" className="ml-2">
                         {selectedDayDetails.length} employees
                       </Badge>
@@ -575,9 +640,20 @@ export default function Dashboard() {
           <TabsContent value="export" data-testid="content-export">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Download className="w-5 h-5" />
-                  Export Data
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    Export Data
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {(() => {
+                      const data = filteredData || processedData;
+                      if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
+                      const startDate = new Date(data.dailySummary[0].date);
+                      const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date);
+                      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                    })()}
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
