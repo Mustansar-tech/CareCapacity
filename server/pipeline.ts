@@ -58,27 +58,25 @@ function normalizeName(name: string): string {
   return s.split(" ").filter(token => token.length > 0).sort().join(" ");
 }
 
-// Time string conversion like your tstr function
+// Time string conversion exactly like your tstr function
 function timeToString(timeValue: any): string {
   if (!timeValue) return "";
   try {
-    // Handle various time formats
+    // Use pandas-like datetime parsing
     let dateObj: Date;
+    
     if (timeValue instanceof Date) {
       dateObj = timeValue;
-    } else if (typeof timeValue === 'string') {
-      // Try parsing as time string
-      const timeStr = timeValue.trim();
-      if (timeStr.match(/^\d{1,2}:\d{2}$/)) {
-        dateObj = new Date(`1970-01-01 ${timeStr}`);
-      } else {
-        dateObj = new Date(timeStr);
-      }
+    } else if (typeof timeValue === 'number') {
+      // Excel serial number for time
+      const excelEpoch = new Date(1899, 11, 30); // Excel epoch
+      dateObj = new Date(excelEpoch.getTime() + timeValue * 24 * 60 * 60 * 1000);
     } else {
-      // Excel time serial number
-      const excelDate = new Date((timeValue - 25569) * 86400 * 1000);
-      dateObj = excelDate;
+      // String or other formats
+      dateObj = new Date(timeValue);
     }
+    
+    if (isNaN(dateObj.getTime())) return "";
     
     const hours = dateObj.getHours().toString().padStart(2, '0');
     const minutes = dateObj.getMinutes().toString().padStart(2, '0');
@@ -88,22 +86,37 @@ function timeToString(timeValue: any): string {
   }
 }
 
-// Calculate hours between times like your hours_between function
+// Calculate hours between times exactly like your hours_between function
 function hoursBetween(startTime: any, endTime: any): number {
   try {
-    const start = timeToString(startTime);
-    const end = timeToString(endTime);
+    let startDate: Date, endDate: Date;
     
-    if (!start || !end) return NaN;
+    // Handle different input types like pandas.to_datetime
+    if (startTime instanceof Date) {
+      startDate = startTime;
+    } else if (typeof startTime === 'number') {
+      const excelEpoch = new Date(1899, 11, 30);
+      startDate = new Date(excelEpoch.getTime() + startTime * 24 * 60 * 60 * 1000);
+    } else {
+      startDate = new Date(startTime);
+    }
     
-    const startDate = new Date(`1970-01-01 ${start}`);
-    const endDate = new Date(`1970-01-01 ${end}`);
+    if (endTime instanceof Date) {
+      endDate = endTime;
+    } else if (typeof endTime === 'number') {
+      const excelEpoch = new Date(1899, 11, 30);
+      endDate = new Date(excelEpoch.getTime() + endTime * 24 * 60 * 60 * 1000);
+    } else {
+      endDate = new Date(endTime);
+    }
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return NaN;
     
     let diffHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
     
     // Handle overnight shifts
     if (diffHours < 0) {
-      diffHours += 24;
+      diffHours += 24.0;
     }
     
     return Math.round(diffHours * 100) / 100;
@@ -320,11 +333,15 @@ export function processCapacityData(
     employeeDays.get(key)!.add(dateStr);
   });
 
-  // Step 4: Create merged data with contracted daily hours
+  // Step 4: Create merged data exactly like your prepare function
   const mergedData = matchedAvailability.map(row => {
     const key = row.matchedEmployee.normalizedName;
     const daysAvailable = employeeDays.get(key)!.size;
     const contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
+    
+    // Safer hours: prefer 'Hours' if present, else compute from time (like your Python)
+    const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
+    const hoursEffective = (row.Hours !== undefined && row.Hours !== null) ? row.Hours : hoursCalc;
     
     return {
       employeeName: row.matchedEmployee.originalName,
@@ -335,7 +352,7 @@ export function processCapacityData(
       startTime: timeToString(row["Start Time"]),
       endTime: timeToString(row["End Time"]),
       timeWindow: `${timeToString(row["Start Time"])}-${timeToString(row["End Time"])}`,
-      hours: row.calculatedHours,
+      hours: hoursEffective,
       notes: row.Notes || "",
       employeeKey: key
     };
@@ -351,90 +368,93 @@ export function processCapacityData(
     groupedData.get(key)!.push(row);
   });
 
-  // Step 6: Collapse function - exactly like your Python logic
+  // Step 6: Collapse function - exactly like your collapse_one_group function
   const cleanedRecords: CleanedEmployeeRecord[] = [];
   
   groupedData.forEach((group) => {
     if (group.length === 0) return;
     
-    const emp = group[0].employeeName;
-    const weeklyHours = group[0].contractedWeeklyHours;
-    const dailyHours = group[0].contractedDailyHours;
+    const empName = group[0].employeeName;
+    const weekly = group[0].contractedWeeklyHours;
+    const daily = group[0].contractedDailyHours || 0.0;
     const date = group[0].date;
     
-    // Remove duplicates by status and time window
-    const uniqueRows = new Map<string, typeof group[0]>();
+    // Deduplicate identical windows per status (like your Python dd logic)
+    const deduplicatedRows = new Map<string, typeof group[0]>();
     group.forEach(row => {
       const key = `${row.status}|${row.startTime}|${row.endTime}`;
-      if (!uniqueRows.has(key)) {
-        uniqueRows.set(key, row);
+      if (!deduplicatedRows.has(key)) {
+        deduplicatedRows.set(key, row);
       }
     });
     
-    // Group by status
-    const statusGroups = new Map<string, Array<typeof group[0]>>();
-    Array.from(uniqueRows.values()).forEach(row => {
-      if (!statusGroups.has(row.status)) {
-        statusGroups.set(row.status, []);
+    // Aggregate per status (like your Python agg logic)
+    const statusAgg = new Map<string, {
+      hoursRaw: number;
+      windows: string[];
+      notes: string[];
+    }>();
+    
+    Array.from(deduplicatedRows.values()).forEach(row => {
+      if (!statusAgg.has(row.status)) {
+        statusAgg.set(row.status, {
+          hoursRaw: 0,
+          windows: [],
+          notes: []
+        });
       }
-      statusGroups.get(row.status)!.push(row);
+      
+      const agg = statusAgg.get(row.status)!;
+      agg.hoursRaw += row.hours;
+      
+      if (row.timeWindow && row.timeWindow !== "" && row.timeWindow !== "-") {
+        agg.windows.push(row.timeWindow);
+      }
+      
+      if (row.notes && row.notes !== "") {
+        agg.notes.push(row.notes);
+      }
     });
     
-    // Calculate total leave hours
-    let totalLeaveHours = 0;
-    statusGroups.forEach((rows, status) => {
+    // Total leave raw + cap at daily (like your Python logic)
+    let totalLeaveRaw = 0;
+    statusAgg.forEach((agg, status) => {
       if (LEAVE_TYPES.includes(status)) {
-        totalLeaveHours += rows.reduce((sum, row) => sum + row.hours, 0);
+        totalLeaveRaw += agg.hoursRaw;
       }
     });
+    const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
     
-    // Cap leave at contracted daily hours
-    const cappedLeave = Math.min(totalLeaveHours, dailyHours);
-    
-    // Create rows for each status
-    statusGroups.forEach((rows, status) => {
-      const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
-      
-      // Concatenate time windows
-      const timeWindows = rows
-        .map(row => row.timeWindow)
-        .filter(tw => tw && tw !== "-")
-        .sort()
-        .filter((tw, index, arr) => arr.indexOf(tw) === index) // Remove duplicates
-        .join("; ");
-      
-      // Concatenate notes
-      const notes = rows
-        .map(row => row.notes)
-        .filter(note => note && note !== "")
-        .sort()
-        .filter((note, index, arr) => arr.indexOf(note) === index) // Remove duplicates
-        .join("; ");
-      
+    // Create rows for each status (like your Python rows logic)
+    statusAgg.forEach((agg, status) => {
       let finalHours: number;
       let netCapacity: number;
       
       if (status === "Available") {
-        finalHours = Math.max(dailyHours - cappedLeave, 0);
+        finalHours = Math.max(daily - totalLeaveCapped, 0.0); // adjusted available
         netCapacity = finalHours;
       } else if (LEAVE_TYPES.includes(status)) {
-        finalHours = Math.min(totalHours, dailyHours);
-        netCapacity = 0;
+        finalHours = Math.min(agg.hoursRaw || 0.0, daily);
+        netCapacity = 0.0;
       } else {
-        finalHours = totalHours;
-        netCapacity = 0;
+        finalHours = agg.hoursRaw || 0.0;
+        netCapacity = 0.0;
       }
       
+      // Join windows and notes like your Python logic
+      const windowsStr = Array.from(new Set(agg.windows)).sort().join("; ");
+      const notesStr = Array.from(new Set(agg.notes)).sort().join("; ");
+      
       cleanedRecords.push({
-        employeeName: emp,
-        contractedWeeklyHours: Math.round(weeklyHours * 100) / 100,
-        contractedDailyHours: Math.round(dailyHours * 100) / 100,
+        employeeName: empName,
+        contractedWeeklyHours: Math.round(weekly * 100) / 100,
+        contractedDailyHours: Math.round(daily * 100) / 100,
         date,
         status,
-        timeWindows,
+        timeWindows: windowsStr,
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
-        notes
+        notes: notesStr
       });
     });
   });
