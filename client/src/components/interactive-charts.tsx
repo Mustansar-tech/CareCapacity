@@ -28,7 +28,7 @@ interface ChartDataPoint {
   clientRequired: number;
   gap: number;
   availableHours: number;
-  sickness: number;
+  unavailability: number;
   holidays: number;
   status: 'Sufficient' | 'Shortage';
   employeeCount: number;
@@ -47,7 +47,7 @@ const COLORS = {
   demand: '#f59e0b',   // amber-500
   shortage: '#ef4444', // red-500
   sufficient: '#10b981', // green-500
-  sickness: '#f97316',  // orange-500
+  sickness: '#f97316',  // orange-500 (keeping for unavailability)
   holidays: '#3b82f6', // blue-500
   available: '#6366f1'  // indigo-500
 };
@@ -79,7 +79,7 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
         clientRequired: day.clientRequired,
         gap: day.gap,
         availableHours: day.availableHours,
-        sickness: day.sickness,
+        unavailability: day.unavailability,
         holidays: day.holidays,
         status: day.status,
         employeeCount: data.employeesByDate[day.date]?.length || 0
@@ -222,14 +222,14 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
           <p className="font-medium">{dateDisplay}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.value}
+            <div key={index} className="text-sm flex items-center gap-2" style={{ color: entry.color }}>
+              <span>{entry.name}: {entry.value}</span>
               {entry.dataKey === 'gap' && (
-                <Badge variant={entry.value >= 0 ? 'default' : 'destructive'} className="ml-2 text-xs">
+                <Badge variant={entry.value >= 0 ? 'default' : 'destructive'} className="text-xs">
                   {entry.value >= 0 ? 'Surplus' : 'Shortage'}
                 </Badge>
               )}
-            </p>
+            </div>
           ))}
           <p className="text-xs text-muted-foreground mt-1">
             {data.employeeCount} employees scheduled
@@ -368,7 +368,7 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
                   <Legend />
                   
                   <Bar dataKey="availableHours" stackId="a" fill={COLORS.available} name="Available" />
-                  <Bar dataKey="sickness" stackId="a" fill={COLORS.sickness} name="Sickness" />
+                  <Bar dataKey="unavailability" stackId="a" fill={COLORS.sickness} name="Unavailability" />
                   <Bar dataKey="holidays" stackId="a" fill={COLORS.holidays} name="Holidays" />
                 </BarChart>
               </ResponsiveContainer>

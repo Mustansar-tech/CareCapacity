@@ -363,16 +363,19 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-sickness">
+              <Card data-testid="card-unavailability">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-orange-500" />
-                    Sickness
+                    Unavailability
                   </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Sick leave, appointments, and other unavailable time
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-600" data-testid="text-sickness-sum">
-                    {(filteredData || processedData)?.kpis.sicknessSum}h
+                  <div className="text-2xl font-bold text-orange-600" data-testid="text-unavailability-sum">
+                    {(filteredData || processedData)?.kpis.unavailabilitySum}h
                   </div>
                 </CardContent>
               </Card>

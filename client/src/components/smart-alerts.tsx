@@ -108,20 +108,22 @@ export function SmartAlerts({ data, onAlertAction }: SmartAlertsProps) {
 
     // 3. High Sickness Levels
     data.dailySummary.forEach(day => {
-      if (day.sickness > 0) {
-        const sicknessPercentage = (day.sickness / (day.netCapacity + day.sickness)) * 100;
-        if (sicknessPercentage >= ALERT_THRESHOLDS.highSickness) {
-          const sickEmployees = data.employeesByDate[day.date]?.filter(emp => emp.status === 'Sick') || [];
+      if (day.unavailability > 0) {
+        const unavailabilityPercentage = (day.unavailability / (day.netCapacity + day.unavailability)) * 100;
+        if (unavailabilityPercentage >= ALERT_THRESHOLDS.highSickness) {
+          const unavailableEmployees = data.employeesByDate[day.date]?.filter(emp => 
+            ['Sick', 'Maternity/Paternity', 'Compassionate Leave', 'Other Unavailable', 'Pre-Agreed Appointment'].includes(emp.status)
+          ) || [];
           
           alerts.push({
-            id: `high-sickness-${alertId++}`,
+            id: `high-unavailability-${alertId++}`,
             type: 'warning',
             priority: 3,
-            title: 'High Sickness Rate',
-            description: `${Math.round(sicknessPercentage)}% of staff capacity lost to sickness on ${format(parseISO(day.date), 'MMM dd')} (${sickEmployees.length} employees).`,
+            title: 'High Unavailability Rate',
+            description: `${Math.round(unavailabilityPercentage)}% of staff capacity lost to unavailability on ${format(parseISO(day.date), 'MMM dd')} (${unavailableEmployees.length} employees).`,
             date: day.date,
-            employees: sickEmployees.map(emp => emp.employeeName),
-            value: sicknessPercentage,
+            employees: unavailableEmployees.map(emp => emp.employeeName),
+            value: unavailabilityPercentage,
             threshold: ALERT_THRESHOLDS.highSickness,
             actionable: true,
             createdAt: new Date()

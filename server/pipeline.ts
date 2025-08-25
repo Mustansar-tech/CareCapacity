@@ -601,7 +601,7 @@ export function processCapacityData(
   const dailySummaryMap = new Map<string, {
     availableHours: number;
     netCapacity: number;
-    sickness: number;
+    unavailability: number;
     holidays: number;
   }>();
 
@@ -610,7 +610,7 @@ export function processCapacityData(
       dailySummaryMap.set(record.date, {
         availableHours: 0,
         netCapacity: 0,
-        sickness: 0,
+        unavailability: 0,
         holidays: 0
       });
     }
@@ -620,10 +620,10 @@ export function processCapacityData(
 
     if (record.status === 'Available') {
       summary.availableHours += record.hours;
-    } else if (record.status === 'Sick') {
-      summary.sickness += record.hours;
     } else if (record.status === 'Holiday') {
       summary.holidays += record.hours;
+    } else if (['Sick', 'Maternity/Paternity', 'Compassionate Leave', 'Other Unavailable', 'Pre-Agreed Appointment'].includes(record.status)) {
+      summary.unavailability += record.hours;
     }
   });
 
@@ -643,7 +643,7 @@ export function processCapacityData(
         date,
         availableHours: Math.round(summary.availableHours * 100) / 100,
         netCapacity: Math.round(summary.netCapacity * 100) / 100,
-        sickness: Math.round(summary.sickness * 100) / 100,
+        unavailability: Math.round(summary.unavailability * 100) / 100,
         holidays: Math.round(summary.holidays * 100) / 100,
         clientRequired: Math.round(clientRequired * 100) / 100,
         gap,
@@ -657,7 +657,7 @@ export function processCapacityData(
     netCapacitySum: Math.round(dailySummary.reduce((sum, d) => sum + d.netCapacity, 0) * 100) / 100,
     clientRequiredSum: Math.round(dailySummary.reduce((sum, d) => sum + d.clientRequired, 0) * 100) / 100,
     gapSum: Math.round(dailySummary.reduce((sum, d) => sum + d.gap, 0) * 100) / 100,
-    sicknessSum: Math.round(dailySummary.reduce((sum, d) => sum + d.sickness, 0) * 100) / 100,
+    unavailabilitySum: Math.round(dailySummary.reduce((sum, d) => sum + d.unavailability, 0) * 100) / 100,
     holidaysSum: Math.round(dailySummary.reduce((sum, d) => sum + d.holidays, 0) * 100) / 100
   };
 
@@ -722,12 +722,12 @@ export function generateExcelExport(result: ProcessingResult, cleanedRecords: Cl
 
   // Daily Summary sheet
   const summaryData = [
-    ['Date', 'Available Hours', 'Net Capacity', 'Sickness', 'Holidays', 'Client Required', 'Gap', 'Status'],
+    ['Date', 'Available Hours', 'Net Capacity', 'Unavailability', 'Holidays', 'Client Required', 'Gap', 'Status'],
     ...result.dailySummary.map(day => [
       day.date,
       day.availableHours.toString(),
       day.netCapacity.toString(),
-      day.sickness.toString(),
+      day.unavailability.toString(),
       day.holidays.toString(),
       day.clientRequired.toString(),
       day.gap.toString(),

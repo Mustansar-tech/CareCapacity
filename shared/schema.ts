@@ -57,7 +57,7 @@ export interface DailySummaryRecord {
   date: string;
   availableHours: number;
   netCapacity: number;
-  sickness: number;
+  unavailability: number;
   holidays: number;
   clientRequired: number;
   gap: number;
@@ -79,7 +79,7 @@ export interface ProcessingResult {
     netCapacitySum: number;
     clientRequiredSum: number;
     gapSum: number;
-    sicknessSum: number;
+    unavailabilitySum: number;
     holidaysSum: number;
   };
   dailySummary: DailySummaryRecord[];
