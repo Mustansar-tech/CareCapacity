@@ -8,10 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar
+  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
+import { AdvancedFilters } from "@/components/advanced-filters";
+import { InteractiveCharts } from "@/components/interactive-charts";
+import { SmartAlerts } from "@/components/smart-alerts";
+import { DataQualityPanel } from "@/components/data-quality-panel";
 
 export default function Dashboard() {
   // File upload state
@@ -28,7 +32,10 @@ export default function Dashboard() {
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessingResult | null>(null);
+  const [filteredData, setFilteredData] = useState<ProcessingResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const { toast } = useToast();
 
@@ -237,12 +244,73 @@ export default function Dashboard() {
 
       {/* Results Tabs */}
       {processedData && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                data-testid="button-toggle-filters"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
+              <Badge variant="secondary">
+                {(filteredData?.dailySummary.length || 0)} days
+              </Badge>
+            </div>
+          </div>
+        
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <div className="mb-6">
+            <AdvancedFilters
+              data={processedData}
+              onFilterChange={setFilteredData}
+              onResetFilters={() => setFilteredData(processedData)}
+            />
+          </div>
+        )}
+
         <Tabs defaultValue="overview" className="space-y-4" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-            <TabsTrigger value="daily-capacity" data-testid="tab-daily-capacity">Daily Capacity</TabsTrigger>
+            <TabsTrigger value="alerts" data-testid="tab-alerts">Alerts</TabsTrigger>
+            <TabsTrigger value="charts" data-testid="tab-charts">Analytics</TabsTrigger>
+            <TabsTrigger value="daily-capacity" data-testid="tab-daily-capacity">Daily View</TabsTrigger>
+            <TabsTrigger value="quality" data-testid="tab-quality">Data Quality</TabsTrigger>
             <TabsTrigger value="export" data-testid="tab-export">Export</TabsTrigger>
           </TabsList>
+
+          {/* Smart Alerts Tab */}
+          <TabsContent value="alerts" data-testid="content-alerts">
+            <SmartAlerts 
+              data={filteredData} 
+              onAlertAction={(alertId, action, data) => {
+                if (action === 'view-details' && data?.date) {
+                  setSelectedDate(data.date);
+                }
+              }}
+            />
+          </TabsContent>
+
+          {/* Interactive Charts Tab */}
+          <TabsContent value="charts" data-testid="content-charts">
+            <InteractiveCharts 
+              data={filteredData}
+              onDateSelect={setSelectedDate}
+              onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
+            />
+          </TabsContent>
+
+          {/* Data Quality Tab */}
+          <TabsContent value="quality" data-testid="content-quality">
+            <DataQualityPanel 
+              data={filteredData}
+              warnings={warnings}
+            />
+          </TabsContent>
 
           {/* Overview Tab */}
           <TabsContent value="overview" data-testid="content-overview">
@@ -256,7 +324,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-net-capacity-sum">
-                    {processedData.kpis.netCapacitySum}h
+                    {(filteredData || processedData)?.kpis.netCapacitySum}h
                   </div>
                 </CardContent>
               </Card>
@@ -270,7 +338,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-client-required-sum">
-                    {processedData.kpis.clientRequiredSum}h
+                    {(filteredData || processedData)?.kpis.clientRequiredSum}h
                   </div>
                 </CardContent>
               </Card>
@@ -278,7 +346,7 @@ export default function Dashboard() {
               <Card data-testid="card-capacity-gap">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    {processedData.kpis.gapSum >= 0 ? (
+                    {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
                       <TrendingUp className="w-4 h-4 text-green-500" />
                     ) : (
                       <TrendingDown className="w-4 h-4 text-red-500" />
@@ -288,9 +356,9 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className={`text-2xl font-bold ${
-                    processedData.kpis.gapSum >= 0 ? 'text-green-600' : 'text-red-600'
+                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'
                   }`} data-testid="text-capacity-gap-sum">
-                    {processedData.kpis.gapSum >= 0 ? '+' : ''}{processedData.kpis.gapSum}h
+                    {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
                   </div>
                 </CardContent>
               </Card>
@@ -304,7 +372,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-orange-600" data-testid="text-sickness-sum">
-                    {processedData.kpis.sicknessSum}h
+                    {(filteredData || processedData)?.kpis.sicknessSum}h
                   </div>
                 </CardContent>
               </Card>
@@ -318,7 +386,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600" data-testid="text-holidays-sum">
-                    {processedData.kpis.holidaysSum}h
+                    {(filteredData || processedData)?.kpis.holidaysSum}h
                   </div>
                 </CardContent>
               </Card>
@@ -344,7 +412,7 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processedData.dailySummary.map((day, index) => (
+                    {(filteredData || processedData).dailySummary.map((day, index) => (
                       <TableRow 
                         key={day.date}
                         className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -460,6 +528,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+        </>
       )}
     </div>
   );

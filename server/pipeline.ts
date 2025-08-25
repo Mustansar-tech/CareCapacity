@@ -125,34 +125,109 @@ function hoursBetween(startTime: any, endTime: any): number {
   }
 }
 
-// Simple closest match function (replaces get_close_matches)
-function getCloseMatches(target: string, choices: string[], cutoff: number = 0.7): string[] {
+// Levenshtein distance for better string matching
+function levenshteinDistance(str1: string, str2: string): number {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const matrix = Array(len1 + 1).fill(null).map(() => Array(len2 + 1).fill(null));
+
+  for (let i = 0; i <= len1; i++) matrix[i][0] = i;
+  for (let j = 0; j <= len2; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + 1
+        );
+      }
+    }
+  }
+  return matrix[len1][len2];
+}
+
+// Simple phonetic algorithm (Soundex-like)
+function phonetic(name: string): string {
+  if (!name) return "";
+  
+  let code = name.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!code) return "";
+  
+  // Keep first letter, replace consonants with numbers
+  let result = code[0];
+  const mapping: Record<string, string> = {
+    'BFPV': '1', 'CGJKQSXZ': '2', 'DT': '3', 'L': '4', 'MN': '5', 'R': '6'
+  };
+  
+  for (let i = 1; i < code.length; i++) {
+    const char = code[i];
+    let found = false;
+    for (const [chars, num] of Object.entries(mapping)) {
+      if (chars.includes(char)) {
+        if (result[result.length - 1] !== num) {
+          result += num;
+        }
+        found = true;
+        break;
+      }
+    }
+    if (!found && 'AEIOUHYW'.includes(char)) {
+      // Skip vowels except at start
+    }
+  }
+  
+  return result.padEnd(4, '0').substring(0, 4);
+}
+
+// Enhanced name matching with multiple algorithms
+function getCloseMatches(target: string, choices: string[], cutoff: number = 0.7): Array<{choice: string, score: number, confidence: number}> {
   if (!target) return [];
   
-  const matches: Array<{choice: string, score: number}> = [];
+  const matches: Array<{choice: string, score: number, confidence: number}> = [];
+  const targetPhonetic = phonetic(target);
   
   for (const choice of choices) {
     if (!choice) continue;
     
-    // Simple similarity based on common tokens
+    // Method 1: Token-based similarity (existing)
     const targetTokens = new Set(target.split(' '));
     const choiceTokens = new Set(choice.split(' '));
+    const intersection = new Set(Array.from(targetTokens).filter(x => choiceTokens.has(x)));
+    const union = new Set([...Array.from(targetTokens), ...Array.from(choiceTokens)]);
+    const tokenSimilarity = intersection.size / union.size;
     
-    const targetArray = Array.from(targetTokens);
-    const choiceArray = Array.from(choiceTokens);
+    // Method 2: Edit distance similarity
+    const maxLen = Math.max(target.length, choice.length);
+    const editSimilarity = maxLen === 0 ? 1 : 1 - (levenshteinDistance(target, choice) / maxLen);
     
-    const intersection = new Set(targetArray.filter(x => choiceTokens.has(x)));
-    const union = new Set([...targetArray, ...choiceArray]);
+    // Method 3: Phonetic similarity
+    const choicePhonetic = phonetic(choice);
+    const phoneticSimilarity = targetPhonetic === choicePhonetic ? 1 : 0;
     
-    const similarity = intersection.size / union.size;
+    // Combined score with weights
+    const combinedScore = (
+      tokenSimilarity * 0.4 + 
+      editSimilarity * 0.4 + 
+      phoneticSimilarity * 0.2
+    );
     
-    if (similarity >= cutoff) {
-      matches.push({choice, score: similarity});
+    // Confidence based on agreement between methods
+    const methodScores = [tokenSimilarity, editSimilarity, phoneticSimilarity];
+    const avgScore = methodScores.reduce((a, b) => a + b, 0) / methodScores.length;
+    const variance = methodScores.reduce((sum, score) => sum + Math.pow(score - avgScore, 2), 0) / methodScores.length;
+    const confidence = Math.max(0, 1 - Math.sqrt(variance));
+    
+    if (combinedScore >= cutoff) {
+      matches.push({choice, score: combinedScore, confidence});
     }
   }
   
-  matches.sort((a, b) => b.score - a.score);
-  return matches.length > 0 ? [matches[0].choice] : [];
+  matches.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+  return matches;
 }
 
 // Parse various date formats flexibly
@@ -359,7 +434,7 @@ export function processCapacityData(
     const matches = getCloseMatches(normalizedName, guaranteedKeys, 0.7);
     
     if (matches.length > 0) {
-      const matchedEmployee = guaranteedEmployees.find(emp => emp.normalizedName === matches[0]);
+      const matchedEmployee = guaranteedEmployees.find(emp => emp.normalizedName === matches[0].choice);
       if (matchedEmployee) {
         matchedAvailability.push({
           ...row,
