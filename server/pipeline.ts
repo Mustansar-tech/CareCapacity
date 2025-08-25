@@ -1,5 +1,4 @@
 import * as XLSX from 'xlsx';
-import * as fuzzball from 'fuzzball';
 import { parse, format } from 'date-fns';
 import { 
   AvailabilityRow, 
@@ -14,15 +13,16 @@ import {
   clientDemandSchema
 } from '@shared/schema';
 
-// Status priority (highest to lowest)
+// Leave types and priority (1=highest, 7=lowest like your Python code)
+const LEAVE_TYPES = ["Maternity/Paternity", "Sick", "Holiday", "Compassionate Leave", "Other Unavailable", "Pre-Agreed Appointment"];
 const STATUS_PRIORITY: Record<string, number> = {
-  'Maternity/Paternity': 7,
-  'Sick': 6,
-  'Holiday': 5,
+  'Maternity/Paternity': 1,
+  'Sick': 2,
+  'Holiday': 3,
   'Compassionate Leave': 4,
-  'Other Unavailable': 3,
-  'Pre-Agreed Appointment': 2,
-  'Available': 1
+  'Other Unavailable': 5,
+  'Pre-Agreed Appointment': 6,
+  'Available': 7
 };
 
 interface ParsedAvailabilityRow extends AvailabilityRow {
@@ -36,38 +36,110 @@ interface EmployeeGuaranteedHours {
   weeklyHours: number;
 }
 
-interface EmployeeDateEntry {
-  employeeName: string;
-  date: string;
-  entries: Array<{
-    status: string;
-    startTime: string;
-    endTime: string;
-    hours: number;
-    notes: string;
-  }>;
-  contractedWeeklyHours: number;
-  contractedDailyHours: number;
+// Normalize name exactly like your Python code
+function normalizeName(name: string): string {
+  if (!name || name === 'undefined' || name === 'null') return "";
+  
+  let s = String(name).toLowerCase();
+  
+  // Remove parentheses content like (NL), (GH)
+  s = s.replace(/\(.*?\)/g, "");
+  
+  // Remove non-alpha characters except spaces
+  s = s.replace(/[^a-z\s]/g, " ");
+  
+  // Remove titles
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " ");
+  
+  // Normalize whitespace
+  s = s.replace(/\s+/g, " ").trim();
+  
+  // Sort tokens alphabetically
+  return s.split(" ").filter(token => token.length > 0).sort().join(" ");
 }
 
-// Normalize name for fuzzy matching
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    // Remove titles
-    .replace(/\b(mr|mrs|miss|ms|dr)\.?\b/gi, '')
-    // Remove parentheses blocks like (NL) (GH)
-    .replace(/\([^)]*\)/g, '')
-    // Remove punctuation
-    .replace(/[^\w\s]/g, ' ')
-    // Normalize whitespace
-    .replace(/\s+/g, ' ')
-    .trim()
-    // Sort tokens alphabetically
-    .split(' ')
-    .filter(token => token.length > 0)
-    .sort()
-    .join(' ');
+// Time string conversion like your tstr function
+function timeToString(timeValue: any): string {
+  if (!timeValue) return "";
+  try {
+    // Handle various time formats
+    let dateObj: Date;
+    if (timeValue instanceof Date) {
+      dateObj = timeValue;
+    } else if (typeof timeValue === 'string') {
+      // Try parsing as time string
+      const timeStr = timeValue.trim();
+      if (timeStr.match(/^\d{1,2}:\d{2}$/)) {
+        dateObj = new Date(`1970-01-01 ${timeStr}`);
+      } else {
+        dateObj = new Date(timeStr);
+      }
+    } else {
+      // Excel time serial number
+      const excelDate = new Date((timeValue - 25569) * 86400 * 1000);
+      dateObj = excelDate;
+    }
+    
+    const hours = dateObj.getHours().toString().padStart(2, '0');
+    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch {
+    return "";
+  }
+}
+
+// Calculate hours between times like your hours_between function
+function hoursBetween(startTime: any, endTime: any): number {
+  try {
+    const start = timeToString(startTime);
+    const end = timeToString(endTime);
+    
+    if (!start || !end) return NaN;
+    
+    const startDate = new Date(`1970-01-01 ${start}`);
+    const endDate = new Date(`1970-01-01 ${end}`);
+    
+    let diffHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+    
+    // Handle overnight shifts
+    if (diffHours < 0) {
+      diffHours += 24;
+    }
+    
+    return Math.round(diffHours * 100) / 100;
+  } catch {
+    return NaN;
+  }
+}
+
+// Simple closest match function (replaces get_close_matches)
+function getCloseMatches(target: string, choices: string[], cutoff: number = 0.7): string[] {
+  if (!target) return [];
+  
+  const matches: Array<{choice: string, score: number}> = [];
+  
+  for (const choice of choices) {
+    if (!choice) continue;
+    
+    // Simple similarity based on common tokens
+    const targetTokens = new Set(target.split(' '));
+    const choiceTokens = new Set(choice.split(' '));
+    
+    const targetArray = Array.from(targetTokens);
+    const choiceArray = Array.from(choiceTokens);
+    
+    const intersection = new Set(targetArray.filter(x => choiceTokens.has(x)));
+    const union = new Set([...targetArray, ...choiceArray]);
+    
+    const similarity = intersection.size / union.size;
+    
+    if (similarity >= cutoff) {
+      matches.push({choice, score: similarity});
+    }
+  }
+  
+  matches.sort((a, b) => b.score - a.score);
+  return matches.length > 0 ? [matches[0].choice] : [];
 }
 
 // Parse DD/MM/YYYY date format
@@ -82,36 +154,6 @@ function parseDate(dateStr: string): Date {
     } catch {
       throw new Error(`Invalid date format: ${dateStr}. Expected DD/MM/YYYY`);
     }
-  }
-}
-
-// Calculate hours from time strings
-function calculateHours(startTime: string, endTime: string): number {
-  const parseTime = (timeStr: string): number => {
-    const [time, period] = timeStr.trim().split(/\s*(AM|PM|am|pm)\s*/);
-    let [hours, minutes] = time.split(':').map(Number);
-    
-    if (period && period.toLowerCase() === 'pm' && hours !== 12) {
-      hours += 12;
-    } else if (period && period.toLowerCase() === 'am' && hours === 12) {
-      hours = 0;
-    }
-    
-    return hours + (minutes || 0) / 60;
-  };
-
-  try {
-    const start = parseTime(startTime);
-    let end = parseTime(endTime);
-    
-    // Handle overnight shifts
-    if (end <= start) {
-      end += 24;
-    }
-    
-    return Math.round((end - start) * 100) / 100; // Round to 2 decimals
-  } catch {
-    throw new Error(`Invalid time format: ${startTime} - ${endTime}`);
   }
 }
 
@@ -158,46 +200,58 @@ export function parseExcelFiles(
   const demandSheet = demandWorkbook.Sheets[demandSheetNames[0]];
   const demandData = XLSX.utils.sheet_to_json<ClientDemandRow>(demandSheet);
 
-  // Validate availability data
+  // Process availability data
   const validatedAvailability: ParsedAvailabilityRow[] = [];
   availabilityData.forEach((row, index) => {
     try {
-      const validatedRow = availabilitySchema.parse(row);
-      const parsedDate = parseDate(validatedRow["Start Date"]);
-      const calculatedHours = validatedRow.Hours ?? calculateHours(
-        validatedRow["Start Time"], 
-        validatedRow["End Time"]
-      );
+      if (!row["CAREGiver Name"] || !row["Start Date"]) {
+        warnings.push(`Availability row ${index + 1}: Missing required fields`);
+        return;
+      }
+      
+      const parsedDate = parseDate(row["Start Date"]);
+      const effectiveHours = row.Hours ?? hoursBetween(row["Start Time"], row["End Time"]);
+      
+      if (isNaN(effectiveHours)) {
+        warnings.push(`Availability row ${index + 1}: Cannot calculate hours from time range`);
+        return;
+      }
       
       validatedAvailability.push({
-        ...validatedRow,
+        ...row,
         parsedDate,
-        calculatedHours
+        calculatedHours: effectiveHours
       });
     } catch (error) {
       warnings.push(`Availability row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
 
-  // Validate guaranteed hours data
+  // Process guaranteed hours data
   const validatedGuaranteed: GuaranteedHoursRow[] = [];
   guaranteedData.forEach((row, index) => {
     try {
-      const validatedRow = guaranteedSchema.parse(row);
-      validatedGuaranteed.push(validatedRow);
+      if (!row["Actual Employee Name"] || typeof row["Actual Employee Hours Per Week"] !== 'number') {
+        warnings.push(`Guaranteed hours row ${index + 1}: Missing or invalid required fields`);
+        return;
+      }
+      validatedGuaranteed.push(row);
     } catch (error) {
       warnings.push(`Guaranteed hours row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
 
-  // Validate demand data
+  // Process demand data
   const validatedDemand: ClientDemandRow[] = [];
   demandData.forEach((row, index) => {
     try {
-      const validatedRow = clientDemandSchema.parse(row);
+      if (!row.Date || typeof row["Required Client Hours"] !== 'number') {
+        warnings.push(`Client demand row ${index + 1}: Missing or invalid required fields`);
+        return;
+      }
       // Validate that date can be parsed
-      parseDate(validatedRow.Date);
-      validatedDemand.push(validatedRow);
+      parseDate(row.Date);
+      validatedDemand.push(row);
     } catch (error) {
       warnings.push(`Client demand row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -211,50 +265,7 @@ export function parseExcelFiles(
   };
 }
 
-// Perform fuzzy name matching
-export function matchEmployeeNames(
-  availability: ParsedAvailabilityRow[],
-  guaranteed: GuaranteedHoursRow[]
-): {
-  matched: Map<string, EmployeeGuaranteedHours>;
-  unmatched: string[];
-} {
-  const guaranteedEmployees: EmployeeGuaranteedHours[] = guaranteed.map(row => ({
-    originalName: row["Actual Employee Name"],
-    normalizedName: normalizeName(row["Actual Employee Name"]),
-    weeklyHours: row["Actual Employee Hours Per Week"]
-  }));
-
-  const availabilityNames = Array.from(new Set(availability.map(row => row["CAREGiver Name"])));
-  const matched = new Map<string, EmployeeGuaranteedHours>();
-  const unmatched: string[] = [];
-
-  availabilityNames.forEach(availName => {
-    const normalizedAvailName = normalizeName(availName);
-    
-    // Find best match using fuzzy matching
-    let bestMatch: EmployeeGuaranteedHours | null = null;
-    let bestRatio = 0;
-
-    guaranteedEmployees.forEach(guaranteed => {
-      const ratio = fuzzball.ratio(normalizedAvailName, guaranteed.normalizedName) / 100;
-      if (ratio >= 0.7 && ratio > bestRatio) {
-        bestMatch = guaranteed;
-        bestRatio = ratio;
-      }
-    });
-
-    if (bestMatch) {
-      matched.set(availName, bestMatch);
-    } else {
-      unmatched.push(availName);
-    }
-  });
-
-  return { matched, unmatched };
-}
-
-// Process and clean the data according to the exact rules
+// Process and clean the data according to your exact Python logic
 export function processCapacityData(
   availability: ParsedAvailabilityRow[],
   guaranteed: GuaranteedHoursRow[],
@@ -262,124 +273,180 @@ export function processCapacityData(
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
 
-  // Step 1: Match employee names
-  const { matched: nameMatches, unmatched } = matchEmployeeNames(availability, guaranteed);
-  
-  if (unmatched.length > 0) {
-    warnings.push(`Unmatched employees: ${unmatched.join(', ')}`);
+  // Step 1: Prepare guaranteed hours with normalized names
+  const guaranteedEmployees = guaranteed.map(row => ({
+    originalName: row["Actual Employee Name"],
+    normalizedName: normalizeName(row["Actual Employee Name"]),
+    weeklyHours: row["Actual Employee Hours Per Week"]
+  }));
+
+  // Step 2: Match availability names to guaranteed hours
+  const guaranteedKeys = guaranteedEmployees.map(emp => emp.normalizedName);
+  const matchedAvailability: Array<ParsedAvailabilityRow & {matchedEmployee: EmployeeGuaranteedHours}> = [];
+  const unmatchedNames: string[] = [];
+
+  availability.forEach(row => {
+    const normalizedName = normalizeName(row["CAREGiver Name"]);
+    const matches = getCloseMatches(normalizedName, guaranteedKeys, 0.7);
+    
+    if (matches.length > 0) {
+      const matchedEmployee = guaranteedEmployees.find(emp => emp.normalizedName === matches[0]);
+      if (matchedEmployee) {
+        matchedAvailability.push({
+          ...row,
+          matchedEmployee
+        });
+      }
+    } else {
+      if (!unmatchedNames.includes(row["CAREGiver Name"])) {
+        unmatchedNames.push(row["CAREGiver Name"]);
+      }
+    }
+  });
+
+  if (unmatchedNames.length > 0) {
+    warnings.push(`Unmatched employees: ${unmatchedNames.join(', ')}`);
   }
 
-  // Step 2: Filter out unmatched employees
-  const matchedAvailability = availability.filter(row => nameMatches.has(row["CAREGiver Name"]));
-
-  // Step 3: Calculate contracted daily hours
-  // Group by employee to get unique dates they appear in
-  const employeeDateCounts = new Map<string, Set<string>>();
+  // Step 3: Calculate days available for each employee
+  const employeeDays = new Map<string, Set<string>>();
   matchedAvailability.forEach(row => {
+    const key = row.matchedEmployee.normalizedName;
     const dateStr = format(row.parsedDate, 'yyyy-MM-dd');
-    const employeeName = row["CAREGiver Name"];
     
-    if (!employeeDateCounts.has(employeeName)) {
-      employeeDateCounts.set(employeeName, new Set());
+    if (!employeeDays.has(key)) {
+      employeeDays.set(key, new Set());
     }
-    employeeDateCounts.get(employeeName)!.add(dateStr);
+    employeeDays.get(key)!.add(dateStr);
   });
 
-  // Step 4: Group by Employee + Date and apply status priority
-  const employeeDateEntries = new Map<string, EmployeeDateEntry>();
-
-  matchedAvailability.forEach(row => {
-    const dateStr = format(row.parsedDate, 'yyyy-MM-dd');
-    const employeeName = row["CAREGiver Name"];
-    const key = `${employeeName}|${dateStr}`;
-    const matchedEmployee = nameMatches.get(employeeName)!;
-    const dateSet = employeeDateCounts.get(employeeName)!;
-    const daysAvailable = Array.from(dateSet).length;
-    const contractedDailyHours = Math.round((matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
-
-    if (!employeeDateEntries.has(key)) {
-      employeeDateEntries.set(key, {
-        employeeName: matchedEmployee.originalName,
-        date: dateStr,
-        entries: [],
-        contractedWeeklyHours: matchedEmployee.weeklyHours,
-        contractedDailyHours
-      });
-    }
-
-    const entry = employeeDateEntries.get(key)!;
-    entry.entries.push({
+  // Step 4: Create merged data with contracted daily hours
+  const mergedData = matchedAvailability.map(row => {
+    const key = row.matchedEmployee.normalizedName;
+    const daysAvailable = employeeDays.get(key)!.size;
+    const contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
+    
+    return {
+      employeeName: row.matchedEmployee.originalName,
+      contractedWeeklyHours: row.matchedEmployee.weeklyHours,
+      contractedDailyHours,
+      date: format(row.parsedDate, 'yyyy-MM-dd'),
       status: row.Type,
-      startTime: row["Start Time"],
-      endTime: row["End Time"],
+      startTime: timeToString(row["Start Time"]),
+      endTime: timeToString(row["End Time"]),
+      timeWindow: `${timeToString(row["Start Time"])}-${timeToString(row["End Time"])}`,
       hours: row.calculatedHours,
-      notes: row.Notes || ''
-    });
+      notes: row.Notes || "",
+      employeeKey: key
+    };
   });
 
-  // Step 5: Apply status priority and consolidate
+  // Step 5: Group by employee and date, then apply collapse logic
+  const groupedData = new Map<string, typeof mergedData>();
+  mergedData.forEach(row => {
+    const key = `${row.employeeKey}|${row.date}`;
+    if (!groupedData.has(key)) {
+      groupedData.set(key, []);
+    }
+    groupedData.get(key)!.push(row);
+  });
+
+  // Step 6: Collapse function - exactly like your Python logic
   const cleanedRecords: CleanedEmployeeRecord[] = [];
-
-  employeeDateEntries.forEach(entry => {
-    // Group entries by status and sort by priority
-    const statusGroups = new Map<string, typeof entry.entries>();
-    entry.entries.forEach(e => {
-      if (!statusGroups.has(e.status)) {
-        statusGroups.set(e.status, []);
+  
+  groupedData.forEach((group) => {
+    if (group.length === 0) return;
+    
+    const emp = group[0].employeeName;
+    const weeklyHours = group[0].contractedWeeklyHours;
+    const dailyHours = group[0].contractedDailyHours;
+    const date = group[0].date;
+    
+    // Remove duplicates by status and time window
+    const uniqueRows = new Map<string, typeof group[0]>();
+    group.forEach(row => {
+      const key = `${row.status}|${row.startTime}|${row.endTime}`;
+      if (!uniqueRows.has(key)) {
+        uniqueRows.set(key, row);
       }
-      statusGroups.get(e.status)!.push(e);
     });
-
-    // Apply priority (keep highest priority status that has entries)
-    const sortedStatuses = Array.from(statusGroups.keys())
-      .sort((a, b) => (STATUS_PRIORITY[b] || 0) - (STATUS_PRIORITY[a] || 0));
-
-    sortedStatuses.forEach(status => {
-      const statusEntries = statusGroups.get(status)!;
-      const totalHours = statusEntries.reduce((sum, e) => sum + e.hours, 0);
+    
+    // Group by status
+    const statusGroups = new Map<string, Array<typeof group[0]>>();
+    Array.from(uniqueRows.values()).forEach(row => {
+      if (!statusGroups.has(row.status)) {
+        statusGroups.set(row.status, []);
+      }
+      statusGroups.get(row.status)!.push(row);
+    });
+    
+    // Calculate total leave hours
+    let totalLeaveHours = 0;
+    statusGroups.forEach((rows, status) => {
+      if (LEAVE_TYPES.includes(status)) {
+        totalLeaveHours += rows.reduce((sum, row) => sum + row.hours, 0);
+      }
+    });
+    
+    // Cap leave at contracted daily hours
+    const cappedLeave = Math.min(totalLeaveHours, dailyHours);
+    
+    // Create rows for each status
+    statusGroups.forEach((rows, status) => {
+      const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
       
       // Concatenate time windows
-      const timeWindows = statusEntries
-        .map(e => `${e.startTime}-${e.endTime}`)
-        .join('; ');
+      const timeWindows = rows
+        .map(row => row.timeWindow)
+        .filter(tw => tw && tw !== "-")
+        .sort()
+        .filter((tw, index, arr) => arr.indexOf(tw) === index) // Remove duplicates
+        .join("; ");
       
-      // Notes
-      const notes = statusEntries
-        .map(e => e.notes)
-        .filter(n => n.length > 0)
-        .join('; ');
-
-      // Calculate net capacity based on status
-      let netCapacity = 0;
-      if (status.toLowerCase().includes('available')) {
-        // For available status, calculate leave hours from other statuses
-        const leaveHours = Array.from(statusGroups.entries())
-          .filter(([s]) => s !== status && !s.toLowerCase().includes('available'))
-          .reduce((sum, [, entries]) => sum + entries.reduce((s, e) => s + e.hours, 0), 0);
-        
-        // Cap leave at contracted daily hours
-        const cappedLeave = Math.min(leaveHours, entry.contractedDailyHours);
-        netCapacity = Math.max(0, totalHours - cappedLeave);
+      // Concatenate notes
+      const notes = rows
+        .map(row => row.notes)
+        .filter(note => note && note !== "")
+        .sort()
+        .filter((note, index, arr) => arr.indexOf(note) === index) // Remove duplicates
+        .join("; ");
+      
+      let finalHours: number;
+      let netCapacity: number;
+      
+      if (status === "Available") {
+        finalHours = Math.max(dailyHours - cappedLeave, 0);
+        netCapacity = finalHours;
+      } else if (LEAVE_TYPES.includes(status)) {
+        finalHours = Math.min(totalHours, dailyHours);
+        netCapacity = 0;
       } else {
-        // Leave rows always have Net Capacity = 0
+        finalHours = totalHours;
         netCapacity = 0;
       }
-
+      
       cleanedRecords.push({
-        employeeName: entry.employeeName,
-        contractedWeeklyHours: entry.contractedWeeklyHours,
-        contractedDailyHours: entry.contractedDailyHours,
-        date: entry.date,
+        employeeName: emp,
+        contractedWeeklyHours: Math.round(weeklyHours * 100) / 100,
+        contractedDailyHours: Math.round(dailyHours * 100) / 100,
+        date,
         status,
         timeWindows,
-        hours: Math.round(totalHours * 100) / 100,
+        hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes
       });
     });
   });
 
-  // Step 6: Build Daily Summary
+  // Sort by priority
+  cleanedRecords.sort((a, b) => {
+    const aPriority = STATUS_PRIORITY[a.status] || 999;
+    const bPriority = STATUS_PRIORITY[b.status] || 999;
+    return aPriority - bPriority;
+  });
+
+  // Step 7: Build Daily Summary
   const dailySummaryMap = new Map<string, {
     availableHours: number;
     netCapacity: number;
@@ -400,16 +467,16 @@ export function processCapacityData(
     const summary = dailySummaryMap.get(record.date)!;
     summary.netCapacity += record.netCapacity;
 
-    if (record.status.toLowerCase().includes('available')) {
+    if (record.status === 'Available') {
       summary.availableHours += record.hours;
-    } else if (record.status.toLowerCase().includes('sick')) {
+    } else if (record.status === 'Sick') {
       summary.sickness += record.hours;
-    } else if (record.status.toLowerCase().includes('holiday')) {
+    } else if (record.status === 'Holiday') {
       summary.holidays += record.hours;
     }
   });
 
-  // Step 7: Merge with client demand and create final daily summary
+  // Step 8: Merge with client demand
   const demandMap = new Map<string, number>();
   demand.forEach(row => {
     const dateStr = format(parseDate(row.Date), 'yyyy-MM-dd');
@@ -434,7 +501,7 @@ export function processCapacityData(
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // Step 8: Calculate KPIs
+  // Step 9: Calculate KPIs
   const kpis = {
     netCapacitySum: Math.round(dailySummary.reduce((sum, d) => sum + d.netCapacity, 0) * 100) / 100,
     clientRequiredSum: Math.round(dailySummary.reduce((sum, d) => sum + d.clientRequired, 0) * 100) / 100,
@@ -443,7 +510,7 @@ export function processCapacityData(
     holidaysSum: Math.round(dailySummary.reduce((sum, d) => sum + d.holidays, 0) * 100) / 100
   };
 
-  // Step 9: Build employees by date for drilldown
+  // Step 10: Build employees by date for drilldown
   const employeesByDate: Record<string, EmployeeDailyDetail[]> = {};
   
   cleanedRecords.forEach(record => {
