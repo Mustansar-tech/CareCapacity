@@ -60,18 +60,31 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
   const chartData = useMemo((): ChartDataPoint[] => {
     if (!data?.dailySummary) return [];
 
-    return data.dailySummary.map(day => ({
-      date: day.date,
-      displayDate: format(parseISO(day.date), 'MMM dd'),
-      netCapacity: day.netCapacity,
-      clientRequired: day.clientRequired,
-      gap: day.gap,
-      availableHours: day.availableHours,
-      sickness: day.sickness,
-      holidays: day.holidays,
-      status: day.status,
-      employeeCount: data.employeesByDate[day.date]?.length || 0
-    }));
+    return data.dailySummary.map(day => {
+      // Safe date formatting with fallback
+      let displayDate = day.date;
+      try {
+        if (day.date && typeof day.date === 'string') {
+          displayDate = format(parseISO(day.date), 'MMM dd');
+        }
+      } catch (error) {
+        console.warn('Date formatting error for:', day.date, error);
+        displayDate = day.date || 'Unknown';
+      }
+      
+      return {
+        date: day.date,
+        displayDate,
+        netCapacity: day.netCapacity,
+        clientRequired: day.clientRequired,
+        gap: day.gap,
+        availableHours: day.availableHours,
+        sickness: day.sickness,
+        holidays: day.holidays,
+        status: day.status,
+        employeeCount: data.employeesByDate[day.date]?.length || 0
+      };
+    });
   }, [data]);
 
   // Weekly trend data
@@ -81,12 +94,26 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
     const weeks = new Map<string, DailySummaryRecord[]>();
     
     data.dailySummary.forEach(day => {
-      const date = parseISO(day.date);
-      const weekStart = format(startOfWeek(date), 'yyyy-MM-dd');
-      if (!weeks.has(weekStart)) {
-        weeks.set(weekStart, []);
+      try {
+        if (!day.date || typeof day.date !== 'string') {
+          console.warn('Invalid date for trend data:', day.date);
+          return;
+        }
+        
+        const date = parseISO(day.date);
+        if (isNaN(date.getTime())) {
+          console.warn('Invalid date parsed for trend data:', day.date);
+          return;
+        }
+        
+        const weekStart = format(startOfWeek(date), 'yyyy-MM-dd');
+        if (!weeks.has(weekStart)) {
+          weeks.set(weekStart, []);
+        }
+        weeks.get(weekStart)!.push(day);
+      } catch (error) {
+        console.warn('Error processing date for trend data:', day.date, error);
       }
-      weeks.get(weekStart)!.push(day);
     });
 
     return Array.from(weeks.entries()).map(([weekStart, days]) => {
@@ -98,8 +125,16 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
       const avgGap = totalGap / days.length;
       const utilizationRate = totalDemand > 0 ? (totalCapacity / totalDemand) * 100 : 100;
 
+      // Safe week label formatting
+      let weekLabel = weekStart;
+      try {
+        weekLabel = format(parseISO(weekStart), 'MMM dd');
+      } catch (error) {
+        console.warn('Error formatting week label:', weekStart, error);
+      }
+
       return {
-        week: format(parseISO(weekStart), 'MMM dd'),
+        week: weekLabel,
         avgCapacity: Math.round(avgCapacity * 100) / 100,
         avgDemand: Math.round(avgDemand * 100) / 100,
         avgGap: Math.round(avgGap * 100) / 100,
@@ -128,23 +163,35 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
   const heatMapData = useMemo(() => {
     if (!chartData.length) return [];
     
-    const firstDate = parseISO(chartData[0].date);
-    const lastDate = parseISO(chartData[chartData.length - 1].date);
-    const allDays = eachDayOfInterval({ start: firstDate, end: lastDate });
-    
-    return allDays.map(date => {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const dayData = chartData.find(d => d.date === dateStr);
+    try {
+      const firstDate = parseISO(chartData[0].date);
+      const lastDate = parseISO(chartData[chartData.length - 1].date);
       
-      return {
-        date: dateStr,
-        displayDate: format(date, 'MMM dd'),
-        day: format(date, 'EEE'),
-        gap: dayData?.gap || 0,
-        status: dayData?.status || 'No Data',
-        intensity: dayData ? Math.min(Math.abs(dayData.gap) / 20, 1) : 0
-      };
-    });
+      // Validate dates before creating interval
+      if (isNaN(firstDate.getTime()) || isNaN(lastDate.getTime())) {
+        console.warn('Invalid date range for heat map data');
+        return [];
+      }
+      
+      const allDays = eachDayOfInterval({ start: firstDate, end: lastDate });
+      
+      return allDays.map(date => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const dayData = chartData.find(d => d.date === dateStr);
+        
+        return {
+          date: dateStr,
+          displayDate: format(date, 'MMM dd'),
+          day: format(date, 'EEE'),
+          gap: dayData?.gap || 0,
+          status: dayData?.status || 'No Data',
+          intensity: dayData ? Math.min(Math.abs(dayData.gap) / 20, 1) : 0
+        };
+      });
+    } catch (error) {
+      console.warn('Error creating heat map data:', error);
+      return [];
+    }
   }, [chartData]);
 
   const handleChartClick = (data: any, index: number) => {
@@ -157,9 +204,23 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: Inte
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      
+      // Safe date parsing with fallback
+      let dateDisplay = label;
+      try {
+        if (label && typeof label === 'string' && label.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          dateDisplay = format(parseISO(label), 'EEEE, MMMM dd, yyyy');
+        } else if (data?.date && typeof data.date === 'string') {
+          dateDisplay = format(parseISO(data.date), 'EEEE, MMMM dd, yyyy');
+        }
+      } catch (error) {
+        console.warn('Date parsing error:', error);
+        dateDisplay = label || data?.date || 'Unknown Date';
+      }
+      
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
-          <p className="font-medium">{format(parseISO(label), 'EEEE, MMMM dd, yyyy')}</p>
+          <p className="font-medium">{dateDisplay}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.value}
