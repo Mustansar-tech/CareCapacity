@@ -1,13 +1,130 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed'));
+    }
+  }
+});
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+// Store the latest processed data and export file
+let latestProcessingResult: any = null;
+let latestExportBuffer: Buffer | null = null;
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // POST /api/process - Process uploaded Excel files
+  app.post('/api/process', upload.fields([
+    { name: 'availability', maxCount: 1 },
+    { name: 'guaranteed', maxCount: 1 },
+    { name: 'demand', maxCount: 1 }
+  ]), async (req, res) => {
+    try {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
+      // Validate that all three files are present
+      if (!files.availability || !files.guaranteed || !files.demand) {
+        return res.status(400).json({
+          message: 'Missing required files. Please upload availability, guaranteed, and demand files.'
+        });
+      }
+
+      const availabilityFile = files.availability[0];
+      const guaranteedFile = files.guaranteed[0];
+      const demandFile = files.demand[0];
+
+      // Validate file names
+      const expectedNames = {
+        availability: 'Availability Export.xlsx',
+        guaranteed: 'Care Pro Guaranteed Hours.xlsx', 
+        demand: 'client_demand.xlsx'
+      };
+
+      if (availabilityFile.originalname !== expectedNames.availability ||
+          guaranteedFile.originalname !== expectedNames.guaranteed ||
+          demandFile.originalname !== expectedNames.demand) {
+        return res.status(400).json({
+          message: `File names must be exactly: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}"`
+        });
+      }
+
+      // Parse Excel files
+      const parsedData = parseExcelFiles(
+        availabilityFile.buffer,
+        guaranteedFile.buffer,
+        demandFile.buffer
+      );
+
+      // Process the data
+      const result = processCapacityData(
+        parsedData.availability,
+        parsedData.guaranteed,
+        parsedData.demand
+      );
+
+      // Add parsing warnings to result
+      if (parsedData.warnings.length > 0) {
+        result.warnings = [...(result.warnings || []), ...parsedData.warnings];
+      }
+
+      // Use cleaned records from pipeline
+      const cleanedRecords = result.cleanedRecords;
+
+      // Generate Excel export
+      const exportBuffer = generateExcelExport(result, cleanedRecords);
+      
+      // Store for export endpoint
+      latestProcessingResult = result;
+      latestExportBuffer = exportBuffer;
+
+      // Save Excel file to disk
+      const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
+      fs.writeFileSync(exportPath, exportBuffer);
+
+      res.json(result);
+
+    } catch (error) {
+      console.error('Processing error:', error);
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Internal processing error'
+      });
+    }
+  });
+
+  // GET /api/export - Download the latest generated Excel file
+  app.get('/api/export', (req, res) => {
+    try {
+      if (!latestExportBuffer) {
+        return res.status(404).json({
+          message: 'No processed data available. Please process files first.'
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="capacity_dashboard.xlsx"');
+      res.send(latestExportBuffer);
+
+    } catch (error) {
+      console.error('Export error:', error);
+      res.status(500).json({
+        message: 'Failed to export data'
+      });
+    }
+  });
 
   const httpServer = createServer(app);
 
