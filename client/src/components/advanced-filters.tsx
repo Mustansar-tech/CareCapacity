@@ -40,17 +40,24 @@ interface AdvancedFiltersProps {
   onResetFilters: () => void;
 }
 
-const DEFAULT_FILTER: FilterState = {
-  searchText: "",
-  dateRange: { from: undefined, to: undefined },
-  statuses: [],
-  capacityRange: { min: 0, max: 100 },
-  showShortageOnly: false,
-  employees: []
+const createDefaultFilter = (data?: ProcessingResult | null): FilterState => {
+  let maxCapacity = 100;
+  if (data?.dailySummary) {
+    maxCapacity = Math.max(100, Math.ceil(Math.max(...data.dailySummary.map(d => d.netCapacity))));
+  }
+  
+  return {
+    searchText: "",
+    dateRange: { from: undefined, to: undefined },
+    statuses: [],
+    capacityRange: { min: 0, max: maxCapacity },
+    showShortageOnly: false,
+    employees: []
+  };
 };
 
 export function AdvancedFilters({ data, onFilterChange, onResetFilters }: AdvancedFiltersProps) {
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER);
+  const [filters, setFilters] = useState<FilterState>(() => createDefaultFilter(data));
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState("");
@@ -86,6 +93,14 @@ export function AdvancedFilters({ data, onFilterChange, onResetFilters }: Advanc
     localStorage.setItem('capacity-dashboard-filters', JSON.stringify(filters));
     setSavedFilters(filters);
   };
+
+  // Reset filters when data changes to ensure proper capacity range
+  useEffect(() => {
+    if (data) {
+      const defaultFilter = createDefaultFilter(data);
+      setFilters(defaultFilter);
+    }
+  }, [data]);
 
   // Apply filters to data
   useEffect(() => {
@@ -182,7 +197,8 @@ export function AdvancedFilters({ data, onFilterChange, onResetFilters }: Advanc
   };
 
   const resetFilters = () => {
-    setFilters(DEFAULT_FILTER);
+    const defaultFilter = createDefaultFilter(data);
+    setFilters(defaultFilter);
     onResetFilters();
   };
 

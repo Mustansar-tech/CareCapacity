@@ -257,7 +257,7 @@ export default function Dashboard() {
                 Filters
               </Button>
               <Badge variant="secondary">
-                {(filteredData?.dailySummary.length || 0)} days
+                {filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days
               </Badge>
             </div>
           </div>
