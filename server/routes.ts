@@ -26,6 +26,13 @@ const upload = multer({
 let latestProcessingResult: any = null;
 let latestExportBuffer: Buffer | null = null;
 
+// Helper function to normalize file names by removing browser download numbers
+function normalizeFileName(fileName: string): string {
+  // Remove numbers in parentheses that browsers add for duplicate downloads
+  // e.g. "file (2).xlsx" -> "file.xlsx"
+  return fileName.replace(/\s*\(\d+\)/, '');
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/process - Process uploaded Excel files
   app.post('/api/process', upload.fields([
@@ -47,18 +54,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const guaranteedFile = files.guaranteed[0];
       const demandFile = files.demand[0];
 
-      // Validate file names
+      // Validate file names (allowing for browser download numbers like (2), (3))
       const expectedNames = {
         availability: 'Availability Export.xlsx',
         guaranteed: 'Care Pro Guaranteed Hours.xlsx', 
         demand: 'client_demand.xlsx'
       };
 
-      if (availabilityFile.originalname !== expectedNames.availability ||
-          guaranteedFile.originalname !== expectedNames.guaranteed ||
-          demandFile.originalname !== expectedNames.demand) {
+      const normalizedAvailabilityName = normalizeFileName(availabilityFile.originalname);
+      const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
+      const normalizedDemandName = normalizeFileName(demandFile.originalname);
+
+      if (normalizedAvailabilityName !== expectedNames.availability ||
+          normalizedGuaranteedName !== expectedNames.guaranteed ||
+          normalizedDemandName !== expectedNames.demand) {
         return res.status(400).json({
-          message: `File names must be exactly: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}"`
+          message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}" (browser download numbers like (2) are allowed)`
         });
       }
 
