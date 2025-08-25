@@ -5,6 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
+import { CapacityAnalysis } from "@shared/schema";
+import { aggregateMonthlyData } from "./monthlyAnalysis";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -133,6 +135,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Export error:', error);
       res.status(500).json({
         message: 'Failed to export data'
+      });
+    }
+  });
+
+  // GET /api/history - Get all historical analyses
+  app.get('/api/history', async (req, res) => {
+    try {
+      const analyses = await storage.getAllCapacityAnalyses();
+      res.json(analyses);
+    } catch (error) {
+      console.error('History fetch error:', error);
+      res.status(500).json({
+        message: 'Failed to fetch historical data'
+      });
+    }
+  });
+
+  // GET /api/history/latest - Get the latest analysis
+  app.get('/api/history/latest', async (req, res) => {
+    try {
+      const analysis = await storage.getLatestCapacityAnalysis();
+      if (!analysis) {
+        return res.status(404).json({
+          message: 'No historical data found'
+        });
+      }
+      res.json(analysis);
+    } catch (error) {
+      console.error('Latest history fetch error:', error);
+      res.status(500).json({
+        message: 'Failed to fetch latest data'
+      });
+    }
+  });
+
+  // GET /api/history/monthly/:year/:month - Get monthly analysis
+  app.get('/api/history/monthly/:year/:month', async (req, res) => {
+    try {
+      const year = parseInt(req.params.year);
+      const month = parseInt(req.params.month);
+      
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({
+          message: 'Invalid year or month parameters'
+        });
+      }
+
+      const analyses = await storage.getCapacityAnalysesByMonth(year, month);
+      
+      // Aggregate monthly data
+      const monthlyAnalysis = aggregateMonthlyData(analyses);
+      
+      res.json({
+        year,
+        month,
+        weeklyAnalyses: analyses,
+        monthlyAggregate: monthlyAnalysis
+      });
+    } catch (error) {
+      console.error('Monthly analysis error:', error);
+      res.status(500).json({
+        message: 'Failed to generate monthly analysis'
+      });
+    }
+  });
+
+  // GET /api/history/range/:startDate/:endDate - Get analyses by date range
+  app.get('/api/history/range/:startDate/:endDate', async (req, res) => {
+    try {
+      const { startDate, endDate } = req.params;
+      
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return res.status(400).json({
+          message: 'Invalid date format. Use YYYY-MM-DD'
+        });
+      }
+
+      const analyses = await storage.getCapacityAnalysesByDateRange(startDate, endDate);
+      res.json(analyses);
+    } catch (error) {
+      console.error('Date range fetch error:', error);
+      res.status(500).json({
+        message: 'Failed to fetch data for date range'
       });
     }
   });

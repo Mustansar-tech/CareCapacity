@@ -10,8 +10,10 @@ import {
   ProcessingResult,
   availabilitySchema,
   guaranteedSchema,
-  clientDemandSchema
+  clientDemandSchema,
+  InsertCapacityAnalysis
 } from '@shared/schema';
+import { storage } from './storage';
 
 // Leave types and priority (1=highest, 7=lowest like your Python code)
 const LEAVE_TYPES = ["Maternity/Paternity", "Sick", "Holiday", "Compassionate Leave", "Other Unavailable", "Pre-Agreed Appointment"];
@@ -685,13 +687,39 @@ export function processCapacityData(
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
 
-  return {
+  const result = {
     kpis,
     dailySummary,
     employeesByDate,
     cleanedRecords,
     warnings: warnings.length > 0 ? warnings : undefined
   };
+
+  // Save to database for historical tracking
+  try {
+    const weekStart = result.dailySummary[0]?.date || '';
+    const weekEnd = result.dailySummary[result.dailySummary.length - 1]?.date || '';
+    
+    const analysisData: InsertCapacityAnalysis = {
+      weekStartDate: weekStart,
+      weekEndDate: weekEnd,
+      kpis: result.kpis as any,
+      dailySummary: result.dailySummary as any,
+      employeesByDate: result.employeesByDate as any,
+      warnings: result.warnings as any,
+    };
+    
+    storage.saveCapacityAnalysis(analysisData).then(() => {
+      console.log('Successfully saved capacity analysis to database');
+    }).catch(error => {
+      console.error('Error saving to database:', error);
+    });
+  } catch (error) {
+    console.error('Error preparing database save:', error);
+    // Don't throw - still return the result even if save fails
+  }
+
+  return result;
 }
 
 // Generate Excel export
