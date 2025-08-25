@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3
+  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
@@ -38,6 +39,28 @@ export default function Dashboard() {
   const [warnings, setWarnings] = useState<string[]>([]);
 
   const { toast } = useToast();
+
+  // Query to load latest data automatically
+  const { data: latestData, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
+    queryKey: ['/api/history/latest'],
+    enabled: !processedData, // Only load if we don't have current data
+  });
+
+  // Auto-load latest data when component mounts or when we don't have data
+  useEffect(() => {
+    if (latestData && !processedData) {
+      setProcessedData({
+        kpis: latestData.kpis,
+        dailySummary: latestData.dailySummary as any,
+        employeesByDate: latestData.employeesByDate as any,
+        warnings: latestData.warnings as any,
+      });
+      toast({
+        title: "Latest Data Loaded",
+        description: "Automatically loaded your most recent analysis."
+      });
+    }
+  }, [latestData, processedData, toast]);
 
   // Handle file selection
   const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand') => 
@@ -159,6 +182,9 @@ export default function Dashboard() {
           <CardTitle className="flex items-center gap-2">
             <Upload className="w-5 h-5" />
             Upload Files
+            {isLoadingLatest && (
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -224,21 +250,50 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Button
-            onClick={handleProcessFiles}
-            disabled={isProcessing || !files.availability || !files.guaranteed || !files.demand}
-            className="w-full md:w-auto"
-            data-testid="button-process"
-          >
-            {isProcessing ? (
-              <>Processing...</>
-            ) : (
-              <>
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Process Files
-              </>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleProcessFiles}
+              disabled={isProcessing || !files.availability || !files.guaranteed || !files.demand}
+              className="flex-1 md:flex-initial"
+              data-testid="button-process"
+            >
+              {isProcessing ? (
+                <>Processing...</>
+              ) : (
+                <>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Process Files
+                </>
+              )}
+            </Button>
+            {processedData && (
+              <Button
+                onClick={() => {
+                  setProcessedData(null);
+                  setFilteredData(null);
+                  setSelectedDate(null);
+                  setFiles({
+                    availability: null,
+                    guaranteed: null,
+                    demand: null
+                  });
+                  // Clear file inputs
+                  const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
+                  inputs.forEach(input => { input.value = ''; });
+                  toast({
+                    title: "Data Cleared",
+                    description: "Dashboard has been reset. Upload new files to process."
+                  });
+                }}
+                variant="outline"
+                className="flex items-center gap-2"
+                data-testid="button-clear"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Clear
+              </Button>
             )}
-          </Button>
+          </div>
         </CardContent>
       </Card>
 
