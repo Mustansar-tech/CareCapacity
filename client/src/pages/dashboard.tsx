@@ -139,8 +139,8 @@ export default function Dashboard() {
     }
   }, [toast]);
 
-  // Get selected day details
-  const selectedDayDetails = selectedDate && processedData?.employeesByDate[selectedDate] || [];
+  // Get selected day details - use filtered data if available, otherwise processed data
+  const selectedDayDetails = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
 
   return (
     <div className="p-6 max-w-7xl mx-auto" data-testid="dashboard-container">
@@ -418,8 +418,13 @@ export default function Dashboard() {
                     {(filteredData || processedData).dailySummary.map((day, index) => (
                       <TableRow 
                         key={day.date}
-                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                        onClick={() => setSelectedDate(day.date)}
+                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                          selectedDate === day.date ? 'bg-primary/10 border-l-4 border-primary' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedDate(day.date);
+                          console.log('Selected date:', day.date);
+                        }}
                         data-testid={`row-daily-summary-${index}`}
                       >
                         <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
@@ -450,10 +455,14 @@ export default function Dashboard() {
                 </Table>
 
                 {/* Drilldown Table */}
-                {selectedDate && selectedDayDetails.length > 0 && (
+                {selectedDate && (
                   <div className="mt-6" data-testid="drilldown-section">
-                    <h3 className="text-lg font-semibold mb-4" data-testid="drilldown-title">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" data-testid="drilldown-title">
+                      <Calendar className="h-5 w-5" />
                       Employee Details for {new Date(selectedDate).toLocaleDateString()}
+                      <Badge variant="outline" className="ml-2">
+                        {selectedDayDetails.length} employees
+                      </Badge>
                     </h3>
                     <Table>
                       <TableHeader>
@@ -468,7 +477,7 @@ export default function Dashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedDayDetails.map((emp, index) => (
+                        {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => (
                           <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
                               {emp.employeeName}
@@ -492,7 +501,13 @@ export default function Dashboard() {
                               {emp.notes}
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              No employee data available for this date
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
                     </Table>
                   </div>
