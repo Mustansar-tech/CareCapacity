@@ -323,7 +323,7 @@ export default function Dashboard() {
             <AdvancedFilters
               data={processedData}
               onFilterChange={setFilteredData}
-              onResetFilters={() => setFilteredData(processedData)}
+              onResetFilters={() => setFilteredData(null)}
             />
           </div>
         )}
@@ -341,7 +341,7 @@ export default function Dashboard() {
           {/* Smart Alerts Tab */}
           <TabsContent value="alerts" data-testid="content-alerts">
             <SmartAlerts 
-              data={filteredData} 
+              data={filteredData || processedData} 
               onAlertAction={(alertId, action, data) => {
                 if (action === 'view-details' && data?.date) {
                   setSelectedDate(data.date);
@@ -353,7 +353,7 @@ export default function Dashboard() {
           {/* Interactive Charts Tab */}
           <TabsContent value="charts" data-testid="content-charts">
             <InteractiveCharts 
-              data={filteredData}
+              data={filteredData || processedData}
               onDateSelect={setSelectedDate}
               onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
             />
@@ -362,7 +362,7 @@ export default function Dashboard() {
           {/* Data Quality Tab */}
           <TabsContent value="quality" data-testid="content-quality">
             <DataQualityPanel 
-              data={filteredData}
+              data={filteredData || processedData}
               warnings={warnings}
             />
           </TabsContent>
