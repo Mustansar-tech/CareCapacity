@@ -15,6 +15,7 @@ export interface IStorage {
   getCapacityAnalysesByMonth(year: number, month: number): Promise<CapacityAnalysis[]>;
   getAllCapacityAnalyses(): Promise<CapacityAnalysis[]>;
   getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined>;
+  cleanupOldAnalyses(monthsOld: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -75,6 +76,22 @@ export class MemStorage implements IStorage {
   async getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined> {
     const analyses = await this.getAllCapacityAnalyses();
     return analyses[0];
+  }
+
+  async cleanupOldAnalyses(monthsOld: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
+    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    
+    const oldAnalyses = Array.from(this.capacityAnalyses.values()).filter(
+      analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
+    );
+    
+    oldAnalyses.forEach(analysis => {
+      this.capacityAnalyses.delete(analysis.id);
+    });
+    
+    return oldAnalyses.length;
   }
 }
 
@@ -141,6 +158,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(capacityAnalyses.uploadedAt))
       .limit(1);
     return analysis || undefined;
+  }
+
+  async cleanupOldAnalyses(monthsOld: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
+    
+    const result = await db
+      .delete(capacityAnalyses)
+      .where(lte(capacityAnalyses.uploadedAt, cutoffDate))
+      .returning({ id: capacityAnalyses.id });
+    
+    return result.length;
   }
 }
 

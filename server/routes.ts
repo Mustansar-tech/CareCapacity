@@ -224,6 +224,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/cleanup - Clean up old data
+  app.post('/api/cleanup', async (req, res) => {
+    try {
+      const { months = 6 } = req.body;
+      
+      if (typeof months !== 'number' || months < 1 || months > 60) {
+        return res.status(400).json({
+          message: 'Months parameter must be between 1 and 60'
+        });
+      }
+
+      const deletedCount = await storage.cleanupOldAnalyses(months);
+      
+      res.json({
+        message: `Successfully cleaned up old data`,
+        deletedAnalyses: deletedCount,
+        cutoffMonths: months
+      });
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      res.status(500).json({
+        message: 'Failed to cleanup old data'
+      });
+    }
+  });
+
+  // GET /api/cleanup/preview/:months - Preview what would be deleted
+  app.get('/api/cleanup/preview/:months', async (req, res) => {
+    try {
+      const months = parseInt(req.params.months);
+      
+      if (isNaN(months) || months < 1 || months > 60) {
+        return res.status(400).json({
+          message: 'Months parameter must be between 1 and 60'
+        });
+      }
+
+      const cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - months);
+      const cutoffString = cutoffDate.toISOString().split('T')[0];
+      
+      // Get all analyses to count how many would be deleted
+      const allAnalyses = await storage.getAllCapacityAnalyses();
+      const oldAnalyses = allAnalyses.filter(
+        analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
+      );
+      
+      res.json({
+        cutoffDate: cutoffString,
+        monthsOld: months,
+        totalAnalyses: allAnalyses.length,
+        analysesToDelete: oldAnalyses.length,
+        analysesToKeep: allAnalyses.length - oldAnalyses.length,
+        oldestAnalysis: allAnalyses.length > 0 ? allAnalyses[allAnalyses.length - 1]?.uploadedAt : null,
+        newestAnalysis: allAnalyses.length > 0 ? allAnalyses[0]?.uploadedAt : null
+      });
+    } catch (error) {
+      console.error('Cleanup preview error:', error);
+      res.status(500).json({
+        message: 'Failed to preview cleanup'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
