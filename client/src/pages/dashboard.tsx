@@ -189,8 +189,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* File Upload Section */}
-      <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
+      {/* File Upload Section - Only show when no data */}
+      {!processedData && !latestData && (
+        <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
@@ -349,6 +350,40 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+      )}
+
+      {/* Quick Upload Button - Show when data exists */}
+      {(processedData || latestData) && (
+        <div className="mb-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setProcessedData(null);
+                setFilteredData(null);
+                setSelectedDate(null);
+                setFiles({
+                  availability: null,
+                  guaranteed: null,
+                  demand: null
+                });
+                const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
+                inputs.forEach(input => { input.value = ''; });
+                toast({
+                  title: "Ready for New Data",
+                  description: "Upload new files to process."
+                });
+              }}
+              className="flex items-center gap-2"
+              data-testid="button-upload-new"
+            >
+              <Upload className="w-4 h-4" />
+              Upload New Files
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Results Tabs */}
       {processedData && (
