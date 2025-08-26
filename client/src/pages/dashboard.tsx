@@ -189,9 +189,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* File Upload Section - Only show when no data */}
-      {!processedData && !latestData && (
-        <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
+      {/* File Upload Section */}
+      <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
@@ -215,6 +214,29 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Show intro cards only when no data exists */}
+          {!processedData && !latestData && (
+            <div className="text-center mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
+                  <h3 className="font-semibold mb-2">Availability Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Employee availability and shift preferences</p>
+                </div>
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
+                  <h3 className="font-semibold mb-2">Care Pro Guaranteed Hours</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Contracted hours and employee data</p>
+                </div>
+                <div className="p-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-purple-600" />
+                  <h3 className="font-semibold mb-2">Client Demand</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Availability Export */}
             <div className="space-y-3">
@@ -350,40 +372,6 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
-      )}
-
-      {/* Quick Upload Button - Show when data exists */}
-      {(processedData || latestData) && (
-        <div className="mb-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setProcessedData(null);
-                setFilteredData(null);
-                setSelectedDate(null);
-                setFiles({
-                  availability: null,
-                  guaranteed: null,
-                  demand: null
-                });
-                const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
-                inputs.forEach(input => { input.value = ''; });
-                toast({
-                  title: "Ready for New Data",
-                  description: "Upload new files to process."
-                });
-              }}
-              className="flex items-center gap-2"
-              data-testid="button-upload-new"
-            >
-              <Upload className="w-4 h-4" />
-              Upload New Files
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Results Tabs */}
       {processedData && (
