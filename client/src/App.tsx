@@ -26,15 +26,15 @@ function Navigation() {
               Care Capacity Dashboard
             </h1>
           </div>
-          <div className="flex gap-1 bg-gray-100/50 dark:bg-gray-800/50 p-1 rounded-lg backdrop-blur-sm">
+          <div className="flex gap-1 bg-gray-200/80 dark:bg-gray-800/50 p-1 rounded-lg backdrop-blur-sm border border-gray-300/50 dark:border-gray-700/50">
             <Link href="/">
               <Button 
                 variant={location === "/" ? "default" : "ghost"} 
                 size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 ${
+                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
                   location === "/" 
-                    ? "bg-white dark:bg-gray-700 shadow-sm" 
-                    : "hover:bg-white/50 dark:hover:bg-gray-700/50"
+                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
+                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
                 }`}
                 data-testid="nav-dashboard"
               >
@@ -46,10 +46,10 @@ function Navigation() {
               <Button 
                 variant={location === "/monthly-analysis" ? "default" : "ghost"} 
                 size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 ${
+                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
                   location === "/monthly-analysis" 
-                    ? "bg-white dark:bg-gray-700 shadow-sm" 
-                    : "hover:bg-white/50 dark:hover:bg-gray-700/50"
+                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
+                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
                 }`}
                 data-testid="nav-monthly-analysis"
               >
@@ -61,10 +61,10 @@ function Navigation() {
               <Button 
                 variant={location === "/data-management" ? "default" : "ghost"} 
                 size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 ${
+                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
                   location === "/data-management" 
-                    ? "bg-white dark:bg-gray-700 shadow-sm" 
-                    : "hover:bg-white/50 dark:hover:bg-gray-700/50"
+                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
+                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
                 }`}
                 data-testid="nav-data-management"
               >

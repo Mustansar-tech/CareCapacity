@@ -181,12 +181,7 @@ export default function Dashboard() {
         <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto" data-testid="dashboard-description">
           Analyze workforce capacity and optimize care scheduling with intelligent data processing
         </p>
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <div className="w-2 h-2 bg-green-500 rounded-full status-pulse"></div>
-            Ready for analysis
-          </div>
-        </div>
+
       </div>
 
       {/* Show upload section only when no data exists */}
@@ -438,10 +433,10 @@ export default function Dashboard() {
         )}
 
         <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-6 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-sm p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
-              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
@@ -449,7 +444,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger 
               value="alerts" 
-              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-alerts"
             >
               <AlertTriangle className="w-4 h-4 mr-2" />
@@ -457,7 +452,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger 
               value="charts" 
-              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-charts"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
@@ -465,7 +460,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger 
               value="daily-capacity" 
-              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-daily-capacity"
             >
               <Calendar className="w-4 h-4 mr-2" />
@@ -473,7 +468,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger 
               value="quality" 
-              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-quality"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -481,7 +476,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger 
               value="export" 
-              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-export"
             >
               <Download className="w-4 h-4 mr-2" />
