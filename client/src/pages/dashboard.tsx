@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw
+  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
@@ -189,8 +189,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* File Upload Section */}
-      <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
+      {/* Show upload section only when no data exists */}
+      {!processedData && !latestData && (
+        <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
@@ -372,54 +373,11 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* Results Tabs */}
+      {/* Results Tabs - Always show when data exists */}
       {processedData && (
-        <>
-          {/* Data Period Information */}
-          <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                      <Calendar className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                        Week of {(() => {
-                          const data = filteredData || processedData;
-                          if (!data.dailySummary || data.dailySummary.length === 0) return 'Unknown';
-                          const startDate = new Date(data.dailySummary[0].date).toLocaleDateString();
-                          const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString();
-                          return `${startDate} - ${endDate}`;
-                        })()}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                        {(() => {
-                          const data = filteredData || processedData;
-                          if (!data.dailySummary || data.dailySummary.length === 0) return '';
-                          const startDate = new Date(data.dailySummary[0].date);
-                          const monthYear = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                          return monthYear;
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-                      <Clock className="w-4 h-4" />
-                      <span className="font-medium">{filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days</span>
-                    </Badge>
-                    <Badge variant="secondary" className="py-2 px-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0">
-                      Processed: Today
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <Button
@@ -562,6 +520,224 @@ export default function Dashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6 animate-fade-in" data-testid="content-overview">
+            {/* File Upload Section inside Overview */}
+            <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
+              <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
+                <CardTitle className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+                    <Upload className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                    Upload Files
+                  </span>
+                  {isLoadingLatest && (
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                      <span className="text-sm text-blue-600">Loading latest data...</span>
+                    </div>
+                  )}
+                  {latestDataError && (
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                      <span className="text-sm text-orange-600">No previous data found</span>
+                    </div>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                  {/* Availability Export */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                        <Users className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <Label htmlFor="availability-file-overview" className="text-sm font-medium">
+                        Availability Export.xlsx
+                      </Label>
+                    </div>
+                    <Input
+                      id="availability-file-overview"
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileChange('availability')}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all duration-200"
+                      data-testid="input-availability-file-overview"
+                    />
+                    {files.availability && (
+                      <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-availability-selected-overview">
+                          {files.availability.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Guaranteed Hours */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                        <Clock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <Label htmlFor="guaranteed-file-overview" className="text-sm font-medium">
+                        Care Pro Guaranteed Hours.xlsx
+                      </Label>
+                    </div>
+                    <Input
+                      id="guaranteed-file-overview"
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileChange('guaranteed')}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all duration-200"
+                      data-testid="input-guaranteed-file-overview"
+                    />
+                    {files.guaranteed && (
+                      <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-guaranteed-selected-overview">
+                          {files.guaranteed.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Client Demand */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                        <Target className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <Label htmlFor="demand-file-overview" className="text-sm font-medium">
+                        client_demand.xlsx
+                      </Label>
+                    </div>
+                    <Input
+                      id="demand-file-overview"
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileChange('demand')}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-all duration-200"
+                      data-testid="input-demand-file-overview"
+                    />
+                    {files.demand && (
+                      <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-demand-selected-overview">
+                          {files.demand.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-center gap-4">
+                  <Button 
+                    onClick={handleProcessFiles}
+                    disabled={!files.availability || !files.guaranteed || !files.demand || isProcessing}
+                    className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
+                    data-testid="button-process-overview"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Processing Files...
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Process Files
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setProcessedData(null);
+                      setFilteredData(null);
+                      setSelectedDate(null);
+                      setFiles({
+                        availability: null,
+                        guaranteed: null,
+                        demand: null
+                      });
+                      const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
+                      inputs.forEach(input => { input.value = ''; });
+                      toast({
+                        title: "Data Cleared",
+                        description: "Dashboard has been reset. Upload new files to process."
+                      });
+                    }}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    data-testid="button-clear-overview"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Clear Data
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Data Period Information inside Overview */}
+            <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info-overview">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                        <Calendar className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                          Week of {(() => {
+                            const data = filteredData || processedData;
+                            if (!data?.dailySummary || data.dailySummary.length === 0) return 'Unknown';
+                            const startDate = new Date(data.dailySummary[0].date).toLocaleDateString();
+                            const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString();
+                            return `${startDate} - ${endDate}`;
+                          })()}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                          {(() => {
+                            const data = filteredData || processedData;
+                            if (!data?.dailySummary || data.dailySummary.length === 0) return '';
+                            const startDate = new Date(data.dailySummary[0].date);
+                            const monthYear = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                            return monthYear;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                        <Clock className="w-4 h-4" />
+                        <span className="font-medium">{filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days</span>
+                      </Badge>
+                      <Badge variant="secondary" className="py-2 px-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0">
+                        Processed: Today
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <EnhancedTooltip content="Refresh data">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: "Data Refreshed",
+                            description: "Dashboard data has been updated."
+                          });
+                        }}
+                        className="hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </EnhancedTooltip>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             {isProcessing ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -904,7 +1080,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
         </Tabs>
-        </>
+        </div>
       )}
     </div>
   );
