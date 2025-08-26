@@ -17,6 +17,8 @@ import { AdvancedFilters } from "@/components/advanced-filters";
 import { InteractiveCharts } from "@/components/interactive-charts";
 import { SmartAlerts } from "@/components/smart-alerts";
 import { DataQualityPanel } from "@/components/data-quality-panel";
+import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
+import { EnhancedTooltip } from "@/components/enhanced-tooltip";
 
 export default function Dashboard() {
   // File upload state
@@ -41,7 +43,7 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   // Query to load latest data automatically
-  const { data: latestData, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
+  const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
     enabled: !processedData, // Only load if we don't have current data
   });
@@ -166,86 +168,134 @@ export default function Dashboard() {
   const selectedDayDetails = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto" data-testid="dashboard-container">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="dashboard-title">
-          Care Capacity Dashboard
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300" data-testid="dashboard-description">
-          Upload your Excel files to analyze care capacity and generate reports
+    <div className="p-6 max-w-7xl mx-auto animate-fade-in" data-testid="dashboard-container">
+      <div className="mb-8 text-center">
+        <div className="inline-flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-xl gradient-bg flex items-center justify-center shadow-lg">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-emerald-600 bg-clip-text text-transparent" data-testid="dashboard-title">
+            Care Capacity Dashboard
+          </h1>
+        </div>
+        <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto" data-testid="dashboard-description">
+          Analyze workforce capacity and optimize care scheduling with intelligent data processing
         </p>
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <div className="flex items-center gap-1 text-sm text-gray-500">
+            <div className="w-2 h-2 bg-green-500 rounded-full status-pulse"></div>
+            Ready for analysis
+          </div>
+        </div>
       </div>
 
       {/* File Upload Section */}
-      <Card className="mb-6" data-testid="upload-section">
-        <CardHeader>
+      <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
+        <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Upload Files
+            <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+              <Upload className="w-4 h-4 text-white" />
+            </div>
+            <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+              Upload Files
+            </span>
             {isLoadingLatest && (
-              <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-sm text-blue-600">Loading latest data...</span>
+              </div>
+            )}
+            {latestDataError && (
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500" />
+                <span className="text-sm text-orange-600">No previous data found</span>
+              </div>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Availability Export */}
-            <div>
-              <Label htmlFor="availability-file" className="text-sm font-medium">
-                Availability Export.xlsx
-              </Label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                  <Users className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                </div>
+                <Label htmlFor="availability-file" className="text-sm font-medium">
+                  Availability Export.xlsx
+                </Label>
+              </div>
               <Input
                 id="availability-file"
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileChange('availability')}
-                className="mt-1"
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all duration-200"
                 data-testid="input-availability-file"
               />
               {files.availability && (
-                <p className="text-sm text-green-600 mt-1" data-testid="text-availability-selected">
-                  ✓ {files.availability.name}
-                </p>
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-availability-selected">
+                    {files.availability.name}
+                  </p>
+                </div>
               )}
             </div>
 
             {/* Guaranteed Hours */}
-            <div>
-              <Label htmlFor="guaranteed-file" className="text-sm font-medium">
-                Care Pro Guaranteed Hours.xlsx
-              </Label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                  <Clock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <Label htmlFor="guaranteed-file" className="text-sm font-medium">
+                  Care Pro Guaranteed Hours.xlsx
+                </Label>
+              </div>
               <Input
                 id="guaranteed-file"
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileChange('guaranteed')}
-                className="mt-1"
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all duration-200"
                 data-testid="input-guaranteed-file"
               />
               {files.guaranteed && (
-                <p className="text-sm text-green-600 mt-1" data-testid="text-guaranteed-selected">
-                  ✓ {files.guaranteed.name}
-                </p>
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-guaranteed-selected">
+                    {files.guaranteed.name}
+                  </p>
+                </div>
               )}
             </div>
 
             {/* Client Demand */}
-            <div>
-              <Label htmlFor="demand-file" className="text-sm font-medium">
-                client_demand.xlsx
-              </Label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                  <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                </div>
+                <Label htmlFor="demand-file" className="text-sm font-medium">
+                  client_demand.xlsx
+                </Label>
+              </div>
               <Input
                 id="demand-file"
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileChange('demand')}
-                className="mt-1"
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-all duration-200"
                 data-testid="input-demand-file"
               />
               {files.demand && (
-                <p className="text-sm text-green-600 mt-1" data-testid="text-demand-selected">
-                  ✓ {files.demand.name}
-                </p>
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-demand-selected">
+                    {files.demand.name}
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -254,11 +304,14 @@ export default function Dashboard() {
             <Button
               onClick={handleProcessFiles}
               disabled={isProcessing || !files.availability || !files.guaranteed || !files.demand}
-              className="flex-1 md:flex-initial"
+              className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
               {isProcessing ? (
-                <>Processing...</>
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
               ) : (
                 <>
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
@@ -301,14 +354,16 @@ export default function Dashboard() {
       {processedData && (
         <>
           {/* Data Period Information */}
-          <Card className="mb-4" data-testid="data-period-info">
-            <CardContent className="pt-4">
+          <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info">
+            <CardContent className="pt-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-600" />
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                      <Calendar className="w-5 h-5 text-white" />
+                    </div>
                     <div>
-                      <div className="font-semibold text-lg">
+                      <div className="font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                         Week of {(() => {
                           const data = filteredData || processedData;
                           if (!data.dailySummary || data.dailySummary.length === 0) return 'Unknown';
@@ -317,7 +372,7 @@ export default function Dashboard() {
                           return `${startDate} - ${endDate}`;
                         })()}
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                         {(() => {
                           const data = filteredData || processedData;
                           if (!data.dailySummary || data.dailySummary.length === 0) return '';
@@ -328,20 +383,13 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                      <Clock className="w-4 h-4" />
+                      <span className="font-medium">{filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days</span>
                     </Badge>
-                    <Badge variant="secondary">
-                      Processed: {(() => {
-                        // Check if we have upload timestamp from historical data
-                        const timestamp = latestData?.uploadedAt;
-                        if (timestamp) {
-                          return new Date(timestamp).toLocaleDateString();
-                        }
-                        return 'Today';
-                      })()}
+                    <Badge variant="secondary" className="py-2 px-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0">
+                      Processed: Today
                     </Badge>
                   </div>
                 </div>
@@ -349,39 +397,115 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
               <Button
                 variant={showFilters ? "default" : "outline"}
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
+                className={`transition-all duration-200 ${
+                  showFilters 
+                    ? "bg-gradient-to-r from-blue-600 to-emerald-600 text-white border-0 shadow-lg" 
+                    : "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-2"
+                }`}
                 data-testid="button-toggle-filters"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
               </Button>
+              {filteredData && (
+                <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
+                  Filters Applied
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <EnhancedTooltip content="Export current data to Excel">
+                <Button
+                  onClick={handleExport}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200"
+                  data-testid="button-quick-export"
+                >
+                  <Download className="w-4 h-4" />
+                  Quick Export
+                </Button>
+              </EnhancedTooltip>
             </div>
           </div>
         
         {/* Advanced Filters Panel */}
         {showFilters && (
-          <div className="mb-6">
-            <AdvancedFilters
-              data={processedData}
-              onFilterChange={setFilteredData}
-              onResetFilters={() => setFilteredData(null)}
-            />
+          <div className="mb-6 animate-slide-up">
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Filter className="w-5 h-5" />
+                  Advanced Filters
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AdvancedFilters
+                  data={processedData}
+                  onFilterChange={setFilteredData}
+                  onResetFilters={() => setFilteredData(null)}
+                />
+              </CardContent>
+            </Card>
           </div>
         )}
 
-        <Tabs defaultValue="overview" className="space-y-4" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-            <TabsTrigger value="alerts" data-testid="tab-alerts">Alerts</TabsTrigger>
-            <TabsTrigger value="charts" data-testid="tab-charts">Analytics</TabsTrigger>
-            <TabsTrigger value="daily-capacity" data-testid="tab-daily-capacity">Daily View</TabsTrigger>
-            <TabsTrigger value="quality" data-testid="tab-quality">Data Quality</TabsTrigger>
-            <TabsTrigger value="export" data-testid="tab-export">Export</TabsTrigger>
+        <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
+          <TabsList className="grid w-full grid-cols-6 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-sm p-1 rounded-xl">
+            <TabsTrigger 
+              value="overview" 
+              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              data-testid="tab-overview"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="alerts" 
+              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              data-testid="tab-alerts"
+            >
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              Alerts
+            </TabsTrigger>
+            <TabsTrigger 
+              value="charts" 
+              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              data-testid="tab-charts"
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger 
+              value="daily-capacity" 
+              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              data-testid="tab-daily-capacity"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Daily View
+            </TabsTrigger>
+            <TabsTrigger 
+              value="quality" 
+              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              data-testid="tab-quality"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Quality
+            </TabsTrigger>
+            <TabsTrigger 
+              value="export" 
+              className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm transition-all duration-200 rounded-lg"
+              data-testid="tab-export"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </TabsTrigger>
           </TabsList>
 
           {/* Smart Alerts Tab */}
@@ -414,96 +538,131 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" data-testid="content-overview">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <Card data-testid="card-net-capacity">
-                <CardHeader className="pb-2">
+          <TabsContent value="overview" className="space-y-6 animate-fade-in" data-testid="content-overview">
+            {isProcessing ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <MetricCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Net Capacity
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                      <Users className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-net-capacity-sum">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
                     {(filteredData || processedData)?.kpis.netCapacitySum}h
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-client-required">
-                <CardHeader className="pb-2">
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Client Required
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Client Required</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-client-required-sum">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
                     {(filteredData || processedData)?.kpis.clientRequiredSum}h
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Demand hours</div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-capacity-gap">
-                <CardHeader className="pb-2">
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
-                      <TrendingUp className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-red-500" />
-                    )}
-                    Capacity Gap
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 
+                        ? 'bg-gradient-to-br from-green-500 to-green-600' 
+                        : 'bg-gradient-to-br from-red-500 to-red-600'
+                    }`}>
+                      {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
+                        <TrendingUp className="w-4 h-4 text-white" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-white" />
+                      )}
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Capacity Gap</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-2xl font-bold ${
-                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                  <div className={`text-3xl font-bold mb-1 ${
+                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 
+                      ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent' 
+                      : 'bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent'
                   }`} data-testid="text-capacity-gap-sum">
                     {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? 'Surplus capacity' : 'Shortage'}
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-unavailability">
-                <CardHeader className="pb-2">
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-unavailability">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-orange-500" />
-                    Unavailability
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                      <AlertTriangle className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Unavailability</span>
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Sick leave, appointments, and other unavailable time
-                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-600" data-testid="text-unavailability-sum">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
                     {(filteredData || processedData)?.kpis.unavailabilitySum}h
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Sick leave & appointments</div>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-holidays">
-                <CardHeader className="pb-2">
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-holidays">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-500" />
-                    Holidays
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Holidays</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600" data-testid="text-holidays-sum">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
                     {(filteredData || processedData)?.kpis.holidaysSum}h
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Scheduled time off</div>
                 </CardContent>
               </Card>
-            </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Daily Capacity Tab */}
-          <TabsContent value="daily-capacity" data-testid="content-daily-capacity">
-            <Card>
-              <CardHeader>
+          <TabsContent value="daily-capacity" className="space-y-6 animate-fade-in" data-testid="content-daily-capacity">
+            <Card className="glass">
+              <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
-                  <span>Daily Capacity Summary</span>
-                  <Badge variant="outline" className="text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                      Daily Capacity Summary
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
                     {(() => {
                       const data = filteredData || processedData;
                       if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
@@ -518,23 +677,26 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead data-testid="header-date">Date</TableHead>
-                      <TableHead data-testid="header-available">Available</TableHead>
-                      <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
-                      <TableHead data-testid="header-required">Required</TableHead>
-                      <TableHead data-testid="header-gap">Gap</TableHead>
-                      <TableHead data-testid="header-status">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                {isProcessing ? (
+                  <TableSkeleton rows={7} />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead data-testid="header-date">Date</TableHead>
+                        <TableHead data-testid="header-available">Available</TableHead>
+                        <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
+                        <TableHead data-testid="header-required">Required</TableHead>
+                        <TableHead data-testid="header-gap">Gap</TableHead>
+                        <TableHead data-testid="header-status">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                     {(filteredData || processedData).dailySummary.map((day, index) => (
                       <TableRow 
                         key={day.date}
-                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                          selectedDate === day.date ? 'bg-primary/10 border-l-4 border-primary' : ''
+                        className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 interactive ${
+                          selectedDate === day.date ? 'bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-gradient-to-b border-blue-500' : ''
                         }`}
                         onClick={() => {
                           setSelectedDate(day.date);
@@ -555,9 +717,16 @@ export default function Dashboard() {
                           {day.clientRequired}h
                         </TableCell>
                         <TableCell data-testid={`cell-gap-${index}`}>
-                          <span className={day.gap >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          <Badge 
+                            variant={day.gap >= 0 ? "default" : "destructive"}
+                            className={`${
+                              day.gap >= 0 
+                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
+                                : 'bg-gradient-to-r from-red-500 to-red-600 text-white'
+                            }`}
+                          >
                             {day.gap >= 0 ? '+' : ''}{day.gap}h
-                          </span>
+                          </Badge>
                         </TableCell>
                         <TableCell data-testid={`cell-status-${index}`}>
                           <Badge variant={day.status === 'Sufficient' ? 'default' : 'destructive'}>
@@ -566,8 +735,9 @@ export default function Dashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                )}
 
                 {/* Drilldown Table */}
                 {selectedDate && (
@@ -637,15 +807,19 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Export Tab */}
-          <TabsContent value="export" data-testid="content-export">
-            <Card>
-              <CardHeader>
+          <TabsContent value="export" className="space-y-6 animate-fade-in" data-testid="content-export">
+            <Card className="glass hover-lift">
+              <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Download className="w-5 h-5" />
-                    Export Data
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                      <Download className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                      Export Data
+                    </span>
                   </div>
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
                     {(() => {
                       const data = filteredData || processedData;
                       if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
@@ -656,23 +830,53 @@ export default function Dashboard() {
                   </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 dark:text-gray-300 mb-4" data-testid="export-description">
-                  Download the processed capacity data as an Excel file with detailed sheets:
+              <CardContent className="pt-6">
+                <p className="text-gray-600 dark:text-gray-300 mb-6" data-testid="export-description">
+                  Download the processed capacity data as a comprehensive Excel file with detailed analysis sheets:
                 </p>
-                <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 mb-6 space-y-1">
-                  <li><strong>Cleaned:</strong> All processed employee records with capacity calculations</li>
-                  <li><strong>DailySummary:</strong> Daily aggregated capacity metrics</li>
-                  <li><strong>EmployeeDailyDetail:</strong> Detailed employee breakdown by date</li>
-                </ul>
-                <Button 
-                  onClick={handleExport}
-                  className="w-full md:w-auto"
-                  data-testid="button-export"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download capacity_dashboard.xlsx
-                </Button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-blue-900 dark:text-blue-100">Cleaned Data</div>
+                      <div className="text-sm text-blue-700 dark:text-blue-300">All processed employee records with capacity calculations</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-emerald-900 dark:text-emerald-100">Daily Summary</div>
+                      <div className="text-sm text-emerald-700 dark:text-emerald-300">Daily aggregated capacity metrics and KPIs</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-purple-900 dark:text-purple-100">Employee Details</div>
+                      <div className="text-sm text-purple-700 dark:text-purple-300">Detailed employee breakdown by date and assignments</div>
+                    </div>
+                  </div>
+                </div>
+                <EnhancedTooltip content="Download comprehensive Excel report">
+                  <Button 
+                    onClick={handleExport}
+                    className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
+                    disabled={isProcessing}
+                    data-testid="button-export"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Generating Excel file...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Download capacity_dashboard.xlsx
+                      </>
+                    )}
+                  </Button>
+                </EnhancedTooltip>
               </CardContent>
             </Card>
           </TabsContent>
