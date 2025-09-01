@@ -426,6 +426,12 @@ export function processCapacityData(
     weeklyHours: row["Actual Employee Hours Per Week"]
   }));
 
+  // Debug: Log first availability row to see what columns are available
+  if (availability.length > 0) {
+    console.log('First availability row columns:', Object.keys(availability[0]));
+    console.log('First availability row sample:', availability[0]);
+  }
+
   // Step 2: Match availability names to guaranteed hours
   const guaranteedKeys = guaranteedEmployees.map(emp => emp.normalizedName);
   const matchedAvailability: Array<ParsedAvailabilityRow & {matchedEmployee: EmployeeGuaranteedHours}> = [];
@@ -484,7 +490,9 @@ export function processCapacityData(
       status: row.Type,
       startTime: timeToString(row["Start Time"]),
       endTime: timeToString(row["End Time"]),
-      timeWindow: `${timeToString(row["Start Time"])}-${timeToString(row["End Time"])}`,
+      timeWindow: timeToString(row["Start Time"]) && timeToString(row["End Time"]) 
+        ? `${timeToString(row["Start Time"])}-${timeToString(row["End Time"])}` 
+        : "",
       hours: hoursEffective,
       notes: row.Notes || "",
       employeeKey: key
@@ -540,7 +548,7 @@ export function processCapacityData(
       const agg = statusAgg.get(row.status)!;
       agg.hoursRaw += row.hours;
       
-      if (row.timeWindow && row.timeWindow !== "" && row.timeWindow !== "-") {
+      if (row.timeWindow && row.timeWindow !== "" && row.timeWindow !== "-" && row.timeWindow !== "--") {
         agg.windows.push(row.timeWindow);
       }
       
