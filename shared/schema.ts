@@ -26,7 +26,7 @@ export const capacityAnalyses = pgTable("capacity_analyses", {
   kpis: jsonb("kpis").notNull(),
   dailySummary: jsonb("daily_summary").notNull(),
   employeesByDate: jsonb("employees_by_date").notNull(),
-  warnings: jsonb("warnings"),
+  warnings: jsonb("warnings").default([]),
 });
 
 export const insertCapacityAnalysisSchema = createInsertSchema(capacityAnalyses).omit({

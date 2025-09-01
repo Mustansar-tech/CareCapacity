@@ -50,6 +50,7 @@ export class MemStorage implements IStorage {
       ...insertAnalysis,
       id,
       uploadedAt: new Date(),
+      warnings: insertAnalysis.warnings || [],
     };
     this.capacityAnalyses.set(id, analysis);
     return analysis;
