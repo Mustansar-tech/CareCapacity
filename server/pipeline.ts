@@ -36,6 +36,7 @@ interface EmployeeGuaranteedHours {
   originalName: string;
   normalizedName: string;
   weeklyHours: number;
+  payRateHours: number;
 }
 
 // Normalize name exactly like your Python code
@@ -376,7 +377,9 @@ export function parseExcelFiles(
   const validatedGuaranteed: GuaranteedHoursRow[] = [];
   guaranteedData.forEach((row, index) => {
     try {
-      if (!row["Actual Employee Name"] || typeof row["Actual Employee Hours Per Week"] !== 'number') {
+      if (!row["Actual Employee Name"] || 
+          typeof row["Actual Employee Hours Per Week"] !== 'number' ||
+          typeof row["Actual Pay Rate Hours"] !== 'number') {
         warnings.push(`Guaranteed hours row ${index + 1}: Missing or invalid required fields`);
         return;
       }
@@ -439,7 +442,8 @@ export function processCapacityData(
   const guaranteedEmployees = guaranteed.map(row => ({
     originalName: row["Actual Employee Name"],
     normalizedName: normalizeName(row["Actual Employee Name"]),
-    weeklyHours: row["Actual Employee Hours Per Week"]
+    weeklyHours: row["Actual Employee Hours Per Week"],
+    payRateHours: row["Actual Pay Rate Hours"]
   }));
 
   // Debug: Log first availability row to see what columns are available
@@ -511,7 +515,8 @@ export function processCapacityData(
         : "",
       hours: hoursEffective,
       notes: row.Notes || "",
-      employeeKey: key
+      employeeKey: key,
+      matchedEmployee: row.matchedEmployee
     };
   });
 
@@ -665,7 +670,7 @@ export function processCapacityData(
         date,
         status,
         timeWindows: windowsStr,
-        scheduledHours: Math.round(weekly * 100) / 100, // Scheduled hours is the contracted weekly hours
+        scheduledHours: Math.round((group[0].matchedEmployee?.payRateHours || 0) * 100) / 100, // Scheduled hours is the pay rate hours
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
