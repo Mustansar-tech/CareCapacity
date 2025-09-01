@@ -54,6 +54,8 @@ export interface GuaranteedHoursRow {
   "Actual Employee Name": string;
   "Actual Employee Hours Per Week": number;
   "Actual Pay Rate Hours": number;
+  "Service Requirement Start Date And Time": string;
+  "Service Requirement End Date And Time": string;
 }
 
 export interface ClientDemandRow {
@@ -125,6 +127,8 @@ export const guaranteedSchema = z.object({
   "Actual Employee Name": z.string().min(1, "Actual Employee Name is required"),
   "Actual Employee Hours Per Week": z.number().min(0, "Weekly hours must be non-negative"),
   "Actual Pay Rate Hours": z.number().min(0, "Pay rate hours must be non-negative"),
+  "Service Requirement Start Date And Time": z.string().min(1, "Service Requirement Start Date And Time is required"),
+  "Service Requirement End Date And Time": z.string().min(1, "Service Requirement End Date And Time is required"),
 });
 
 export const clientDemandSchema = z.object({

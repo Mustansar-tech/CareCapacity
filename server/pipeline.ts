@@ -37,6 +37,8 @@ interface EmployeeGuaranteedHours {
   normalizedName: string;
   weeklyHours: number;
   payRateHours: number;
+  serviceStartDate: Date;
+  serviceEndDate: Date;
 }
 
 // Normalize name exactly like your Python code
@@ -103,6 +105,20 @@ function timeToString(timeValue: any): string {
   } catch {
     return "";
   }
+}
+
+// Helper function to get scheduled hours for a specific date based on service requirements
+function getScheduledHoursForDate(employee: EmployeeGuaranteedHours | undefined, dateStr: string): number {
+  if (!employee) return 0;
+  
+  const targetDate = new Date(dateStr);
+  
+  // Check if the target date falls within the service requirement period
+  if (targetDate >= employee.serviceStartDate && targetDate <= employee.serviceEndDate) {
+    return employee.payRateHours;
+  }
+  
+  return 0; // No scheduled hours if outside service requirement period
 }
 
 // Calculate hours between times exactly like your hours_between function
@@ -379,7 +395,9 @@ export function parseExcelFiles(
     try {
       if (!row["Actual Employee Name"] || 
           typeof row["Actual Employee Hours Per Week"] !== 'number' ||
-          typeof row["Actual Pay Rate Hours"] !== 'number') {
+          typeof row["Actual Pay Rate Hours"] !== 'number' ||
+          !row["Service Requirement Start Date And Time"] ||
+          !row["Service Requirement End Date And Time"]) {
         warnings.push(`Guaranteed hours row ${index + 1}: Missing or invalid required fields`);
         return;
       }
@@ -443,7 +461,9 @@ export function processCapacityData(
     originalName: row["Actual Employee Name"],
     normalizedName: normalizeName(row["Actual Employee Name"]),
     weeklyHours: row["Actual Employee Hours Per Week"],
-    payRateHours: row["Actual Pay Rate Hours"]
+    payRateHours: row["Actual Pay Rate Hours"],
+    serviceStartDate: new Date(row["Service Requirement Start Date And Time"]),
+    serviceEndDate: new Date(row["Service Requirement End Date And Time"])
   }));
 
   // Debug: Log first availability row to see what columns are available
@@ -670,7 +690,7 @@ export function processCapacityData(
         date,
         status,
         timeWindows: windowsStr,
-        scheduledHours: Math.round((group[0].matchedEmployee?.payRateHours || 0) * 100) / 100, // Scheduled hours is the pay rate hours
+        scheduledHours: Math.round(getScheduledHoursForDate(group[0].matchedEmployee, date) * 100) / 100, // Scheduled hours based on service requirement dates
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
