@@ -543,12 +543,12 @@ export default function Dashboard() {
                             day: 'numeric' 
                           })}
                         </TableCell>
-                        <TableCell data-testid={`cell-available-${index}`}>{day.totalAvailable}h</TableCell>
+                        <TableCell data-testid={`cell-available-${index}`}>{day.available}h</TableCell>
                         <TableCell data-testid={`cell-net-capacity-${index}`}>{day.netCapacity}h</TableCell>
                         <TableCell data-testid={`cell-required-${index}`}>{day.clientRequired}h</TableCell>
                         <TableCell data-testid={`cell-gap-${index}`}>
-                          <span className={day.capacityGap < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                            {day.capacityGap}h
+                          <span className={day.gap < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                            {day.gap}h
                           </span>
                         </TableCell>
                         <TableCell data-testid={`cell-status-${index}`}>

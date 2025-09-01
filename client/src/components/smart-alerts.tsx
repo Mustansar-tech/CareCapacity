@@ -79,7 +79,6 @@ export function SmartAlerts({ data, onAlertAction }: SmartAlertsProps) {
           title: `Critical Staff Shortage ${urgency}`,
           description: `${Math.abs(day.gap)} hours short of required capacity on ${format(parseISO(day.date), 'MMM dd')}. Immediate action needed.`,
           date: day.date,
-          employees: affectedEmployees.filter(emp => emp.status === 'Available').map(emp => emp.employeeName),
           value: day.gap,
           threshold: ALERT_THRESHOLDS.criticalShortage,
           actionable: true,
@@ -120,9 +119,8 @@ export function SmartAlerts({ data, onAlertAction }: SmartAlertsProps) {
             type: 'warning',
             priority: 3,
             title: 'High Unavailability Rate',
-            description: `${Math.round(unavailabilityPercentage)}% of staff capacity lost to unavailability on ${format(parseISO(day.date), 'MMM dd')} (${unavailableEmployees.length} employees).`,
+            description: `${Math.round(unavailabilityPercentage)}% of staff capacity lost to unavailability on ${format(parseISO(day.date), 'MMM dd')}.`,
             date: day.date,
-            employees: unavailableEmployees.map(emp => emp.employeeName),
             value: unavailabilityPercentage,
             threshold: ALERT_THRESHOLDS.highSickness,
             actionable: true,
@@ -336,23 +334,7 @@ export function SmartAlerts({ data, onAlertAction }: SmartAlertsProps) {
                     <AlertDescription className="mt-1">
                       {alert.description}
                       
-                      {alert.employees && alert.employees.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-xs font-medium mb-1">Affected Staff:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {alert.employees.slice(0, 5).map(emp => (
-                              <Badge key={emp} variant="outline" className="text-xs">
-                                {emp}
-                              </Badge>
-                            ))}
-                            {alert.employees.length > 5 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{alert.employees.length - 5} more
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
+
                       
                       {alert.actionable && (
                         <div className="flex gap-2 mt-3">
