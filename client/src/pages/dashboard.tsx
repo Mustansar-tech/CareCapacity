@@ -93,14 +93,25 @@ export default function Dashboard() {
     try {
       const response = await fetch('/api/process', {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        }
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || 'Processing failed');
+        let errorMessage = 'Processing failed';
+        try {
+          const result = await response.json();
+          errorMessage = result.message || errorMessage;
+        } catch {
+          // If we can't parse JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       setProcessedData(result);
       setSelectedDate(result.dailySummary[0]?.date || null);
@@ -120,10 +131,23 @@ export default function Dashboard() {
 
     } catch (error) {
       console.error('Processing error:', error);
+      
+      let errorTitle = "Processing Failed";
+      let errorDescription = "Unknown error occurred";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorTitle = "Connection Error";
+          errorDescription = "Unable to connect to server. Please check your connection and try again.";
+        } else {
+          errorDescription = error.message;
+        }
+      }
+      
       toast({
         variant: "destructive",
-        title: "Processing Failed", 
-        description: error instanceof Error ? error.message : "Unknown error occurred"
+        title: errorTitle, 
+        description: errorDescription
       });
     } finally {
       setIsProcessing(false);
