@@ -335,29 +335,7 @@ export function SmartAlerts({ data, onAlertAction }: SmartAlertsProps) {
                       {alert.description}
                       
 
-                      
-                      {alert.actionable && (
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAlertAction(alert, 'view-details')}
-                            data-testid={`button-view-details-${alert.id}`}
-                          >
-                            View Details
-                          </Button>
-                          {alert.type === 'critical' && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => handleAlertAction(alert, 'urgent-action')}
-                              data-testid={`button-urgent-action-${alert.id}`}
-                            >
-                              Take Action
-                            </Button>
-                          )}
-                        </div>
-                      )}
+
                     </AlertDescription>
                   </div>
                 </Alert>
