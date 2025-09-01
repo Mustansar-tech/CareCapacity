@@ -62,27 +62,43 @@ function normalizeName(name: string): string {
 
 // Time string conversion exactly like your tstr function
 function timeToString(timeValue: any): string {
-  if (!timeValue) return "";
+  if (!timeValue || timeValue === "" || timeValue === null || timeValue === undefined) return "";
+  
   try {
-    // Use pandas-like datetime parsing
     let dateObj: Date;
     
     if (timeValue instanceof Date) {
       dateObj = timeValue;
     } else if (typeof timeValue === 'number') {
-      // Excel serial number for time
-      const excelEpoch = new Date(1899, 11, 30); // Excel epoch
-      dateObj = new Date(excelEpoch.getTime() + timeValue * 24 * 60 * 60 * 1000);
+      // Excel serial number for time (fractional day)
+      if (timeValue < 1) {
+        // Pure time value (0.5 = 12:00 PM)
+        const totalMinutes = timeValue * 24 * 60;
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = Math.floor(totalMinutes % 60);
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      } else {
+        // Date + time serial number
+        const excelEpoch = new Date(1899, 11, 30);
+        dateObj = new Date(excelEpoch.getTime() + timeValue * 24 * 60 * 60 * 1000);
+      }
+    } else if (typeof timeValue === 'string') {
+      // Handle string time formats like "08:00", "14:30", etc.
+      if (/^\d{1,2}:\d{2}$/.test(timeValue)) {
+        return timeValue;
+      }
+      dateObj = new Date(timeValue);
     } else {
-      // String or other formats
       dateObj = new Date(timeValue);
     }
     
-    if (isNaN(dateObj.getTime())) return "";
+    if (dateObj && !isNaN(dateObj.getTime())) {
+      const hours = dateObj.getHours().toString().padStart(2, '0');
+      const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
     
-    const hours = dateObj.getHours().toString().padStart(2, '0');
-    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return "";
   } catch {
     return "";
   }
@@ -548,7 +564,13 @@ export function processCapacityData(
       const agg = statusAgg.get(row.status)!;
       agg.hoursRaw += row.hours;
       
-      if (row.timeWindow && row.timeWindow !== "" && row.timeWindow !== "-" && row.timeWindow !== "--") {
+      // Only add non-empty time windows
+      if (row.timeWindow && 
+          row.timeWindow !== "" && 
+          row.timeWindow !== "-" && 
+          row.timeWindow !== "--" &&
+          row.timeWindow !== ":" &&
+          !row.timeWindow.includes("undefined")) {
         agg.windows.push(row.timeWindow);
       }
       
@@ -582,8 +604,9 @@ export function processCapacityData(
         netCapacity = 0.0;
       }
       
-      // Join windows and notes like your Python logic
-      const windowsStr = Array.from(new Set(agg.windows)).sort().join("; ");
+      // Join windows and notes like your Python logic  
+      const uniqueWindows = Array.from(new Set(agg.windows)).filter(w => w && w !== "");
+      const windowsStr = uniqueWindows.length > 0 ? uniqueWindows.sort().join("; ") : "";
       const notesStr = Array.from(new Set(agg.notes)).sort().join("; ");
       
       cleanedRecords.push({
