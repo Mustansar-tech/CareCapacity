@@ -518,12 +518,10 @@ export default function Dashboard() {
                     {(filteredData || processedData)?.dailySummary?.map((day) => (
                       <Button
                         key={day.date}
-                        variant={selectedDate === day.date ? "default" : "outline"}
+                        variant="outline"
                         size="sm"
                         onClick={() => setSelectedDate(day.date)}
-                        className={`flex flex-col items-center p-3 h-auto ${
-                          selectedDate === day.date ? 'bg-blue-600 text-white' : ''
-                        }`}
+                        className="flex flex-col items-center p-3 h-auto"
                         data-testid={`date-selector-${day.date}`}
                       >
                         <span className="text-xs font-medium">
