@@ -512,59 +512,49 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {isProcessing ? (
-                  <TableSkeleton rows={7} />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead data-testid="header-date">Date</TableHead>
-                        <TableHead data-testid="header-available">Available</TableHead>
-                        <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required">Required</TableHead>
-                        <TableHead data-testid="header-gap">Gap</TableHead>
-                        <TableHead data-testid="header-status">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {(filteredData || processedData)?.dailySummary?.map((day, index) => (
-                      <TableRow 
-                        key={day.date} 
-                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                          selectedDate === day.date ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                        }`}
+                {/* Date Selector for Employee Details */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Select Date for Employee Details
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                    {(filteredData || processedData)?.dailySummary?.map((day) => (
+                      <Button
+                        key={day.date}
+                        variant={selectedDate === day.date ? "default" : "outline"}
+                        size="sm"
                         onClick={() => setSelectedDate(day.date)}
-                        data-testid={`row-${index}`}
+                        className={`flex flex-col items-center p-3 h-auto ${
+                          selectedDate === day.date ? 'bg-blue-600 text-white' : ''
+                        }`}
+                        data-testid={`date-selector-${day.date}`}
                       >
-                        <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
+                        <span className="text-xs font-medium">
                           {new Date(day.date).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
+                            weekday: 'short'
+                          })}
+                        </span>
+                        <span className="text-sm">
+                          {new Date(day.date).toLocaleDateString('en-US', { 
                             month: 'short', 
                             day: 'numeric' 
                           })}
-                        </TableCell>
-                        <TableCell data-testid={`cell-available-${index}`}>{day.available}h</TableCell>
-                        <TableCell data-testid={`cell-net-capacity-${index}`}>{day.netCapacity}h</TableCell>
-                        <TableCell data-testid={`cell-required-${index}`}>{day.clientRequired}h</TableCell>
-                        <TableCell data-testid={`cell-gap-${index}`}>
-                          <span className={day.gap < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                            {day.gap}h
-                          </span>
-                        </TableCell>
-                        <TableCell data-testid={`cell-status-${index}`}>
-                          <Badge variant={day.status === 'Sufficient' ? 'default' : 'destructive'}>
-                            {day.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    )) || []}
-                    </TableBody>
-                  </Table>
-                )}
+                        </span>
+                        <Badge 
+                          variant={day.status === 'Sufficient' ? 'default' : 'destructive'}
+                          className="text-xs mt-1"
+                        >
+                          {day.gap}h
+                        </Badge>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
 
-                {/* Drilldown Table */}
-                {selectedDate && (
-                  <div className="mt-6" data-testid="drilldown-section">
+                {/* Employee Details Table */}
+                {selectedDate ? (
+                  <div data-testid="drilldown-section">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" data-testid="drilldown-title">
                       <Calendar className="h-5 w-5" />
                       Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
@@ -623,6 +613,12 @@ export default function Dashboard() {
                         )}
                       </TableBody>
                     </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8" data-testid="no-date-selected">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400">Select a Date</h3>
+                    <p className="text-gray-500 dark:text-gray-500">Choose a date above to view detailed employee information</p>
                   </div>
                 )}
               </CardContent>
