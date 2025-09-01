@@ -109,15 +109,23 @@ function timeToString(timeValue: any): string {
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 function getScheduledHoursForDate(employee: EmployeeGuaranteedHours | undefined, dateStr: string): number {
-  if (!employee) return 0;
+  if (!employee) {
+    console.log('No employee data for scheduled hours calculation');
+    return 0;
+  }
   
   const targetDate = new Date(dateStr);
+  console.log(`Checking scheduled hours for ${employee.originalName} on ${dateStr}`);
+  console.log(`Target date: ${targetDate}, Service period: ${employee.serviceStartDate} to ${employee.serviceEndDate}`);
+  console.log(`Pay rate hours: ${employee.payRateHours}`);
   
   // Check if the target date falls within the service requirement period
   if (targetDate >= employee.serviceStartDate && targetDate <= employee.serviceEndDate) {
+    console.log(`Date is within service period, returning ${employee.payRateHours} hours`);
     return employee.payRateHours;
   }
   
+  console.log('Date is outside service period, returning 0 hours');
   return 0; // No scheduled hours if outside service requirement period
 }
 
@@ -470,6 +478,12 @@ export function processCapacityData(
   if (availability.length > 0) {
     console.log('First availability row columns:', Object.keys(availability[0]));
     console.log('First availability row sample:', availability[0]);
+  }
+  
+  // Debug: Log guaranteed employees data
+  if (guaranteedEmployees.length > 0) {
+    console.log('First guaranteed employee:', guaranteedEmployees[0]);
+    console.log('Service date range:', guaranteedEmployees[0].serviceStartDate, 'to', guaranteedEmployees[0].serviceEndDate);
   }
 
   // Step 2: Match availability names to guaranteed hours
