@@ -525,6 +525,54 @@ export function processCapacityData(
     groupedData.get(key)!.push(row);
   });
 
+  // Helper function to merge overlapping time windows
+  function mergeTimeWindows(windows: string[]): string[] {
+    if (windows.length <= 1) return windows;
+    
+    const timeRanges = windows
+      .filter(w => w && w !== "" && w !== "-" && !w.includes("undefined"))
+      .map(window => {
+        const parts = window.split('-');
+        if (parts.length === 2) {
+          return { start: parts[0].trim(), end: parts[1].trim(), original: window };
+        }
+        return null;
+      })
+      .filter(Boolean) as { start: string; end: string; original: string }[];
+    
+    if (timeRanges.length === 0) return [];
+    
+    // Sort by start time
+    timeRanges.sort((a, b) => {
+      const aTime = new Date(`2000-01-01 ${a.start}`);
+      const bTime = new Date(`2000-01-01 ${b.start}`);
+      return aTime.getTime() - bTime.getTime();
+    });
+    
+    const merged = [timeRanges[0]];
+    
+    for (let i = 1; i < timeRanges.length; i++) {
+      const current = timeRanges[i];
+      const last = merged[merged.length - 1];
+      
+      const currentStart = new Date(`2000-01-01 ${current.start}`);
+      const lastEnd = new Date(`2000-01-01 ${last.end}`);
+      
+      // If windows overlap or are adjacent (within 30 minutes), merge them
+      if (currentStart.getTime() <= lastEnd.getTime() + (30 * 60 * 1000)) {
+        const currentEnd = new Date(`2000-01-01 ${current.end}`);
+        if (currentEnd.getTime() > lastEnd.getTime()) {
+          last.end = current.end;
+          last.original = `${last.start}-${last.end}`;
+        }
+      } else {
+        merged.push(current);
+      }
+    }
+    
+    return merged.map(range => range.original);
+  }
+
   // Step 6: Collapse function - exactly like your collapse_one_group function
   const cleanedRecords: CleanedEmployeeRecord[] = [];
   
@@ -604,9 +652,10 @@ export function processCapacityData(
         netCapacity = 0.0;
       }
       
-      // Join windows and notes like your Python logic  
+      // Join windows and notes like your Python logic, but merge overlapping windows first
       const uniqueWindows = Array.from(new Set(agg.windows)).filter(w => w && w !== "");
-      const windowsStr = uniqueWindows.length > 0 ? uniqueWindows.sort().join("; ") : "";
+      const mergedWindows = mergeTimeWindows(uniqueWindows);
+      const windowsStr = mergedWindows.length > 0 ? mergedWindows.sort().join("; ") : "";
       const notesStr = Array.from(new Set(agg.notes)).sort().join("; ");
       
       cleanedRecords.push({

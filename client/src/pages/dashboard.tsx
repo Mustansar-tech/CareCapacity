@@ -19,6 +19,7 @@ import { SmartAlerts } from "@/components/smart-alerts";
 import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { EnhancedTooltip } from "@/components/enhanced-tooltip";
+import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 
 export default function Dashboard() {
   // File upload state
@@ -614,7 +615,11 @@ export default function Dashboard() {
                               <Badge variant="outline">{emp.status}</Badge>
                             </TableCell>
                             <TableCell data-testid={`drilldown-time-windows-${index}`}>
-                              {emp.timeWindows || '-'}
+                              <FlexibleTimeWindow 
+                                timeWindows={emp.timeWindows || '-'}
+                                compact={true}
+                                editable={false}
+                              />
                             </TableCell>
                             <TableCell data-testid={`drilldown-contracted-daily-${index}`}>
                               {emp.contractedDailyHours}h
