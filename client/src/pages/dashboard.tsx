@@ -514,10 +514,6 @@ export default function Dashboard() {
               <CardContent>
                 {/* Date Selector for Employee Details */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Select Date for Employee Details
-                  </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
                     {(filteredData || processedData)?.dailySummary?.map((day) => (
                       <Button
