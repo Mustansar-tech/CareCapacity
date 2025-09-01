@@ -443,6 +443,14 @@ export default function Dashboard() {
               Overview
             </TabsTrigger>
             <TabsTrigger 
+              value="daily-capacity" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-daily-capacity"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Daily View
+            </TabsTrigger>
+            <TabsTrigger 
               value="alerts" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-alerts"
@@ -457,14 +465,6 @@ export default function Dashboard() {
             >
               <TrendingUp className="w-4 h-4 mr-2" />
               Analytics
-            </TabsTrigger>
-            <TabsTrigger 
-              value="daily-capacity" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-daily-capacity"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Daily View
             </TabsTrigger>
             <TabsTrigger 
               value="quality" 
@@ -484,7 +484,152 @@ export default function Dashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Smart Alerts Tab */}
+          {/* Daily Capacity Tab */}
+          <TabsContent value="daily-capacity" className="space-y-6 animate-fade-in" data-testid="content-daily-capacity">
+            <Card className="glass">
+              <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                      Daily Capacity Summary
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                    {(() => {
+                      const data = filteredData || processedData;
+                      if (!data?.dailySummary || data.dailySummary.length === 0) return 'No data';
+                      const startDate = new Date(data.dailySummary[0].date);
+                      const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date);
+                      const monthStart = startDate.toLocaleDateString('en-US', { month: 'short' });
+                      const monthEnd = endDate.toLocaleDateString('en-US', { month: 'short' });
+                      const year = startDate.getFullYear();
+                      return monthStart === monthEnd ? `${monthStart} ${year}` : `${monthStart} - ${monthEnd} ${year}`;
+                    })()}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isProcessing ? (
+                  <TableSkeleton rows={7} />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead data-testid="header-date">Date</TableHead>
+                        <TableHead data-testid="header-available">Available</TableHead>
+                        <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
+                        <TableHead data-testid="header-required">Required</TableHead>
+                        <TableHead data-testid="header-gap">Gap</TableHead>
+                        <TableHead data-testid="header-status">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {(filteredData || processedData)?.dailySummary?.map((day, index) => (
+                      <TableRow 
+                        key={day.date} 
+                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                          selectedDate === day.date ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                        onClick={() => setSelectedDate(day.date)}
+                        data-testid={`row-${index}`}
+                      >
+                        <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
+                          {new Date(day.date).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </TableCell>
+                        <TableCell data-testid={`cell-available-${index}`}>{day.totalAvailable}h</TableCell>
+                        <TableCell data-testid={`cell-net-capacity-${index}`}>{day.netCapacity}h</TableCell>
+                        <TableCell data-testid={`cell-required-${index}`}>{day.clientRequired}h</TableCell>
+                        <TableCell data-testid={`cell-gap-${index}`}>
+                          <span className={day.capacityGap < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                            {day.capacityGap}h
+                          </span>
+                        </TableCell>
+                        <TableCell data-testid={`cell-status-${index}`}>
+                          <Badge variant={day.status === 'Sufficient' ? 'default' : 'destructive'}>
+                            {day.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    )) || []}
+                    </TableBody>
+                  </Table>
+                )}
+
+                {/* Drilldown Table */}
+                {selectedDate && (
+                  <div className="mt-6" data-testid="drilldown-section">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" data-testid="drilldown-title">
+                      <Calendar className="h-5 w-5" />
+                      Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                      <Badge variant="outline" className="ml-2">
+                        {selectedDayDetails.length} employees
+                      </Badge>
+                    </h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead data-testid="drilldown-header-employee">Employee</TableHead>
+                          <TableHead data-testid="drilldown-header-status">Status</TableHead>
+                          <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily">Contracted Daily</TableHead>
+                          <TableHead data-testid="drilldown-header-hours">Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => (
+                          <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
+                            <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
+                              {emp.employeeName}
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-status-${index}`}>
+                              <Badge variant="outline">{emp.status}</Badge>
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-time-windows-${index}`}>
+                              {emp.timeWindows}
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-contracted-daily-${index}`}>
+                              {emp.contractedDailyHours}h
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-hours-${index}`}>
+                              {emp.hours}h
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-net-capacity-${index}`}>
+                              {emp.netCapacity}h
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-notes-${index}`}>
+                              {emp.notes}
+                            </TableCell>
+                          </TableRow>
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              No employee data available for this date
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Smart Alerts Tab - Only Alerts */}
           <TabsContent value="alerts" data-testid="content-alerts">
             <SmartAlerts 
               data={filteredData || processedData} 
