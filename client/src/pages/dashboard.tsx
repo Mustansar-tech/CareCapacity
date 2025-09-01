@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
+import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
 import { AdvancedFilters } from "@/components/advanced-filters";
 import { InteractiveCharts } from "@/components/interactive-charts";
 import { SmartAlerts } from "@/components/smart-alerts";
@@ -56,6 +57,7 @@ export default function Dashboard() {
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
         employeesByDate: latestData.employeesByDate as any,
+        employeeSummaryByDate: latestData.employeeSummaryByDate as any,
         warnings: latestData.warnings as any,
       });
       toast({
@@ -458,7 +460,7 @@ export default function Dashboard() {
         )}
 
         <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
@@ -498,6 +500,14 @@ export default function Dashboard() {
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               Quality
+            </TabsTrigger>
+            <TabsTrigger 
+              value="employee-summary" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-employee-summary"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Summary
             </TabsTrigger>
             <TabsTrigger 
               value="export" 
@@ -1036,7 +1046,21 @@ export default function Dashboard() {
             )}
           </TabsContent>
 
-
+          {/* Employee Summary Tab */}
+          <TabsContent value="employee-summary" className="space-y-6 animate-fade-in" data-testid="content-employee-summary">
+            {(() => {
+              const data = filteredData || processedData;
+              const currentDate = selectedDate || (data?.dailySummary?.[0]?.date) || new Date().toISOString().split('T')[0];
+              const summaryData = data?.employeeSummaryByDate?.[currentDate] || [];
+              
+              return (
+                <EmployeeSummaryTab 
+                  data={summaryData} 
+                  selectedDate={currentDate}
+                />
+              );
+            })()}
+          </TabsContent>
 
           {/* Export Tab */}
           <TabsContent value="export" className="space-y-6 animate-fade-in" data-testid="content-export">

@@ -109,23 +109,15 @@ function timeToString(timeValue: any): string {
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 function getScheduledHoursForDate(employee: EmployeeGuaranteedHours | undefined, dateStr: string): number {
-  if (!employee) {
-    console.log('No employee data for scheduled hours calculation');
-    return 0;
-  }
+  if (!employee) return 0;
   
   const targetDate = new Date(dateStr);
-  console.log(`Checking scheduled hours for ${employee.originalName} on ${dateStr}`);
-  console.log(`Target date: ${targetDate}, Service period: ${employee.serviceStartDate} to ${employee.serviceEndDate}`);
-  console.log(`Pay rate hours: ${employee.payRateHours}`);
   
   // Check if the target date falls within the service requirement period
   if (targetDate >= employee.serviceStartDate && targetDate <= employee.serviceEndDate) {
-    console.log(`Date is within service period, returning ${employee.payRateHours} hours`);
     return employee.payRateHours;
   }
   
-  console.log('Date is outside service period, returning 0 hours');
   return 0; // No scheduled hours if outside service requirement period
 }
 
@@ -474,17 +466,6 @@ export function processCapacityData(
     serviceEndDate: new Date(row["Service Requirement End Date And Time"])
   }));
 
-  // Debug: Log first availability row to see what columns are available
-  if (availability.length > 0) {
-    console.log('First availability row columns:', Object.keys(availability[0]));
-    console.log('First availability row sample:', availability[0]);
-  }
-  
-  // Debug: Log guaranteed employees data
-  if (guaranteedEmployees.length > 0) {
-    console.log('First guaranteed employee:', guaranteedEmployees[0]);
-    console.log('Service date range:', guaranteedEmployees[0].serviceStartDate, 'to', guaranteedEmployees[0].serviceEndDate);
-  }
 
   // Step 2: Match availability names to guaranteed hours
   const guaranteedKeys = guaranteedEmployees.map(emp => emp.normalizedName);
@@ -808,10 +789,40 @@ export function processCapacityData(
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
 
+  // Step 8: Generate employee summary by date
+  const employeeSummaryByDate: Record<string, any[]> = {};
+  
+  Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
+    const summaryMap = new Map<string, { availability: number; unavailability: number; scheduledHours: number }>();
+    
+    employees.forEach(emp => {
+      const key = emp.employeeName;
+      if (!summaryMap.has(key)) {
+        summaryMap.set(key, { availability: 0, unavailability: 0, scheduledHours: emp.scheduledHours || 0 });
+      }
+      
+      const summary = summaryMap.get(key)!;
+      if (emp.status === 'Available') {
+        summary.availability += emp.hours;
+      } else {
+        summary.unavailability += emp.hours;
+      }
+    });
+    
+    employeeSummaryByDate[dateStr] = Array.from(summaryMap.entries()).map(([employeeName, data]) => ({
+      employeeName,
+      availability: data.availability,
+      unavailability: data.unavailability,
+      scheduledHours: data.scheduledHours,
+      difference: data.availability - data.scheduledHours
+    }));
+  });
+
   const result = {
     kpis,
     dailySummary,
     employeesByDate,
+    employeeSummaryByDate,
     cleanedRecords,
     warnings: warnings.length > 0 ? warnings : undefined
   };
@@ -827,6 +838,7 @@ export function processCapacityData(
       kpis: result.kpis as any,
       dailySummary: result.dailySummary as any,
       employeesByDate: result.employeesByDate as any,
+      employeeSummaryByDate: result.employeeSummaryByDate as any,
       warnings: result.warnings as any,
     };
     

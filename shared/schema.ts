@@ -26,6 +26,7 @@ export const capacityAnalyses = pgTable("capacity_analyses", {
   kpis: jsonb("kpis").notNull(),
   dailySummary: jsonb("daily_summary").notNull(),
   employeesByDate: jsonb("employees_by_date").notNull(),
+  employeeSummaryByDate: jsonb("employee_summary_by_date").notNull().default({}),
   warnings: jsonb("warnings").default([]),
 });
 
@@ -99,6 +100,14 @@ export interface EmployeeDailyDetail {
   notes: string;
 }
 
+export interface EmployeeSummaryRecord {
+  employeeName: string;
+  availability: number;
+  unavailability: number;
+  scheduledHours: number;
+  difference: number;
+}
+
 export interface ProcessingResult {
   kpis: {
     netCapacitySum: number;
@@ -109,6 +118,7 @@ export interface ProcessingResult {
   };
   dailySummary: DailySummaryRecord[];
   employeesByDate: Record<string, EmployeeDailyDetail[]>;
+  employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>;
   warnings?: string[];
 }
 
