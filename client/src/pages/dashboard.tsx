@@ -529,31 +529,46 @@ export default function Dashboard() {
                     <TableBody>
                     {(filteredData || processedData)?.dailySummary?.map((day, index) => (
                       <TableRow 
-                        key={day.date} 
-                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                          selectedDate === day.date ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        key={day.date}
+                        className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 interactive ${
+                          selectedDate === day.date ? 'bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-gradient-to-b border-blue-500' : ''
                         }`}
-                        onClick={() => setSelectedDate(day.date)}
-                        data-testid={`row-${index}`}
+                        onClick={() => {
+                          setSelectedDate(day.date);
+                          console.log('Selected date:', day.date);
+                        }}
+                        data-testid={`row-daily-summary-${index}`}
                       >
                         <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
-                          {new Date(day.date).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}
+                          {new Date(day.date).toLocaleDateString()}
                         </TableCell>
-                        <TableCell data-testid={`cell-available-${index}`}>{day.available}h</TableCell>
-                        <TableCell data-testid={`cell-net-capacity-${index}`}>{day.netCapacity}h</TableCell>
-                        <TableCell data-testid={`cell-required-${index}`}>{day.clientRequired}h</TableCell>
+                        <TableCell data-testid={`cell-available-${index}`}>
+                          {day.availableHours}h
+                        </TableCell>
+                        <TableCell data-testid={`cell-net-capacity-${index}`}>
+                          {day.netCapacity}h
+                        </TableCell>
+                        <TableCell data-testid={`cell-client-required-${index}`}>
+                          {day.clientRequired}h
+                        </TableCell>
                         <TableCell data-testid={`cell-gap-${index}`}>
-                          <span className={day.gap < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
-                            {day.gap}h
-                          </span>
+                          <Badge 
+                            variant={day.gap >= 0 ? "default" : "destructive"}
+                            className={`${
+                              day.gap >= 0 
+                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
+                                : 'bg-gradient-to-r from-red-500 to-red-600 text-white'
+                            }`}
+                          >
+                            {day.gap >= 0 ? '+' : ''}{day.gap}h
+                          </Badge>
                         </TableCell>
                         <TableCell data-testid={`cell-status-${index}`}>
-                          <Badge variant={day.status === 'Sufficient' ? 'default' : 'destructive'}>
-                            {day.status}
+                          <Badge 
+                            variant={day.gap >= 0 ? "default" : "destructive"}
+                            className="glass-card"
+                          >
+                            {day.gap >= 0 ? 'Sufficient' : 'Shortage'}
                           </Badge>
                         </TableCell>
                       </TableRow>
