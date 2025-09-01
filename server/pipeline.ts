@@ -665,6 +665,7 @@ export function processCapacityData(
         date,
         status,
         timeWindows: windowsStr,
+        scheduledHours: Math.round(weekly * 100) / 100, // Scheduled hours is the contracted weekly hours
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
@@ -756,6 +757,7 @@ export function processCapacityData(
       status: record.status,
       timeWindows: record.timeWindows,
       contractedDailyHours: record.contractedDailyHours,
+      scheduledHours: record.scheduledHours,
       hours: record.hours,
       netCapacity: record.netCapacity,
       notes: record.notes

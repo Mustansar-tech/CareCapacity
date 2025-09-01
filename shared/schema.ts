@@ -68,6 +68,7 @@ export interface CleanedEmployeeRecord {
   date: string;
   status: string;
   timeWindows: string;
+  scheduledHours: number;
   hours: number;
   netCapacity: number;
   notes: string;
@@ -89,6 +90,7 @@ export interface EmployeeDailyDetail {
   status: string;
   timeWindows: string;
   contractedDailyHours: number;
+  scheduledHours: number;
   hours: number;
   netCapacity: number;
   notes: string;
