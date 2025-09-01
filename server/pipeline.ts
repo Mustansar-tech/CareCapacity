@@ -109,15 +109,24 @@ function timeToString(timeValue: any): string {
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 function getScheduledHoursForDate(employee: EmployeeGuaranteedHours | undefined, dateStr: string): number {
-  if (!employee) return 0;
+  if (!employee) {
+    console.log(`❌ No employee data for scheduled hours on ${dateStr}`);
+    return 0;
+  }
   
   const targetDate = new Date(dateStr);
+  console.log(`🔍 Checking scheduled hours for ${employee.originalName} on ${dateStr}:`);
+  console.log(`   Target date: ${targetDate.toISOString()}`);
+  console.log(`   Service period: ${employee.serviceStartDate.toISOString()} to ${employee.serviceEndDate.toISOString()}`);
+  console.log(`   Pay rate hours: ${employee.payRateHours}`);
   
   // Check if the target date falls within the service requirement period
   if (targetDate >= employee.serviceStartDate && targetDate <= employee.serviceEndDate) {
+    console.log(`   ✅ Date is within service period, returning ${employee.payRateHours} hours`);
     return employee.payRateHours;
   }
   
+  console.log(`   ❌ Date is outside service period, returning 0 hours`);
   return 0; // No scheduled hours if outside service requirement period
 }
 
@@ -455,6 +464,14 @@ export function processCapacityData(
   demand: ClientDemandRow[]
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
+
+  // Debug: Log guaranteed hours data structure
+  if (guaranteed.length > 0) {
+    console.log('=== GUARANTEED HOURS DEBUG ===');
+    console.log('Available columns:', Object.keys(guaranteed[0]));
+    console.log('First row sample:', guaranteed[0]);
+    console.log('Total rows:', guaranteed.length);
+  }
 
   // Step 1: Prepare guaranteed hours with normalized names
   const guaranteedEmployees = guaranteed.map(row => ({
