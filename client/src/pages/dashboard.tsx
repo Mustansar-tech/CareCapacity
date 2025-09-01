@@ -614,7 +614,7 @@ export default function Dashboard() {
                               <Badge variant="outline">{emp.status}</Badge>
                             </TableCell>
                             <TableCell data-testid={`drilldown-time-windows-${index}`}>
-                              {emp.timeWindows}
+                              {emp.timeWindows || '-'}
                             </TableCell>
                             <TableCell data-testid={`drilldown-contracted-daily-${index}`}>
                               {emp.contractedDailyHours}h
