@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { parse, format } from 'date-fns';
-import { timeToString, buildTimeWindow, parseGuaranteedDate } from './time-window-utils';
+import { buildTimeWindow, parseGuaranteedDate } from './time-window-utils';
 import { 
   AvailabilityRow, 
   GuaranteedHoursRow, 
@@ -736,7 +736,7 @@ export function processCapacityData(
   }>();
 
   // Group records by date and employee to apply consolidation logic
-  const recordsByDateAndEmployee = new Map<string, Map<string, CleanedRecord[]>>();
+  const recordsByDateAndEmployee = new Map<string, Map<string, CleanedEmployeeRecord[]>>();
   
   cleanedRecords.forEach(record => {
     const dateKey = record.date;
