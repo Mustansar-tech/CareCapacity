@@ -822,6 +822,10 @@ export function processCapacityData(
       }
       
       const summary = summaryMap.get(key)!;
+      // Ensure we always use the contracted daily hours (in case there are multiple rows for same employee)
+      summary.availability = Math.max(summary.availability, emp.contractedDailyHours);
+      summary.scheduledHours = Math.max(summary.scheduledHours, emp.scheduledHours || 0);
+      
       // Only count unavailable statuses for unavailability
       if (emp.status !== 'Available') {
         summary.unavailability += emp.hours;
