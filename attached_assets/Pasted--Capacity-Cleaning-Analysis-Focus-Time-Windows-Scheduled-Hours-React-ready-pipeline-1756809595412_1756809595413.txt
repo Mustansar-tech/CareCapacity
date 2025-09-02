@@ -1,0 +1,219 @@
+/*
+ * Capacity Cleaning & Analysis — Focus: Time Windows + Scheduled Hours
+ * React-ready pipeline functions
+ *
+ * Scheduled Hours:
+ *   - Source: Guaranteed Hours sheet, column "Actual Pay Rate Hours"
+ *   - Match by: Employee name AND date = yyyy-MM-dd("Service Requirement Start Date And Time")
+ *   - We normalize names (lowercase, strip parens & punctuation) for matching.
+ *   - Availability row date uses Start Date (yyyy-MM-dd).
+ *
+ * Hours:
+ *   - Remains exactly as provided by Availability (no recalculation here).
+ */
+
+import * as XLSX from "xlsx";
+import type {
+  GuaranteedHoursRow,
+  ClientDemandRow,
+  CleanedEmployeeRecord,
+  ProcessingResult,
+} from "@shared/schema";
+
+/* ========================= Utility helpers ========================= */
+
+export function timeToString(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "";
+  const excelEpoch = new Date(1899, 11, 30);
+  const toHHMM = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+
+  try {
+    if (value instanceof Date) return toHHMM(value.getHours(), value.getMinutes());
+    if (typeof value === "number") {
+      if (value < 1) {
+        const totalMin = Math.round(value * 24 * 60);
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        return toHHMM(h, m);
+      }
+      const d = new Date(excelEpoch.getTime() + value * 86400000);
+      return toHHMM(d.getHours(), d.getMinutes());
+    }
+    if (typeof value === "string") {
+      const s = value.trim();
+      // Accept HH:mm or HH:mm:ss (with optional AM/PM)
+      const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([APap][Mm])?$/);
+      if (m) {
+        let h = Number(m[1]);
+        const min = Number(m[2]);
+        const ampm = m[4]?.toUpperCase();
+        if (ampm === "AM" && h === 12) h = 0;
+        if (ampm === "PM" && h < 12) h += 12;
+        return toHHMM(h, min);
+      }
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return toHHMM(d.getHours(), d.getMinutes());
+    }
+    const d = new Date(value as any);
+    if (!isNaN(d.getTime())) return toHHMM(d.getHours(), d.getMinutes());
+  } catch {
+    /* ignore */
+  }
+  return "";
+}
+
+// Build Time Window(s) string from a row
+export function buildTimeWindow(row: Record<string, any>): string {
+  const st = timeToString(row["Start Time"]);
+  const et = timeToString(row["End Time"]);
+  if (st && et) return `${st}-${et}`;
+
+  // fallback: combined column like "08:00 - 12:00" / also tolerate en/em dashes
+  const keys = Object.keys(row || {});
+  const combinedKey = keys.find((k) => /time window/i.test(k));
+  if (combinedKey && row[combinedKey]) {
+    const txt = String(row[combinedKey]);
+    const m = txt.match(/(\d{1,2}:\d{2})(?::\d{2})?\s*[\-–—]\s*(\d{1,2}:\d{2})(?::\d{2})?/);
+    if (m) return `${timeToString(m[1])}-${timeToString(m[2])}`;
+  }
+  return "";
+}
+
+// Normalize employee names for matching (lowercase, strip parens/punct, collapse spaces)
+function normalizeName(name: any): string {
+  const s = String(name ?? "").toLowerCase();
+  return s.replace(/\(.*?\)/g, " ").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Convert various date inputs (Date, Excel serial, string) to yyyy-MM-dd
+function toYmd(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  try {
+    let d: Date | null = null;
+
+    if (value instanceof Date) d = value;
+    else if (typeof value === "number") {
+      const excelEpoch = new Date(1899, 11, 30);
+      d = new Date(excelEpoch.getTime() + value * 86400000);
+    } else if (typeof value === "string") {
+      const s = value.trim();
+      const n = new Date(s);
+      if (!isNaN(n.getTime())) d = n;
+      else {
+        // Try dd/MM/yyyy or dd-MM-yyyy etc.
+        const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+        if (m) {
+          const dd = +m[1], mm = +m[2], yyyy = m[3].length === 2 ? +m[3] + 2000 : +m[3];
+          d = new Date(yyyy, mm - 1, dd);
+        }
+      }
+    } else {
+      const n = new Date(value);
+      if (!isNaN(n.getTime())) d = n;
+    }
+
+    if (!d) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
+/* ========================= Core processing ========================= */
+
+export function processCapacityData(
+  availability: any[],
+  guaranteed: GuaranteedHoursRow[],
+  demand: ClientDemandRow[]
+): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
+  const warnings: string[] = [];
+
+  // Build Scheduled Hours lookup from Guaranteed sheet
+  // key: normalized employee name + yyyy-MM-dd(Service Requirement Start Date And Time)
+  const ghMap = new Map<string, number>();
+  for (const g of guaranteed || []) {
+    const name = normalizeName((g as any)["Actual Employee Name"]);
+    const date = toYmd((g as any)["Service Requirement Start Date And Time"]);
+    const pay = Number((g as any)["Actual Pay Rate Hours"]) || 0;
+    if (name && date) ghMap.set(`${name}|${date}`, pay);
+  }
+
+  // Build records from Availability; keep Hours as-is; compute Scheduled Hours from ghMap
+  const cleanedRecords = availability.map((r: any) => {
+    const empRaw = r["CAREGiver Name"] ?? r["Employee Name"] ?? r.employeeName ?? "";
+    const empKey = normalizeName(empRaw);
+    const dateYmd = toYmd(r["Start Date"] ?? r.date ?? r["Date"]);
+
+    const scheduled = ghMap.get(`${empKey}|${dateYmd}`) || 0;
+
+    return {
+      ...r,
+      employeeName: empRaw,
+      date: dateYmd,
+      status: r.status ?? r.Status ?? r.Type ?? "",
+      startTime: timeToString(r["Start Time"]),
+      endTime: timeToString(r["End Time"]),
+      timeWindows: buildTimeWindow(r),
+      scheduledHours: scheduled,     // << from Guaranteed sheet
+      hours: r.Hours ?? 0,           // << unchanged (exactly as file)
+    } as CleanedEmployeeRecord;
+  });
+
+  return {
+    kpis: {} as any,
+    dailySummary: [] as any,
+    employeesByDate: {} as any,
+    employeeSummaryByDate: {} as any,
+    cleanedRecords,
+    warnings,
+  };
+}
+
+/* ========================= React-friendly runner ========================= */
+
+export async function runCapacityPipelineFromFiles(files: {
+  availability: ArrayBuffer;
+  guaranteed: ArrayBuffer;
+  demand: ArrayBuffer;
+}) {
+  const read = (buf: ArrayBuffer) => XLSX.read(buf, { type: "buffer" as any });
+
+  const availWb = read(files.availability);
+  const availSheet = availWb.SheetNames.includes("CAREGiver Availability")
+    ? "CAREGiver Availability"
+    : availWb.SheetNames[0];
+  const availability = XLSX.utils.sheet_to_json<any>(availWb.Sheets[availSheet], { defval: "" });
+
+  const guaranteedWb = read(files.guaranteed);
+  const guaranteedSheet = guaranteedWb.SheetNames.includes("Data") ? "Data" : guaranteedWb.SheetNames[0];
+  const guaranteed = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedWb.Sheets[guaranteedSheet], { defval: "" });
+
+  const demandWb = read(files.demand);
+  const demandSheet = demandWb.SheetNames[0];
+  const demand = XLSX.utils.sheet_to_json<ClientDemandRow>(demandWb.Sheets[demandSheet], { defval: "" });
+
+  return processCapacityData(availability, guaranteed, demand);
+}
+
+/* ========================= Excel export (adds Scheduled Hours column) ========================= */
+
+export function generateExcelExport(result: ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] }) {
+  const workbook = XLSX.utils.book_new();
+  const cleanedData = [
+    ["Employee Name", "Date", "Status", "Time Windows", "Scheduled Hours", "Hours"],
+    ...result.cleanedRecords.map((r) => [
+      r["CAREGiver Name"] ?? r["Employee Name"] ?? r.employeeName,
+      r.date ?? "",
+      r.status ?? "",
+      r.timeWindows ?? "",
+      (r as any).scheduledHours ?? "",
+      r.hours ?? "",
+    ]),
+  ];
+  const cleanedSheet = XLSX.utils.aoa_to_sheet(cleanedData);
+  XLSX.utils.book_append_sheet(workbook, cleanedSheet, "Cleaned");
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+}

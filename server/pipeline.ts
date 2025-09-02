@@ -109,17 +109,27 @@ function timeToString(timeValue: any): string {
 }
 
 // Helper function to get scheduled hours for a specific date based on service requirements
-function getScheduledHoursForDate(employee: EmployeeGuaranteedHours | undefined, dateStr: string): number {
-  if (!employee) return 0;
+// Build Scheduled Hours lookup from Guaranteed sheet
+// key: normalized employee name + yyyy-MM-dd(Service Requirement Start Date And Time)
+function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
+  const ghMap = new Map<string, number>();
   
-  const targetDate = new Date(dateStr);
-  
-  // Check if the target date falls within the service requirement period
-  if (targetDate >= employee.serviceStartDate && targetDate <= employee.serviceEndDate) {
-    return employee.payRateHours;
+  for (const g of guaranteed || []) {
+    const name = normalizeName((g as any)["Actual Employee Name"]);
+    const date = format(parseDate((g as any)["Service Requirement Start Date And Time"]), 'yyyy-MM-dd');
+    const pay = Number((g as any)["Actual Pay Rate Hours"]) || 0;
+    if (name && date) {
+      ghMap.set(`${name}|${date}`, pay);
+    }
   }
   
-  return 0; // No scheduled hours if outside service requirement period
+  return ghMap;
+}
+
+function getScheduledHoursForEmployeeAndDate(scheduledHoursMap: Map<string, number>, employeeName: string, dateStr: string): number {
+  const normalizedName = normalizeName(employeeName);
+  const key = `${normalizedName}|${dateStr}`;
+  return scheduledHoursMap.get(key) || 0;
 }
 
 // Calculate hours between times exactly like your hours_between function
@@ -457,6 +467,8 @@ export function processCapacityData(
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
 
+  // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
+  const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
@@ -700,7 +712,7 @@ export function processCapacityData(
         date,
         status,
         timeWindows: windowsStr,
-        scheduledHours: Math.round(getScheduledHoursForDate(group[0].matchedEmployee, date) * 100) / 100, // Scheduled hours based on service requirement dates
+        scheduledHours: Math.round(getScheduledHoursForEmployeeAndDate(scheduledHoursMap, empName, date) * 100) / 100, // Scheduled hours using exact logic from attached file
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
