@@ -637,7 +637,6 @@ export function processCapacityData(
     
     // Calculate total scheduled hours for this employee on this date (sum all service assignments)
     const totalScheduledHours = getScheduledHoursForEmployeeAndDate(scheduledHoursMap, empName, date);
-    console.log(`🔢 DAILY CAPACITY: ${empName} on ${date} - scheduled: ${totalScheduledHours}h`);
     
     
     // Deduplicate identical windows per status (like your Python dd logic)
@@ -786,8 +785,11 @@ export function processCapacityData(
           bestRecord = record;
         }
         
-        if (record.status !== 'Available') {
+        if (record.status !== 'Available' && record.status !== 'Partial Availability') {
           hasUnavailableStatus = true;
+          totalUnavailableHours += record.hours;
+        } else if (record.status === 'Partial Availability') {
+          // Partial availability adds to unavailable hours but doesn't mark as fully unavailable
           totalUnavailableHours += record.hours;
         }
       });
@@ -795,7 +797,7 @@ export function processCapacityData(
       // Use the best record's net capacity
       summary.netCapacity += bestRecord.netCapacity;
 
-      // Apply status priority logic (unavailable wins over available)
+      // Apply status priority logic with proper handling of partial availability
       if (hasUnavailableStatus) {
         // Count unavailable hours by status type
         records.forEach(record => {
@@ -806,11 +808,15 @@ export function processCapacityData(
           }
         });
       } else {
-        // Only count as available if no unavailable status exists
-        const availableRecord = records.find(r => r.status === 'Available');
-        if (availableRecord) {
-          summary.availableHours += availableRecord.hours;
-        }
+        // Count available hours and partial availability hours
+        records.forEach(record => {
+          if (record.status === 'Available') {
+            summary.availableHours += record.hours;
+          } else if (record.status === 'Partial Availability') {
+            // Partial availability contributes to unavailability hours
+            summary.unavailability += record.hours;
+          }
+        });
       }
     });
   });
@@ -909,14 +915,20 @@ export function processCapacityData(
         empData.scheduledHours = emp.scheduledHours || 0;
       }
       
-      // Track status types - prioritize unavailable statuses
+      // Track status types - handle partial availability specially
       if (emp.status === 'Available') {
-        // Only mark as available if we haven't seen an unavailable status yet
+        // Only mark as available if we haven't seen a fully unavailable status yet
         if (!empData.hasUnavailableStatus) {
           empData.hasAvailableStatus = true;
         }
+      } else if (emp.status === 'Partial Availability') {
+        // Partial availability should be preserved alongside other statuses
+        // Don't override available status, just add the unavailable hours
+        empData.unavailabilityHours += emp.hours;
+        // Keep track that this person has some availability
+        empData.hasAvailableStatus = true;
       } else {
-        // If we see any unavailable status, override available status
+        // For fully unavailable statuses (Holiday, Sick, etc.)
         empData.hasUnavailableStatus = true;
         empData.hasAvailableStatus = false; // Remove available status if present
         empData.unavailabilityHours += emp.hours;
@@ -925,7 +937,6 @@ export function processCapacityData(
     
     // Build the final summary using the consolidated employee data
     employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => {
-      console.log(`📊 EMPLOYEE SUMMARY: ${employeeName} on ${dateStr} - scheduled: ${empData.scheduledHours}h`);
       return {
         employeeName,
         availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
