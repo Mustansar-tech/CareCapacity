@@ -920,13 +920,18 @@ export function processCapacityData(
     });
     
     // Build the final summary using the consolidated employee data
-    employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => ({
-      employeeName,
-      availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
-      unavailability: empData.unavailabilityHours,
-      scheduledHours: empData.scheduledHours,
-      difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours
-    }));
+    employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => {
+      // Use the same scheduled hours lookup as Daily Capacity Summary for consistency
+      const correctScheduledHours = getScheduledHoursForEmployeeAndDate(scheduledHoursMap, employeeName, dateStr);
+      
+      return {
+        employeeName,
+        availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
+        unavailability: empData.unavailabilityHours,
+        scheduledHours: correctScheduledHours,
+        difference: empData.contractedDailyHours - empData.unavailabilityHours - correctScheduledHours
+      };
+    });
   });
 
   const result = {
