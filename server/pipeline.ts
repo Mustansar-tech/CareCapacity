@@ -119,7 +119,10 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const date = format(parseDate((g as any)["Service Requirement Start Date And Time"]), 'yyyy-MM-dd');
     const pay = Number((g as any)["Actual Pay Rate Hours"]) || 0;
     if (name && date) {
-      ghMap.set(`${name}|${date}`, pay);
+      const key = `${name}|${date}`;
+      // Sum multiple assignments for the same employee on the same date
+      const existing = ghMap.get(key) || 0;
+      ghMap.set(key, existing + pay);
     }
   }
   
@@ -128,17 +131,8 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
 function getScheduledHoursForEmployeeAndDate(scheduledHoursMap: Map<string, number>, employeeName: string, dateStr: string): number {
   const normalizedName = normalizeName(employeeName);
-  let totalHours = 0;
-  
-  // Sum all scheduled hours for this employee on this date (there could be multiple service assignments)
-  for (const [key, hours] of scheduledHoursMap.entries()) {
-    const [mapName, mapDate] = key.split('|');
-    if (mapName === normalizedName && mapDate === dateStr) {
-      totalHours += hours;
-    }
-  }
-  
-  return totalHours;
+  const key = `${normalizedName}|${dateStr}`;
+  return scheduledHoursMap.get(key) || 0;
 }
 
 // Calculate hours between times exactly like your hours_between function
