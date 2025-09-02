@@ -417,14 +417,20 @@ export function parseExcelFiles(
         return;
       }
       
-      // Filter out secondary client hours: exclude rows where either "Actual Service Type Description" 
-      // or "Cancellation Description" have non-blank values (only keep blank entries)
+      // Filter out secondary client hours with individual logic for each column
       const actualServiceType = row["Actual Service Type Description"];
       const cancellationDesc = row["Cancellation Description"];
       
-      if ((actualServiceType && actualServiceType.toString().trim() !== '') || 
-          (cancellationDesc && cancellationDesc.toString().trim() !== '')) {
-        // Skip this row - it's a secondary client or has service description
+      // Cancellation Description: Include blank entries AND entries with just "."
+      const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
+      const isCancellationValid = cancellationValue === '' || cancellationValue === '.';
+      
+      // Service Type Description: Only exclude entries mentioning "multiple care" or "secondary"
+      const serviceTypeValue = actualServiceType ? actualServiceType.toString().toLowerCase() : '';
+      const isSecondaryClient = serviceTypeValue.includes('multiple care') || serviceTypeValue.includes('secondary');
+      
+      if (!isCancellationValid || isSecondaryClient) {
+        // Skip this row - either has cancellation info or is a secondary client
         filteredSecondaryCount++;
         return;
       }
