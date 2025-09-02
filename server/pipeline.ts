@@ -808,18 +808,22 @@ export function processCapacityData(
   const employeeSummaryByDate: Record<string, any[]> = {};
   
   Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
-    const summaryMap = new Map<string, { availability: number; unavailability: number; scheduledHours: number }>();
+    const summaryMap = new Map<string, { availability: number; unavailability: number; scheduledHours: number; contractedDaily: number }>();
     
     employees.forEach(emp => {
       const key = emp.employeeName;
       if (!summaryMap.has(key)) {
-        summaryMap.set(key, { availability: 0, unavailability: 0, scheduledHours: emp.scheduledHours || 0 });
+        summaryMap.set(key, { 
+          availability: emp.contractedDailyHours, // Use contracted daily hours as availability
+          unavailability: 0, 
+          scheduledHours: emp.scheduledHours || 0,
+          contractedDaily: emp.contractedDailyHours
+        });
       }
       
       const summary = summaryMap.get(key)!;
-      if (emp.status === 'Available') {
-        summary.availability += emp.hours;
-      } else {
+      // Only count unavailable statuses for unavailability
+      if (emp.status !== 'Available') {
         summary.unavailability += emp.hours;
       }
     });
