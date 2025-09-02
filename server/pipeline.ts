@@ -891,6 +891,7 @@ export function processCapacityData(
       unavailabilityHours: number; 
       hasAvailableStatus: boolean;
       hasUnavailableStatus: boolean;
+      hasPartialAvailability: boolean;
     }>();
     
     employees.forEach(emp => {
@@ -902,7 +903,8 @@ export function processCapacityData(
           scheduledHours: emp.scheduledHours || 0,
           unavailabilityHours: 0,
           hasAvailableStatus: false,
-          hasUnavailableStatus: false
+          hasUnavailableStatus: false,
+          hasPartialAvailability: false
         });
       }
       
@@ -915,34 +917,37 @@ export function processCapacityData(
         empData.scheduledHours = emp.scheduledHours || 0;
       }
       
-      // Track status types - handle partial availability specially
+      // Track all status types separately, then consolidate at the end
       if (emp.status === 'Available') {
-        // Only mark as available if we haven't seen a fully unavailable status yet
-        if (!empData.hasUnavailableStatus) {
-          empData.hasAvailableStatus = true;
-        }
-      } else if (emp.status === 'Partial Availability') {
-        // Partial availability should be preserved alongside other statuses
-        // Don't override available status, just add the unavailable hours
-        empData.unavailabilityHours += emp.hours;
-        // Keep track that this person has some availability
         empData.hasAvailableStatus = true;
+      } else if (emp.status === 'Partial Availability') {
+        empData.hasPartialAvailability = true;
+        empData.unavailabilityHours += emp.hours;
       } else {
         // For fully unavailable statuses (Holiday, Sick, etc.)
         empData.hasUnavailableStatus = true;
-        empData.hasAvailableStatus = false; // Remove available status if present
         empData.unavailabilityHours += emp.hours;
       }
     });
     
-    // Build the final summary using the consolidated employee data
+    // Build the final summary using the consolidated employee data with proper status priority
     employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => {
+      // Apply consolidation rules:
+      // 1. Fully unavailable statuses (Holiday, Sick) override everything
+      // 2. Partial Availability + Available = show both (partial availability hours counted as unavailable)
+      // 3. Just Available = available
+      
+      let finalUnavailabilityHours = empData.unavailabilityHours;
+      
+      // If someone has both Available and Partial Availability, keep both
+      // If someone has fully unavailable status, that overrides Available but Partial Availability hours are still counted
+      
       return {
         employeeName,
         availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
-        unavailability: empData.unavailabilityHours,
+        unavailability: finalUnavailabilityHours,
         scheduledHours: empData.scheduledHours, // Already correctly calculated from cleanedRecords
-        difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours
+        difference: empData.contractedDailyHours - finalUnavailabilityHours - empData.scheduledHours
       };
     });
   });
