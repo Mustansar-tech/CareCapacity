@@ -836,11 +836,16 @@ export function processCapacityData(
       empData.contractedDailyHours = Math.max(empData.contractedDailyHours, emp.contractedDailyHours);
       empData.scheduledHours = Math.max(empData.scheduledHours, emp.scheduledHours || 0);
       
-      // Track status types
+      // Track status types - prioritize unavailable statuses
       if (emp.status === 'Available') {
-        empData.hasAvailableStatus = true;
+        // Only mark as available if we haven't seen an unavailable status yet
+        if (!empData.hasUnavailableStatus) {
+          empData.hasAvailableStatus = true;
+        }
       } else {
+        // If we see any unavailable status, override available status
         empData.hasUnavailableStatus = true;
+        empData.hasAvailableStatus = false; // Remove available status if present
         empData.unavailabilityHours += emp.hours;
       }
     });
