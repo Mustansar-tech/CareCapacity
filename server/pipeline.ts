@@ -715,7 +715,7 @@ export function processCapacityData(
     return aPriority - bPriority;
   });
 
-  // Step 7: Build Daily Summary
+  // Step 7: Build Daily Summary (with same consolidation logic as Employee Summary)
   const dailySummaryMap = new Map<string, {
     availableHours: number;
     netCapacity: number;
@@ -723,9 +723,27 @@ export function processCapacityData(
     holidays: number;
   }>();
 
+  // Group records by date and employee to apply consolidation logic
+  const recordsByDateAndEmployee = new Map<string, Map<string, CleanedRecord[]>>();
+  
   cleanedRecords.forEach(record => {
-    if (!dailySummaryMap.has(record.date)) {
-      dailySummaryMap.set(record.date, {
+    const dateKey = record.date;
+    if (!recordsByDateAndEmployee.has(dateKey)) {
+      recordsByDateAndEmployee.set(dateKey, new Map());
+    }
+    
+    const dateMap = recordsByDateAndEmployee.get(dateKey)!;
+    if (!dateMap.has(record.employeeName)) {
+      dateMap.set(record.employeeName, []);
+    }
+    
+    dateMap.get(record.employeeName)!.push(record);
+  });
+
+  // Apply consolidation logic for each date and employee
+  recordsByDateAndEmployee.forEach((employeeMap, date) => {
+    if (!dailySummaryMap.has(date)) {
+      dailySummaryMap.set(date, {
         availableHours: 0,
         netCapacity: 0,
         unavailability: 0,
@@ -733,16 +751,47 @@ export function processCapacityData(
       });
     }
 
-    const summary = dailySummaryMap.get(record.date)!;
-    summary.netCapacity += record.netCapacity;
+    const summary = dailySummaryMap.get(date)!;
 
-    if (record.status === 'Available') {
-      summary.availableHours += record.hours;
-    } else if (record.status === 'Holiday') {
-      summary.holidays += record.hours;
-    } else if (['Sick', 'Maternity/Paternity', 'Compassionate Leave', 'Other Unavailable', 'Pre-Agreed Appointment'].includes(record.status)) {
-      summary.unavailability += record.hours;
-    }
+    employeeMap.forEach((records, employeeName) => {
+      // Apply same consolidation logic as Employee Summary
+      let hasUnavailableStatus = false;
+      let bestRecord = records[0]; // Start with first record
+      let totalUnavailableHours = 0;
+      
+      // Find the record with highest contracted daily hours and check for unavailable statuses
+      records.forEach(record => {
+        if (record.contractedDailyHours > bestRecord.contractedDailyHours) {
+          bestRecord = record;
+        }
+        
+        if (record.status !== 'Available') {
+          hasUnavailableStatus = true;
+          totalUnavailableHours += record.hours;
+        }
+      });
+
+      // Use the best record's net capacity
+      summary.netCapacity += bestRecord.netCapacity;
+
+      // Apply status priority logic (unavailable wins over available)
+      if (hasUnavailableStatus) {
+        // Count unavailable hours by status type
+        records.forEach(record => {
+          if (record.status === 'Holiday') {
+            summary.holidays += record.hours;
+          } else if (['Sick', 'Maternity/Paternity', 'Compassionate Leave', 'Other Unavailable', 'Pre-Agreed Appointment'].includes(record.status)) {
+            summary.unavailability += record.hours;
+          }
+        });
+      } else {
+        // Only count as available if no unavailable status exists
+        const availableRecord = records.find(r => r.status === 'Available');
+        if (availableRecord) {
+          summary.availableHours += availableRecord.hours;
+        }
+      }
+    });
   });
 
   // Step 8: Merge with client demand
