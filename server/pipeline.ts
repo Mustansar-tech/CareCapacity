@@ -432,9 +432,9 @@ export function parseExcelFiles(
       const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
       const isCancellationValid = cancellationValue === '';
       
-      // Service Type Description: Only exclude entries mentioning "multiple care" or "secondary"
-      const serviceTypeValue = actualServiceType ? actualServiceType.toString().toLowerCase() : '';
-      const isSecondaryClient = serviceTypeValue.includes('multiple care') || serviceTypeValue.includes('secondary');
+      // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
+      const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
+      const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
       
       if (!isCancellationValid || isSecondaryClient) {
         // Skip this row - either has cancellation info or is a secondary client
