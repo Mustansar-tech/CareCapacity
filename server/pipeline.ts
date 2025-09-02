@@ -903,7 +903,10 @@ export function processCapacityData(
       
       // Always use the highest contracted daily hours value
       empData.contractedDailyHours = Math.max(empData.contractedDailyHours, emp.contractedDailyHours);
-      empData.scheduledHours = Math.max(empData.scheduledHours, emp.scheduledHours || 0);
+      // Take the first scheduledHours value we see (they should all be the same since they come from the lookup)
+      if (empData.scheduledHours === 0) {
+        empData.scheduledHours = emp.scheduledHours || 0;
+      }
       
       // Track status types - prioritize unavailable statuses
       if (emp.status === 'Available') {
@@ -920,18 +923,13 @@ export function processCapacityData(
     });
     
     // Build the final summary using the consolidated employee data
-    employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => {
-      // Use the same scheduled hours lookup as Daily Capacity Summary for consistency
-      const correctScheduledHours = getScheduledHoursForEmployeeAndDate(scheduledHoursMap, employeeName, dateStr);
-      
-      return {
-        employeeName,
-        availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
-        unavailability: empData.unavailabilityHours,
-        scheduledHours: correctScheduledHours,
-        difference: empData.contractedDailyHours - empData.unavailabilityHours - correctScheduledHours
-      };
-    });
+    employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => ({
+      employeeName,
+      availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
+      unavailability: empData.unavailabilityHours,
+      scheduledHours: empData.scheduledHours, // Already correctly calculated from cleanedRecords
+      difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours
+    }));
   });
 
   const result = {
