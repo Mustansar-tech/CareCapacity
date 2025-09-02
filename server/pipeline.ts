@@ -428,9 +428,9 @@ export function parseExcelFiles(
         console.log(`   Cancellation: "${cancellationDesc}"`);
       }
       
-      // Cancellation Description: Include blank entries AND entries with just "."
+      // Cancellation Description: Include ONLY blank entries (completely empty)
       const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
-      const isCancellationValid = cancellationValue === '' || cancellationValue === '.';
+      const isCancellationValid = cancellationValue === '';
       
       // Service Type Description: Only exclude entries mentioning "multiple care" or "secondary"
       const serviceTypeValue = actualServiceType ? actualServiceType.toString().toLowerCase() : '';
