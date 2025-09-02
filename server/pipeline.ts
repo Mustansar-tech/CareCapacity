@@ -473,11 +473,6 @@ export function processCapacityData(
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
   
-  // Debug: Show what's in the scheduled hours map
-  console.log('=== SCHEDULED HOURS MAP ===');
-  for (const [key, hours] of scheduledHoursMap.entries()) {
-    console.log(`${key} -> ${hours} hours`);
-  }
 
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
@@ -643,13 +638,6 @@ export function processCapacityData(
     // Calculate total scheduled hours for this employee on this date (sum all service assignments)
     const totalScheduledHours = getScheduledHoursForEmployeeAndDate(scheduledHoursMap, empName, date);
     
-    // Debug: Show lookup for specific employees
-    if (empName.includes('Ibrahim')) {
-      console.log(`🔍 Looking up scheduled hours for ${empName} on ${date}:`);
-      console.log(`   Normalized name: "${normalizeName(empName)}"`);
-      console.log(`   Lookup key: "${normalizeName(empName)}|${date}"`);
-      console.log(`   Found hours: ${totalScheduledHours}`);
-    }
     
     // Deduplicate identical windows per status (like your Python dd logic)
     const deduplicatedRows = new Map<string, typeof group[0]>();
@@ -937,7 +925,7 @@ export function processCapacityData(
       availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
       unavailability: empData.unavailabilityHours,
       scheduledHours: empData.scheduledHours,
-      difference: empData.contractedDailyHours - empData.scheduledHours
+      difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours
     }));
   });
 

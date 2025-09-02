@@ -156,7 +156,7 @@ export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabPro
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          <p><strong>Difference</strong> = Contracted Daily - Scheduled Hours</p>
+          <p><strong>Difference</strong> = Contracted Daily - Unavailability - Scheduled Hours</p>
           <p>Positive values indicate excess capacity, negative values indicate potential shortages.</p>
         </div>
       </CardContent>
