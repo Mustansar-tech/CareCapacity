@@ -863,10 +863,6 @@ export function processCapacityData(
       employeesByDate[record.date] = [];
     }
     
-    // Debug log to see what's being added to employeesByDate
-    if (record.employeeName.includes('Jack') && record.employeeName.includes('Sharon')) {
-      console.log(`🔍 ADDING TO EMPLOYEESBYDATE: ${record.employeeName} - ${record.status} - ${record.date}`);
-    }
     
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
@@ -885,16 +881,6 @@ export function processCapacityData(
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
   
-  // Debug log to see final employeesByDate for Jack Sharon
-  Object.entries(employeesByDate).forEach(([date, employees]) => {
-    const jackEntries = employees.filter(emp => emp.employeeName.includes('Jack') && emp.employeeName.includes('Sharon'));
-    if (jackEntries.length > 0) {
-      console.log(`🎯 FINAL EMPLOYEESBYDATE for ${date}:`);
-      jackEntries.forEach(entry => {
-        console.log(`   - ${entry.employeeName}: ${entry.status} (${entry.hours}h)`);
-      });
-    }
-  });
 
   // Step 8: Generate employee summary by date
   const employeeSummaryByDate: Record<string, any[]> = {};

@@ -132,7 +132,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
             <TableHeader className="bg-gray-50 dark:bg-gray-800/50">
               <TableRow>
                 <TableHead className="font-semibold">Name</TableHead>
-                <TableHead className="text-center font-semibold">Contracted Daily</TableHead>
+                <TableHead className="text-center font-semibold">Availability</TableHead>
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
                 <TableHead className="text-center font-semibold">Difference</TableHead>
@@ -182,7 +182,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          <p><strong>Difference</strong> = Contracted Daily - Unavailability - Scheduled Hours</p>
+          <p><strong>Difference</strong> = Availability - Unavailability - Scheduled Hours</p>
           <p>Positive values indicate excess capacity, negative values indicate potential shortages.</p>
         </div>
       </CardContent>
