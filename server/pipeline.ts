@@ -128,8 +128,17 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
 function getScheduledHoursForEmployeeAndDate(scheduledHoursMap: Map<string, number>, employeeName: string, dateStr: string): number {
   const normalizedName = normalizeName(employeeName);
-  const key = `${normalizedName}|${dateStr}`;
-  return scheduledHoursMap.get(key) || 0;
+  let totalHours = 0;
+  
+  // Sum all scheduled hours for this employee on this date (there could be multiple service assignments)
+  for (const [key, hours] of scheduledHoursMap.entries()) {
+    const [mapName, mapDate] = key.split('|');
+    if (mapName === normalizedName && mapDate === dateStr) {
+      totalHours += hours;
+    }
+  }
+  
+  return totalHours;
 }
 
 // Calculate hours between times exactly like your hours_between function
@@ -631,6 +640,9 @@ export function processCapacityData(
     const daily = group[0].contractedDailyHours || 0.0;
     const date = group[0].date;
     
+    // Calculate total scheduled hours for this employee on this date (sum all service assignments)
+    const totalScheduledHours = getScheduledHoursForEmployeeAndDate(scheduledHoursMap, empName, date);
+    
     // Deduplicate identical windows per status (like your Python dd logic)
     const deduplicatedRows = new Map<string, typeof group[0]>();
     group.forEach(row => {
@@ -712,7 +724,7 @@ export function processCapacityData(
         date,
         status,
         timeWindows: windowsStr,
-        scheduledHours: Math.round(getScheduledHoursForEmployeeAndDate(scheduledHoursMap, empName, date) * 100) / 100, // Scheduled hours using exact logic from attached file
+        scheduledHours: Math.round(totalScheduledHours * 100) / 100, // Total scheduled hours for this employee on this date
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
