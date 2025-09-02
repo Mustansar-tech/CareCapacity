@@ -903,7 +903,7 @@ export function processCapacityData(
       
       // Always use the highest contracted daily hours value
       empData.contractedDailyHours = Math.max(empData.contractedDailyHours, emp.contractedDailyHours);
-      empData.scheduledHours += (emp.scheduledHours || 0);
+      empData.scheduledHours = Math.max(empData.scheduledHours, emp.scheduledHours || 0);
       
       // Track status types - prioritize unavailable statuses
       if (emp.status === 'Available') {
