@@ -458,6 +458,14 @@ export function processCapacityData(
   const warnings: string[] = [];
 
 
+  // Debug: Check what's actually in the guaranteed hours data
+  if (guaranteed.length > 0) {
+    console.log('=== GUARANTEED HOURS DEBUGGING ===');
+    console.log('First row raw data:', guaranteed[0]);
+    console.log('Service Start Date raw:', guaranteed[0]["Service Requirement Start Date And Time"]);
+    console.log('Service End Date raw:', guaranteed[0]["Service Requirement End Date And Time"]);
+  }
+
   // Step 1: Prepare guaranteed hours with normalized names
   const guaranteedEmployees = guaranteed.map(row => ({
     originalName: row["Actual Employee Name"],
@@ -467,6 +475,13 @@ export function processCapacityData(
     serviceStartDate: parseGuaranteedDate(row["Service Requirement Start Date And Time"]),
     serviceEndDate: parseGuaranteedDate(row["Service Requirement End Date And Time"])
   }));
+
+  // Debug: Check what dates we get after parsing
+  if (guaranteedEmployees.length > 0) {
+    console.log('=== PARSED DATES ===');
+    console.log('Parsed start date:', guaranteedEmployees[0].serviceStartDate);
+    console.log('Parsed end date:', guaranteedEmployees[0].serviceEndDate);
+  }
 
 
   // Step 2: Match availability names to guaranteed hours
