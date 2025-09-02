@@ -1057,6 +1057,8 @@ export default function Dashboard() {
                 <EmployeeSummaryTab 
                   data={summaryData} 
                   selectedDate={currentDate}
+                  availableDates={Object.keys(data?.employeeSummaryByDate || {})}
+                  onDateChange={setSelectedDate}
                 />
               );
             })()}

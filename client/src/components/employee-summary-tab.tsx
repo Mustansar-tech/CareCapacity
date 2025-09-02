@@ -9,13 +9,17 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "lucide-react";
 
 interface EmployeeSummaryTabProps {
   data: EmployeeSummaryRecord[];
   selectedDate: string;
+  availableDates: string[];
+  onDateChange: (date: string) => void;
 }
 
-export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabProps) {
+export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateChange }: EmployeeSummaryTabProps) {
   if (!data || data.length === 0) {
     return (
       <Card className="h-full backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
@@ -42,9 +46,31 @@ export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabPro
   return (
     <Card className="h-full backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-t-lg">
-        <CardTitle className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Employee Summary - {selectedDate}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Employee Summary
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <Select value={selectedDate} onValueChange={onDateChange}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select date" />
+              </SelectTrigger>
+              <SelectContent>
+                {(availableDates || []).map((date) => (
+                  <SelectItem key={date} value={date}>
+                    {new Date(date).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <p className="text-sm text-gray-600 dark:text-gray-300">
           Consolidated view showing contracted daily hours, unavailability, scheduled hours, and capacity differences
         </p>
