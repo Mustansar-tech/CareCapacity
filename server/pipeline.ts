@@ -808,36 +808,33 @@ export function processCapacityData(
   const employeeSummaryByDate: Record<string, any[]> = {};
   
   Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
-    const summaryMap = new Map<string, { availability: number; unavailability: number; scheduledHours: number; contractedDaily: number }>();
-    
+    // First, get unique employees and their contracted daily hours
+    const uniqueEmployees = new Map<string, { contractedDailyHours: number; scheduledHours: number }>();
     employees.forEach(emp => {
-      const key = emp.employeeName;
-      if (!summaryMap.has(key)) {
-        summaryMap.set(key, { 
-          availability: emp.contractedDailyHours, // Use contracted daily hours as availability
-          unavailability: 0, 
-          scheduledHours: emp.scheduledHours || 0,
-          contractedDaily: emp.contractedDailyHours
+      if (!uniqueEmployees.has(emp.employeeName) || uniqueEmployees.get(emp.employeeName)!.contractedDailyHours < emp.contractedDailyHours) {
+        uniqueEmployees.set(emp.employeeName, {
+          contractedDailyHours: emp.contractedDailyHours,
+          scheduledHours: emp.scheduledHours || 0
         });
-      }
-      
-      const summary = summaryMap.get(key)!;
-      // Ensure we always use the contracted daily hours (in case there are multiple rows for same employee)
-      summary.availability = Math.max(summary.availability, emp.contractedDailyHours);
-      summary.scheduledHours = Math.max(summary.scheduledHours, emp.scheduledHours || 0);
-      
-      // Only count unavailable statuses for unavailability
-      if (emp.status !== 'Available') {
-        summary.unavailability += emp.hours;
       }
     });
     
-    employeeSummaryByDate[dateStr] = Array.from(summaryMap.entries()).map(([employeeName, data]) => ({
+    // Then calculate unavailability for each employee
+    const unavailabilityMap = new Map<string, number>();
+    employees.forEach(emp => {
+      if (emp.status !== 'Available') {
+        const current = unavailabilityMap.get(emp.employeeName) || 0;
+        unavailabilityMap.set(emp.employeeName, current + emp.hours);
+      }
+    });
+    
+    // Build the final summary using the unique employee data
+    employeeSummaryByDate[dateStr] = Array.from(uniqueEmployees.entries()).map(([employeeName, empData]) => ({
       employeeName,
-      availability: data.availability,
-      unavailability: data.unavailability,
-      scheduledHours: data.scheduledHours,
-      difference: data.availability - data.scheduledHours
+      availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
+      unavailability: unavailabilityMap.get(employeeName) || 0,
+      scheduledHours: empData.scheduledHours,
+      difference: empData.contractedDailyHours - empData.scheduledHours
     }));
   });
 
