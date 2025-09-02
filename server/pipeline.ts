@@ -428,9 +428,9 @@ export function parseExcelFiles(
         console.log(`   Cancellation: "${cancellationDesc}"`);
       }
       
-      // Cancellation Description: Include ONLY blank entries (completely empty)
+      // Cancellation Description: Include ONLY blank entries (not cancelled entries)
       const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
-      const isCancellationValid = cancellationValue === '';
+      const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
       
       // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
       const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
