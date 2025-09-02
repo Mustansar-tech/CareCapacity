@@ -405,6 +405,7 @@ export function parseExcelFiles(
 
   // Process guaranteed hours data
   const validatedGuaranteed: GuaranteedHoursRow[] = [];
+  let filteredSecondaryCount = 0;
   guaranteedData.forEach((row, index) => {
     try {
       if (!row["Actual Employee Name"] || 
@@ -415,11 +416,26 @@ export function parseExcelFiles(
         warnings.push(`Guaranteed hours row ${index + 1}: Missing or invalid required fields`);
         return;
       }
+      
+      // Filter out secondary client hours: exclude rows where either "Actual Service Type Description" 
+      // or "Cancellation Description" have non-blank values (only keep blank entries)
+      const actualServiceType = row["Actual Service Type Description"];
+      const cancellationDesc = row["Cancellation Description"];
+      
+      if ((actualServiceType && actualServiceType.toString().trim() !== '') || 
+          (cancellationDesc && cancellationDesc.toString().trim() !== '')) {
+        // Skip this row - it's a secondary client or has service description
+        filteredSecondaryCount++;
+        return;
+      }
+      
       validatedGuaranteed.push(row);
     } catch (error) {
       warnings.push(`Guaranteed hours row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
+
+  console.log(`🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`);
 
   // Process demand data with flexible date parsing
   const validatedDemand: ClientDemandRow[] = [];

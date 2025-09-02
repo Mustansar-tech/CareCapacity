@@ -57,6 +57,8 @@ export interface GuaranteedHoursRow {
   "Actual Pay Rate Hours": number;
   "Service Requirement Start Date And Time": string;
   "Service Requirement End Date And Time": string;
+  "Actual Service Type Description"?: string;
+  "Cancellation Description"?: string;
 }
 
 export interface ClientDemandRow {
