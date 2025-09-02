@@ -637,6 +637,7 @@ export function processCapacityData(
     
     // Calculate total scheduled hours for this employee on this date (sum all service assignments)
     const totalScheduledHours = getScheduledHoursForEmployeeAndDate(scheduledHoursMap, empName, date);
+    console.log(`🔢 DAILY CAPACITY: ${empName} on ${date} - scheduled: ${totalScheduledHours}h`);
     
     
     // Deduplicate identical windows per status (like your Python dd logic)
@@ -923,13 +924,16 @@ export function processCapacityData(
     });
     
     // Build the final summary using the consolidated employee data
-    employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => ({
-      employeeName,
-      availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
-      unavailability: empData.unavailabilityHours,
-      scheduledHours: empData.scheduledHours, // Already correctly calculated from cleanedRecords
-      difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours
-    }));
+    employeeSummaryByDate[dateStr] = Array.from(employeeMap.entries()).map(([employeeName, empData]) => {
+      console.log(`📊 EMPLOYEE SUMMARY: ${employeeName} on ${dateStr} - scheduled: ${empData.scheduledHours}h`);
+      return {
+        employeeName,
+        availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
+        unavailability: empData.unavailabilityHours,
+        scheduledHours: empData.scheduledHours, // Already correctly calculated from cleanedRecords
+        difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours
+      };
+    });
   });
 
   const result = {
