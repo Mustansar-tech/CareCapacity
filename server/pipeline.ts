@@ -469,8 +469,15 @@ export function processCapacityData(
   if (guaranteed.length > 0) {
     console.log('=== GUARANTEED HOURS DEBUG ===');
     console.log('Available columns:', Object.keys(guaranteed[0]));
-    console.log('First row sample:', guaranteed[0]);
+    console.log('First row sample:', JSON.stringify(guaranteed[0], null, 2));
     console.log('Total rows:', guaranteed.length);
+    
+    // Check specific date fields
+    const firstRow = guaranteed[0];
+    console.log('Service Start Date value:', firstRow["Service Requirement Start Date And Time"]);
+    console.log('Service End Date value:', firstRow["Service Requirement End Date And Time"]);
+    console.log('Service Start Date type:', typeof firstRow["Service Requirement Start Date And Time"]);
+    console.log('Service End Date type:', typeof firstRow["Service Requirement End Date And Time"]);
   }
 
   // Step 1: Prepare guaranteed hours with normalized names
