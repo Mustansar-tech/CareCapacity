@@ -46,7 +46,7 @@ export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabPro
           Employee Summary - {selectedDate}
         </CardTitle>
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Consolidated view showing availability, unavailability, scheduled hours, and capacity differences
+          Consolidated view showing contracted daily hours, unavailability, scheduled hours, and capacity differences
         </p>
       </CardHeader>
       <CardContent className="p-6">
@@ -57,7 +57,7 @@ export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabPro
               <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                 {totals.availability.toFixed(1)}
               </div>
-              <div className="text-sm text-green-600 dark:text-green-400">Total Available</div>
+              <div className="text-sm text-green-600 dark:text-green-400">Total Contracted</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-950/50 dark:to-pink-950/50 border-red-200 dark:border-red-800">
@@ -106,7 +106,7 @@ export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabPro
             <TableHeader className="bg-gray-50 dark:bg-gray-800/50">
               <TableRow>
                 <TableHead className="font-semibold">Name</TableHead>
-                <TableHead className="text-center font-semibold">Availability</TableHead>
+                <TableHead className="text-center font-semibold">Contracted Daily</TableHead>
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
                 <TableHead className="text-center font-semibold">Difference</TableHead>
@@ -156,7 +156,7 @@ export function EmployeeSummaryTab({ data, selectedDate }: EmployeeSummaryTabPro
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          <p><strong>Difference</strong> = Availability - Scheduled Hours</p>
+          <p><strong>Difference</strong> = Contracted Daily - Scheduled Hours</p>
           <p>Positive values indicate excess capacity, negative values indicate potential shortages.</p>
         </div>
       </CardContent>
