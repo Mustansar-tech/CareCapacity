@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { parse, format } from 'date-fns';
+import { timeToString, buildTimeWindow, parseGuaranteedDate } from './time-window-utils';
 import { 
   AvailabilityRow, 
   GuaranteedHoursRow, 
@@ -109,24 +110,15 @@ function timeToString(timeValue: any): string {
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 function getScheduledHoursForDate(employee: EmployeeGuaranteedHours | undefined, dateStr: string): number {
-  if (!employee) {
-    console.log(`❌ No employee data for scheduled hours on ${dateStr}`);
-    return 0;
-  }
+  if (!employee) return 0;
   
   const targetDate = new Date(dateStr);
-  console.log(`🔍 Checking scheduled hours for ${employee.originalName} on ${dateStr}:`);
-  console.log(`   Target date: ${targetDate.toISOString()}`);
-  console.log(`   Service period: ${employee.serviceStartDate.toISOString()} to ${employee.serviceEndDate.toISOString()}`);
-  console.log(`   Pay rate hours: ${employee.payRateHours}`);
   
   // Check if the target date falls within the service requirement period
   if (targetDate >= employee.serviceStartDate && targetDate <= employee.serviceEndDate) {
-    console.log(`   ✅ Date is within service period, returning ${employee.payRateHours} hours`);
     return employee.payRateHours;
   }
   
-  console.log(`   ❌ Date is outside service period, returning 0 hours`);
   return 0; // No scheduled hours if outside service requirement period
 }
 
@@ -465,20 +457,6 @@ export function processCapacityData(
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
 
-  // Debug: Log guaranteed hours data structure
-  if (guaranteed.length > 0) {
-    console.log('=== GUARANTEED HOURS DEBUG ===');
-    console.log('Available columns:', Object.keys(guaranteed[0]));
-    console.log('First row sample:', JSON.stringify(guaranteed[0], null, 2));
-    console.log('Total rows:', guaranteed.length);
-    
-    // Check specific date fields
-    const firstRow = guaranteed[0];
-    console.log('Service Start Date value:', firstRow["Service Requirement Start Date And Time"]);
-    console.log('Service End Date value:', firstRow["Service Requirement End Date And Time"]);
-    console.log('Service Start Date type:', typeof firstRow["Service Requirement Start Date And Time"]);
-    console.log('Service End Date type:', typeof firstRow["Service Requirement End Date And Time"]);
-  }
 
   // Step 1: Prepare guaranteed hours with normalized names
   const guaranteedEmployees = guaranteed.map(row => ({
@@ -486,8 +464,8 @@ export function processCapacityData(
     normalizedName: normalizeName(row["Actual Employee Name"]),
     weeklyHours: row["Actual Employee Hours Per Week"],
     payRateHours: row["Actual Pay Rate Hours"],
-    serviceStartDate: new Date(row["Service Requirement Start Date And Time"]),
-    serviceEndDate: new Date(row["Service Requirement End Date And Time"])
+    serviceStartDate: parseGuaranteedDate(row["Service Requirement Start Date And Time"]),
+    serviceEndDate: parseGuaranteedDate(row["Service Requirement End Date And Time"])
   }));
 
 
@@ -549,9 +527,7 @@ export function processCapacityData(
       status: row.Type,
       startTime: timeToString(row["Start Time"]),
       endTime: timeToString(row["End Time"]),
-      timeWindow: timeToString(row["Start Time"]) && timeToString(row["End Time"]) 
-        ? `${timeToString(row["Start Time"])}-${timeToString(row["End Time"])}` 
-        : "",
+      timeWindow: buildTimeWindow(row),
       hours: hoursEffective,
       notes: row.Notes || "",
       employeeKey: key,

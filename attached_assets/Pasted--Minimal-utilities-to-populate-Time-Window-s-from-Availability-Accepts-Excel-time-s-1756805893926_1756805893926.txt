@@ -1,0 +1,77 @@
+// === Minimal utilities to populate Time Window(s) from Availability ===
+
+// Accepts Excel time serials, Date objects, "HH:mm", or "HH:mm:ss" (optionally with AM/PM).
+export function timeToString(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "";
+  const excelEpoch = new Date(1899, 11, 30);
+  const toHHMM = (h: number, m: number) =>
+    `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+
+  try {
+    if (value instanceof Date) return toHHMM(value.getHours(), value.getMinutes());
+
+    if (typeof value === "number") {
+      if (value < 1) {
+        const totalMin = Math.round(value * 24 * 60);
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        return toHHMM(h, m);
+      }
+      const d = new Date(excelEpoch.getTime() + value * 86400000);
+      return toHHMM(d.getHours(), d.getMinutes());
+    }
+
+    if (typeof value === "string") {
+      const s = value.trim();
+      // HH:mm or HH:mm:ss (optional AM/PM)
+      const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([APap][Mm])?$/);
+      if (m) {
+        let h = Number(m[1]);
+        const min = Number(m[2]);
+        const ampm = m[4]?.toUpperCase();
+        if (ampm === "AM" && h === 12) h = 0;
+        if (ampm === "PM" && h < 12) h += 12;
+        return toHHMM(h, min);
+      }
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return toHHMM(d.getHours(), d.getMinutes());
+    }
+
+    const d = new Date(value as any);
+    if (!isNaN(d.getTime())) return toHHMM(d.getHours(), d.getMinutes());
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+// Builds a single Time Window string "HH:mm-HH:mm" from common column patterns.
+// Uses separate Start/End Time if present; otherwise tries a combined "Time Window" style field.
+export function buildTimeWindow(row: Record<string, any>): string {
+  const st = timeToString(row["Start Time"]);
+  const et = timeToString(row["End Time"]);
+  if (st && et) return `${st}-${et}`;
+
+  // fallback: combined cell (e.g., "08:00 - 12:00", "08:00–12:00", "08:00—12:00")
+  const keys = Object.keys(row || {});
+  const combinedKey =
+    keys.find((k) => /^(time\s*window\(s\)?|time\s*window|time\s*range|time)$/i.test(k)) ??
+    keys.find((k) => /window/i.test(k));
+  if (combinedKey && row[combinedKey]) {
+    const txt = String(row[combinedKey]);
+    const m = txt.match(/(\d{1,2}:\d{2})\s*[\-–—]\s*(\d{1,2}:\d{2})/);
+    if (m) return `${m[1].padStart(5, "0")}-${m[2].padStart(5, "0")}`;
+  }
+
+  return "";
+}
+
+// === Use during processing (no Hours logic changed) ===
+// Example inside your availability mapping step:
+const merged = availability.map((r: any) => ({
+  ...r,
+  startTime: timeToString(r["Start Time"]),
+  endTime: timeToString(r["End Time"]),
+  timeWindow: buildTimeWindow(r),
+  // keep everything else exactly as-is (do not touch Hours here)
+}));
