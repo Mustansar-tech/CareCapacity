@@ -463,6 +463,11 @@ export function parseExcelFiles(
   });
   
   console.log(`🔍 SERVICE DELIVERY FILTERING: Excluded ${filteredServiceCount} rows from ${serviceDeliveryData.length} total service records`);
+  
+  // Debug: Show a sample of service delivery data and what gets filtered
+  let mondayDebugCount = 0;
+  let mondayFilteredHours = 0;
+  let mondayTotalHours = 0;
 
   // Process service delivery data and aggregate by date
   const validatedDemand: ClientDemandRow[] = [];
@@ -473,6 +478,29 @@ export function parseExcelFiles(
       if (!row["Actual Start Date And Time"] || typeof row["Actual Duration"] !== 'number') {
         warnings.push(`Service delivery row ${index + 1}: Missing start date or duration`);
         return;
+      }
+      
+      // Parse the Excel date and extract date string first for Monday debugging
+      let dateStr: string;
+      if (typeof row["Actual Start Date And Time"] === 'number') {
+        // Excel serial date
+        const excelDate = new Date((row["Actual Start Date And Time"] as number - 25569) * 86400 * 1000);
+        dateStr = format(excelDate, 'yyyy-MM-dd');
+      } else {
+        // String date
+        const parsedDate = parseDate(row["Actual Start Date And Time"] as string);
+        dateStr = format(parsedDate, 'yyyy-MM-dd');
+      }
+      
+      // Debug Monday data specifically
+      if (dateStr === '2025-09-01') { // Monday
+        mondayTotalHours += row["Actual Duration"];
+        mondayDebugCount++;
+        
+        const actualServiceType = row["Actual Service Type Description"];
+        const cancellationDesc = row["Cancellation Description"];
+        
+        console.log(`📊 MONDAY ROW ${index + 1}: Service="${actualServiceType}", Cancellation="${cancellationDesc}", Duration=${row["Actual Duration"]}`);
       }
       
       // Apply same filtering as Care Pro data for consistency
@@ -488,20 +516,18 @@ export function parseExcelFiles(
       const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
       
       if (!isCancellationValid || isSecondaryClient) {
+        // Debug what gets filtered on Monday
+        if (dateStr === '2025-09-01') {
+          console.log(`❌ MONDAY FILTERED ROW ${index + 1}: Reason - ${!isCancellationValid ? 'Cancellation' : 'Secondary Client'}`);
+        }
         // Skip this row - either has cancellation info or is a secondary client
         return;
       }
       
-      // Parse the Excel date and extract date string
-      let dateStr: string;
-      if (typeof row["Actual Start Date And Time"] === 'number') {
-        // Excel serial date
-        const excelDate = new Date((row["Actual Start Date And Time"] as number - 25569) * 86400 * 1000);
-        dateStr = format(excelDate, 'yyyy-MM-dd');
-      } else {
-        // String date
-        const parsedDate = parseDate(row["Actual Start Date And Time"] as string);
-        dateStr = format(parsedDate, 'yyyy-MM-dd');
+      // If we get here, this row passed the filter
+      if (dateStr === '2025-09-01') {
+        mondayFilteredHours += row["Actual Duration"];
+        console.log(`✅ MONDAY KEPT ROW ${index + 1}: Added ${row["Actual Duration"]} hours`);
       }
       
       // Aggregate hours by date
@@ -512,6 +538,13 @@ export function parseExcelFiles(
       warnings.push(`Service delivery row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
+  
+  // Log Monday debugging results
+  console.log(`🔍 MONDAY DEBUG SUMMARY:`);
+  console.log(`  - Total Monday rows processed: ${mondayDebugCount}`);
+  console.log(`  - Total Monday hours (before filtering): ${mondayTotalHours}`);
+  console.log(`  - Total Monday hours (after filtering): ${mondayFilteredHours}`);
+  console.log(`  - Final Monday value in serviceHoursByDate: ${serviceHoursByDate.get('2025-09-01') || 0}`);
   
   // Convert aggregated hours to ClientDemandRow format
   serviceHoursByDate.forEach((hours, date) => {
