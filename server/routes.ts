@@ -32,8 +32,8 @@ let latestExportBuffer: Buffer | null = null;
 // Helper function to normalize file names by removing browser download numbers
 function normalizeFileName(fileName: string): string {
   // Remove numbers in parentheses that browsers add for duplicate downloads
-  // e.g. "file (2).xlsx" -> "file.xlsx"
-  return fileName.replace(/\s*\(\d+\)/, '');
+  // e.g. "Hours by Service Type (1).xlsx" -> "Hours by Service Type.xlsx"
+  return fileName.replace(/\s*\(\d+\)/g, '');
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -67,6 +67,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedAvailabilityName = normalizeFileName(availabilityFile.originalname);
       const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
       const normalizedDemandName = normalizeFileName(demandFile.originalname);
+      
+      console.log(`📁 File name validation:`);
+      console.log(`  - Demand file: "${demandFile.originalname}" -> "${normalizedDemandName}"`);
+      console.log(`  - Expected: "${expectedNames.demand}"`);
+      console.log(`  - Match: ${normalizedDemandName === expectedNames.demand}`);
 
       if (normalizedAvailabilityName !== expectedNames.availability ||
           normalizedGuaranteedName !== expectedNames.guaranteed ||
