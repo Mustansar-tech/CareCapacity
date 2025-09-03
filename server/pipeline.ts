@@ -345,6 +345,7 @@ export function parseExcelFiles(
   demand: ClientDemandRow[];
   warnings: string[];
 } {
+  console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
   const warnings: string[] = [];
 
   // Parse Availability Export.xlsx
@@ -376,6 +377,8 @@ export function parseExcelFiles(
 
   const demandSheet = demandWorkbook.Sheets[demandSheetName];
   const serviceDeliveryData = XLSX.utils.sheet_to_json<ServiceDeliveryRow>(demandSheet);
+  
+  console.log(`🚨 Successfully parsed ${serviceDeliveryData.length} service delivery records`);
 
   // Process availability data
   const validatedAvailability: ParsedAvailabilityRow[] = [];
