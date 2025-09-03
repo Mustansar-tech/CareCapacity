@@ -466,18 +466,31 @@ export function parseExcelFiles(
   const validatedDemand: ClientDemandRow[] = [];
   
   // Convert weekday hours to date-based format for compatibility
+  // Use a more current week for mapping weekdays to dates
+  const today = new Date();
+  const currentWeekStart = new Date(today);
+  // Get Monday of current week
+  currentWeekStart.setDate(today.getDate() - today.getDay() + 1);
+  
   const weekdayToDate: Record<string, string> = {
-    Monday: "2025-09-01",
-    Tuesday: "2025-09-02",
-    Wednesday: "2025-09-03",
-    Thursday: "2025-09-04",
-    Friday: "2025-09-05",
-    Saturday: "2025-09-06",
-    Sunday: "2025-09-07",
+    Monday: format(new Date(currentWeekStart.getTime()), 'yyyy-MM-dd'),
+    Tuesday: format(new Date(currentWeekStart.getTime() + 1 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+    Wednesday: format(new Date(currentWeekStart.getTime() + 2 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+    Thursday: format(new Date(currentWeekStart.getTime() + 3 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+    Friday: format(new Date(currentWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+    Saturday: format(new Date(currentWeekStart.getTime() + 5 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+    Sunday: format(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
   };
+  
+  console.log(`\n📅 WEEKDAY TO DATE MAPPING:`);
+  Object.entries(weekdayToDate).forEach(([weekday, date]) => {
+    console.log(`  ${weekday} -> ${date}`);
+  });
+  console.log(`================================\n`);
   
   hoursByWeekday.forEach(({ weekday, hours }) => {
     const dateKey = weekdayToDate[weekday] ?? weekday;
+    console.log(`🔄 Mapping: ${weekday} (${hours}h) -> ${dateKey}`);
     validatedDemand.push({
       "Date": dateKey,
       "Required Client Hours": hours
