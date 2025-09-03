@@ -324,7 +324,7 @@ export default function Dashboard() {
                   <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                 </div>
                 <Label htmlFor="demand-file" className="text-sm font-medium">
-                  client_demand.xlsx
+                  Hours by Service Type.xlsx
                 </Label>
               </div>
               <Input
@@ -807,7 +807,7 @@ export default function Dashboard() {
                         <Target className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                       </div>
                       <Label htmlFor="demand-file-overview" className="text-sm font-medium">
-                        client_demand.xlsx
+                        Hours by Service Type.xlsx
                       </Label>
                     </div>
                     <Input

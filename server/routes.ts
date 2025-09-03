@@ -61,7 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expectedNames = {
         availability: 'Availability Export.xlsx',
         guaranteed: 'Care Pro Guaranteed Hours.xlsx', 
-        demand: 'client_demand.xlsx'
+        demand: 'Hours by Service Type.xlsx'
       };
 
       const normalizedAvailabilityName = normalizeFileName(availabilityFile.originalname);

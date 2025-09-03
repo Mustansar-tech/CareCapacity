@@ -5,6 +5,7 @@ import {
   AvailabilityRow, 
   GuaranteedHoursRow, 
   ClientDemandRow,
+  ServiceDeliveryRow,
   CleanedEmployeeRecord,
   DailySummaryRecord,
   EmployeeDailyDetail,
@@ -443,38 +444,81 @@ export function parseExcelFiles(
   });
 
   console.log(`🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`);
-
-  // Process demand data with flexible date parsing
-  const validatedDemand: ClientDemandRow[] = [];
-  demandData.forEach((row, index) => {
-    try {
-      if (!row.Date) {
-        warnings.push(`Client demand row ${index + 1}: Missing Date field`);
-        return;
-      }
-      
-      // Handle different column names for required hours (with type assertion)
-      const rowAny = row as any;
-      const requiredHours = row["Required Client Hours"] || 
-                           rowAny["Required Hours"] || 
-                           rowAny["Client Hours"] || 
-                           rowAny["Hours Required"] ||
-                           rowAny["Demand Hours"];
-      
-      if (typeof requiredHours !== 'number' || requiredHours < 0) {
-        warnings.push(`Client demand row ${index + 1}: Missing or invalid required hours field`);
-        return;
-      }
-      
-      // Validate that date can be parsed
-      parseDate(row.Date);
-      validatedDemand.push({
-        Date: row.Date,
-        "Required Client Hours": requiredHours
-      });
-    } catch (error) {
-      warnings.push(`Client demand row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  
+  // Log service delivery processing
+  let filteredServiceCount = 0;
+  serviceDeliveryData.forEach((row) => {
+    const actualServiceType = row["Actual Service Type Description"];
+    const cancellationDesc = row["Cancellation Description"];
+    
+    const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
+    const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
+    
+    const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
+    const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
+    
+    if (!isCancellationValid || isSecondaryClient) {
+      filteredServiceCount++;
     }
+  });
+  
+  console.log(`🔍 SERVICE DELIVERY FILTERING: Excluded ${filteredServiceCount} rows from ${serviceDeliveryData.length} total service records`);
+
+  // Process service delivery data and aggregate by date
+  const validatedDemand: ClientDemandRow[] = [];
+  const serviceHoursByDate = new Map<string, number>();
+  
+  serviceDeliveryData.forEach((row, index) => {
+    try {
+      if (!row["Actual Start Date And Time"] || typeof row["Actual Duration"] !== 'number') {
+        warnings.push(`Service delivery row ${index + 1}: Missing start date or duration`);
+        return;
+      }
+      
+      // Apply same filtering as Care Pro data for consistency
+      const actualServiceType = row["Actual Service Type Description"];
+      const cancellationDesc = row["Cancellation Description"];
+      
+      // Cancellation Description: Include ONLY blank entries (not cancelled entries)
+      const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
+      const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
+      
+      // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
+      const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
+      const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
+      
+      if (!isCancellationValid || isSecondaryClient) {
+        // Skip this row - either has cancellation info or is a secondary client
+        return;
+      }
+      
+      // Parse the Excel date and extract date string
+      let dateStr: string;
+      if (typeof row["Actual Start Date And Time"] === 'number') {
+        // Excel serial date
+        const excelDate = new Date((row["Actual Start Date And Time"] as number - 25569) * 86400 * 1000);
+        dateStr = format(excelDate, 'yyyy-MM-dd');
+      } else {
+        // String date
+        const parsedDate = parseDate(row["Actual Start Date And Time"] as string);
+        dateStr = format(parsedDate, 'yyyy-MM-dd');
+      }
+      
+      // Aggregate hours by date
+      const currentHours = serviceHoursByDate.get(dateStr) || 0;
+      serviceHoursByDate.set(dateStr, currentHours + row["Actual Duration"]);
+      
+    } catch (error) {
+      warnings.push(`Service delivery row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+  
+  // Convert aggregated hours to ClientDemandRow format
+  serviceHoursByDate.forEach((hours, date) => {
+    validatedDemand.push({
+      "Date": date,
+      "Required Client Hours": Math.round(hours * 100) / 100
+    });
   });
 
   return {
