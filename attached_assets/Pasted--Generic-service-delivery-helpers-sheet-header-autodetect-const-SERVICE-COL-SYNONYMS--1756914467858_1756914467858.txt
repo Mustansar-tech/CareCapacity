@@ -1,0 +1,112 @@
+// === Generic service-delivery helpers (sheet + header autodetect) ===
+const SERVICE_COL_SYNONYMS = {
+  serviceType: [
+    "Planned Service Type Description",
+    "Service Type Description",
+    "Service Type",
+    "Actual Service Type Description" // fallback if "Planned" missing
+  ],
+  weekday: [
+    "Planned Start Date Weekday",
+    "Start Date Weekday",
+    "Weekday"
+  ],
+  duration: [
+    "Planned Duration",
+    "Duration (Planned)",
+    "Duration",
+    "Planned Hrs",
+    "Planned Hours",
+    "Planned Time"
+  ],
+  cancellation: [
+    "Cancellation Description",
+    "Cancelled Reason",
+    "Cancellation"
+  ]
+} as const;
+
+type ServiceLogicalKey = keyof typeof SERVICE_COL_SYNONYMS;
+
+function normHead(s: unknown): string {
+  return String(s ?? "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function matchOne(headers: string[], synonyms: readonly string[]): string | null {
+  // exact normalized match
+  for (const h of headers) {
+    for (const syn of synonyms) {
+      if (normHead(h) === normHead(syn)) return h;
+    }
+  }
+  // soft match (contains/startsWith either way)
+  for (const h of headers) {
+    const nh = normHead(h);
+    for (const syn of synonyms) {
+      const ns = normHead(syn);
+      if (nh.includes(ns) || ns.includes(nh)) return h;
+    }
+  }
+  return null;
+}
+
+function pickBestSheet(wb: XLSX.WorkBook): XLSX.WorkSheet {
+  const names = wb.SheetNames;
+  const exact = names.find(n => n === "Data");
+  if (exact) return wb.Sheets[exact];
+  const ci = names.find(n => n.toLowerCase() === "data");
+  if (ci) return wb.Sheets[ci];
+  const firstDataLike = names.find(n => !/pivot|chart/i.test(n)) ?? names[0];
+  return wb.Sheets[firstDataLike];
+}
+
+function findHeaderRow(ws: XLSX.WorkSheet, scanRows = 80): { headerRowIdx: number; headers: string[] } {
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
+  let best = { idx: range.s.r, score: -Infinity, headers: [] as string[] };
+
+  const end = Math.min(range.e.r, range.s.r + scanRows - 1);
+  for (let r = range.s.r; r <= end; r++) {
+    const rowVals: any[] = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      rowVals.push(cell ? cell.v : null);
+    }
+    const headers = rowVals.map(v => (v == null ? "" : String(v)));
+    // score by how many synonyms we hit (soft)
+    let score = 0;
+    (Object.keys(SERVICE_COL_SYNONYMS) as ServiceLogicalKey[]).forEach(key => {
+      const m = matchOne(headers, SERVICE_COL_SYNONYMS[key]);
+      if (m) score += 2;
+    });
+    if (score > best.score) best = { idx: r, score, headers };
+  }
+  return { headerRowIdx: best.idx, headers: best.headers };
+}
+
+function buildServiceColumnMap(headers: string[]) {
+  const map: Partial<Record<ServiceLogicalKey, string>> = {};
+  (Object.keys(SERVICE_COL_SYNONYMS) as ServiceLogicalKey[]).forEach(key => {
+    const m = matchOne(headers, SERVICE_COL_SYNONYMS[key]);
+    if (m) map[key] = m;
+  });
+  const missing = ["serviceType", "weekday", "duration"].filter(k => !(map as any)[k]);
+  if (missing.length) {
+    throw new Error(
+      `Missing required service columns: ${missing.join(", ")}\n` +
+      `Headers found: ${headers.join(" | ")}`
+    );
+  }
+  if (!map.cancellation) map.cancellation = "__missing__";
+  return map as Record<ServiceLogicalKey, string>;
+}
+
+type CleanServiceRow = {
+  serviceType: string;
+  weekday: string;
+  duration: number;
+  cancellation: string | null;
+};
