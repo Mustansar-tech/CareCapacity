@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { parse, format } from 'date-fns';
 import { buildTimeWindow, parseGuaranteedDate } from './time-window-utils';
+import { applyServiceRules } from './service-delivery-rules';
 import { 
   AvailabilityRow, 
   GuaranteedHoursRow, 
@@ -334,118 +335,6 @@ function parseDate(dateStr: any): Date {
   throw new Error(`Could not parse date: ${dateStr}. Tried multiple formats.`);
 }
 
-// === Robust Excel parsing helpers (sheet + header autodetect) ===
-const SERVICE_COL_SYNONYMS = {
-  serviceType: [
-    "Planned Service Type Description",
-    "Service Type Description", 
-    "Service Type",
-    "Actual Service Type Description" // fallback if "Planned" missing
-  ],
-  weekday: [
-    "Planned Start Date Weekday",
-    "Start Date Weekday", 
-    "Weekday"
-  ],
-  duration: [
-    "Planned Duration",
-    "Duration (Planned)",
-    "Duration",
-    "Planned Hrs",
-    "Planned Hours", 
-    "Planned Time"
-  ],
-  cancellation: [
-    "Cancellation Description",
-    "Cancelled Reason",
-    "Cancellation"
-  ]
-} as const;
-
-type ServiceLogicalKey = keyof typeof SERVICE_COL_SYNONYMS;
-
-function normHead(s: unknown): string {
-  return String(s ?? "")
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function matchOne(headers: string[], synonyms: readonly string[]): string | null {
-  // exact normalized match
-  for (const h of headers) {
-    for (const syn of synonyms) {
-      if (normHead(h) === normHead(syn)) return h;
-    }
-  }
-  // soft match (contains/startsWith either way)
-  for (const h of headers) {
-    const nh = normHead(h);
-    for (const syn of synonyms) {
-      const ns = normHead(syn);
-      if (nh.includes(ns) || ns.includes(nh)) return h;
-    }
-  }
-  return null;
-}
-
-function pickBestSheet(wb: XLSX.WorkBook): XLSX.WorkSheet {
-  const names = wb.SheetNames;
-  const exact = names.find(n => n === "Data");
-  if (exact) return wb.Sheets[exact];
-  const ci = names.find(n => n.toLowerCase() === "data");
-  if (ci) return wb.Sheets[ci];
-  const firstDataLike = names.find(n => !/pivot|chart/i.test(n)) ?? names[0];
-  return wb.Sheets[firstDataLike];
-}
-
-function findHeaderRow(ws: XLSX.WorkSheet, scanRows = 80): { headerRowIdx: number; headers: string[] } {
-  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
-  let best = { idx: range.s.r, score: -Infinity, headers: [] as string[] };
-
-  const end = Math.min(range.e.r, range.s.r + scanRows - 1);
-  for (let r = range.s.r; r <= end; r++) {
-    const rowVals: any[] = [];
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cell = ws[XLSX.utils.encode_cell({ r, c })];
-      rowVals.push(cell ? cell.v : null);
-    }
-    const headers = rowVals.map(v => (v == null ? "" : String(v)));
-    // score by how many synonyms we hit (soft)
-    let score = 0;
-    (Object.keys(SERVICE_COL_SYNONYMS) as ServiceLogicalKey[]).forEach(key => {
-      const m = matchOne(headers, SERVICE_COL_SYNONYMS[key]);
-      if (m) score += 2;
-    });
-    if (score > best.score) best = { idx: r, score, headers };
-  }
-  return { headerRowIdx: best.idx, headers: best.headers };
-}
-
-function buildServiceColumnMap(headers: string[]) {
-  const map: Partial<Record<ServiceLogicalKey, string>> = {};
-  (Object.keys(SERVICE_COL_SYNONYMS) as ServiceLogicalKey[]).forEach(key => {
-    const m = matchOne(headers, SERVICE_COL_SYNONYMS[key]);
-    if (m) map[key] = m;
-  });
-  const missing = ["serviceType", "weekday", "duration"].filter(k => !(map as any)[k]);
-  if (missing.length) {
-    throw new Error(
-      `Missing required service columns: ${missing.join(", ")}\n` +
-      `Headers found: ${headers.join(" | ")}`
-    );
-  }
-  if (!map.cancellation) map.cancellation = "__missing__";
-  return map as Record<ServiceLogicalKey, string>;
-}
-
-type CleanServiceRow = {
-  serviceType: string;
-  weekday: string;
-  duration: number;
-  cancellation: string | null;
-};
 
 // Parse and validate Excel data
 export function parseExcelFiles(
@@ -481,50 +370,17 @@ export function parseExcelFiles(
   const guaranteedSheet = guaranteedWorkbook.Sheets[guaranteedSheetName];
   const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
 
-  // === ROBUST Excel parsing of Hours by Service Type (sheet/header/columns agnostic) ===
-  const demandWorkbook = XLSX.read(demandBuffer);
-  const ws = pickBestSheet(demandWorkbook);
-
-  // Locate header row by content (scan top N rows)
-  const { headerRowIdx, headers } = findHeaderRow(ws);
-  console.log(`📁 Found header row at index ${headerRowIdx} with ${headers.length} columns`);
-
-  // Extract raw matrix so we can read rows after header
-  const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true }) as any[][];
-  const colMap = buildServiceColumnMap(headers);
+  // === Use modular service delivery rules processing ===
+  const { 
+    meta, 
+    filteredRows, 
+    hoursByWeekday, 
+    serviceTypeByWeekday 
+  } = applyServiceRules(demandBuffer);
   
-  console.log(`🔍 Column mapping:`, colMap);
-
-  // Index headers for efficient access
-  const headerIndex: Record<string, number> = {};
-  headers.forEach((h, i) => (headerIndex[h] = i));
-
-  // Build normalized service rows
-  const cleanedServiceRows: CleanServiceRow[] = [];
-  const dataRows = matrix.slice(headerRowIdx + 1);
-
-  for (const arr of dataRows) {
-    if (!arr || arr.length === 0) continue;
-
-    const get = (name: string) => {
-      if (name === "__missing__") return null;
-      const idx = headerIndex[name];
-      return idx == null ? null : arr[idx] ?? null;
-    };
-
-    const serviceType = String(get(colMap.serviceType) ?? "").trim();
-    const weekday = String(get(colMap.weekday) ?? "").trim();
-    const duration = Number(get(colMap.duration) ?? 0) || 0;
-    const cancellationRaw = get(colMap.cancellation);
-    const cancellation = cancellationRaw == null ? null : String(cancellationRaw).trim();
-
-    // skip blank lines
-    if (!serviceType && !weekday && !duration) continue;
-
-    cleanedServiceRows.push({ serviceType, weekday, duration, cancellation });
-  }
-
-  console.log(`🚨 Parsed sheet with ${cleanedServiceRows.length} rows (header at row index ${headerRowIdx}).`);
+  console.log(`📁 Sheet: ${meta.sheetName}, Header row: ${meta.headerRow}, Rows: ${meta.rowsIn} → ${meta.rowsAfterNormalize} → ${meta.rowsAfterFilter}`);
+  console.log(`🔍 Column mapping:`, meta.columnMap);
+  console.log(`📊 Weekday totals:`, hoursByWeekday);
 
   // Process availability data
   const validatedAvailability: ParsedAvailabilityRow[] = [];
@@ -595,145 +451,37 @@ export function parseExcelFiles(
 
   console.log(`🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`);
   
-  // === ROBUST FILTERING WITH EXACT LOGIC MATCHING TypeScript SCRIPT ===
-  console.log(`\n🔍 ===== PROCESSING ${cleanedServiceRows.length} SERVICE DELIVERY RECORDS =====`);
-  
-  // Track filtering stats
-  let totalProcessed = 0;
-  let filteredForCancellation = 0;
-  let filteredForSecondaryClient = 0;
-  let keptRecords = 0;
-
+  // === Clean demand row conversion using the modular service rules ===
   const validatedDemand: ClientDemandRow[] = [];
-  const serviceHoursByWeekday = new Map<string, number>();  // weekday -> hours
-  const pivotTable = new Map<string, Map<string, number>>(); // serviceType -> (weekday -> hours)
-
-  cleanedServiceRows.forEach((r, index) => {
-    totalProcessed++;
-
-    const isSecondary = r.serviceType === 'Multiple Care (Secondary)';
-    const isCancelled = !!(r.cancellation && r.cancellation.length > 0);
-
-    if (isCancelled) { 
-      filteredForCancellation++; 
-      return; 
-    }
-    if (isSecondary) { 
-      filteredForSecondaryClient++; 
-      return; 
-    }
-
-    keptRecords++;
-
-    const weekdayKey = r.weekday || "";
-    const dur = r.duration || 0;
-
-    // weekday totals
-    serviceHoursByWeekday.set(weekdayKey, (serviceHoursByWeekday.get(weekdayKey) || 0) + dur);
-
-    // service × weekday pivot
-    if (!pivotTable.has(r.serviceType)) pivotTable.set(r.serviceType, new Map());
-    const svcMap = pivotTable.get(r.serviceType)!;
-    svcMap.set(weekdayKey, (svcMap.get(weekdayKey) || 0) + dur);
-    
-    // Debug log for Monday specifically
-    if (weekdayKey === 'Monday') {
-      console.log(`✅ KEPT Monday record: ${dur} hours, Service: ${r.serviceType}, Cancellation: "${r.cancellation}"`);
-    }
-  });
   
-  // Initialize service types we expect to see
-  const expectedServiceTypes = ['Companionship', 'Office Hours', 'Care and Companionship', 'Specialised Care', 'Multiple Care (Primary)'];
-  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  
-  // Display comprehensive filtering results
-  console.log(`\n🔍 ===== SERVICE DELIVERY FILTERING RESULTS =====`);
-  console.log(`📝 Total processed: ${totalProcessed}`);
-  console.log(`❌ Filtered for cancellation: ${filteredForCancellation}`);
-  console.log(`❌ Filtered for secondary client: ${filteredForSecondaryClient}`);
-  console.log(`✅ Records kept: ${keptRecords}`);
-  console.log(`📊 Hours by weekday after filtering:`);
-  
-  // Calculate and display total hours for verification
-  let totalFilteredHours = 0;
-  serviceHoursByWeekday.forEach((hours) => {
-    totalFilteredHours += hours;
-  });
-  
-  // Display pivot table like Excel
-  console.log(`\n📊 ===== PIVOT TABLE: SERVICE TYPE vs WEEKDAY (Like Excel) =====`);
-  console.log(`Service Type`.padEnd(25) + weekdays.map(w => w.substring(0,3).padStart(8)).join(''));
-  console.log(`${''.padEnd(25)}${weekdays.map(() => '--------').join('')}`);
-  
-  let mondayTotal = 0;
-  let grandTotal = 0;
-  
-  pivotTable.forEach((weekdayMap, serviceType) => {
-    let row = serviceType.padEnd(25);
-    let serviceTotal = 0;
-    
-    weekdays.forEach(weekday => {
-      const hours = weekdayMap.get(weekday) || 0;
-      serviceTotal += hours;
-      if (weekday === 'Monday') {
-        mondayTotal += hours;
-      }
-      row += (Math.round(hours * 100) / 100).toString().padStart(8);
-    });
-    
-    grandTotal += serviceTotal;
-    console.log(row);
-  });
-  
-  console.log(`${''.padEnd(25)}${weekdays.map(() => '--------').join('')}`);
-  console.log(`Total`.padEnd(25) + weekdays.map(weekday => {
-    const total = Array.from(pivotTable.values())
-      .reduce((sum, map) => sum + (map.get(weekday) || 0), 0);
-    return (Math.round(total * 100) / 100).toString().padStart(8);
-  }).join(''));
-  
-  console.log(`\n📊 KEY TOTALS:`);
-  console.log(`  - Monday Total: ${Math.round(mondayTotal * 100) / 100} hours (Excel shows ~64.5)`);
-  console.log(`  - Grand Total: ${Math.round(grandTotal * 100) / 100} hours (Expected: 400.33)`);
-  console.log(`===============================================================\n`);
-
-  console.log(`🔍 FINAL WEEKDAY TOTALS:`);
-  serviceHoursByWeekday.forEach((hours, weekday) => {
-    console.log(`  - ${weekday}: ${Math.round(hours * 100) / 100} hours`);
-  });
-  console.log(``);
-  console.log(`===== SERVICE DELIVERY FILTERING RESULTS =====`);
-  console.log(`📊 TOTAL FILTERED SERVICE HOURS: ${Math.round(totalFilteredHours * 100) / 100} (Expected: 400.33)`);
-  console.log(`📊 FILTERING STATS: Processed=${totalProcessed}, Kept=${keptRecords}, Filtered for Cancellation=${filteredForCancellation}, Filtered for Secondary=${filteredForSecondaryClient}`);
-  console.log(`===============================================`);
-  
-  // Add temporary debug logging for weekday totals
-  console.log(`\n===== FINAL WEEKDAY BREAKDOWN FROM SERVICE DELIVERY =====`);
-  serviceHoursByWeekday.forEach((hours, weekday) => {
-    console.log(`  - ${weekday}: ${Math.round(hours * 100) / 100} hours`);
-  });
-  console.log(`📊 TOTAL SERVICE HOURS: ${Math.round(totalFilteredHours * 100) / 100} (Expected: 400.33)`);
-  console.log(`=======================================================\n`);
-
   // Convert weekday hours to date-based format for compatibility
-  // Map weekdays to specific dates in our target week
-  const weekdayToDate = {
-    'Monday': '2025-09-01',
-    'Tuesday': '2025-09-02', 
-    'Wednesday': '2025-09-03',
-    'Thursday': '2025-09-04',
-    'Friday': '2025-09-05',
-    'Saturday': '2025-09-06',
-    'Sunday': '2025-09-07'
+  const weekdayToDate: Record<string, string> = {
+    Monday: "2025-09-01",
+    Tuesday: "2025-09-02",
+    Wednesday: "2025-09-03",
+    Thursday: "2025-09-04",
+    Friday: "2025-09-05",
+    Saturday: "2025-09-06",
+    Sunday: "2025-09-07",
   };
   
-  serviceHoursByWeekday.forEach((hours, weekday) => {
-    const dateKey = (weekdayToDate as any)[weekday] || weekday;
+  hoursByWeekday.forEach(({ weekday, hours }) => {
+    const dateKey = weekdayToDate[weekday] ?? weekday;
     validatedDemand.push({
       "Date": dateKey,
-      "Required Client Hours": Math.round(hours * 100) / 100
+      "Required Client Hours": hours
     });
   });
+  
+  // Summary logging
+  const totalHours = hoursByWeekday.reduce((sum, { hours }) => sum + hours, 0);
+  const mondayHours = hoursByWeekday.find(({ weekday }) => weekday === 'Monday')?.hours || 0;
+  
+  console.log(`\n📊 ===== SERVICE DELIVERY SUMMARY =====`);
+  console.log(`✅ Filtered records: ${meta.rowsAfterFilter} (from ${meta.rowsAfterNormalize} normalized)`);
+  console.log(`📈 Monday hours: ${mondayHours} (expected: ~64.5)`);
+  console.log(`📈 Total hours: ${totalHours} (expected: 400.33)`);
+  console.log(`=======================================\n`);
 
   return {
     availability: validatedAvailability,
