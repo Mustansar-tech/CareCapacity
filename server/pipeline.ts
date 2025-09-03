@@ -371,12 +371,22 @@ export function parseExcelFiles(
   const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
 
   // === Use modular service delivery rules processing ===
+  console.log(`🔧 Calling applyServiceRules with buffer of length: ${demandBuffer.length}`);
+  let serviceRulesResult;
+  try {
+    serviceRulesResult = applyServiceRules(demandBuffer);
+    console.log(`✅ applyServiceRules completed successfully`);
+  } catch (error) {
+    console.error(`❌ applyServiceRules failed:`, error);
+    throw error;
+  }
+  
   const { 
     meta, 
     filteredRows, 
     hoursByWeekday, 
     serviceTypeByWeekday 
-  } = applyServiceRules(demandBuffer);
+  } = serviceRulesResult;
   
   console.log(`📁 Sheet: ${meta.sheetName}, Header row: ${meta.headerRow}, Rows: ${meta.rowsIn} → ${meta.rowsAfterNormalize} → ${meta.rowsAfterFilter}`);
   console.log(`🔍 Column mapping:`, meta.columnMap);
