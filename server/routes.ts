@@ -68,15 +68,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
       const normalizedDemandName = normalizeFileName(demandFile.originalname);
       
-      console.log(`📁 File name validation: "${demandFile.originalname}" -> "${normalizedDemandName}"`);
+      console.log(`📁 File name validation:`);
+      console.log(`  Availability: "${availabilityFile.originalname}" -> "${normalizedAvailabilityName}"`);
+      console.log(`  Guaranteed: "${guaranteedFile.originalname}" -> "${normalizedGuaranteedName}"`);
+      console.log(`  Demand: "${demandFile.originalname}" -> "${normalizedDemandName}"`);
+      console.log(`  Expected: ${JSON.stringify(expectedNames)}`);
 
       if (normalizedAvailabilityName !== expectedNames.availability ||
           normalizedGuaranteedName !== expectedNames.guaranteed ||
           normalizedDemandName !== expectedNames.demand) {
+        console.log(`❌ FILE VALIDATION FAILED:`);
+        console.log(`  Availability check: ${normalizedAvailabilityName} === ${expectedNames.availability} ? ${normalizedAvailabilityName === expectedNames.availability}`);
+        console.log(`  Guaranteed check: ${normalizedGuaranteedName} === ${expectedNames.guaranteed} ? ${normalizedGuaranteedName === expectedNames.guaranteed}`);
+        console.log(`  Demand check: ${normalizedDemandName} === ${expectedNames.demand} ? ${normalizedDemandName === expectedNames.demand}`);
         return res.status(400).json({
           message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}" (browser download numbers like (2) are allowed)`
         });
       }
+
+      console.log(`✅ FILE VALIDATION PASSED - Proceeding to parsing...`);
 
       // Parse Excel files
       const parsedData = parseExcelFiles(
