@@ -366,15 +366,15 @@ export function parseExcelFiles(
   const guaranteedSheet = guaranteedWorkbook.Sheets[guaranteedSheetName];
   const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
 
-  // Parse client_demand.xlsx
+  // Parse Hours by Service Type.xlsx (service delivery data)
   const demandWorkbook = XLSX.read(demandBuffer);
-  const demandSheetNames = demandWorkbook.SheetNames;
-  if (demandSheetNames.length === 0) {
-    throw new Error('No sheets found in client_demand file');
+  const demandSheetName = 'Data'; // Use the specific "Data" sheet
+  if (!demandWorkbook.SheetNames.includes(demandSheetName)) {
+    throw new Error(`Sheet "${demandSheetName}" not found in Hours by Service Type file`);
   }
 
-  const demandSheet = demandWorkbook.Sheets[demandSheetNames[0]];
-  const demandData = XLSX.utils.sheet_to_json<ClientDemandRow>(demandSheet);
+  const demandSheet = demandWorkbook.Sheets[demandSheetName];
+  const serviceDeliveryData = XLSX.utils.sheet_to_json<ServiceDeliveryRow>(demandSheet);
 
   // Process availability data
   const validatedAvailability: ParsedAvailabilityRow[] = [];

@@ -66,6 +66,20 @@ export interface ClientDemandRow {
   "Required Client Hours": number;
 }
 
+export interface ServiceDeliveryRow {
+  "Count": number;
+  "Customer Name": string;
+  "Actual Start Date And Time": string | number;
+  "Actual End Date And Time": string | number;
+  "Actual Duration": number;
+  "Actual Start Date Year": string;
+  "Actual Start Date Month": string;
+  "Actual Start Date Weekday": string;
+  "Actual Employee Name": string;
+  "Actual Service Type Description": string;
+  "Cancellation Description"?: string;
+}
+
 // Processed data interfaces
 export interface CleanedEmployeeRecord {
   employeeName: string;
