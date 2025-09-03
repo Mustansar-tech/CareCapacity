@@ -421,12 +421,6 @@ export function parseExcelFiles(
       const actualServiceType = row["Actual Service Type Description"];
       const cancellationDesc = row["Cancellation Description"];
       
-      // Debug: Log sample values to understand the data structure
-      if (index < 5) {
-        console.log(`🔍 Sample row ${index + 1}:`);
-        console.log(`   Service Type: "${actualServiceType}"`);
-        console.log(`   Cancellation: "${cancellationDesc}"`);
-      }
       
       // Cancellation Description: Include ONLY blank entries (not cancelled entries)
       const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
@@ -439,9 +433,6 @@ export function parseExcelFiles(
       if (!isCancellationValid || isSecondaryClient) {
         // Skip this row - either has cancellation info or is a secondary client
         filteredSecondaryCount++;
-        if (index < 10) {
-          console.log(`❌ FILTERED OUT row ${index + 1}: ServiceType="${actualServiceType}", Cancellation="${cancellationDesc}"`);
-        }
         return;
       }
       
