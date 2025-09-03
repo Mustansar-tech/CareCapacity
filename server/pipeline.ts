@@ -533,6 +533,14 @@ export function parseExcelFiles(
   console.log(`📊 FILTERING STATS: Processed=${totalProcessed}, Kept=${keptRecords}, Filtered for Cancellation=${filteredForCancellation}, Filtered for Secondary=${filteredForSecondaryClient}`);
   console.log(`===============================================`);
   
+  // Add temporary debug logging for weekday totals
+  console.log(`\n===== FINAL WEEKDAY BREAKDOWN FROM SERVICE DELIVERY =====`);
+  serviceHoursByWeekday.forEach((hours, weekday) => {
+    console.log(`  - ${weekday}: ${Math.round(hours * 100) / 100} hours`);
+  });
+  console.log(`📊 TOTAL SERVICE HOURS: ${Math.round(totalFilteredHours * 100) / 100} (Expected: 400.33)`);
+  console.log(`=======================================================\n`);
+
   // Convert weekday hours to date-based format for compatibility
   // Map weekdays to specific dates in our target week
   const weekdayToDate = {
