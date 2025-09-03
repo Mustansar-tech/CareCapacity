@@ -527,8 +527,11 @@ export function parseExcelFiles(
   serviceHoursByWeekday.forEach((hours, weekday) => {
     console.log(`  - ${weekday}: ${Math.round(hours * 100) / 100} hours`);
   });
+  console.log(``);
+  console.log(`===== SERVICE DELIVERY FILTERING RESULTS =====`);
   console.log(`📊 TOTAL FILTERED SERVICE HOURS: ${Math.round(totalFilteredHours * 100) / 100} (Expected: 400.33)`);
   console.log(`📊 FILTERING STATS: Processed=${totalProcessed}, Kept=${keptRecords}, Filtered for Cancellation=${filteredForCancellation}, Filtered for Secondary=${filteredForSecondaryClient}`);
+  console.log(`===============================================`);
   
   // Convert weekday hours to date-based format for compatibility
   // Map weekdays to specific dates in our target week
@@ -943,6 +946,15 @@ export function processCapacityData(
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // Step 9: Calculate KPIs
+  console.log(`\n===== DAILY SUMMARY CLIENT REQUIRED BREAKDOWN =====`);
+  let totalClientRequired = 0;
+  dailySummary.forEach(d => {
+    console.log(`  - ${d.date}: ${d.clientRequired} hours`);
+    totalClientRequired += d.clientRequired;
+  });
+  console.log(`📊 TOTAL CLIENT REQUIRED FROM DAILY SUMMARY: ${Math.round(totalClientRequired * 100) / 100}`);
+  console.log(`==================================================\n`);
+
   const kpis = {
     netCapacitySum: Math.round(dailySummary.reduce((sum, d) => sum + d.netCapacity, 0) * 100) / 100,
     clientRequiredSum: Math.round(dailySummary.reduce((sum, d) => sum + d.clientRequired, 0) * 100) / 100,
