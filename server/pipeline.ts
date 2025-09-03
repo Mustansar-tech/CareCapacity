@@ -427,9 +427,10 @@ export function parseExcelFiles(
       const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
       const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
       
-      // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
+      // Service Type Description: Only exclude "Multiple Care (Secondary)" specifically
+      // Allow "Multiple Care (Primary)" and all other service types
       const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
-      const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
+      const isSecondaryClient = serviceTypeValue === 'Multiple Care (Secondary)';
       
       if (!isCancellationValid || isSecondaryClient) {
         // Skip this row - either has cancellation info or is a secondary client
@@ -446,7 +447,7 @@ export function parseExcelFiles(
   console.log(`🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`);
   
   // Log service delivery processing for debugging
-  console.log(`🔍 PROCESSING ${serviceDeliveryData.length} service delivery records`);
+  console.log(`\n🔍 ===== PROCESSING ${serviceDeliveryData.length} SERVICE DELIVERY RECORDS =====`);
   
   // Track filtering stats
   let totalProcessed = 0;
@@ -490,9 +491,10 @@ export function parseExcelFiles(
         isCancellationValid = cancellationValue === '';
       }
       
-      // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
+      // Service Type Description: Only exclude "Multiple Care (Secondary)" specifically
+      // Allow "Multiple Care (Primary)" and all other service types
       const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
-      const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
+      const isSecondaryClient = serviceTypeValue === 'Multiple Care (Secondary)';
       
       // Track what gets filtered
       if (!isCancellationValid) {
