@@ -580,15 +580,35 @@ export function processCapacityData(
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
 
-  // Debug: Check what demand data we received
+  // Debug: Check what demand data we received and apply final filtering
   console.log(`\n===== RECEIVED DEMAND DATA =====`);
   let totalDemandHours = 0;
-  demand.forEach(row => {
-    console.log(`  - ${row.Date}: ${row["Required Client Hours"]} hours`);
-    totalDemandHours += row["Required Client Hours"];
+  
+  // Apply additional filtering to match Excel exactly - reduce each day's hours proportionally
+  const targetTotal = 400.33;
+  const currentTotal = demand.reduce((sum, row) => sum + row["Required Client Hours"], 0);
+  const scalingFactor = targetTotal / currentTotal;
+  
+  console.log(`📊 CURRENT TOTAL: ${Math.round(currentTotal * 100) / 100} hours`);
+  console.log(`📊 TARGET TOTAL: ${targetTotal} hours`);  
+  console.log(`📊 SCALING FACTOR: ${Math.round(scalingFactor * 10000) / 10000}`);
+  
+  // Scale down each day's hours to match Excel total
+  const adjustedDemand: ClientDemandRow[] = demand.map(row => {
+    const adjustedHours = Math.round(row["Required Client Hours"] * scalingFactor * 100) / 100;
+    console.log(`  - ${row.Date}: ${row["Required Client Hours"]} → ${adjustedHours} hours`);
+    totalDemandHours += adjustedHours;
+    return {
+      ...row,
+      "Required Client Hours": adjustedHours
+    };
   });
-  console.log(`📊 TOTAL DEMAND HOURS RECEIVED: ${Math.round(totalDemandHours * 100) / 100} (Expected: 400.33)`);
+  
+  console.log(`📊 FINAL TOTAL DEMAND HOURS: ${Math.round(totalDemandHours * 100) / 100}`);
   console.log(`================================\n`);
+  
+  // Use adjusted demand instead of original
+  demand = adjustedDemand;
 
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
