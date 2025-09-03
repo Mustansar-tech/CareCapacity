@@ -16,11 +16,17 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log(`📂 File upload attempt: "${file.originalname}" with MIME type: "${file.mimetype}"`);
+    
     if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        file.mimetype === 'application/vnd.ms-excel') {
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.originalname.toLowerCase().endsWith('.xlsx') ||
+        file.originalname.toLowerCase().endsWith('.xls')) {
+      console.log(`✅ File accepted: "${file.originalname}"`);
       cb(null, true);
     } else {
-      cb(new Error('Only Excel files are allowed'));
+      console.log(`❌ File rejected: "${file.originalname}" - MIME: "${file.mimetype}"`);
+      cb(new Error(`Only Excel files are allowed. Got MIME type: ${file.mimetype}`));
     }
   }
 });
