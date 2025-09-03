@@ -1,0 +1,155 @@
+import * as fs from "fs";
+import * as XLSX from "xlsx";
+
+/**
+ * Replit-friendly script:
+ *  - Reads a CSV of planned services
+ *  - Removes:
+ *      1) Planned Service Type Description === "Multiple Care (Secondary)"
+ *      2) Any row with a non-empty Cancellation Description
+ *  - Builds two pivots:
+ *      a) Hours by Weekday
+ *      b) Service Type × Weekday
+ *  - Writes an Excel workbook with 3 sheets.
+ *
+ * CLI (paths optional):
+ *   npx ts-node index.ts ./Full_Planned_Services_Data.csv ./planned_hours_analysis_filtered_no_cancel.xlsx
+ */
+
+type Row = {
+  "Planned Service Type Description"?: string;
+  "Planned Start Date Weekday"?: string;
+  "Planned Start Date And Time"?: string | number;
+  "Planned Duration"?: number;
+  "Cancellation Description"?: string | null;
+};
+
+const inputCsv  = process.argv[2] ?? "./Full_Planned_Services_Data.csv";
+const outputXlsx = process.argv[3] ?? "./planned_hours_analysis_filtered_no_cancel.xlsx";
+
+// optional: pass a comma-separated list to override the default excluded type
+const excludeTypesArg = process.env.EXCLUDE_TYPES ?? "Multiple Care (Secondary)";
+const EXCLUDED_SERVICE_TYPES = new Set(
+  excludeTypesArg.split(",").map(s => s.trim()).filter(Boolean)
+);
+
+function isNonEmpty(val: unknown): boolean {
+  if (val === null || val === undefined) return false;
+  return String(val).trim().length > 0;
+}
+
+function loadCsvAsJson(csvPath: string): Row[] {
+  if (!fs.existsSync(csvPath)) {
+    throw new Error(`CSV not found: ${csvPath}`);
+  }
+  // XLSX can read CSV directly
+  const wb = XLSX.readFile(csvPath);
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json<Row>(sheet, { defval: null });
+}
+
+function filterRows(rows: Row[]): Row[] {
+  return rows.filter((r) => {
+    const svc = (r["Planned Service Type Description"] ?? "").toString();
+    const cancelled = isNonEmpty(r["Cancellation Description"]);
+    // keep only if NOT excluded type AND NOT cancelled
+    return !EXCLUDED_SERVICE_TYPES.has(svc) && !cancelled;
+  });
+}
+
+// Pivot 1: Hours by Weekday (sum of Planned Duration)
+function pivotHoursByWeekday(rows: Row[]) {
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const wd = (r["Planned Start Date Weekday"] ?? "").toString();
+    const dur = Number(r["Planned Duration"] ?? 0);
+    map.set(wd, (map.get(wd) ?? 0) + dur);
+  }
+  const out = Array.from(map.entries()).map(([weekday, total]) => ({
+    "Planned Start Date Weekday": weekday,
+    "Total Planned Hours": Math.round(total * 100) / 100
+  }));
+  // alphabetical; adjust if you prefer Mon..Sun order
+  out.sort((a, b) => a["Planned Start Date Weekday"].localeCompare(b["Planned Start Date Weekday"]));
+  return out;
+}
+
+// Pivot 2: Service Type × Weekday (sum of Planned Duration)
+function pivotServiceTypeByWeekday(rows: Row[]) {
+  const services = new Set<string>();
+  const weekdays = new Set<string>();
+  const map = new Map<string, number>(); // key = `${svc}||${weekday}`
+
+  for (const r of rows) {
+    const svc = (r["Planned Service Type Description"] ?? "").toString();
+    const wd = (r["Planned Start Date Weekday"] ?? "").toString();
+    const dur = Number(r["Planned Duration"] ?? 0);
+    services.add(svc);
+    weekdays.add(wd);
+    const key = `${svc}||${wd}`;
+    map.set(key, (map.get(key) ?? 0) + dur);
+  }
+
+  const weekdayCols = Array.from(weekdays).sort();
+  const serviceList = Array.from(services).sort();
+  const table: Array<Record<string, string | number>> = [];
+
+  for (const svc of serviceList) {
+    const row: Record<string, string | number> = {
+      "Planned Service Type Description": svc
+    };
+    for (const wd of weekdayCols) {
+      const val = map.get(`${svc}||${wd}`) ?? 0;
+      row[wd] = Math.round(val * 100) / 100;
+    }
+    table.push(row);
+  }
+
+  return { table, weekdayCols };
+}
+
+function writeWorkbook(
+  filtered: Row[],
+  hoursByWeekday: ReturnType<typeof pivotHoursByWeekday>,
+  serviceTypeByWeekday: ReturnType<typeof pivotServiceTypeByWeekday>
+) {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Filtered data
+  const filteredSheet = XLSX.utils.json_to_sheet(filtered);
+  XLSX.utils.book_append_sheet(wb, filteredSheet, "FilteredData");
+
+  // Sheet 2: Hours by Weekday
+  const weekdaySheet = XLSX.utils.json_to_sheet(hoursByWeekday);
+  XLSX.utils.book_append_sheet(wb, weekdaySheet, "HoursByWeekday");
+
+  // Sheet 3: Service Type × Weekday
+  const { table, weekdayCols } = serviceTypeByWeekday;
+  const headers = ["Planned Service Type Description", ...weekdayCols];
+  const stSheet = XLSX.utils.json_to_sheet(table, { header: headers });
+  XLSX.utils.book_append_sheet(wb, stSheet, "ServiceTypeByWeekday");
+
+  XLSX.writeFile(wb, outputXlsx);
+}
+
+async function main() {
+  console.log("Reading:", inputCsv);
+  console.log("Excluding service types:", Array.from(EXCLUDED_SERVICE_TYPES).join(", ") || "(none)");
+
+  const rows = loadCsvAsJson(inputCsv);
+
+  console.log(`Original rows: ${rows.length}`);
+  const filtered = filterRows(rows);
+  console.log(`Filtered rows: ${filtered.length}`);
+
+  const hoursByWeekday = pivotHoursByWeekday(filtered);
+  const stByWeekday = pivotServiceTypeByWeekday(filtered);
+
+  writeWorkbook(filtered, hoursByWeekday, stByWeekday);
+  console.log("Wrote:", outputXlsx);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

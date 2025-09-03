@@ -470,7 +470,9 @@ export function parseExcelFiles(
       
       // Log first 5 records to see what data we're working with
       if (index < 5) {
-        console.log(`📝 Record ${index + 1}: Service Type = "${row["Actual Service Type Description"]}", Cancellation = "${row["Cancellation Description"]}", Duration = ${row["Actual Duration"]}`);
+        const plannedServiceType = (row as any)["Planned Service Type Description"];
+        const plannedDuration = (row as any)["Planned Duration"];
+        console.log(`📝 Record ${index + 1}: PLANNED Service Type = "${plannedServiceType}", Cancellation = "${row["Cancellation Description"]}", PLANNED Duration = ${plannedDuration}`);
       }
       
       if (!row["Actual Start Date And Time"] || typeof row["Actual Duration"] !== 'number') {
@@ -486,21 +488,22 @@ export function parseExcelFiles(
         return;
       }
       
-      // Apply same filtering as Care Pro data for consistency
-      const actualServiceType = row["Actual Service Type Description"];
+      // Apply filtering based on PLANNED data (matching the TypeScript script)
+      const plannedServiceType = (row as any)["Planned Service Type Description"];
       const cancellationDesc = row["Cancellation Description"];
       
-      // Cancellation Description: Excel "(blank)" filter - only NULL/undefined values
-      // This matches exactly what Excel considers "(blank)" in pivot tables
-      const isCancellationValid = (cancellationDesc === null || cancellationDesc === undefined);
+      // Cancellation Description: Exclude ANY non-empty cancellation (matching script logic)
+      // Script uses: isNonEmpty(r["Cancellation Description"]) - excludes if NOT null/undefined/empty
+      const hasNonEmptyCancellation = cancellationDesc !== null && 
+                                     cancellationDesc !== undefined && 
+                                     cancellationDesc.toString().trim().length > 0;
       
       // Service Type Description: Only exclude "Multiple Care (Secondary)" specifically
-      // Allow "Multiple Care (Primary)" and all other service types
-      const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
+      const serviceTypeValue = plannedServiceType ? plannedServiceType.toString() : '';
       const isSecondaryClient = serviceTypeValue === 'Multiple Care (Secondary)';
       
-      // Track what gets filtered
-      if (!isCancellationValid) {
+      // Track what gets filtered (matching script logic)
+      if (hasNonEmptyCancellation) {
         filteredForCancellation++;
         return;
       }
@@ -513,10 +516,13 @@ export function parseExcelFiles(
       // If we get here, record was kept
       keptRecords++;
       
+      // Use PLANNED Duration (matching the TypeScript script)
+      const plannedDuration = (row as any)["Planned Duration"] || 0;
+      
       // Aggregate hours by weekday (like your Excel pivot)
       const weekdayKey = plannedWeekday.toString();
       const currentHours = serviceHoursByWeekday.get(weekdayKey) || 0;
-      serviceHoursByWeekday.set(weekdayKey, currentHours + row["Actual Duration"]);
+      serviceHoursByWeekday.set(weekdayKey, currentHours + plannedDuration);
       
       // Build pivot table data - Service Type vs Weekday (like Excel)
       if (!pivotTable.has(serviceTypeValue)) {
@@ -524,11 +530,11 @@ export function parseExcelFiles(
       }
       const serviceTypeMap = pivotTable.get(serviceTypeValue)!;
       const currentServiceHours = serviceTypeMap.get(weekdayKey) || 0;
-      serviceTypeMap.set(weekdayKey, currentServiceHours + row["Actual Duration"]);
+      serviceTypeMap.set(weekdayKey, currentServiceHours + plannedDuration);
       
       // Debug log for Monday specifically
       if (weekdayKey === 'Monday') {
-        console.log(`✅ KEPT Monday record: ${row["Actual Duration"]} hours, Service: ${serviceTypeValue}, Cancellation: "${cancellationDesc}"`);
+        console.log(`✅ KEPT Monday record: ${plannedDuration} hours, Service: ${serviceTypeValue}, Cancellation: "${cancellationDesc}"`);
       }
       
     } catch (error) {
