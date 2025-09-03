@@ -486,16 +486,9 @@ export function parseExcelFiles(
       const actualServiceType = row["Actual Service Type Description"];
       const cancellationDesc = row["Cancellation Description"];
       
-      // Cancellation Description: Include ONLY truly blank entries (exactly like Excel filter)
-      // Excel's "(blank)" filter is very strict - only truly empty cells
-      let isCancellationValid = false;
-      if (cancellationDesc === null || cancellationDesc === undefined || cancellationDesc === '') {
-        isCancellationValid = true; // Truly empty
-      } else {
-        const cancellationValue = cancellationDesc.toString().trim();
-        // Be more restrictive - only accept completely empty values
-        isCancellationValid = cancellationValue === '';
-      }
+      // Cancellation Description: Excel "(blank)" filter - only NULL/undefined values
+      // This matches exactly what Excel considers "(blank)" in pivot tables
+      const isCancellationValid = (cancellationDesc === null || cancellationDesc === undefined);
       
       // Service Type Description: Only exclude "Multiple Care (Secondary)" specifically
       // Allow "Multiple Care (Primary)" and all other service types
@@ -521,6 +514,14 @@ export function parseExcelFiles(
       const currentHours = serviceHoursByWeekday.get(weekdayKey) || 0;
       serviceHoursByWeekday.set(weekdayKey, currentHours + row["Actual Duration"]);
       
+      // Build pivot table data - Service Type vs Weekday (like Excel)
+      if (!pivotTable.has(serviceTypeValue)) {
+        pivotTable.set(serviceTypeValue, new Map());
+      }
+      const serviceTypeMap = pivotTable.get(serviceTypeValue)!;
+      const currentServiceHours = serviceTypeMap.get(weekdayKey) || 0;
+      serviceTypeMap.set(weekdayKey, currentServiceHours + row["Actual Duration"]);
+      
       // Debug log for Monday specifically
       if (weekdayKey === 'Monday') {
         console.log(`✅ KEPT Monday record: ${row["Actual Duration"]} hours, Service: ${serviceTypeValue}, Cancellation: "${cancellationDesc}"`);
@@ -530,6 +531,13 @@ export function parseExcelFiles(
       warnings.push(`Service delivery row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
+  
+  // Create pivot table like Excel - Service Type vs Weekday
+  const pivotTable = new Map<string, Map<string, number>>();
+  
+  // Initialize service types we expect to see
+  const expectedServiceTypes = ['Companionship', 'Office Hours', 'Care and Companionship', 'Specialised Care', 'Multiple Care (Primary)'];
+  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   
   // Display comprehensive filtering results
   console.log(`\n🔍 ===== SERVICE DELIVERY FILTERING RESULTS =====`);
@@ -545,6 +553,43 @@ export function parseExcelFiles(
     totalFilteredHours += hours;
   });
   
+  // Display pivot table like Excel
+  console.log(`\n📊 ===== PIVOT TABLE: SERVICE TYPE vs WEEKDAY (Like Excel) =====`);
+  console.log(`Service Type`.padEnd(25) + weekdays.map(w => w.substring(0,3).padStart(8)).join(''));
+  console.log(`${''.padEnd(25)}${weekdays.map(() => '--------').join('')}`);
+  
+  let mondayTotal = 0;
+  let grandTotal = 0;
+  
+  pivotTable.forEach((weekdayMap, serviceType) => {
+    let row = serviceType.padEnd(25);
+    let serviceTotal = 0;
+    
+    weekdays.forEach(weekday => {
+      const hours = weekdayMap.get(weekday) || 0;
+      serviceTotal += hours;
+      if (weekday === 'Monday') {
+        mondayTotal += hours;
+      }
+      row += (Math.round(hours * 100) / 100).toString().padStart(8);
+    });
+    
+    grandTotal += serviceTotal;
+    console.log(row);
+  });
+  
+  console.log(`${''.padEnd(25)}${weekdays.map(() => '--------').join('')}`);
+  console.log(`Total`.padEnd(25) + weekdays.map(weekday => {
+    const total = Array.from(pivotTable.values())
+      .reduce((sum, map) => sum + (map.get(weekday) || 0), 0);
+    return (Math.round(total * 100) / 100).toString().padStart(8);
+  }).join(''));
+  
+  console.log(`\n📊 KEY TOTALS:`);
+  console.log(`  - Monday Total: ${Math.round(mondayTotal * 100) / 100} hours (Excel shows ~64.5)`);
+  console.log(`  - Grand Total: ${Math.round(grandTotal * 100) / 100} hours (Expected: 400.33)`);
+  console.log(`===============================================================\n`);
+
   console.log(`🔍 FINAL WEEKDAY TOTALS:`);
   serviceHoursByWeekday.forEach((hours, weekday) => {
     console.log(`  - ${weekday}: ${Math.round(hours * 100) / 100} hours`);
