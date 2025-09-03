@@ -76,20 +76,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`🚨 API: About to call parseExcelFiles with file sizes:`, {
-        availability: availabilityFile.buffer.length,
-        guaranteed: guaranteedFile.buffer.length,
-        demand: demandFile.buffer.length
-      });
-
       // Parse Excel files
       const parsedData = parseExcelFiles(
         availabilityFile.buffer,
         guaranteedFile.buffer,
         demandFile.buffer
       );
-      
-      console.log(`🚨 API: parseExcelFiles completed, got ${parsedData.demand.length} demand records`);
 
       // Process the data
       const result = processCapacityData(

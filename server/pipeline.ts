@@ -347,8 +347,6 @@ export function parseExcelFiles(
 } {
   console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
   const warnings: string[] = [];
-  
-  try {
 
   // Parse Availability Export.xlsx
   const availabilityWorkbook = XLSX.read(availabilityBuffer);
@@ -371,20 +369,16 @@ export function parseExcelFiles(
   const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
 
   // Parse Hours by Service Type.xlsx (service delivery data)
-  console.log(`🚨 Parsing Hours by Service Type.xlsx...`);
   const demandWorkbook = XLSX.read(demandBuffer);
-  console.log(`🚨 Available sheets in Hours by Service Type:`, demandWorkbook.SheetNames);
-  
   const demandSheetName = 'Data'; // Use the specific "Data" sheet
   if (!demandWorkbook.SheetNames.includes(demandSheetName)) {
-    console.log(`🚨 ERROR: Sheet "${demandSheetName}" not found! Available sheets:`, demandWorkbook.SheetNames);
-    throw new Error(`Sheet "${demandSheetName}" not found in Hours by Service Type file. Available sheets: ${demandWorkbook.SheetNames.join(', ')}`);
+    throw new Error(`Sheet "${demandSheetName}" not found in Hours by Service Type file`);
   }
 
   const demandSheet = demandWorkbook.Sheets[demandSheetName];
   const serviceDeliveryData = XLSX.utils.sheet_to_json<ServiceDeliveryRow>(demandSheet);
   
-  console.log(`🚨 Successfully parsed ${serviceDeliveryData.length} service delivery records from Hours by Service Type.xlsx`);
+  console.log(`🚨 Successfully parsed ${serviceDeliveryData.length} service delivery records`);
 
   // Process availability data
   const validatedAvailability: ParsedAvailabilityRow[] = [];
@@ -650,11 +644,6 @@ export function parseExcelFiles(
     demand: validatedDemand,
     warnings
   };
-  
-  } catch (error) {
-    console.log(`🚨 ERROR in parseExcelFiles:`, error);
-    throw error;
-  }
 }
 
 // Process and clean the data according to your exact Python logic
