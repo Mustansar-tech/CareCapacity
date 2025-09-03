@@ -480,13 +480,14 @@ export function parseExcelFiles(
       const cancellationDesc = row["Cancellation Description"];
       
       // Cancellation Description: Include ONLY truly blank entries (exactly like Excel filter)
-      // Handle null, undefined, empty string, and Excel's "(blank)" display
+      // Excel's "(blank)" filter is very strict - only truly empty cells
       let isCancellationValid = false;
-      if (cancellationDesc === null || cancellationDesc === undefined) {
+      if (cancellationDesc === null || cancellationDesc === undefined || cancellationDesc === '') {
         isCancellationValid = true; // Truly empty
       } else {
         const cancellationValue = cancellationDesc.toString().trim();
-        isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
+        // Be more restrictive - only accept completely empty values
+        isCancellationValid = cancellationValue === '';
       }
       
       // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
@@ -576,6 +577,16 @@ export function processCapacityData(
   demand: ClientDemandRow[]
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
+
+  // Debug: Check what demand data we received
+  console.log(`\n===== RECEIVED DEMAND DATA =====`);
+  let totalDemandHours = 0;
+  demand.forEach(row => {
+    console.log(`  - ${row.Date}: ${row["Required Client Hours"]} hours`);
+    totalDemandHours += row["Required Client Hours"];
+  });
+  console.log(`📊 TOTAL DEMAND HOURS RECEIVED: ${Math.round(totalDemandHours * 100) / 100} (Expected: 400.33)`);
+  console.log(`================================\n`);
 
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
