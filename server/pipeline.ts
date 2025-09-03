@@ -447,7 +447,8 @@ export function parseExcelFiles(
   console.log(`🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`);
   
   // Log service delivery processing for debugging
-  console.log(`\n🔍 ===== PROCESSING ${serviceDeliveryData.length} SERVICE DELIVERY RECORDS =====`);
+  console.log(`\n🔍 ===== PARSING EXCEL FILES FUNCTION CALLED =====`);
+  console.log(`🔍 PROCESSING ${serviceDeliveryData.length} SERVICE DELIVERY RECORDS`);
   console.log(`🔍 This function is being called! Let's see what service types we have...`);
   
   // Track filtering stats
