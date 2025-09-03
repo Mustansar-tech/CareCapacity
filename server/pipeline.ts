@@ -469,9 +469,9 @@ export function parseExcelFiles(
   let mondayFilteredHours = 0;
   let mondayTotalHours = 0;
 
-  // Process service delivery data and aggregate by date
+  // Process service delivery data and aggregate by weekday (like Excel pivot)
   const validatedDemand: ClientDemandRow[] = [];
-  const serviceHoursByDate = new Map<string, number>();
+  const serviceHoursByWeekday = new Map<string, number>();
   
   serviceDeliveryData.forEach((row, index) => {
     try {
@@ -480,27 +480,35 @@ export function parseExcelFiles(
         return;
       }
       
-      // Parse the Excel date and extract date string first for Monday debugging
+      // Use Planned Start Date Weekday for accurate weekday grouping (like your Excel pivot)
+      const rowData = row as any; // Cast to access dynamic columns
+      const plannedWeekday = rowData["Planned Start Date Weekday"];
+      if (!plannedWeekday) {
+        warnings.push(`Service delivery row ${index + 1}: Missing Planned Start Date Weekday`);
+        return;
+      }
+      
+      // Parse the planned date for date string
       let dateStr: string;
-      if (typeof row["Actual Start Date And Time"] === 'number') {
+      if (typeof rowData["Planned Start Date And Time"] === 'number') {
         // Excel serial date
-        const excelDate = new Date((row["Actual Start Date And Time"] as number - 25569) * 86400 * 1000);
+        const excelDate = new Date((rowData["Planned Start Date And Time"] as number - 25569) * 86400 * 1000);
         dateStr = format(excelDate, 'yyyy-MM-dd');
       } else {
-        // String date
-        const parsedDate = parseDate(row["Actual Start Date And Time"] as string);
+        // String date - try to parse planned date
+        const parsedDate = parseDate(rowData["Planned Start Date And Time"] as string);
         dateStr = format(parsedDate, 'yyyy-MM-dd');
       }
       
-      // Debug Monday data specifically
-      if (dateStr === '2025-09-01') { // Monday
+      // Debug Monday data specifically using weekday
+      if (plannedWeekday.toString().toLowerCase() === 'monday') {
         mondayTotalHours += row["Actual Duration"];
         mondayDebugCount++;
         
         const actualServiceType = row["Actual Service Type Description"];
         const cancellationDesc = row["Cancellation Description"];
         
-        console.log(`📊 MONDAY ROW ${index + 1}: Service="${actualServiceType}", Cancellation="${cancellationDesc}", Duration=${row["Actual Duration"]}`);
+        console.log(`📊 MONDAY ROW ${index + 1}: Service="${actualServiceType}", Cancellation="${cancellationDesc}", Duration=${row["Actual Duration"]}, Date=${dateStr}`);
       }
       
       // Apply same filtering as Care Pro data for consistency
@@ -517,7 +525,7 @@ export function parseExcelFiles(
       
       if (!isCancellationValid || isSecondaryClient) {
         // Debug what gets filtered on Monday
-        if (dateStr === '2025-09-01') {
+        if (plannedWeekday.toString().toLowerCase() === 'monday') {
           console.log(`❌ MONDAY FILTERED ROW ${index + 1}: Reason - ${!isCancellationValid ? 'Cancellation' : 'Secondary Client'}`);
         }
         // Skip this row - either has cancellation info or is a secondary client
@@ -525,14 +533,15 @@ export function parseExcelFiles(
       }
       
       // If we get here, this row passed the filter
-      if (dateStr === '2025-09-01') {
+      if (plannedWeekday.toString().toLowerCase() === 'monday') {
         mondayFilteredHours += row["Actual Duration"];
         console.log(`✅ MONDAY KEPT ROW ${index + 1}: Added ${row["Actual Duration"]} hours`);
       }
       
-      // Aggregate hours by date
-      const currentHours = serviceHoursByDate.get(dateStr) || 0;
-      serviceHoursByDate.set(dateStr, currentHours + row["Actual Duration"]);
+      // Aggregate hours by weekday (like your Excel pivot)
+      const weekdayKey = plannedWeekday.toString();
+      const currentHours = serviceHoursByWeekday.get(weekdayKey) || 0;
+      serviceHoursByWeekday.set(weekdayKey, currentHours + row["Actual Duration"]);
       
     } catch (error) {
       warnings.push(`Service delivery row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -544,12 +553,29 @@ export function parseExcelFiles(
   console.log(`  - Total Monday rows processed: ${mondayDebugCount}`);
   console.log(`  - Total Monday hours (before filtering): ${mondayTotalHours}`);
   console.log(`  - Total Monday hours (after filtering): ${mondayFilteredHours}`);
-  console.log(`  - Final Monday value in serviceHoursByDate: ${serviceHoursByDate.get('2025-09-01') || 0}`);
   
-  // Convert aggregated hours to ClientDemandRow format
-  serviceHoursByDate.forEach((hours, date) => {
+  // Show all weekdays and their totals for debugging
+  console.log(`🔍 ALL WEEKDAYS SUMMARY:`);
+  serviceHoursByWeekday.forEach((hours, weekday) => {
+    console.log(`  - ${weekday}: ${hours} hours`);
+  });
+  
+  // Convert weekday hours to date-based format for compatibility
+  // Map weekdays to specific dates in our target week
+  const weekdayToDate = {
+    'Monday': '2025-09-01',
+    'Tuesday': '2025-09-02', 
+    'Wednesday': '2025-09-03',
+    'Thursday': '2025-09-04',
+    'Friday': '2025-09-05',
+    'Saturday': '2025-09-06',
+    'Sunday': '2025-09-07'
+  };
+  
+  serviceHoursByWeekday.forEach((hours, weekday) => {
+    const dateKey = (weekdayToDate as any)[weekday] || weekday;
     validatedDemand.push({
-      "Date": date,
+      "Date": dateKey,
       "Required Client Hours": Math.round(hours * 100) / 100
     });
   });
