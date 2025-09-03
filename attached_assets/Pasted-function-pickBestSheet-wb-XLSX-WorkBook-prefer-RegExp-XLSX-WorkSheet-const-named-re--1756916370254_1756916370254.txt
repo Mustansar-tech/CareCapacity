@@ -1,0 +1,50 @@
+function pickBestSheet(wb: XLSX.WorkBook, prefer: RegExp[]): XLSX.WorkSheet {
+  const named = (re: RegExp) => wb.SheetNames.find(n => re.test(n));
+  for (const re of prefer) {
+    const name = named(re);
+    if (name) return wb.Sheets[name];
+  }
+  const firstDataLike = wb.SheetNames.find(n => !/pivot|chart/i.test(n)) ?? wb.SheetNames[0];
+  return wb.Sheets[firstDataLike];
+}
+
+function findHeaderRow(ws: XLSX.WorkSheet, scanRows = 80): { headerRowIdx: number; headers: string[] } {
+  const rng = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
+  let best = { idx: rng.s.r, score: -1, headers: [] as string[] };
+  for (let r = rng.s.r; r <= Math.min(rng.e.r, rng.s.r + scanRows - 1); r++) {
+    const rowVals: string[] = [];
+    for (let c = rng.s.c; c <= rng.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      rowVals.push(cell ? String(cell.v ?? "") : "");
+    }
+    const headers = rowVals;
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const score =
+      Number(headers.some(h => /name/i.test(h))) +
+      Number(headers.some(h => /(start|date)/i.test(h))) +
+      Number(headers.some(h => /(end|time)/i.test(h))) +
+      Number(headers.some(h => /hours?/i.test(h)));
+    if (score > best.score) best = { idx: r, score, headers };
+  }
+  return { headerRowIdx: best.idx, headers: best.headers };
+}
+
+function mapCols(headers: string[], synonyms: Record<string, string[]>): Record<string, string | null> {
+  const norm = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+  const find = (alts: string[]) => {
+    // exact normalized
+    for (const h of headers) for (const a of alts) if (norm(h) === norm(a)) return h;
+    // soft contains either way
+    for (const h of headers) {
+      const nh = norm(h);
+      for (const a of alts) {
+        const na = norm(a);
+        if (nh.includes(na) || na.includes(nh)) return h;
+      }
+    }
+    return null;
+  };
+  const out: Record<string, string | null> = {};
+  for (const k of Object.keys(synonyms)) out[k] = find(synonyms[k]);
+  return out;
+}
