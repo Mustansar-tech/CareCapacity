@@ -448,6 +448,7 @@ export function parseExcelFiles(
   
   // Log service delivery processing for debugging
   console.log(`\n🔍 ===== PROCESSING ${serviceDeliveryData.length} SERVICE DELIVERY RECORDS =====`);
+  console.log(`🔍 This function is being called! Let's see what service types we have...`);
   
   // Track filtering stats
   let totalProcessed = 0;
@@ -462,6 +463,11 @@ export function parseExcelFiles(
   serviceDeliveryData.forEach((row, index) => {
     try {
       totalProcessed++;
+      
+      // Log first 5 records to see what data we're working with
+      if (index < 5) {
+        console.log(`📝 Record ${index + 1}: Service Type = "${row["Actual Service Type Description"]}", Cancellation = "${row["Cancellation Description"]}", Duration = ${row["Actual Duration"]}`);
+      }
       
       if (!row["Actual Start Date And Time"] || typeof row["Actual Duration"] !== 'number') {
         warnings.push(`Service delivery row ${index + 1}: Missing start date or duration`);
