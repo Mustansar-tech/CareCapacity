@@ -50,7 +50,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { name: 'demand', maxCount: 1 }
   ]), async (req, res) => {
     try {
+      console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
       
       // Validate that all three files are present
       if (!files.availability || !files.guaranteed || !files.demand) {
