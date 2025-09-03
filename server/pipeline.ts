@@ -348,6 +348,7 @@ export function parseExcelFiles(
   warnings: string[];
 } {
   console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
+  console.log(`🔧 Buffer lengths: availability=${availabilityBuffer?.length}, guaranteed=${guaranteedBuffer?.length}, demand=${demandBuffer?.length}`);
   const warnings: string[] = [];
 
   // Parse Availability Export.xlsx
