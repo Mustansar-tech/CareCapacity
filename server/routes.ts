@@ -133,6 +133,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error('Processing error:', error);
+      console.error('Error type:', error?.constructor?.name);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      
+      if (error && typeof error === 'object') {
+        console.error('Error details:', JSON.stringify(error, null, 2));
+      }
+      
       res.status(500).json({
         message: error instanceof Error ? error.message : 'Internal processing error'
       });
