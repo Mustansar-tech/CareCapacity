@@ -68,10 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
       const normalizedDemandName = normalizeFileName(demandFile.originalname);
       
-      console.log(`📁 File name validation:`);
-      console.log(`  - Demand file: "${demandFile.originalname}" -> "${normalizedDemandName}"`);
-      console.log(`  - Expected: "${expectedNames.demand}"`);
-      console.log(`  - Match: ${normalizedDemandName === expectedNames.demand}`);
+      console.log(`📁 File name validation: "${demandFile.originalname}" -> "${normalizedDemandName}"`);
 
       if (normalizedAvailabilityName !== expectedNames.availability ||
           normalizedGuaranteedName !== expectedNames.guaranteed ||
