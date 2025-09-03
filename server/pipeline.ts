@@ -445,29 +445,14 @@ export function parseExcelFiles(
 
   console.log(`🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`);
   
-  // Log service delivery processing
-  let filteredServiceCount = 0;
-  serviceDeliveryData.forEach((row) => {
-    const actualServiceType = row["Actual Service Type Description"];
-    const cancellationDesc = row["Cancellation Description"];
-    
-    const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
-    const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
-    
-    const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
-    const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
-    
-    if (!isCancellationValid || isSecondaryClient) {
-      filteredServiceCount++;
-    }
-  });
+  // Log service delivery processing for debugging
+  console.log(`🔍 PROCESSING ${serviceDeliveryData.length} service delivery records`);
   
-  console.log(`🔍 SERVICE DELIVERY FILTERING: Excluded ${filteredServiceCount} rows from ${serviceDeliveryData.length} total service records`);
-  
-  // Debug: Show a sample of service delivery data and what gets filtered
-  let mondayDebugCount = 0;
-  let mondayFilteredHours = 0;
-  let mondayTotalHours = 0;
+  // Track filtering stats
+  let totalProcessed = 0;
+  let filteredForCancellation = 0;
+  let filteredForSecondaryClient = 0;
+  let keptRecords = 0;
 
   // Process service delivery data and aggregate by weekday (like Excel pivot)
   const validatedDemand: ClientDemandRow[] = [];
@@ -475,6 +460,8 @@ export function parseExcelFiles(
   
   serviceDeliveryData.forEach((row, index) => {
     try {
+      totalProcessed++;
+      
       if (!row["Actual Start Date And Time"] || typeof row["Actual Duration"] !== 'number') {
         warnings.push(`Service delivery row ${index + 1}: Missing start date or duration`);
         return;
@@ -488,55 +475,37 @@ export function parseExcelFiles(
         return;
       }
       
-      // Parse the planned date for date string
-      let dateStr: string;
-      if (typeof rowData["Planned Start Date And Time"] === 'number') {
-        // Excel serial date
-        const excelDate = new Date((rowData["Planned Start Date And Time"] as number - 25569) * 86400 * 1000);
-        dateStr = format(excelDate, 'yyyy-MM-dd');
-      } else {
-        // String date - try to parse planned date
-        const parsedDate = parseDate(rowData["Planned Start Date And Time"] as string);
-        dateStr = format(parsedDate, 'yyyy-MM-dd');
-      }
-      
-      // Debug Monday data specifically using weekday
-      if (plannedWeekday.toString().toLowerCase() === 'monday') {
-        mondayTotalHours += row["Actual Duration"];
-        mondayDebugCount++;
-        
-        const actualServiceType = row["Actual Service Type Description"];
-        const cancellationDesc = row["Cancellation Description"];
-        
-        console.log(`📊 MONDAY ROW ${index + 1}: Service="${actualServiceType}", Cancellation="${cancellationDesc}", Duration=${row["Actual Duration"]}, Date=${dateStr}`);
-      }
-      
       // Apply same filtering as Care Pro data for consistency
       const actualServiceType = row["Actual Service Type Description"];
       const cancellationDesc = row["Cancellation Description"];
       
-      // Cancellation Description: Include ONLY blank entries (not cancelled entries)
-      const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
-      const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
+      // Cancellation Description: Include ONLY truly blank entries (exactly like Excel filter)
+      // Handle null, undefined, empty string, and Excel's "(blank)" display
+      let isCancellationValid = false;
+      if (cancellationDesc === null || cancellationDesc === undefined) {
+        isCancellationValid = true; // Truly empty
+      } else {
+        const cancellationValue = cancellationDesc.toString().trim();
+        isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
+      }
       
       // Service Type Description: Only exclude entries that specifically mention "Multiple Care (Secondary)"
       const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
       const isSecondaryClient = serviceTypeValue.includes('Multiple Care (Secondary)');
       
-      if (!isCancellationValid || isSecondaryClient) {
-        // Debug what gets filtered on Monday
-        if (plannedWeekday.toString().toLowerCase() === 'monday') {
-          console.log(`❌ MONDAY FILTERED ROW ${index + 1}: Reason - ${!isCancellationValid ? 'Cancellation' : 'Secondary Client'}`);
-        }
-        // Skip this row - either has cancellation info or is a secondary client
+      // Track what gets filtered
+      if (!isCancellationValid) {
+        filteredForCancellation++;
         return;
       }
       
-      // If we get here, this row passed the filter
-      if (plannedWeekday.toString().toLowerCase() === 'monday') {
-        mondayFilteredHours += row["Actual Duration"];
-        console.log(`✅ MONDAY KEPT ROW ${index + 1}: Added ${row["Actual Duration"]} hours`);
+      if (isSecondaryClient) {
+        filteredForSecondaryClient++;
+        return;
       }
+      
+      // If we get here, record was kept
+      keptRecords++;
       
       // Aggregate hours by weekday (like your Excel pivot)
       const weekdayKey = plannedWeekday.toString();
@@ -548,17 +517,18 @@ export function parseExcelFiles(
     }
   });
   
-  // Log Monday debugging results
-  console.log(`🔍 MONDAY DEBUG SUMMARY:`);
-  console.log(`  - Total Monday rows processed: ${mondayDebugCount}`);
-  console.log(`  - Total Monday hours (before filtering): ${mondayTotalHours}`);
-  console.log(`  - Total Monday hours (after filtering): ${mondayFilteredHours}`);
-  
-  // Show all weekdays and their totals for debugging
-  console.log(`🔍 ALL WEEKDAYS SUMMARY:`);
-  serviceHoursByWeekday.forEach((hours, weekday) => {
-    console.log(`  - ${weekday}: ${hours} hours`);
+  // Calculate and display total hours for verification
+  let totalFilteredHours = 0;
+  serviceHoursByWeekday.forEach((hours) => {
+    totalFilteredHours += hours;
   });
+  
+  console.log(`🔍 FINAL WEEKDAY TOTALS:`);
+  serviceHoursByWeekday.forEach((hours, weekday) => {
+    console.log(`  - ${weekday}: ${Math.round(hours * 100) / 100} hours`);
+  });
+  console.log(`📊 TOTAL FILTERED SERVICE HOURS: ${Math.round(totalFilteredHours * 100) / 100} (Expected: 400.33)`);
+  console.log(`📊 FILTERING STATS: Processed=${totalProcessed}, Kept=${keptRecords}, Filtered for Cancellation=${filteredForCancellation}, Filtered for Secondary=${filteredForSecondaryClient}`);
   
   // Convert weekday hours to date-based format for compatibility
   // Map weekdays to specific dates in our target week
