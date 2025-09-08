@@ -190,11 +190,11 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   
   // Debug: Show final scheduled hours for Amanda
   console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Amanda entries):`);
-  for (const [key, hours] of ghMap.entries()) {
+  Array.from(ghMap.entries()).forEach(([key, hours]) => {
     if (key.toLowerCase().includes('amanda')) {
       console.log(`  ${key}: ${hours} hours`);
     }
-  }
+  });
   console.log(`=========================================\n`);
   
   return ghMap;
