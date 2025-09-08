@@ -57,7 +57,9 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                 <SelectValue placeholder="Select date" />
               </SelectTrigger>
               <SelectContent>
-                {(availableDates || []).map((date) => (
+                {(availableDates || [])
+                  .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                  .map((date) => (
                   <SelectItem key={date} value={date}>
                     {new Date(date).toLocaleDateString('en-US', {
                       weekday: 'short',
