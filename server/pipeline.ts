@@ -113,61 +113,86 @@ function timeToString(timeValue: any): string {
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
 // key: normalized employee name + yyyy-MM-dd(Service Requirement Start Date And Time)
+// ---- FALLBACK + ROBUST FILTER HELPERS --------------------------------------
+
+// Same priority used in Hours by Service Type.xlsx:
+// 1) Service Requirement  2) Actual  3) Planned
+function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
+  const srStart = row["Service Requirement Start Date And Time"];
+  const srEnd   = row["Service Requirement End Date And Time"];
+  const acStart = row["Actual Start Date And Time"];
+  const acEnd   = row["Actual End Date And Time"];
+  const plStart = row["Planned Start Date And Time"];
+  const plEnd   = row["Planned End Date And Time"];
+
+  const start = srStart ?? acStart ?? plStart;
+  const end   = srEnd   ?? acEnd   ?? plEnd;
+  return { start, end };
+}
+
+// Robust secondary filter (case/spacing tolerant)
+function isSecondaryMultipleCare(value: any): boolean {
+  const s = (value ?? "").toString().trim().toLowerCase();
+  return s.includes("multiple care") && s.includes("secondary");
+}
+
+// Treat common "blank" tokens as blank
+function isCancellationBlank(value: any): boolean {
+  const s = (value ?? "").toString().trim().toLowerCase();
+  return s === "" || s === "(blank)" || s === "na" || s === "n/a";
+}
+
+// Helper function to get scheduled hours for a specific date based on service requirements
+// Build Scheduled Hours lookup from Guaranteed sheet
+// key: normalized employee name + yyyy-MM-dd(resolved start date)
 function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   const ghMap = new Map<string, number>();
   let totalProcessed = 0;
   let filteredCancelled = 0;
   let filteredSecondary = 0;
-  
+
   for (const g of guaranteed || []) {
     totalProcessed++;
-    
-    // Apply same filtering rules as Hours by Service Type.xlsx
-    
-    // 1. Check for cancellation (exclude if not blank)
-    const cancellationDesc = g["Cancellation Description"];
-    const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
-    const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
-    
-    if (!isCancellationValid) {
+
+    // Apply robust filters (exactly as in Hours by Service Type.xlsx)
+    const cancelOk = isCancellationBlank(g["Cancellation Description"]);
+    if (!cancelOk) {
       filteredCancelled++;
-      continue; // Skip cancelled entries
+      continue;
     }
-    
-    // 2. Check for "Multiple Care (Secondary)" service type
-    const actualServiceType = g["Actual Service Type Description"];
-    const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
-    const isSecondaryClient = serviceTypeValue === 'Multiple Care (Secondary)';
-    
-    if (isSecondaryClient) {
+
+    const secondary = isSecondaryMultipleCare(g["Actual Service Type Description"]);
+    if (secondary) {
       filteredSecondary++;
-      continue; // Skip secondary client entries
+      continue;
     }
-    
-    // Process valid entry
-    const name = normalizeName((g as any)["Actual Employee Name"]);
-    const rawDate = (g as any)["Service Requirement Start Date And Time"];
-    const date = format(parseDate(rawDate), 'yyyy-MM-dd');
-    const rawPayHours = (g as any)["Actual Pay Rate Hours"];
-    const pay = Number(rawPayHours) || 0;
-    
+
+    // Resolve timestamps with fallback priority SR -> Actual -> Planned
+    const { start } = resolveServiceTimestamps(g);
+    if (!start) continue;
+
+    const name = normalizeName(g["Actual Employee Name"]);
+    const date = format(parseDate(start), "yyyy-MM-dd");
+
+    // Sum only positive/real pay hours
+    const pay = Number(g["Actual Pay Rate Hours"]) || 0;
+
     // Debug specific employee entries
-    const originalName = (g as any)["Actual Employee Name"];
+    const originalName = g["Actual Employee Name"];
     if (originalName && originalName.toLowerCase().includes('makala')) {
       console.log(`🔍 MAKALA DEBUG - Processing entry:`);
       console.log(`  Original Name: ${originalName}`);
       console.log(`  Normalized Name: ${name}`);
-      console.log(`  Raw Date: ${rawDate}`);
+      console.log(`  Resolved Start: ${start}`);
       console.log(`  Parsed Date: ${date}`);
-      console.log(`  Raw Pay Hours: ${rawPayHours}`);
+      console.log(`  Raw Pay Hours: ${g["Actual Pay Rate Hours"]}`);
       console.log(`  Parsed Pay Hours: ${pay}`);
-      console.log(`  Service Type: ${serviceTypeValue}`);
-      console.log(`  Cancellation: "${cancellationValue}"`);
+      console.log(`  Service Type: ${g["Actual Service Type Description"]}`);
+      console.log(`  Cancellation: "${g["Cancellation Description"]}"`);
     }
-    
+
     if (name && date && pay > 0) {
       const key = `${name}|${date}`;
-      // Sum multiple assignments for the same employee on the same date
       const existing = ghMap.get(key) || 0;
       const newTotal = existing + pay;
       ghMap.set(key, newTotal);
@@ -181,7 +206,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       }
     }
   }
-  
+
   console.log(`\n🔍 SCHEDULED HOURS FILTERING SUMMARY:`);
   console.log(`  📊 Total guaranteed hours entries: ${totalProcessed}`);
   console.log(`  ❌ Filtered cancelled entries: ${filteredCancelled}`);
@@ -196,7 +221,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     }
   });
   console.log(`=========================================\n`);
-  
+
   return ghMap;
 }
 
@@ -494,38 +519,30 @@ export function parseExcelFiles(
   let filteredSecondaryCount = 0;
   guaranteedData.forEach((row, index) => {
     try {
-      if (!row["Actual Employee Name"] || 
-          typeof row["Actual Employee Hours Per Week"] !== 'number' ||
-          typeof row["Actual Pay Rate Hours"] !== 'number' ||
-          !row["Service Requirement Start Date And Time"] ||
-          !row["Service Requirement End Date And Time"]) {
+      // Use fallback resolver (SR -> Actual -> Planned)
+      const { start, end } = resolveServiceTimestamps(row);
+
+      // Required fields with fallback timestamps
+      if (!row["Actual Employee Name"] ||
+          typeof row["Actual Employee Hours Per Week"] !== "number" ||
+          typeof row["Actual Pay Rate Hours"] !== "number" ||
+          !start || !end) {
         warnings.push(`Guaranteed hours row ${index + 1}: Missing or invalid required fields`);
         return;
       }
-      
-      // Filter out secondary client hours with individual logic for each column
-      const actualServiceType = row["Actual Service Type Description"];
-      const cancellationDesc = row["Cancellation Description"];
-      
-      
-      // Cancellation Description: Include ONLY blank entries (not cancelled entries)
-      const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
-      const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
-      
-      // Service Type Description: Only exclude "Multiple Care (Secondary)" specifically
-      // Allow "Multiple Care (Primary)" and all other service types
-      const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
-      const isSecondaryClient = serviceTypeValue === 'Multiple Care (Secondary)';
-      
-      if (!isCancellationValid || isSecondaryClient) {
-        // Skip this row - either has cancellation info or is a secondary client
+
+      // Robust cancellation/secondary checks (match Hours by Service Type.xlsx)
+      const isCancelOk = isCancellationBlank(row["Cancellation Description"]);
+      const isSecondary = isSecondaryMultipleCare(row["Actual Service Type Description"]);
+
+      if (!isCancelOk || isSecondary) {
         filteredSecondaryCount++;
         return;
       }
-      
+
       validatedGuaranteed.push(row);
     } catch (error) {
-      warnings.push(`Guaranteed hours row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      warnings.push(`Guaranteed hours row ${index + 1}: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   });
 
