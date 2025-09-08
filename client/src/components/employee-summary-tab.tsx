@@ -83,7 +83,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
               <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                 {totals.availability.toFixed(1)}
               </div>
-              <div className="text-sm text-green-600 dark:text-green-400">Total Contracted</div>
+              <div className="text-sm text-green-600 dark:text-green-400">Total Desired Hours</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-950/50 dark:to-pink-950/50 border-red-200 dark:border-red-800">
@@ -99,7 +99,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                 {totals.scheduledHours.toFixed(1)}
               </div>
-              <div className="text-sm text-blue-600 dark:text-blue-400">Total Scheduled</div>
+              <div className="text-sm text-blue-600 dark:text-blue-400">Total Scheduled Hours</div>
             </CardContent>
           </Card>
           <Card className={`bg-gradient-to-br ${
