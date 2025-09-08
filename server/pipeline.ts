@@ -465,35 +465,84 @@ export function parseExcelFiles(
   // === Clean demand row conversion using the modular service rules ===
   const validatedDemand: ClientDemandRow[] = [];
   
-  // Convert weekday hours to date-based format for compatibility
-  // Use a more current week for mapping weekdays to dates
-  const today = new Date();
-  const currentWeekStart = new Date(today);
-  // Get Monday of current week
-  currentWeekStart.setDate(today.getDate() - today.getDay() + 1);
+  // Extract actual dates from availability and guaranteed hours data
+  const actualDates = new Set<string>();
   
-  const weekdayToDate: Record<string, string> = {
-    Monday: format(new Date(currentWeekStart.getTime()), 'yyyy-MM-dd'),
-    Tuesday: format(new Date(currentWeekStart.getTime() + 1 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    Wednesday: format(new Date(currentWeekStart.getTime() + 2 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    Thursday: format(new Date(currentWeekStart.getTime() + 3 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    Friday: format(new Date(currentWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    Saturday: format(new Date(currentWeekStart.getTime() + 5 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    Sunday: format(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+  // Get dates from availability data
+  validatedAvailability.forEach(row => {
+    const dateStr = format(row.parsedDate, 'yyyy-MM-dd');
+    actualDates.add(dateStr);
+  });
+  
+  // Get dates from guaranteed hours data  
+  validatedGuaranteed.forEach(row => {
+    try {
+      const startDate = parseGuaranteedDate(row["Service Requirement Start Date And Time"]);
+      const endDate = parseGuaranteedDate(row["Service Requirement End Date And Time"]);
+      
+      // Add all dates in the service period
+      const current = new Date(startDate);
+      while (current <= endDate) {
+        const dateStr = format(current, 'yyyy-MM-dd');
+        actualDates.add(dateStr);
+        current.setDate(current.getDate() + 1);
+      }
+    } catch (error) {
+      // Skip invalid dates
+    }
+  });
+  
+  // Create weekday to actual dates mapping
+  const actualDatesArray = Array.from(actualDates).sort();
+  const weekdayToActualDates: Record<string, string[]> = {
+    Monday: [],
+    Tuesday: [],
+    Wednesday: [],
+    Thursday: [],
+    Friday: [],
+    Saturday: [],
+    Sunday: []
   };
   
-  console.log(`\n📅 WEEKDAY TO DATE MAPPING:`);
-  Object.entries(weekdayToDate).forEach(([weekday, date]) => {
-    console.log(`  ${weekday} -> ${date}`);
+  actualDatesArray.forEach(dateStr => {
+    const date = new Date(dateStr);
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weekdayName = dayNames[date.getDay()];
+    if (weekdayToActualDates[weekdayName]) {
+      weekdayToActualDates[weekdayName].push(dateStr);
+    }
+  });
+  
+  console.log(`\n📅 ACTUAL DATES FOUND IN FILES:`);
+  console.log(`  Total unique dates: ${actualDatesArray.length}`);
+  console.log(`  Date range: ${actualDatesArray[0]} to ${actualDatesArray[actualDatesArray.length - 1]}`);
+  
+  console.log(`\n📅 WEEKDAY TO ACTUAL DATES MAPPING:`);
+  Object.entries(weekdayToActualDates).forEach(([weekday, dates]) => {
+    console.log(`  ${weekday}: ${dates.length > 0 ? dates.join(', ') : 'No dates found'}`);
   });
   console.log(`================================\n`);
   
+  // Map weekday hours to actual dates from the files
   hoursByWeekday.forEach(({ weekday, hours }) => {
-    const dateKey = weekdayToDate[weekday] ?? weekday;
-    console.log(`🔄 Mapping: ${weekday} (${hours}h) -> ${dateKey}`);
-    validatedDemand.push({
-      "Date": dateKey,
-      "Required Client Hours": hours
+    const actualDatesForWeekday = weekdayToActualDates[weekday] || [];
+    
+    if (actualDatesForWeekday.length === 0) {
+      console.log(`⚠️  No actual dates found for ${weekday} (${hours}h) - skipping`);
+      return;
+    }
+    
+    // If there are multiple dates for this weekday, distribute hours evenly
+    const hoursPerDate = actualDatesForWeekday.length > 1 
+      ? Math.round((hours / actualDatesForWeekday.length) * 100) / 100
+      : hours;
+    
+    actualDatesForWeekday.forEach(dateStr => {
+      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr}`);
+      validatedDemand.push({
+        "Date": dateStr,
+        "Required Client Hours": hoursPerDate
+      });
     });
   });
   
