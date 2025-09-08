@@ -64,7 +64,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric'
-                    })}
+                    }).replace(/(\w{3}) (\w{3}) (\d+), (\d{4})/, '$1, $2 $3, $4')}
                   </SelectItem>
                 ))}
               </SelectContent>
