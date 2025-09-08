@@ -146,13 +146,39 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     
     // Process valid entry
     const name = normalizeName((g as any)["Actual Employee Name"]);
-    const date = format(parseDate((g as any)["Service Requirement Start Date And Time"]), 'yyyy-MM-dd');
-    const pay = Number((g as any)["Actual Pay Rate Hours"]) || 0;
-    if (name && date) {
+    const rawDate = (g as any)["Service Requirement Start Date And Time"];
+    const date = format(parseDate(rawDate), 'yyyy-MM-dd');
+    const rawPayHours = (g as any)["Actual Pay Rate Hours"];
+    const pay = Number(rawPayHours) || 0;
+    
+    // Debug specific employee entries
+    const originalName = (g as any)["Actual Employee Name"];
+    if (originalName && originalName.toLowerCase().includes('amanda')) {
+      console.log(`🔍 AMANDA DEBUG - Processing entry:`);
+      console.log(`  Original Name: ${originalName}`);
+      console.log(`  Normalized Name: ${name}`);
+      console.log(`  Raw Date: ${rawDate}`);
+      console.log(`  Parsed Date: ${date}`);
+      console.log(`  Raw Pay Hours: ${rawPayHours}`);
+      console.log(`  Parsed Pay Hours: ${pay}`);
+      console.log(`  Service Type: ${serviceTypeValue}`);
+      console.log(`  Cancellation: "${cancellationValue}"`);
+    }
+    
+    if (name && date && pay > 0) {
       const key = `${name}|${date}`;
       // Sum multiple assignments for the same employee on the same date
       const existing = ghMap.get(key) || 0;
-      ghMap.set(key, existing + pay);
+      const newTotal = existing + pay;
+      ghMap.set(key, newTotal);
+      
+      if (originalName && originalName.toLowerCase().includes('amanda')) {
+        console.log(`  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`);
+      }
+    } else {
+      if (originalName && originalName.toLowerCase().includes('amanda')) {
+        console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
+      }
     }
   }
   
@@ -161,6 +187,14 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   console.log(`  ❌ Filtered cancelled entries: ${filteredCancelled}`);
   console.log(`  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`);
   console.log(`  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`);
+  
+  // Debug: Show final scheduled hours for Amanda
+  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Amanda entries):`);
+  for (const [key, hours] of ghMap.entries()) {
+    if (key.toLowerCase().includes('amanda')) {
+      console.log(`  ${key}: ${hours} hours`);
+    }
+  }
   console.log(`=========================================\n`);
   
   return ghMap;
