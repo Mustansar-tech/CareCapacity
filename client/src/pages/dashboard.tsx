@@ -635,7 +635,7 @@ export default function Dashboard() {
                           <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
                           <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
                           <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-hours">Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-hours">Available Hours</TableHead>
                           <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
                           <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
                         </TableRow>
