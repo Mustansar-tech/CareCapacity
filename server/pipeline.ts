@@ -153,8 +153,8 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     
     // Debug specific employee entries
     const originalName = (g as any)["Actual Employee Name"];
-    if (originalName && originalName.toLowerCase().includes('amanda')) {
-      console.log(`🔍 AMANDA DEBUG - Processing entry:`);
+    if (originalName && originalName.toLowerCase().includes('makala')) {
+      console.log(`🔍 MAKALA DEBUG - Processing entry:`);
       console.log(`  Original Name: ${originalName}`);
       console.log(`  Normalized Name: ${name}`);
       console.log(`  Raw Date: ${rawDate}`);
@@ -172,11 +172,11 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       const newTotal = existing + pay;
       ghMap.set(key, newTotal);
       
-      if (originalName && originalName.toLowerCase().includes('amanda')) {
+      if (originalName && originalName.toLowerCase().includes('makala')) {
         console.log(`  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`);
       }
     } else {
-      if (originalName && originalName.toLowerCase().includes('amanda')) {
+      if (originalName && originalName.toLowerCase().includes('makala')) {
         console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
       }
     }
@@ -188,10 +188,10 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   console.log(`  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`);
   console.log(`  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`);
   
-  // Debug: Show final scheduled hours for Amanda
-  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Amanda entries):`);
+  // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
+  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Makala entries):`);
   Array.from(ghMap.entries()).forEach(([key, hours]) => {
-    if (key.toLowerCase().includes('amanda')) {
+    if (key.toLowerCase().includes('makala') || key.toLowerCase().includes('mcewan')) {
       console.log(`  ${key}: ${hours} hours`);
     }
   });
