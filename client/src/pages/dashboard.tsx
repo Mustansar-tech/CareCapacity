@@ -478,6 +478,14 @@ export default function Dashboard() {
               Daily View
             </TabsTrigger>
             <TabsTrigger 
+              value="employee-summary" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-employee-summary"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Summary
+            </TabsTrigger>
+            <TabsTrigger 
               value="alerts" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-alerts"
@@ -500,14 +508,6 @@ export default function Dashboard() {
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               Quality
-            </TabsTrigger>
-            <TabsTrigger 
-              value="employee-summary" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-employee-summary"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              Summary
             </TabsTrigger>
             <TabsTrigger 
               value="export" 
