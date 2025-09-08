@@ -893,25 +893,78 @@ export function processCapacityData(
     });
     const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
     
-    // Create rows for each status (like your Python rows logic)
+    // Separate partial available entries from other statuses
+    const partialAvailableEntries: Array<{status: string, agg: any}> = [];
+    const consolidatedEntries: Array<{status: string, agg: any}> = [];
+    
     statusAgg.forEach((agg, status) => {
+      if (status === "Partial Available") {
+        partialAvailableEntries.push({status, agg});
+      } else {
+        consolidatedEntries.push({status, agg});
+      }
+    });
+    
+    // Create consolidated row for non-partial entries (combine multiple time windows)
+    if (consolidatedEntries.length > 0) {
+      let consolidatedHours = 0;
+      let consolidatedNetCapacity = 0;
+      const allWindows: string[] = [];
+      const allNotes: string[] = [];
+      let primaryStatus = "Available"; // Default status for consolidated row
+      
+      consolidatedEntries.forEach(({status, agg}) => {
+        let finalHours: number;
+        let netCapacity: number;
+        
+        if (status === "Available") {
+          finalHours = Math.max(daily - totalLeaveCapped, 0.0);
+          netCapacity = finalHours;
+          primaryStatus = "Available"; // Prioritize Available status
+        } else if (LEAVE_TYPES.includes(status)) {
+          finalHours = Math.min(agg.hoursRaw || 0.0, daily);
+          netCapacity = 0.0;
+          if (primaryStatus === "Available") primaryStatus = status; // Override if no Available
+        } else {
+          finalHours = agg.hoursRaw || 0.0;
+          netCapacity = 0.0;
+          if (primaryStatus === "Available") primaryStatus = status;
+        }
+        
+        consolidatedHours += finalHours;
+        consolidatedNetCapacity += netCapacity;
+        allWindows.push(...agg.windows);
+        allNotes.push(...agg.notes);
+      });
+      
+      // Merge overlapping time windows for consolidated row
+      const mergedWindows = mergeTimeWindows(allWindows.filter(w => typeof w === 'string'));
+      
+      cleanedRecords.push({
+        employeeName: empName,
+        contractedWeeklyHours: weekly,
+        contractedDailyHours: daily,
+        date,
+        status: primaryStatus,
+        hours: Math.round(consolidatedHours * 100) / 100,
+        timeWindows: mergedWindows.length > 0 ? mergedWindows.join(', ') : "",
+        notes: Array.from(new Set(allNotes)).join('; '),
+        scheduledHours: Math.round(totalScheduledHours * 100) / 100,
+        netCapacity: Math.round(consolidatedNetCapacity * 100) / 100
+      });
+    }
+    
+    // Create separate rows for each "Partial Available" entry
+    partialAvailableEntries.forEach(({status, agg}) => {
       let finalHours: number;
       let netCapacity: number;
       
-      if (status === "Available") {
-        finalHours = Math.max(daily - totalLeaveCapped, 0.0); // adjusted available
-        netCapacity = finalHours;
-      } else if (LEAVE_TYPES.includes(status)) {
-        finalHours = Math.min(agg.hoursRaw || 0.0, daily);
-        netCapacity = 0.0;
-      } else {
-        finalHours = agg.hoursRaw || 0.0;
-        netCapacity = 0.0;
-      }
+      finalHours = agg.hoursRaw || 0.0;
+      netCapacity = 0.0;
       
       // Join windows and notes like your Python logic, but merge overlapping windows first
       const uniqueWindows = Array.from(new Set(agg.windows)).filter(w => w && w !== "");
-      const mergedWindows = mergeTimeWindows(uniqueWindows);
+      const mergedWindows = mergeTimeWindows(uniqueWindows.filter(w => typeof w === 'string'));
       const windowsStr = mergedWindows.length > 0 ? mergedWindows.sort().join("; ") : "";
       const notesStr = Array.from(new Set(agg.notes)).sort().join("; ");
       
@@ -922,7 +975,7 @@ export function processCapacityData(
         date,
         status,
         timeWindows: windowsStr,
-        scheduledHours: Math.round(totalScheduledHours * 100) / 100, // Total scheduled hours for this employee on this date
+        scheduledHours: Math.round(totalScheduledHours * 100) / 100,
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
