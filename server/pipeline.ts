@@ -115,8 +115,36 @@ function timeToString(timeValue: any): string {
 // key: normalized employee name + yyyy-MM-dd(Service Requirement Start Date And Time)
 function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   const ghMap = new Map<string, number>();
+  let totalProcessed = 0;
+  let filteredCancelled = 0;
+  let filteredSecondary = 0;
   
   for (const g of guaranteed || []) {
+    totalProcessed++;
+    
+    // Apply same filtering rules as Hours by Service Type.xlsx
+    
+    // 1. Check for cancellation (exclude if not blank)
+    const cancellationDesc = g["Cancellation Description"];
+    const cancellationValue = cancellationDesc ? cancellationDesc.toString().trim() : '';
+    const isCancellationValid = cancellationValue === '' || cancellationValue === '(blank)';
+    
+    if (!isCancellationValid) {
+      filteredCancelled++;
+      continue; // Skip cancelled entries
+    }
+    
+    // 2. Check for "Multiple Care (Secondary)" service type
+    const actualServiceType = g["Actual Service Type Description"];
+    const serviceTypeValue = actualServiceType ? actualServiceType.toString() : '';
+    const isSecondaryClient = serviceTypeValue === 'Multiple Care (Secondary)';
+    
+    if (isSecondaryClient) {
+      filteredSecondary++;
+      continue; // Skip secondary client entries
+    }
+    
+    // Process valid entry
     const name = normalizeName((g as any)["Actual Employee Name"]);
     const date = format(parseDate((g as any)["Service Requirement Start Date And Time"]), 'yyyy-MM-dd');
     const pay = Number((g as any)["Actual Pay Rate Hours"]) || 0;
@@ -127,6 +155,13 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       ghMap.set(key, existing + pay);
     }
   }
+  
+  console.log(`\n🔍 SCHEDULED HOURS FILTERING SUMMARY:`);
+  console.log(`  📊 Total guaranteed hours entries: ${totalProcessed}`);
+  console.log(`  ❌ Filtered cancelled entries: ${filteredCancelled}`);
+  console.log(`  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`);
+  console.log(`  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`);
+  console.log(`=========================================\n`);
   
   return ghMap;
 }
