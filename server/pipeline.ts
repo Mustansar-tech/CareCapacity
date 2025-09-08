@@ -563,8 +563,12 @@ export function parseExcelFiles(
   // Get dates from guaranteed hours data  
   validatedGuaranteed.forEach(row => {
     try {
-      const startDate = parseGuaranteedDate(row["Service Requirement Start Date And Time"]);
-      const endDate = parseGuaranteedDate(row["Service Requirement End Date And Time"]);
+      // Use the same robust timestamp resolution as the filtering
+      const { start, end } = resolveServiceTimestamps(row);
+      if (!start || !end) return;
+      
+      const startDate = parseGuaranteedDate(start);
+      const endDate = parseGuaranteedDate(end);
       
       // Add all dates in the service period
       const current = new Date(startDate);
