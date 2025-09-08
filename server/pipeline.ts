@@ -893,15 +893,28 @@ export function processCapacityData(
     });
     const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
     
-    // Create rows for each status (like your Python rows logic)
+    // Find highest priority status (lowest number) to show only one record per employee per date
+    let highestPriorityStatus = "";
+    let highestPriority = 999;
+    
     statusAgg.forEach((agg, status) => {
+      const priority = STATUS_PRIORITY[status] || 999;
+      if (priority < highestPriority) {
+        highestPriority = priority;
+        highestPriorityStatus = status;
+      }
+    });
+    
+    // Only create one record using the highest priority status
+    if (highestPriorityStatus && statusAgg.has(highestPriorityStatus)) {
+      const agg = statusAgg.get(highestPriorityStatus)!;
       let finalHours: number;
       let netCapacity: number;
       
-      if (status === "Available") {
+      if (highestPriorityStatus === "Available") {
         finalHours = Math.max(daily - totalLeaveCapped, 0.0); // adjusted available
         netCapacity = finalHours;
-      } else if (LEAVE_TYPES.includes(status)) {
+      } else if (LEAVE_TYPES.includes(highestPriorityStatus)) {
         finalHours = Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
       } else {
@@ -909,25 +922,33 @@ export function processCapacityData(
         netCapacity = 0.0;
       }
       
-      // Join windows and notes like your Python logic, but merge overlapping windows first
-      const uniqueWindows = Array.from(new Set(agg.windows)).filter(w => w && w !== "");
+      // Combine windows and notes from all statuses for comprehensive view
+      const allWindows: string[] = [];
+      const allNotes: string[] = [];
+      
+      statusAgg.forEach((statusAgg, status) => {
+        allWindows.push(...statusAgg.windows);
+        allNotes.push(...statusAgg.notes);
+      });
+      
+      const uniqueWindows = Array.from(new Set(allWindows)).filter(w => w && w !== "");
       const mergedWindows = mergeTimeWindows(uniqueWindows);
       const windowsStr = mergedWindows.length > 0 ? mergedWindows.sort().join("; ") : "";
-      const notesStr = Array.from(new Set(agg.notes)).sort().join("; ");
+      const notesStr = Array.from(new Set(allNotes)).filter(n => n && n !== "").sort().join("; ");
       
       cleanedRecords.push({
         employeeName: empName,
         contractedWeeklyHours: Math.round(weekly * 100) / 100,
         contractedDailyHours: Math.round(daily * 100) / 100,
         date,
-        status,
+        status: highestPriorityStatus,
         timeWindows: windowsStr,
         scheduledHours: Math.round(totalScheduledHours * 100) / 100, // Total scheduled hours for this employee on this date
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr
       });
-    });
+    }
   });
 
   // Sort by priority
