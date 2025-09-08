@@ -132,7 +132,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
             <TableHeader className="bg-gray-50 dark:bg-gray-800/50">
               <TableRow>
                 <TableHead className="font-semibold">Name</TableHead>
-                <TableHead className="text-center font-semibold">Availability</TableHead>
+                <TableHead className="text-center font-semibold">Desired Hours</TableHead>
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
                 <TableHead className="text-center font-semibold">Difference</TableHead>
