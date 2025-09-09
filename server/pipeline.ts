@@ -811,9 +811,10 @@ export function processCapacityData(
   }
 
   // Step 2: Match availability names to guaranteed hours
+  // CRITICAL FIX: Include ALL employees from availability, not just matched ones
   const guaranteedKeys = guaranteedEmployees.map((emp) => emp.normalizedName);
-  const matchedAvailability: Array<
-    ParsedAvailabilityRow & { matchedEmployee: EmployeeGuaranteedHours }
+  const allAvailabilityWithMatching: Array<
+    ParsedAvailabilityRow & { matchedEmployee: EmployeeGuaranteedHours | null }
   > = [];
   const unmatchedNames: string[] = [];
 
@@ -826,12 +827,18 @@ export function processCapacityData(
         (emp) => emp.normalizedName === matches[0].choice,
       );
       if (matchedEmployee) {
-        matchedAvailability.push({
+        allAvailabilityWithMatching.push({
           ...row,
           matchedEmployee,
         });
       }
     } else {
+      // INCLUDE unmatched employees with null guaranteed data
+      allAvailabilityWithMatching.push({
+        ...row,
+        matchedEmployee: null,
+      });
+      
       if (!unmatchedNames.includes(row["CAREGiver Name"])) {
         unmatchedNames.push(row["CAREGiver Name"]);
       }
@@ -839,13 +846,14 @@ export function processCapacityData(
   });
 
   if (unmatchedNames.length > 0) {
-    warnings.push(`Unmatched employees: ${unmatchedNames.join(", ")}`);
+    warnings.push(`Available but unscheduled employees: ${unmatchedNames.join(", ")} - these will be included with 0 scheduled hours`);
   }
 
   // Step 3: Calculate days available for each employee
   const employeeDays = new Map<string, Set<string>>();
-  matchedAvailability.forEach((row) => {
-    const key = row.matchedEmployee.normalizedName;
+  allAvailabilityWithMatching.forEach((row) => {
+    // For unmatched employees, use their original name as key
+    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
     const dateStr = format(row.parsedDate, "yyyy-MM-dd");
 
     if (!employeeDays.has(key)) {
@@ -855,11 +863,16 @@ export function processCapacityData(
   });
 
   // Step 4: Create merged data exactly like your prepare function
-  const mergedData = matchedAvailability.map((row) => {
-    const key = row.matchedEmployee.normalizedName;
+  const mergedData = allAvailabilityWithMatching.map((row) => {
+    // Handle both matched and unmatched employees
+    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
     const daysAvailable = employeeDays.get(key)!.size;
-    const contractedDailyHours =
-      Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
+    
+    // For unmatched employees, set default values
+    const contractedWeeklyHours = row.matchedEmployee ? row.matchedEmployee.weeklyHours : 0;
+    const contractedDailyHours = row.matchedEmployee 
+      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100
+      : 0;
 
     // Safer hours: prefer 'Hours' if present, else compute from time (like your Python)
     const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
@@ -867,8 +880,8 @@ export function processCapacityData(
       row.Hours !== undefined && row.Hours !== null ? row.Hours : hoursCalc;
 
     return {
-      employeeName: row.matchedEmployee.originalName,
-      contractedWeeklyHours: row.matchedEmployee.weeklyHours,
+      employeeName: row.matchedEmployee ? row.matchedEmployee.originalName : row["CAREGiver Name"],
+      contractedWeeklyHours,
       contractedDailyHours,
       date: format(row.parsedDate, "yyyy-MM-dd"),
       status: row.Type,
