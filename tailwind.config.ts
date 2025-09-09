@@ -6,16 +6,25 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
       },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        surface: {
+          DEFAULT: "var(--surface)",
+          container: "var(--surface-container)",
+          "container-high": "var(--surface-container-high)",
+          "container-highest": "var(--surface-container-highest)",
+        },
         card: {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
+          border: "var(--card-border)",
         },
         popover: {
           DEFAULT: "var(--popover)",
@@ -23,11 +32,32 @@ export default {
         },
         primary: {
           DEFAULT: "var(--primary)",
+          container: "var(--primary-container)",
           foreground: "var(--primary-foreground)",
+          "on-container": "var(--on-primary-container)",
         },
         secondary: {
           DEFAULT: "var(--secondary)",
+          container: "var(--secondary-container)",
           foreground: "var(--secondary-foreground)",
+          "on-container": "var(--on-secondary-container)",
+        },
+        tertiary: {
+          DEFAULT: "var(--tertiary)",
+          container: "var(--tertiary-container)",
+          foreground: "var(--tertiary-foreground)",
+        },
+        success: {
+          DEFAULT: "var(--success)",
+          container: "var(--success-container)",
+        },
+        warning: {
+          DEFAULT: "var(--warning)",
+          container: "var(--warning-container)",
+        },
+        error: {
+          DEFAULT: "var(--error)",
+          container: "var(--error-container)",
         },
         muted: {
           DEFAULT: "var(--muted)",
@@ -50,22 +80,38 @@ export default {
           "3": "var(--chart-3)",
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
-        },
-        sidebar: {
-          DEFAULT: "var(--sidebar-background)",
-          foreground: "var(--sidebar-foreground)",
-          primary: "var(--sidebar-primary)",
-          "primary-foreground": "var(--sidebar-primary-foreground)",
-          accent: "var(--sidebar-accent)",
-          "accent-foreground": "var(--sidebar-accent-foreground)",
-          border: "var(--sidebar-border)",
-          ring: "var(--sidebar-ring)",
+          "6": "var(--chart-6)",
         },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
-        serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
+        display: ["var(--font-display)"],
+      },
+      spacing: {
+        xs: "var(--spacing-xs)",
+        sm: "var(--spacing-sm)",
+        md: "var(--spacing-md)",
+        lg: "var(--spacing-lg)",
+        xl: "var(--spacing-xl)",
+        "2xl": "var(--spacing-2xl)",
+        "3xl": "var(--spacing-3xl)",
+      },
+      transitionDuration: {
+        fast: "var(--duration-fast)",
+        normal: "var(--duration-normal)",
+        slow: "var(--duration-slow)",
+      },
+      transitionTimingFunction: {
+        standard: "var(--easing-standard)",
+        emphasized: "var(--easing-emphasized)",
+      },
+      boxShadow: {
+        "elevation-1": "var(--elevation-1)",
+        "elevation-2": "var(--elevation-2)",
+        "elevation-3": "var(--elevation-3)",
+        "elevation-4": "var(--elevation-4)",
+        "elevation-5": "var(--elevation-5)",
       },
       keyframes: {
         "accordion-down": {
