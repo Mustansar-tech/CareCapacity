@@ -830,129 +830,96 @@ export function processCapacityData(
     );
   }
 
-  // NEW APPROACH: Start with CG Data as master employee list
-  // Step 1: Prepare master employee list from CG Data (authoritative weekly hours)
-  const masterEmployees = cgData.map((row) => ({
-    originalName: row["CAREGiver Name"],
-    normalizedName: normalizeName(row["CAREGiver Name"]),
-    weeklyHours: Number(row["Weekly Hours"]), // CG Data is authoritative for weekly hours
-  }));
-
-  console.log(`📋 Master employee list created: ${masterEmployees.length} employees from CG Data`);
-
-  // Step 2: Match master employees to guaranteed hours (for scheduled hours)
-  const guaranteedEmployees = guaranteed.map((row) => ({
-    originalName: row["Actual Employee Name"],
-    normalizedName: normalizeName(row["Actual Employee Name"]),
-    weeklyHours: row["Actual Employee Hours Per Week"], // Will be overridden by CG Data
-    payRateHours: row["Actual Pay Rate Hours"],
-    serviceStartDate: parseGuaranteedDate(row["Service Requirement Start Date And Time"]),
-    serviceEndDate: parseGuaranteedDate(row["Service Requirement End Date And Time"]),
-  }));
-
-  const guaranteedKeys = guaranteedEmployees.map((emp) => emp.normalizedName);
-
-  // Step 3: Match master employees to availability data
-  const availabilityKeys = availability.map((row) => normalizeName(row["CAREGiver Name"]));
-
-  // Step 4: Create comprehensive employee data starting from CG Data
-  const allEmployeesWithData: Array<{
-    masterEmployee: typeof masterEmployees[0];
-    guaranteedData: typeof guaranteedEmployees[0] | null;
-    availabilityRows: ParsedAvailabilityRow[];
-  }> = [];
-
-  const employeesNotInAvailability: string[] = [];
-  const employeesNotInGuaranteed: string[] = [];
-
-  masterEmployees.forEach((masterEmp) => {
-    // Find matching guaranteed hours data
-    const guaranteedMatches = getCloseMatches(masterEmp.normalizedName, guaranteedKeys, 0.7);
-    const guaranteedData = guaranteedMatches.length > 0 
-      ? guaranteedEmployees.find(emp => emp.normalizedName === guaranteedMatches[0].choice) || null
-      : null;
-
-    // Find matching availability data
-    const availabilityMatches = availability.filter(row => {
-      const normalizedName = normalizeName(row["CAREGiver Name"]);
-      const matches = getCloseMatches(normalizedName, [masterEmp.normalizedName], 0.7);
-      return matches.length > 0;
-    });
-
-    // Track missing data
-    if (!guaranteedData) {
-      employeesNotInGuaranteed.push(masterEmp.originalName);
-    }
-    if (availabilityMatches.length === 0) {
-      employeesNotInAvailability.push(masterEmp.originalName);
-    }
-
-    allEmployeesWithData.push({
-      masterEmployee: masterEmp,
-      guaranteedData,
-      availabilityRows: availabilityMatches,
-    });
-  });
-
-  // Add warnings for missing data
-  if (employeesNotInGuaranteed.length > 0) {
-    warnings.push(`Employees in CG Data but not scheduled: ${employeesNotInGuaranteed.join(", ")} - will show 0 scheduled hours`);
-  }
-  if (employeesNotInAvailability.length > 0) {
-    warnings.push(`Employees in CG Data but no availability data: ${employeesNotInAvailability.join(", ")} - will show 0 availability hours`);
+  // Debug CG Data to see what's actually there
+  console.log(`🔍 CG Data debugging:`);
+  console.log(`  - Total CG Data rows: ${cgData.length}`);
+  if (cgData.length > 0) {
+    console.log(`  - First row keys:`, Object.keys(cgData[0]));
+    console.log(`  - First row:`, cgData[0]);
   }
 
-  console.log(`🔍 Employee matching results:`);
-  console.log(`  - ${masterEmployees.length} total employees from CG Data`);
-  console.log(`  - ${employeesNotInGuaranteed.length} not in guaranteed hours`);
-  console.log(`  - ${employeesNotInAvailability.length} not in availability data`);
+  // Step 1: Create master employee list from CG Data (only non-zero weekly hours)
+  const masterEmployees = cgData
+    .filter(row => {
+      const weeklyHours = Number(row["Weekly Hours"] || 0);
+      return weeklyHours > 0; // Only include employees with non-zero weekly hours
+    })
+    .map((row) => ({
+      originalName: row["CAREGiver Name"],
+      normalizedName: normalizeName(row["CAREGiver Name"]),
+      weeklyHours: Number(row["Weekly Hours"]), // CG Data is authoritative for weekly hours
+    }));
 
-  // Step 5: Calculate days available for each employee using new CG Data structure
-  const employeeDays = new Map<string, Set<string>>();
-  allEmployeesWithData.forEach((empData) => {
-    const key = empData.masterEmployee.normalizedName;
-    const dates = new Set<string>();
+  console.log(`📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`);
+  if (masterEmployees.length > 0) {
+    console.log(`  - Sample employee:`, masterEmployees[0]);
+  }
 
-    // Add all dates from availability rows
-    empData.availabilityRows.forEach((row) => {
-      const dateStr = format(row.parsedDate, "yyyy-MM-dd");
-      dates.add(dateStr);
-    });
-
-    employeeDays.set(key, dates);
+  // Create master employee map for easy lookup
+  const masterEmployeeMap = new Map();
+  masterEmployees.forEach(emp => {
+    masterEmployeeMap.set(emp.normalizedName, emp);
   });
 
-  // Step 6: Create merged data from allEmployeesWithData structure
-  const mergedData: any[] = [];
-  
-  allEmployeesWithData.forEach((empData) => {
-    const key = empData.masterEmployee.normalizedName;
-    const daysAvailable = employeeDays.get(key)?.size || 1;
+  // Step 2: Process availability data and match to master employees (original pipeline approach)
+  const allAvailabilityWithMatching = availability.map((row) => {
+    const normalizedName = normalizeName(row["CAREGiver Name"]);
     
-    const contractedWeeklyHours = empData.masterEmployee.weeklyHours;
-    const contractedDailyHours = Math.round((contractedWeeklyHours / daysAvailable) * 100) / 100;
+    // Find best match from master employees
+    const masterEmployeeKeys = Array.from(masterEmployeeMap.keys());
+    const matches = getCloseMatches(normalizedName, masterEmployeeKeys, 0.7);
+    
+    const matchedEmployee = matches.length > 0 ? masterEmployeeMap.get(matches[0].choice) : null;
 
-    // Process each availability row for this employee
-    empData.availabilityRows.forEach((row) => {
-      const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
-      const hoursEffective = row.Hours !== undefined && row.Hours !== null ? row.Hours : hoursCalc;
+    return {
+      ...row,
+      matchedEmployee,
+      parsedDate: row.parsedDate
+    };
+  });
 
-      mergedData.push({
-        employeeName: empData.masterEmployee.originalName,
-        contractedWeeklyHours,
-        contractedDailyHours,
-        date: format(row.parsedDate, "yyyy-MM-dd"),
-        status: row.Type,
-        startTime: timeToString(row["Start Time"]),
-        endTime: timeToString(row["End Time"]),
-        timeWindow: buildTimeWindow(row),
-        hours: hoursEffective,
-        notes: row.Notes || "",
-        employeeKey: key,
-        masterEmployee: empData.masterEmployee,
-        guaranteedData: empData.guaranteedData,
-      });
-    });
+  // Step 3: Calculate days available for each employee (original logic)
+  const employeeDays = new Map<string, Set<string>>();
+  allAvailabilityWithMatching.forEach((row) => {
+    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
+    if (!employeeDays.has(key)) {
+      employeeDays.set(key, new Set());
+    }
+    const dateStr = format(row.parsedDate, "yyyy-MM-dd");
+    employeeDays.get(key)!.add(dateStr);
+  });
+
+  // Step 4: Create merged data (original pipeline approach)
+  const mergedData = allAvailabilityWithMatching.map((row) => {
+    // Handle both matched and unmatched employees
+    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
+    const daysAvailable = employeeDays.get(key)!.size;
+    
+    // Use CG Data weekly hours if matched, otherwise default to 0
+    const contractedWeeklyHours = row.matchedEmployee ? row.matchedEmployee.weeklyHours : 0;
+    const contractedDailyHours = row.matchedEmployee 
+      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100
+      : 0;
+
+    // Safer hours: prefer 'Hours' if present, else compute from time
+    const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
+    const hoursEffective =
+      row.Hours !== undefined && row.Hours !== null ? row.Hours : hoursCalc;
+
+    return {
+      employeeName: row.matchedEmployee ? row.matchedEmployee.originalName : row["CAREGiver Name"],
+      contractedWeeklyHours,
+      contractedDailyHours,
+      date: format(row.parsedDate, "yyyy-MM-dd"),
+      status: row.Type,
+      startTime: timeToString(row["Start Time"]),
+      endTime: timeToString(row["End Time"]),
+      timeWindow: buildTimeWindow(row),
+      hours: hoursEffective,
+      notes: row.Notes || "",
+      employeeKey: key,
+      matchedEmployee: row.matchedEmployee,
+    };
   });
 
   // Step 5: Group by employee and date, then apply collapse logic
