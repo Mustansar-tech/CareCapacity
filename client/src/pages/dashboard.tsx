@@ -262,6 +262,11 @@ export default function Dashboard() {
           {!processedData && (
             <div className="text-center mb-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <h3 className="font-semibold mb-2">CG Data Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
+                </div>
                 <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
                   <h3 className="font-semibold mb-2">Availability Export</h3>
@@ -277,16 +282,42 @@ export default function Dashboard() {
                   <h3 className="font-semibold mb-2">Client Demand</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
                 </div>
-                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
-                  <h3 className="font-semibold mb-2">CG Data Export</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
-                </div>
               </div>
             </div>
           )}
           
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
+            {/* CG Data Export - MASTER EMPLOYEE LIST - MOVED TO FIRST */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                  <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
+                  CG Data
+                  <span className="ml-1 px-0.5 py-0.5 text-[9px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
+                    Master
+                  </span>
+                </Label>
+              </div>
+              <Input
+                id="cgdata-file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange('cgData')}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-all duration-200"
+                data-testid="input-cgdata-file"
+              />
+              {files.cgData && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-cgdata-selected">
+                    {files.cgData.name}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Availability Export */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
@@ -366,37 +397,6 @@ export default function Dashboard() {
                   <CheckCircle className="w-4 h-4 text-green-600" />
                   <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-demand-selected">
                     {files.demand.name}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* CG Data Export - NEW MASTER EMPLOYEE LIST */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                  <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
-                </div>
-                <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
-                  CG Data
-                  <span className="ml-1 px-0.5 py-0.5 text-[9px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
-                    Master
-                  </span>
-                </Label>
-              </div>
-              <Input
-                id="cgdata-file"
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileChange('cgData')}
-                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-all duration-200"
-                data-testid="input-cgdata-file"
-              />
-              {files.cgData && (
-                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-cgdata-selected">
-                    {files.cgData.name}
                   </p>
                 </div>
               )}
