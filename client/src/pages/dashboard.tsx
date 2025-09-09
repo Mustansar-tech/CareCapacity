@@ -553,6 +553,7 @@ export default function Dashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead></TableHead>
                         <TableHead data-testid="header-date">Date</TableHead>
                         <TableHead data-testid="header-available">Available</TableHead>
                         <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
