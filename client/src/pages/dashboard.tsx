@@ -87,7 +87,7 @@ export default function Dashboard() {
 
   // Process files
   const handleProcessFiles = useCallback(async () => {
-    if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
+    if (!files.cgData || !files.availability || !files.guaranteed || !files.demand) {
       toast({
         variant: "destructive",
         title: "Missing Files",
@@ -99,10 +99,10 @@ export default function Dashboard() {
     setIsProcessing(true);
     
     const formData = new FormData();
+    formData.append('cgData', files.cgData);
     formData.append('availability', files.availability);
     formData.append('guaranteed', files.guaranteed);
     formData.append('demand', files.demand);
-    formData.append('cgData', files.cgData);
 
     try {
       const response = await fetch('/api/process', {
@@ -406,7 +406,7 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing}
+              disabled={!files.cgData || !files.availability || !files.guaranteed || !files.demand || isProcessing}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
