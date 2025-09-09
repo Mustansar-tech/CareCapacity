@@ -14,12 +14,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
 import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
-import { AdvancedFilters } from "@/components/advanced-filters";
 import { InteractiveCharts } from "@/components/interactive-charts";
 import { AISuggestions } from "@/components/ai-suggestions";
 import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
-import { EnhancedTooltip } from "@/components/enhanced-tooltip";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 
 export default function Dashboard() {
@@ -39,7 +37,6 @@ export default function Dashboard() {
   const [processedData, setProcessedData] = useState<ProcessingResult | null>(null);
   const [filteredData, setFilteredData] = useState<ProcessingResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
 
   const { toast } = useToast();
@@ -400,64 +397,6 @@ export default function Dashboard() {
       {/* Results Tabs - Always show when data exists */}
       {processedData && (
         <div>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className={`transition-all duration-200 ${
-                  showFilters 
-                    ? "bg-gradient-to-r from-blue-600 to-emerald-600 text-white border-0 shadow-lg" 
-                    : "hover:bg-blue-50 dark:hover:bg-blue-900/20 border-2"
-                }`}
-                data-testid="button-toggle-filters"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
-              {filteredData && (
-                <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
-                  Filters Applied
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <EnhancedTooltip content="Export current data to Excel">
-                <Button
-                  onClick={handleExport}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200"
-                  data-testid="button-quick-export"
-                >
-                  <Download className="w-4 h-4" />
-                  Quick Export
-                </Button>
-              </EnhancedTooltip>
-            </div>
-          </div>
-        
-        {/* Advanced Filters Panel */}
-        {showFilters && (
-          <div className="mb-6 animate-slide-up">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Filter className="w-5 h-5" />
-                  Advanced Filters
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AdvancedFilters
-                  data={processedData}
-                  onFilterChange={setFilteredData}
-                  onResetFilters={() => setFilteredData(null)}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -908,21 +847,19 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <EnhancedTooltip content="Refresh data">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          toast({
-                            title: "Data Refreshed",
-                            description: "Dashboard data has been updated."
-                          });
-                        }}
-                        className="hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                    </EnhancedTooltip>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        toast({
+                          title: "Data Refreshed",
+                          description: "Dashboard data has been updated."
+                        });
+                      }}
+                      className="hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -1106,26 +1043,24 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <EnhancedTooltip content="Download comprehensive Excel report">
-                  <Button 
-                    onClick={handleExport}
-                    className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
-                    disabled={isProcessing}
-                    data-testid="button-export"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Generating Excel file...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Download capacity_dashboard.xlsx
-                      </>
-                    )}
-                  </Button>
-                </EnhancedTooltip>
+                <Button 
+                  onClick={handleExport}
+                  className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
+                  disabled={isProcessing}
+                  data-testid="button-export"
+                >
+                  {isProcessing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Excel file...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download capacity_dashboard.xlsx
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
