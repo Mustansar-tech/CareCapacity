@@ -50,6 +50,23 @@ interface AISuggestion {
   };
   strategicValue?: string;
   implementation?: string[];
+  analysis?: {
+    summary: string;
+    positives: string[];
+    negatives: string[];
+    risks: {
+      description: string;
+      likelihood: 'low' | 'medium' | 'high';
+      impact: 'low' | 'medium' | 'high';
+      mitigation: string;
+    }[];
+    decisions: {
+      options: string[];
+      recommendation: string;
+      rationale: string;
+      requiredData?: string[];
+    };
+  };
 }
 
 interface AISuggestionsProps {
@@ -107,6 +124,44 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           'Implement dynamic resource allocation',
           'Establish escalation procedures'
         ],
+        analysis: {
+          summary: `Critical workforce gaps identified across ${((shortfallDays/totalDays)*100).toFixed(1)}% of operational days requiring immediate management attention.`,
+          positives: [
+            'Clear visibility of capacity issues',
+            'Data available for informed decisions', 
+            'Opportunity to strengthen operations'
+          ],
+          negatives: [
+            `${shortfallDays} days showing staff shortages`,
+            'Potential service delivery risks',
+            'Client satisfaction may be impacted'
+          ],
+          risks: [
+            {
+              description: 'Service quality degradation',
+              likelihood: 'high',
+              impact: 'high', 
+              mitigation: 'Implement emergency staffing backup plans'
+            },
+            {
+              description: 'Client contract losses',
+              likelihood: 'medium',
+              impact: 'high',
+              mitigation: 'Proactive client communication about service levels'
+            }
+          ],
+          decisions: {
+            options: [
+              'Hire additional permanent staff',
+              'Use temporary staffing agencies',
+              'Redistribute existing staff hours',
+              'Reduce client commitments temporarily'
+            ],
+            recommendation: 'Hire additional permanent staff',
+            rationale: 'Long-term solution provides stability and maintains service quality standards',
+            requiredData: ['Budget approval', 'Hiring timeline', 'Staff skill requirements']
+          }
+        },
         metrics: {
           current: shortfallDays,
           potential: Math.max(0, shortfallDays - Math.ceil(totalDays * 0.1)),
@@ -140,6 +195,43 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           'Activate flexible workforce protocols',
           'Establish performance dashboards'
         ],
+        analysis: {
+          summary: `Daily capacity deficit of ${Math.abs(averageGap).toFixed(1)} hours presents immediate optimization opportunity with high success probability.`,
+          positives: [
+            'Clear optimization target identified',
+            'High confidence in solution success',
+            'Immediate cost savings potential'
+          ],
+          negatives: [
+            'Current inefficient resource allocation',
+            'Lost revenue from capacity gaps',
+            'Staff potentially underutilized on some days'
+          ],
+          risks: [
+            {
+              description: 'Implementation complexity',
+              likelihood: 'medium',
+              impact: 'low',
+              mitigation: 'Phased rollout with training and support'
+            },
+            {
+              description: 'Staff resistance to new scheduling',
+              likelihood: 'low',
+              impact: 'medium', 
+              mitigation: 'Clear communication of benefits and involvement in planning'
+            }
+          ],
+          decisions: {
+            options: [
+              'Automated scheduling system',
+              'Manual schedule optimization',
+              'Hybrid approach with smart recommendations'
+            ],
+            recommendation: 'Hybrid approach with smart recommendations',
+            rationale: 'Balances efficiency gains with human oversight and flexibility',
+            requiredData: ['Staff preferences', 'Client timing requirements', 'System integration costs']
+          }
+        },
         metrics: {
           current: Math.abs(averageGap),
           potential: Math.abs(averageGap) * 0.25,
@@ -212,6 +304,44 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           'Optimize pricing strategy',
           'Implement performance-based incentives'
         ],
+        analysis: {
+          summary: `${averageUtilization.toFixed(1)}% capacity utilization reveals significant untapped revenue potential with low implementation risk.`,
+          positives: [
+            'Existing staff capacity available',
+            'No immediate hiring costs required',
+            'Quick revenue increase potential'
+          ],
+          negatives: [
+            'Current underutilization of resources',
+            'Lost revenue opportunities',
+            'Competition may capture available market'
+          ],
+          risks: [
+            {
+              description: 'Market demand uncertainty',
+              likelihood: 'medium',
+              impact: 'medium',
+              mitigation: 'Start with pilot programs and gradual expansion'
+            },
+            {
+              description: 'Service quality dilution',
+              likelihood: 'low',
+              impact: 'high',
+              mitigation: 'Maintain quality standards and monitoring systems'
+            }
+          ],
+          decisions: {
+            options: [
+              'Aggressive market expansion',
+              'Gradual client base growth',
+              'Premium service development',
+              'Pricing optimization focus'
+            ],
+            recommendation: 'Gradual client base growth',
+            rationale: 'Sustainable approach that maintains service quality while capturing revenue',
+            requiredData: ['Market analysis', 'Competitor pricing', 'Client demand forecasts']
+          }
+        },
         metrics: {
           current: averageUtilization,
           potential: 85,
@@ -242,6 +372,44 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           'Deploy advanced operational frameworks',
           'Implement scalable technology infrastructure'
         ],
+        analysis: {
+          summary: `Exceptional ${averageUtilization.toFixed(1)}% utilization demonstrates market leadership position with clear expansion pathway available.`,
+          positives: [
+            'Strong market demand validated',
+            'Operational excellence proven',
+            'High client satisfaction indicated'
+          ],
+          negatives: [
+            'Near maximum capacity limits growth',
+            'Risk of service quality pressure',
+            'Staff burnout potential from high utilization'
+          ],
+          risks: [
+            {
+              description: 'Expansion execution challenges',
+              likelihood: 'medium',
+              impact: 'high',
+              mitigation: 'Detailed expansion planning with experienced management'
+            },
+            {
+              description: 'Quality dilution during growth',
+              likelihood: 'medium',
+              impact: 'high',
+              mitigation: 'Robust training programs and quality monitoring'
+            }
+          ],
+          decisions: {
+            options: [
+              'Rapid workforce doubling',
+              'Controlled 25% capacity increase', 
+              'Premium service focus',
+              'Geographic expansion'
+            ],
+            recommendation: 'Controlled 25% capacity increase',
+            rationale: 'Balanced growth that maintains quality while capturing market opportunity',
+            requiredData: ['Recruitment pipeline', 'Training capacity', 'Market demand sustainability']
+          }
+        },
         metrics: {
           current: totalNetCapacity,
           potential: totalNetCapacity * 1.25,
@@ -627,7 +795,131 @@ export function AISuggestions({ data }: AISuggestionsProps) {
                           </div>
                         )}
 
-                        {suggestion.strategicValue && (
+                        {suggestion.analysis && (
+                          <div className="space-y-6">
+                            {/* Executive Summary */}
+                            <div className="p-4 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg">
+                              <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                <BarChart3 className="h-4 w-4" />
+                                Executive Summary
+                              </h4>
+                              <p className="text-blue-700 dark:text-blue-200">{suggestion.analysis.summary}</p>
+                            </div>
+
+                            {/* Positives & Negatives */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg">
+                                <h4 className="font-bold text-green-800 dark:text-green-300 mb-3 flex items-center gap-2">
+                                  <CheckCircle className="h-4 w-4" />
+                                  Positives
+                                </h4>
+                                <ul className="space-y-1">
+                                  {suggestion.analysis.positives.map((positive, idx) => (
+                                    <li key={idx} className="text-green-700 dark:text-green-200 flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0" />
+                                      {positive}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              
+                              <div className="p-4 bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-lg">
+                                <h4 className="font-bold text-red-800 dark:text-red-300 mb-3 flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  Concerns
+                                </h4>
+                                <ul className="space-y-1">
+                                  {suggestion.analysis.negatives.map((negative, idx) => (
+                                    <li key={idx} className="text-red-700 dark:text-red-200 flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" />
+                                      {negative}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+
+                            {/* Risk Analysis */}
+                            <div className="p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-lg">
+                              <h4 className="font-bold text-yellow-800 dark:text-yellow-300 mb-3 flex items-center gap-2">
+                                <Shield className="h-4 w-4" />
+                                Risk Analysis
+                              </h4>
+                              <div className="space-y-3">
+                                {suggestion.analysis.risks.map((risk, idx) => (
+                                  <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="font-medium text-yellow-800 dark:text-yellow-200">{risk.description}</span>
+                                      <div className="flex gap-2">
+                                        <Badge className={`text-xs px-2 py-1 ${
+                                          risk.likelihood === 'high' ? 'bg-red-500' :
+                                          risk.likelihood === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                        } text-white`}>
+                                          {risk.likelihood.toUpperCase()}
+                                        </Badge>
+                                        <Badge className={`text-xs px-2 py-1 ${
+                                          risk.impact === 'high' ? 'bg-red-500' :
+                                          risk.impact === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                        } text-white`}>
+                                          {risk.impact.toUpperCase()} IMPACT
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                                      <strong>Mitigation:</strong> {risk.mitigation}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Decision Framework */}
+                            <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
+                              <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
+                                <Target className="h-4 w-4" />
+                                Decision Framework
+                              </h4>
+                              <div className="space-y-4">
+                                <div>
+                                  <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Available Options:</h5>
+                                  <ul className="space-y-1">
+                                    {suggestion.analysis.decisions.options.map((option, idx) => (
+                                      <li key={idx} className="text-purple-700 dark:text-purple-200 flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0" />
+                                        {option}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                
+                                <div className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg">
+                                  <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-1">Recommendation:</h5>
+                                  <p className="text-purple-700 dark:text-purple-200 font-medium">{suggestion.analysis.decisions.recommendation}</p>
+                                </div>
+                                
+                                <div>
+                                  <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-1">Rationale:</h5>
+                                  <p className="text-purple-700 dark:text-purple-200">{suggestion.analysis.decisions.rationale}</p>
+                                </div>
+                                
+                                {suggestion.analysis.decisions.requiredData && (
+                                  <div>
+                                    <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Required Data:</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                      {suggestion.analysis.decisions.requiredData.map((data, idx) => (
+                                        <Badge key={idx} variant="outline" className="text-xs">
+                                          {data}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {suggestion.strategicValue && !suggestion.analysis && (
                           <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
                             <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-2 flex items-center gap-2">
                               <Award className="h-4 w-4" />
