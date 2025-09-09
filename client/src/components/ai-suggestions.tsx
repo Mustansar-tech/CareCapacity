@@ -785,219 +785,134 @@ export function AISuggestions({ data }: AISuggestionsProps) {
                         <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-2 border-blue-400">
                           <p className="text-sm text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2">
                             <ChevronRight className="h-3 w-3" />
-                            Click to view detailed business analysis (Summary, Risks, Decisions)
+                            Click to view Summary • Positives/Negatives • Risks • Decisions
                           </p>
                         </div>
                       )}
                     </AlertDescription>
 
                     {/* Expandable Details */}
-                    {showDetails[suggestion.id] && (
+                    {showDetails[suggestion.id] && suggestion.analysis && (
                       <div className="mt-6 space-y-6 p-6 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-xl border-l-4 border-blue-500 animate-fade-in">
-                        {suggestion.metrics && (
-                          <div>
-                            <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-                              <BarChart3 className="h-4 w-4" />
-                              Performance Metrics & ROI Analysis
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-3">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Performance</div>
-                                  <div className="text-lg font-bold text-blue-600">
-                                    {typeof suggestion.metrics.current === 'number' 
-                                      ? suggestion.metrics.current.toFixed(1) 
-                                      : suggestion.metrics.current}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Target Achievement</div>
-                                  <div className="text-lg font-bold text-emerald-600">
-                                    {typeof suggestion.metrics.potential === 'number' 
-                                      ? suggestion.metrics.potential.toFixed(1) 
-                                      : suggestion.metrics.potential}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="space-y-3">
-                                {suggestion.metrics.financialImpact && (
-                                  <div>
-                                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Financial Impact</div>
-                                    <div className="text-lg font-bold text-yellow-600">
-                                      £{(suggestion.metrics.financialImpact / 1000).toFixed(0)}K
-                                    </div>
-                                  </div>
-                                )}
-                                {suggestion.metrics.efficiency && (
-                                  <div>
-                                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Efficiency Score</div>
-                                    <div className="flex items-center gap-2">
-                                      <Progress value={suggestion.metrics.efficiency} className="flex-1 h-2" />
-                                      <span className="text-lg font-bold text-purple-600">{suggestion.metrics.efficiency}%</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                              <div className="text-sm font-medium text-blue-800 dark:text-blue-300">Expected Outcome</div>
-                              <div className="text-blue-700 dark:text-blue-200">{suggestion.metrics.improvement}</div>
-                            </div>
-                          </div>
-                        )}
+                        {/* Executive Summary */}
+                        <div className="p-4 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg">
+                          <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            Summary
+                          </h4>
+                          <p className="text-blue-700 dark:text-blue-200">{suggestion.analysis.summary}</p>
+                        </div>
 
-                        {suggestion.implementation && (
-                          <div>
-                            <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-                              <Target className="h-4 w-4" />
-                              Implementation Roadmap
+                        {/* Positives & Negatives */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg">
+                            <h4 className="font-bold text-green-800 dark:text-green-300 mb-3 flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4" />
+                              Positives
                             </h4>
-                            <div className="grid gap-2">
-                              {suggestion.implementation.map((step, idx) => (
-                                <div key={idx} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
-                                  <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
-                                    {idx + 1}
-                                  </div>
-                                  <span className="font-medium">{step}</span>
-                                </div>
+                            <ul className="space-y-1">
+                              {suggestion.analysis.positives.map((positive, idx) => (
+                                <li key={idx} className="text-green-700 dark:text-green-200 flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0" />
+                                  {positive}
+                                </li>
                               ))}
-                            </div>
+                            </ul>
                           </div>
-                        )}
-
-                        {suggestion.analysis && (
-                          <div className="space-y-6">
-                            {/* Executive Summary */}
-                            <div className="p-4 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg">
-                              <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
-                                <BarChart3 className="h-4 w-4" />
-                                Executive Summary
-                              </h4>
-                              <p className="text-blue-700 dark:text-blue-200">{suggestion.analysis.summary}</p>
-                            </div>
-
-                            {/* Positives & Negatives */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg">
-                                <h4 className="font-bold text-green-800 dark:text-green-300 mb-3 flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4" />
-                                  Positives
-                                </h4>
-                                <ul className="space-y-1">
-                                  {suggestion.analysis.positives.map((positive, idx) => (
-                                    <li key={idx} className="text-green-700 dark:text-green-200 flex items-center gap-2">
-                                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0" />
-                                      {positive}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                              
-                              <div className="p-4 bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-lg">
-                                <h4 className="font-bold text-red-800 dark:text-red-300 mb-3 flex items-center gap-2">
-                                  <AlertTriangle className="h-4 w-4" />
-                                  Concerns
-                                </h4>
-                                <ul className="space-y-1">
-                                  {suggestion.analysis.negatives.map((negative, idx) => (
-                                    <li key={idx} className="text-red-700 dark:text-red-200 flex items-center gap-2">
-                                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" />
-                                      {negative}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            </div>
-
-                            {/* Risk Analysis */}
-                            <div className="p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-lg">
-                              <h4 className="font-bold text-yellow-800 dark:text-yellow-300 mb-3 flex items-center gap-2">
-                                <Shield className="h-4 w-4" />
-                                Risk Analysis
-                              </h4>
-                              <div className="space-y-3">
-                                {suggestion.analysis.risks.map((risk, idx) => (
-                                  <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="font-medium text-yellow-800 dark:text-yellow-200">{risk.description}</span>
-                                      <div className="flex gap-2">
-                                        <Badge className={`text-xs px-2 py-1 ${
-                                          risk.likelihood === 'high' ? 'bg-red-500' :
-                                          risk.likelihood === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                                        } text-white`}>
-                                          {risk.likelihood.toUpperCase()}
-                                        </Badge>
-                                        <Badge className={`text-xs px-2 py-1 ${
-                                          risk.impact === 'high' ? 'bg-red-500' :
-                                          risk.impact === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                                        } text-white`}>
-                                          {risk.impact.toUpperCase()} IMPACT
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                    <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                                      <strong>Mitigation:</strong> {risk.mitigation}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Decision Framework */}
-                            <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
-                              <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
-                                <Target className="h-4 w-4" />
-                                Decision Framework
-                              </h4>
-                              <div className="space-y-4">
-                                <div>
-                                  <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Available Options:</h5>
-                                  <ul className="space-y-1">
-                                    {suggestion.analysis.decisions.options.map((option, idx) => (
-                                      <li key={idx} className="text-purple-700 dark:text-purple-200 flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0" />
-                                        {option}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                
-                                <div className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg">
-                                  <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-1">Recommendation:</h5>
-                                  <p className="text-purple-700 dark:text-purple-200 font-medium">{suggestion.analysis.decisions.recommendation}</p>
-                                </div>
-                                
-                                <div>
-                                  <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-1">Rationale:</h5>
-                                  <p className="text-purple-700 dark:text-purple-200">{suggestion.analysis.decisions.rationale}</p>
-                                </div>
-                                
-                                {suggestion.analysis.decisions.requiredData && (
-                                  <div>
-                                    <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Required Data:</h5>
-                                    <div className="flex flex-wrap gap-2">
-                                      {suggestion.analysis.decisions.requiredData.map((data, idx) => (
-                                        <Badge key={idx} variant="outline" className="text-xs">
-                                          {data}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {suggestion.strategicValue && !suggestion.analysis && (
-                          <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
-                            <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-2 flex items-center gap-2">
-                              <Award className="h-4 w-4" />
-                              Strategic Value
+                          
+                          <div className="p-4 bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-lg">
+                            <h4 className="font-bold text-red-800 dark:text-red-300 mb-3 flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4" />
+                              Negatives
                             </h4>
-                            <p className="text-purple-700 dark:text-purple-200">{suggestion.strategicValue}</p>
+                            <ul className="space-y-1">
+                              {suggestion.analysis.negatives.map((negative, idx) => (
+                                <li key={idx} className="text-red-700 dark:text-red-200 flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" />
+                                  {negative}
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                        )}
+                        </div>
+
+                        {/* Risk Analysis */}
+                        <div className="p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-lg">
+                          <h4 className="font-bold text-yellow-800 dark:text-yellow-300 mb-3 flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            Risks
+                          </h4>
+                          <div className="space-y-3">
+                            {suggestion.analysis.risks.map((risk, idx) => (
+                              <div key={idx} className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-medium text-yellow-800 dark:text-yellow-200">{risk.description}</span>
+                                  <div className="flex gap-2">
+                                    <Badge className={`text-xs px-2 py-1 ${
+                                      risk.likelihood === 'high' ? 'bg-red-500' :
+                                      risk.likelihood === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                    } text-white`}>
+                                      {risk.likelihood.toUpperCase()}
+                                    </Badge>
+                                    <Badge className={`text-xs px-2 py-1 ${
+                                      risk.impact === 'high' ? 'bg-red-500' :
+                                      risk.impact === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                    } text-white`}>
+                                      {risk.impact.toUpperCase()} IMPACT
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                                  <strong>Mitigation:</strong> {risk.mitigation}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Decision Framework */}
+                        <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
+                          <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
+                            <Target className="h-4 w-4" />
+                            Decisions
+                          </h4>
+                          <div className="space-y-4">
+                            <div>
+                              <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Options:</h5>
+                              <ul className="space-y-1">
+                                {suggestion.analysis.decisions.options.map((option, idx) => (
+                                  <li key={idx} className="text-purple-700 dark:text-purple-200 flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0" />
+                                    {option}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            
+                            <div className="bg-white/60 dark:bg-gray-700/60 p-3 rounded-lg">
+                              <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-1">Recommendation:</h5>
+                              <p className="text-purple-700 dark:text-purple-200 font-medium">{suggestion.analysis.decisions.recommendation}</p>
+                            </div>
+                            
+                            <div>
+                              <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-1">Rationale:</h5>
+                              <p className="text-purple-700 dark:text-purple-200">{suggestion.analysis.decisions.rationale}</p>
+                            </div>
+                            
+                            {suggestion.analysis.decisions.requiredData && (
+                              <div>
+                                <h5 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Required Data:</h5>
+                                <div className="flex flex-wrap gap-2">
+                                  {suggestion.analysis.decisions.requiredData.map((data, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs">
+                                      {data}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
