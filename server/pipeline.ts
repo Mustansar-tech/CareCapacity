@@ -586,7 +586,7 @@ export function parseExcelFiles(
   console.log(`🔍 Raw CG Data rows: ${cgDataRaw.length}`);
   if (cgDataRaw.length > 0) {
     console.log(`🔍 First raw CG Data row:`, cgDataRaw[0]);
-    console.log(`🔍 Available columns:`, Object.keys(cgDataRaw[0]));
+    console.log(`🔍 Available columns:`, Object.keys(cgDataRaw[0] as Record<string, any>));
   }
   
   // Build name from CAREGiver Name OR First+Last; accept Hours Per Week aliases
