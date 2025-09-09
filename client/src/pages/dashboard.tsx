@@ -44,10 +44,10 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Query to load latest data automatically
+  // Query to load latest data automatically  
   const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
-    enabled: !processedData, // Only load if we don't have current data
+    enabled: false, // Temporarily disabled to fix upload section visibility
   });
 
   // Auto-load latest data when component mounts or when we don't have data
@@ -277,6 +277,7 @@ export default function Dashboard() {
             </div>
           )}
           
+          {/* File Upload Inputs - ALWAYS VISIBLE */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             {/* Availability Export */}
             <div className="space-y-3">
@@ -394,6 +395,7 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Process Button - ALWAYS VISIBLE */}
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
