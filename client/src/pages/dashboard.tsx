@@ -277,14 +277,14 @@ export default function Dashboard() {
             </div>
           )}
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
             {/* Availability Export */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                  <Users className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                  <Users className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <Label htmlFor="availability-file" className="text-xs font-medium truncate">
+                <Label htmlFor="availability-file" className="text-[11px] font-medium truncate">
                   Availability
                 </Label>
               </div>
@@ -307,12 +307,12 @@ export default function Dashboard() {
             </div>
 
             {/* Guaranteed Hours */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-                  <Clock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                  <Clock className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <Label htmlFor="guaranteed-file" className="text-xs font-medium truncate">
+                <Label htmlFor="guaranteed-file" className="text-[11px] font-medium truncate">
                   Guaranteed
                 </Label>
               </div>
@@ -335,12 +335,12 @@ export default function Dashboard() {
             </div>
 
             {/* Client Demand */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                  <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                  <TrendingUp className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <Label htmlFor="demand-file" className="text-xs font-medium truncate">
+                <Label htmlFor="demand-file" className="text-[11px] font-medium truncate">
                   Demand
                 </Label>
               </div>
@@ -363,14 +363,14 @@ export default function Dashboard() {
             </div>
 
             {/* CG Data Export - NEW MASTER EMPLOYEE LIST */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                  <Target className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                  <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
                 </div>
-                <Label htmlFor="cgdata-file" className="text-xs font-medium truncate">
+                <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
                   CG Data
-                  <span className="ml-1 px-1 py-0.5 text-[10px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
+                  <span className="ml-1 px-0.5 py-0.5 text-[9px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
                     Master
                   </span>
                 </Label>
