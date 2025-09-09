@@ -22,15 +22,17 @@ import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 
 
 export default function Dashboard() {
-  // File upload state
+  // File upload state - Adding CG Data Export as 4th file
   const [files, setFiles] = useState<{
     availability: File | null;
     guaranteed: File | null;
     demand: File | null;
+    cgData: File | null;
   }>({
     availability: null,
     guaranteed: null,
-    demand: null
+    demand: null,
+    cgData: null
   });
 
   // Processing state

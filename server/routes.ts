@@ -47,67 +47,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/process', upload.fields([
     { name: 'availability', maxCount: 1 },
     { name: 'guaranteed', maxCount: 1 },
-    { name: 'demand', maxCount: 1 }
+    { name: 'demand', maxCount: 1 },
+    { name: 'cgData', maxCount: 1 }
   ]), async (req, res) => {
     try {
       console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
       
-      // Validate that all three files are present
-      if (!files.availability || !files.guaranteed || !files.demand) {
+      // Validate that all four files are present
+      if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
         return res.status(400).json({
-          message: 'Missing required files. Please upload availability, guaranteed, and demand files.'
+          message: 'Missing required files. Please upload availability, guaranteed, demand, and CG Data Export files.'
         });
       }
 
       const availabilityFile = files.availability[0];
       const guaranteedFile = files.guaranteed[0];
       const demandFile = files.demand[0];
+      const cgDataFile = files.cgData[0];
 
       // Validate file names (allowing for browser download numbers like (2), (3))
       const expectedNames = {
         availability: 'Availability Export.xlsx',
         guaranteed: 'Care Pro Guaranteed Hours.xlsx', 
-        demand: 'Hours by Service Type.xlsx'
+        demand: 'Hours by Service Type.xlsx',
+        cgData: 'CG Data Export.xlsx'
       };
 
       const normalizedAvailabilityName = normalizeFileName(availabilityFile.originalname);
       const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
       const normalizedDemandName = normalizeFileName(demandFile.originalname);
+      const normalizedCgDataName = normalizeFileName(cgDataFile.originalname);
       
       console.log(`📁 File name validation:`);
       console.log(`  Availability: "${availabilityFile.originalname}" -> "${normalizedAvailabilityName}"`);
       console.log(`  Guaranteed: "${guaranteedFile.originalname}" -> "${normalizedGuaranteedName}"`);
       console.log(`  Demand: "${demandFile.originalname}" -> "${normalizedDemandName}"`);
+      console.log(`  CG Data: "${cgDataFile.originalname}" -> "${normalizedCgDataName}"`);
       console.log(`  Expected: ${JSON.stringify(expectedNames)}`);
 
       if (normalizedAvailabilityName !== expectedNames.availability ||
           normalizedGuaranteedName !== expectedNames.guaranteed ||
-          normalizedDemandName !== expectedNames.demand) {
+          normalizedDemandName !== expectedNames.demand ||
+          normalizedCgDataName !== expectedNames.cgData) {
         console.log(`❌ FILE VALIDATION FAILED:`);
         console.log(`  Availability check: ${normalizedAvailabilityName} === ${expectedNames.availability} ? ${normalizedAvailabilityName === expectedNames.availability}`);
+        console.log(`  CG Data check: ${normalizedCgDataName} === ${expectedNames.cgData} ? ${normalizedCgDataName === expectedNames.cgData}`);
         console.log(`  Guaranteed check: ${normalizedGuaranteedName} === ${expectedNames.guaranteed} ? ${normalizedGuaranteedName === expectedNames.guaranteed}`);
         console.log(`  Demand check: ${normalizedDemandName} === ${expectedNames.demand} ? ${normalizedDemandName === expectedNames.demand}`);
         return res.status(400).json({
-          message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}" (browser download numbers like (2) are allowed)`
+          message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}", "${expectedNames.cgData}" (browser download numbers like (2) are allowed)`
         });
       }
 
       console.log(`✅ FILE VALIDATION PASSED - Proceeding to parsing...`);
 
-      // Parse Excel files
+      // Parse Excel files including CG Data Export
       const parsedData = parseExcelFiles(
         availabilityFile.buffer,
         guaranteedFile.buffer,
-        demandFile.buffer
+        demandFile.buffer,
+        cgDataFile.buffer
       );
 
-      // Process the data
+      // Process the data with CG Data as master employee list
       const result = processCapacityData(
         parsedData.availability,
         parsedData.guaranteed,
-        parsedData.demand
+        parsedData.demand,
+        parsedData.cgData
       );
 
       // Add parsing warnings to result
