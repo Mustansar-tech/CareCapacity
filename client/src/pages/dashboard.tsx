@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb
+  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb as LightBulbIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
@@ -490,7 +490,7 @@ export default function Dashboard() {
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-suggestions"
             >
-              <Lightbulb className="w-4 h-4 mr-2" />
+              <LightBulbIcon className="w-4 h-4 mr-2" />
               AI Insights
             </TabsTrigger>
             <TabsTrigger 
