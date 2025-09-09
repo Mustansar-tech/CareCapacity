@@ -20,6 +20,7 @@ import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 
+
 export default function Dashboard() {
   // File upload state
   const [files, setFiles] = useState<{
@@ -57,6 +58,7 @@ export default function Dashboard() {
         employeeSummaryByDate: latestData.employeeSummaryByDate as any,
         warnings: latestData.warnings as any,
       });
+      setSelectedDate(latestData.dailySummary?.[0]?.date || null);
       toast({
         title: "Latest Data Loaded",
         description: "Automatically loaded your most recent analysis."
@@ -84,6 +86,7 @@ export default function Dashboard() {
     }
 
     setIsProcessing(true);
+    
     const formData = new FormData();
     formData.append('availability', files.availability);
     formData.append('guaranteed', files.guaranteed);
@@ -192,25 +195,34 @@ export default function Dashboard() {
   const selectedDayDetails = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto animate-fade-in" data-testid="dashboard-container">
-      <div className="mb-8 text-center">
-        <div className="inline-flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-xl gradient-bg flex items-center justify-center shadow-lg">
-            <BarChart3 className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-background scroll-modern" data-testid="dashboard-container">
+      {/* Hero Section with Modern Layout */}
+      <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
+        <div className="max-w-7xl mx-auto px-lg py-3xl">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-md mb-lg animate-scale-in">
+              <div className="w-16 h-16 rounded-2xl gradient-primary elevation-3 flex items-center justify-center">
+                <BarChart3 className="w-8 h-8 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="font-display text-5xl font-semibold text-foreground mb-2" data-testid="dashboard-title">
+                  Care Capacity Dashboard
+                </h1>
+                <div className="w-24 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full mx-auto"></div>
+              </div>
+            </div>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed" data-testid="dashboard-description">
+              Intelligent workforce capacity analysis for optimal care scheduling and resource management
+            </p>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-emerald-600 bg-clip-text text-transparent" data-testid="dashboard-title">
-            Care Capacity Dashboard
-          </h1>
         </div>
-        <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto" data-testid="dashboard-description">
-          Analyze workforce capacity and optimize care scheduling with intelligent data processing
-        </p>
-
       </div>
 
-      {/* Show upload section only when no data exists */}
-      {!processedData && !latestData && (
-        <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section">
+      {/* Main Content Area */}
+      <div className="max-w-7xl mx-auto px-lg py-2xl animate-fade-in">
+        {/* Upload Section with Enhanced Design */}
+        {!processedData && !latestData && (
+          <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
@@ -391,12 +403,12 @@ export default function Dashboard() {
             )}
           </div>
         </CardContent>
-      </Card>
-      )}
+        </Card>
+        )}
 
-      {/* Results Tabs - Always show when data exists */}
-      {processedData && (
-        <div>
+        {/* Results Tabs - Always show when data exists */}
+        {processedData && (
+          <div>
 
         <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -1064,9 +1076,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
-        </div>
-      )}
+          </Tabs>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
