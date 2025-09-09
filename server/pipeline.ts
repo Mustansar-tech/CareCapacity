@@ -1162,7 +1162,7 @@ export function processCapacityData(
 
       if (highestPriorityStatus === "Available") {
         finalHours = Math.max(daily - totalLeaveCapped, 0.0); // adjusted available
-        netCapacity = Math.max(finalHours - totalScheduledHours, 0.0); // available minus scheduled
+        netCapacity = finalHours;
       } else if (LEAVE_TYPES.includes(highestPriorityStatus)) {
         finalHours = Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
