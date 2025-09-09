@@ -838,16 +838,17 @@ export function processCapacityData(
     console.log(`  - First row:`, cgData[0]);
   }
 
-  // Step 1: Create master employee list from CG Data (only non-zero weekly hours)
+  // Step 1: Create master employee list from CG Data (EXACT MATCH TO WORKING IMPLEMENTATION)
   const masterEmployees = cgData
-    .filter(row => {
-      const weeklyHours = Number(row["Weekly Hours"] || 0);
-      return weeklyHours > 0; // Only include employees with non-zero weekly hours
-    })
-    .map((row) => ({
-      originalName: row["CAREGiver Name"],
-      normalizedName: normalizeName(row["CAREGiver Name"]),
-      weeklyHours: Number(row["Weekly Hours"]), // CG Data is authoritative for weekly hours
+    .map((row) => ({ 
+      name: row["CAREGiver Name"], 
+      weekly: Number(row["Weekly Hours"] || 0) 
+    }))
+    .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
+    .map((row) => ({ 
+      originalName: row.name, 
+      normalizedName: normalizeName(row.name), 
+      weeklyHours: row.weekly 
     }));
 
   console.log(`📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`);
@@ -855,28 +856,47 @@ export function processCapacityData(
     console.log(`  - Sample employee:`, masterEmployees[0]);
   }
 
-  // Create master employee map for easy lookup
-  const masterEmployeeMap = new Map();
-  masterEmployees.forEach(emp => {
-    masterEmployeeMap.set(emp.normalizedName, emp);
+  // Step 2: Filter availability data to ONLY include master employees (EXACT MATCH TO WORKING IMPLEMENTATION)
+  const availabilityFiltered: any[] = [];
+  availability.forEach((row, i) => {
+    try {
+      const name = row["CAREGiver Name"];
+      const normalizedName = normalizeName(name);
+      
+      // ONLY keep employees from CG master (exact filter approach from working code)
+      if (!masterEmployeeMap.has(normalizedName)) {
+        return; // Skip employees not in master list
+      }
+      
+      if (!row["Start Date"]) {
+        warnings.push(`Availability row ${i + 1}: missing Start Date`);
+        return;
+      }
+      
+      const parsedDate = row.parsedDate; // Already parsed
+      const hrs = row.Hours != null ? Number(row.Hours) : hoursBetween(row["Start Time"], row["End Time"]);
+      
+      if (isNaN(hrs)) {
+        warnings.push(`Availability row ${i + 1}: cannot compute hours`);
+        return;
+      }
+      
+      availabilityFiltered.push({
+        ...row,
+        _normalizedName: normalizedName,
+        _parsedDate: parsedDate,
+        _hours: Math.round(hrs * 100) / 100,
+        matchedEmployee: masterEmployeeMap.get(normalizedName) // Add matched employee
+      });
+    } catch (e) {
+      warnings.push(`Availability row ${i + 1}: ${e.message || 'error'}`);
+    }
   });
 
-  // Step 2: Process availability data and match to master employees (original pipeline approach)
-  const allAvailabilityWithMatching = availability.map((row) => {
-    const normalizedName = normalizeName(row["CAREGiver Name"]);
-    
-    // Find best match from master employees
-    const masterEmployeeKeys = Array.from(masterEmployeeMap.keys());
-    const matches = getCloseMatches(normalizedName, masterEmployeeKeys, 0.7);
-    
-    const matchedEmployee = matches.length > 0 ? masterEmployeeMap.get(matches[0].choice) : null;
+  console.log(`📊 Availability filtered: ${availabilityFiltered.length} rows (only master employees)`);
 
-    return {
-      ...row,
-      matchedEmployee,
-      parsedDate: row.parsedDate
-    };
-  });
+  // Step 3: Create allAvailabilityWithMatching for compatibility with existing pipeline
+  const allAvailabilityWithMatching = availabilityFiltered;
 
   // Step 3: Calculate days available for each employee (original logic)
   const employeeDays = new Map<string, Set<string>>();
