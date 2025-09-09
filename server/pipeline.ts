@@ -56,14 +56,40 @@ const AVAIL_SHEET = 'CAREGiver Availability';
 const GUAR_SHEET = 'Data';
 
 // Helper: case/space-insensitive column picker
-function pick(row: Record<string, any>, candidates: string[]): any {
+function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
-  for (const want of candidates) {
+  for (const want of names) {
     const target = want.trim().toLowerCase();
     const hit = keys.find(k => k.trim().toLowerCase() === target);
     if (hit) return row[hit];
   }
   return undefined;
+}
+
+// Legacy pick function for backward compatibility
+function pick(row: Record<string, any>, candidates: string[]): any {
+  return pickCol(row, candidates);
+}
+
+// Find the right CG sheet instead of always taking the first one
+function getCGSheetName(wb: any): string {
+  // Try likely names first
+  const preferred = ["Data", "Employees", "CG Data", "Master", "Sheet1"];
+  for (const n of preferred) if (wb.SheetNames.includes(n)) return n;
+
+  // Fallback: scan for a sheet that has name + weekly-hours-ish columns
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 0, blankrows: false }) as any;
+    const header = (rows?.[0] ?? []).map((c: any) => String(c ?? "").trim().toLowerCase());
+    const hasName = header.includes("caregiver name") || (header.includes("first name") && header.includes("last name"));
+    const hasHours = ["weekly hours", "hours per week", "contracted weekly hours", "contracted hours", "hours contracted"]
+      .some(h => header.includes(h));
+    if (hasName && hasHours) return name;
+  }
+
+  // Absolute last resort
+  return wb.SheetNames[0];
 }
 
 
@@ -565,53 +591,42 @@ export function parseExcelFiles(
   console.log(`🔍 Column mapping:`, meta.columnMap);
   console.log(`📊 Weekday totals:`, hoursByWeekday);
 
-  // Parse CG Data Export.xlsx (Master Employee List) - EXACT MATCH TO WORKING IMPLEMENTATION
+  // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
-  console.log(`🔍 CG Data sheet names available:`, cgDataWorkbook.SheetNames);
-  
-  // Use first sheet for CG Data (just like working implementation)
-  const cgDataSheetName = cgDataWorkbook.SheetNames[0];
-  if (!cgDataSheetName) {
-    console.log(`❌ No sheets found in CG Data file`);
-    throw new Error(`No sheets found in CG Data file`);
-  }
-  
+  const cgDataSheetName = getCGSheetName(cgDataWorkbook);
   const cgDataSheet = cgDataWorkbook.Sheets[cgDataSheetName];
-  if (!cgDataSheet) {
-    console.log(`❌ Sheet "${cgDataSheetName}" not found in CG Data file`);
-    throw new Error(`Sheet "${cgDataSheetName}" not found in CG Data file`);
+  const cgRowsRaw = XLSX.utils.sheet_to_json<Record<string, any>>(cgDataSheet, { defval: "" });
+
+  console.log(`🔍 CG Data sheet names available:`, cgDataWorkbook.SheetNames);
+  console.log(`🔍 Using sheet: "${cgDataSheetName}"`);
+  console.log(`🔍 Raw CG Data rows: ${cgRowsRaw.length}`);
+  if (cgRowsRaw.length > 0) {
+    console.log(`🔍 First raw CG Data row:`, cgRowsRaw[0]);
+    console.log(`🔍 Available columns:`, Object.keys(cgRowsRaw[0]));
   }
-  
-  const cgDataRaw = XLSX.utils.sheet_to_json(cgDataSheet);
-  console.log(`🔍 Raw CG Data rows: ${cgDataRaw.length}`);
-  if (cgDataRaw.length > 0) {
-    console.log(`🔍 First raw CG Data row:`, cgDataRaw[0]);
-    console.log(`🔍 Available columns:`, Object.keys(cgDataRaw[0] as Record<string, any>));
-  }
-  
-  // Build name from CAREGiver Name OR First+Last; accept Hours Per Week aliases
-  const cgData = cgDataRaw
-    .map((row: any) => {
+
+  // Build name from CAREGiver Name OR First+Last; accept multiple weekly-hours aliases
+  const cgData = cgRowsRaw
+    .map(row => {
       const name =
-        pick(row, ["CAREGiver Name"]) ||
-        [pick(row, ["First Name"]), pick(row, ["Last Name"])].filter(Boolean).join(" ").trim();
+        pickCol(row, ["CAREGiver Name"]) ||
+        `${pickCol(row, ["First Name"]) || ""} ${pickCol(row, ["Last Name"]) || ""}`.trim();
 
-      const weekly = Number(
-        pick(row, [
-          "Weekly Hours",
-          "Hours Per Week",
-          "Hours per week",
-          "Contracted Weekly Hours",
-          "Contracted Hours",
-          "Hours Contracted",
-        ]) || 0
-      );
+      const weeklyRaw = pickCol(row, [
+        "Weekly Hours",
+        "Hours Per Week",
+        "Hours per week",
+        "Contracted Weekly Hours",
+        "Contracted Hours",
+        "Hours Contracted",
+      ]);
 
-      return { "CAREGiver Name": name, "Weekly Hours": weekly };
+      const weekly = Number(weeklyRaw ?? 0);
+      return { "CAREGiver Name": name, "Weekly Hours": isFinite(weekly) ? weekly : 0 };
     })
-    .filter((r: any) => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
+    .filter(r => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
 
-  console.log(`📊 CG Data: ${cgDataRaw.length} total rows → ${cgData.length} employees with weekly hours`);
+  console.log(`📊 CG Data: ${cgRowsRaw.length} rows → ${cgData.length} employees with weekly hours (sheet: ${cgDataSheetName})`);
   if (cgData.length > 0) {
     console.log(`🔍 First processed CG Data row:`, cgData[0]);
   } else {
@@ -909,9 +924,9 @@ export function processCapacityData(
       const name = row["CAREGiver Name"];
       const normalizedName = normalizeName(name);
       
-      // Use fuzzy matching instead of exact matching (avoids dropping legit rows)
-      const masterKeys = Array.from(masterEmployeeMap.keys());
-      const matches = getCloseMatches(normalizedName, masterKeys, 0.8);
+      // Availability matching with improved threshold
+      const masterEmployeeKeys = Array.from(masterEmployeeMap.keys());
+      const matches = getCloseMatches(normalizedName, masterEmployeeKeys, 0.65);
       if (matches.length === 0) return; // not a CG employee → drop
       const canonicalKey = matches[0].choice;
       const matchedEmployee = masterEmployeeMap.get(canonicalKey);
