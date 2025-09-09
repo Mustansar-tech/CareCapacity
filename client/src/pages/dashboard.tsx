@@ -21,6 +21,15 @@ import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 
 
+// Helper formatting functions
+const fmtH = (hours: number): string => `${hours}h`;
+const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
+const statusBadge = (status: string): string => {
+  return status === 'Sufficient' 
+    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+    : 'bg-gradient-to-r from-red-500 to-red-600 text-white';
+};
+
 export default function Dashboard() {
   // File upload state - Adding CG Data Export as 4th file
   const [files, setFiles] = useState<{
@@ -553,52 +562,58 @@ export default function Dashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(filteredData || processedData)?.dailySummary?.map((day, index) => (
-                      <TableRow 
-                        key={day.date}
-                        className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 interactive ${
-                          selectedDate === day.date ? 'bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-gradient-to-b border-blue-500' : ''
-                        }`}
-                        onClick={() => {
-                          setSelectedDate(day.date);
-                          console.log('Selected date:', day.date);
-                        }}
-                        data-testid={`row-daily-summary-${index}`}
-                      >
-                        <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
-                          {new Date(day.date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell data-testid={`cell-available-${index}`}>
-                          {day.availableHours}h
-                        </TableCell>
-                        <TableCell data-testid={`cell-net-capacity-${index}`}>
-                          {day.netCapacity}h
-                        </TableCell>
-                        <TableCell data-testid={`cell-client-required-${index}`}>
-                          {day.clientRequired}h
-                        </TableCell>
-                        <TableCell data-testid={`cell-gap-${index}`}>
-                          <Badge 
-                            variant={day.gap >= 0 ? "default" : "destructive"}
-                            className={`${
-                              day.gap >= 0 
-                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
-                                : 'bg-gradient-to-r from-red-500 to-red-600 text-white'
-                            }`}
-                          >
-                            {day.gap >= 0 ? '+' : ''}{day.gap}h
-                          </Badge>
-                        </TableCell>
-                        <TableCell data-testid={`cell-status-${index}`}>
-                          <Badge 
-                            variant={day.gap >= 0 ? "default" : "destructive"}
-                            className="glass-card"
-                          >
-                            {day.gap >= 0 ? 'Sufficient' : 'Shortage'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    )) || []}
+                      {(filteredData || processedData)?.dailySummary?.map((day, index) => (
+                        <TableRow
+                          key={day.date}
+                          className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 interactive ${
+                            selectedDate === day.date
+                              ? "bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-gradient-to-b border-blue-500"
+                              : ""
+                          }`}
+                          onClick={() => setSelectedDate(day.date)}
+                          data-testid={`row-daily-summary-${index}`}
+                        >
+                          <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
+                            {new Date(day.date).toLocaleDateString("en-GB")}
+                          </TableCell>
+
+                          {/* Available */}
+                          <TableCell data-testid={`cell-available-${index}`}>
+                            {fmtH(day.availableHours)}
+                          </TableCell>
+
+                          {/* Net Capacity */}
+                          <TableCell data-testid={`cell-net-capacity-${index}`}>
+                            {fmtH(day.netCapacity)}
+                          </TableCell>
+
+                          {/* Client Required */}
+                          <TableCell data-testid={`cell-client-required-${index}`}>
+                            {fmtH(day.clientRequired)}
+                          </TableCell>
+
+                          {/* Gap */}
+                          <TableCell data-testid={`cell-gap-${index}`}>
+                            <Badge
+                              variant={day.gap >= 0 ? "default" : "destructive"}
+                              className={`${
+                                day.gap >= 0
+                                  ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                  : "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                              }`}
+                            >
+                              {fmtSignedH(day.gap)}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Status: use backend field */}
+                          <TableCell data-testid={`cell-status-${index}`}>
+                            <Badge className={statusBadge(day.status)}>
+                              {day.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )) || []}
                     </TableBody>
                   </Table>
                 )}
