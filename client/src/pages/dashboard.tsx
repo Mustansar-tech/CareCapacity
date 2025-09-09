@@ -635,7 +635,6 @@ export default function Dashboard() {
                           <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
                           <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
                           <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-hours">Available Hours</TableHead>
                           <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
                           <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
                         </TableRow>
@@ -662,9 +661,6 @@ export default function Dashboard() {
                             <TableCell data-testid={`drilldown-scheduled-hours-${index}`}>
                               {emp.scheduledHours}h
                             </TableCell>
-                            <TableCell data-testid={`drilldown-hours-${index}`}>
-                              {emp.hours}h
-                            </TableCell>
                             <TableCell data-testid={`drilldown-net-capacity-${index}`}>
                               {emp.netCapacity}h
                             </TableCell>
@@ -674,7 +670,7 @@ export default function Dashboard() {
                           </TableRow>
                         )) : (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                               No employee data available for this date
                             </TableCell>
                           </TableRow>
