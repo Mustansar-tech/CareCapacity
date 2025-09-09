@@ -460,6 +460,36 @@ export default function Dashboard() {
           <div>
 
         <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+              Analysis Results
+            </h2>
+            <Button
+              onClick={() => {
+                setProcessedData(null);
+                setFilteredData(null);
+                setSelectedDate(null);
+                setFiles({
+                  availability: null,
+                  guaranteed: null,
+                  demand: null,
+                  cgData: null
+                });
+                // Clear file inputs
+                const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
+                inputs.forEach(input => { input.value = ''; });
+                toast({
+                  title: "Ready for New Upload",
+                  description: "Upload new files to process fresh data."
+                });
+              }}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              data-testid="button-upload-new"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload New Files
+            </Button>
+          </div>
           <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
