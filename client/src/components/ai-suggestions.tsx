@@ -18,7 +18,6 @@ import {
   Zap,
   Sparkles,
   TrendingDown,
-  DollarSign,
   Shield,
   Award,
   Rocket,
@@ -39,13 +38,11 @@ interface AISuggestion {
   actionable: boolean;
   priority: number;
   timeline: 'immediate' | 'short-term' | 'medium-term' | 'long-term';
-  roiPotential?: number;
   riskLevel?: 'low' | 'medium' | 'high';
   metrics?: {
     current: number;
     potential: number;
     improvement: string;
-    financialImpact?: number;
     efficiency?: number;
   };
   strategicValue?: string;
@@ -103,7 +100,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
 
     // Critical Capacity Management
     if (shortfallDays > totalDays * 0.3) {
-      const financialImpact = Math.abs(averageGap) * shortfallDays * 25; // Estimate £25/hour impact
       suggestions.push({
         id: `sched-capacity-${suggestionId++}`,
         category: 'scheduling',
@@ -115,7 +111,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
         actionable: true,
         priority: 1,
         timeline: 'immediate',
-        roiPotential: financialImpact * 0.8,
         riskLevel: 'high',
         strategicValue: 'Service continuity and client retention',
         implementation: [
@@ -166,7 +161,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           current: shortfallDays,
           potential: Math.max(0, shortfallDays - Math.ceil(totalDays * 0.1)),
           improvement: `${((shortfallDays - Math.ceil(totalDays * 0.1)) / shortfallDays * 100).toFixed(0)}% operational risk reduction`,
-          financialImpact: financialImpact,
           efficiency: 85
         }
       });
@@ -174,7 +168,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
 
     // Staff Optimization
     if (averageGap < -5) {
-      const optimizationValue = Math.abs(averageGap) * totalDays * 20;
       suggestions.push({
         id: `sched-optimization-${suggestionId++}`,
         category: 'scheduling',
@@ -186,7 +179,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
         actionable: true,
         priority: 2,
         timeline: 'immediate',
-        roiPotential: optimizationValue * 0.7,
         riskLevel: 'medium',
         strategicValue: 'Operational excellence and cost efficiency',
         implementation: [
@@ -236,7 +228,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           current: Math.abs(averageGap),
           potential: Math.abs(averageGap) * 0.25,
           improvement: '75% capacity gap elimination through AI optimization',
-          financialImpact: optimizationValue,
           efficiency: 92
         }
       });
@@ -345,7 +336,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
 
     // Capacity Utilization Insights
     if (averageUtilization < 70) {
-      const revenueOpportunity = (totalNetCapacity * (85 - averageUtilization) / 100) * 30 * totalDays;
       suggestions.push({
         id: `biz-utilization-${suggestionId++}`,
         category: 'business',
@@ -357,7 +347,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
         actionable: true,
         priority: 1,
         timeline: 'short-term',
-        roiPotential: revenueOpportunity * 0.6,
         riskLevel: 'low',
         strategicValue: 'Market expansion and revenue diversification',
         implementation: [
@@ -408,12 +397,10 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           current: averageUtilization,
           potential: 85,
           improvement: `${(85 - averageUtilization).toFixed(1)}% operational efficiency enhancement`,
-          financialImpact: revenueOpportunity,
           efficiency: 78
         }
       });
     } else if (averageUtilization > 90) {
-      const expansionValue = totalNetCapacity * 0.2 * 35 * totalDays;
       suggestions.push({
         id: `biz-expansion-${suggestionId++}`,
         category: 'business',
@@ -425,7 +412,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
         actionable: true,
         priority: 1,
         timeline: 'medium-term',
-        roiPotential: expansionValue * 0.4,
         riskLevel: 'medium',
         strategicValue: 'Market dominance and sustainable competitive advantage',
         implementation: [
@@ -476,7 +462,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
           current: totalNetCapacity,
           potential: totalNetCapacity * 1.25,
           improvement: '25% strategic capacity expansion with premium positioning',
-          financialImpact: expansionValue,
           efficiency: 95
         }
       });
@@ -771,12 +756,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
                         {Math.round(suggestion.confidence * 100)}% Confidence
                       </Badge>
                       
-                      {suggestion.roiPotential && (
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 px-3 py-1">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          £{(suggestion.roiPotential / 1000).toFixed(0)}K ROI
-                        </Badge>
-                      )}
                     </div>
 
                     <AlertDescription className="text-base leading-relaxed">
