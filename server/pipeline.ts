@@ -907,17 +907,19 @@ export function processCapacityData(
   console.log(`  - ${employeesNotInGuaranteed.length} not in guaranteed hours`);
   console.log(`  - ${employeesNotInAvailability.length} not in availability data`);
 
-  // Step 3: Calculate days available for each employee
+  // Step 5: Calculate days available for each employee using new CG Data structure
   const employeeDays = new Map<string, Set<string>>();
-  allAvailabilityWithMatching.forEach((row) => {
-    // For unmatched employees, use their original name as key
-    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
-    const dateStr = format(row.parsedDate, "yyyy-MM-dd");
+  allEmployeesWithData.forEach((empData) => {
+    const key = empData.masterEmployee.normalizedName;
+    const dates = new Set<string>();
 
-    if (!employeeDays.has(key)) {
-      employeeDays.set(key, new Set());
-    }
-    employeeDays.get(key)!.add(dateStr);
+    // Add all dates from availability rows
+    empData.availabilityRows.forEach((row) => {
+      const dateStr = format(row.parsedDate, "yyyy-MM-dd");
+      dates.add(dateStr);
+    });
+
+    employeeDays.set(key, dates);
   });
 
   // Step 4: Create merged data exactly like your prepare function

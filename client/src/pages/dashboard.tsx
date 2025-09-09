@@ -69,7 +69,7 @@ export default function Dashboard() {
   }, [latestData, processedData, toast]);
 
   // Handle file selection
-  const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand') => 
+  const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') => 
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0] || null;
       setFiles(prev => ({ ...prev, [type]: file }));
@@ -78,11 +78,11 @@ export default function Dashboard() {
 
   // Process files
   const handleProcessFiles = useCallback(async () => {
-    if (!files.availability || !files.guaranteed || !files.demand) {
+    if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
       toast({
         variant: "destructive",
         title: "Missing Files",
-        description: "Please select all three required files before processing."
+        description: "Please select all four required files before processing."
       });
       return;
     }
@@ -93,6 +93,7 @@ export default function Dashboard() {
     formData.append('availability', files.availability);
     formData.append('guaranteed', files.guaranteed);
     formData.append('demand', files.demand);
+    formData.append('cgData', files.cgData);
 
     try {
       const response = await fetch('/api/process', {
@@ -355,12 +356,43 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
+            {/* CG Data Export - NEW MASTER EMPLOYEE LIST */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                  <Target className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                </div>
+                <Label htmlFor="cgdata-file" className="text-sm font-medium">
+                  CG Data Export.xlsx
+                  <span className="ml-2 px-2 py-1 text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded-full">
+                    Master List
+                  </span>
+                </Label>
+              </div>
+              <Input
+                id="cgdata-file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange('cgData')}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-all duration-200"
+                data-testid="input-cgdata-file"
+              />
+              {files.cgData && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-cgdata-selected">
+                    {files.cgData.name}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              disabled={isProcessing || !files.availability || !files.guaranteed || !files.demand}
+              disabled={isProcessing || !files.availability || !files.guaranteed || !files.demand || !files.cgData}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
@@ -385,7 +417,8 @@ export default function Dashboard() {
                   setFiles({
                     availability: null,
                     guaranteed: null,
-                    demand: null
+                    demand: null,
+                    cgData: null
                   });
                   // Clear file inputs
                   const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
