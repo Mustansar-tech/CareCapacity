@@ -55,6 +55,18 @@ interface EmployeeGuaranteedHours {
 const AVAIL_SHEET = 'CAREGiver Availability';
 const GUAR_SHEET = 'Data';
 
+// Helper: case/space-insensitive column picker
+function pick(row: Record<string, any>, candidates: string[]): any {
+  const keys = Object.keys(row);
+  for (const want of candidates) {
+    const target = want.trim().toLowerCase();
+    const hit = keys.find(k => k.trim().toLowerCase() === target);
+    if (hit) return row[hit];
+  }
+  return undefined;
+}
+
+
 // Normalize name exactly like working implementation
 function normalizeName(name: string): string {
   if (!name || name === 'undefined' || name === 'null') return '';
@@ -561,15 +573,13 @@ export function parseExcelFiles(
   const cgDataSheetName = cgDataWorkbook.SheetNames[0];
   if (!cgDataSheetName) {
     console.log(`❌ No sheets found in CG Data file`);
-    const cgData: any[] = [];
-    return { availability: validatedAvailability, guaranteed: validatedGuaranteed, demand: filteredRows, cgData, warnings };
+    throw new Error(`No sheets found in CG Data file`);
   }
   
   const cgDataSheet = cgDataWorkbook.Sheets[cgDataSheetName];
   if (!cgDataSheet) {
     console.log(`❌ Sheet "${cgDataSheetName}" not found in CG Data file`);
-    const cgData: any[] = [];
-    return { availability: validatedAvailability, guaranteed: validatedGuaranteed, demand: filteredRows, cgData, warnings };
+    throw new Error(`Sheet "${cgDataSheetName}" not found in CG Data file`);
   }
   
   const cgDataRaw = XLSX.utils.sheet_to_json(cgDataSheet);
@@ -579,17 +589,27 @@ export function parseExcelFiles(
     console.log(`🔍 Available columns:`, Object.keys(cgDataRaw[0]));
   }
   
-  // EXACT filtering logic from working implementation
+  // Build name from CAREGiver Name OR First+Last; accept Hours Per Week aliases
   const cgData = cgDataRaw
-    .map((row: any) => ({ 
-      name: row["CAREGiver Name"], 
-      weekly: Number(row["Weekly Hours"] || 0) 
-    }))
-    .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
-    .map((row) => ({ 
-      "CAREGiver Name": row.name, 
-      "Weekly Hours": row.weekly 
-    }));
+    .map((row: any) => {
+      const name =
+        pick(row, ["CAREGiver Name"]) ||
+        [pick(row, ["First Name"]), pick(row, ["Last Name"])].filter(Boolean).join(" ").trim();
+
+      const weekly = Number(
+        pick(row, [
+          "Weekly Hours",
+          "Hours Per Week",
+          "Hours per week",
+          "Contracted Weekly Hours",
+          "Contracted Hours",
+          "Hours Contracted",
+        ]) || 0
+      );
+
+      return { "CAREGiver Name": name, "Weekly Hours": weekly };
+    })
+    .filter((r: any) => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
 
   console.log(`📊 CG Data: ${cgDataRaw.length} total rows → ${cgData.length} employees with weekly hours`);
   if (cgData.length > 0) {
@@ -889,10 +909,12 @@ export function processCapacityData(
       const name = row["CAREGiver Name"];
       const normalizedName = normalizeName(name);
       
-      // ONLY keep employees from CG master (exact filter approach from working code)
-      if (!masterEmployeeMap.has(normalizedName)) {
-        return; // Skip employees not in master list
-      }
+      // Use fuzzy matching instead of exact matching (avoids dropping legit rows)
+      const masterKeys = Array.from(masterEmployeeMap.keys());
+      const matches = getCloseMatches(normalizedName, masterKeys, 0.8);
+      if (matches.length === 0) return; // not a CG employee → drop
+      const canonicalKey = matches[0].choice;
+      const matchedEmployee = masterEmployeeMap.get(canonicalKey);
       
       if (!row["Start Date"]) {
         warnings.push(`Availability row ${i + 1}: missing Start Date`);
@@ -909,10 +931,10 @@ export function processCapacityData(
       
       availabilityFiltered.push({
         ...row,
-        _normalizedName: normalizedName,
+        _normalizedName: canonicalKey, // Use canonical key from fuzzy match
         _parsedDate: parsedDate,
         _hours: Math.round(hrs * 100) / 100,
-        matchedEmployee: masterEmployeeMap.get(normalizedName) // Add matched employee
+        matchedEmployee // Add matched employee from fuzzy match
       });
     } catch (e: any) {
       warnings.push(`Availability row ${i + 1}: ${e.message || 'error'}`);
