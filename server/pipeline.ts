@@ -922,37 +922,37 @@ export function processCapacityData(
     employeeDays.set(key, dates);
   });
 
-  // Step 4: Create merged data exactly like your prepare function
-  const mergedData = allAvailabilityWithMatching.map((row) => {
-    // Handle both matched and unmatched employees
-    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
-    const daysAvailable = employeeDays.get(key)!.size;
+  // Step 6: Create merged data from allEmployeesWithData structure
+  const mergedData: any[] = [];
+  
+  allEmployeesWithData.forEach((empData) => {
+    const key = empData.masterEmployee.normalizedName;
+    const daysAvailable = employeeDays.get(key)?.size || 1;
     
-    // For unmatched employees, set default values
-    const contractedWeeklyHours = row.matchedEmployee ? row.matchedEmployee.weeklyHours : 0;
-    const contractedDailyHours = row.matchedEmployee 
-      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100
-      : 0;
+    const contractedWeeklyHours = empData.masterEmployee.weeklyHours;
+    const contractedDailyHours = Math.round((contractedWeeklyHours / daysAvailable) * 100) / 100;
 
-    // Safer hours: prefer 'Hours' if present, else compute from time (like your Python)
-    const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
-    const hoursEffective =
-      row.Hours !== undefined && row.Hours !== null ? row.Hours : hoursCalc;
+    // Process each availability row for this employee
+    empData.availabilityRows.forEach((row) => {
+      const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
+      const hoursEffective = row.Hours !== undefined && row.Hours !== null ? row.Hours : hoursCalc;
 
-    return {
-      employeeName: row.matchedEmployee ? row.matchedEmployee.originalName : row["CAREGiver Name"],
-      contractedWeeklyHours,
-      contractedDailyHours,
-      date: format(row.parsedDate, "yyyy-MM-dd"),
-      status: row.Type,
-      startTime: timeToString(row["Start Time"]),
-      endTime: timeToString(row["End Time"]),
-      timeWindow: buildTimeWindow(row),
-      hours: hoursEffective,
-      notes: row.Notes || "",
-      employeeKey: key,
-      matchedEmployee: row.matchedEmployee,
-    };
+      mergedData.push({
+        employeeName: empData.masterEmployee.originalName,
+        contractedWeeklyHours,
+        contractedDailyHours,
+        date: format(row.parsedDate, "yyyy-MM-dd"),
+        status: row.Type,
+        startTime: timeToString(row["Start Time"]),
+        endTime: timeToString(row["End Time"]),
+        timeWindow: buildTimeWindow(row),
+        hours: hoursEffective,
+        notes: row.Notes || "",
+        employeeKey: key,
+        masterEmployee: empData.masterEmployee,
+        guaranteedData: empData.guaranteedData,
+      });
+    });
   });
 
   // Step 5: Group by employee and date, then apply collapse logic
