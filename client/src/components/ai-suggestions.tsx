@@ -255,6 +255,37 @@ export function AISuggestions({ data }: AISuggestionsProps) {
         actionable: true,
         priority: 3,
         timeline: 'short-term',
+        analysis: {
+          summary: `${surplusDays} surplus days and ${shortfallDays} shortage days present clear rebalancing opportunity.`,
+          positives: [
+            'Existing staff can cover shortages',
+            'No additional hiring required',
+            'Improved staff utilization'
+          ],
+          negatives: [
+            'Uneven workload distribution',
+            'Some days overstaffed, others understaffed',
+            'Staff scheduling complexity'
+          ],
+          risks: [
+            {
+              description: 'Staff resistance to schedule changes',
+              likelihood: 'medium',
+              impact: 'medium',
+              mitigation: 'Involve staff in planning and provide advance notice'
+            }
+          ],
+          decisions: {
+            options: [
+              'Flexible daily scheduling',
+              'Cross-training for multiple roles',
+              'Shift pattern adjustments'
+            ],
+            recommendation: 'Flexible daily scheduling',
+            rationale: 'Most direct solution to balance workload without major system changes',
+            requiredData: ['Staff availability preferences', 'Client timing flexibility']
+          }
+        },
         metrics: {
           current: shortfallDays,
           potential: Math.max(0, shortfallDays - surplusDays),
@@ -275,7 +306,38 @@ export function AISuggestions({ data }: AISuggestionsProps) {
         confidence: 0.8,
         actionable: true,
         priority: 4,
-        timeline: 'medium-term'
+        timeline: 'medium-term',
+        analysis: {
+          summary: `${unavailabilityRate.toFixed(1)}% unavailability rate indicates potential staffing reliability issues requiring management attention.`,
+          positives: [
+            'Early visibility of availability issues',
+            'Opportunity to improve planning',
+            'Can implement preventive measures'
+          ],
+          negatives: [
+            'High absence rate affecting operations',
+            'Unreliable scheduling foundation',
+            'Potential client service disruption'
+          ],
+          risks: [
+            {
+              description: 'Increased absence trend',
+              likelihood: 'medium',
+              impact: 'high',
+              mitigation: 'Monitor patterns and address root causes'
+            }
+          ],
+          decisions: {
+            options: [
+              'Backup staff pool',
+              'Incentive programs for attendance',
+              'Flexible scheduling options'
+            ],
+            recommendation: 'Backup staff pool',
+            rationale: 'Provides immediate coverage while addressing underlying issues',
+            requiredData: ['Absence patterns', 'Staff feedback', 'Budget for additional coverage']
+          }
+        }
       });
     }
 
@@ -719,6 +781,14 @@ export function AISuggestions({ data }: AISuggestionsProps) {
 
                     <AlertDescription className="text-base leading-relaxed">
                       {suggestion.description}
+                      {suggestion.analysis && (
+                        <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-2 border-blue-400">
+                          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2">
+                            <ChevronRight className="h-3 w-3" />
+                            Click to view detailed business analysis (Summary, Risks, Decisions)
+                          </p>
+                        </div>
+                      )}
                     </AlertDescription>
 
                     {/* Expandable Details */}
