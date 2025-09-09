@@ -51,30 +51,23 @@ interface EmployeeGuaranteedHours {
   serviceEndDate: Date;
 }
 
-// Normalize name exactly like your Python code
+// ====== SHEET NAMES (EXACT MATCH TO WORKING IMPLEMENTATION) ======
+const AVAIL_SHEET = 'CAREGiver Availability';
+const GUAR_SHEET = 'Data';
+
+// Normalize name exactly like working implementation
 function normalizeName(name: string): string {
-  if (!name || name === "undefined" || name === "null") return "";
-
+  if (!name || name === 'undefined' || name === 'null') return '';
   let s = String(name).toLowerCase();
-
-  // Remove parentheses content like (NL), (GH)
-  s = s.replace(/\(.*?\)/g, "");
-
-  // Remove non-alpha characters except spaces
-  s = s.replace(/[^a-z\s]/g, " ");
-
-  // Remove titles
-  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " ");
-
-  // Normalize whitespace
-  s = s.replace(/\s+/g, " ").trim();
-
-  // Sort tokens alphabetically
+  s = s.replace(/\(.*?\)/g, ''); // remove parentheses content
+  s = s.replace(/[^a-z\s]/g, ' '); // keep letters and spaces
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, ' '); // remove titles
+  s = s.replace(/\s+/g, ' ').trim();
   return s
-    .split(" ")
-    .filter((token) => token.length > 0)
+    .split(' ')
+    .filter(Boolean)
     .sort()
-    .join(" ");
+    .join(' ');
 }
 
 // Time string conversion exactly like your tstr function
@@ -514,7 +507,7 @@ export function parseExcelFiles(
 
   // Parse Availability Export.xlsx
   const availabilityWorkbook = XLSX.read(availabilityBuffer);
-  const availabilitySheetName = "CAREGiver Availability";
+  const availabilitySheetName = AVAIL_SHEET;
   if (!availabilityWorkbook.SheetNames.includes(availabilitySheetName)) {
     throw new Error(
       `Sheet "${availabilitySheetName}" not found in Availability Export file`,
@@ -527,7 +520,7 @@ export function parseExcelFiles(
 
   // Parse Care Pro Guaranteed Hours.xlsx
   const guaranteedWorkbook = XLSX.read(guaranteedBuffer);
-  const guaranteedSheetName = "Data";
+  const guaranteedSheetName = GUAR_SHEET;
   if (!guaranteedWorkbook.SheetNames.includes(guaranteedSheetName)) {
     throw new Error(
       `Sheet "${guaranteedSheetName}" not found in Care Pro Guaranteed Hours file`,
