@@ -44,10 +44,10 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Query to load latest data automatically  
+  // Query to load latest data automatically
   const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
-    enabled: false, // Temporarily disabled to fix upload section visibility
+    enabled: !processedData, // Only load if we don't have current data
   });
 
   // Auto-load latest data when component mounts or when we don't have data
@@ -250,9 +250,9 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           {/* Show intro cards only when no data exists */}
-          {!processedData && (
+          {!processedData && !latestData && (
             <div className="text-center mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
                   <h3 className="font-semibold mb-2">Availability Export</h3>
@@ -268,17 +268,11 @@ export default function Dashboard() {
                   <h3 className="font-semibold mb-2">Client Demand</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
                 </div>
-                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
-                  <h3 className="font-semibold mb-2">CG Data Export</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
-                </div>
               </div>
             </div>
           )}
           
-          {/* File Upload Inputs - ALWAYS VISIBLE */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Availability Export */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -371,8 +365,8 @@ export default function Dashboard() {
                 </div>
                 <Label htmlFor="cgdata-file" className="text-sm font-medium">
                   CG Data Export.xlsx
-                  <span className="ml-2 px-1 py-0.5 text-[10px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
-                    Master
+                  <span className="ml-2 px-2 py-1 text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded-full">
+                    Master List
                   </span>
                 </Label>
               </div>
@@ -395,11 +389,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Process Button - ALWAYS VISIBLE */}
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing}
+              disabled={isProcessing || !files.availability || !files.guaranteed || !files.demand || !files.cgData}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
@@ -816,7 +809,7 @@ export default function Dashboard() {
                 <div className="flex justify-center gap-4">
                   <Button 
                     onClick={handleProcessFiles}
-                    disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing}
+                    disabled={!files.availability || !files.guaranteed || !files.demand || isProcessing}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
                     data-testid="button-process-overview"
                   >
@@ -840,8 +833,7 @@ export default function Dashboard() {
                       setFiles({
                         availability: null,
                         guaranteed: null,
-                        demand: null,
-                        cgData: null
+                        demand: null
                       });
                       const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
                       inputs.forEach(input => { input.value = ''; });
