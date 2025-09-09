@@ -9,14 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target
+  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
 import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
 import { AdvancedFilters } from "@/components/advanced-filters";
 import { InteractiveCharts } from "@/components/interactive-charts";
-import { SmartAlerts } from "@/components/smart-alerts";
+import { AISuggestions } from "@/components/ai-suggestions";
 import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { EnhancedTooltip } from "@/components/enhanced-tooltip";
@@ -486,12 +486,12 @@ export default function Dashboard() {
               Summary
             </TabsTrigger>
             <TabsTrigger 
-              value="alerts" 
+              value="ai-suggestions" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-alerts"
+              data-testid="tab-ai-suggestions"
             >
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              Alerts
+              <Lightbulb className="w-4 h-4 mr-2" />
+              AI Insights
             </TabsTrigger>
             <TabsTrigger 
               value="charts" 
@@ -684,14 +684,9 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Smart Alerts Tab - Only Alerts */}
-          <TabsContent value="alerts" data-testid="content-alerts">
-            <SmartAlerts 
+          <TabsContent value="ai-suggestions" data-testid="content-ai-suggestions">
+            <AISuggestions 
               data={filteredData || processedData} 
-              onAlertAction={(alertId, action, data) => {
-                if (action === 'view-details' && data?.date) {
-                  setSelectedDate(data.date);
-                }
-              }}
             />
           </TabsContent>
 
