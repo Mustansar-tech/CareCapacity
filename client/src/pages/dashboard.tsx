@@ -252,7 +252,7 @@ export default function Dashboard() {
           {/* Show intro cards only when no data exists */}
           {!processedData && !latestData && (
             <div className="text-center mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
                   <h3 className="font-semibold mb-2">Availability Export</h3>
@@ -268,11 +268,16 @@ export default function Dashboard() {
                   <h3 className="font-semibold mb-2">Client Demand</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
                 </div>
+                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <h3 className="font-semibold mb-2">CG Data Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
+                </div>
               </div>
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Availability Export */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
