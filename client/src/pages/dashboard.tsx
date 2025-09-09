@@ -547,7 +547,7 @@ export default function Dashboard() {
                         <TableHead data-testid="header-date">Date</TableHead>
                         <TableHead data-testid="header-available">Available</TableHead>
                         <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required">Required</TableHead>
+                        <TableHead data-testid="header-required">Client Required</TableHead>
                         <TableHead data-testid="header-gap">Gap</TableHead>
                         <TableHead data-testid="header-status">Status</TableHead>
                       </TableRow>
