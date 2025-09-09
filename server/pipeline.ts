@@ -560,23 +560,50 @@ export function parseExcelFiles(
   console.log(`🔍 Column mapping:`, meta.columnMap);
   console.log(`📊 Weekday totals:`, hoursByWeekday);
 
-  // Parse CG Data Export.xlsx (Master Employee List)
+  // Parse CG Data Export.xlsx (Master Employee List) - EXACT MATCH TO WORKING IMPLEMENTATION
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
   console.log(`🔍 CG Data sheet names available:`, cgDataWorkbook.SheetNames);
   
-  // Use first sheet for CG Data (adjust if needed)
+  // Use first sheet for CG Data (just like working implementation)
   const cgDataSheetName = cgDataWorkbook.SheetNames[0];
+  if (!cgDataSheetName) {
+    console.log(`❌ No sheets found in CG Data file`);
+    const cgData: any[] = [];
+    return { availability: validatedAvailability, guaranteed: validatedGuaranteed, demand: filteredRows, cgData, warnings };
+  }
+  
   const cgDataSheet = cgDataWorkbook.Sheets[cgDataSheetName];
-  const cgDataRaw = XLSX.utils.sheet_to_json<CGDataRow>(cgDataSheet);
+  if (!cgDataSheet) {
+    console.log(`❌ Sheet "${cgDataSheetName}" not found in CG Data file`);
+    const cgData: any[] = [];
+    return { availability: validatedAvailability, guaranteed: validatedGuaranteed, demand: filteredRows, cgData, warnings };
+  }
   
-  // Filter CG Data to only include employees with weekly hours
-  const cgData = cgDataRaw.filter(row => {
-    const hasName = row['CAREGiver Name'] && row['CAREGiver Name'].toString().trim() !== '';
-    const hasWeeklyHours = row['Weekly Hours'] && !isNaN(Number(row['Weekly Hours'])) && Number(row['Weekly Hours']) > 0;
-    return hasName && hasWeeklyHours;
-  });
+  const cgDataRaw = XLSX.utils.sheet_to_json(cgDataSheet);
+  console.log(`🔍 Raw CG Data rows: ${cgDataRaw.length}`);
+  if (cgDataRaw.length > 0) {
+    console.log(`🔍 First raw CG Data row:`, cgDataRaw[0]);
+    console.log(`🔍 Available columns:`, Object.keys(cgDataRaw[0]));
+  }
   
+  // EXACT filtering logic from working implementation
+  const cgData = cgDataRaw
+    .map((row: any) => ({ 
+      name: row["CAREGiver Name"], 
+      weekly: Number(row["Weekly Hours"] || 0) 
+    }))
+    .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
+    .map((row) => ({ 
+      "CAREGiver Name": row.name, 
+      "Weekly Hours": row.weekly 
+    }));
+
   console.log(`📊 CG Data: ${cgDataRaw.length} total rows → ${cgData.length} employees with weekly hours`);
+  if (cgData.length > 0) {
+    console.log(`🔍 First processed CG Data row:`, cgData[0]);
+  } else {
+    console.log(`❌ No valid CG Data rows found - check column names and data`);
+  }
 
   // Process availability data
   const validatedAvailability: ParsedAvailabilityRow[] = [];
@@ -856,6 +883,12 @@ export function processCapacityData(
     console.log(`  - Sample employee:`, masterEmployees[0]);
   }
 
+  // Create master employee map for fast lookup
+  const masterEmployeeMap = new Map();
+  masterEmployees.forEach(emp => {
+    masterEmployeeMap.set(emp.normalizedName, emp);
+  });
+
   // Step 2: Filter availability data to ONLY include master employees (EXACT MATCH TO WORKING IMPLEMENTATION)
   const availabilityFiltered: any[] = [];
   availability.forEach((row, i) => {
@@ -888,7 +921,7 @@ export function processCapacityData(
         _hours: Math.round(hrs * 100) / 100,
         matchedEmployee: masterEmployeeMap.get(normalizedName) // Add matched employee
       });
-    } catch (e) {
+    } catch (e: any) {
       warnings.push(`Availability row ${i + 1}: ${e.message || 'error'}`);
     }
   });
