@@ -224,7 +224,7 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-2xl animate-fade-in">
         {/* Upload Section with Enhanced Design */}
-        {!processedData && !latestData && (
+        {!processedData && (
           <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
@@ -725,7 +725,7 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                   {/* Availability Export */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -786,7 +786,7 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                        <Target className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                        <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                       </div>
                       <Label htmlFor="demand-file-overview" className="text-sm font-medium">
                         Hours by Service Type.xlsx
@@ -805,6 +805,35 @@ export default function Dashboard() {
                         <CheckCircle className="w-4 h-4 text-green-600" />
                         <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-demand-selected-overview">
                           {files.demand.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CG Data Export (Master Employee List) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                        <Target className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <Label htmlFor="cgdata-file-overview" className="text-sm font-medium">
+                        CG Data Export.xlsx
+                        <span className="ml-2 px-1 py-0.5 text-[10px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">Master</span>
+                      </Label>
+                    </div>
+                    <Input
+                      id="cgdata-file-overview"
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileChange('cgData')}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-all duration-200"
+                      data-testid="input-cgdata-file-overview"
+                    />
+                    {files.cgData && (
+                      <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-cgdata-selected-overview">
+                          {files.cgData.name}
                         </p>
                       </div>
                     )}
