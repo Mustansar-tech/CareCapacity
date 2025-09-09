@@ -1,0 +1,606 @@
+# Replit Care Capacity Server (CG Data as Master)
+
+> Drop these files into a new Replit (Node.js) project. Then run `npm install` and `npm start`.
+
+---
+
+## `package.json`
+
+```json
+{
+  "name": "care-capacity-server",
+  "version": "1.0.0",
+  "description": "Processes availability, guaranteed hours, demand, and CG master data with CG Data as the source of truth for employees.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "date-fns": "^3.6.0",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  }
+}
+```
+
+---
+
+## `index.js`
+
+```js
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const XLSX = require('xlsx');
+const { parse } = require('date-fns');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ====== CONFIG ======
+const AVAIL_SHEET = 'CAREGiver Availability';
+const GUAR_SHEET = 'Data';
+
+// Leave types and priority (1=highest)
+const LEAVE_TYPES = [
+  'Maternity/Paternity',
+  'Sick',
+  'Holiday',
+  'Compassionate Leave',
+  'Other Unavailable',
+  'Pre-Agreed Appointment',
+];
+const STATUS_PRIORITY = {
+  'Maternity/Paternity': 1,
+  'Sick': 2,
+  'Holiday': 3,
+  'Compassionate Leave': 4,
+  'Other Unavailable': 5,
+  'Pre-Agreed Appointment': 6,
+  'Available': 7,
+  'Partial Availability': 8,
+};
+
+// ====== HELPERS ======
+function normalizeName(name) {
+  if (!name || name === 'undefined' || name === 'null') return '';
+  let s = String(name).toLowerCase();
+  s = s.replace(/\(.*?\)/g, ''); // remove parentheses content
+  s = s.replace(/[^a-z\s]/g, ' '); // keep letters and spaces
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, ' '); // remove titles
+  s = s.replace(/\s+/g, ' ').trim();
+  return s
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+function parseDateFlexible(value) {
+  if (value == null || value === '') throw new Error('empty date');
+  if (typeof value === 'number') {
+    const excelEpoch = new Date(1899, 11, 30);
+    return new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+  }
+  if (value instanceof Date) return value;
+  const str = String(value).trim();
+  const formats = ['dd/MM/yyyy','dd/MM/yy','MM/dd/yyyy','yyyy-MM-dd','dd-MM-yyyy','dd.MM.yyyy','yyyy/MM/dd'];
+  for (const fmt of formats) {
+    try {
+      const d = parse(str, fmt, new Date());
+      if (!isNaN(d.getTime())) return d;
+    } catch {}
+  }
+  const d2 = new Date(str);
+  if (!isNaN(d2.getTime())) return d2;
+  throw new Error(`Could not parse date: ${value}`);
+}
+
+function hoursBetween(startTime, endTime) {
+  try {
+    const excelEpoch = new Date(1899, 11, 30);
+    const toDate = (v) =>
+      v instanceof Date
+        ? v
+        : typeof v === 'number'
+          ? new Date(excelEpoch.getTime() + v * 86400000)
+          : new Date(v);
+    const s = toDate(startTime);
+    const e = toDate(endTime);
+    if (isNaN(s) || isNaN(e)) return NaN;
+    let diff = (e - s) / 3600000;
+    if (diff < 0) diff += 24; // overnight
+    return Math.round(diff * 100) / 100;
+  } catch {
+    return NaN;
+  }
+}
+
+function isCancellationBlank(val) {
+  const s = (val ?? '').toString().trim().toLowerCase();
+  return s === '' || s === '(blank)' || s === 'na' || s === 'n/a';
+}
+function isSecondaryMultipleCare(val) {
+  const s = (val ?? '').toString().trim().toLowerCase();
+  return s.includes('multiple care') && s.includes('secondary');
+}
+function resolveServiceTimestamps(row) {
+  const srStart = row['Service Requirement Start Date And Time'];
+  const srEnd = row['Service Requirement End Date And Time'];
+  const acStart = row['Actual Start Date And Time'];
+  const acEnd = row['Actual End Date And Time'];
+  const plStart = row['Planned Start Date And Time'];
+  const plEnd = row['Planned End Date And Time'];
+  return { start: srStart ?? acStart ?? plStart, end: srEnd ?? acEnd ?? plEnd };
+}
+
+function mergeTimeWindows(windows) {
+  const timeRanges = (windows || [])
+    .filter((w) => w && w !== '-' && !w.includes('undefined'))
+    .map((w) => {
+      const [a, b] = w.split('-').map((x) => x && x.trim());
+      return a && b ? { start: a, end: b } : null;
+    })
+    .filter(Boolean);
+  if (timeRanges.length <= 1) return windows || [];
+  timeRanges.sort((A, B) => new Date(`2000-01-01 ${A.start}`) - new Date(`2000-01-01 ${B.start}`));
+  const merged = [timeRanges[0]];
+  for (let i = 1; i < timeRanges.length; i++) {
+    const cur = timeRanges[i];
+    const last = merged[merged.length - 1];
+    const curStart = new Date(`2000-01-01 ${cur.start}`);
+    const lastEnd = new Date(`2000-01-01 ${last.end}`);
+    if (curStart <= new Date(lastEnd.getTime() + 30 * 60000)) {
+      const curEnd = new Date(`2000-01-01 ${cur.end}`);
+      if (curEnd > lastEnd) last.end = cur.end;
+    } else {
+      merged.push(cur);
+    }
+  }
+  return merged.map((r) => `${r.start}-${r.end}`);
+}
+
+// ====== CORE: CG Data as Master ======
+function parseExcelFiles(availabilityBuf, guaranteedBuf, demandBuf, cgDataBuf) {
+  const warnings = [];
+
+  // CG Data (MASTER)
+  const cgWb = XLSX.read(cgDataBuf);
+  const cgSheet = cgWb.Sheets[cgWb.SheetNames[0]];
+  const cgRows = XLSX.utils.sheet_to_json(cgSheet);
+  const master = cgRows
+    .map((r) => ({ name: r['CAREGiver Name'], weekly: Number(r['Weekly Hours'] || 0) }))
+    .filter((r) => r.name && r.weekly > 0)
+    .map((r) => ({ originalName: r.name, normalizedName: normalizeName(r.name), weeklyHours: r.weekly }));
+  const masterMap = new Map(master.map((m) => [m.normalizedName, m]));
+
+  // Availability
+  const avWb = XLSX.read(availabilityBuf);
+  if (!avWb.SheetNames.includes(AVAIL_SHEET)) throw new Error(`Sheet "${AVAIL_SHEET}" not found in Availability file`);
+  const avRows = XLSX.utils.sheet_to_json(avWb.Sheets[AVAIL_SHEET]);
+  const avFiltered = [];
+  for (let i = 0; i < avRows.length; i++) {
+    const row = avRows[i];
+    try {
+      const name = row['CAREGiver Name'];
+      const n = normalizeName(name);
+      if (!masterMap.has(n)) continue; // only keep employees from CG master
+      if (!row['Start Date']) { warnings.push(`Availability row ${i + 1}: missing Start Date`); continue; }
+      const parsedDate = parseDateFlexible(row['Start Date']);
+      const hrs = row.Hours != null ? Number(row.Hours) : hoursBetween(row['Start Time'], row['End Time']);
+      if (isNaN(hrs)) { warnings.push(`Availability row ${i + 1}: cannot compute hours`); continue; }
+      avFiltered.push({
+        ...row,
+        _normalizedName: n,
+        _parsedDate: parsedDate,
+        _hours: Math.round(hrs * 100) / 100,
+      });
+    } catch (e) {
+      warnings.push(`Availability row ${i + 1}: ${e.message || 'error'}`);
+    }
+  }
+
+  // Guaranteed Hours
+  const ghWb = XLSX.read(guaranteedBuf);
+  if (!ghWb.SheetNames.includes(GUAR_SHEET)) throw new Error(`Sheet "${GUAR_SHEET}" not found in Guaranteed file`);
+  const ghRows = XLSX.utils.sheet_to_json(ghWb.Sheets[GUAR_SHEET]);
+  const scheduledMap = new Map(); // key: normalized|yyyy-MM-dd -> hours
+  for (const g of ghRows) {
+    const cancelOk = isCancellationBlank(g['Cancellation Description']);
+    if (!cancelOk) continue;
+    if (isSecondaryMultipleCare(g['Actual Service Type Description'])) continue;
+    const { start } = resolveServiceTimestamps(g);
+    if (!start) continue;
+    const name = normalizeName(g['Actual Employee Name']);
+    if (!masterMap.has(name)) continue; // only master employees
+    const dateStr = formatYMD(parseDateFlexible(start));
+    const pay = Number(g['Actual Pay Rate Hours']) || 0;
+    if (pay <= 0) continue;
+    const key = `${name}|${dateStr}`;
+    scheduledMap.set(key, (scheduledMap.get(key) || 0) + pay);
+  }
+
+  // Demand (optional): expect columns Date, Required Client Hours
+  let demand = [];
+  if (demandBuf) {
+    try {
+      const dWb = XLSX.read(demandBuf);
+      const dSheet = dWb.Sheets[dWb.SheetNames[0]];
+      const dRows = XLSX.utils.sheet_to_json(dSheet);
+      demand = dRows
+        .map((r) => ({ Date: formatYMD(parseDateFlexible(r['Date'])), 'Required Client Hours': Number(r['Required Client Hours'] || 0) }))
+        .filter((r) => r.Date && !isNaN(r['Required Client Hours']));
+    } catch (e) {
+      warnings.push(`Demand parsing skipped: ${e.message}`);
+    }
+  }
+
+  return { warnings, master, avFiltered, scheduledMap, demand };
+}
+
+function formatYMD(d) { return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+
+function buildResult({ warnings, master, avFiltered, scheduledMap, demand }) {
+  // Days available per employee (from availability only)
+  const daysByEmp = new Map(); // normalized -> Set of yyyy-MM-dd
+  avFiltered.forEach((r) => {
+    const d = formatYMD(r._parsedDate);
+    if (!daysByEmp.has(r._normalizedName)) daysByEmp.set(r._normalizedName, new Set());
+    daysByEmp.get(r._normalizedName).add(d);
+  });
+
+  // Merged rows (employee-day records based on availability as the driver)
+  const merged = avFiltered.map((r) => {
+    const emp = master.find((m) => m.normalizedName === r._normalizedName);
+    const days = (daysByEmp.get(r._normalizedName) || new Set()).size || 5; // fallback 5 days if none
+    const contractedDaily = Math.round((emp.weeklyHours / days) * 100) / 100;
+    const date = formatYMD(r._parsedDate);
+    const scheduled = scheduledMap.get(`${r._normalizedName}|${date}`) || 0;
+
+    // status + notes
+    const status = r.Type || 'Available';
+    const notes = r.Notes || '';
+
+    // time window
+    const startStr = timeToString(r['Start Time']);
+    const endStr = timeToString(r['End Time']);
+    const window = startStr && endStr ? `${startStr}-${endStr}` : '';
+
+    return {
+      employeeName: emp.originalName,
+      normalizedName: r._normalizedName,
+      date,
+      contractedWeeklyHours: emp.weeklyHours,
+      contractedDailyHours: contractedDaily,
+      timeWindow: window,
+      hours: r._hours,
+      scheduledHours: Math.round(scheduled * 100) / 100,
+      status,
+      notes,
+    };
+  });
+
+  // Group by employee|date and consolidate
+  const groups = new Map();
+  for (const row of merged) {
+    const key = `${row.normalizedName}|${row.date}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+
+  const cleanedRecords = [];
+  for (const [_, rows] of groups.entries()) {
+    const base = rows[0];
+    const daily = base.contractedDailyHours;
+
+    // aggregate by status
+    const statusAgg = new Map();
+    for (const r of rows) {
+      const k = r.status || 'Available';
+      if (!statusAgg.has(k)) statusAgg.set(k, { hoursRaw: 0, windows: [], notes: [] });
+      const agg = statusAgg.get(k);
+      agg.hoursRaw += Number(r.hours) || 0;
+      if (r.timeWindow) agg.windows.push(r.timeWindow);
+      if (r.notes) agg.notes.push(r.notes);
+    }
+
+    let totalLeaveRaw = 0;
+    for (const [st, agg] of statusAgg.entries()) if (LEAVE_TYPES.includes(st)) totalLeaveRaw += agg.hoursRaw;
+    const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
+
+    // highest-priority status
+    let bestStatus = 'Available';
+    let bestPr = 999;
+    for (const st of statusAgg.keys()) {
+      const pr = STATUS_PRIORITY[st] || 999;
+      if (pr < bestPr) { bestPr = pr; bestStatus = st; }
+    }
+
+    let finalHours = 0, netCapacity = 0;
+    if (bestStatus === 'Available') {
+      finalHours = Math.max(daily - totalLeaveCapped, 0);
+      netCapacity = finalHours;
+    } else if (LEAVE_TYPES.includes(bestStatus)) {
+      finalHours = Math.min(statusAgg.get(bestStatus).hoursRaw, daily);
+      netCapacity = 0;
+    } else {
+      finalHours = statusAgg.get(bestStatus).hoursRaw;
+      netCapacity = 0;
+    }
+
+    const allWindows = [], allNotes = [];
+    for (const agg of statusAgg.values()) { allWindows.push(...agg.windows); allNotes.push(...agg.notes); }
+    const mergedWindows = mergeTimeWindows(Array.from(new Set(allWindows)));
+
+    cleanedRecords.push({
+      employeeName: base.employeeName,
+      contractedWeeklyHours: round2(base.contractedWeeklyHours),
+      contractedDailyHours: round2(daily),
+      date: base.date,
+      status: bestStatus,
+      timeWindows: mergedWindows.join('; '),
+      scheduledHours: round2(base.scheduledHours),
+      hours: round2(finalHours),
+      netCapacity: round2(netCapacity),
+      notes: Array.from(new Set(allNotes)).join('; '),
+    });
+  }
+
+  // Daily summary
+  const employeesByDate = {};
+  for (const rec of cleanedRecords) {
+    if (!employeesByDate[rec.date]) employeesByDate[rec.date] = [];
+    employeesByDate[rec.date].push({
+      employeeName: rec.employeeName,
+      status: rec.status,
+      timeWindows: rec.timeWindows,
+      contractedDailyHours: rec.contractedDailyHours,
+      scheduledHours: rec.scheduledHours,
+      hours: rec.hours,
+      netCapacity: rec.netCapacity,
+      notes: rec.notes,
+    });
+  }
+  for (const arr of Object.values(employeesByDate)) arr.sort((a,b)=>a.employeeName.localeCompare(b.employeeName));
+
+  const dailyMap = new Map();
+  for (const rec of cleanedRecords) {
+    if (!dailyMap.has(rec.date)) dailyMap.set(rec.date, { availableHours:0, netCapacity:0, unavailability:0, holidays:0 });
+    const s = dailyMap.get(rec.date);
+    s.netCapacity += rec.netCapacity;
+    if (rec.status === 'Available') s.availableHours += rec.hours;
+    else if (rec.status === 'Holiday') s.holidays += rec.hours;
+    else if (LEAVE_TYPES.includes(rec.status) || rec.status === 'Partial Availability') s.unavailability += rec.hours;
+  }
+  const demandMap = new Map(demand.map(d => [d.Date, d['Required Client Hours']]));
+  const dailySummary = Array.from(dailyMap.entries()).map(([date, s]) => {
+    const clientRequired = demandMap.get(date) || 0;
+    const gap = round2(s.netCapacity - clientRequired);
+    return {
+      date,
+      availableHours: round2(s.availableHours),
+      netCapacity: round2(s.netCapacity),
+      unavailability: round2(s.unavailability),
+      holidays: round2(s.holidays),
+      clientRequired: round2(clientRequired),
+      gap,
+      status: gap >= 0 ? 'Sufficient' : 'Shortage',
+    };
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const kpis = {
+    netCapacitySum: round2(dailySummary.reduce((x,d)=>x+d.netCapacity,0)),
+    clientRequiredSum: round2(dailySummary.reduce((x,d)=>x+d.clientRequired,0)),
+    gapSum: round2(dailySummary.reduce((x,d)=>x+d.gap,0)),
+    unavailabilitySum: round2(dailySummary.reduce((x,d)=>x+d.unavailability,0)),
+    holidaysSum: round2(dailySummary.reduce((x,d)=>x+d.holidays,0)),
+  };
+
+  // Employee summary by date
+  const employeeSummaryByDate = {};
+  for (const [date, list] of Object.entries(employeesByDate)) {
+    const byName = new Map();
+    for (const emp of list) {
+      if (!byName.has(emp.employeeName)) byName.set(emp.employeeName, {
+        contractedDailyHours: emp.contractedDailyHours,
+        scheduledHours: emp.scheduledHours,
+        unavailabilityHours: 0,
+        hasAvailable: false,
+        hasUnavailable: false,
+        hasPartial: false,
+      });
+      const e = byName.get(emp.employeeName);
+      e.contractedDailyHours = Math.max(e.contractedDailyHours, emp.contractedDailyHours);
+      if (e.scheduledHours === 0) e.scheduledHours = emp.scheduledHours || 0;
+      if (emp.status === 'Available') e.hasAvailable = true;
+      else if (emp.status === 'Partial Availability') { e.hasPartial = true; e.unavailabilityHours += emp.hours; }
+      else if (LEAVE_TYPES.includes(emp.status)) { e.hasUnavailable = true; e.unavailabilityHours += emp.hours; }
+    }
+    employeeSummaryByDate[date] = Array.from(byName.entries()).map(([employeeName, e]) => ({
+      employeeName,
+      availability: e.contractedDailyHours,
+      unavailability: round2(e.unavailabilityHours),
+      scheduledHours: round2(e.scheduledHours),
+      difference: round2(e.contractedDailyHours - e.unavailabilityHours - e.scheduledHours),
+    }));
+  }
+
+  return { kpis, dailySummary, employeesByDate, employeeSummaryByDate, cleanedRecords, warnings };
+}
+
+function round2(n) { return Math.round((Number(n)||0) * 100) / 100; }
+
+function timeToString(val) {
+  if (val == null || val === '') return '';
+  try {
+    let d;
+    if (val instanceof Date) d = val;
+    else if (typeof val === 'number') {
+      if (val < 1) { // time fraction
+        const total = val * 24 * 60;
+        const hh = String(Math.floor(total / 60)).padStart(2,'0');
+        const mm = String(Math.floor(total % 60)).padStart(2,'0');
+        return `${hh}:${mm}`;
+      }
+      const excelEpoch = new Date(1899,11,30);
+      d = new Date(excelEpoch.getTime() + val * 86400000);
+    } else if (typeof val === 'string' && /^\d{1,2}:\d{2}$/.test(val)) {
+      return val;
+    } else d = new Date(val);
+    if (!isNaN(d)) return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return '';
+  } catch { return ''; }
+}
+
+// ====== STATE for export/history ======
+let lastResult = null;
+
+// ====== ROUTES ======
+app.post('/api/process', upload.fields([
+  { name: 'availability', maxCount: 1 },
+  { name: 'guaranteed', maxCount: 1 },
+  { name: 'cgData', maxCount: 1 },
+  { name: 'demand', maxCount: 1 }, // optional
+]), (req, res) => {
+  try {
+    const a = req.files?.availability?.[0]?.buffer;
+    const g = req.files?.guaranteed?.[0]?.buffer;
+    const c = req.files?.cgData?.[0]?.buffer;
+    const d = req.files?.demand?.[0]?.buffer; // optional
+    if (!a || !g || !c) {
+      return res.status(400).json({ message: 'availability, guaranteed, and cgData files are required' });
+    }
+    const parsed = parseExcelFiles(a, g, d, c);
+    const result = buildResult(parsed);
+    lastResult = { ...result };
+    res.json({
+      kpis: result.kpis,
+      dailySummary: result.dailySummary,
+      employeesByDate: result.employeesByDate,
+      employeeSummaryByDate: result.employeeSummaryByDate,
+      warnings: result.warnings,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: e.message || 'Processing failed' });
+  }
+});
+
+app.get('/api/history/latest', (req, res) => {
+  if (!lastResult) return res.status(404).json({ message: 'No previous data found' });
+  const { kpis, dailySummary, employeesByDate, employeeSummaryByDate, warnings } = lastResult;
+  res.json({ kpis, dailySummary, employeesByDate, employeeSummaryByDate, warnings });
+});
+
+app.get('/api/export', (req, res) => {
+  try {
+    if (!lastResult) return res.status(400).json({ message: 'No data to export. Process files first.' });
+    const wb = XLSX.utils.book_new();
+
+    // Cleaned sheet
+    const cleanedAoA = [
+      ['Employee Name','Contracted Weekly Hours','Contracted Daily Hours','Date','Status','Time Windows','Scheduled Hours','Hours','Net Capacity','Notes'],
+      ...lastResult.cleanedRecords.map(r => [
+        r.employeeName,
+        String(r.contractedWeeklyHours),
+        String(r.contractedDailyHours),
+        r.date,
+        r.status,
+        r.timeWindows,
+        String(r.scheduledHours),
+        String(r.hours),
+        String(r.netCapacity),
+        r.notes,
+      ])
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cleanedAoA), 'Cleaned');
+
+    // DailySummary sheet
+    const summaryAoA = [
+      ['Date','Available Hours','Net Capacity','Unavailability','Holidays','Client Required','Gap','Status'],
+      ...lastResult.dailySummary.map(d => [
+        d.date,
+        String(d.availableHours),
+        String(d.netCapacity),
+        String(d.unavailability),
+        String(d.holidays),
+        String(d.clientRequired),
+        String(d.gap),
+        d.status,
+      ])
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryAoA), 'DailySummary');
+
+    // EmployeeDailyDetail sheet
+    const detailAoA = [['Date','Employee Name','Status','Time Windows','Contracted Daily Hours','Scheduled Hours','Hours','Net Capacity','Notes']];
+    for (const [date, list] of Object.entries(lastResult.employeesByDate)) {
+      for (const emp of list) {
+        detailAoA.push([
+          date,
+          emp.employeeName,
+          emp.status,
+          emp.timeWindows,
+          String(emp.contractedDailyHours),
+          String(emp.scheduledHours || 0),
+          String(emp.hours),
+          String(emp.netCapacity),
+          emp.notes,
+        ]);
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailAoA), 'EmployeeDailyDetail');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="capacity_dashboard.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: e.message || 'Export failed' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+```
+
+---
+
+## How to use on Replit
+
+1. Create a new **Node.js** Replit.
+2. Add the two files above (`package.json`, `index.js`).
+3. Open the Shell and run:
+
+```bash
+npm install
+npm start
+```
+
+4. From your frontend (or Replit webview), call:
+
+* **POST** `https://<your-repl>.repl.co/api/process` with `multipart/form-data` fields:
+
+  * `availability` → *Availability Export.xlsx* (sheet: **CAREGiver Availability**)
+  * `guaranteed` → *Care Pro Guaranteed Hours.xlsx* (sheet: **Data**)
+  * `cgData` → *CG Data Export.xlsx* (**first sheet** should contain `CAREGiver Name` and `Weekly Hours`)
+  * `demand` (optional) → sheet with columns `Date`, `Required Client Hours`
+
+* **GET** `/api/history/latest` to auto-load the last processed result.
+
+* **GET** `/api/export` to download the Excel with **Cleaned**, **DailySummary**, and **EmployeeDailyDetail**.
+
+### What’s enforced by this build
+
+* **CG Data is the source of truth** for employees (non-empty Weekly Hours). Only those names are considered when processing Availability and Guaranteed Hours.
+* Guaranteed-hours pay time is **summed per employee-date** (ignoring cancellations and “Multiple Care (Secondary)” entries) and only for employees from the CG master.
+* Availability still drives daily contracted-hours: weekly ÷ days-found (fallback 5 if not found).
+* Status priority & time-window merge logic matches your spec.
+
+> If your sheet/tab names differ, edit `AVAIL_SHEET` and `GUAR_SHEET` at the top of `index.js`.
