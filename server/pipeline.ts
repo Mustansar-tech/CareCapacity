@@ -238,11 +238,14 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Debug specific employee entries
     const originalName = g["Actual Employee Name"];
-    if (originalName && originalName.toLowerCase().includes("makala")) {
-      console.log(`🔍 MAKALA DEBUG - Processing entry:`);
+    if (originalName && (originalName.toLowerCase().includes("makala") || originalName.toLowerCase().includes("brooke") || originalName.toLowerCase().includes("brien"))) {
+      console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
       console.log(`  Original Name: ${originalName}`);
       console.log(`  Normalized Name: ${name}`);
-      console.log(`  Resolved Start: ${start}`);
+      console.log(`  Actual Start: ${g["Actual Start Date And Time"]}`);
+      console.log(`  Planned Start: ${g["Planned Start Date And Time"]}`);
+      console.log(`  SR Start: ${g["Service Requirement Start Date And Time"]}`);
+      console.log(`  Picked Start: ${start}`);
       console.log(`  Parsed Date: ${date}`);
       console.log(`  Raw Pay Hours: ${g["Actual Pay Rate Hours"]}`);
       console.log(`  Parsed Pay Hours: ${pay}`);
