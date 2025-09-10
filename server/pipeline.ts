@@ -180,6 +180,13 @@ function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
   return { start, end };
 }
 
+// Helper for Care Pro Guaranteed Hours with Actual priority
+function pickStartForBucket(row: any): any {
+  return row["Actual Start Date And Time"]
+      ?? row["Planned Start Date And Time"]
+      ?? row["Service Requirement Start Date And Time"];
+}
+
 // Robust secondary filter (case/spacing tolerant)
 function isSecondaryMultipleCare(value: any): boolean {
   const s = (value ?? "").toString().trim().toLowerCase();
@@ -219,12 +226,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
-    // Resolve timestamps with fallback priority SR -> Actual -> Planned
-    const { start } = resolveServiceTimestamps(g);
+    // Use Actual priority for Care Pro Guaranteed Hours
+    const start = pickStartForBucket(g);
     if (!start) continue;
+    const date = format(parseDate(start), "yyyy-MM-dd");
 
     const name = normalizeName(g["Actual Employee Name"]);
-    const date = format(parseDate(start), "yyyy-MM-dd");
 
     // Sum only positive/real pay hours
     const pay = Number(g["Actual Pay Rate Hours"]) || 0;
