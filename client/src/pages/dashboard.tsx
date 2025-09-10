@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb as LightBulbIcon
+  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb as LightBulbIcon, Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
@@ -28,6 +28,29 @@ const statusBadge = (status: string): string => {
   return status === 'Sufficient' 
     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
     : 'bg-gradient-to-r from-red-500 to-red-600 text-white';
+};
+
+// Render a colored status pill; Ad-hoc gets a bold amber badge
+const renderStatusBadge = (status: string) => {
+  if (status === "Ad-hoc") {
+    return (
+      <Badge
+        variant="secondary"
+        className="gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white border-0 shadow-sm"
+        data-testid="badge-adhoc"
+        title="Scheduled but no availability record for this day"
+      >
+        <Zap className="w-3.5 h-3.5" />
+        Ad-hoc
+      </Badge>
+    );
+  }
+  // default styling for everything else
+  return (
+    <Badge variant="outline" className="glass-card" data-testid="badge-status-default">
+      {status}
+    </Badge>
+  );
 };
 
 export default function Dashboard() {
@@ -647,13 +670,25 @@ export default function Dashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => (
+                        {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => {
+                          const isAdhoc = emp.status === "Ad-hoc";
+                          return (
                           <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
                               {emp.employeeName}
+                              {isAdhoc && (
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-2 gap-1.5 align-middle bg-gradient-to-r from-amber-500 to-amber-600 text-white border-0"
+                                  title="Scheduled but not on availability this day"
+                                  data-testid="badge-adhoc-summary"
+                                >
+                                  <Zap className="w-3.5 h-3.5" /> Ad-hoc
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell data-testid={`drilldown-status-${index}`}>
-                              <Badge variant="outline">{emp.status}</Badge>
+                              {renderStatusBadge(emp.status)}
                             </TableCell>
                             <TableCell data-testid={`drilldown-time-windows-${index}`}>
                               <FlexibleTimeWindow 
@@ -675,7 +710,8 @@ export default function Dashboard() {
                               {emp.notes}
                             </TableCell>
                           </TableRow>
-                        )) : (
+                          );
+                        }) : (
                           <TableRow>
                             <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                               No employee data available for this date

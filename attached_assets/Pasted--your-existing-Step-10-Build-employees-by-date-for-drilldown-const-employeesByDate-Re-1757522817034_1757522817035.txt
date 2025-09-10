@@ -1,0 +1,66 @@
+  // ... your existing "Step 10: Build employees by date for drilldown"
+  const employeesByDate: Record<string, EmployeeDailyDetail[]> = {};
+
+  cleanedRecords.forEach((record) => {
+    if (!employeesByDate[record.date]) employeesByDate[record.date] = [];
+    employeesByDate[record.date].push({
+      employeeName: record.employeeName,
+      status: record.status,
+      timeWindows: record.timeWindows,
+      contractedDailyHours: record.contractedDailyHours,
+      scheduledHours: record.scheduledHours,
+      hours: record.hours,
+      netCapacity: record.netCapacity,
+      notes: record.notes,
+    });
+  });
+
+  // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
+  {
+    const adhocWindowsMap = buildAdHocWindowsMap(guaranteed);
+    const displayNameMap  = buildDisplayNameMap(guaranteed);
+
+    // who already exists per date (normalized)
+    const present: Record<string, Set<string>> = {};
+    for (const [date, list] of Object.entries(employeesByDate)) {
+      present[date] = new Set(list.map(e => normalizeName(e.employeeName)));
+    }
+
+    // walk through scheduled map (already uses Actual date bucket)
+    for (const [key, schedHoursRaw] of scheduledHoursMap.entries()) {
+      if ((schedHoursRaw || 0) <= 0) continue;
+      const [normName, date] = key.split("|");
+      if (!date || !normName) continue;
+
+      const already = present[date]?.has(normName);
+      if (already) continue; // they are in Availability for that day — skip
+
+      const display = displayNameMap.get(normName) || normName;
+      const windows = (adhocWindowsMap.get(key) || [])
+        .map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`)
+        .join("; ");
+
+      if (!employeesByDate[date]) employeesByDate[date] = [];
+      employeesByDate[date].push({
+        employeeName: display,
+        status: "Ad-hoc",
+        timeWindows: windows,
+        contractedDailyHours: 0,     // <- as requested
+        scheduledHours: Math.round(schedHoursRaw * 100) / 100,
+        hours: 0,                    // not counted toward availability
+        netCapacity: 0,              // do not inflate capacity
+        notes: "Scheduled (no availability record for this day)",
+      });
+
+      // mark as present to avoid duplicates if multiple keys flow in
+      if (!present[date]) present[date] = new Set();
+      present[date].add(normName);
+    }
+  }
+
+  // Re-sort after injection
+  Object.values(employeesByDate).forEach((employees) => {
+    employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  });
+
+  // ... continue to build employeeSummaryByDate as you already do

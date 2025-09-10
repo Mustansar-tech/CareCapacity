@@ -35,6 +35,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   "Other Unavailable": 5,
   "Pre-Agreed Appointment": 6,
   Available: 7,
+  "Ad-hoc": 7, // NEW
 };
 
 interface ParsedAvailabilityRow extends AvailabilityRow {
@@ -182,9 +183,97 @@ function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
 
 // Helper for Care Pro Guaranteed Hours with Actual priority
 function pickStartForBucket(row: any): any {
-  return row["Actual Start Date And Time"]
-      ?? row["Planned Start Date And Time"]
-      ?? row["Service Requirement Start Date And Time"];
+  return row["Actual Start Date And Time"];
+}
+
+// "HH:mm" helpers for time windows
+function toMin(dateOrStr: any): number {
+  // supports Date | Excel serial | "YYYY-MM-DDTHH:mm" | "HH:mm"
+  const toDate = (v: any) => {
+    if (v instanceof Date) return v;
+    if (typeof v === "number") {
+      const excelEpoch = new Date(1899, 11, 30);
+      return new Date(excelEpoch.getTime() + v * 86400000);
+    }
+    if (/^\d{1,2}:\d{2}$/.test(String(v))) {
+      const [h, m] = String(v).split(":").map(Number);
+      const d = new Date(2000, 0, 1, h || 0, m || 0);
+      return d;
+    }
+    return new Date(v);
+  };
+  const d = toDate(dateOrStr);
+  if (isNaN(d.getTime())) return NaN;
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function fromMin(mins: number): string {
+  const m = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function mergeIntervals(ints: Array<[number, number]>, adjacencyMin = 0): Array<[number, number]> {
+  const arr = ints
+    .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b) && b > a)
+    .sort((a, b) => a[0] - b[0]);
+  if (!arr.length) return [];
+  const out: Array<[number, number]> = [arr[0]];
+  for (let i = 1; i < arr.length; i++) {
+    const [s, e] = arr[i];
+    const last = out[out.length - 1];
+    if (s <= last[1] + adjacencyMin) {
+      last[1] = Math.max(last[1], e);
+    } else {
+      out.push([s, e]);
+    }
+  }
+  return out;
+}
+
+// Build time windows per employee/day from Guaranteed (ACTUAL start/end)
+function buildAdHocWindowsMap(guaranteed: any[]): Map<string, Array<[number, number]>> {
+  const map = new Map<string, Array<[number, number]>>();
+
+  for (const r of guaranteed || []) {
+    // use same filters as your scheduled lookup:
+    if (!isCancellationBlank(r["Cancellation Description"])) continue;
+    if (isSecondaryMultipleCare(r["Actual Service Type Description"])) continue;
+
+    const nameNorm = normalizeName(r["Actual Employee Name"]);
+    if (!nameNorm) continue;
+
+    const startV = pickStartForBucket(r);
+    const endV = r["Actual End Date And Time"]; // window is Actual start → Actual end
+    if (!startV || !endV) continue;
+
+    const dateKey = format(parseDate(startV), "yyyy-MM-dd");
+    let s = toMin(startV);
+    let e = toMin(endV);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) continue;
+    if (e <= s) e += 24 * 60; // overnight
+
+    const key = `${nameNorm}|${dateKey}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push([s, e]);
+  }
+
+  // merge adjacent/overlapping within each day
+  map.forEach((ints, k) => {
+    map.set(k, mergeIntervals(ints, 30));
+  });
+  return map;
+}
+
+// Keep a display name for each normalized employee (prefer Actual name)
+function buildDisplayNameMap(guaranteed: any[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const r of guaranteed || []) {
+    const n = normalizeName(r["Actual Employee Name"]);
+    if (n && r["Actual Employee Name"]) m.set(n, String(r["Actual Employee Name"]));
+  }
+  return m;
 }
 
 // Robust secondary filter (case/spacing tolerant)
@@ -1408,7 +1497,50 @@ export function processCapacityData(
     });
   });
 
-  // Sort employees within each date
+  // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
+  {
+    const adhocWindowsMap = buildAdHocWindowsMap(guaranteed);
+    const displayNameMap  = buildDisplayNameMap(guaranteed);
+
+    // who already exists per date (normalized)
+    const present: Record<string, Set<string>> = {};
+    for (const [date, list] of Object.entries(employeesByDate)) {
+      present[date] = new Set(list.map(e => normalizeName(e.employeeName)));
+    }
+
+    // walk through scheduled map (already uses Actual date bucket)
+    Array.from(scheduledHoursMap.entries()).forEach(([key, schedHoursRaw]) => {
+      if ((schedHoursRaw || 0) <= 0) return;
+      const [normName, date] = key.split("|");
+      if (!date || !normName) return;
+
+      const already = present[date]?.has(normName);
+      if (already) return; // they are in Availability for that day — skip
+
+      const display = displayNameMap.get(normName) || normName;
+      const windows = (adhocWindowsMap.get(key) || [])
+        .map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`)
+        .join("; ");
+
+      if (!employeesByDate[date]) employeesByDate[date] = [];
+      employeesByDate[date].push({
+        employeeName: display,
+        status: "Ad-hoc",
+        timeWindows: windows,
+        contractedDailyHours: 0,     // <- as requested
+        scheduledHours: Math.round(schedHoursRaw * 100) / 100,
+        hours: 0,                    // not counted toward availability
+        netCapacity: 0,              // do not inflate capacity
+        notes: "Scheduled (no availability record for this day)",
+      });
+
+      // mark as present to avoid duplicates if multiple keys flow in
+      if (!present[date]) present[date] = new Set();
+      present[date].add(normName);
+    });
+  }
+
+  // Re-sort after injection
   Object.values(employeesByDate).forEach((employees) => {
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
