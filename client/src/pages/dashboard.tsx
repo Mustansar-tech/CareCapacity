@@ -676,16 +676,6 @@ export default function Dashboard() {
                           <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
                               {emp.employeeName}
-                              {isAdhoc && (
-                                <Badge
-                                  variant="secondary"
-                                  className="ml-2 gap-1.5 align-middle bg-gradient-to-r from-amber-500 to-amber-600 text-white border-0"
-                                  title="Scheduled but not on availability this day"
-                                  data-testid="badge-adhoc-summary"
-                                >
-                                  <Zap className="w-3.5 h-3.5" /> Ad-hoc
-                                </Badge>
-                              )}
                             </TableCell>
                             <TableCell data-testid={`drilldown-status-${index}`}>
                               {renderStatusBadge(emp.status)}
