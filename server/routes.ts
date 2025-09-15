@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
-import { CapacityAnalysis } from "@shared/schema";
+import { CapacityAnalysis, getCanonicalWeekBoundaries } from "@shared/schema";
 import { aggregateMonthlyData } from "./monthlyAnalysis";
 
 // Configure multer for file uploads
@@ -137,6 +137,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save Excel file to disk
       const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
       fs.writeFileSync(exportPath, exportBuffer);
+
+      // Persist processed data to database with derived week boundaries
+      try {
+        if (result.dailySummary && result.dailySummary.length > 0) {
+          // Get week boundaries from the first date in daily summary
+          const firstDate = result.dailySummary[0].date;
+          const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
+          
+          console.log(`💾 Persisting analysis for week: ${weekStart} to ${weekEnd}`);
+          
+          // Save to database (will upsert if week already exists)
+          await storage.saveCapacityAnalysis({
+            weekStartDate: weekStart,
+            weekEndDate: weekEnd,
+            kpis: result.kpis,
+            dailySummary: result.dailySummary,
+            employeesByDate: result.employeesByDate,
+            employeeSummaryByDate: result.employeeSummaryByDate || {},
+            warnings: result.warnings || [],
+          });
+          
+          console.log(`✅ Analysis persisted successfully for week ${weekStart}`);
+        } else {
+          console.log(`⚠️  No daily summary data to persist`);
+        }
+      } catch (persistError) {
+        console.error('⚠️  Failed to persist analysis to database:', persistError);
+        // Don't fail the request if persistence fails
+      }
 
       res.json(result);
 
