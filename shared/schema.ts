@@ -118,6 +118,7 @@ export interface CleanedEmployeeRecord {
   hours: number;
   netCapacity: number;
   notes: string;
+  cancelledVisits?: string; // Time windows for cancelled visits
 }
 
 export interface DailySummaryRecord {

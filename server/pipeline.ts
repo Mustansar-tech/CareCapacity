@@ -354,13 +354,13 @@ function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
   return cancelledMap;
 }
 
-// SEPARATE CANCELLED VISITS LOGIC - COMPLETELY INDEPENDENT 
-function buildSeparateCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
-  const cancelledMap = new Map<string, number>();
+// SEPARATE CANCELLED VISITS LOGIC - USING TIME WINDOWS INSTEAD OF DURATION
+function buildSeparateCancelledVisitsLookup(guaranteed: any[]): Map<string, string> {
+  const cancelledMap = new Map<string, string>();
   let totalProcessed = 0;
   let totalCancelled = 0;
 
-  console.log("🟧 SEPARATE CANCELLED VISITS LOGIC - Starting");
+  console.log("🟧 CANCELLED VISITS WITH TIME WINDOWS - Starting");
   console.log(`   Total guaranteed rows to process: ${guaranteed?.length || 0}`);
 
   for (const row of guaranteed || []) {
@@ -403,22 +403,45 @@ function buildSeparateCancelledVisitsLookup(guaranteed: any[]): Map<string, numb
     const dateResolved = parseDate(startDateValue);
     const dateStr = format(dateResolved, "yyyy-MM-dd");
 
-    // Get hours
-    const payRateHours = parseFloat(row["Actual Pay Rate Hours"] || "0") || 0;
-    const actualDuration = parseFloat(row["Actual Duration"] || "0") || 0;
-    const actualHours = payRateHours || actualDuration;
-
-    if (actualHours <= 0) {
-      console.log(`   ❌ Skipping: No valid hours (${payRateHours}, ${actualDuration})`);
-      continue;
+    // CALCULATE TIME WINDOW instead of just duration
+    const startTime = row["Service Requirement Start Date And Time"];
+    const endTime = row["Service Requirement End Date And Time"];
+    
+    let timeWindow = "Unknown";
+    if (startTime && endTime) {
+      try {
+        const startParsed = parseDate(startTime);
+        const endParsed = parseDate(endTime);
+        const startTimeStr = format(startParsed, "HH:mm");
+        const endTimeStr = format(endParsed, "HH:mm");
+        timeWindow = `${startTimeStr}-${endTimeStr}`;
+        console.log(`   ⏰ Time window calculated: ${timeWindow}`);
+      } catch (error) {
+        console.log(`   ❌ Error parsing time: ${error}`);
+        // Fall back to duration if available
+        const actualDuration = parseFloat(row["Actual Duration"] || "0") || 0;
+        if (actualDuration > 0) {
+          timeWindow = `${actualDuration}h`;
+        }
+      }
+    } else {
+      // Fall back to duration if no time fields
+      const actualDuration = parseFloat(row["Actual Duration"] || "0") || 0;
+      if (actualDuration > 0) {
+        timeWindow = `${actualDuration}h`;
+      }
     }
 
-    // Store in map
+    // Store in map - if multiple cancelled visits on same day, concatenate them
     const key = `${normalizedName}|${dateStr}`;
-    const currentHours = cancelledMap.get(key) || 0;
-    cancelledMap.set(key, currentHours + actualHours);
+    const existingWindows = cancelledMap.get(key);
+    if (existingWindows) {
+      cancelledMap.set(key, `${existingWindows}, ${timeWindow}`);
+    } else {
+      cancelledMap.set(key, timeWindow);
+    }
     
-    console.log(`   💾 Stored: ${key} = ${actualHours} hours (total: ${currentHours + actualHours})`);
+    console.log(`   💾 Stored: ${key} = ${timeWindow} (existing: ${existingWindows || "none"})`);
   }
 
   console.log(`🟧 CANCELLED VISITS SUMMARY:`);
@@ -428,9 +451,9 @@ function buildSeparateCancelledVisitsLookup(guaranteed: any[]): Map<string, numb
   
   // Show some examples
   let count = 0;
-  for (const [key, hours] of Array.from(cancelledMap.entries())) {
+  for (const [key, timeWindows] of Array.from(cancelledMap.entries())) {
     if (count < 3) {
-      console.log(`   📝 Example: ${key} = ${hours} hours`);
+      console.log(`   📝 Example: ${key} = ${timeWindows}`);
       count++;
     }
   }
@@ -1446,6 +1469,11 @@ export function processCapacityData(
         .sort()
         .join("; ");
 
+      // Get cancelled visits for this employee and date
+      const normalizedEmpName = normalizeName(empName);
+      const cancelledVisitsKey = `${normalizedEmpName}|${date}`;
+      const cancelledVisits = cancelledVisitsMap.get(cancelledVisitsKey) || "";
+
       cleanedRecords.push({
         employeeName: empName,
         contractedWeeklyHours: Math.round(weekly * 100) / 100,
@@ -1457,6 +1485,7 @@ export function processCapacityData(
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr,
+        cancelledVisits: cancelledVisits || undefined, // Time windows for cancelled visits
       });
     }
   });
