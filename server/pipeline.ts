@@ -290,7 +290,7 @@ function isCancellationBlank(value: any): boolean {
 }
 
 // Check if cancellation description starts with "cancelled"
-function isCancelled(value: any): boolean {
+function isCancelledStartsWith(value: any): boolean {
   const s = (value ?? "").toString().trim().toLowerCase();
   return s.startsWith("cancelled");
 }
