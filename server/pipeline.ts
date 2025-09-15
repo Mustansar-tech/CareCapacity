@@ -1016,6 +1016,9 @@ export function processCapacityData(
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
+  // Build cancelled visits lookup from guaranteed hours data
+  const cancelledVisitsMap = buildCancelledVisitsLookup(guaranteed);
+
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
     console.log("=== GUARANTEED HOURS DEBUGGING ===");
@@ -1732,6 +1735,10 @@ export function processCapacityData(
           freeWindows = '';
         }
 
+        // Calculate cancelled visits for this employee/date
+        const cancelledVisitsKey = `${empNormalized}|${dateStr}`;
+        const cancelledVisits = cancelledVisitsMap.get(cancelledVisitsKey) || 0;
+
         return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
@@ -1742,6 +1749,7 @@ export function processCapacityData(
             finalUnavailabilityHours -
             empData.scheduledHours,
           freeWindows, // New field: time slots available for new clients
+          cancelledVisits, // New field: duration of cancelled visits in hours
         };
       },
     );

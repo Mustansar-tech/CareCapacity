@@ -39,8 +39,9 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
       unavailability: acc.unavailability + emp.unavailability,
       scheduledHours: acc.scheduledHours + emp.scheduledHours,
       difference: acc.difference + emp.difference,
+      cancelledVisits: acc.cancelledVisits + (emp.cancelledVisits || 0),
     }),
-    { availability: 0, unavailability: 0, scheduledHours: 0, difference: 0 }
+    { availability: 0, unavailability: 0, scheduledHours: 0, difference: 0, cancelledVisits: 0 }
   );
 
   return (
@@ -137,6 +138,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                 <TableHead className="text-center font-semibold">Desired Hours</TableHead>
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
+                <TableHead className="text-center font-semibold">Cancelled Visits</TableHead>
                 <TableHead className="text-center font-semibold">Difference</TableHead>
                 <TableHead className="text-center font-semibold">Free Windows</TableHead>
               </TableRow>
@@ -164,6 +166,11 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                   <TableCell className="text-center" data-testid={`text-scheduled-hours-${index}`}>
                     <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
                       {employee.scheduledHours.toFixed(1)}h
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center" data-testid={`text-cancelled-visits-${index}`}>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300">
+                      {(employee.cancelledVisits || 0).toFixed(1)}h
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center" data-testid={`text-difference-${index}`}>
