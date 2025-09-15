@@ -17,6 +17,7 @@ export interface IStorage {
   getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(limit?: number): Promise<CapacityAnalysis[]>;
   enforceRetentionLatestWeeks(limit?: number): Promise<number>;
+  enforceRetentionByMonth(weeksPerMonth?: number, monthsToKeep?: number): Promise<number>;
   cleanupOldAnalyses(monthsOld: number): Promise<number>;
 }
 
@@ -165,6 +166,80 @@ export class MemStorage implements IStorage {
     return deletedCount;
   }
 
+  async enforceRetentionByMonth(weeksPerMonth: number = 4, monthsToKeep: number = 3): Promise<number> {
+    // Group analyses by month-year
+    const monthMap = new Map<string, CapacityAnalysis[]>();
+    
+    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+      const weekStartDate = new Date(analysis.weekStartDate);
+      const monthKey = `${weekStartDate.getFullYear()}-${String(weekStartDate.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, []);
+      }
+      monthMap.get(monthKey)!.push(analysis);
+    });
+    
+    // Sort months by date descending (keep latest N months)
+    const sortedMonths = Array.from(monthMap.entries())
+      .sort(([a], [b]) => b.localeCompare(a)); // String comparison works for YYYY-MM format
+    
+    let deletedCount = 0;
+    
+    // Delete months beyond the limit
+    sortedMonths.slice(monthsToKeep).forEach(([monthKey, analyses]) => {
+      analyses.forEach(analysis => {
+        this.capacityAnalyses.delete(analysis.id);
+        deletedCount++;
+      });
+    });
+    
+    // For remaining months, keep only the latest N weeks per month
+    sortedMonths.slice(0, monthsToKeep).forEach(([monthKey, analyses]) => {
+      // Group by week within this month
+      const weekMap = new Map<string, CapacityAnalysis[]>();
+      
+      analyses.forEach(analysis => {
+        const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
+        if (!weekMap.has(weekKey)) {
+          weekMap.set(weekKey, []);
+        }
+        weekMap.get(weekKey)!.push(analysis);
+      });
+      
+      // Sort weeks within month by start date descending
+      const sortedWeeks = Array.from(weekMap.entries())
+        .sort(([, analysesA], [, analysesB]) => {
+          const dateA = new Date(analysesA[0].weekStartDate);
+          const dateB = new Date(analysesB[0].weekStartDate);
+          return dateB.getTime() - dateA.getTime();
+        });
+      
+      // Delete weeks beyond the limit for this month
+      sortedWeeks.slice(weeksPerMonth).forEach(([weekKey, weekAnalyses]) => {
+        weekAnalyses.forEach(analysis => {
+          this.capacityAnalyses.delete(analysis.id);
+          deletedCount++;
+        });
+      });
+      
+      // For remaining weeks, keep only the latest analysis per week
+      sortedWeeks.slice(0, weeksPerMonth).forEach(([weekKey, weekAnalyses]) => {
+        if (weekAnalyses.length > 1) {
+          const sortedAnalyses = weekAnalyses.sort((a, b) => 
+            new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+          );
+          // Delete all but the latest
+          sortedAnalyses.slice(1).forEach(analysis => {
+            this.capacityAnalyses.delete(analysis.id);
+            deletedCount++;
+          });
+        }
+      });
+    });
+    
+    return deletedCount;
+  }
+
   async cleanupOldAnalyses(monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
@@ -228,8 +303,8 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
-    // Automatically enforce retention after saving
-    await this.enforceRetentionLatestWeeks(4);
+    // Automatically enforce retention after saving - keep latest 4 weeks per month for 3 months
+    await this.enforceRetentionByMonth(4, 3);
     
     return analysis;
   }
@@ -328,6 +403,43 @@ export class DatabaseStorage implements IStorage {
               FROM capacity_analyses
             ) ranked WHERE rn = 1
           )
+      )
+      DELETE FROM capacity_analyses 
+      WHERE id NOT IN (SELECT id FROM records_to_keep)
+    `);
+    
+    return result.rowCount || 0;
+  }
+
+  async enforceRetentionByMonth(weeksPerMonth: number = 4, monthsToKeep: number = 3): Promise<number> {
+    // Delete all but the latest record for each week within each month, keeping only latest N months
+    const result = await db.execute(sql`
+      WITH month_ranks AS (
+        SELECT DISTINCT 
+               DATE_TRUNC('month', week_start_date::date) AS month_start,
+               ROW_NUMBER() OVER (ORDER BY DATE_TRUNC('month', week_start_date::date) DESC) as month_rank
+        FROM capacity_analyses
+      ),
+      week_ranks_per_month AS (
+        SELECT ca.*,
+               DATE_TRUNC('month', ca.week_start_date::date) AS month_start,
+               ROW_NUMBER() OVER (
+                 PARTITION BY DATE_TRUNC('month', ca.week_start_date::date), ca.week_start_date, ca.week_end_date
+                 ORDER BY ca.uploaded_at DESC
+               ) as week_duplicate_rank,
+               ROW_NUMBER() OVER (
+                 PARTITION BY DATE_TRUNC('month', ca.week_start_date::date)
+                 ORDER BY ca.week_start_date DESC
+               ) as week_rank_in_month
+        FROM capacity_analyses ca
+        INNER JOIN month_ranks mr ON DATE_TRUNC('month', ca.week_start_date::date) = mr.month_start
+        WHERE mr.month_rank <= ${monthsToKeep}
+      ),
+      records_to_keep AS (
+        SELECT id 
+        FROM week_ranks_per_month
+        WHERE week_duplicate_rank = 1  -- Keep only latest per week
+          AND week_rank_in_month <= ${weeksPerMonth}  -- Keep only latest N weeks per month
       )
       DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
