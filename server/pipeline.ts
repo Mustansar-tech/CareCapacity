@@ -289,6 +289,12 @@ function isCancellationBlank(value: any): boolean {
   return s === "" || s === "(blank)" || s === "na" || s === "n/a";
 }
 
+// Check if cancellation description starts with "cancelled"
+function isCancelled(value: any): boolean {
+  const s = (value ?? "").toString().trim().toLowerCase();
+  return s.startsWith("cancelled");
+}
+
 // Build Cancelled Visits lookup from Guaranteed sheet
 // key: normalized employee name + yyyy-MM-dd(resolved start date)
 function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
@@ -296,9 +302,9 @@ function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
   let totalCancelled = 0;
 
   for (const g of guaranteed || []) {
-    // Only include CANCELLED entries (opposite of scheduled hours logic)
-    const isCancelled = !isCancellationBlank(g["Cancellation Description"]);
-    if (!isCancelled) continue; // Skip non-cancelled entries
+    // Only include entries that start with "cancelled" in Cancellation Description
+    const hasCancellation = isCancelled(g["Cancellation Description"]);
+    if (!hasCancellation) continue; // Skip non-cancelled entries
 
     // Still exclude secondary care entries even if cancelled
     if (isSecondaryMultipleCare(g["Actual Service Type Description"])) continue;
