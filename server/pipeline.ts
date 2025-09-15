@@ -1499,8 +1499,9 @@ export function processCapacityData(
   });
 
   // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
+  // Build adhoc windows map once for reuse in employee summary calculation
+  const adhocWindowsMap = buildAdHocWindowsMap(guaranteed);
   {
-    const adhocWindowsMap = buildAdHocWindowsMap(guaranteed);
     const displayNameMap  = buildDisplayNameMap(guaranteed);
 
     // who already exists per date (normalized)
@@ -1626,15 +1627,27 @@ export function processCapacityData(
         employeeDetails.forEach(emp => {
           if (emp.status === 'Available' && emp.timeWindows && emp.timeWindows !== '-') {
             availabilityWindows = availabilityWindows ? `${availabilityWindows}, ${emp.timeWindows}` : emp.timeWindows;
-          } else if (emp.status !== 'Available' && emp.timeWindows && emp.timeWindows !== '-') {
+          } else if (LEAVE_TYPES.includes(emp.status) && emp.timeWindows && emp.timeWindows !== '-') {
+            // Only count actual leave types as unavailability (not 'Ad-hoc' which is scheduled work)
             unavailabilityWindows = unavailabilityWindows ? `${unavailabilityWindows}, ${emp.timeWindows}` : emp.timeWindows;
-          }
-          
-          // Add scheduled time windows if available
-          if (emp.scheduledHours > 0 && emp.timeWindows && emp.timeWindows !== '-') {
+          } else if (emp.status === 'Ad-hoc' && emp.timeWindows && emp.timeWindows !== '-') {
+            // Ad-hoc status represents scheduled work, not unavailability
             scheduledWindows = scheduledWindows ? `${scheduledWindows}, ${emp.timeWindows}` : emp.timeWindows;
           }
         });
+        
+        // CRITICAL: Always check for scheduled windows from guaranteed hours data
+        // This applies even when employee has availability record - we need actual scheduled windows
+        const empNormalized = normalizeName(employeeName);
+        const scheduleKey = `${empNormalized}|${dateStr}`;
+        const guaranteedWindows = adhocWindowsMap.get(scheduleKey);
+        if (guaranteedWindows && guaranteedWindows.length > 0) {
+          // Convert time intervals to time window strings
+          const guaranteedWindowStrings = guaranteedWindows
+            .map(([start, end]: [number, number]) => `${fromMin(start)}-${fromMin(end)}`)
+            .join(', ');
+          scheduledWindows = scheduledWindows ? `${scheduledWindows}, ${guaranteedWindowStrings}` : guaranteedWindowStrings;
+        }
 
         // Calculate free windows using our capacity windows utility
         let freeWindows = '';
