@@ -300,11 +300,25 @@ function isCancelledStartsWith(value: any): boolean {
 function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
   const cancelledMap = new Map<string, number>();
   let totalCancelled = 0;
+  let debugCount = 0;
+
+  console.log("🔍 CANCELLED VISITS DEBUG - Starting analysis");
+  console.log(`  - Total guaranteed rows: ${guaranteed?.length || 0}`);
 
   for (const g of guaranteed || []) {
+    debugCount++;
+    
+    // Debug first few rows
+    if (debugCount <= 3) {
+      console.log(`  - Row ${debugCount} Cancellation Description: "${g["Cancellation Description"]}"`);
+    }
+    
     // Only include entries that start with "cancelled" in Cancellation Description
     const hasCancellation = isCancelledStartsWith(g["Cancellation Description"]);
     if (!hasCancellation) continue; // Skip non-cancelled entries
+
+    console.log(`  ✅ FOUND CANCELLED VISIT: "${g["Cancellation Description"]}" for ${g["Actual Employee Name"]}`);
+    totalCancelled++;
 
     // Still exclude secondary care entries even if cancelled
     if (isSecondaryMultipleCare(g["Actual Service Type Description"])) continue;
