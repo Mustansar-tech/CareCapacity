@@ -354,6 +354,90 @@ function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
   return cancelledMap;
 }
 
+// SEPARATE CANCELLED VISITS LOGIC - COMPLETELY INDEPENDENT 
+function buildSeparateCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
+  const cancelledMap = new Map<string, number>();
+  let totalProcessed = 0;
+  let totalCancelled = 0;
+
+  console.log("🟧 SEPARATE CANCELLED VISITS LOGIC - Starting");
+  console.log(`   Total guaranteed rows to process: ${guaranteed?.length || 0}`);
+
+  for (const row of guaranteed || []) {
+    totalProcessed++;
+    
+    // Debug first few rows
+    if (totalProcessed <= 3) {
+      console.log(`   Row ${totalProcessed}: Cancellation Description = "${row["Cancellation Description"]}"`);
+    }
+    
+    // CHECK: Does this row have cancellation description starting with "cancelled"?
+    const cancellationDesc = (row["Cancellation Description"] || "").toString().trim().toLowerCase();
+    const isCancelled = cancellationDesc.startsWith("cancelled");
+    
+    if (!isCancelled) continue; // Skip non-cancelled entries
+    
+    console.log(`   ✅ CANCELLED VISIT FOUND: "${row["Cancellation Description"]}" for employee: ${row["Actual Employee Name"]}`);
+    totalCancelled++;
+
+    // Get employee name and normalize it
+    const empName = row["Actual Employee Name"];
+    if (!empName) {
+      console.log(`   ❌ Skipping: No employee name`);
+      continue;
+    }
+
+    const normalizedName = normalizeName(empName);
+    if (!normalizedName) {
+      console.log(`   ❌ Skipping: Could not normalize name: ${empName}`);
+      continue;
+    }
+
+    // Get date
+    const startDateValue = pickStartForBucket(row);
+    if (!startDateValue) {
+      console.log(`   ❌ Skipping: No start date found`);
+      continue;
+    }
+
+    const dateResolved = parseDate(startDateValue);
+    const dateStr = format(dateResolved, "yyyy-MM-dd");
+
+    // Get hours
+    const payRateHours = parseFloat(row["Actual Pay Rate Hours"] || "0") || 0;
+    const actualDuration = parseFloat(row["Actual Duration"] || "0") || 0;
+    const actualHours = payRateHours || actualDuration;
+
+    if (actualHours <= 0) {
+      console.log(`   ❌ Skipping: No valid hours (${payRateHours}, ${actualDuration})`);
+      continue;
+    }
+
+    // Store in map
+    const key = `${normalizedName}|${dateStr}`;
+    const currentHours = cancelledMap.get(key) || 0;
+    cancelledMap.set(key, currentHours + actualHours);
+    
+    console.log(`   💾 Stored: ${key} = ${actualHours} hours (total: ${currentHours + actualHours})`);
+  }
+
+  console.log(`🟧 CANCELLED VISITS SUMMARY:`);
+  console.log(`   📊 Total rows processed: ${totalProcessed}`);
+  console.log(`   ✅ Total cancelled visits found: ${totalCancelled}`);
+  console.log(`   📋 Unique employee/date keys: ${cancelledMap.size}`);
+  
+  // Show some examples
+  let count = 0;
+  for (const [key, hours] of Array.from(cancelledMap.entries())) {
+    if (count < 3) {
+      console.log(`   📝 Example: ${key} = ${hours} hours`);
+      count++;
+    }
+  }
+
+  return cancelledMap;
+}
+
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
 // key: normalized employee name + yyyy-MM-dd(resolved start date)
@@ -1036,9 +1120,9 @@ export function processCapacityData(
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
-  // Build cancelled visits lookup from guaranteed hours data
+  // Build cancelled visits lookup from guaranteed hours data - USING SEPARATE LOGIC
   console.log(`📋 BEFORE CANCELLED VISITS: guaranteed array has ${guaranteed?.length || 0} rows`);
-  const cancelledVisitsMap = buildCancelledVisitsLookup(guaranteed);
+  const cancelledVisitsMap = buildSeparateCancelledVisitsLookup(guaranteed);
   console.log(`📋 AFTER CANCELLED VISITS: map has ${cancelledVisitsMap.size} entries`);
 
   // Debug: Check what's actually in the guaranteed hours data
