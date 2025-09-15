@@ -1652,6 +1652,13 @@ export function processCapacityData(
         // Calculate free windows using our capacity windows utility
         let freeWindows = '';
         try {
+          // DEBUG: Log the input data for free windows calculation
+          console.log(`\n🔍 FREE WINDOWS DEBUG for ${employeeName} on ${dateStr}:`);
+          console.log(`  - availabilityWindows: "${availabilityWindows}"`);
+          console.log(`  - unavailabilityWindows: "${unavailabilityWindows}"`);
+          console.log(`  - scheduledWindows: "${scheduledWindows}"`);
+          console.log(`  - contractedDailyHours: ${empData.contractedDailyHours}`);
+          
           if (availabilityWindows) {
             const capacityResult = computeCapacityWindows({
               employeeName,
@@ -1666,7 +1673,14 @@ export function processCapacityData(
               bufferMinutes: 0
             });
             
+            console.log(`  - 🎯 RESULT: freeWindows = "${capacityResult.freeWindows}"`);
+            console.log(`  - workableMinutes: ${capacityResult.workableMinutes}`);
+            console.log(`  - scheduledMinutes: ${capacityResult.scheduledMinutes}`);
+            console.log(`  - freeWindowsMinutes: ${capacityResult.freeWindowsMinutes}`);
+            
             freeWindows = capacityResult.freeWindows;
+          } else {
+            console.log(`  - ❌ SKIPPED: No availability windows found`);
           }
         } catch (error) {
           console.warn(`Error calculating free windows for ${employeeName} on ${dateStr}:`, error);
