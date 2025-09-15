@@ -177,10 +177,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/history - Get all historical analyses
+  // GET /api/history - Get all historical analyses (latest 4 weeks only)
   app.get('/api/history', async (req, res) => {
     try {
-      const analyses = await storage.getAllCapacityAnalyses();
+      const analyses = await storage.getLatestWeeksAnalyses(4);
       res.json(analyses);
     } catch (error) {
       console.error('History fetch error:', error);
@@ -304,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cutoffString = cutoffDate.toISOString().split('T')[0];
       
       // Get all analyses to count how many would be deleted
-      const allAnalyses = await storage.getAllCapacityAnalyses();
+      const allAnalyses = await storage.getLatestWeeksAnalyses(12); // Get more for cleanup preview
       const oldAnalyses = allAnalyses.filter(
         analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
       );

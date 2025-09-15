@@ -15,6 +15,8 @@ export interface IStorage {
   getCapacityAnalysesByMonth(year: number, month: number): Promise<CapacityAnalysis[]>;
   getAllCapacityAnalyses(): Promise<CapacityAnalysis[]>;
   getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined>;
+  getLatestWeeksAnalyses(limit?: number): Promise<CapacityAnalysis[]>;
+  enforceRetentionLatestWeeks(limit?: number): Promise<number>;
   cleanupOldAnalyses(monthsOld: number): Promise<number>;
 }
 
@@ -45,6 +47,15 @@ export class MemStorage implements IStorage {
   }
 
   async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
+    // Remove existing entry with same week dates for deduplication
+    const existingEntry = Array.from(this.capacityAnalyses.values()).find(
+      analysis => analysis.weekStartDate === insertAnalysis.weekStartDate && 
+                  analysis.weekEndDate === insertAnalysis.weekEndDate
+    );
+    if (existingEntry) {
+      this.capacityAnalyses.delete(existingEntry.id);
+    }
+
     const id = randomUUID();
     const analysis: CapacityAnalysis = {
       ...insertAnalysis,
@@ -54,6 +65,10 @@ export class MemStorage implements IStorage {
       warnings: insertAnalysis.warnings || [],
     };
     this.capacityAnalyses.set(id, analysis);
+    
+    // Automatically enforce retention after saving
+    await this.enforceRetentionLatestWeeks(4);
+    
     return analysis;
   }
 
@@ -86,6 +101,66 @@ export class MemStorage implements IStorage {
     return analyses[0];
   }
 
+  async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
+    // Group by week, then get the latest analysis per week, then take the latest N weeks
+    const weekMap = new Map<string, CapacityAnalysis>();
+    
+    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+      const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
+      const existing = weekMap.get(weekKey);
+      if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
+        weekMap.set(weekKey, analysis);
+      }
+    });
+    
+    return Array.from(weekMap.values())
+      .sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime())
+      .slice(0, limit);
+  }
+
+  async enforceRetentionLatestWeeks(limit: number = 4): Promise<number> {
+    // Group by week and keep only the latest N weeks
+    const weekMap = new Map<string, CapacityAnalysis[]>();
+    
+    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+      const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, []);
+      }
+      weekMap.get(weekKey)!.push(analysis);
+    });
+    
+    // Sort weeks by start date descending
+    const sortedWeeks = Array.from(weekMap.entries())
+      .sort(([a], [b]) => new Date(b.split('-')[0]).getTime() - new Date(a.split('-')[0]).getTime());
+    
+    let deletedCount = 0;
+    
+    // Delete weeks beyond the limit
+    sortedWeeks.slice(limit).forEach(([weekKey, analyses]) => {
+      analyses.forEach(analysis => {
+        this.capacityAnalyses.delete(analysis.id);
+        deletedCount++;
+      });
+    });
+    
+    // For remaining weeks, keep only the latest analysis per week
+    sortedWeeks.slice(0, limit).forEach(([weekKey, analyses]) => {
+      if (analyses.length > 1) {
+        const sortedAnalyses = analyses.sort((a, b) => 
+          new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+        );
+        // Delete all but the latest
+        sortedAnalyses.slice(1).forEach(analysis => {
+          this.capacityAnalyses.delete(analysis.id);
+          deletedCount++;
+        });
+      }
+    });
+    
+    return deletedCount;
+  }
+
   async cleanupOldAnalyses(monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
@@ -106,7 +181,7 @@ export class MemStorage implements IStorage {
 // Switch to database storage in production
 import { db } from "./db";
 import { users, capacityAnalyses } from "@shared/schema";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -128,10 +203,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
+    // Use upsert to replace existing week data with new data
     const [analysis] = await db
       .insert(capacityAnalyses)
-      .values(insertAnalysis)
+      .values({
+        ...insertAnalysis,
+        employeeSummaryByDate: insertAnalysis.employeeSummaryByDate || {},
+        warnings: insertAnalysis.warnings || [],
+      })
+      .onConflictDoUpdate({
+        target: [capacityAnalyses.weekStartDate, capacityAnalyses.weekEndDate],
+        set: {
+          kpis: insertAnalysis.kpis,
+          dailySummary: insertAnalysis.dailySummary,
+          employeesByDate: insertAnalysis.employeesByDate,
+          employeeSummaryByDate: insertAnalysis.employeeSummaryByDate || {},
+          warnings: insertAnalysis.warnings || [],
+          uploadedAt: sql`now()`,
+        },
+      })
       .returning();
+    
+    // Automatically enforce retention after saving
+    await this.enforceRetentionLatestWeeks(4);
+    
     return analysis;
   }
 
@@ -156,10 +251,68 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllCapacityAnalyses(): Promise<CapacityAnalysis[]> {
-    return await db
-      .select()
-      .from(capacityAnalyses)
-      .orderBy(desc(capacityAnalyses.uploadedAt));
+    // Return deduplicated results using window function
+    return await db.execute(sql`
+      SELECT DISTINCT ON (week_start_date, week_end_date) *
+      FROM capacity_analyses
+      ORDER BY week_start_date DESC, week_end_date DESC, uploaded_at DESC
+    `).then(result => result.rows as CapacityAnalysis[]);
+  }
+
+  async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
+    // Get the latest record for each of the latest N weeks
+    return await db.execute(sql`
+      WITH latest_per_week AS (
+        SELECT *,
+               ROW_NUMBER() OVER (
+                 PARTITION BY week_start_date, week_end_date 
+                 ORDER BY uploaded_at DESC
+               ) as rn
+        FROM capacity_analyses
+      ),
+      week_ranking AS (
+        SELECT *,
+               ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
+        FROM latest_per_week 
+        WHERE rn = 1
+      )
+      SELECT id, week_start_date, week_end_date, uploaded_at, kpis, daily_summary, employees_by_date, employee_summary_by_date, warnings
+      FROM week_ranking 
+      WHERE week_rank <= ${limit}
+      ORDER BY week_start_date DESC
+    `).then(result => result.rows as CapacityAnalysis[]);
+  }
+
+  async enforceRetentionLatestWeeks(limit: number = 4): Promise<number> {
+    // Delete all but the latest record for each week, and keep only latest N weeks
+    const result = await db.execute(sql`
+      WITH week_ranks AS (
+        SELECT DISTINCT week_start_date, week_end_date,
+               ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
+        FROM capacity_analyses
+      ),
+      records_to_keep AS (
+        SELECT ca.id
+        FROM capacity_analyses ca
+        INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date 
+                                 AND ca.week_end_date = wr.week_end_date
+        WHERE wr.week_rank <= ${limit}
+          AND ca.id IN (
+            SELECT id FROM (
+              SELECT id, 
+                     ROW_NUMBER() OVER (
+                       PARTITION BY week_start_date, week_end_date 
+                       ORDER BY uploaded_at DESC
+                     ) as rn
+              FROM capacity_analyses
+            ) ranked WHERE rn = 1
+          )
+      )
+      DELETE FROM capacity_analyses 
+      WHERE id NOT IN (SELECT id FROM records_to_keep)
+    `);
+    
+    return result.rowCount || 0;
   }
 
   async getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined> {
