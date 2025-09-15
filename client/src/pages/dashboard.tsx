@@ -83,6 +83,7 @@ export default function Dashboard() {
     queryKey: ['/api/history'],
   });
 
+
   // Query to load latest data automatically
   const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
@@ -1003,7 +1004,7 @@ export default function Dashboard() {
                                 }
                               })()}
                             </SelectItem>
-                            {allHistoryData?.slice().reverse().map((analysis) => {
+                            {allHistoryData?.map((analysis) => {
                               try {
                                 if (!analysis.weekStartDate || !analysis.weekEndDate) return null;
                                 const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
