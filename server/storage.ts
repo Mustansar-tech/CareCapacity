@@ -167,16 +167,30 @@ export class MemStorage implements IStorage {
   }
 
   async enforceRetentionByMonth(weeksPerMonth: number = 4, monthsToKeep: number = 3): Promise<number> {
-    // Group analyses by month-year
+    // Group analyses by month-year, handling cross-month weeks
     const monthMap = new Map<string, CapacityAnalysis[]>();
     
     Array.from(this.capacityAnalyses.values()).forEach(analysis => {
       const weekStartDate = new Date(analysis.weekStartDate);
-      const monthKey = `${weekStartDate.getFullYear()}-${String(weekStartDate.getMonth() + 1).padStart(2, '0')}`;
-      if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, []);
+      const weekEndDate = new Date(analysis.weekEndDate);
+      
+      // Add week to all months it touches (start and end month)
+      const startMonthKey = `${weekStartDate.getFullYear()}-${String(weekStartDate.getMonth() + 1).padStart(2, '0')}`;
+      const endMonthKey = `${weekEndDate.getFullYear()}-${String(weekEndDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Add to start month
+      if (!monthMap.has(startMonthKey)) {
+        monthMap.set(startMonthKey, []);
       }
-      monthMap.get(monthKey)!.push(analysis);
+      monthMap.get(startMonthKey)!.push(analysis);
+      
+      // Add to end month if different (cross-month week)
+      if (startMonthKey !== endMonthKey) {
+        if (!monthMap.has(endMonthKey)) {
+          monthMap.set(endMonthKey, []);
+        }
+        monthMap.get(endMonthKey)!.push(analysis);
+      }
     });
     
     // Sort months by date descending (keep latest N months)
@@ -185,16 +199,66 @@ export class MemStorage implements IStorage {
     
     let deletedCount = 0;
     
-    // Delete months beyond the limit
-    sortedMonths.slice(monthsToKeep).forEach(([monthKey, analyses]) => {
-      analyses.forEach(analysis => {
+    // Get months to keep (latest N months)
+    const monthsToKeepSet = new Set(sortedMonths.slice(0, monthsToKeep).map(([monthKey]) => monthKey));
+    
+    // Delete analyses that don't touch any of the months we're keeping
+    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+      const weekStartDate = new Date(analysis.weekStartDate);
+      const weekEndDate = new Date(analysis.weekEndDate);
+      
+      const startMonthKey = `${weekStartDate.getFullYear()}-${String(weekStartDate.getMonth() + 1).padStart(2, '0')}`;
+      const endMonthKey = `${weekEndDate.getFullYear()}-${String(weekEndDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Keep week if it touches any month we're keeping
+      const shouldKeep = monthsToKeepSet.has(startMonthKey) || monthsToKeepSet.has(endMonthKey);
+      
+      if (!shouldKeep) {
         this.capacityAnalyses.delete(analysis.id);
         deletedCount++;
-      });
+      }
     });
     
-    // For remaining months, keep only the latest N weeks per month
-    sortedMonths.slice(0, monthsToKeep).forEach(([monthKey, analyses]) => {
+    // Now handle within-month week limits and deduplication for remaining data
+    const remainingAnalyses = Array.from(this.capacityAnalyses.values());
+    
+    // Group remaining weeks by their primary month (month with more days)
+    const primaryMonthMap = new Map<string, CapacityAnalysis[]>();
+    
+    remainingAnalyses.forEach(analysis => {
+      const weekStartDate = new Date(analysis.weekStartDate);
+      const weekEndDate = new Date(analysis.weekEndDate);
+      
+      // Determine primary month (where most days fall)
+      const startMonth = weekStartDate.getMonth();
+      const endMonth = weekEndDate.getMonth();
+      
+      let primaryMonthKey: string;
+      if (startMonth === endMonth) {
+        // Week within single month
+        primaryMonthKey = `${weekStartDate.getFullYear()}-${String(startMonth + 1).padStart(2, '0')}`;
+      } else {
+        // Cross-month week - assign to month with more days
+        const startDaysInMonth = new Date(weekStartDate.getFullYear(), startMonth + 1, 0).getDate();
+        const startDay = weekStartDate.getDate();
+        const daysInStartMonth = startDaysInMonth - startDay + 1;
+        const daysInEndMonth = weekEndDate.getDate();
+        
+        if (daysInStartMonth >= daysInEndMonth) {
+          primaryMonthKey = `${weekStartDate.getFullYear()}-${String(startMonth + 1).padStart(2, '0')}`;
+        } else {
+          primaryMonthKey = `${weekEndDate.getFullYear()}-${String(endMonth + 1).padStart(2, '0')}`;
+        }
+      }
+      
+      if (!primaryMonthMap.has(primaryMonthKey)) {
+        primaryMonthMap.set(primaryMonthKey, []);
+      }
+      primaryMonthMap.get(primaryMonthKey)!.push(analysis);
+    });
+    
+    // For each month, keep only latest N weeks and deduplicate
+    primaryMonthMap.forEach((analyses, monthKey) => {
       // Group by week within this month
       const weekMap = new Map<string, CapacityAnalysis[]>();
       
@@ -217,8 +281,10 @@ export class MemStorage implements IStorage {
       // Delete weeks beyond the limit for this month
       sortedWeeks.slice(weeksPerMonth).forEach(([weekKey, weekAnalyses]) => {
         weekAnalyses.forEach(analysis => {
-          this.capacityAnalyses.delete(analysis.id);
-          deletedCount++;
+          if (this.capacityAnalyses.has(analysis.id)) {
+            this.capacityAnalyses.delete(analysis.id);
+            deletedCount++;
+          }
         });
       });
       
@@ -230,8 +296,10 @@ export class MemStorage implements IStorage {
           );
           // Delete all but the latest
           sortedAnalyses.slice(1).forEach(analysis => {
-            this.capacityAnalyses.delete(analysis.id);
-            deletedCount++;
+            if (this.capacityAnalyses.has(analysis.id)) {
+              this.capacityAnalyses.delete(analysis.id);
+              deletedCount++;
+            }
           });
         }
       });
@@ -412,34 +480,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   async enforceRetentionByMonth(weeksPerMonth: number = 4, monthsToKeep: number = 3): Promise<number> {
-    // Delete all but the latest record for each week within each month, keeping only latest N months
+    // Handle cross-month weeks properly - keep weeks that touch any of the retained months
     const result = await db.execute(sql`
-      WITH month_ranks AS (
+      WITH month_bounds AS (
+        -- Get the latest N months that have any weeks
         SELECT DISTINCT 
-               DATE_TRUNC('month', week_start_date::date) AS month_start,
-               ROW_NUMBER() OVER (ORDER BY DATE_TRUNC('month', week_start_date::date) DESC) as month_rank
+               DATE_TRUNC('month', week_start_date::date) AS month_start
         FROM capacity_analyses
+        UNION
+        SELECT DISTINCT 
+               DATE_TRUNC('month', week_end_date::date) AS month_start
+        FROM capacity_analyses
+        ORDER BY month_start DESC
+        LIMIT ${monthsToKeep}
       ),
-      week_ranks_per_month AS (
-        SELECT ca.*,
-               DATE_TRUNC('month', ca.week_start_date::date) AS month_start,
+      weeks_touching_kept_months AS (
+        -- Keep weeks that touch any of the months we're keeping
+        SELECT DISTINCT ca.*
+        FROM capacity_analyses ca
+        WHERE DATE_TRUNC('month', ca.week_start_date::date) IN (SELECT month_start FROM month_bounds)
+           OR DATE_TRUNC('month', ca.week_end_date::date) IN (SELECT month_start FROM month_bounds)
+      ),
+      primary_month_assignment AS (
+        -- Assign each week to its primary month (where most days fall)
+        SELECT *,
+               CASE 
+                 WHEN DATE_TRUNC('month', week_start_date::date) = DATE_TRUNC('month', week_end_date::date) 
+                 THEN DATE_TRUNC('month', week_start_date::date)
+                 ELSE 
+                   CASE 
+                     WHEN (DATE_TRUNC('month', week_start_date::date) + INTERVAL '1 month' - week_start_date::date) 
+                          >= (week_end_date::date - DATE_TRUNC('month', week_end_date::date))
+                     THEN DATE_TRUNC('month', week_start_date::date)
+                     ELSE DATE_TRUNC('month', week_end_date::date)
+                   END
+               END AS primary_month
+        FROM weeks_touching_kept_months
+      ),
+      week_ranks_per_primary_month AS (
+        SELECT *,
                ROW_NUMBER() OVER (
-                 PARTITION BY DATE_TRUNC('month', ca.week_start_date::date), ca.week_start_date, ca.week_end_date
-                 ORDER BY ca.uploaded_at DESC
+                 PARTITION BY week_start_date, week_end_date
+                 ORDER BY uploaded_at DESC
                ) as week_duplicate_rank,
                ROW_NUMBER() OVER (
-                 PARTITION BY DATE_TRUNC('month', ca.week_start_date::date)
-                 ORDER BY ca.week_start_date DESC
+                 PARTITION BY primary_month
+                 ORDER BY week_start_date DESC
                ) as week_rank_in_month
-        FROM capacity_analyses ca
-        INNER JOIN month_ranks mr ON DATE_TRUNC('month', ca.week_start_date::date) = mr.month_start
-        WHERE mr.month_rank <= ${monthsToKeep}
+        FROM primary_month_assignment
       ),
       records_to_keep AS (
         SELECT id 
-        FROM week_ranks_per_month
+        FROM week_ranks_per_primary_month
         WHERE week_duplicate_rank = 1  -- Keep only latest per week
-          AND week_rank_in_month <= ${weeksPerMonth}  -- Keep only latest N weeks per month
+          AND week_rank_in_month <= ${weeksPerMonth}  -- Keep only latest N weeks per primary month
       )
       DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
