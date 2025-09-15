@@ -1122,6 +1122,7 @@ export function processCapacityData(
 
   // Build cancelled visits lookup from guaranteed hours data - USING SEPARATE LOGIC
   console.log(`📋 BEFORE CANCELLED VISITS: guaranteed array has ${guaranteed?.length || 0} rows`);
+  console.log(`🟧 TEST: About to call buildSeparateCancelledVisitsLookup function`);
   const cancelledVisitsMap = buildSeparateCancelledVisitsLookup(guaranteed);
   console.log(`📋 AFTER CANCELLED VISITS: map has ${cancelledVisitsMap.size} entries`);
 
