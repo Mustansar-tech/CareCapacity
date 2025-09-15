@@ -67,8 +67,8 @@ export class MemStorage implements IStorage {
     };
     this.capacityAnalyses.set(id, analysis);
     
-    // Automatically enforce retention after saving - keep latest 4 weeks per month for 3 months
-    await this.enforceRetentionByMonth(4, 3);
+    // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
+    await this.enforceSimpleRetention(3);
     
     return analysis;
   }
@@ -160,6 +160,43 @@ export class MemStorage implements IStorage {
           this.capacityAnalyses.delete(analysis.id);
           deletedCount++;
         });
+      }
+    });
+    
+    return deletedCount;
+  }
+
+  async enforceSimpleRetention(monthsToKeep: number = 3): Promise<number> {
+    // Simple retention: keep all weeks for N months, removing duplicates (keep latest per week)
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
+    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    
+    let deletedCount = 0;
+    
+    // Delete anything older than cutoff date
+    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+      if (analysis.weekStartDate < cutoffString) {
+        this.capacityAnalyses.delete(analysis.id);
+        deletedCount++;
+      }
+    });
+    
+    // Remove duplicates - keep only latest per week
+    const weekMap = new Map<string, CapacityAnalysis>();
+    
+    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+      const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
+      const existing = weekMap.get(weekKey);
+      if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
+        if (existing) {
+          this.capacityAnalyses.delete(existing.id);
+          deletedCount++;
+        }
+        weekMap.set(weekKey, analysis);
+      } else {
+        this.capacityAnalyses.delete(analysis.id);
+        deletedCount++;
       }
     });
     
@@ -371,8 +408,8 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
-    // Automatically enforce retention after saving - keep latest 4 weeks per month for 3 months
-    await this.enforceRetentionByMonth(4, 3);
+    // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
+    await this.enforceSimpleRetention(3);
     
     return analysis;
   }
@@ -471,6 +508,35 @@ export class DatabaseStorage implements IStorage {
               FROM capacity_analyses
             ) ranked WHERE rn = 1
           )
+      )
+      DELETE FROM capacity_analyses 
+      WHERE id NOT IN (SELECT id FROM records_to_keep)
+    `);
+    
+    return result.rowCount || 0;
+  }
+
+  async enforceSimpleRetention(monthsToKeep: number = 3): Promise<number> {
+    // Simple retention: keep all weeks for N months, removing duplicates (keep latest per week)
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
+    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    
+    const result = await db.execute(sql`
+      WITH latest_per_week AS (
+        -- Keep only the latest entry for each week
+        SELECT *,
+               ROW_NUMBER() OVER (
+                 PARTITION BY week_start_date, week_end_date 
+                 ORDER BY uploaded_at DESC
+               ) as rn
+        FROM capacity_analyses
+        WHERE week_start_date >= ${cutoffString}  -- Only keep weeks from last 3 months
+      ),
+      records_to_keep AS (
+        SELECT id 
+        FROM latest_per_week
+        WHERE rn = 1  -- Keep only latest per week
       )
       DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
