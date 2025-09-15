@@ -78,28 +78,15 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Query to load latest data automatically
-  const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/latest'],
-    enabled: !processedData && !selectedWeekId, // Only load if we don't have current data and no week selected
-  });
-
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
     queryKey: ['/api/history'],
   });
 
-  // Query to load specific week data when selected
-  const { data: selectedWeekData, isLoading: isLoadingWeek } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/week', selectedWeekId],
-    queryFn: async () => {
-      if (!selectedWeekId) return null;
-      const response = await fetch(`/api/history`);
-      if (!response.ok) throw new Error('Failed to fetch week data');
-      const allData = await response.json();
-      return allData.find((analysis: any) => analysis.id === selectedWeekId);
-    },
-    enabled: !!selectedWeekId,
+  // Query to load latest data automatically
+  const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
+    queryKey: ['/api/history/latest'],
+    enabled: !processedData && !selectedWeekId, // Only load if we don't have current data and no week selected
   });
 
   // Auto-load latest data when component mounts or when we don't have data
@@ -120,20 +107,36 @@ export default function Dashboard() {
     }
   }, [latestData, processedData, selectedWeekId, toast]);
 
-  // Load selected week data
-  useEffect(() => {
-    if (selectedWeekData) {
-      setProcessedData({
-        kpis: selectedWeekData.kpis,
-        dailySummary: selectedWeekData.dailySummary as any,
-        employeesByDate: selectedWeekData.employeesByDate as any,
-        employeeSummaryByDate: selectedWeekData.employeeSummaryByDate as any,
-        warnings: selectedWeekData.warnings as any,
-      });
-      setSelectedDate(selectedWeekData.dailySummary?.[0]?.date || null);
-      setFilteredData(null); // Clear any filters
+  // Handle week selection
+  const handleWeekChange = useCallback(async (value: string) => {
+    if (value === "latest") {
+      setSelectedWeekId(null);
+      return;
     }
-  }, [selectedWeekData]);
+    
+    try {
+      setSelectedWeekId(value);
+      const analysis = allHistoryData?.find((item: any) => item.id === value);
+      if (analysis) {
+        setProcessedData({
+          kpis: analysis.kpis,
+          dailySummary: analysis.dailySummary as any,
+          employeesByDate: analysis.employeesByDate as any,
+          employeeSummaryByDate: analysis.employeeSummaryByDate as any,
+          warnings: analysis.warnings as any,
+        });
+        setSelectedDate(analysis.dailySummary?.[0]?.date || null);
+        setFilteredData(null); // Clear any filters
+      }
+    } catch (error) {
+      console.error('Error loading selected week:', error);
+      toast({
+        variant: "destructive",
+        title: "Error Loading Week",
+        description: "Failed to load the selected week data."
+      });
+    }
+  }, [allHistoryData, toast]);
 
   // Handle file selection
   const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') => 
@@ -980,13 +983,7 @@ export default function Dashboard() {
                         </div>
                         <Select 
                           value={selectedWeekId || "latest"} 
-                          onValueChange={(value) => {
-                            if (value === "latest") {
-                              setSelectedWeekId(null);
-                            } else {
-                              setSelectedWeekId(value);
-                            }
-                          }}
+                          onValueChange={handleWeekChange}
                         >
                           <SelectTrigger className="w-80" data-testid="week-selector">
                             <SelectValue placeholder="Select a week" />
