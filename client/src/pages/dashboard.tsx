@@ -994,32 +994,48 @@ export default function Dashboard() {
                           <SelectContent>
                             <SelectItem value="latest">
                               Latest Week{(() => {
-                                const data = filteredData || processedData;
-                                if (!data?.dailySummary || data.dailySummary.length === 0) return '';
-                                const startDate = new Date(data.dailySummary[0].date).toLocaleDateString('en-GB');
-                                const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString('en-GB');
-                                return ` (${startDate} - ${endDate})`;
+                                try {
+                                  const data = filteredData || processedData;
+                                  if (!data?.dailySummary || data.dailySummary.length === 0) return '';
+                                  const startDate = new Date(data.dailySummary[0].date).toLocaleDateString('en-GB');
+                                  const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString('en-GB');
+                                  return ` (${startDate} - ${endDate})`;
+                                } catch (error) {
+                                  console.error('Error formatting latest week dates:', error);
+                                  return '';
+                                }
                               })()}
                             </SelectItem>
                             {allHistoryData?.slice().reverse().map((analysis) => {
-                              const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
-                              const endDate = new Date(analysis.weekEndDate).toLocaleDateString('en-GB');
-                              const monthYear = new Date(analysis.weekStartDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                              return (
-                                <SelectItem key={analysis.id} value={analysis.id}>
-                                  Week of {startDate} - {endDate} ({monthYear})
-                                </SelectItem>
-                              );
-                            })}
+                              try {
+                                if (!analysis.weekStartDate || !analysis.weekEndDate) return null;
+                                const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
+                                const endDate = new Date(analysis.weekEndDate).toLocaleDateString('en-GB');
+                                const monthYear = new Date(analysis.weekStartDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                                return (
+                                  <SelectItem key={analysis.id} value={analysis.id}>
+                                    Week of {startDate} - {endDate} ({monthYear})
+                                  </SelectItem>
+                                );
+                              } catch (error) {
+                                console.error('Error rendering week option:', error);
+                                return null;
+                              }
+                            }).filter(Boolean)}
                           </SelectContent>
                         </Select>
                         <div className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-1">
                           {(() => {
-                            const data = filteredData || processedData;
-                            if (!data?.dailySummary || data.dailySummary.length === 0) return '';
-                            const startDate = new Date(data.dailySummary[0].date);
-                            const monthYear = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                            return monthYear;
+                            try {
+                              const data = filteredData || processedData;
+                              if (!data?.dailySummary || data.dailySummary.length === 0) return '';
+                              const startDate = new Date(data.dailySummary[0].date);
+                              const monthYear = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                              return monthYear;
+                            } catch (error) {
+                              console.error('Error formatting month year:', error);
+                              return '';
+                            }
                           })()}
                         </div>
                       </div>
