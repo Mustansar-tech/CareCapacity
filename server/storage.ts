@@ -130,9 +130,13 @@ export class MemStorage implements IStorage {
       weekMap.get(weekKey)!.push(analysis);
     });
     
-    // Sort weeks by start date descending
+    // Sort weeks by start date descending using actual weekStartDate from analyses
     const sortedWeeks = Array.from(weekMap.entries())
-      .sort(([a], [b]) => new Date(b.split('-')[0]).getTime() - new Date(a.split('-')[0]).getTime());
+      .sort(([, analysesA], [, analysesB]) => {
+        const dateA = new Date(analysesA[0].weekStartDate); // Use actual weekStartDate field
+        const dateB = new Date(analysesB[0].weekStartDate); 
+        return dateB.getTime() - dateA.getTime();
+      });
     
     let deletedCount = 0;
     
@@ -251,16 +255,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllCapacityAnalyses(): Promise<CapacityAnalysis[]> {
-    // Return deduplicated results using window function
+    // Return deduplicated results using window function with proper column aliasing
     return await db.execute(sql`
-      SELECT DISTINCT ON (week_start_date, week_end_date) *
+      SELECT DISTINCT ON (week_start_date, week_end_date) 
+             id,
+             week_start_date AS "weekStartDate",
+             week_end_date AS "weekEndDate", 
+             uploaded_at AS "uploadedAt",
+             kpis,
+             daily_summary AS "dailySummary",
+             employees_by_date AS "employeesByDate",
+             employee_summary_by_date AS "employeeSummaryByDate",
+             warnings
       FROM capacity_analyses
       ORDER BY week_start_date DESC, week_end_date DESC, uploaded_at DESC
     `).then(result => result.rows as CapacityAnalysis[]);
   }
 
   async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
-    // Get the latest record for each of the latest N weeks
+    // Get the latest record for each of the latest N weeks with proper column aliasing
     return await db.execute(sql`
       WITH latest_per_week AS (
         SELECT *,
@@ -276,7 +289,15 @@ export class DatabaseStorage implements IStorage {
         FROM latest_per_week 
         WHERE rn = 1
       )
-      SELECT id, week_start_date, week_end_date, uploaded_at, kpis, daily_summary, employees_by_date, employee_summary_by_date, warnings
+      SELECT id,
+             week_start_date AS "weekStartDate",
+             week_end_date AS "weekEndDate", 
+             uploaded_at AS "uploadedAt",
+             kpis,
+             daily_summary AS "dailySummary",
+             employees_by_date AS "employeesByDate",
+             employee_summary_by_date AS "employeeSummaryByDate",
+             warnings
       FROM week_ranking 
       WHERE week_rank <= ${limit}
       ORDER BY week_start_date DESC
