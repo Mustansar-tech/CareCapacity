@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
   TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb as LightBulbIcon, Zap
@@ -73,18 +74,37 @@ export default function Dashboard() {
   const [filteredData, setFilteredData] = useState<ProcessingResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
 
   const { toast } = useToast();
 
   // Query to load latest data automatically
   const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
-    enabled: !processedData, // Only load if we don't have current data
+    enabled: !processedData && !selectedWeekId, // Only load if we don't have current data and no week selected
+  });
+
+  // Query to get all historical weeks for the dropdown
+  const { data: allHistoryData } = useQuery<any[]>({
+    queryKey: ['/api/history'],
+  });
+
+  // Query to load specific week data when selected
+  const { data: selectedWeekData, isLoading: isLoadingWeek } = useQuery<ProcessingResult>({
+    queryKey: ['/api/history/week', selectedWeekId],
+    queryFn: async () => {
+      if (!selectedWeekId) return null;
+      const response = await fetch(`/api/history`);
+      if (!response.ok) throw new Error('Failed to fetch week data');
+      const allData = await response.json();
+      return allData.find((analysis: any) => analysis.id === selectedWeekId);
+    },
+    enabled: !!selectedWeekId,
   });
 
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
-    if (latestData && !processedData) {
+    if (latestData && !processedData && !selectedWeekId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -98,7 +118,22 @@ export default function Dashboard() {
         description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, toast]);
+  }, [latestData, processedData, selectedWeekId, toast]);
+
+  // Load selected week data
+  useEffect(() => {
+    if (selectedWeekData) {
+      setProcessedData({
+        kpis: selectedWeekData.kpis,
+        dailySummary: selectedWeekData.dailySummary as any,
+        employeesByDate: selectedWeekData.employeesByDate as any,
+        employeeSummaryByDate: selectedWeekData.employeeSummaryByDate as any,
+        warnings: selectedWeekData.warnings as any,
+      });
+      setSelectedDate(selectedWeekData.dailySummary?.[0]?.date || null);
+      setFilteredData(null); // Clear any filters
+    }
+  }, [selectedWeekData]);
 
   // Handle file selection
   const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') => 
@@ -939,17 +974,46 @@ export default function Dashboard() {
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
                         <Calendar className="w-5 h-5 text-white" />
                       </div>
-                      <div>
-                        <div className="font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                          Week of {(() => {
-                            const data = filteredData || processedData;
-                            if (!data?.dailySummary || data.dailySummary.length === 0) return 'Unknown';
-                            const startDate = new Date(data.dailySummary[0].date).toLocaleDateString();
-                            const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString();
-                            return `${startDate} - ${endDate}`;
-                          })()}
+                      <div className="flex-1">
+                        <div className="font-bold text-lg bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
+                          Select Week:
                         </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                        <Select 
+                          value={selectedWeekId || "latest"} 
+                          onValueChange={(value) => {
+                            if (value === "latest") {
+                              setSelectedWeekId(null);
+                            } else {
+                              setSelectedWeekId(value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-80" data-testid="week-selector">
+                            <SelectValue placeholder="Select a week" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="latest">
+                              Latest Week{(() => {
+                                const data = filteredData || processedData;
+                                if (!data?.dailySummary || data.dailySummary.length === 0) return '';
+                                const startDate = new Date(data.dailySummary[0].date).toLocaleDateString('en-GB');
+                                const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString('en-GB');
+                                return ` (${startDate} - ${endDate})`;
+                              })()}
+                            </SelectItem>
+                            {allHistoryData?.slice().reverse().map((analysis) => {
+                              const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
+                              const endDate = new Date(analysis.weekEndDate).toLocaleDateString('en-GB');
+                              const monthYear = new Date(analysis.weekStartDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                              return (
+                                <SelectItem key={analysis.id} value={analysis.id}>
+                                  Week of {startDate} - {endDate} ({monthYear})
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-1">
                           {(() => {
                             const data = filteredData || processedData;
                             if (!data?.dailySummary || data.dailySummary.length === 0) return '';
