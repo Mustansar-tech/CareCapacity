@@ -303,7 +303,7 @@ function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
 
   for (const g of guaranteed || []) {
     // Only include entries that start with "cancelled" in Cancellation Description
-    const hasCancellation = isCancelled(g["Cancellation Description"]);
+    const hasCancellation = isCancelledStartsWith(g["Cancellation Description"]);
     if (!hasCancellation) continue; // Skip non-cancelled entries
 
     // Still exclude secondary care entries even if cancelled
