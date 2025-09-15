@@ -138,6 +138,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
                 <TableHead className="text-center font-semibold">Difference</TableHead>
+                <TableHead className="text-center font-semibold">Free Windows</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -176,6 +177,15 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                     >
                       {employee.difference > 0 ? '+' : ''}{employee.difference.toFixed(1)}h
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center" data-testid={`text-free-windows-${index}`}>
+                    {employee.freeWindows ? (
+                      <Badge variant="outline" className="bg-purple-50 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 text-xs font-mono">
+                        {employee.freeWindows}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400 text-sm">None</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

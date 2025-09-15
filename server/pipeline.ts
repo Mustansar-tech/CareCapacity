@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { parse, format } from "date-fns";
 import { buildTimeWindow, parseGuaranteedDate } from "./time-window-utils";
+import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
 import {
   AvailabilityRow,
@@ -1614,6 +1615,51 @@ export function processCapacityData(
         // If someone has both Available and Partial Availability, keep both
         // If someone has fully unavailable status, that overrides Available but Partial Availability hours are still counted
 
+        // Calculate free windows for this employee/date
+        const employeeDetails = employeesByDate[dateStr]?.filter(emp => emp.employeeName === employeeName) || [];
+        
+        // Collect availability, unavailability, and scheduled time windows
+        let availabilityWindows = '';
+        let unavailabilityWindows = '';
+        let scheduledWindows = '';
+        
+        employeeDetails.forEach(emp => {
+          if (emp.status === 'Available' && emp.timeWindows && emp.timeWindows !== '-') {
+            availabilityWindows = availabilityWindows ? `${availabilityWindows}, ${emp.timeWindows}` : emp.timeWindows;
+          } else if (emp.status !== 'Available' && emp.timeWindows && emp.timeWindows !== '-') {
+            unavailabilityWindows = unavailabilityWindows ? `${unavailabilityWindows}, ${emp.timeWindows}` : emp.timeWindows;
+          }
+          
+          // Add scheduled time windows if available
+          if (emp.scheduledHours > 0 && emp.timeWindows && emp.timeWindows !== '-') {
+            scheduledWindows = scheduledWindows ? `${scheduledWindows}, ${emp.timeWindows}` : emp.timeWindows;
+          }
+        });
+
+        // Calculate free windows using our capacity windows utility
+        let freeWindows = '';
+        try {
+          if (availabilityWindows) {
+            const capacityResult = computeCapacityWindows({
+              employeeName,
+              date: dateStr,
+              availabilityWindows,
+              unavailabilityWindows,
+              scheduledWindows,
+              desiredMinutes: empData.contractedDailyHours * 60 // Convert hours to minutes
+            }, {
+              roundToMinutes: 15,
+              minWindowMinutes: 60,
+              bufferMinutes: 0
+            });
+            
+            freeWindows = capacityResult.freeWindows;
+          }
+        } catch (error) {
+          console.warn(`Error calculating free windows for ${employeeName} on ${dateStr}:`, error);
+          freeWindows = '';
+        }
+
         return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
@@ -1623,6 +1669,7 @@ export function processCapacityData(
             empData.contractedDailyHours -
             finalUnavailabilityHours -
             empData.scheduledHours,
+          freeWindows, // New field: time slots available for new clients
         };
       },
     );
