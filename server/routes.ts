@@ -206,10 +206,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/history - Get all historical analyses (latest 4 weeks only)
+  // GET /api/history - Get all historical analyses (latest 8 weeks only)
   app.get('/api/history', async (req, res) => {
     try {
-      const analyses = await storage.getLatestWeeksAnalyses(4);
+      const analyses = await storage.getLatestWeeksAnalyses(8);
       res.json(analyses);
     } catch (error) {
       console.error('History fetch error:', error);
