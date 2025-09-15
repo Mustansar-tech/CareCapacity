@@ -67,8 +67,8 @@ export class MemStorage implements IStorage {
     };
     this.capacityAnalyses.set(id, analysis);
     
-    // Automatically enforce retention after saving
-    await this.enforceRetentionLatestWeeks(4);
+    // Automatically enforce retention after saving - keep latest 4 weeks per month for 3 months
+    await this.enforceRetentionByMonth(4, 3);
     
     return analysis;
   }
@@ -509,8 +509,8 @@ export class DatabaseStorage implements IStorage {
                  THEN DATE_TRUNC('month', week_start_date::date)
                  ELSE 
                    CASE 
-                     WHEN (DATE_TRUNC('month', week_start_date::date) + INTERVAL '1 month' - week_start_date::date) 
-                          >= (week_end_date::date - DATE_TRUNC('month', week_end_date::date))
+                     WHEN EXTRACT(DAY FROM (DATE_TRUNC('month', week_start_date::date) + INTERVAL '1 month' - week_start_date::date))
+                          >= EXTRACT(DAY FROM (week_end_date::date - DATE_TRUNC('month', week_end_date::date) + INTERVAL '1 day'))
                      THEN DATE_TRUNC('month', week_start_date::date)
                      ELSE DATE_TRUNC('month', week_end_date::date)
                    END
@@ -534,9 +534,13 @@ export class DatabaseStorage implements IStorage {
         FROM week_ranks_per_primary_month
         WHERE week_duplicate_rank = 1  -- Keep only latest per week
           AND week_rank_in_month <= ${weeksPerMonth}  -- Keep only latest N weeks per primary month
+      ),
+      safety_check AS (
+        SELECT COUNT(*) as keep_count FROM records_to_keep
       )
       DELETE FROM capacity_analyses 
-      WHERE id NOT IN (SELECT id FROM records_to_keep)
+      WHERE (SELECT keep_count FROM safety_check) > 0 
+        AND id NOT IN (SELECT id FROM records_to_keep)
     `);
     
     return result.rowCount || 0;
