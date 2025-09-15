@@ -289,6 +289,51 @@ function isCancellationBlank(value: any): boolean {
   return s === "" || s === "(blank)" || s === "na" || s === "n/a";
 }
 
+// Build Cancelled Visits lookup from Guaranteed sheet
+// key: normalized employee name + yyyy-MM-dd(resolved start date)
+function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
+  const cancelledMap = new Map<string, number>();
+  let totalCancelled = 0;
+
+  for (const g of guaranteed || []) {
+    // Only include CANCELLED entries (opposite of scheduled hours logic)
+    const isCancelled = !isCancellationBlank(g["Cancellation Description"]);
+    if (!isCancelled) continue; // Skip non-cancelled entries
+
+    // Still exclude secondary care entries even if cancelled
+    if (isSecondaryMultipleCare(g["Actual Service Type Description"])) continue;
+
+    const empName = g["Actual Employee Name"];
+    if (!empName) continue;
+
+    const normalizedName = normalizeName(empName);
+    if (!normalizedName) continue;
+
+    // Use the same date resolution logic as scheduled hours
+    const startDateValue = pickStartForBucket(g);
+    if (!startDateValue) continue;
+
+    const dateKey = format(parseDate(startDateValue), "yyyy-MM-dd");
+    const key = `${normalizedName}|${dateKey}`;
+
+    // Get duration/hours from the guaranteed record
+    const hoursRaw = g["Actual Pay Rate Hours"] || g["Actual Duration"] || 0;
+    const hours = parseFloat(hoursRaw) || 0;
+
+    if (hours > 0) {
+      const existing = cancelledMap.get(key) || 0;
+      cancelledMap.set(key, existing + hours);
+      totalCancelled++;
+    }
+  }
+
+  console.log(`🚫 CANCELLED VISITS FILTERING SUMMARY:`);
+  console.log(`  📊 Total cancelled visit entries: ${totalCancelled}`);
+  console.log(`  📋 Cancelled visits by employee/date: ${cancelledMap.size}`);
+
+  return cancelledMap;
+}
+
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
 // key: normalized employee name + yyyy-MM-dd(resolved start date)
