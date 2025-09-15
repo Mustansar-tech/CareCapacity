@@ -1037,7 +1037,9 @@ export function processCapacityData(
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
   // Build cancelled visits lookup from guaranteed hours data
+  console.log(`📋 BEFORE CANCELLED VISITS: guaranteed array has ${guaranteed?.length || 0} rows`);
   const cancelledVisitsMap = buildCancelledVisitsLookup(guaranteed);
+  console.log(`📋 AFTER CANCELLED VISITS: map has ${cancelledVisitsMap.size} entries`);
 
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
