@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, real, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, real, integer, jsonb, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -28,7 +28,13 @@ export const capacityAnalyses = pgTable("capacity_analyses", {
   employeesByDate: jsonb("employees_by_date").notNull(),
   employeeSummaryByDate: jsonb("employee_summary_by_date").notNull().default({}),
   warnings: jsonb("warnings").default([]),
-});
+}, (table) => ({
+  // Unique constraint to prevent duplicate weeks
+  uniqueWeek: unique("unique_week").on(table.weekStartDate, table.weekEndDate),
+  // Indexes for efficient querying
+  weekStartIdx: index("week_start_idx").on(table.weekStartDate),
+  uploadedAtIdx: index("uploaded_at_idx").on(table.uploadedAt),
+}));
 
 export const insertCapacityAnalysisSchema = createInsertSchema(capacityAnalyses).omit({
   id: true,
@@ -37,6 +43,26 @@ export const insertCapacityAnalysisSchema = createInsertSchema(capacityAnalyses)
 
 export type InsertCapacityAnalysis = z.infer<typeof insertCapacityAnalysisSchema>;
 export type CapacityAnalysis = typeof capacityAnalyses.$inferSelect;
+
+// Week boundary helper functions
+export function getCanonicalWeekBoundaries(dateStr: string): { weekStart: string; weekEnd: string } {
+  const date = new Date(dateStr + 'T00:00:00.000Z'); // Parse as UTC
+  
+  // Get the Monday of the week (ISO week starts on Monday)
+  const dayOfWeek = date.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+  const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday=0 to Sunday=6
+  
+  const weekStart = new Date(date);
+  weekStart.setUTCDate(date.getUTCDate() - daysToSubtract);
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6); // Sunday is +6 days from Monday
+  
+  return {
+    weekStart: weekStart.toISOString().split('T')[0], // YYYY-MM-DD format
+    weekEnd: weekEnd.toISOString().split('T')[0]
+  };
+}
 
 // ====================== CARE CAPACITY DASHBOARD SCHEMAS ======================
 
