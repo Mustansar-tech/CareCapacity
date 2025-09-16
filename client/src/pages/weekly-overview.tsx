@@ -265,12 +265,12 @@ export default function WeeklyOverview() {
         // Calculate free hours from difference (positive difference = free capacity)
         const freeHours = Math.max(0, employee.difference || 0);
         
-        // Count windows from freeWindows string
-        const windowCount = employee.freeWindows && 
-                           employee.freeWindows !== "None" && 
-                           employee.freeWindows !== "—" && 
-                           employee.freeWindows.trim() !== ""
-          ? employee.freeWindows.split(',').length
+        // Count windows from freeWindows string with robust parsing
+        const freeWindowsStr = employee.freeWindows?.trim() || '';
+        const windowCount = freeWindowsStr && 
+                           !/^(none|—|-)$/i.test(freeWindowsStr)
+          ? (freeWindowsStr.match(/\b\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}\b/g)?.length || 
+             freeWindowsStr.split(/[;,]/).map(s => s.trim()).filter(Boolean).length)
           : 0;
         
         employeeWeekData.weekData[dayOfWeek] = {
@@ -282,8 +282,21 @@ export default function WeeklyOverview() {
       });
     });
     
-    // Convert map to array and sort by employee name
-    weeklyData.push(...Array.from(employeeDataMap.values()).sort((a, b) => 
+    // Filter out employees who have no free windows across the entire week
+    const allEmployees = Array.from(employeeDataMap.values());
+    const employeesWithFreeWindows = allEmployees.filter(employee => {
+      // Check if employee has any windows across any day of the week
+      const totalWindows = DAYS_OF_WEEK.reduce((acc, day) => {
+        const dayData = employee.weekData[day];
+        return acc + (dayData?.windowCount || 0);
+      }, 0);
+      
+      // Include employee only if they have windows
+      return totalWindows > 0;
+    });
+    
+    // Convert filtered employees to array and sort by employee name
+    weeklyData.push(...employeesWithFreeWindows.sort((a, b) => 
       a.employeeName.localeCompare(b.employeeName)
     ));
   }
