@@ -30,9 +30,10 @@ function normalizeName(name: string): string {
 function toDate(v: any): Date | undefined {
   if (v instanceof Date && !isNaN(+v)) return v;
   if (typeof v === 'number') {
-    const d = XLSX.SSF.parse_date_code(v);
-    if (!d) return undefined;
-    return new Date(d.y, (d.m ?? 1) - 1, d.d ?? 1, d.H ?? 0, d.M ?? 0, Math.floor(d.S ?? 0));
+    // Handle Excel serial date numbers
+    const baseDate = new Date(1900, 0, 1); // Excel epoch (Jan 1, 1900)
+    const days = v - 2; // Excel date serial number adjustment (-2 for 1900 leap year bug)
+    return new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
   }
   const t = new Date(String(v));
   return isNaN(+t) ? undefined : t;
