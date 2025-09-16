@@ -289,178 +289,6 @@ function isCancellationBlank(value: any): boolean {
   return s === "" || s === "(blank)" || s === "na" || s === "n/a";
 }
 
-// Check if cancellation description starts with "cancelled"
-function isCancelledStartsWith(value: any): boolean {
-  const s = (value ?? "").toString().trim().toLowerCase();
-  return s.startsWith("cancelled");
-}
-
-// Build Cancelled Visits lookup from Guaranteed sheet
-// key: normalized employee name + yyyy-MM-dd(resolved start date)
-function buildCancelledVisitsLookup(guaranteed: any[]): Map<string, number> {
-  const cancelledMap = new Map<string, number>();
-  let totalCancelled = 0;
-  let debugCount = 0;
-
-  console.log("🔍 CANCELLED VISITS DEBUG - Starting analysis");
-  console.log(`  - Total guaranteed rows: ${guaranteed?.length || 0}`);
-
-  for (const g of guaranteed || []) {
-    debugCount++;
-    
-    // Debug first few rows
-    if (debugCount <= 3) {
-      console.log(`  - Row ${debugCount} Cancellation Description: "${g["Cancellation Description"]}"`);
-    }
-    
-    // Only include entries that start with "cancelled" in Cancellation Description
-    const hasCancellation = isCancelledStartsWith(g["Cancellation Description"]);
-    if (!hasCancellation) continue; // Skip non-cancelled entries
-
-    console.log(`  ✅ FOUND CANCELLED VISIT: "${g["Cancellation Description"]}" for ${g["Actual Employee Name"]}`);
-    totalCancelled++;
-
-    // Still exclude secondary care entries even if cancelled
-    if (isSecondaryMultipleCare(g["Actual Service Type Description"])) continue;
-
-    const empName = g["Actual Employee Name"];
-    if (!empName) continue;
-
-    const normalizedName = normalizeName(empName);
-    if (!normalizedName) continue;
-
-    // Use the same date resolution logic as scheduled hours
-    const startDateValue = pickStartForBucket(g);
-    if (!startDateValue) continue;
-
-    const dateKey = format(parseDate(startDateValue), "yyyy-MM-dd");
-    const key = `${normalizedName}|${dateKey}`;
-
-    // Get duration/hours from the guaranteed record
-    const hoursRaw = g["Actual Pay Rate Hours"] || g["Actual Duration"] || 0;
-    const hours = parseFloat(hoursRaw) || 0;
-
-    if (hours > 0) {
-      const existing = cancelledMap.get(key) || 0;
-      cancelledMap.set(key, existing + hours);
-      totalCancelled++;
-    }
-  }
-
-  console.log(`🚫 CANCELLED VISITS FILTERING SUMMARY:`);
-  console.log(`  📊 Total cancelled visit entries: ${totalCancelled}`);
-  console.log(`  📋 Cancelled visits by employee/date: ${cancelledMap.size}`);
-
-  return cancelledMap;
-}
-
-// SEPARATE CANCELLED VISITS LOGIC - USING TIME WINDOWS INSTEAD OF DURATION
-function buildSeparateCancelledVisitsLookup(guaranteed: any[]): Map<string, string> {
-  const cancelledMap = new Map<string, string>();
-  let totalProcessed = 0;
-  let totalCancelled = 0;
-
-  console.log("🟧 CANCELLED VISITS WITH TIME WINDOWS - Starting");
-  console.log(`   Total guaranteed rows to process: ${guaranteed?.length || 0}`);
-
-  for (const row of guaranteed || []) {
-    totalProcessed++;
-    
-    // Debug first few rows
-    if (totalProcessed <= 3) {
-      console.log(`   Row ${totalProcessed}: Cancellation Description = "${row["Cancellation Description"]}"`);
-    }
-    
-    // CHECK: Does this row have cancellation description starting with "cancelled"?
-    const cancellationDesc = (row["Cancellation Description"] || "").toString().trim().toLowerCase();
-    const isCancelled = cancellationDesc.startsWith("cancelled");
-    
-    if (!isCancelled) continue; // Skip non-cancelled entries
-    
-    console.log(`   ✅ CANCELLED VISIT FOUND: "${row["Cancellation Description"]}" for employee: ${row["Actual Employee Name"]}`);
-    totalCancelled++;
-
-    // Get employee name and normalize it
-    const empName = row["Actual Employee Name"];
-    if (!empName) {
-      console.log(`   ❌ Skipping: No employee name`);
-      continue;
-    }
-
-    const normalizedName = normalizeName(empName);
-    if (!normalizedName) {
-      console.log(`   ❌ Skipping: Could not normalize name: ${empName}`);
-      continue;
-    }
-
-    // Get date
-    const startDateValue = pickStartForBucket(row);
-    if (!startDateValue) {
-      console.log(`   ❌ Skipping: No start date found`);
-      continue;
-    }
-
-    const dateResolved = parseDate(startDateValue);
-    const dateStr = format(dateResolved, "yyyy-MM-dd");
-
-    // CALCULATE TIME WINDOW instead of just duration
-    const startTime = row["Service Requirement Start Date And Time"];
-    const endTime = row["Service Requirement End Date And Time"];
-    
-    let timeWindow = "Unknown";
-    if (startTime && endTime) {
-      try {
-        const startParsed = parseDate(startTime);
-        const endParsed = parseDate(endTime);
-        const startTimeStr = format(startParsed, "HH:mm");
-        const endTimeStr = format(endParsed, "HH:mm");
-        timeWindow = `${startTimeStr}-${endTimeStr}`;
-        console.log(`   ⏰ Time window calculated: ${timeWindow}`);
-      } catch (error) {
-        console.log(`   ❌ Error parsing time: ${error}`);
-        // Fall back to duration if available
-        const actualDuration = parseFloat(row["Actual Duration"] || "0") || 0;
-        if (actualDuration > 0) {
-          timeWindow = `${actualDuration}h`;
-        }
-      }
-    } else {
-      // Fall back to duration if no time fields
-      const actualDuration = parseFloat(row["Actual Duration"] || "0") || 0;
-      if (actualDuration > 0) {
-        timeWindow = `${actualDuration}h`;
-      }
-    }
-
-    // Store in map - if multiple cancelled visits on same day, concatenate them
-    const key = `${normalizedName}|${dateStr}`;
-    const existingWindows = cancelledMap.get(key);
-    if (existingWindows) {
-      cancelledMap.set(key, `${existingWindows}, ${timeWindow}`);
-    } else {
-      cancelledMap.set(key, timeWindow);
-    }
-    
-    console.log(`   💾 Stored: ${key} = ${timeWindow} (existing: ${existingWindows || "none"})`);
-  }
-
-  console.log(`🟧 CANCELLED VISITS SUMMARY:`);
-  console.log(`   📊 Total rows processed: ${totalProcessed}`);
-  console.log(`   ✅ Total cancelled visits found: ${totalCancelled}`);
-  console.log(`   📋 Unique employee/date keys: ${cancelledMap.size}`);
-  
-  // Show some examples
-  let count = 0;
-  for (const [key, timeWindows] of Array.from(cancelledMap.entries())) {
-    if (count < 3) {
-      console.log(`   📝 Example: ${key} = ${timeWindows}`);
-      count++;
-    }
-  }
-
-  return cancelledMap;
-}
-
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
 // key: normalized employee name + yyyy-MM-dd(resolved start date)
@@ -1143,12 +971,6 @@ export function processCapacityData(
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
-  // Build cancelled visits lookup from guaranteed hours data - USING SEPARATE LOGIC
-  console.log(`📋 BEFORE CANCELLED VISITS: guaranteed array has ${guaranteed?.length || 0} rows`);
-  console.log(`🟧 TEST: About to call buildSeparateCancelledVisitsLookup function`);
-  const cancelledVisitsMap = buildSeparateCancelledVisitsLookup(guaranteed);
-  console.log(`📋 AFTER CANCELLED VISITS: map has ${cancelledVisitsMap.size} entries`);
-
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
     console.log("=== GUARANTEED HOURS DEBUGGING ===");
@@ -1469,11 +1291,6 @@ export function processCapacityData(
         .sort()
         .join("; ");
 
-      // Get cancelled visits for this employee and date
-      const normalizedEmpName = normalizeName(empName);
-      const cancelledVisitsKey = `${normalizedEmpName}|${date}`;
-      const cancelledVisits = cancelledVisitsMap.get(cancelledVisitsKey) || "";
-
       cleanedRecords.push({
         employeeName: empName,
         contractedWeeklyHours: Math.round(weekly * 100) / 100,
@@ -1485,7 +1302,6 @@ export function processCapacityData(
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes: notesStr,
-        cancelledVisits: cancelledVisits || undefined, // Time windows for cancelled visits
       });
     }
   });
@@ -1871,10 +1687,6 @@ export function processCapacityData(
           freeWindows = '';
         }
 
-        // Calculate cancelled visits for this employee/date
-        const cancelledVisitsKey = `${empNormalized}|${dateStr}`;
-        const cancelledVisits = cancelledVisitsMap.get(cancelledVisitsKey) || 0;
-
         return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
@@ -1885,7 +1697,6 @@ export function processCapacityData(
             finalUnavailabilityHours -
             empData.scheduledHours,
           freeWindows, // New field: time slots available for new clients
-          cancelledVisits, // New field: duration of cancelled visits in hours
         };
       },
     );

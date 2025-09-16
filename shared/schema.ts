@@ -118,7 +118,6 @@ export interface CleanedEmployeeRecord {
   hours: number;
   netCapacity: number;
   notes: string;
-  cancelledVisits?: string; // Time windows for cancelled visits
 }
 
 export interface DailySummaryRecord {
@@ -150,7 +149,6 @@ export interface EmployeeSummaryRecord {
   scheduledHours: number;
   difference: number;
   freeWindows: string; // Time slots available for new clients (e.g., "09:00-12:00, 14:00-16:00")
-  cancelledVisits: number; // Total duration of cancelled visits in hours
 }
 
 export interface ProcessingResult {
