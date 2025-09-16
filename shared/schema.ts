@@ -151,6 +151,7 @@ export interface EmployeeSummaryRecord {
   freeWindows: string; // Time slots available for new clients (e.g., "09:00-12:00, 14:00-16:00")
   cancelledVisits: string; // Cancelled visit time windows (e.g., "Mon 15 Sep • 10:30–11:30; Tue 16 Sep • 14:00–15:00")
   transportMode?: string; // Transport mode from CG Data (e.g., "Car", "Walker")
+  gender?: string; // Gender derived from title (e.g., "male", "female")
 }
 
 export interface ProcessingResult {

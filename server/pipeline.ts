@@ -624,6 +624,9 @@ function parseDate(dateStr: any): Date {
 interface CGDataRow {
   'CAREGiver Name': string;
   'Weekly Hours': number;
+  'TransportModeDescription'?: string;
+  'Title'?: string;
+  'Gender'?: string;
   [key: string]: any;
 }
 
@@ -730,11 +733,27 @@ export function parseExcelFiles(
         "Transport",
       ]) || "";
 
+      const title = pickCol(row, [
+        "Title",
+        "Employee Title",
+        "Title Description",
+      ]) || "";
+
+      // Determine gender from title
+      const gender = (() => {
+        const titleLower = title.toLowerCase().trim();
+        if (titleLower === "mr") return "male";
+        if (["miss", "ms", "mrs"].includes(titleLower)) return "female";
+        return ""; // Unknown/not specified
+      })();
+
       const weekly = Number(weeklyRaw ?? 0);
       return { 
         "CAREGiver Name": name, 
         "Weekly Hours": isFinite(weekly) ? weekly : 0,
-        "TransportModeDescription": transportMode
+        "TransportModeDescription": transportMode,
+        "Title": title,
+        "Gender": gender
       };
     })
     .filter(r => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
@@ -1012,14 +1031,16 @@ export function processCapacityData(
     .map((row) => ({ 
       name: row["CAREGiver Name"], 
       weekly: Number(row["Weekly Hours"] || 0),
-      transportMode: row["TransportModeDescription"] || ""
+      transportMode: row["TransportModeDescription"] || "",
+      gender: row["Gender"] || ""
     }))
     .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
     .map((row) => ({ 
       originalName: row.name, 
       normalizedName: normalizeName(row.name), 
       weeklyHours: row.weekly,
-      transportMode: row.transportMode
+      transportMode: row.transportMode,
+      gender: row.gender
     }));
 
   console.log(`📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`);
@@ -1716,9 +1737,10 @@ export function processCapacityData(
         const empNormalizedName = normalizeName(employeeName);
         const cancelledVisits = cancelledVisitsForDate.get(empNormalizedName) ?? '—';
 
-        // Get transport mode from master employee list
+        // Get transport mode and gender from master employee list
         const masterEmployee = masterEmployees.find(emp => emp.normalizedName === empNormalizedName);
         const transportMode = masterEmployee?.transportMode || "";
+        const gender = masterEmployee?.gender || "";
 
         return {
           employeeName,
@@ -1732,6 +1754,7 @@ export function processCapacityData(
           freeWindows, // New field: time slots available for new clients
           cancelledVisits, // New field: cancelled visit time windows
           transportMode, // Transport mode from CG Data (e.g., "Car", "Walker")
+          gender, // Gender derived from title (e.g., "male", "female")
         };
       },
     );
