@@ -286,6 +286,10 @@ export default function WeeklyOverview() {
       const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
       
       employees.forEach((employee) => {
+        // Debug: Log transport mode data
+        if (employee.transportMode) {
+          console.log(`🚗 Transport mode for ${employee.employeeName}: ${employee.transportMode}`);
+        }
         if (!employeeDataMap.has(employee.employeeName)) {
           employeeDataMap.set(employee.employeeName, {
             employeeName: employee.employeeName,
