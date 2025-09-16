@@ -79,23 +79,35 @@ function HeatmapCell({
       <TooltipTrigger asChild>
         <div 
           className={`
-            relative h-16 w-full rounded-lg border border-gray-200 dark:border-gray-700 
+            relative h-20 w-full rounded-lg border border-gray-200 dark:border-gray-700 
             cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md
-            flex flex-col items-center justify-center p-1
+            flex flex-col items-center justify-center p-2
             ${getColorIntensity(freeHours)}
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
         >
-          <div className="text-sm font-bold">
-            {freeHours > 0 ? `${freeHours.toFixed(1)}h` : "—"}
-          </div>
-          {windowCount > 0 && (
-            <Badge 
-              variant="secondary" 
-              className="text-xs h-4 px-1 mt-1 bg-white/70 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300"
-            >
-              {windowCount}
-            </Badge>
+          {windowCount > 0 ? (
+            <div className="text-center">
+              <div className="text-xs font-mono leading-tight mb-1 max-w-full overflow-hidden">
+                {freeWindows && freeWindows !== "None" && freeWindows !== "—" 
+                  ? freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
+                      <div key={idx} className="truncate">
+                        {window.trim()}
+                      </div>
+                    ))
+                  : "—"}
+              </div>
+              <Badge 
+                variant="secondary" 
+                className="text-xs h-4 px-1 bg-white/70 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300"
+              >
+                {windowCount} windows
+              </Badge>
+            </div>
+          ) : (
+            <div className="text-sm font-bold text-gray-400">
+              —
+            </div>
           )}
         </div>
       </TooltipTrigger>
