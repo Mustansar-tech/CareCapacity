@@ -11,7 +11,7 @@ import { GuaranteedHoursRow } from '@shared/schema';
 const HEADERS = {
   cancel: 'Cancellation Description',
   start: 'Service Requirement Start Date And Time',
-  duration: 'Service Requirement Duration', // HOURS (decimal)
+  end: 'Service Requirement End Date And Time',
   staff: ['Planned Employee Name', 'Template Employee Name', 'Actual Employee Name'],
 };
 
@@ -27,8 +27,19 @@ function toDate(v: any): Date | undefined {
   return isNaN(+t) ? undefined : t;
 }
 
-function normalizeName(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, ' ');
+// Use the same normalization logic as the pipeline to ensure consistency
+function normalizeName(name: string): string {
+  if (!name || name === 'undefined' || name === 'null') return '';
+  let s = String(name).toLowerCase();
+  s = s.replace(/\(.*?\)/g, ''); // remove parentheses content
+  s = s.replace(/[^a-z\s]/g, ' '); // keep letters and spaces
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, ' '); // remove titles
+  s = s.replace(/\s+/g, ' ').trim();
+  return s
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
 }
 
 export function extractCancelledWindows(
@@ -45,13 +56,14 @@ export function extractCancelledWindows(
     const status = String(r[HEADERS.cancel as keyof GuaranteedHoursRow] ?? '').toLowerCase();
     if (!status.includes('cancel')) continue;
 
-    const start = toDate(r[HEADERS.start as keyof GuaranteedHoursRow]);
-    const durH = Number(r[HEADERS.duration as keyof GuaranteedHoursRow] ?? 0);
+    const startTime = toDate(r[HEADERS.start as keyof GuaranteedHoursRow]);
+    const endTime = toDate(r[HEADERS.end as keyof GuaranteedHoursRow]);
     
-    if (!start || !isFinite(durH)) continue;
+    if (!startTime || !endTime || endTime <= startTime) continue;
 
-    const minutes = Math.round(durH * 60);
-    if (minutes < minMinutes || start < wkStart || start > wkEnd) continue;
+    // Compute duration from start and end times
+    const minutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+    if (minutes < minMinutes || startTime < wkStart || startTime > wkEnd) continue;
 
     // Find staff name from available fields
     const staff = HEADERS.staff
@@ -59,9 +71,7 @@ export function extractCancelledWindows(
       .find(v => v && String(v).trim() !== '');
     
     if (!staff) continue;
-
-    const end = addMinutes(start, minutes);
-    const label = `${fmt(start, 'EEE dd MMM')} • ${fmt(start, 'HH:mm')}–${fmt(end, 'HH:mm')}`;
+    const label = `${fmt(startTime, 'EEE dd MMM')} • ${fmt(startTime, 'HH:mm')}–${fmt(endTime, 'HH:mm')}`;
     const key = normalizeName(String(staff));
     
     if (!tmp.has(key)) tmp.set(key, []);
