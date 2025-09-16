@@ -114,9 +114,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process the data with CG Data as master employee list
       const result = processCapacityData(
         parsedData.availability,
-        parsedData.guaranteed,
+        parsedData.guaranteed,     // still the filtered rows for scheduling
         parsedData.demand,
-        parsedData.cgData
+        parsedData.cgData,
+        { ghWorkbookBuffer: guaranteedFile.buffer }   // pass the raw workbook buffer ONLY for cancellations
       );
 
       // Add parsing warnings to result
