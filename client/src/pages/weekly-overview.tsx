@@ -109,7 +109,7 @@ function HeatmapCell({
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
         >
-          {windowCount > 0 || (freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
+          {freeHours > 0 || windowCount > 0 || (freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
             <div className="text-center w-full">
               <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
                 Free Hours: {freeHours.toFixed(1)}h
@@ -328,7 +328,7 @@ export default function WeeklyOverview() {
       });
     });
     
-    // Filter out employees who have no free windows across the entire week
+    // Filter out employees who have no free windows OR free hours across the entire week
     const allEmployees = Array.from(employeeDataMap.values());
     const employeesWithFreeWindows = allEmployees.filter(employee => {
       // Check if employee has any windows across any day of the week
@@ -337,8 +337,14 @@ export default function WeeklyOverview() {
         return acc + (dayData?.windowCount || 0);
       }, 0);
       
-      // Include employee only if they have windows
-      return totalWindows > 0;
+      // Check if employee has any free hours across any day of the week
+      const totalFreeHours = DAYS_OF_WEEK.reduce((acc, day) => {
+        const dayData = employee.weekData[day];
+        return acc + (dayData?.freeHours || 0);
+      }, 0);
+      
+      // Include employee if they have either windows OR free hours
+      return totalWindows > 0 || totalFreeHours > 0;
     });
     
     // Convert filtered employees to array and sort by employee name
