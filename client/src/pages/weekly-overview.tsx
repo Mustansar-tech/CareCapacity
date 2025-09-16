@@ -28,9 +28,17 @@ function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   const mode = transportMode.toLowerCase();
   
   if (mode.includes('car')) {
-    return <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+    return (
+      <div title="Car" aria-label="Transport mode: car" className="inline-block">
+        <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+      </div>
+    );
   } else if (mode.includes('walk')) {
-    return <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />;
+    return (
+      <div title="Walking" aria-label="Transport mode: walking" className="inline-block">
+        <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />
+      </div>
+    );
   }
   
   return null;
@@ -193,9 +201,11 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
             key={employee.employeeName} 
             className="grid grid-cols-8 gap-4 items-center p-4 bg-white dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div className="font-medium text-gray-900 dark:text-gray-100 pr-2 flex items-center gap-2 min-w-0">
-              <span className="truncate flex-1 min-w-0">{employee.employeeName}</span>
-              <div className="flex-shrink-0">
+            <div className="font-medium text-gray-900 dark:text-gray-100 pr-2 flex flex-col items-start gap-1 min-w-0">
+              <span className="truncate w-full" data-testid={`text-employee-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
+                {employee.employeeName}
+              </span>
+              <div className="h-4" data-testid={`icon-transport-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
                 <TransportModeIcon transportMode={employee.transportMode} />
               </div>
             </div>
