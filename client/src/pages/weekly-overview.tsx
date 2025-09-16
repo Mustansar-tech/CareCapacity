@@ -86,14 +86,14 @@ function HeatmapCell({
           Windows: <span className="font-medium">{windowCount}</span>
         </div>
       </div>
-      {freeWindows && freeWindows !== "None" && freeWindows !== "—" && (
-        <div>
-          <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Free Times:</div>
-          <div className="text-xs font-mono bg-blue-50 dark:bg-blue-900/30 p-2 rounded border">
-            {freeWindows}
-          </div>
+      <div>
+        <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Free Times:</div>
+        <div className="text-xs font-mono bg-blue-50 dark:bg-blue-900/30 p-2 rounded border">
+          {(freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") 
+            ? freeWindows 
+            : "No availability"}
         </div>
-      )}
+      </div>
       {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && (
         <div>
           <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Cancelled:</div>
@@ -123,15 +123,17 @@ function HeatmapCell({
               <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
                 Free Hours: {freeHours.toFixed(1)}h
               </div>
-              {freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "" && (
-                <div className="text-xs font-mono leading-tight mb-1 text-blue-600 dark:text-blue-400">
-                  {freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
+              <div className="text-xs font-mono leading-tight mb-1 text-blue-600 dark:text-blue-400">
+                {(freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
+                  freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
                     <div key={idx} className="truncate">
                       {window.trim()}
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                ) : (
+                  <div className="text-gray-500 dark:text-gray-400 italic">No availability</div>
+                )}
+              </div>
               {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "" && (
                 <div className="text-xs text-red-600 dark:text-red-400 font-mono leading-tight">
                   <div className="font-semibold">Cancelled:</div>
