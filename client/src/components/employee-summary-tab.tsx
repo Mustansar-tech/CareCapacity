@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
+import { getGenderColorClass } from "@/utils/gender-colors";
 
 interface EmployeeSummaryTabProps {
   data: EmployeeSummaryRecord[];
@@ -150,7 +151,9 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                   data-testid={`row-employee-summary-${index}`}
                 >
                   <TableCell className="font-medium" data-testid={`text-employee-name-${index}`}>
-                    {employee.employeeName}
+                    <span className={getGenderColorClass(employee.gender)}>
+                      {employee.employeeName}
+                    </span>
                   </TableCell>
                   <TableCell className="text-center" data-testid={`text-availability-${index}`}>
                     <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
