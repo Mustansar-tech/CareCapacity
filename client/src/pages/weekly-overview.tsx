@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CalendarDays, Users, Car, PersonStanding } from "lucide-react";
 import type { CapacityAnalysis, EmployeeSummaryRecord } from "@shared/schema";
+import { getGenderColorClass } from "@/utils/gender-colors";
 
 interface EmployeeWeeklyData {
   employeeName: string;
@@ -22,17 +23,6 @@ interface EmployeeWeeklyData {
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function getGenderColorClass(gender?: string): string {
-  const normalizedGender = (gender || "").toLowerCase().trim();
-  if (normalizedGender === "female") {
-    return "text-pink-600 dark:text-pink-400"; // Pink for females
-  } else if (normalizedGender === "male") {
-    return "text-blue-600 dark:text-blue-400"; // Blue for males
-  } else {
-    return "text-gray-900 dark:text-gray-100"; // Default color for unknown gender
-  }
-}
 
 function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   if (!transportMode || transportMode.trim() === '') return null;
