@@ -9,6 +9,7 @@ import type { CapacityAnalysis, EmployeeSummaryRecord } from "@shared/schema";
 interface EmployeeWeeklyData {
   employeeName: string;
   transportMode?: string;
+  gender?: string;
   weekData: {
     [dayOfWeek: string]: {
       freeHours: number;
@@ -21,6 +22,17 @@ interface EmployeeWeeklyData {
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function getGenderColorClass(gender?: string): string {
+  const normalizedGender = (gender || "").toLowerCase().trim();
+  if (normalizedGender === "female") {
+    return "text-pink-600 dark:text-pink-400"; // Pink for females
+  } else if (normalizedGender === "male") {
+    return "text-blue-600 dark:text-blue-400"; // Blue for males
+  } else {
+    return "text-gray-900 dark:text-gray-100"; // Default color for unknown gender
+  }
+}
 
 function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   if (!transportMode || transportMode.trim() === '') return null;
@@ -187,7 +199,12 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
       <div className="space-y-2">
         {/* Column headers */}
         <div className="grid grid-cols-8 gap-4 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          <div className="font-semibold text-gray-700 dark:text-gray-300">Employee</div>
+          <div className="font-semibold text-gray-700 dark:text-gray-300">
+            <div>Employee</div>
+            <div className="text-xs font-normal text-gray-500 dark:text-gray-400 mt-1">
+              <span className="text-blue-600 dark:text-blue-400">Blue = Male</span> • <span className="text-pink-600 dark:text-pink-400">Pink = Female</span>
+            </div>
+          </div>
           {DAY_ABBREVIATIONS.map(day => (
             <div key={day} className="text-center font-medium text-gray-600 dark:text-gray-400">
               {day}
@@ -201,8 +218,8 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
             key={employee.employeeName} 
             className="grid grid-cols-8 gap-4 items-center p-4 bg-white dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div className="font-medium text-gray-900 dark:text-gray-100 pr-2 flex flex-col items-start gap-1 min-w-0">
-              <span className="truncate w-full" data-testid={`text-employee-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
+            <div className="font-medium pr-2 flex flex-col items-start gap-1 min-w-0">
+              <span className={`truncate w-full font-semibold ${getGenderColorClass(employee.gender)}`} data-testid={`text-employee-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
                 {employee.employeeName}
               </span>
               <div className="h-4" data-testid={`icon-transport-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
@@ -302,6 +319,7 @@ export default function WeeklyOverview() {
           employeeDataMap.set(employee.employeeName, {
             employeeName: employee.employeeName,
             transportMode: employee.transportMode,
+            gender: employee.gender,
             weekData: {}
           });
         }
