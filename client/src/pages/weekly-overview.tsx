@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CalendarDays, Users, Car, PersonStanding } from "lucide-react";
-import type { CapacityAnalysis, EmployeeSummaryRecord } from "@shared/schema";
+import type { ProcessingResult, EmployeeSummaryRecord } from "@shared/schema";
 import { getGenderColorClass } from "@/utils/gender-colors";
 
 interface EmployeeWeeklyData {
@@ -109,9 +109,9 @@ function HeatmapCell({
       <TooltipTrigger asChild>
         <div 
           className={`
-            relative h-20 w-full rounded-lg border border-gray-200 dark:border-gray-700 
+            relative h-28 w-full rounded-lg border border-gray-200 dark:border-gray-700 
             cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md
-            flex flex-col items-center justify-center p-2
+            flex flex-col items-center justify-center p-3
             ${getColorIntensity(freeHours)}
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
@@ -249,11 +249,22 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
   );
 }
 
-export default function WeeklyOverview() {
-  const { data: latestData, isLoading, error } = useQuery<CapacityAnalysis>({
+interface WeeklyOverviewProps {
+  data?: ProcessingResult | null;
+  isLoading?: boolean;
+  error?: any;
+}
+
+export default function WeeklyOverview({ data: propsData, isLoading: propsIsLoading, error: propsError }: WeeklyOverviewProps = {}) {
+  // Use props data if available, otherwise fetch latest data (for standalone usage)
+  const { data: fetchedData, isLoading: fetchIsLoading, error: fetchError } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
-    enabled: true,
+    enabled: !propsData && propsIsLoading !== true,
   });
+
+  const latestData = propsData || fetchedData;
+  const isLoading = propsIsLoading !== undefined ? propsIsLoading : fetchIsLoading;
+  const error = propsError || fetchError;
 
   if (isLoading) {
     return (

@@ -783,7 +783,11 @@ export default function Dashboard() {
 
           {/* Weekly Overview Tab */}
           <TabsContent value="weekly-overview" data-testid="content-weekly-overview">
-            <WeeklyOverview />
+            <WeeklyOverview 
+              data={filteredData || processedData}
+              isLoading={isLoadingLatest}
+              error={latestDataError}
+            />
           </TabsContent>
 
           {/* Overview Tab */}
