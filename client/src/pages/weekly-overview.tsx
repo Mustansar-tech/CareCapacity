@@ -3,11 +3,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CalendarDays, Users } from "lucide-react";
+import { CalendarDays, Users, Car, PersonStanding } from "lucide-react";
 import type { CapacityAnalysis, EmployeeSummaryRecord } from "@shared/schema";
 
 interface EmployeeWeeklyData {
   employeeName: string;
+  transportMode?: string;
   weekData: {
     [dayOfWeek: string]: {
       freeHours: number;
@@ -20,6 +21,20 @@ interface EmployeeWeeklyData {
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function TransportModeIcon({ transportMode }: { transportMode?: string }) {
+  if (!transportMode) return null;
+  
+  const mode = transportMode.toLowerCase();
+  
+  if (mode.includes('car')) {
+    return <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+  } else if (mode.includes('walk')) {
+    return <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />;
+  }
+  
+  return null;
+}
 
 function HeatmapCell({ 
   dayData, 
@@ -178,8 +193,9 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
             key={employee.employeeName} 
             className="grid grid-cols-8 gap-4 items-center p-4 bg-white dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div className="font-medium text-gray-900 dark:text-gray-100 truncate pr-2">
-              {employee.employeeName}
+            <div className="font-medium text-gray-900 dark:text-gray-100 truncate pr-2 flex items-center gap-2">
+              <span className="truncate">{employee.employeeName}</span>
+              <TransportModeIcon transportMode={employee.transportMode} />
             </div>
             {DAYS_OF_WEEK.map((day, index) => (
               <HeatmapCell
@@ -273,6 +289,7 @@ export default function WeeklyOverview() {
         if (!employeeDataMap.has(employee.employeeName)) {
           employeeDataMap.set(employee.employeeName, {
             employeeName: employee.employeeName,
+            transportMode: employee.transportMode,
             weekData: {}
           });
         }

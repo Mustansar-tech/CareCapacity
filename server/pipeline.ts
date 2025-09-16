@@ -723,8 +723,19 @@ export function parseExcelFiles(
         "Hours Contracted",
       ]);
 
+      const transportMode = pickCol(row, [
+        "TransportModeDescription",
+        "Transport Mode Description",
+        "Transport Mode",
+        "Transport",
+      ]) || "";
+
       const weekly = Number(weeklyRaw ?? 0);
-      return { "CAREGiver Name": name, "Weekly Hours": isFinite(weekly) ? weekly : 0 };
+      return { 
+        "CAREGiver Name": name, 
+        "Weekly Hours": isFinite(weekly) ? weekly : 0,
+        "TransportModeDescription": transportMode
+      };
     })
     .filter(r => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
 
@@ -1000,13 +1011,15 @@ export function processCapacityData(
   const masterEmployees = cgData
     .map((row) => ({ 
       name: row["CAREGiver Name"], 
-      weekly: Number(row["Weekly Hours"] || 0) 
+      weekly: Number(row["Weekly Hours"] || 0),
+      transportMode: row["TransportModeDescription"] || ""
     }))
     .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
     .map((row) => ({ 
       originalName: row.name, 
       normalizedName: normalizeName(row.name), 
-      weeklyHours: row.weekly 
+      weeklyHours: row.weekly,
+      transportMode: row.transportMode
     }));
 
   console.log(`📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`);
@@ -1703,6 +1716,10 @@ export function processCapacityData(
         const empNormalizedName = normalizeName(employeeName);
         const cancelledVisits = cancelledVisitsForDate.get(empNormalizedName) ?? '—';
 
+        // Get transport mode from master employee list
+        const masterEmployee = masterEmployees.find(emp => emp.normalizedName === empNormalizedName);
+        const transportMode = masterEmployee?.transportMode || "";
+
         return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
@@ -1714,6 +1731,7 @@ export function processCapacityData(
             empData.scheduledHours,
           freeWindows, // New field: time slots available for new clients
           cancelledVisits, // New field: cancelled visit time windows
+          transportMode, // Transport mode from CG Data (e.g., "Car", "Walker")
         };
       },
     );
