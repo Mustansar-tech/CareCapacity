@@ -3,6 +3,7 @@ import { parse, format } from "date-fns";
 import { buildTimeWindow, parseGuaranteedDate } from "./time-window-utils";
 import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
+import { extractCancelledWindows } from "./cancelled-visits";
 import {
   AvailabilityRow,
   GuaranteedHoursRow,
@@ -1547,7 +1548,22 @@ export function processCapacityData(
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
 
-  // Step 8: Generate employee summary by date
+  // Step 8: Extract cancelled visits from guaranteed hours data
+  console.log('\n🚫 EXTRACTING CANCELLED VISITS...');
+  const firstDate = dailySummary[0]?.date;
+  const cancelledWindows = firstDate 
+    ? extractCancelledWindows(guaranteed, new Date(firstDate), 60)
+    : new Map<string, string>();
+  
+  console.log(`📊 Cancelled visits extracted for ${cancelledWindows.size} employees`);
+  if (cancelledWindows.size > 0) {
+    const sampleEntries = Array.from(cancelledWindows.entries()).slice(0, 3);
+    sampleEntries.forEach(([staff, windows]) => {
+      console.log(`  - ${staff}: ${windows}`);
+    });
+  }
+
+  // Step 9: Generate employee summary by date
   const employeeSummaryByDate: Record<string, any[]> = {};
 
   Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
@@ -1687,6 +1703,10 @@ export function processCapacityData(
           freeWindows = '';
         }
 
+        // Get cancelled visits for this employee
+        const empNormalizedName = normalizeName(employeeName);
+        const cancelledVisits = cancelledWindows.get(empNormalizedName) ?? '—';
+
         return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
@@ -1697,6 +1717,7 @@ export function processCapacityData(
             finalUnavailabilityHours -
             empData.scheduledHours,
           freeWindows, // New field: time slots available for new clients
+          cancelledVisits, // New field: cancelled visit time windows
         };
       },
     );
