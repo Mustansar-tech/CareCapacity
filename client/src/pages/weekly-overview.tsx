@@ -27,7 +27,7 @@ function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   
   const mode = transportMode.toLowerCase();
   
-  if (mode.includes('car')) {
+  if (mode.includes('car') || mode.includes('driver')) {
     return (
       <div title="Car" aria-label="Transport mode: car" className="inline-block">
         <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />
