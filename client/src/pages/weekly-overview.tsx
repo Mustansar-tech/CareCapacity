@@ -94,14 +94,14 @@ function HeatmapCell({
             : "No availability"}
         </div>
       </div>
-      <div>
-        <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Cancelled:</div>
-        <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border">
-          {(cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "") 
-            ? cancelledVisits 
-            : "No cancelled visits"}
+      {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "" && (
+        <div>
+          <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Cancelled:</div>
+          <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border">
+            {cancelledVisits}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -134,14 +134,14 @@ function HeatmapCell({
                   <div className="text-gray-500 dark:text-gray-400 italic">No availability</div>
                 )}
               </div>
-              <div className="text-xs text-red-600 dark:text-red-400 font-mono leading-tight">
-                <div className="font-semibold">Cancelled:</div>
-                <div className="truncate">
-                  {(cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "") 
-                    ? cancelledVisits 
-                    : <span className="text-gray-500 dark:text-gray-400 italic">None</span>}
+              {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "" && (
+                <div className="text-xs text-red-600 dark:text-red-400 font-mono leading-tight">
+                  <div className="font-semibold">Cancelled:</div>
+                  <div className="truncate">
+                    {cancelledVisits}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
             <div className="text-sm font-bold text-gray-400">
