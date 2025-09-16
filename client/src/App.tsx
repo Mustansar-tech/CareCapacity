@@ -8,7 +8,6 @@ import { BarChart3Icon, Calendar, Shield, CalendarDays } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import MonthlyAnalysis from "@/pages/monthly-analysis";
 import DataManagement from "@/pages/data-management";
-import WeeklyOverview from "@/pages/weekly-overview";
 import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -41,21 +40,6 @@ function Navigation() {
               >
                 <BarChart3Icon className="w-4 h-4" />
                 Dashboard
-              </Button>
-            </Link>
-            <Link href="/weekly-overview">
-              <Button 
-                variant={location === "/weekly-overview" ? "default" : "ghost"} 
-                size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
-                  location === "/weekly-overview" 
-                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
-                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
-                }`}
-                data-testid="nav-weekly-overview"
-              >
-                <CalendarDays className="w-4 h-4" />
-                Weekly Overview
               </Button>
             </Link>
             <Link href="/monthly-analysis">
@@ -109,7 +93,6 @@ function Router() {
       <main className="animate-fade-in">
         <Switch>
           <Route path="/" component={Dashboard} />
-          <Route path="/weekly-overview" component={WeeklyOverview} />
           <Route path="/monthly-analysis" component={MonthlyAnalysis} />
           <Route path="/data-management" component={DataManagement} />
           <Route component={NotFound} />

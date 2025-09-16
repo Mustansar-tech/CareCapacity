@@ -21,6 +21,7 @@ import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
+import WeeklyOverview from "@/pages/weekly-overview";
 
 
 // Helper formatting functions
@@ -565,12 +566,12 @@ export default function Dashboard() {
               Analytics
             </TabsTrigger>
             <TabsTrigger 
-              value="quality" 
+              value="weekly-overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-quality"
+              data-testid="tab-weekly-overview"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Quality
+              <Calendar className="w-4 h-4 mr-2" />
+              Weekly Overview
             </TabsTrigger>
             <TabsTrigger 
               value="export" 
@@ -765,21 +766,24 @@ export default function Dashboard() {
             />
           </TabsContent>
 
-          {/* Interactive Charts Tab */}
+          {/* Interactive Charts Tab with Data Quality */}
           <TabsContent value="charts" data-testid="content-charts">
-            <InteractiveCharts 
-              data={filteredData || processedData}
-              onDateSelect={setSelectedDate}
-              onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
-            />
+            <div className="space-y-6">
+              <InteractiveCharts 
+                data={filteredData || processedData}
+                onDateSelect={setSelectedDate}
+                onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
+              />
+              <DataQualityPanel 
+                data={filteredData || processedData}
+                warnings={warnings}
+              />
+            </div>
           </TabsContent>
 
-          {/* Data Quality Tab */}
-          <TabsContent value="quality" data-testid="content-quality">
-            <DataQualityPanel 
-              data={filteredData || processedData}
-              warnings={warnings}
-            />
+          {/* Weekly Overview Tab */}
+          <TabsContent value="weekly-overview" data-testid="content-weekly-overview">
+            <WeeklyOverview />
           </TabsContent>
 
           {/* Overview Tab */}
