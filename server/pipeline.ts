@@ -1550,26 +1550,19 @@ export function processCapacityData(
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
 
-  // Step 8: Extract cancelled visits from guaranteed hours data
-  console.log('\n🚫 EXTRACTING CANCELLED VISITS...');
-  const firstDate = dailySummary[0]?.date;
-  const cancelledWindows =
-    firstDate && options?.ghWorkbookBuffer
-      ? extractCancelledWindowsFromGHWorkbook(options.ghWorkbookBuffer, new Date(firstDate), 60)
-      : new Map<string, string>();
-  
-  console.log(`📊 Cancelled visits extracted for ${cancelledWindows.size} employees`);
-  if (cancelledWindows.size > 0) {
-    const sampleEntries = Array.from(cancelledWindows.entries()).slice(0, 3);
-    sampleEntries.forEach(([staff, windows]) => {
-      console.log(`  - ${staff}: ${windows}`);
-    });
-  }
+  // Step 8: Cancelled visits will be extracted per date in employee summary generation
 
   // Step 9: Generate employee summary by date
   const employeeSummaryByDate: Record<string, any[]> = {};
 
   Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
+    // Extract cancelled visits for this specific date
+    console.log(`\n🚫 EXTRACTING CANCELLED VISITS FOR ${dateStr}...`);
+    const cancelledVisitsForDate = options?.ghWorkbookBuffer
+      ? extractCancelledWindowsFromGHWorkbook(options.ghWorkbookBuffer, new Date(dateStr), 60)
+      : new Map<string, string>();
+    console.log(`📊 Found ${cancelledVisitsForDate.size} employees with cancelled visits on ${dateStr}`);
+
     // Group employees by name and consolidate their data
     const employeeMap = new Map<
       string,
@@ -1706,9 +1699,9 @@ export function processCapacityData(
           freeWindows = '';
         }
 
-        // Get cancelled visits for this employee
+        // Get cancelled visits for this employee on this specific date
         const empNormalizedName = normalizeName(employeeName);
-        const cancelledVisits = cancelledWindows.get(empNormalizedName) ?? '—';
+        const cancelledVisits = cancelledVisitsForDate.get(empNormalizedName) ?? '—';
 
         return {
           employeeName,

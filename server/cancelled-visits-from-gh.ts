@@ -1,6 +1,6 @@
 // cancelled-visits-from-gh.ts
 import * as XLSX from 'xlsx';
-import { addMinutes, startOfWeek, endOfWeek, format as fmt } from 'date-fns';
+import { addMinutes, startOfDay, endOfDay, format as fmt } from 'date-fns';
 
 // Columns seen in your GH export
 const CANCEL_COL = 'Cancellation Description';
@@ -40,12 +40,12 @@ function toDate(v: any): Date | undefined {
 }
 
 /**
- * Read the GH workbook BUFFER and output Map<normalizedStaff, "Mon 15 Sep • 10:30–11:30; ...">
+ * Read the GH workbook BUFFER and output Map<normalizedStaff, "10:30–11:30; ..."> for the specific date
  * This does NOT rely on (or modify) your filtered rows.
  */
 export function extractCancelledWindowsFromGHWorkbook(
   ghWorkbookBuffer: Buffer,
-  anyDateInWeek: Date,
+  specificDate: Date,
   minMinutes = 60
 ): Map<string, string> {
   const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
@@ -66,8 +66,8 @@ export function extractCancelledWindowsFromGHWorkbook(
     return o;
   });
 
-  const ws = startOfWeek(anyDateInWeek, { weekStartsOn: 1 });
-  const we = endOfWeek(anyDateInWeek, { weekStartsOn: 1 });
+  const dayStart = startOfDay(specificDate);
+  const dayEnd = endOfDay(specificDate);
 
   const tmp = new Map<string, string[]>();
 
@@ -77,7 +77,7 @@ export function extractCancelledWindowsFromGHWorkbook(
 
     const startRaw = START_COLS.map(c => row[c]).find(v => v != null && v !== '');
     const start = toDate(startRaw);
-    if (!start || start < ws || start > we) continue;
+    if (!start || start < dayStart || start > dayEnd) continue;
 
     // duration (hours -> minutes) or (already minutes)
     let minutes = NaN;
@@ -93,7 +93,7 @@ export function extractCancelledWindowsFromGHWorkbook(
     if (!staffRaw) continue;
 
     const end = addMinutes(start, minutes);
-    const label = `${fmt(start, 'EEE dd MMM')} • ${fmt(start, 'HH:mm')}–${fmt(end, 'HH:mm')}`;
+    const label = `${fmt(start, 'HH:mm')}–${fmt(end, 'HH:mm')}`;
 
     const key = normalizeName(String(staffRaw));
     (tmp.get(key) ?? tmp.set(key, []).get(key)!).push(label);
