@@ -27,15 +27,15 @@ function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   
   const mode = transportMode.toLowerCase();
   
-  if (mode.includes('car')) {
+  if (mode.includes('car') || mode.includes('driver') || mode.includes('vehicle')) {
     return (
-      <div title="Car" aria-label="Transport mode: car" className="inline-block">
+      <div title="Driver" aria-label="Transport mode: driver" className="inline-block">
         <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />
       </div>
     );
-  } else if (mode.includes('walk')) {
+  } else if (mode.includes('walk') || mode.includes('walker')) {
     return (
-      <div title="Walking" aria-label="Transport mode: walking" className="inline-block">
+      <div title="Walker" aria-label="Transport mode: walker" className="inline-block">
         <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />
       </div>
     );
