@@ -109,7 +109,7 @@ function HeatmapCell({
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
         >
-          {freeHours > 0 ? (
+          {windowCount > 0 || (freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
             <div className="text-center w-full">
               <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
                 Free Hours: {freeHours.toFixed(1)}h
