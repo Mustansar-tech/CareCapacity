@@ -27,24 +27,16 @@ function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   
   const mode = transportMode.toLowerCase();
   
-  if (mode.includes('car') || mode.includes('driver') || mode.includes('vehicle')) {
+  if (mode.includes('car')) {
     return (
-      <div 
-        title="Driver" 
-        aria-label="Transport mode: driver" 
-        className="inline-flex items-center justify-center w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-700 dark:from-blue-400 dark:to-blue-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
-      >
-        <Car className="w-3 h-3 text-white" />
+      <div title="Car" aria-label="Transport mode: car" className="inline-block">
+        <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />
       </div>
     );
-  } else if (mode.includes('walk') || mode.includes('walker')) {
+  } else if (mode.includes('walk')) {
     return (
-      <div 
-        title="Walker" 
-        aria-label="Transport mode: walker" 
-        className="inline-flex items-center justify-center w-6 h-6 bg-gradient-to-br from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-500 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
-      >
-        <PersonStanding className="w-3 h-3 text-white" />
+      <div title="Walking" aria-label="Transport mode: walking" className="inline-block">
+        <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />
       </div>
     );
   }
@@ -66,13 +58,13 @@ function HeatmapCell({
   const freeWindows = dayData?.freeWindows || '';
   const cancelledVisits = dayData?.cancelledVisits || '';
 
-  // Color intensity based on free hours (0-8+ hours) with beautiful gradients
+  // Color intensity based on free hours (0-8+ hours)
   const getColorIntensity = (hours: number) => {
-    if (hours === 0) return "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/40 dark:to-gray-900/60 text-gray-500 dark:text-gray-400 shadow-inner";
-    if (hours <= 2) return "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/50 text-emerald-700 dark:text-emerald-300 shadow-sm";
-    if (hours <= 4) return "bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-800/50 dark:to-emerald-700/70 text-emerald-800 dark:text-emerald-200 shadow-md";
-    if (hours <= 6) return "bg-gradient-to-br from-emerald-200 to-emerald-300 dark:from-emerald-700/70 dark:to-emerald-600/90 text-emerald-900 dark:text-emerald-100 shadow-lg";
-    return "bg-gradient-to-br from-emerald-400 to-emerald-500 dark:from-emerald-600 dark:to-emerald-500 text-white dark:text-white shadow-xl shadow-emerald-200/50 dark:shadow-emerald-900/30";
+    if (hours === 0) return "bg-gray-100 dark:bg-gray-800 text-gray-400";
+    if (hours <= 2) return "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300";
+    if (hours <= 4) return "bg-emerald-200 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200";
+    if (hours <= 6) return "bg-emerald-300 dark:bg-emerald-700/80 text-emerald-900 dark:text-emerald-100";
+    return "bg-emerald-400 dark:bg-emerald-600 text-white dark:text-white";
   };
 
   const tooltipContent = (
@@ -86,15 +78,15 @@ function HeatmapCell({
           Windows: <span className="font-medium">{windowCount}</span>
         </div>
       </div>
-      <div>
-        <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Free Times:</div>
-        <div className="text-xs font-mono bg-blue-50 dark:bg-blue-900/30 p-2 rounded border">
-          {(freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") 
-            ? freeWindows 
-            : "No availability"}
+      {freeWindows && freeWindows !== "None" && freeWindows !== "—" && (
+        <div>
+          <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Free Times:</div>
+          <div className="text-xs font-mono bg-blue-50 dark:bg-blue-900/30 p-2 rounded border">
+            {freeWindows}
+          </div>
         </div>
-      </div>
-      {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "" && (
+      )}
+      {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && (
         <div>
           <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Cancelled:</div>
           <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border">
@@ -110,10 +102,9 @@ function HeatmapCell({
       <TooltipTrigger asChild>
         <div 
           className={`
-            relative h-20 w-full rounded-xl border border-white/20 dark:border-gray-600/30 
-            cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl
-            flex flex-col items-center justify-center p-3 backdrop-blur-sm
-            transform hover:-translate-y-1
+            relative h-20 w-full rounded-lg border border-gray-200 dark:border-gray-700 
+            cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md
+            flex flex-col items-center justify-center p-2
             ${getColorIntensity(freeHours)}
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
@@ -123,17 +114,15 @@ function HeatmapCell({
               <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
                 Free Hours: {freeHours.toFixed(1)}h
               </div>
-              <div className="text-xs font-mono leading-tight mb-1 text-blue-600 dark:text-blue-400">
-                {(freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
-                  freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
+              {freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "" && (
+                <div className="text-xs font-mono leading-tight mb-1 text-blue-600 dark:text-blue-400">
+                  {freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
                     <div key={idx} className="truncate">
                       {window.trim()}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-gray-500 dark:text-gray-400 italic">No availability</div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
               {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "" && (
                 <div className="text-xs text-red-600 dark:text-red-400 font-mono leading-tight">
                   <div className="font-semibold">Cancelled:</div>
@@ -210,13 +199,13 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
         {weeklyData.map((employee) => (
           <div 
             key={employee.employeeName} 
-            className="grid grid-cols-8 gap-4 items-center p-5 bg-gradient-to-r from-white to-gray-50 dark:from-gray-800/40 dark:to-gray-800/60 rounded-xl border border-gray-200/60 dark:border-gray-700/60 shadow-sm hover:shadow-md transition-all duration-300 backdrop-blur-sm"
+            className="grid grid-cols-8 gap-4 items-center p-4 bg-white dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div className="font-medium text-gray-900 dark:text-gray-100 pr-2 flex flex-col items-start gap-2 min-w-0">
-              <span className="truncate w-full text-sm font-semibold" data-testid={`text-employee-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
+            <div className="font-medium text-gray-900 dark:text-gray-100 pr-2 flex flex-col items-start gap-1 min-w-0">
+              <span className="truncate w-full" data-testid={`text-employee-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
                 {employee.employeeName}
               </span>
-              <div className="h-6 flex items-center" data-testid={`icon-transport-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
+              <div className="h-4" data-testid={`icon-transport-${employee.employeeName.replace(/\s+/g, '-').toLowerCase()}`}>
                 <TransportModeIcon transportMode={employee.transportMode} />
               </div>
             </div>
