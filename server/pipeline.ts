@@ -4,6 +4,7 @@ import { buildTimeWindow, parseGuaranteedDate } from "./time-window-utils";
 import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
 import { extractCancelledWindows } from "./cancelled-visits";
+import { extractCancelledWindowsFromGHWorkbook } from './cancelled-visits-from-gh';
 import {
   AvailabilityRow,
   GuaranteedHoursRow,
@@ -942,6 +943,7 @@ export function processCapacityData(
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
+  options?: { ghWorkbookBuffer?: Buffer }   // ← NEW optional param
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
 
@@ -1551,9 +1553,10 @@ export function processCapacityData(
   // Step 8: Extract cancelled visits from guaranteed hours data
   console.log('\n🚫 EXTRACTING CANCELLED VISITS...');
   const firstDate = dailySummary[0]?.date;
-  const cancelledWindows = firstDate 
-    ? extractCancelledWindows(guaranteed, new Date(firstDate), 60)
-    : new Map<string, string>();
+  const cancelledWindows =
+    firstDate && options?.ghWorkbookBuffer
+      ? extractCancelledWindowsFromGHWorkbook(options.ghWorkbookBuffer, new Date(firstDate), 60)
+      : new Map<string, string>();
   
   console.log(`📊 Cancelled visits extracted for ${cancelledWindows.size} employees`);
   if (cancelledWindows.size > 0) {
