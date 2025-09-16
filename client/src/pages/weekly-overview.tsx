@@ -86,23 +86,19 @@ function HeatmapCell({
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
         >
-          {windowCount > 0 ? (
-            <div className="text-center">
-              <div className="text-xs font-mono leading-tight mb-1 max-w-full overflow-hidden">
-                {freeWindows && freeWindows !== "None" && freeWindows !== "—" 
-                  ? freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
-                      <div key={idx} className="truncate">
-                        {window.trim()}
-                      </div>
-                    ))
-                  : "—"}
+          {freeHours > 0 ? (
+            <div className="text-center w-full">
+              <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
+                Free Hours: {freeHours.toFixed(1)}h
               </div>
-              <Badge 
-                variant="secondary" 
-                className="text-xs h-4 px-1 bg-white/70 dark:bg-gray-800/70 text-gray-700 dark:text-gray-300"
-              >
-                {windowCount} windows
-              </Badge>
+              {cancelledVisits && cancelledVisits !== "None" && cancelledVisits !== "—" && cancelledVisits.trim() !== "" && (
+                <div className="text-xs text-red-600 dark:text-red-400 font-mono leading-tight">
+                  <div className="font-semibold mb-1">Cancelled:</div>
+                  <div className="truncate">
+                    {cancelledVisits}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-sm font-bold text-gray-400">
