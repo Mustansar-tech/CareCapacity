@@ -14,6 +14,7 @@ interface EmployeeWeeklyData {
   weekData: {
     [dayOfWeek: string]: {
       freeHours: number;
+      scheduledHours: number;
       windowCount: number;
       freeWindows: string;
       cancelledVisits: string;
@@ -56,6 +57,7 @@ function HeatmapCell({
   dayName: string;
 }) {
   const freeHours = dayData?.freeHours || 0;
+  const scheduledHours = dayData?.scheduledHours || 0;
   const windowCount = dayData?.windowCount || 0;
   const freeWindows = dayData?.freeWindows || '';
   const cancelledVisits = dayData?.cancelledVisits || '';
@@ -73,6 +75,9 @@ function HeatmapCell({
     <div className="space-y-2 max-w-xs">
       <div className="font-semibold">{employeeName} - {dayName}</div>
       <div>
+        <div className="text-sm text-blue-600 dark:text-blue-400">
+          Scheduled Hours: <span className="font-medium">{scheduledHours.toFixed(1)}h</span>
+        </div>
         <div className="text-sm text-gray-600 dark:text-gray-300">
           Free Hours: <span className="font-medium">{freeHours.toFixed(1)}h</span>
         </div>
@@ -111,11 +116,18 @@ function HeatmapCell({
           `}
           data-testid={`heatmap-cell-${employeeName}-${dayName}`}
         >
-          {freeHours > 0 || windowCount > 0 || (freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
+          {scheduledHours > 0 || freeHours > 0 || windowCount > 0 || (freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "") ? (
             <div className="text-center w-full">
-              <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
-                Free Hours: {freeHours.toFixed(1)}h
-              </div>
+              {scheduledHours > 0 && (
+                <div className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">
+                  Scheduled: {scheduledHours.toFixed(1)}h
+                </div>
+              )}
+              {freeHours > 0 && (
+                <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
+                  Free: {freeHours.toFixed(1)}h
+                </div>
+              )}
               {freeWindows && freeWindows !== "None" && freeWindows !== "—" && freeWindows.trim() !== "" && (
                 <div className="text-xs font-mono leading-tight mb-1 text-blue-600 dark:text-blue-400">
                   {freeWindows.replace(/[;,]/g, '\n').split('\n').map((window, idx) => (
@@ -151,13 +163,16 @@ function HeatmapCell({
 function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
   // Calculate column totals (team capacity by day)
   const columnTotals = DAYS_OF_WEEK.map(day => {
-    const totalHours = weeklyData.reduce((sum, employee) => {
+    const totalFreeHours = weeklyData.reduce((sum, employee) => {
       return sum + (employee.weekData[day]?.freeHours || 0);
+    }, 0);
+    const totalScheduledHours = weeklyData.reduce((sum, employee) => {
+      return sum + (employee.weekData[day]?.scheduledHours || 0);
     }, 0);
     const totalWindows = weeklyData.reduce((sum, employee) => {
       return sum + (employee.weekData[day]?.windowCount || 0);
     }, 0);
-    return { day, totalHours, totalWindows };
+    return { day, totalFreeHours, totalScheduledHours, totalWindows };
   });
 
   return (
@@ -174,8 +189,11 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
               <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                 {DAY_ABBREVIATIONS[index]}
               </div>
-              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                {total.totalHours.toFixed(1)}h
+              <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                Sched: {total.totalScheduledHours.toFixed(1)}h
+              </div>
+              <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                Free: {total.totalFreeHours.toFixed(1)}h
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400">
                 {total.totalWindows} windows
@@ -329,6 +347,7 @@ export default function WeeklyOverview() {
         
         employeeWeekData.weekData[dayOfWeek] = {
           freeHours,
+          scheduledHours: employee.scheduledHours || 0,
           windowCount,
           freeWindows: employee.freeWindows || '—',
           cancelledVisits: employee.cancelledVisits || '—'
@@ -336,7 +355,7 @@ export default function WeeklyOverview() {
       });
     });
     
-    // Filter out employees who have no free windows OR free hours across the entire week
+    // Filter out employees who have no free windows, free hours, or scheduled hours across the entire week
     const allEmployees = Array.from(employeeDataMap.values());
     const employeesWithFreeWindows = allEmployees.filter(employee => {
       // Check if employee has any windows across any day of the week
@@ -351,8 +370,14 @@ export default function WeeklyOverview() {
         return acc + (dayData?.freeHours || 0);
       }, 0);
       
-      // Include employee if they have either windows OR free hours
-      return totalWindows > 0 || totalFreeHours > 0;
+      // Check if employee has any scheduled hours across any day of the week
+      const totalScheduledHours = DAYS_OF_WEEK.reduce((acc, day) => {
+        const dayData = employee.weekData[day];
+        return acc + (dayData?.scheduledHours || 0);
+      }, 0);
+      
+      // Include employee if they have windows, free hours, OR scheduled hours
+      return totalWindows > 0 || totalFreeHours > 0 || totalScheduledHours > 0;
     });
     
     // Convert filtered employees to array and sort by employee name

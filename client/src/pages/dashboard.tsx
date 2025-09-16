@@ -550,6 +550,14 @@ export default function Dashboard() {
               Summary
             </TabsTrigger>
             <TabsTrigger 
+              value="weekly-overview" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-weekly-overview"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Weekly Overview
+            </TabsTrigger>
+            <TabsTrigger 
               value="ai-suggestions" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-suggestions"
@@ -564,14 +572,6 @@ export default function Dashboard() {
             >
               <TrendingUp className="w-4 h-4 mr-2" />
               Analytics
-            </TabsTrigger>
-            <TabsTrigger 
-              value="weekly-overview" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-weekly-overview"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Weekly Overview
             </TabsTrigger>
             <TabsTrigger 
               value="export" 
