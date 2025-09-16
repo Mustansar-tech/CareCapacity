@@ -1523,6 +1523,11 @@ export function processCapacityData(
       employeesByDate[record.date] = [];
     }
 
+    // Get gender from master employee list for this employee
+    const empNormalizedName = normalizeName(record.employeeName);
+    const masterEmployee = masterEmployees.find(emp => emp.normalizedName === empNormalizedName);
+    const gender = masterEmployee?.gender || "";
+
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
       status: record.status,
@@ -1532,6 +1537,7 @@ export function processCapacityData(
       hours: record.hours,
       netCapacity: record.netCapacity,
       notes: record.notes,
+      gender: gender,
     });
   });
 
@@ -1561,6 +1567,10 @@ export function processCapacityData(
         .map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`)
         .join("; ");
 
+      // Get gender from master employee list for this ad-hoc employee
+      const masterEmployee = masterEmployees.find(emp => emp.normalizedName === normName);
+      const gender = masterEmployee?.gender || "";
+
       if (!employeesByDate[date]) employeesByDate[date] = [];
       employeesByDate[date].push({
         employeeName: display,
@@ -1571,6 +1581,7 @@ export function processCapacityData(
         hours: 0,                    // not counted toward availability
         netCapacity: 0,              // do not inflate capacity
         notes: "Scheduled (no availability record for this day)",
+        gender: gender,
       });
 
       // mark as present to avoid duplicates if multiple keys flow in

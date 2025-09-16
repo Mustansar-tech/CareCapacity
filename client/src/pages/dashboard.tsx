@@ -20,6 +20,7 @@ import { AISuggestions } from "@/components/ai-suggestions";
 import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
+import { getGenderColorClass } from "@/utils/gender-colors";
 
 
 // Helper formatting functions
@@ -714,7 +715,9 @@ export default function Dashboard() {
                           return (
                           <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
-                              {emp.employeeName}
+                              <span className={getGenderColorClass(emp.gender)}>
+                                {emp.employeeName}
+                              </span>
                             </TableCell>
                             <TableCell data-testid={`drilldown-status-${index}`}>
                               {renderStatusBadge(emp.status)}
