@@ -23,7 +23,7 @@ const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "S
 const DAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function TransportModeIcon({ transportMode }: { transportMode?: string }) {
-  if (!transportMode) return null;
+  if (!transportMode || transportMode.trim() === '') return null;
   
   const mode = transportMode.toLowerCase();
   
@@ -193,9 +193,11 @@ function WeeklyHeatmap({ weeklyData }: { weeklyData: EmployeeWeeklyData[] }) {
             key={employee.employeeName} 
             className="grid grid-cols-8 gap-4 items-center p-4 bg-white dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div className="font-medium text-gray-900 dark:text-gray-100 truncate pr-2 flex items-center gap-2">
-              <span className="truncate">{employee.employeeName}</span>
-              <TransportModeIcon transportMode={employee.transportMode} />
+            <div className="font-medium text-gray-900 dark:text-gray-100 pr-2 flex items-center gap-2 min-w-0">
+              <span className="truncate flex-1 min-w-0">{employee.employeeName}</span>
+              <div className="flex-shrink-0">
+                <TransportModeIcon transportMode={employee.transportMode} />
+              </div>
             </div>
             {DAYS_OF_WEEK.map((day, index) => (
               <HeatmapCell
@@ -286,10 +288,6 @@ export default function WeeklyOverview() {
       const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
       
       employees.forEach((employee) => {
-        // Debug: Log transport mode data
-        if (employee.transportMode) {
-          console.log(`🚗 Transport mode for ${employee.employeeName}: ${employee.transportMode}`);
-        }
         if (!employeeDataMap.has(employee.employeeName)) {
           employeeDataMap.set(employee.employeeName, {
             employeeName: employee.employeeName,
