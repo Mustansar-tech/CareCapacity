@@ -1362,6 +1362,12 @@ export function processCapacityData(
       ? isAllDayTimeKiller(mergedBlockers, availPairs, contractedDailyMin)
       : false;
 
+    // Debug logging to confirm status detection
+    console.log(`[${empName} ${date}] Statuses:`, Array.from(statusAgg.keys()));
+    console.log(`[${empName} ${date}] Available windows:`, statusAgg.get("Available")?.windows);
+    console.log(`[${empName} ${date}] Other Unavailable windows:`, statusAgg.get("Other Unavailable")?.windows);
+    console.log(`[${empName} ${date}]`, { hasDayKiller, hasTimeKiller, timeKillerIsAllDay });
+
     // Highest priority status selection
     let highestPriorityStatus = "";
     let highestPriority = 999;
