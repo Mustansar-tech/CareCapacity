@@ -1393,8 +1393,8 @@ export function processCapacityData(
     }
 
     // Only create one record using the highest priority status
-    if (highestPriorityStatus && statusAgg.has(highestPriorityStatus)) {
-      const agg = statusAgg.get(highestPriorityStatus)!;
+    if (highestPriorityStatus) {
+      const agg = statusAgg.get(highestPriorityStatus) ?? { hoursRaw: 0, windows: [], notes: [] };
       let finalHours: number;
       let netCapacity: number;
 
