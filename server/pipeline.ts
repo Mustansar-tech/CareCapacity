@@ -1349,11 +1349,24 @@ export function processCapacityData(
     if (hasDayKiller) {
       highestPriorityStatus = dayKillerStatus;
       highestPriority = dayKillerPriority;
+
+    } else if (hasTimeKiller) {
+      if (timeKillerIsAllDay || !availPairs.length) {
+        // Treat like day-level absence
+        highestPriorityStatus = "Other Unavailable";
+        highestPriority = STATUS_PRIORITY["Other Unavailable"] || 5;
+      } else {
+        // Partial blocker but still some availability
+        highestPriorityStatus = "Partial Availability";
+        highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
+      }
+
     } else {
-      statusAgg.forEach((agg, status) => {
-        const priority = STATUS_PRIORITY[status] || 999;
-        if (priority < highestPriority) {
-          highestPriority = priority;
+      // No blockers → pick best remaining (usually Available)
+      statusAgg.forEach((_agg, status) => {
+        const p = STATUS_PRIORITY[status] || 999;
+        if (p < highestPriority) {
+          highestPriority = p;
           highestPriorityStatus = status;
         }
       });
