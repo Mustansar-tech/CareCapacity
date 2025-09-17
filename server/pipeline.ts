@@ -1371,7 +1371,7 @@ export function processCapacityData(
       highestPriority = dayKillerPriority;
 
     } else if (hasTimeKiller) {
-      if (timeKillerIsAllDay || !availPairs.length) {
+      if (timeKillerIsAllDay) {
         // Treat like day-level absence
         highestPriorityStatus = "Other Unavailable";
         highestPriority = STATUS_PRIORITY["Other Unavailable"] || 5;
