@@ -245,6 +245,19 @@ function filterMinDuration(pairs: Array<[number, number]>, minMinutes = 60): Arr
   return (pairs || []).filter(([s, e]) => e - s >= minMinutes);
 }
 
+function isAllDayTimeKiller(mergedBlockers: Array<[number, number]>, availPairs: Array<[number, number]>, contractedDailyMin: number): boolean {
+  if (!mergedBlockers.length || !availPairs.length) return false;
+
+  // Calculate total blocked time
+  const totalBlockedMin = mergedBlockers.reduce((sum, [s, e]) => sum + (e - s), 0);
+  
+  // If blocked time is >= contracted daily minutes, consider it all-day
+  // Use 90% threshold to account for minor gaps/rounding
+  const threshold = Math.max(contractedDailyMin * 0.9, 60); // At least 1 hour minimum
+  
+  return totalBlockedMin >= threshold;
+}
+
 // Build time windows per employee/day from Guaranteed (ACTUAL start/end)
 function buildAdHocWindowsMap(guaranteed: any[]): Map<string, Array<[number, number]>> {
   const map = new Map<string, Array<[number, number]>>();
