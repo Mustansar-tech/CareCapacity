@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { parse, format } from "date-fns";
-import { buildTimeWindow, parseGuaranteedDate } from "./time-window-utils";
+import { buildTimeWindow, parseGuaranteedDate, timeToString } from "./time-window-utils";
 import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
 import { extractCancelledWindows } from "./cancelled-visits";
@@ -125,57 +125,6 @@ function normalizeName(name: string): string {
     .join(' ');
 }
 
-// Time string conversion exactly like your tstr function
-function timeToString(timeValue: any): string {
-  if (
-    !timeValue ||
-    timeValue === "" ||
-    timeValue === null ||
-    timeValue === undefined
-  )
-    return "";
-
-  try {
-    let dateObj: Date;
-
-    if (timeValue instanceof Date) {
-      dateObj = timeValue;
-    } else if (typeof timeValue === "number") {
-      // Excel serial number for time (fractional day)
-      if (timeValue < 1) {
-        // Pure time value (0.5 = 12:00 PM)
-        const totalMinutes = timeValue * 24 * 60;
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = Math.floor(totalMinutes % 60);
-        return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
-      } else {
-        // Date + time serial number
-        const excelEpoch = new Date(1899, 11, 30);
-        dateObj = new Date(
-          excelEpoch.getTime() + timeValue * 24 * 60 * 60 * 1000,
-        );
-      }
-    } else if (typeof timeValue === "string") {
-      // Handle string time formats like "08:00", "14:30", etc.
-      if (/^\d{1,2}:\d{2}$/.test(timeValue)) {
-        return timeValue;
-      }
-      dateObj = new Date(timeValue);
-    } else {
-      dateObj = new Date(timeValue);
-    }
-
-    if (dateObj && !isNaN(dateObj.getTime())) {
-      const hours = dateObj.getHours().toString().padStart(2, "0");
-      const minutes = dateObj.getMinutes().toString().padStart(2, "0");
-      return `${hours}:${minutes}`;
-    }
-
-    return "";
-  } catch {
-    return "";
-  }
-}
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
@@ -324,7 +273,7 @@ function buildAdHocWindowsMap(guaranteed: any[]): Map<string, Array<[number, num
 
   // merge adjacent/overlapping within each day
   map.forEach((ints, k) => {
-    map.set(k, mergeIntervals(ints, 30));
+    map.set(k, mergeIntervals(ints, 0));
   });
   return map;
 }
