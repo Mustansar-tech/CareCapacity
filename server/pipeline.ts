@@ -126,6 +126,26 @@ function normalizeName(name: string): string {
     .join(' ');
 }
 
+function canonicalStatus(raw: any): string {
+  const s = String(raw ?? "").trim().toLowerCase();
+
+  // available family
+  if (s === "avail" || s.startsWith("avail")) return "Available";
+
+  // time-killers
+  if (s.startsWith("other unavail") || s.startsWith("othe")) return "Other Unavailable";
+  if (s.includes("pre-agreed")) return "Pre-Agreed Appointment";
+
+  // day-killers
+  if (s.startsWith("holiday")) return "Holiday";
+  if (s.startsWith("sick")) return "Sick";
+  if (s.includes("maternity") || s.includes("paternity")) return "Maternity/Paternity";
+  if (s.includes("compassion")) return "Compassionate Leave";
+
+  if (s.includes("ad-hoc") || s.includes("adhoc")) return "Ad-hoc";
+  return raw ?? "";
+}
+
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
@@ -1154,7 +1174,7 @@ export function processCapacityData(
       contractedWeeklyHours,
       contractedDailyHours,
       date: format(row.parsedDate, "yyyy-MM-dd"),
-      status: row.Type,
+      status: canonicalStatus(row.Type),
       startTime: timeToString(row["Start Time"]),
       endTime: timeToString(row["End Time"]),
       timeWindow: buildTimeWindow(row),
