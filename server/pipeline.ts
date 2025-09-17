@@ -1378,13 +1378,23 @@ export function processCapacityData(
       let finalHours: number;
       let netCapacity: number;
 
-      if (highestPriorityStatus === "Available") {
-        finalHours = Math.max(daily - totalLeaveCapped, 0.0); // adjusted available
-        netCapacity = finalHours;
-      } else if (LEAVE_TYPES.includes(highestPriorityStatus)) {
+
+      if (hasDayKiller || (hasTimeKiller && timeKillerIsAllDay)) {
+        // Full-day absence → zero capacity
         finalHours = Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
+
+      } else if (highestPriorityStatus === "Partial Availability") {
+        // Keep capacity on partial blocker days
+        finalHours = Math.max(daily - totalLeaveCapped, 0.0);
+        netCapacity = finalHours;
+
+      } else if (highestPriorityStatus === "Available") {
+        finalHours = Math.max(daily - totalLeaveCapped, 0.0);
+        netCapacity = finalHours;
+
       } else {
+        // Other statuses default to no capacity
         finalHours = agg.hoursRaw || 0.0;
         netCapacity = 0.0;
       }
@@ -1394,27 +1404,14 @@ export function processCapacityData(
       statusAgg.forEach((agg) => allNotes.push(...agg.notes));
       const notesStr = Array.from(new Set(allNotes)).filter(n => n && n !== "").sort().join("; ");
 
-      // Build bookable windows:
-      // - If day-killer: no availability windows (the day is fully unavailable)
-      // - Else: Available windows minus TIME_KILLERS, then drop <60-min
+      // Build bookable windows using pre-computed pairs
       let windowsStr = "";
-
-      if (!hasDayKiller) {
-        const availAgg = statusAgg.get("Available");
-        const blockerPairs: Array<[number, number]> = [];
-
-        statusAgg.forEach((agg, status) => {
-          if (TIME_KILLERS.has(status)) {
-            blockerPairs.push(...windowListToPairs(agg.windows));
-          }
-        });
-
-        const availPairs = mergeIntervals(windowListToPairs(availAgg?.windows || []), 0);
-        const mergedBlockers = mergeIntervals(blockerPairs, 0);
-        const bookablePairs = filterMinDuration(subtractIntervals(availPairs, mergedBlockers), 60);
+      if (!(hasDayKiller || timeKillerIsAllDay)) {
+        const bookablePairs = filterMinDuration(
+          subtractIntervals(availPairs, mergedBlockers),
+          60
+        );
         const bookableWindows = pairsToWindowList(bookablePairs);
-
-        // Keep windows in chronological order
         windowsStr = bookableWindows.join("; ");
       }
 
