@@ -1318,7 +1318,31 @@ export function processCapacityData(
     });
     hasDayKiller = dayKillerStatus !== "";
 
-    // Highest priority status (day-killer wins)
+    // Check for time-killers
+    let hasTimeKiller = false;
+    statusAgg.forEach((agg, status) => {
+      if (TIME_KILLERS.has(status)) {
+        hasTimeKiller = true;
+      }
+    });
+
+    // Compute avail/blocker pairs once (reused below)
+    const availAgg = statusAgg.get("Available");
+    const availPairs = mergeIntervals(windowListToPairs(availAgg?.windows || []), 0);
+
+    const blockerPairs: Array<[number, number]> = [];
+    statusAgg.forEach((agg, status) => {
+      if (TIME_KILLERS.has(status)) blockerPairs.push(...windowListToPairs(agg.windows));
+    });
+    const mergedBlockers = mergeIntervals(blockerPairs, 0);
+
+    // Use contracted daily minutes for the all-day heuristic
+    const contractedDailyMin = Math.round((group[0]?.contractedDailyHours || 0) * 60);
+    const timeKillerIsAllDay = mergedBlockers.length
+      ? isAllDayTimeKiller(mergedBlockers, availPairs, contractedDailyMin)
+      : false;
+
+    // Highest priority status selection
     let highestPriorityStatus = "";
     let highestPriority = 999;
 
