@@ -1,0 +1,226 @@
+A) Add status policy (day-killers vs time-killers)
+
+ADD just below your LEAVE_TYPES/STATUS_PRIORITY block:
+
+// Day-level vs time-slice leave
+const DAY_KILLERS = new Set<string>([
+  "Holiday",
+  "Sick",
+  "Maternity/Paternity",
+  "Compassionate Leave",
+]);
+
+const TIME_KILLERS = new Set<string>([
+  "Other Unavailable",
+  "Pre-Agreed Appointment",
+]);
+
+B) Make merge touch/overlap only (no gap tolerance)
+
+FIND your mergeTimeWindows function and REPLACE the merge check line:
+
+// OLD (has a 30-minute tolerance)
+// if (currentStart.getTime() <= lastEnd.getTime() + 30 * 60 * 1000) {
+
+// NEW (touch/overlap only)
+if (currentStart.getTime() <= lastEnd.getTime()) {
+
+
+That’s the only line that changes in this function.
+
+C) Add tiny helpers to subtract time-blockers & enforce 60-min minimum
+
+ADD these helpers right after your numeric mergeIntervals (the one that works on [number, number] pairs):
+
+// ---- Window helpers (HH:mm-HH:mm <-> minute pairs) ------------------
+function windowListToPairs(windows: string[]): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const w of windows || []) {
+    const [a, b] = (w || "").split("-").map(s => (s || "").trim());
+    if (a && b) {
+      const s = toMin(a);
+      const e = toMin(b);
+      if (Number.isFinite(s) && Number.isFinite(e) && e > s) out.push([s, e]);
+    }
+  }
+  return out;
+}
+
+function pairsToWindowList(pairs: Array<[number, number]>): string[] {
+  return (pairs || []).map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`);
+}
+
+function subtractIntervals(base: Array<[number, number]>, blocks: Array<[number, number]>): Array<[number, number]> {
+  const mergedBase = mergeIntervals(base, 0);
+  const mergedBlocks = mergeIntervals(blocks, 0);
+  let current = mergedBase;
+
+  const subOne = (a: [number, number], b: [number, number]): Array<[number, number]> => {
+    const [as, ae] = a; const [bs, be] = b;
+    if (!(bs < ae && as < be)) return [a]; // no overlap
+    const left: [number, number] | null = as < bs ? [as, Math.min(ae, bs)] : null;
+    const right: [number, number] | null = be < ae ? [Math.max(as, be), ae] : null;
+    const out: Array<[number, number]> = [];
+    if (left && left[1] > left[0]) out.push(left);
+    if (right && right[1] > right[0]) out.push(right);
+    return out;
+  };
+
+  for (const bl of mergedBlocks) {
+    const next: Array<[number, number]> = [];
+    for (const iv of current) next.push(...subOne(iv, bl));
+    current = next;
+    if (!current.length) break;
+  }
+  return mergeIntervals(current, 0);
+}
+
+function filterMinDuration(pairs: Array<[number, number]>, minMinutes = 60): Array<[number, number]> {
+  return (pairs || []).filter(([s, e]) => e - s >= minMinutes);
+}
+
+D) Day-killer short-circuit + compute bookable windows only
+
+We’ll modify your Step 5 aggregation block where cleanedRecords are built. Three changes:
+
+Detect a day-killer and override the day (ignore Available).
+
+Do not mix windows across statuses; only start from Available windows.
+
+Subtract TIME_KILLERS and filter out <60-min windows before saving.
+
+1) Detect day-killer early
+
+Just after you build statusAgg and before you calculate highestPriorityStatus, insert:
+
+// Day-killer short-circuit
+let hasDayKiller = false;
+let dayKillerStatus = "";
+let dayKillerPriority = 999;
+
+statusAgg.forEach((agg, status) => {
+  if (DAY_KILLERS.has(status)) {
+    const p = STATUS_PRIORITY[status] || 999;
+    if (p < dayKillerPriority) {
+      dayKillerPriority = p;
+      dayKillerStatus = status;
+    }
+  }
+});
+hasDayKiller = dayKillerStatus !== "";
+
+2) Force the “highest” to be the day-killer if present
+
+Replace your existing “Find highest priority status” block with this:
+
+// Highest priority status (day-killer wins)
+let highestPriorityStatus = "";
+let highestPriority = 999;
+
+if (hasDayKiller) {
+  highestPriorityStatus = dayKillerStatus;
+  highestPriority = dayKillerPriority;
+} else {
+  statusAgg.forEach((agg, status) => {
+    const priority = STATUS_PRIORITY[status] || 999;
+    if (priority < highestPriority) {
+      highestPriority = priority;
+      highestPriorityStatus = status;
+    }
+  });
+}
+
+3) Build timeWindows from Available minus TIME_KILLERS (and 60-min filter)
+
+REPLACE your current block that combines windows/notes from all statuses:
+
+// --- OLD ---
+// const allWindows: string[] = [];
+// const allNotes: string[] = [];
+// statusAgg.forEach((statusAgg, status) => {
+//   allWindows.push(...statusAgg.windows);
+//   allNotes.push(...statusAgg.notes);
+// });
+// const uniqueWindows = Array.from(new Set(allWindows)).filter(w => w && w !== "");
+// const mergedWindows = mergeTimeWindows(uniqueWindows);
+// const windowsStr = mergedWindows.length > 0 ? mergedWindows.sort().join("; ") : "";
+// const notesStr = Array.from(new Set(allNotes)).filter(n => n && n !== "").sort().join("; ");
+// cleanedRecords.push({ ... timeWindows: windowsStr, notes: notesStr, ... });
+
+
+
+WITH this (new):
+
+// Build notes (still combine from all statuses)
+const allNotes: string[] = [];
+statusAgg.forEach((agg) => allNotes.push(...agg.notes));
+const notesStr = Array.from(new Set(allNotes)).filter(n => n && n !== "").sort().join("; ");
+
+// Build bookable windows:
+// - If day-killer: no availability windows (the day is fully unavailable)
+// - Else: Available windows minus TIME_KILLERS, then drop <60-min
+let windowsStr = "";
+
+if (!hasDayKiller) {
+  const availAgg = statusAgg.get("Available");
+  const blockerPairs: Array<[number, number]> = [];
+
+  statusAgg.forEach((agg, status) => {
+    if (TIME_KILLERS.has(status)) {
+      blockerPairs.push(...windowListToPairs(agg.windows));
+    }
+  });
+
+  const availPairs = mergeIntervals(windowListToPairs(availAgg?.windows || []), 0);
+  const mergedBlockers = mergeIntervals(blockerPairs, 0);
+  const bookablePairs = filterMinDuration(subtractIntervals(availPairs, mergedBlockers), 60);
+  const bookableWindows = pairsToWindowList(bookablePairs);
+
+  // Keep windows in chronological order
+  windowsStr = bookableWindows.join("; ");
+}
+
+// Compute hours & capacity as before, but set windows to `windowsStr`
+cleanedRecords.push({
+  employeeName: empName,
+  contractedWeeklyHours: Math.round(weekly * 100) / 100,
+  contractedDailyHours: Math.round(daily * 100) / 100,
+  date,
+  status: highestPriorityStatus,
+  timeWindows: windowsStr,                                  // << NEW: bookable only
+  scheduledHours: Math.round(totalScheduledHours * 100) / 100,
+  hours: Math.round(finalHours * 100) / 100,
+  netCapacity: Math.round(netCapacity * 100) / 100,
+  notes: notesStr + (hasDayKiller ? " [availability ignored due to day-level leave]" : ""),
+});
+
+
+⚠️ Keep your existing logic that computes finalHours/netCapacity for Available vs LEAVE_TYPES. With highestPriorityStatus now set to the day-killer when present, the Available branch won’t run on leave days—exactly as desired.
+
+E) Remove the duplicate timeToString (keep only one)
+
+You currently have two timeToString functions. Delete the earlier one (the one right after “Time string conversion exactly like your tstr function”) and keep the bottom one (under “Minimal utilities to populate Time Window(s) from Availability”).
+
+DELETE this whole earlier block:
+
+// Time string conversion exactly like your tstr function
+function timeToString(timeValue: any): string {
+  ...
+}
+
+
+The bottom timeToString (under “Minimal utilities…”) stays.
+
+That’s it
+
+After these patches:
+
+Holiday/Sick/Maternity/Compassionate wipe the day (no windows shown).
+
+Other Unavailable/Pre-Agreed Appointment subtract only their slices.
+
+Daytime pieces that touch merge; the evening slot stays separate.
+
+<60-min bookable fragments are dropped from the Cleaned sheet’s Time Windows.
+
+If you want, I can also provide a tiny test fixture you can run to validate the Amanda/Sharon/Lori examples end-to-end.
