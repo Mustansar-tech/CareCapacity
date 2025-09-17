@@ -37,6 +37,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   "Compassionate Leave": 4,
   "Other Unavailable": 5,
   "Pre-Agreed Appointment": 6,
+  "Partial Availability": 6,   // ← NEW (not in LEAVE_TYPES)
   Available: 7,
   "Ad-hoc": 7, // NEW
 };

@@ -1,0 +1,141 @@
+1) Add to priorities (do not add to LEAVE_TYPES)
+
+FIND your STATUS_PRIORITY and add the line below:
+
+const STATUS_PRIORITY: Record<string, number> = {
+  "Maternity/Paternity": 1,
+  Sick: 2,
+  Holiday: 3,
+  "Compassionate Leave": 4,
+  "Other Unavailable": 5,
+  "Pre-Agreed Appointment": 6,
+  "Partial Availability": 6,   // ← NEW (not in LEAVE_TYPES)
+  Available: 7,
+  "Ad-hoc": 7,
+};
+
+
+Keep LEAVE_TYPES unchanged. We don’t want “Partial Availability” treated as leave.
+
+2) Compute avail/blockers & all-day check (once per employee/day)
+
+Right after you compute hasDayKiller and hasTimeKiller (and after you’ve built statusAgg), insert:
+
+// Compute avail/blocker pairs once (reused below)
+const availAgg = statusAgg.get("Available");
+const availPairs = mergeIntervals(windowListToPairs(availAgg?.windows || []), 0);
+
+const blockerPairs: Array<[number, number]> = [];
+statusAgg.forEach((agg, status) => {
+  if (TIME_KILLERS.has(status)) blockerPairs.push(...windowListToPairs(agg.windows));
+});
+const mergedBlockers = mergeIntervals(blockerPairs, 0);
+
+// Use contracted daily minutes for the all-day heuristic
+const contractedDailyMin = Math.round((group[0]?.contractedDailyHours || 0) * 60);
+const timeKillerIsAllDay = mergedBlockers.length
+  ? isAllDayTimeKiller(mergedBlockers, availPairs, contractedDailyMin)
+  : false;
+
+
+(You already have windowListToPairs, mergeIntervals, and isAllDayTimeKiller from our earlier steps.)
+
+3) Status selection (choose Partial Availability on partial block days)
+
+REPLACE your current highest-priority selection block with:
+
+// Highest priority status selection
+let highestPriorityStatus = "";
+let highestPriority = 999;
+
+if (hasDayKiller) {
+  highestPriorityStatus = dayKillerStatus;
+  highestPriority = dayKillerPriority;
+
+} else if (hasTimeKiller) {
+  if (timeKillerIsAllDay || !availPairs.length) {
+    // Treat like day-level absence
+    highestPriorityStatus = "Other Unavailable";
+    highestPriority = STATUS_PRIORITY["Other Unavailable"] || 5;
+  } else {
+    // Partial blocker but still some availability
+    highestPriorityStatus = "Partial Availability";
+    highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
+  }
+
+} else {
+  // No blockers → pick best remaining (usually Available)
+  statusAgg.forEach((_agg, status) => {
+    const p = STATUS_PRIORITY[status] || 999;
+    if (p < highestPriority) {
+      highestPriority = p;
+      highestPriorityStatus = status;
+    }
+  });
+}
+
+4) Bookable windows (same logic you pasted)
+
+Right before you build/push the cleanedRecords row, set windows like this:
+
+let windowsStr = "";
+if (!(hasDayKiller || timeKillerIsAllDay)) {
+  const bookablePairs = filterMinDuration(
+    subtractIntervals(availPairs, mergedBlockers),
+    60
+  );
+  const bookableWindows = pairsToWindowList(bookablePairs);
+  windowsStr = bookableWindows.join("; ");
+}
+
+5) Net capacity rules (remove any old “if (hasTimeKiller) netCapacity=0)”)
+
+REPLACE your final hours/capacity block with:
+
+let finalHours: number;
+let netCapacity: number;
+const agg = statusAgg.get(highestPriorityStatus) || { hoursRaw: 0 };
+
+// Sum leave across LEAVE_TYPES (includes "Other Unavailable")
+const totalLeaveRaw = Array.from(statusAgg.entries())
+  .filter(([s]) => LEAVE_TYPES.includes(s))
+  .reduce((sum, [,a]) => sum + (a.hoursRaw || 0), 0);
+const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
+
+if (hasDayKiller || (hasTimeKiller && timeKillerIsAllDay)) {
+  // Full-day absence → zero capacity
+  finalHours = Math.min(agg.hoursRaw || 0.0, daily);
+  netCapacity = 0.0;
+
+} else if (highestPriorityStatus === "Partial Availability") {
+  // Keep capacity on partial blocker days
+  finalHours = Math.max(daily - totalLeaveCapped, 0.0);
+  netCapacity = finalHours;
+
+} else if (highestPriorityStatus === "Available") {
+  finalHours = Math.max(daily - totalLeaveCapped, 0.0);
+  netCapacity = finalHours;
+
+} else {
+  // Other statuses default to no capacity
+  finalHours = agg.hoursRaw || 0.0;
+  netCapacity = 0.0;
+}
+
+
+And ensure any previous hard line like:
+
+// if (hasTimeKiller) netCapacity = 0.0;   // ← remove this if present
+
+
+is deleted.
+
+Result
+
+Hamza (Other Unavailable all day): status = Other Unavailable, netCapacity = 0, no windows.
+
+Sharon (partial Other Unavailable): status = Partial Availability, windows = Available − blocker (≥60 only), netCapacity > 0 (contracted day − capped leave).
+
+If you’d rather display the label as “Available (Partial)” but keep the internal status string "Partial Availability" (so your code path still works), just map the label in your UI layer—no backend change needed.
+
+ChatGPT can make mistakes. OpenAI doesn't use Home Instead's Workspace workspace data to train its models.
