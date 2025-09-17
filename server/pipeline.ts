@@ -41,6 +41,19 @@ const STATUS_PRIORITY: Record<string, number> = {
   "Ad-hoc": 7, // NEW
 };
 
+// Day-level vs time-slice leave
+const DAY_KILLERS = new Set<string>([
+  "Holiday",
+  "Sick",
+  "Maternity/Paternity",
+  "Compassionate Leave",
+]);
+
+const TIME_KILLERS = new Set<string>([
+  "Other Unavailable",
+  "Pre-Agreed Appointment",
+]);
+
 interface ParsedAvailabilityRow extends AvailabilityRow {
   parsedDate: Date;
   calculatedHours: number;
@@ -233,6 +246,53 @@ function mergeIntervals(ints: Array<[number, number]>, adjacencyMin = 0): Array<
     }
   }
   return out;
+}
+
+// ---- Window helpers (HH:mm-HH:mm <-> minute pairs) ------------------
+function windowListToPairs(windows: string[]): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const w of windows || []) {
+    const [a, b] = (w || "").split("-").map(s => (s || "").trim());
+    if (a && b) {
+      const s = toMin(a);
+      const e = toMin(b);
+      if (Number.isFinite(s) && Number.isFinite(e) && e > s) out.push([s, e]);
+    }
+  }
+  return out;
+}
+
+function pairsToWindowList(pairs: Array<[number, number]>): string[] {
+  return (pairs || []).map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`);
+}
+
+function subtractIntervals(base: Array<[number, number]>, blocks: Array<[number, number]>): Array<[number, number]> {
+  const mergedBase = mergeIntervals(base, 0);
+  const mergedBlocks = mergeIntervals(blocks, 0);
+  let current = mergedBase;
+
+  const subOne = (a: [number, number], b: [number, number]): Array<[number, number]> => {
+    const [as, ae] = a; const [bs, be] = b;
+    if (!(bs < ae && as < be)) return [a]; // no overlap
+    const left: [number, number] | null = as < bs ? [as, Math.min(ae, bs)] : null;
+    const right: [number, number] | null = be < ae ? [Math.max(as, be), ae] : null;
+    const out: Array<[number, number]> = [];
+    if (left && left[1] > left[0]) out.push(left);
+    if (right && right[1] > right[0]) out.push(right);
+    return out;
+  };
+
+  for (const bl of mergedBlocks) {
+    const next: Array<[number, number]> = [];
+    for (const iv of current) next.push(...subOne(iv, bl));
+    current = next;
+    if (!current.length) break;
+  }
+  return mergeIntervals(current, 0);
+}
+
+function filterMinDuration(pairs: Array<[number, number]>, minMinutes = 60): Array<[number, number]> {
+  return (pairs || []).filter(([s, e]) => e - s >= minMinutes);
 }
 
 // Build time windows per employee/day from Guaranteed (ACTUAL start/end)
@@ -1189,8 +1249,8 @@ export function processCapacityData(
       const currentStart = new Date(`2000-01-01 ${current.start}`);
       const lastEnd = new Date(`2000-01-01 ${last.end}`);
 
-      // If windows overlap or are adjacent (within 30 minutes), merge them
-      if (currentStart.getTime() <= lastEnd.getTime() + 30 * 60 * 1000) {
+      // If windows overlap or touch, merge them
+      if (currentStart.getTime() <= lastEnd.getTime()) {
         const currentEnd = new Date(`2000-01-01 ${current.end}`);
         if (currentEnd.getTime() > lastEnd.getTime()) {
           last.end = current.end;
@@ -1279,17 +1339,38 @@ export function processCapacityData(
     });
     const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
 
-    // Find highest priority status (lowest number) to show only one record per employee per date
+    // Day-killer short-circuit
+    let hasDayKiller = false;
+    let dayKillerStatus = "";
+    let dayKillerPriority = 999;
+
+    statusAgg.forEach((agg, status) => {
+      if (DAY_KILLERS.has(status)) {
+        const p = STATUS_PRIORITY[status] || 999;
+        if (p < dayKillerPriority) {
+          dayKillerPriority = p;
+          dayKillerStatus = status;
+        }
+      }
+    });
+    hasDayKiller = dayKillerStatus !== "";
+
+    // Highest priority status (day-killer wins)
     let highestPriorityStatus = "";
     let highestPriority = 999;
 
-    statusAgg.forEach((agg, status) => {
-      const priority = STATUS_PRIORITY[status] || 999;
-      if (priority < highestPriority) {
-        highestPriority = priority;
-        highestPriorityStatus = status;
-      }
-    });
+    if (hasDayKiller) {
+      highestPriorityStatus = dayKillerStatus;
+      highestPriority = dayKillerPriority;
+    } else {
+      statusAgg.forEach((agg, status) => {
+        const priority = STATUS_PRIORITY[status] || 999;
+        if (priority < highestPriority) {
+          highestPriority = priority;
+          highestPriorityStatus = status;
+        }
+      });
+    }
 
     // Only create one record using the highest priority status
     if (highestPriorityStatus && statusAgg.has(highestPriorityStatus)) {
@@ -1308,25 +1389,34 @@ export function processCapacityData(
         netCapacity = 0.0;
       }
 
-      // Combine windows and notes from all statuses for comprehensive view
-      const allWindows: string[] = [];
+      // Build notes (still combine from all statuses)
       const allNotes: string[] = [];
+      statusAgg.forEach((agg) => allNotes.push(...agg.notes));
+      const notesStr = Array.from(new Set(allNotes)).filter(n => n && n !== "").sort().join("; ");
 
-      statusAgg.forEach((statusAgg, status) => {
-        allWindows.push(...statusAgg.windows);
-        allNotes.push(...statusAgg.notes);
-      });
+      // Build bookable windows:
+      // - If day-killer: no availability windows (the day is fully unavailable)
+      // - Else: Available windows minus TIME_KILLERS, then drop <60-min
+      let windowsStr = "";
 
-      const uniqueWindows = Array.from(new Set(allWindows)).filter(
-        (w) => w && w !== "",
-      );
-      const mergedWindows = mergeTimeWindows(uniqueWindows);
-      const windowsStr =
-        mergedWindows.length > 0 ? mergedWindows.sort().join("; ") : "";
-      const notesStr = Array.from(new Set(allNotes))
-        .filter((n) => n && n !== "")
-        .sort()
-        .join("; ");
+      if (!hasDayKiller) {
+        const availAgg = statusAgg.get("Available");
+        const blockerPairs: Array<[number, number]> = [];
+
+        statusAgg.forEach((agg, status) => {
+          if (TIME_KILLERS.has(status)) {
+            blockerPairs.push(...windowListToPairs(agg.windows));
+          }
+        });
+
+        const availPairs = mergeIntervals(windowListToPairs(availAgg?.windows || []), 0);
+        const mergedBlockers = mergeIntervals(blockerPairs, 0);
+        const bookablePairs = filterMinDuration(subtractIntervals(availPairs, mergedBlockers), 60);
+        const bookableWindows = pairsToWindowList(bookablePairs);
+
+        // Keep windows in chronological order
+        windowsStr = bookableWindows.join("; ");
+      }
 
       cleanedRecords.push({
         employeeName: empName,
@@ -1338,7 +1428,7 @@ export function processCapacityData(
         scheduledHours: Math.round(totalScheduledHours * 100) / 100, // Total scheduled hours for this employee on this date
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
-        notes: notesStr,
+        notes: notesStr + (hasDayKiller ? " [availability ignored due to day-level leave]" : ""),
       });
     }
   });
