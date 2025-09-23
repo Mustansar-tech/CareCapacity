@@ -294,6 +294,11 @@
     animation: scaleIn var(--duration-fast) var(--easing-standard);
   }
 
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: animate-gradient 3s ease-in-out infinite;
+  }
+
   .animate-bounce-in {
     animation: bounceIn var(--duration-slow) var(--easing-emphasized);
   }
@@ -536,5 +541,17 @@
   100% {
     transform: scale(4);
     opacity: 0;
+  }
+}
+
+@keyframes animate-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }

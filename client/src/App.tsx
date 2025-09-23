@@ -4,50 +4,54 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { BarChart3Icon } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
+import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
 
 function Navigation() {
   const [location] = useLocation();
   
   return (
-    <nav className="glass backdrop-blur-lg bg-white/80 dark:bg-gray-900/80 border-b border-white/20 dark:border-gray-700/50 px-6 py-4 sticky top-0 z-50" data-testid="main-navigation">
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
-              <BarChart3Icon className="w-5 h-5 text-white" />
+    <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
+      <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-3 shadow-2xl">
+        <div className="flex items-center justify-between">
+          {/* Logo Section */}
+          <Link href="/" className="group" data-testid="link-home">
+            <div className="flex items-center gap-3 transition-all duration-300 hover:scale-105">
+              <div className="relative">
+                <img 
+                  src={homeInsteadLogo} 
+                  alt="Home Instead" 
+                  className="h-8 w-auto object-contain transition-all duration-300 group-hover:brightness-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm"></div>
+              </div>
+              <div className="hidden sm:block">
+                <div className="text-sm font-display font-semibold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent animate-gradient">
+                  Care Capacity Dashboard
+                </div>
+                <div className="text-xs text-muted-foreground">Workforce Intelligence</div>
+              </div>
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-              Care Capacity Dashboard
-            </h1>
+          </Link>
+
+          {/* Status & Controls */}
+          <div className="flex items-center gap-4">
+            {/* Enhanced Status Indicator */}
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 rounded-full border border-green-200 dark:border-green-800" data-testid="status-indicator">
+              <div className="relative">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div className="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75"></div>
+              </div>
+              <span className="text-xs font-medium text-green-700 dark:text-green-300" data-testid="text-system-status">System Online</span>
+            </div>
+
+            {/* Theme Toggle with Enhanced Styling */}
+            <div className="p-1 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30" data-testid="theme-toggle-container">
+              <ThemeToggle />
+            </div>
           </div>
-          <div className="flex gap-1 bg-gray-200/80 dark:bg-gray-800/50 p-1 rounded-lg backdrop-blur-sm border border-gray-300/50 dark:border-gray-700/50">
-            <Link href="/">
-              <Button 
-                variant={location === "/" ? "default" : "ghost"} 
-                size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
-                  location === "/" 
-                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
-                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
-                }`}
-                data-testid="nav-dashboard"
-              >
-                <BarChart3Icon className="w-4 h-4" />
-                Dashboard
-              </Button>
-            </Link>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full status-pulse" title="System Online"></div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Online</span>
-          </div>
-          <ThemeToggle />
         </div>
       </div>
     </nav>
@@ -58,7 +62,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <Navigation />
-      <main className="animate-fade-in">
+      <main className="animate-fade-in pt-20">
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route component={NotFound} />
