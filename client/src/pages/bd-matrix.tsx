@@ -9,7 +9,7 @@ import {
   Eye, CheckCircle, AlertTriangle, XCircle 
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
-import { getGenderColorClass } from "@/utils/gender-colors";
+import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
 
 // Company's 11 standardized time blocks
 const COMPANY_TIME_BLOCKS = [
@@ -316,7 +316,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                         <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                              <div className={`w-3 h-3 rounded-full ${getGenderColorClass(employee.gender)}`}></div>
+                                              <div className={`w-3 h-3 rounded-full ${getGenderBgColorClass(employee.gender)}`}></div>
                                               <div>
                                                 <h4 className="font-medium text-gray-900 dark:text-gray-100">
                                                   {employee.name}
