@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter 
 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
 
@@ -138,14 +138,7 @@ function getDayOfWeek(dateStr: string): string {
 }
 
 export default function BDMatrix({ data }: BDMatrixProps) {
-  const [selectedCell, setSelectedCell] = useState<{
-    date: string;
-    timeBlock: string;
-    employees: EmployeeAvailabilityInfo[];
-  } | null>(null);
-  
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
-  const [showFilteredView, setShowFilteredView] = useState<boolean>(false);
 
   const matrixData = useMemo(() => {
     if (!data?.employeeSummaryByDate) return null;
@@ -192,7 +185,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     return { dates, matrix };
   }, [data]);
   
-  // Calculate filtered matrix data when showing filtered view (intersection logic)
+  // Calculate filtered matrix data (intersection logic)
   const filteredMatrixData = useMemo(() => {
     if (!matrixData || selectedTimeBlocks.size === 0) return null;
     
@@ -313,82 +306,42 @@ export default function BDMatrix({ data }: BDMatrixProps) {
         </CardContent>
       </Card>
 
-      {/* Time Block Filter Section */}
-      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/50 dark:to-blue-950/50 rounded-t-lg">
-          <CardTitle className="text-lg font-semibold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
-            <Filter className="w-5 h-5 text-green-600" />
-            Time Block Filter
-          </CardTitle>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Select specific time blocks to see aggregated employee availability
-          </p>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            {/* Filter Controls */}
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="show-filtered"
-                  checked={showFilteredView}
-                  onCheckedChange={(checked) => setShowFilteredView(checked as boolean)}
-                />
-                <label htmlFor="show-filtered" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Show Filtered View
-                </label>
-              </div>
-              <Button
-                onClick={handleSelectAll}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                Select All
-              </Button>
-              <Button
-                onClick={handleSelectNone}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                Clear All
-              </Button>
-              <span className="text-xs text-gray-500">
-                {selectedTimeBlocks.size} of {COMPANY_TIME_BLOCKS.length} selected
-              </span>
-            </div>
-            
-            {/* Time Block Checkboxes */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {COMPANY_TIME_BLOCKS.map((timeBlock) => (
-                <div key={timeBlock.label} className="flex items-center gap-2 p-2 rounded border border-gray-200 dark:border-gray-700">
-                  <Checkbox
-                    id={`timeblock-${timeBlock.label}`}
-                    checked={selectedTimeBlocks.has(timeBlock.label)}
-                    onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
-                  />
-                  <label htmlFor={`timeblock-${timeBlock.label}`} className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1">
-                    {timeBlock.label}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* BD Matrix Grid */}
+      {/* BD Matrix Grid with Filter as First Column */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardContent className="p-0">
           <ScrollArea className="w-full">
-            <div className="min-w-[800px]">
+            <div className="min-w-[1000px]">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
-                    <th className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 min-w-[120px]">
-                      <Clock className="w-4 h-4 inline mr-2" />
-                      Time Block
+                    <th className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 min-w-[180px]">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Filter className="w-4 h-4" />
+                          Filter & Time Blocks
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={handleSelectAll}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                          >
+                            All
+                          </Button>
+                          <Button
+                            onClick={handleSelectNone}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                          >
+                            None
+                          </Button>
+                          <span className="text-xs text-gray-500">
+                            {selectedTimeBlocks.size} selected
+                          </span>
+                        </div>
+                      </div>
                     </th>
                     {dates.map(date => (
                       <th key={date} className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 min-w-[100px]">
@@ -402,29 +355,40 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {COMPANY_TIME_BLOCKS.map((timeBlock, blockIndex) => (
-                    <tr key={timeBlock.label} className={blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}>
-                      <td className="p-3 font-medium text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-white/90 dark:bg-gray-900/90 z-10">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          {timeBlock.label}
+                  {/* Filtered View Row - Only show when filters are selected */}
+                  {selectedTimeBlocks.size > 0 && filteredMatrixData && (
+                    <tr className="bg-blue-50/50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700">
+                      <td className="p-3 font-medium text-blue-700 dark:text-blue-300 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-blue-50/90 dark:bg-blue-900/40 z-10">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <Filter className="w-4 h-4 text-blue-500" />
+                            <span className="font-semibold text-sm">Available in ALL Selected</span>
+                          </div>
+                          <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                            {Array.from(selectedTimeBlocks).slice(0,3).map(block => (
+                              <div key={block} className="bg-blue-100 dark:bg-blue-800/30 px-1 py-0.5 rounded text-xs">
+                                {block}
+                              </div>
+                            ))}
+                            {selectedTimeBlocks.size > 3 && (
+                              <div className="text-xs text-blue-600">
+                                +{selectedTimeBlocks.size - 3} more
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      {dates.map(date => {
-                        const cell = matrix[date][timeBlock.label];
+                      {filteredMatrixData.dates.map(date => {
+                        const cell = filteredMatrixData.filteredMatrix[date];
                         return (
-                          <td key={`${date}-${timeBlock.label}`} className="p-2 border-r border-gray-200 dark:border-gray-600 text-center">
+                          <td key={`filtered-${date}`} className="p-1 border border-blue-200 dark:border-blue-600 text-center">
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button
                                   variant="ghost"
-                                  className={`w-full h-16 rounded-lg border-2 transition-all duration-200 hover:scale-105 hover:shadow-md ${cell.colorClass}`}
-                                  onClick={() => setSelectedCell({
-                                    date,
-                                    timeBlock: timeBlock.label,
-                                    employees: cell.employees
-                                  })}
-                                  data-testid={`bd-matrix-cell-${date}-${timeBlock.label}`}
+                                  size="sm"
+                                  className={`h-16 w-full justify-center transition-all hover:scale-105 ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer' : 'cursor-default'} border-2 border-blue-300 dark:border-blue-600`}
+                                  disabled={cell.count === 0}
                                 >
                                   <div className="flex flex-col items-center gap-1">
                                     {getStatusIcon(cell.count)}
@@ -435,7 +399,121 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                   </div>
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="max-w-2xl max-h-[80vh]">
+                              <DialogContent className="max-w-4xl max-h-[80vh]">
+                                <DialogHeader>
+                                  <DialogTitle className="flex items-center gap-3">
+                                    <Filter className="w-5 h-5" />
+                                    Employees Available in ALL Selected Blocks
+                                  </DialogTitle>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees available in all {selectedTimeBlocks.size} selected time blocks
+                                  </div>
+                                </DialogHeader>
+                                <ScrollArea className="max-h-[60vh]">
+                                  <div className="space-y-3">
+                                    {cell.employees.length === 0 ? (
+                                      <div className="text-center py-8 text-gray-500">
+                                        <XCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>No employees available in ALL selected time blocks</p>
+                                      </div>
+                                    ) : (
+                                      cell.employees.map((employee, index) => (
+                                        <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-3 flex-1">
+                                              <div className={`w-3 h-3 rounded-full mt-1 ${getGenderBgColorClass(employee.gender)}`}></div>
+                                              <div className="flex-1">
+                                                <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
+                                                  {employee.name}
+                                                </h4>
+                                                <div className="space-y-1 mt-2">
+                                                  {employee.scheduledHours !== undefined && (
+                                                    <div className="text-sm text-blue-600 dark:text-blue-400">
+                                                      Scheduled: {employee.scheduledHours.toFixed(1)}h
+                                                    </div>
+                                                  )}
+                                                  {employee.windowCount !== undefined && (
+                                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                                      Windows: {employee.windowCount}
+                                                    </div>
+                                                  )}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
+                                                    <div>
+                                                      <div className="text-sm font-medium text-green-600 dark:text-green-400">Free Times:</div>
+                                                      <div className="text-xs font-mono bg-green-50 dark:bg-green-900/30 p-2 rounded border mt-1 max-w-md">
+                                                        {employee.freeWindows}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && (
+                                                    <div>
+                                                      <div className="text-sm font-medium text-red-600 dark:text-red-400">Cancelled:</div>
+                                                      <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border mt-1 max-w-md">
+                                                        {employee.cancelledVisits}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-3">
+                                              <TransportModeIcon transportMode={employee.transportMode} />
+                                              <Badge variant="outline" className="text-xs">
+                                                Available
+                                              </Badge>
+                                            </div>
+                                          </div>
+                                        </Card>
+                                      ))
+                                    )}
+                                  </div>
+                                </ScrollArea>
+                              </DialogContent>
+                            </Dialog>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  )}
+                  
+                  {/* Individual Time Block Rows */}
+                  {COMPANY_TIME_BLOCKS.map((timeBlock, blockIndex) => (
+                    <tr key={timeBlock.label} className={blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}>
+                      <td className="p-3 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-white/90 dark:bg-gray-900/90 z-10">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`timeblock-${timeBlock.label}`}
+                            checked={selectedTimeBlocks.has(timeBlock.label)}
+                            onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
+                          />
+                          <label htmlFor={`timeblock-${timeBlock.label}`} className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex items-center gap-2 text-sm">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            {timeBlock.label}
+                          </label>
+                        </div>
+                      </td>
+                      {dates.map(date => {
+                        const cell = matrix[date][timeBlock.label];
+                        return (
+                          <td key={`${date}-${timeBlock.label}`} className="p-1 border border-gray-200 dark:border-gray-600 text-center">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-14 w-full justify-center transition-all hover:scale-105 ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
+                                  disabled={cell.count === 0}
+                                >
+                                  <div className="flex flex-col items-center gap-1">
+                                    {getStatusIcon(cell.count)}
+                                    <span className="text-lg font-bold">{cell.count}</span>
+                                    {cell.count > 0 && (
+                                      <Eye className="w-3 h-3 opacity-60" />
+                                    )}
+                                  </div>
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl max-h-[80vh]">
                                 <DialogHeader>
                                   <DialogTitle className="flex items-center gap-3">
                                     <Users className="w-5 h-5" />
@@ -455,21 +533,44 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     ) : (
                                       cell.employees.map((employee, index) => (
                                         <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                              <div className={`w-3 h-3 rounded-full ${getGenderBgColorClass(employee.gender)}`}></div>
-                                              <div>
-                                                <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-3 flex-1">
+                                              <div className={`w-3 h-3 rounded-full mt-1 ${getGenderBgColorClass(employee.gender)}`}></div>
+                                              <div className="flex-1">
+                                                <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
                                                   {employee.name}
                                                 </h4>
-                                                {employee.freeWindows && (
-                                                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                    Free: {employee.freeWindows}
-                                                  </p>
-                                                )}
+                                                <div className="space-y-1 mt-2">
+                                                  {employee.scheduledHours !== undefined && (
+                                                    <div className="text-sm text-blue-600 dark:text-blue-400">
+                                                      Scheduled: {employee.scheduledHours.toFixed(1)}h
+                                                    </div>
+                                                  )}
+                                                  {employee.windowCount !== undefined && (
+                                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                                      Windows: {employee.windowCount}
+                                                    </div>
+                                                  )}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
+                                                    <div>
+                                                      <div className="text-sm font-medium text-green-600 dark:text-green-400">Free Times:</div>
+                                                      <div className="text-xs font-mono bg-green-50 dark:bg-green-900/30 p-2 rounded border mt-1 max-w-md">
+                                                        {employee.freeWindows}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && (
+                                                    <div>
+                                                      <div className="text-sm font-medium text-red-600 dark:text-red-400">Cancelled:</div>
+                                                      <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border mt-1 max-w-md">
+                                                        {employee.cancelledVisits}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 ml-3">
                                               <TransportModeIcon transportMode={employee.transportMode} />
                                               <Badge variant="outline" className="text-xs">
                                                 Available
@@ -492,47 +593,6 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               </table>
             </div>
           </ScrollArea>
-        </CardContent>
-      </Card>
-
-      {/* Summary Statistics */}
-      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Quick Statistics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {dates.length}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Days</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {COMPANY_TIME_BLOCKS.length}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Time Blocks</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {Object.values(matrix).reduce((total, dayMatrix) => 
-                  total + Object.values(dayMatrix).reduce((dayTotal, cell) => 
-                    dayTotal + (cell.count >= 4 ? 1 : 0), 0), 0)}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">High Capacity Slots</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {Object.values(matrix).reduce((total, dayMatrix) => 
-                  total + Object.values(dayMatrix).reduce((dayTotal, cell) => 
-                    dayTotal + (cell.count <= 1 ? 1 : 0), 0), 0)}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Low Capacity Slots</div>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
