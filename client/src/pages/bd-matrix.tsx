@@ -40,7 +40,6 @@ interface EmployeeAvailabilityInfo {
   freeWindows: string;
   scheduledHours?: number;
   cancelledVisits?: string;
-  windowCount?: number;
 }
 
 interface BDMatrixCell {
@@ -173,8 +172,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               transportMode: employee.transportMode,
               freeWindows: employee.freeWindows,
               scheduledHours: employee.scheduledHours,
-              cancelledVisits: employee.cancelledVisits,
-              windowCount: employee.windowCount
+              cancelledVisits: employee.cancelledVisits
             });
             cell.colorClass = getColorClass(cell.count);
           }
@@ -432,11 +430,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                       Scheduled: {employee.scheduledHours.toFixed(1)}h
                                                     </div>
                                                   )}
-                                                  {employee.windowCount !== undefined && (
-                                                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                                                      Windows: {employee.windowCount}
-                                                    </div>
-                                                  )}
+
                                                   {employee.freeWindows && employee.freeWindows !== '-' && (
                                                     <div>
                                                       <div className="text-sm font-medium text-green-600 dark:text-green-400">Free Times:</div>
@@ -546,11 +540,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                       Scheduled: {employee.scheduledHours.toFixed(1)}h
                                                     </div>
                                                   )}
-                                                  {employee.windowCount !== undefined && (
-                                                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                                                      Windows: {employee.windowCount}
-                                                    </div>
-                                                  )}
+
                                                   {employee.freeWindows && employee.freeWindows !== '-' && (
                                                     <div>
                                                       <div className="text-sm font-medium text-green-600 dark:text-green-400">Free Times:</div>
