@@ -424,12 +424,28 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                 <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
                                                   {employee.name}
                                                 </h4>
-                                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                  {employee.scheduledHours !== undefined && `${employee.scheduledHours.toFixed(1)}h scheduled`}
-                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && ' • '}
-                                                  {employee.freeWindows && employee.freeWindows !== '-' && `Free: ${employee.freeWindows}`}
-                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && ' • '}
-                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && `Cancelled: ${employee.cancelledVisits}`}
+                                                <div className="text-sm mt-1 flex flex-wrap items-center gap-1">
+                                                  {employee.scheduledHours !== undefined && (
+                                                    <span className="text-blue-600 dark:text-blue-400">
+                                                      {employee.scheduledHours.toFixed(1)}h scheduled
+                                                    </span>
+                                                  )}
+                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
+                                                    <span className="text-green-600 dark:text-green-400">
+                                                      Free: {employee.freeWindows}
+                                                    </span>
+                                                  )}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && (
+                                                    <span className="text-red-600 dark:text-red-400">
+                                                      Cancelled: {employee.cancelledVisits}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               </div>
                                             </div>
@@ -517,12 +533,28 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                 <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
                                                   {employee.name}
                                                 </h4>
-                                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                  {employee.scheduledHours !== undefined && `${employee.scheduledHours.toFixed(1)}h scheduled`}
-                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && ' • '}
-                                                  {employee.freeWindows && employee.freeWindows !== '-' && `Free: ${employee.freeWindows}`}
-                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && ' • '}
-                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && `Cancelled: ${employee.cancelledVisits}`}
+                                                <div className="text-sm mt-1 flex flex-wrap items-center gap-1">
+                                                  {employee.scheduledHours !== undefined && (
+                                                    <span className="text-blue-600 dark:text-blue-400">
+                                                      {employee.scheduledHours.toFixed(1)}h scheduled
+                                                    </span>
+                                                  )}
+                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
+                                                    <span className="text-green-600 dark:text-green-400">
+                                                      Free: {employee.freeWindows}
+                                                    </span>
+                                                  )}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && (
+                                                    <span className="text-red-600 dark:text-red-400">
+                                                      Cancelled: {employee.cancelledVisits}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               </div>
                                             </div>
