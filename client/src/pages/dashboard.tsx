@@ -22,6 +22,7 @@ import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import WeeklyOverview from "@/pages/weekly-overview";
+import BDMatrix from "@/pages/bd-matrix";
 
 
 // Helper formatting functions
@@ -524,7 +525,7 @@ export default function Dashboard() {
           <div>
 
         <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
@@ -556,6 +557,14 @@ export default function Dashboard() {
             >
               <Calendar className="w-4 h-4 mr-2" />
               Weekly Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="bd-matrix" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-bd-matrix"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              BD Matrix
             </TabsTrigger>
             <TabsTrigger 
               value="ai-suggestions" 
@@ -787,6 +796,12 @@ export default function Dashboard() {
               data={filteredData || processedData}
               isLoading={isLoadingLatest}
               error={latestDataError}
+            />
+          </TabsContent>
+
+          <TabsContent value="bd-matrix" data-testid="content-bd-matrix">
+            <BDMatrix 
+              data={filteredData || processedData}
             />
           </TabsContent>
 

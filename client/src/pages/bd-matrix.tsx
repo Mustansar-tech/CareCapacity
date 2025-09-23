@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle 
@@ -317,7 +316,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                         <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                              <div className={`w-3 h-3 rounded-full ${getGenderColorClass(employee.name, employee.gender)}`}></div>
+                                              <div className={`w-3 h-3 rounded-full ${getGenderColorClass(employee.gender)}`}></div>
                                               <div>
                                                 <h4 className="font-medium text-gray-900 dark:text-gray-100">
                                                   {employee.name}
