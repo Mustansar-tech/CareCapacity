@@ -428,8 +428,8 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                   {employee.scheduledHours !== undefined && `${employee.scheduledHours.toFixed(1)}h scheduled`}
                                                   {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && ' • '}
                                                   {employee.freeWindows && employee.freeWindows !== '-' && `Free: ${employee.freeWindows}`}
-                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None') && ' • '}
-                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && `Cancelled: ${employee.cancelledVisits}`}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && ' • '}
+                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && `Cancelled: ${employee.cancelledVisits}`}
                                                 </div>
                                               </div>
                                             </div>
@@ -521,8 +521,8 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                   {employee.scheduledHours !== undefined && `${employee.scheduledHours.toFixed(1)}h scheduled`}
                                                   {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && ' • '}
                                                   {employee.freeWindows && employee.freeWindows !== '-' && `Free: ${employee.freeWindows}`}
-                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None') && ' • '}
-                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && `Cancelled: ${employee.cancelledVisits}`}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && ' • '}
+                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && `Cancelled: ${employee.cancelledVisits}`}
                                                 </div>
                                               </div>
                                             </div>
