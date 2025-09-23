@@ -7,7 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
-  Eye, CheckCircle, AlertTriangle, XCircle, Filter 
+  Eye, CheckCircle, AlertTriangle, XCircle, Filter, 
+  Info, HelpCircle, Zap, Star
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -84,16 +85,19 @@ function isFullyAvailableInTimeBlock(freeWindows: string, timeBlock: TimeBlock):
 }
 
 function getColorClass(count: number): string {
-  if (count <= 1) return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/50';
-  if (count <= 3) return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/50';
-  return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/50';
+  if (count === 0) return 'bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700';
+  if (count === 1) return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700/50';
+  if (count <= 3) return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-700/50';
+  if (count <= 5) return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700/50';
+  return 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50';
 }
 
 function getStatusIcon(count: number) {
   if (count === 0) return <XCircle className="w-4 h-4" />;
   if (count === 1) return <AlertTriangle className="w-4 h-4" />;
-  if (count <= 3) return <CheckCircle className="w-4 h-4" />;
-  return <Users className="w-4 h-4" />;
+  if (count <= 3) return <Users className="w-4 h-4" />;
+  if (count <= 5) return <CheckCircle className="w-4 h-4" />;
+  return <Star className="w-5 h-5" />;
 }
 
 function TransportModeIcon({ transportMode }: { transportMode?: string }) {
@@ -284,21 +288,76 @@ export default function BDMatrix({ data }: BDMatrixProps) {
             Quick view of staff availability across standard time blocks for business development decisions
           </p>
         </CardHeader>
-        <CardContent className="p-4">
-          {/* Legend */}
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Legend:</span>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">0-1 employees</span>
+        <CardContent className="p-6">
+          {/* Quick Guide */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-2">How to Use This Matrix</h3>
+                <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <p>• <strong>Select time blocks</strong> on the left to filter employees available in ALL selected slots</p>
+                  <p>• <strong>Click any cell</strong> to see detailed employee information with contact details</p>
+                  <p>• <strong>Colors indicate capacity:</strong> Red = Critical, Amber = Low, Blue = Moderate, Green = Good</p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800/50"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">2-3 employees</span>
+          </div>
+
+          {/* Enhanced Legend with Icons */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <HelpCircle className="w-4 h-4" />
+                Availability Levels
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">4+ employees</span>
+            
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                <XCircle className="w-4 h-4 text-gray-400" />
+                <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"></div>
+                <span className="text-xs text-gray-600 dark:text-gray-400">No Staff</span>
+              </div>
+              
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50/30 dark:bg-amber-900/10">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <div className="w-3 h-3 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50"></div>
+                <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">1 Available</span>
+              </div>
+              
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-blue-200 dark:border-blue-700/50 bg-blue-50/30 dark:bg-blue-900/10">
+                <Users className="w-4 h-4 text-blue-600" />
+                <div className="w-3 h-3 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50"></div>
+                <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">2-3 Available</span>
+              </div>
+              
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50/30 dark:bg-emerald-900/10">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <div className="w-3 h-3 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/50"></div>
+                <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">4-5 Available</span>
+              </div>
+              
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/10">
+                <Star className="w-4 h-4 text-green-600" />
+                <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50"></div>
+                <span className="text-xs text-green-700 dark:text-green-400 font-medium">6+ Available</span>
+              </div>
+            </div>
+            
+            {/* Transport Mode Legend */}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Transport Icons:</span>
+                <div className="flex items-center gap-1">
+                  <Car className="w-3 h-3 text-blue-600" />
+                  <span>Car</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <PersonStanding className="w-3 h-3 text-green-600" />
+                  <span>Walking</span>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
