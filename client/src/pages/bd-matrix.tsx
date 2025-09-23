@@ -307,7 +307,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
       {/* BD Matrix Grid with Filter as First Column */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardContent className="p-0">
-          <ScrollArea className="w-full">
+          <div className="w-full overflow-x-auto overflow-y-auto max-h-[70vh]">
             <div className="min-w-[1000px]">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
@@ -580,7 +580,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                 </tbody>
               </table>
             </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     </div>
