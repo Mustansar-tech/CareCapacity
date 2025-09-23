@@ -4,10 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { BarChart3Icon, Calendar, Shield, CalendarDays } from "lucide-react";
+import { BarChart3Icon } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
-import MonthlyAnalysis from "@/pages/monthly-analysis";
-import DataManagement from "@/pages/data-management";
 import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -42,36 +40,6 @@ function Navigation() {
                 Dashboard
               </Button>
             </Link>
-            <Link href="/monthly-analysis">
-              <Button 
-                variant={location === "/monthly-analysis" ? "default" : "ghost"} 
-                size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
-                  location === "/monthly-analysis" 
-                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
-                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
-                }`}
-                data-testid="nav-monthly-analysis"
-              >
-                <Calendar className="w-4 h-4" />
-                Monthly Analysis
-              </Button>
-            </Link>
-            <Link href="/data-management">
-              <Button 
-                variant={location === "/data-management" ? "default" : "ghost"} 
-                size="sm"
-                className={`flex items-center gap-2 transition-all duration-200 font-medium ${
-                  location === "/data-management" 
-                    ? "bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-md" 
-                    : "text-gray-700 dark:text-gray-300 hover:bg-white/70 dark:hover:bg-gray-700/50"
-                }`}
-                data-testid="nav-data-management"
-              >
-                <Shield className="w-4 h-4" />
-                Data Privacy
-              </Button>
-            </Link>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -93,8 +61,6 @@ function Router() {
       <main className="animate-fade-in">
         <Switch>
           <Route path="/" component={Dashboard} />
-          <Route path="/monthly-analysis" component={MonthlyAnalysis} />
-          <Route path="/data-management" component={DataManagement} />
           <Route component={NotFound} />
         </Switch>
       </main>
