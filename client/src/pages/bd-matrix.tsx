@@ -310,7 +310,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
           <ScrollArea className="w-full">
             <div className="min-w-[1000px]">
               <table className="w-full border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-20">
                   <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
                     <th className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 min-w-[180px]">
                       <div className="space-y-2">
@@ -424,29 +424,12 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                 <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
                                                   {employee.name}
                                                 </h4>
-                                                <div className="space-y-1 mt-2">
-                                                  {employee.scheduledHours !== undefined && (
-                                                    <div className="text-sm text-blue-600 dark:text-blue-400">
-                                                      Scheduled: {employee.scheduledHours.toFixed(1)}h
-                                                    </div>
-                                                  )}
-
-                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
-                                                    <div>
-                                                      <div className="text-sm font-medium text-green-600 dark:text-green-400">Free Times:</div>
-                                                      <div className="text-xs font-mono bg-green-50 dark:bg-green-900/30 p-2 rounded border mt-1 max-w-md">
-                                                        {employee.freeWindows}
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && (
-                                                    <div>
-                                                      <div className="text-sm font-medium text-red-600 dark:text-red-400">Cancelled:</div>
-                                                      <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border mt-1 max-w-md">
-                                                        {employee.cancelledVisits}
-                                                      </div>
-                                                    </div>
-                                                  )}
+                                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                  {employee.scheduledHours !== undefined && `${employee.scheduledHours.toFixed(1)}h scheduled`}
+                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && ' • '}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && `Free: ${employee.freeWindows}`}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None') && ' • '}
+                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && `Cancelled: ${employee.cancelledVisits}`}
                                                 </div>
                                               </div>
                                             </div>
@@ -534,29 +517,12 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                                 <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
                                                   {employee.name}
                                                 </h4>
-                                                <div className="space-y-1 mt-2">
-                                                  {employee.scheduledHours !== undefined && (
-                                                    <div className="text-sm text-blue-600 dark:text-blue-400">
-                                                      Scheduled: {employee.scheduledHours.toFixed(1)}h
-                                                    </div>
-                                                  )}
-
-                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
-                                                    <div>
-                                                      <div className="text-sm font-medium text-green-600 dark:text-green-400">Free Times:</div>
-                                                      <div className="text-xs font-mono bg-green-50 dark:bg-green-900/30 p-2 rounded border mt-1 max-w-md">
-                                                        {employee.freeWindows}
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && (
-                                                    <div>
-                                                      <div className="text-sm font-medium text-red-600 dark:text-red-400">Cancelled:</div>
-                                                      <div className="text-xs font-mono bg-red-50 dark:bg-red-900/30 p-2 rounded border mt-1 max-w-md">
-                                                        {employee.cancelledVisits}
-                                                      </div>
-                                                    </div>
-                                                  )}
+                                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                  {employee.scheduledHours !== undefined && `${employee.scheduledHours.toFixed(1)}h scheduled`}
+                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && ' • '}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && `Free: ${employee.freeWindows}`}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None') && ' • '}
+                                                  {employee.cancelledVisits && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && `Cancelled: ${employee.cancelledVisits}`}
                                                 </div>
                                               </div>
                                             </div>
