@@ -38,6 +38,9 @@ interface EmployeeAvailabilityInfo {
   gender?: string;
   transportMode?: string;
   freeWindows: string;
+  scheduledHours?: number;
+  cancelledVisits?: string;
+  windowCount?: number;
 }
 
 interface BDMatrixCell {
@@ -141,7 +144,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     employees: EmployeeAvailabilityInfo[];
   } | null>(null);
   
-  const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set(COMPANY_TIME_BLOCKS.map(tb => tb.label)));
+  const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
   const [showFilteredView, setShowFilteredView] = useState<boolean>(false);
 
   const matrixData = useMemo(() => {
@@ -175,7 +178,10 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               name: employee.employeeName,
               gender: employee.gender,
               transportMode: employee.transportMode,
-              freeWindows: employee.freeWindows
+              freeWindows: employee.freeWindows,
+              scheduledHours: employee.scheduledHours,
+              cancelledVisits: employee.cancelledVisits,
+              windowCount: employee.windowCount
             });
             cell.colorClass = getColorClass(cell.count);
           }
@@ -186,31 +192,43 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     return { dates, matrix };
   }, [data]);
   
-  // Calculate filtered matrix data when showing filtered view
+  // Calculate filtered matrix data when showing filtered view (intersection logic)
   const filteredMatrixData = useMemo(() => {
-    if (!matrixData || !showFilteredView || selectedTimeBlocks.size === 0) return null;
+    if (!matrixData || selectedTimeBlocks.size === 0) return null;
     
     const { dates, matrix } = matrixData;
     const filteredMatrix: Record<string, BDMatrixCell> = {};
+    const selectedTimeBlocksArray = Array.from(selectedTimeBlocks);
     
     // Initialize filtered matrix for each date
     for (const date of dates) {
-      const aggregatedEmployees = new Set<string>();
-      const employeeDetails: EmployeeAvailabilityInfo[] = [];
+      const employeeAvailabilityMap = new Map<string, EmployeeAvailabilityInfo>();
       
-      // Aggregate employees available across selected time blocks
-      for (const timeBlockLabel of selectedTimeBlocks) {
-        const cell = matrix[date][timeBlockLabel];
-        if (cell) {
-          for (const employee of cell.employees) {
-            const employeeKey = `${employee.name}-${employee.gender}-${employee.transportMode}`;
-            if (!aggregatedEmployees.has(employeeKey)) {
-              aggregatedEmployees.add(employeeKey);
-              employeeDetails.push(employee);
+      // Find employees available in ALL selected time blocks (intersection)
+      if (selectedTimeBlocksArray.length > 0) {
+        // Start with employees from first selected time block
+        const firstBlockEmployees = matrix[date][selectedTimeBlocksArray[0]]?.employees || [];
+        
+        for (const employee of firstBlockEmployees) {
+          let availableInAllBlocks = true;
+          
+          // Check if employee is available in ALL other selected time blocks
+          for (let i = 1; i < selectedTimeBlocksArray.length; i++) {
+            const blockEmployees = matrix[date][selectedTimeBlocksArray[i]]?.employees || [];
+            const isAvailable = blockEmployees.some(emp => emp.name === employee.name);
+            if (!isAvailable) {
+              availableInAllBlocks = false;
+              break;
             }
+          }
+          
+          if (availableInAllBlocks) {
+            employeeAvailabilityMap.set(employee.name, employee);
           }
         }
       }
+      
+      const employeeDetails = Array.from(employeeAvailabilityMap.values());
       
       filteredMatrix[date] = {
         count: employeeDetails.length,
@@ -220,7 +238,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     }
     
     return { dates, filteredMatrix };
-  }, [matrixData, showFilteredView, selectedTimeBlocks]);
+  }, [matrixData, selectedTimeBlocks]);
   
   const handleTimeBlockToggle = (timeBlockLabel: string, checked: boolean) => {
     const newSelected = new Set(selectedTimeBlocks);
