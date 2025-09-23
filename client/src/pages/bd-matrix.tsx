@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter, 
@@ -276,7 +277,8 @@ export default function BDMatrix({ data }: BDMatrixProps) {
   const { dates, matrix } = matrixData;
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       {/* Header */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-t-lg">
@@ -392,22 +394,36 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                         </div>
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-2">
-                            <Button
-                              onClick={handleSelectAll}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 px-3 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20"
-                            >
-                              Select All
-                            </Button>
-                            <Button
-                              onClick={handleSelectNone}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 px-3 hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-gray-700"
-                            >
-                              Clear
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={handleSelectAll}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-7 px-3 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20"
+                                >
+                                  Select All
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Select all time blocks to filter employees available across the entire day</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={handleSelectNone}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-7 px-3 hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-gray-700"
+                                >
+                                  Clear
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Clear all filters to show individual time block availability</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                           <div className={`text-xs px-2 py-1 rounded-md text-center font-medium ${
                             selectedTimeBlocks.size > 0 
@@ -565,24 +581,31 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                             onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
                             className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                           />
-                          <label htmlFor={`timeblock-${timeBlock.label}`} className={`cursor-pointer flex items-center gap-2 text-sm font-medium transition-colors ${
-                            selectedTimeBlocks.has(timeBlock.label) 
-                              ? 'text-blue-700 dark:text-blue-300' 
-                              : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                            <div className={`p-1 rounded ${
-                              selectedTimeBlocks.has(timeBlock.label) 
-                                ? 'bg-blue-100 dark:bg-blue-800/30' 
-                                : 'bg-gray-100 dark:bg-gray-700'
-                            }`}>
-                              <Clock className={`w-3 h-3 ${
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <label htmlFor={`timeblock-${timeBlock.label}`} className={`cursor-pointer flex items-center gap-2 text-sm font-medium transition-colors ${
                                 selectedTimeBlocks.has(timeBlock.label) 
-                                  ? 'text-blue-600 dark:text-blue-400' 
-                                  : 'text-gray-500'
-                              }`} />
-                            </div>
-                            <span className="font-mono">{timeBlock.label}</span>
-                          </label>
+                                  ? 'text-blue-700 dark:text-blue-300' 
+                                  : 'text-gray-700 dark:text-gray-300'
+                              }`}>
+                                <div className={`p-1 rounded ${
+                                  selectedTimeBlocks.has(timeBlock.label) 
+                                    ? 'bg-blue-100 dark:bg-blue-800/30' 
+                                    : 'bg-gray-100 dark:bg-gray-700'
+                                }`}>
+                                  <Clock className={`w-3 h-3 ${
+                                    selectedTimeBlocks.has(timeBlock.label) 
+                                      ? 'text-blue-600 dark:text-blue-400' 
+                                      : 'text-gray-500'
+                                  }`} />
+                                </div>
+                                <span className="font-mono">{timeBlock.label}</span>
+                              </label>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <p>Click to {selectedTimeBlocks.has(timeBlock.label) ? 'remove' : 'add'} this time block to your filter</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </td>
                       {dates.map(date => {
@@ -591,20 +614,28 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                           <td key={`${date}-${timeBlock.label}`} className="p-1 border border-gray-200 dark:border-gray-600 text-center">
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className={`h-14 w-full justify-center transition-all hover:scale-105 touch-manipulation ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer active:scale-95' : 'cursor-default'}`}
-                                  disabled={cell.count === 0}
-                                >
-                                  <div className="flex flex-col items-center gap-1">
-                                    {getStatusIcon(cell.count)}
-                                    <span className="text-lg font-bold">{cell.count}</span>
-                                    {cell.count > 0 && (
-                                      <Eye className="w-3 h-3 opacity-60" />
-                                    )}
-                                  </div>
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className={`h-14 w-full justify-center transition-all hover:scale-105 touch-manipulation ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer active:scale-95' : 'cursor-default'}`}
+                                      disabled={cell.count === 0}
+                                    >
+                                      <div className="flex flex-col items-center gap-1">
+                                        {getStatusIcon(cell.count)}
+                                        <span className="text-lg font-bold">{cell.count}</span>
+                                        {cell.count > 0 && (
+                                          <Eye className="w-3 h-3 opacity-60" />
+                                        )}
+                                      </div>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{cell.count === 0 ? 'No employees available' : `${cell.count} employee${cell.count === 1 ? '' : 's'} available during ${timeBlock.label}`}</p>
+                                    {cell.count > 0 && <p className="text-xs mt-1 opacity-80">Click to see details</p>}
+                                  </TooltipContent>
+                                </Tooltip>
                               </DialogTrigger>
                               <DialogContent className="max-w-4xl max-h-[80vh]">
                                 <DialogHeader>
@@ -684,6 +715,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
