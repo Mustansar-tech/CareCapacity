@@ -1,10 +1,14 @@
 import * as XLSX from "xlsx";
 import { parse, format } from "date-fns";
-import { buildTimeWindow, parseGuaranteedDate, timeToString } from "./time-window-utils";
+import {
+  buildTimeWindow,
+  parseGuaranteedDate,
+  timeToString,
+} from "./time-window-utils";
 import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
 import { extractCancelledWindows } from "./cancelled-visits";
-import { extractCancelledWindowsFromGHWorkbook } from './cancelled-visits-from-gh';
+import { extractCancelledWindowsFromGHWorkbook } from "./cancelled-visits-from-gh";
 import {
   AvailabilityRow,
   GuaranteedHoursRow,
@@ -37,7 +41,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   "Compassionate Leave": 4,
   "Other Unavailable": 5,
   "Pre-Agreed Appointment": 6,
-  "Partial Availability": 6,   // ← NEW (not in LEAVE_TYPES)
+  "Partial Availability": 6, // ← NEW (not in LEAVE_TYPES)
   Available: 7,
   "Ad-hoc": 7, // NEW
 };
@@ -70,15 +74,15 @@ interface EmployeeGuaranteedHours {
 }
 
 // ====== SHEET NAMES (EXACT MATCH TO WORKING IMPLEMENTATION) ======
-const AVAIL_SHEET = 'CAREGiver Availability';
-const GUAR_SHEET = 'Data';
+const AVAIL_SHEET = "CAREGiver Availability";
+const GUAR_SHEET = "Data";
 
 // Helper: case/space-insensitive column picker
 function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
   for (const want of names) {
     const target = want.trim().toLowerCase();
-    const hit = keys.find(k => k.trim().toLowerCase() === target);
+    const hit = keys.find((k) => k.trim().toLowerCase() === target);
     if (hit) return row[hit];
   }
   return undefined;
@@ -98,11 +102,26 @@ function getCGSheetName(wb: any): string {
   // Fallback: scan for a sheet that has name + weekly-hours-ish columns
   for (const name of wb.SheetNames) {
     const sheet = wb.Sheets[name];
-    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 0, blankrows: false }) as any;
-    const header = (rows?.[0] ?? []).map((c: any) => String(c ?? "").trim().toLowerCase());
-    const hasName = header.includes("caregiver name") || (header.includes("first name") && header.includes("last name"));
-    const hasHours = ["weekly hours", "hours per week", "contracted weekly hours", "contracted hours", "hours contracted"]
-      .some(h => header.includes(h));
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      range: 0,
+      blankrows: false,
+    }) as any;
+    const header = (rows?.[0] ?? []).map((c: any) =>
+      String(c ?? "")
+        .trim()
+        .toLowerCase(),
+    );
+    const hasName =
+      header.includes("caregiver name") ||
+      (header.includes("first name") && header.includes("last name"));
+    const hasHours = [
+      "weekly hours",
+      "hours per week",
+      "contracted weekly hours",
+      "contracted hours",
+      "hours contracted",
+    ].some((h) => header.includes(h));
     if (hasName && hasHours) return name;
   }
 
@@ -110,42 +129,40 @@ function getCGSheetName(wb: any): string {
   return wb.SheetNames[0];
 }
 
-
 // Normalize name exactly like working implementation
 function normalizeName(name: string): string {
-  if (!name || name === 'undefined' || name === 'null') return '';
+  if (!name || name === "undefined" || name === "null") return "";
   let s = String(name).toLowerCase();
-  s = s.replace(/\(.*?\)/g, ''); // remove parentheses content
-  s = s.replace(/[^a-z\s]/g, ' '); // keep letters and spaces
-  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, ' '); // remove titles
-  s = s.replace(/\s+/g, ' ').trim();
-  return s
-    .split(' ')
-    .filter(Boolean)
-    .sort()
-    .join(' ');
+  s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
+  s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
+  s = s.replace(/\s+/g, " ").trim();
+  return s.split(" ").filter(Boolean).sort().join(" ");
 }
 
 function canonicalStatus(raw: any): string {
-  const s = String(raw ?? "").trim().toLowerCase();
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase();
 
   // available family
   if (s === "avail" || s.startsWith("avail")) return "Available";
 
   // time-killers
-  if (s.startsWith("other unavail") || s.startsWith("othe")) return "Other Unavailable";
+  if (s.startsWith("other unavail") || s.startsWith("othe"))
+    return "Other Unavailable";
   if (s.includes("pre-agreed")) return "Pre-Agreed Appointment";
 
   // day-killers
   if (s.startsWith("holiday")) return "Holiday";
   if (s.startsWith("sick")) return "Sick";
-  if (s.includes("maternity") || s.includes("paternity")) return "Maternity/Paternity";
+  if (s.includes("maternity") || s.includes("paternity"))
+    return "Maternity/Paternity";
   if (s.includes("compassion")) return "Compassionate Leave";
 
   if (s.includes("ad-hoc") || s.includes("adhoc")) return "Ad-hoc";
   return raw ?? "";
 }
-
 
 // Helper function to get scheduled hours for a specific date based on service requirements
 // Build Scheduled Hours lookup from Guaranteed sheet
@@ -200,7 +217,10 @@ function fromMin(mins: number): string {
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-function mergeIntervals(ints: Array<[number, number]>, adjacencyMin = 0): Array<[number, number]> {
+function mergeIntervals(
+  ints: Array<[number, number]>,
+  adjacencyMin = 0,
+): Array<[number, number]> {
   const arr = ints
     .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b) && b > a)
     .sort((a, b) => a[0] - b[0]);
@@ -222,7 +242,7 @@ function mergeIntervals(ints: Array<[number, number]>, adjacencyMin = 0): Array<
 function windowListToPairs(windows: string[]): Array<[number, number]> {
   const out: Array<[number, number]> = [];
   for (const w of windows || []) {
-    const [a, b] = (w || "").split("-").map(s => (s || "").trim());
+    const [a, b] = (w || "").split("-").map((s) => (s || "").trim());
     if (a && b) {
       const s = toMin(a);
       const e = toMin(b);
@@ -236,16 +256,25 @@ function pairsToWindowList(pairs: Array<[number, number]>): string[] {
   return (pairs || []).map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`);
 }
 
-function subtractIntervals(base: Array<[number, number]>, blocks: Array<[number, number]>): Array<[number, number]> {
+function subtractIntervals(
+  base: Array<[number, number]>,
+  blocks: Array<[number, number]>,
+): Array<[number, number]> {
   const mergedBase = mergeIntervals(base, 0);
   const mergedBlocks = mergeIntervals(blocks, 0);
   let current = mergedBase;
 
-  const subOne = (a: [number, number], b: [number, number]): Array<[number, number]> => {
-    const [as, ae] = a; const [bs, be] = b;
+  const subOne = (
+    a: [number, number],
+    b: [number, number],
+  ): Array<[number, number]> => {
+    const [as, ae] = a;
+    const [bs, be] = b;
     if (!(bs < ae && as < be)) return [a]; // no overlap
-    const left: [number, number] | null = as < bs ? [as, Math.min(ae, bs)] : null;
-    const right: [number, number] | null = be < ae ? [Math.max(as, be), ae] : null;
+    const left: [number, number] | null =
+      as < bs ? [as, Math.min(ae, bs)] : null;
+    const right: [number, number] | null =
+      be < ae ? [Math.max(as, be), ae] : null;
     const out: Array<[number, number]> = [];
     if (left && left[1] > left[0]) out.push(left);
     if (right && right[1] > right[0]) out.push(right);
@@ -261,25 +290,37 @@ function subtractIntervals(base: Array<[number, number]>, blocks: Array<[number,
   return mergeIntervals(current, 0);
 }
 
-function filterMinDuration(pairs: Array<[number, number]>, minMinutes = 60): Array<[number, number]> {
+function filterMinDuration(
+  pairs: Array<[number, number]>,
+  minMinutes = 60,
+): Array<[number, number]> {
   return (pairs || []).filter(([s, e]) => e - s >= minMinutes);
 }
 
-function isAllDayTimeKiller(mergedBlockers: Array<[number, number]>, availPairs: Array<[number, number]>, contractedDailyMin: number): boolean {
+function isAllDayTimeKiller(
+  mergedBlockers: Array<[number, number]>,
+  availPairs: Array<[number, number]>,
+  contractedDailyMin: number,
+): boolean {
   if (!mergedBlockers.length || !availPairs.length) return false;
 
   // Calculate total blocked time
-  const totalBlockedMin = mergedBlockers.reduce((sum, [s, e]) => sum + (e - s), 0);
-  
+  const totalBlockedMin = mergedBlockers.reduce(
+    (sum, [s, e]) => sum + (e - s),
+    0,
+  );
+
   // If blocked time is >= contracted daily minutes, consider it all-day
   // Use 90% threshold to account for minor gaps/rounding
   const threshold = Math.max(contractedDailyMin * 0.9, 60); // At least 1 hour minimum
-  
+
   return totalBlockedMin >= threshold;
 }
 
 // Build time windows per employee/day from Guaranteed (ACTUAL start/end)
-function buildAdHocWindowsMap(guaranteed: any[]): Map<string, Array<[number, number]>> {
+function buildAdHocWindowsMap(
+  guaranteed: any[],
+): Map<string, Array<[number, number]>> {
   const map = new Map<string, Array<[number, number]>>();
 
   for (const r of guaranteed || []) {
@@ -317,7 +358,8 @@ function buildDisplayNameMap(guaranteed: any[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const r of guaranteed || []) {
     const n = normalizeName(r["Actual Employee Name"]);
-    if (n && r["Actual Employee Name"]) m.set(n, String(r["Actual Employee Name"]));
+    if (n && r["Actual Employee Name"])
+      m.set(n, String(r["Actual Employee Name"]));
   }
   return m;
 }
@@ -373,13 +415,20 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Debug specific employee entries
     const originalName = g["Actual Employee Name"];
-    if (originalName && (originalName.toLowerCase().includes("makala") || originalName.toLowerCase().includes("brooke") || originalName.toLowerCase().includes("brien"))) {
+    if (
+      originalName &&
+      (originalName.toLowerCase().includes("makala") ||
+        originalName.toLowerCase().includes("brooke") ||
+        originalName.toLowerCase().includes("brien"))
+    ) {
       console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
       console.log(`  Original Name: ${originalName}`);
       console.log(`  Normalized Name: ${name}`);
       console.log(`  Actual Start: ${g["Actual Start Date And Time"]}`);
       console.log(`  Planned Start: ${g["Planned Start Date And Time"]}`);
-      console.log(`  SR Start: ${g["Service Requirement Start Date And Time"]}`);
+      console.log(
+        `  SR Start: ${g["Service Requirement Start Date And Time"]}`,
+      );
       console.log(`  Picked Start: ${start}`);
       console.log(`  Parsed Date: ${date}`);
       console.log(`  Raw Pay Hours: ${g["Actual Pay Rate Hours"]}`);
@@ -665,11 +714,11 @@ function parseDate(dateStr: any): Date {
 // Parse and validate Excel data
 // Define CG Data row interface
 interface CGDataRow {
-  'CAREGiver Name': string;
-  'Weekly Hours': number;
-  'TransportModeDescription'?: string;
-  'Title'?: string;
-  'Gender'?: string;
+  "CAREGiver Name": string;
+  "Weekly Hours": number;
+  TransportModeDescription?: string;
+  Title?: string;
+  Gender?: string;
   [key: string]: any;
 }
 
@@ -743,7 +792,9 @@ export function parseExcelFiles(
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
   const cgDataSheetName = getCGSheetName(cgDataWorkbook);
   const cgDataSheet = cgDataWorkbook.Sheets[cgDataSheetName];
-  const cgRowsRaw = XLSX.utils.sheet_to_json<Record<string, any>>(cgDataSheet, { defval: "" });
+  const cgRowsRaw = XLSX.utils.sheet_to_json<Record<string, any>>(cgDataSheet, {
+    defval: "",
+  });
 
   console.log(`🔍 CG Data sheet names available:`, cgDataWorkbook.SheetNames);
   console.log(`🔍 Using sheet: "${cgDataSheetName}"`);
@@ -755,7 +806,7 @@ export function parseExcelFiles(
 
   // Build name from CAREGiver Name OR First+Last; accept multiple weekly-hours aliases
   const cgData = cgRowsRaw
-    .map(row => {
+    .map((row) => {
       const name =
         pickCol(row, ["CAREGiver Name"]) ||
         `${pickCol(row, ["First Name"]) || ""} ${pickCol(row, ["Last Name"]) || ""}`.trim();
@@ -769,18 +820,16 @@ export function parseExcelFiles(
         "Hours Contracted",
       ]);
 
-      const transportMode = pickCol(row, [
-        "TransportModeDescription",
-        "Transport Mode Description",
-        "Transport Mode",
-        "Transport",
-      ]) || "";
+      const transportMode =
+        pickCol(row, [
+          "TransportModeDescription",
+          "Transport Mode Description",
+          "Transport Mode",
+          "Transport",
+        ]) || "";
 
-      const title = pickCol(row, [
-        "Title",
-        "Employee Title",
-        "Title Description",
-      ]) || "";
+      const title =
+        pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
 
       // Determine gender from title
       const gender = (() => {
@@ -791,17 +840,19 @@ export function parseExcelFiles(
       })();
 
       const weekly = Number(weeklyRaw ?? 0);
-      return { 
-        "CAREGiver Name": name, 
+      return {
+        "CAREGiver Name": name,
         "Weekly Hours": isFinite(weekly) ? weekly : 0,
-        "TransportModeDescription": transportMode,
-        "Title": title,
-        "Gender": gender
+        TransportModeDescription: transportMode,
+        Title: title,
+        Gender: gender,
       };
     })
-    .filter(r => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
+    .filter((r) => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
 
-  console.log(`📊 CG Data: ${cgRowsRaw.length} rows → ${cgData.length} employees with weekly hours (sheet: ${cgDataSheetName})`);
+  console.log(
+    `📊 CG Data: ${cgRowsRaw.length} rows → ${cgData.length} employees with weekly hours (sheet: ${cgDataSheetName})`,
+  );
   if (cgData.length > 0) {
     console.log(`🔍 First processed CG Data row:`, cgData[0]);
   } else {
@@ -1016,19 +1067,21 @@ export function processCapacityData(
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
-  options?: { ghWorkbookBuffer?: Buffer }   // ← NEW optional param
+  options?: { ghWorkbookBuffer?: Buffer }, // ← NEW optional param
 ): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
   const warnings: string[] = [];
 
   // REVOLUTIONARY CHANGE: Start with CG Data as master employee list
   console.log(`\n🚀 ===== USING CG DATA AS MASTER EMPLOYEE LIST =====`);
   console.log(`📊 Total employees in CG Data: ${cgData.length}`);
-  
+
   // Log sample CG Data entries
   if (cgData.length > 0) {
     console.log(`📋 Sample CG Data entries:`);
     cgData.slice(0, 3).forEach((emp, idx) => {
-      console.log(`  ${idx + 1}. ${emp['CAREGiver Name']} - ${emp['Weekly Hours']} hours/week`);
+      console.log(
+        `  ${idx + 1}. ${emp["CAREGiver Name"]} - ${emp["Weekly Hours"]} hours/week`,
+      );
     });
   }
 
@@ -1071,29 +1124,31 @@ export function processCapacityData(
 
   // Step 1: Create master employee list from CG Data (EXACT MATCH TO WORKING IMPLEMENTATION)
   const masterEmployees = cgData
-    .map((row) => ({ 
-      name: row["CAREGiver Name"], 
+    .map((row) => ({
+      name: row["CAREGiver Name"],
       weekly: Number(row["Weekly Hours"] || 0),
       transportMode: row["TransportModeDescription"] || "",
-      gender: row["Gender"] || ""
+      gender: row["Gender"] || "",
     }))
     .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
-    .map((row) => ({ 
-      originalName: row.name, 
-      normalizedName: normalizeName(row.name), 
+    .map((row) => ({
+      originalName: row.name,
+      normalizedName: normalizeName(row.name),
       weeklyHours: row.weekly,
       transportMode: row.transportMode,
-      gender: row.gender
+      gender: row.gender,
     }));
 
-  console.log(`📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`);
+  console.log(
+    `📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`,
+  );
   if (masterEmployees.length > 0) {
     console.log(`  - Sample employee:`, masterEmployees[0]);
   }
 
   // Create master employee map for fast lookup
   const masterEmployeeMap = new Map();
-  masterEmployees.forEach(emp => {
+  masterEmployees.forEach((emp) => {
     masterEmployeeMap.set(emp.normalizedName, emp);
   });
 
@@ -1103,40 +1158,45 @@ export function processCapacityData(
     try {
       const name = row["CAREGiver Name"];
       const normalizedName = normalizeName(name);
-      
+
       // Availability matching with improved threshold
       const masterEmployeeKeys = Array.from(masterEmployeeMap.keys());
       const matches = getCloseMatches(normalizedName, masterEmployeeKeys, 0.65);
       if (matches.length === 0) return; // not a CG employee → drop
       const canonicalKey = matches[0].choice;
       const matchedEmployee = masterEmployeeMap.get(canonicalKey);
-      
+
       if (!row["Start Date"]) {
         warnings.push(`Availability row ${i + 1}: missing Start Date`);
         return;
       }
-      
+
       const parsedDate = row.parsedDate; // Already parsed
-      const hrs = row.Hours != null ? Number(row.Hours) : hoursBetween(row["Start Time"], row["End Time"]);
-      
+      const hrs =
+        row.Hours != null
+          ? Number(row.Hours)
+          : hoursBetween(row["Start Time"], row["End Time"]);
+
       if (isNaN(hrs)) {
         warnings.push(`Availability row ${i + 1}: cannot compute hours`);
         return;
       }
-      
+
       availabilityFiltered.push({
         ...row,
         _normalizedName: canonicalKey, // Use canonical key from fuzzy match
         _parsedDate: parsedDate,
         _hours: Math.round(hrs * 100) / 100,
-        matchedEmployee // Add matched employee from fuzzy match
+        matchedEmployee, // Add matched employee from fuzzy match
       });
     } catch (e: any) {
-      warnings.push(`Availability row ${i + 1}: ${e.message || 'error'}`);
+      warnings.push(`Availability row ${i + 1}: ${e.message || "error"}`);
     }
   });
 
-  console.log(`📊 Availability filtered: ${availabilityFiltered.length} rows (only master employees)`);
+  console.log(
+    `📊 Availability filtered: ${availabilityFiltered.length} rows (only master employees)`,
+  );
 
   // Step 3: Create allAvailabilityWithMatching for compatibility with existing pipeline
   const allAvailabilityWithMatching = availabilityFiltered;
@@ -1144,7 +1204,9 @@ export function processCapacityData(
   // Step 3: Calculate days available for each employee (original logic)
   const employeeDays = new Map<string, Set<string>>();
   allAvailabilityWithMatching.forEach((row) => {
-    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
+    const key = row.matchedEmployee
+      ? row.matchedEmployee.normalizedName
+      : normalizeName(row["CAREGiver Name"]);
     if (!employeeDays.has(key)) {
       employeeDays.set(key, new Set());
     }
@@ -1155,13 +1217,18 @@ export function processCapacityData(
   // Step 4: Create merged data (original pipeline approach)
   const mergedData = allAvailabilityWithMatching.map((row) => {
     // Handle both matched and unmatched employees
-    const key = row.matchedEmployee ? row.matchedEmployee.normalizedName : normalizeName(row["CAREGiver Name"]);
+    const key = row.matchedEmployee
+      ? row.matchedEmployee.normalizedName
+      : normalizeName(row["CAREGiver Name"]);
     const daysAvailable = employeeDays.get(key)!.size;
-    
+
     // Use CG Data weekly hours if matched, otherwise default to 0
-    const contractedWeeklyHours = row.matchedEmployee ? row.matchedEmployee.weeklyHours : 0;
-    const contractedDailyHours = row.matchedEmployee 
-      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100
+    const contractedWeeklyHours = row.matchedEmployee
+      ? row.matchedEmployee.weeklyHours
+      : 0;
+    const contractedDailyHours = row.matchedEmployee
+      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) /
+        100
       : 0;
 
     // Safer hours: prefer 'Hours' if present, else compute from time
@@ -1170,7 +1237,9 @@ export function processCapacityData(
       row.Hours !== undefined && row.Hours !== null ? row.Hours : hoursCalc;
 
     return {
-      employeeName: row.matchedEmployee ? row.matchedEmployee.originalName : row["CAREGiver Name"],
+      employeeName: row.matchedEmployee
+        ? row.matchedEmployee.originalName
+        : row["CAREGiver Name"],
       contractedWeeklyHours,
       contractedDailyHours,
       date: format(row.parsedDate, "yyyy-MM-dd"),
@@ -1348,20 +1417,25 @@ export function processCapacityData(
 
     // Compute avail/blocker pairs once (reused below)
     const availAgg = statusAgg.get("Available");
-    const availPairs = mergeIntervals(windowListToPairs(availAgg?.windows || []), 0);
+    const availPairs = mergeIntervals(
+      windowListToPairs(availAgg?.windows || []),
+      0,
+    );
 
     const blockerPairs: Array<[number, number]> = [];
     statusAgg.forEach((agg, status) => {
-      if (TIME_KILLERS.has(status)) blockerPairs.push(...windowListToPairs(agg.windows));
+      if (TIME_KILLERS.has(status))
+        blockerPairs.push(...windowListToPairs(agg.windows));
     });
     const mergedBlockers = mergeIntervals(blockerPairs, 0);
 
     // Use contracted daily minutes for the all-day heuristic
-    const contractedDailyMin = Math.round((group[0]?.contractedDailyHours || 0) * 60);
+    const contractedDailyMin = Math.round(
+      (group[0]?.contractedDailyHours || 0) * 60,
+    );
     const timeKillerIsAllDay = mergedBlockers.length
       ? isAllDayTimeKiller(mergedBlockers, availPairs, contractedDailyMin)
       : false;
-
 
     // Highest priority status selection
     let highestPriorityStatus = "";
@@ -1370,7 +1444,6 @@ export function processCapacityData(
     if (hasDayKiller) {
       highestPriorityStatus = dayKillerStatus;
       highestPriority = dayKillerPriority;
-
     } else if (hasTimeKiller) {
       if (timeKillerIsAllDay) {
         // Treat like day-level absence
@@ -1381,7 +1454,6 @@ export function processCapacityData(
         highestPriorityStatus = "Partial Availability";
         highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
       }
-
     } else {
       // No blockers → pick best remaining (usually Available)
       statusAgg.forEach((_agg, status) => {
@@ -1395,25 +1467,25 @@ export function processCapacityData(
 
     // Only create one record using the highest priority status
     if (highestPriorityStatus) {
-      const agg = statusAgg.get(highestPriorityStatus) ?? { hoursRaw: 0, windows: [], notes: [] };
+      const agg = statusAgg.get(highestPriorityStatus) ?? {
+        hoursRaw: 0,
+        windows: [],
+        notes: [],
+      };
       let finalHours: number;
       let netCapacity: number;
-
 
       if (hasDayKiller || (hasTimeKiller && timeKillerIsAllDay)) {
         // Full-day absence → zero capacity
         finalHours = Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
-
       } else if (highestPriorityStatus === "Partial Availability") {
         // Keep capacity on partial blocker days
         finalHours = Math.max(daily - totalLeaveCapped, 0.0);
         netCapacity = finalHours;
-
       } else if (highestPriorityStatus === "Available") {
         finalHours = Math.max(daily - totalLeaveCapped, 0.0);
         netCapacity = finalHours;
-
       } else {
         // Other statuses default to no capacity
         finalHours = agg.hoursRaw || 0.0;
@@ -1423,14 +1495,17 @@ export function processCapacityData(
       // Build notes (still combine from all statuses)
       const allNotes: string[] = [];
       statusAgg.forEach((agg) => allNotes.push(...agg.notes));
-      const notesStr = Array.from(new Set(allNotes)).filter(n => n && n !== "").sort().join("; ");
+      const notesStr = Array.from(new Set(allNotes))
+        .filter((n) => n && n !== "")
+        .sort()
+        .join("; ");
 
       // Build bookable windows using pre-computed pairs
       let windowsStr = "";
       if (!(hasDayKiller || timeKillerIsAllDay)) {
         const bookablePairs = filterMinDuration(
           subtractIntervals(availPairs, mergedBlockers),
-          60
+          60,
         );
         const bookableWindows = pairsToWindowList(bookablePairs);
         windowsStr = bookableWindows.join("; ");
@@ -1446,7 +1521,11 @@ export function processCapacityData(
         scheduledHours: Math.round(totalScheduledHours * 100) / 100, // Total scheduled hours for this employee on this date
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
-        notes: notesStr + (hasDayKiller ? " [availability ignored due to day-level leave]" : ""),
+        notes:
+          notesStr +
+          (hasDayKiller
+            ? " [availability ignored due to day-level leave]"
+            : ""),
       });
     }
   });
@@ -1633,7 +1712,9 @@ export function processCapacityData(
 
     // Get gender from master employee list for this employee
     const empNormalizedName = normalizeName(record.employeeName);
-    const masterEmployee = masterEmployees.find(emp => emp.normalizedName === empNormalizedName);
+    const masterEmployee = masterEmployees.find(
+      (emp) => emp.normalizedName === empNormalizedName,
+    );
     const gender = masterEmployee?.gender || "";
 
     employeesByDate[record.date].push({
@@ -1653,12 +1734,12 @@ export function processCapacityData(
   // Build adhoc windows map once for reuse in employee summary calculation
   const adhocWindowsMap = buildAdHocWindowsMap(guaranteed);
   {
-    const displayNameMap  = buildDisplayNameMap(guaranteed);
+    const displayNameMap = buildDisplayNameMap(guaranteed);
 
     // who already exists per date (normalized)
     const present: Record<string, Set<string>> = {};
     for (const [date, list] of Object.entries(employeesByDate)) {
-      present[date] = new Set(list.map(e => normalizeName(e.employeeName)));
+      present[date] = new Set(list.map((e) => normalizeName(e.employeeName)));
     }
 
     // walk through scheduled map (already uses Actual date bucket)
@@ -1676,7 +1757,9 @@ export function processCapacityData(
         .join("; ");
 
       // Get gender from master employee list for this ad-hoc employee
-      const masterEmployee = masterEmployees.find(emp => emp.normalizedName === normName);
+      const masterEmployee = masterEmployees.find(
+        (emp) => emp.normalizedName === normName,
+      );
       const gender = masterEmployee?.gender || "";
 
       if (!employeesByDate[date]) employeesByDate[date] = [];
@@ -1684,10 +1767,10 @@ export function processCapacityData(
         employeeName: display,
         status: "Ad-hoc",
         timeWindows: windows,
-        contractedDailyHours: 0,     // <- as requested
+        contractedDailyHours: 0, // <- as requested
         scheduledHours: Math.round(schedHoursRaw * 100) / 100,
-        hours: 0,                    // not counted toward availability
-        netCapacity: 0,              // do not inflate capacity
+        hours: 0, // not counted toward availability
+        netCapacity: 0, // do not inflate capacity
         notes: "Scheduled (no availability record for this day)",
         gender: gender,
       });
@@ -1712,9 +1795,15 @@ export function processCapacityData(
     // Extract cancelled visits for this specific date
     console.log(`\n🚫 EXTRACTING CANCELLED VISITS FOR ${dateStr}...`);
     const cancelledVisitsForDate = options?.ghWorkbookBuffer
-      ? extractCancelledWindowsFromGHWorkbook(options.ghWorkbookBuffer, new Date(dateStr), 60)
+      ? extractCancelledWindowsFromGHWorkbook(
+          options.ghWorkbookBuffer,
+          new Date(dateStr),
+          60,
+        )
       : new Map<string, string>();
-    console.log(`📊 Found ${cancelledVisitsForDate.size} employees with cancelled visits on ${dateStr}`);
+    console.log(
+      `📊 Found ${cancelledVisitsForDate.size} employees with cancelled visits on ${dateStr}`,
+    );
 
     // Group employees by name and consolidate their data
     const employeeMap = new Map<
@@ -1782,25 +1871,46 @@ export function processCapacityData(
         // If someone has fully unavailable status, that overrides Available but Partial Availability hours are still counted
 
         // Calculate free windows for this employee/date
-        const employeeDetails = employeesByDate[dateStr]?.filter(emp => emp.employeeName === employeeName) || [];
-        
+        const employeeDetails =
+          employeesByDate[dateStr]?.filter(
+            (emp) => emp.employeeName === employeeName,
+          ) || [];
+
         // Collect availability, unavailability, and scheduled time windows
-        let availabilityWindows = '';
-        let unavailabilityWindows = '';
-        let scheduledWindows = '';
-        
-        employeeDetails.forEach(emp => {
-          if (emp.status === 'Available' && emp.timeWindows && emp.timeWindows !== '-') {
-            availabilityWindows = availabilityWindows ? `${availabilityWindows}, ${emp.timeWindows}` : emp.timeWindows;
-          } else if (LEAVE_TYPES.includes(emp.status) && emp.timeWindows && emp.timeWindows !== '-') {
+        let availabilityWindows = "";
+        let unavailabilityWindows = "";
+        let scheduledWindows = "";
+
+        employeeDetails.forEach((emp) => {
+          if (
+            emp.status === "Available" &&
+            emp.timeWindows &&
+            emp.timeWindows !== "-"
+          ) {
+            availabilityWindows = availabilityWindows
+              ? `${availabilityWindows}, ${emp.timeWindows}`
+              : emp.timeWindows;
+          } else if (
+            LEAVE_TYPES.includes(emp.status) &&
+            emp.timeWindows &&
+            emp.timeWindows !== "-"
+          ) {
             // Only count actual leave types as unavailability (not 'Ad-hoc' which is scheduled work)
-            unavailabilityWindows = unavailabilityWindows ? `${unavailabilityWindows}, ${emp.timeWindows}` : emp.timeWindows;
-          } else if (emp.status === 'Ad-hoc' && emp.timeWindows && emp.timeWindows !== '-') {
+            unavailabilityWindows = unavailabilityWindows
+              ? `${unavailabilityWindows}, ${emp.timeWindows}`
+              : emp.timeWindows;
+          } else if (
+            emp.status === "Ad-hoc" &&
+            emp.timeWindows &&
+            emp.timeWindows !== "-"
+          ) {
             // Ad-hoc status represents scheduled work, not unavailability
-            scheduledWindows = scheduledWindows ? `${scheduledWindows}, ${emp.timeWindows}` : emp.timeWindows;
+            scheduledWindows = scheduledWindows
+              ? `${scheduledWindows}, ${emp.timeWindows}`
+              : emp.timeWindows;
           }
         });
-        
+
         // CRITICAL: Always check for scheduled windows from guaranteed hours data
         // This applies even when employee has availability record - we need actual scheduled windows
         const empNormalized = normalizeName(employeeName);
@@ -1809,55 +1919,81 @@ export function processCapacityData(
         if (guaranteedWindows && guaranteedWindows.length > 0) {
           // Convert time intervals to time window strings
           const guaranteedWindowStrings = guaranteedWindows
-            .map(([start, end]: [number, number]) => `${fromMin(start)}-${fromMin(end)}`)
-            .join(', ');
-          scheduledWindows = scheduledWindows ? `${scheduledWindows}, ${guaranteedWindowStrings}` : guaranteedWindowStrings;
+            .map(
+              ([start, end]: [number, number]) =>
+                `${fromMin(start)}-${fromMin(end)}`,
+            )
+            .join(", ");
+          scheduledWindows = scheduledWindows
+            ? `${scheduledWindows}, ${guaranteedWindowStrings}`
+            : guaranteedWindowStrings;
         }
 
         // Calculate free windows using our capacity windows utility
-        let freeWindows = '';
+        let freeWindows = "";
         try {
           // DEBUG: Log the input data for free windows calculation
-          console.log(`\n🔍 FREE WINDOWS DEBUG for ${employeeName} on ${dateStr}:`);
+          console.log(
+            `\n🔍 FREE WINDOWS DEBUG for ${employeeName} on ${dateStr}:`,
+          );
           console.log(`  - availabilityWindows: "${availabilityWindows}"`);
           console.log(`  - unavailabilityWindows: "${unavailabilityWindows}"`);
           console.log(`  - scheduledWindows: "${scheduledWindows}"`);
-          console.log(`  - contractedDailyHours: ${empData.contractedDailyHours}`);
-          
+          console.log(
+            `  - contractedDailyHours: ${empData.contractedDailyHours}`,
+          );
+
           if (availabilityWindows) {
-            const capacityResult = computeCapacityWindows({
-              employeeName,
-              date: dateStr,
-              availabilityWindows,
-              unavailabilityWindows,
-              scheduledWindows,
-              desiredMinutes: empData.contractedDailyHours * 60 // Convert hours to minutes
-            }, {
-              roundToMinutes: 15,
-              minWindowMinutes: 60,
-              bufferMinutes: 0
-            });
-            
-            console.log(`  - 🎯 RESULT: freeWindows = "${capacityResult.freeWindows}"`);
-            console.log(`  - workableMinutes: ${capacityResult.workableMinutes}`);
-            console.log(`  - scheduledMinutes: ${capacityResult.scheduledMinutes}`);
-            console.log(`  - freeWindowsMinutes: ${capacityResult.freeWindowsMinutes}`);
-            
+            const capacityResult = computeCapacityWindows(
+              {
+                employeeName,
+                date: dateStr,
+                availabilityWindows,
+                unavailabilityWindows,
+                scheduledWindows,
+                desiredMinutes: empData.contractedDailyHours * 60, // Convert hours to minutes
+              },
+              {
+                roundToMinutes: 15,
+                minWindowMinutes: 60,
+                bufferMinutes: 0,
+              },
+            );
+
+            console.log(
+              `  - 🎯 RESULT: freeWindows = "${capacityResult.freeWindows}"`,
+            );
+            console.log(
+              `  - workableMinutes: ${capacityResult.workableMinutes}`,
+            );
+            console.log(
+              `  - scheduledMinutes: ${capacityResult.scheduledMinutes}`,
+            );
+            console.log(
+              `  - freeWindowsMinutes: ${capacityResult.freeWindowsMinutes}`,
+            );
+
             freeWindows = capacityResult.freeWindows;
           } else {
             console.log(`  - ❌ SKIPPED: No availability windows found`);
           }
         } catch (error) {
-          console.warn(`Error calculating free windows for ${employeeName} on ${dateStr}:`, error);
-          freeWindows = '';
+          console.warn(
+            `Error calculating free windows for ${employeeName} on ${dateStr}:`,
+            error,
+          );
+          freeWindows = "";
         }
 
         // Get cancelled visits for this employee on this specific date
         const empNormalizedName = normalizeName(employeeName);
-        const cancelledVisits = cancelledVisitsForDate.get(empNormalizedName) ?? '—';
+        const cancelledVisits =
+          cancelledVisitsForDate.get(empNormalizedName) ?? "—";
 
         // Get transport mode and gender from master employee list
-        const masterEmployee = masterEmployees.find(emp => emp.normalizedName === empNormalizedName);
+        const masterEmployee = masterEmployees.find(
+          (emp) => emp.normalizedName === empNormalizedName,
+        );
         const transportMode = masterEmployee?.transportMode || "";
         const gender = masterEmployee?.gender || "";
 
