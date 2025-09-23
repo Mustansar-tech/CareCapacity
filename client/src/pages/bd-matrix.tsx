@@ -291,18 +291,6 @@ export default function BDMatrix({ data }: BDMatrixProps) {
           </p>
         </CardHeader>
         <CardContent className="p-6">
-          {/* Transport Mode Legend */}
-          <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400 pb-4 border-b border-gray-200 dark:border-gray-700">
-            <span className="font-medium">Transport Icons:</span>
-            <div className="flex items-center gap-1">
-              <Car className="w-3 h-3 text-blue-600" />
-              <span>Car</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <PersonStanding className="w-3 h-3 text-green-600" />
-              <span>Walking</span>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
