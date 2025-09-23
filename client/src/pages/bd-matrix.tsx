@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
@@ -371,32 +371,46 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
-                    <th className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 min-w-[180px]">
-                      <div className="space-y-2">
+                    <th className="p-4 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 z-10 min-w-[200px]">
+                      <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <Filter className="w-4 h-4" />
-                          Filter & Time Blocks
+                          <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                            <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-sm">Time Block Filters</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Select to filter employees</div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            onClick={handleSelectAll}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-6 px-2"
-                          >
-                            All
-                          </Button>
-                          <Button
-                            onClick={handleSelectNone}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-6 px-2"
-                          >
-                            None
-                          </Button>
-                          <span className="text-xs text-gray-500">
-                            {selectedTimeBlocks.size} selected
-                          </span>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={handleSelectAll}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7 px-3 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20"
+                            >
+                              Select All
+                            </Button>
+                            <Button
+                              onClick={handleSelectNone}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7 px-3 hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-gray-700"
+                            >
+                              Clear
+                            </Button>
+                          </div>
+                          <div className={`text-xs px-2 py-1 rounded-md text-center font-medium ${
+                            selectedTimeBlocks.size > 0 
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700' 
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {selectedTimeBlocks.size === 0 
+                              ? 'No filters active' 
+                              : `${selectedTimeBlocks.size} time ${selectedTimeBlocks.size === 1 ? 'block' : 'blocks'} selected`
+                            }
+                          </div>
                         </div>
                       </div>
                     </th>
@@ -462,9 +476,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     <Filter className="w-5 h-5" />
                                     Employees Available in ALL Selected Blocks
                                   </DialogTitle>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
                                     {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees available in all {selectedTimeBlocks.size} selected time blocks
-                                  </div>
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
                                   <div className="space-y-3">
@@ -530,17 +544,36 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   
                   {/* Individual Time Block Rows */}
                   {COMPANY_TIME_BLOCKS.map((timeBlock, blockIndex) => (
-                    <tr key={timeBlock.label} className={blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}>
-                      <td className="p-3 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-white/90 dark:bg-gray-900/90 z-10">
-                        <div className="flex items-center gap-2">
+                    <tr key={timeBlock.label} className={`transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/10 ${blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}`}>
+                      <td className={`p-4 border-r border-gray-200 dark:border-gray-600 sticky left-0 z-10 transition-all ${
+                        selectedTimeBlocks.has(timeBlock.label) 
+                          ? 'bg-blue-50/90 dark:bg-blue-900/40 border-blue-200 dark:border-blue-700' 
+                          : blockIndex % 2 === 0 ? 'bg-white/90 dark:bg-gray-900/90' : 'bg-gray-50/90 dark:bg-gray-800/90'
+                      }`}>
+                        <div className="flex items-center gap-3">
                           <Checkbox
                             id={`timeblock-${timeBlock.label}`}
                             checked={selectedTimeBlocks.has(timeBlock.label)}
                             onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
+                            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                           />
-                          <label htmlFor={`timeblock-${timeBlock.label}`} className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex items-center gap-2 text-sm">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            {timeBlock.label}
+                          <label htmlFor={`timeblock-${timeBlock.label}`} className={`cursor-pointer flex items-center gap-2 text-sm font-medium transition-colors ${
+                            selectedTimeBlocks.has(timeBlock.label) 
+                              ? 'text-blue-700 dark:text-blue-300' 
+                              : 'text-gray-700 dark:text-gray-300'
+                          }`}>
+                            <div className={`p-1 rounded ${
+                              selectedTimeBlocks.has(timeBlock.label) 
+                                ? 'bg-blue-100 dark:bg-blue-800/30' 
+                                : 'bg-gray-100 dark:bg-gray-700'
+                            }`}>
+                              <Clock className={`w-3 h-3 ${
+                                selectedTimeBlocks.has(timeBlock.label) 
+                                  ? 'text-blue-600 dark:text-blue-400' 
+                                  : 'text-gray-500'
+                              }`} />
+                            </div>
+                            <span className="font-mono">{timeBlock.label}</span>
                           </label>
                         </div>
                       </td>
@@ -571,9 +604,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     <Users className="w-5 h-5" />
                                     Available Employees - {timeBlock.label}
                                   </DialogTitle>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees fully available
-                                  </div>
+                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees fully available during this time block
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
                                   <div className="space-y-3">
