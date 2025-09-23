@@ -23,9 +23,8 @@ function Navigation() {
                 <img 
                   src={homeInsteadLogo} 
                   alt="Home Instead" 
-                  className="h-8 w-auto object-contain transition-all duration-300 group-hover:brightness-110"
+                  className="h-8 w-auto object-contain"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm"></div>
               </div>
               <div className="hidden sm:block">
                 <div className="text-sm font-display font-semibold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent animate-gradient">
