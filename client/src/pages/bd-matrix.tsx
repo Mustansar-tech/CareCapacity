@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
-  Eye, CheckCircle, AlertTriangle, XCircle 
+  Eye, CheckCircle, AlertTriangle, XCircle, Filter 
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
 
@@ -139,6 +140,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     timeBlock: string;
     employees: EmployeeAvailabilityInfo[];
   } | null>(null);
+  
+  const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set(COMPANY_TIME_BLOCKS.map(tb => tb.label)));
+  const [showFilteredView, setShowFilteredView] = useState<boolean>(false);
 
   const matrixData = useMemo(() => {
     if (!data?.employeeSummaryByDate) return null;
@@ -181,6 +185,60 @@ export default function BDMatrix({ data }: BDMatrixProps) {
 
     return { dates, matrix };
   }, [data]);
+  
+  // Calculate filtered matrix data when showing filtered view
+  const filteredMatrixData = useMemo(() => {
+    if (!matrixData || !showFilteredView || selectedTimeBlocks.size === 0) return null;
+    
+    const { dates, matrix } = matrixData;
+    const filteredMatrix: Record<string, BDMatrixCell> = {};
+    
+    // Initialize filtered matrix for each date
+    for (const date of dates) {
+      const aggregatedEmployees = new Set<string>();
+      const employeeDetails: EmployeeAvailabilityInfo[] = [];
+      
+      // Aggregate employees available across selected time blocks
+      for (const timeBlockLabel of selectedTimeBlocks) {
+        const cell = matrix[date][timeBlockLabel];
+        if (cell) {
+          for (const employee of cell.employees) {
+            const employeeKey = `${employee.name}-${employee.gender}-${employee.transportMode}`;
+            if (!aggregatedEmployees.has(employeeKey)) {
+              aggregatedEmployees.add(employeeKey);
+              employeeDetails.push(employee);
+            }
+          }
+        }
+      }
+      
+      filteredMatrix[date] = {
+        count: employeeDetails.length,
+        employees: employeeDetails,
+        colorClass: getColorClass(employeeDetails.length)
+      };
+    }
+    
+    return { dates, filteredMatrix };
+  }, [matrixData, showFilteredView, selectedTimeBlocks]);
+  
+  const handleTimeBlockToggle = (timeBlockLabel: string, checked: boolean) => {
+    const newSelected = new Set(selectedTimeBlocks);
+    if (checked) {
+      newSelected.add(timeBlockLabel);
+    } else {
+      newSelected.delete(timeBlockLabel);
+    }
+    setSelectedTimeBlocks(newSelected);
+  };
+  
+  const handleSelectAll = () => {
+    setSelectedTimeBlocks(new Set(COMPANY_TIME_BLOCKS.map(tb => tb.label)));
+  };
+  
+  const handleSelectNone = () => {
+    setSelectedTimeBlocks(new Set());
+  };
 
   if (!data) {
     return (
@@ -232,6 +290,71 @@ export default function BDMatrix({ data }: BDMatrixProps) {
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50"></div>
               <span className="text-sm text-gray-600 dark:text-gray-400">4+ employees</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Time Block Filter Section */}
+      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/50 dark:to-blue-950/50 rounded-t-lg">
+          <CardTitle className="text-lg font-semibold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
+            <Filter className="w-5 h-5 text-green-600" />
+            Time Block Filter
+          </CardTitle>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Select specific time blocks to see aggregated employee availability
+          </p>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="space-y-4">
+            {/* Filter Controls */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="show-filtered"
+                  checked={showFilteredView}
+                  onCheckedChange={(checked) => setShowFilteredView(checked as boolean)}
+                />
+                <label htmlFor="show-filtered" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Show Filtered View
+                </label>
+              </div>
+              <Button
+                onClick={handleSelectAll}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                Select All
+              </Button>
+              <Button
+                onClick={handleSelectNone}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                Clear All
+              </Button>
+              <span className="text-xs text-gray-500">
+                {selectedTimeBlocks.size} of {COMPANY_TIME_BLOCKS.length} selected
+              </span>
+            </div>
+            
+            {/* Time Block Checkboxes */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {COMPANY_TIME_BLOCKS.map((timeBlock) => (
+                <div key={timeBlock.label} className="flex items-center gap-2 p-2 rounded border border-gray-200 dark:border-gray-700">
+                  <Checkbox
+                    id={`timeblock-${timeBlock.label}`}
+                    checked={selectedTimeBlocks.has(timeBlock.label)}
+                    onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
+                  />
+                  <label htmlFor={`timeblock-${timeBlock.label}`} className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer flex-1">
+                    {timeBlock.label}
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
         </CardContent>
