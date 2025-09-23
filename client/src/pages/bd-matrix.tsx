@@ -291,75 +291,16 @@ export default function BDMatrix({ data }: BDMatrixProps) {
           </p>
         </CardHeader>
         <CardContent className="p-6">
-          {/* Quick Guide */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-2">How to Use This Matrix</h3>
-                <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                  <p>• <strong>Select time blocks</strong> on the left to filter employees available in ALL selected slots</p>
-                  <p>• <strong>Click any cell</strong> to see detailed employee information with contact details</p>
-                  <p>• <strong>Colors indicate capacity:</strong> Red = Critical, Amber = Low, Blue = Moderate, Green = Good</p>
-                </div>
-              </div>
+          {/* Transport Mode Legend */}
+          <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400 pb-4 border-b border-gray-200 dark:border-gray-700">
+            <span className="font-medium">Transport Icons:</span>
+            <div className="flex items-center gap-1">
+              <Car className="w-3 h-3 text-blue-600" />
+              <span>Car</span>
             </div>
-          </div>
-
-          {/* Enhanced Legend with Icons */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <HelpCircle className="w-4 h-4" />
-                Availability Levels
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                <XCircle className="w-4 h-4 text-gray-400" />
-                <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"></div>
-                <span className="text-xs text-gray-600 dark:text-gray-400">No Staff</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50/30 dark:bg-amber-900/10">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <div className="w-3 h-3 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50"></div>
-                <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">1 Available</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-blue-200 dark:border-blue-700/50 bg-blue-50/30 dark:bg-blue-900/10">
-                <Users className="w-4 h-4 text-blue-600" />
-                <div className="w-3 h-3 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50"></div>
-                <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">2-3 Available</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50/30 dark:bg-emerald-900/10">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <div className="w-3 h-3 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/50"></div>
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">4-5 Available</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/10">
-                <Star className="w-4 h-4 text-green-600" />
-                <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50"></div>
-                <span className="text-xs text-green-700 dark:text-green-400 font-medium">6+ Available</span>
-              </div>
-            </div>
-            
-            {/* Transport Mode Legend */}
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                <span className="font-medium">Transport Icons:</span>
-                <div className="flex items-center gap-1">
-                  <Car className="w-3 h-3 text-blue-600" />
-                  <span>Car</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <PersonStanding className="w-3 h-3 text-green-600" />
-                  <span>Walking</span>
-                </div>
-              </div>
+            <div className="flex items-center gap-1">
+              <PersonStanding className="w-3 h-3 text-green-600" />
+              <span>Walking</span>
             </div>
           </div>
         </CardContent>
