@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter, 
-  Info, HelpCircle, Zap, Star
+  Info, HelpCircle, Zap, Star, Monitor
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -366,8 +366,16 @@ export default function BDMatrix({ data }: BDMatrixProps) {
       {/* BD Matrix Grid with Filter as First Column */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardContent className="p-0">
-          <ScrollArea className="w-full">
-            <div className="min-w-[1000px]">
+          <div className="relative">
+            {/* Mobile scroll hint */}
+            <div className="sm:hidden bg-blue-50 dark:bg-blue-900/20 p-2 text-center text-xs text-blue-700 dark:text-blue-300 border-b border-blue-200 dark:border-blue-700">
+              <span className="flex items-center justify-center gap-1">
+                <Monitor className="w-3 h-3" />
+                Scroll horizontally to view all dates
+              </span>
+            </div>
+            <ScrollArea className="w-full">
+              <div className="min-w-[1000px]">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
@@ -586,7 +594,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className={`h-14 w-full justify-center transition-all hover:scale-105 ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
+                                  className={`h-14 w-full justify-center transition-all hover:scale-105 touch-manipulation ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer active:scale-95' : 'cursor-default'}`}
                                   disabled={cell.count === 0}
                                 >
                                   <div className="flex flex-col items-center gap-1">
@@ -671,8 +679,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </ScrollArea>
+              </div>
+            </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     </div>
