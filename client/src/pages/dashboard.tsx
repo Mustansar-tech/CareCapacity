@@ -78,6 +78,7 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   const { toast } = useToast();
 
@@ -273,27 +274,29 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background scroll-modern" data-testid="dashboard-container">
-      {/* Hero Section with Modern Layout */}
-      <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
-        <div className="max-w-7xl mx-auto px-lg py-3xl">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-md mb-lg animate-scale-in">
-              <div className="w-16 h-16 rounded-2xl gradient-primary elevation-3 flex items-center justify-center">
-                <BarChart3 className="w-8 h-8 text-primary-foreground" />
+      {/* Hero Section with Modern Layout - Only show on Overview tab */}
+      {activeTab === "overview" && (
+        <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
+          <div className="max-w-7xl mx-auto px-lg py-3xl">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-md mb-lg animate-scale-in">
+                <div className="w-16 h-16 rounded-2xl gradient-primary elevation-3 flex items-center justify-center">
+                  <BarChart3 className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="font-display text-5xl font-semibold text-foreground mb-2" data-testid="dashboard-title">
+                    Care Capacity Dashboard
+                  </h1>
+                  <div className="w-24 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full mx-auto"></div>
+                </div>
               </div>
-              <div>
-                <h1 className="font-display text-5xl font-semibold text-foreground mb-2" data-testid="dashboard-title">
-                  Care Capacity Dashboard
-                </h1>
-                <div className="w-24 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full mx-auto"></div>
-              </div>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed" data-testid="dashboard-description">
+                Intelligent workforce capacity analysis for optimal care scheduling and resource management
+              </p>
             </div>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed" data-testid="dashboard-description">
-              Intelligent workforce capacity analysis for optimal care scheduling and resource management
-            </p>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-2xl animate-fade-in">
@@ -524,7 +527,7 @@ export default function Dashboard() {
         {processedData && (
           <div>
 
-        <Tabs defaultValue="overview" className="space-y-6" data-testid="results-tabs">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
