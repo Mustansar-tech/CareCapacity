@@ -27,6 +27,8 @@ export interface EmployeeAvailabilityInfo {
   gender?: string;
   transportMode?: string;
   freeWindows: string;
+  scheduledHours: number;
+  cancelledVisits: string;
 }
 
 export interface BDMatrixCell {
@@ -123,7 +125,9 @@ export function processBDMatrixData(data: ProcessingResult): BDMatrixData {
             name: employee.employeeName,
             gender: employee.gender,
             transportMode: employee.transportMode,
-            freeWindows: employee.freeWindows
+            freeWindows: employee.freeWindows,
+            scheduledHours: employee.scheduledHours,
+            cancelledVisits: employee.cancelledVisits
           });
           // Update color class based on new count
           cell.colorClass = getColorClass(cell.count);

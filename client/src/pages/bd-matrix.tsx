@@ -40,8 +40,8 @@ interface EmployeeAvailabilityInfo {
   gender?: string;
   transportMode?: string;
   freeWindows: string;
-  scheduledHours?: number;
-  cancelledVisits?: string;
+  scheduledHours: number;
+  cancelledVisits: string;
 }
 
 interface BDMatrixCell {
