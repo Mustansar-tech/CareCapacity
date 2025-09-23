@@ -2,13 +2,12 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
-  Eye, CheckCircle, AlertTriangle, XCircle, Filter, 
-  Info, HelpCircle, Zap, Star
+  Eye, CheckCircle, AlertTriangle, XCircle, Filter 
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -85,19 +84,16 @@ function isFullyAvailableInTimeBlock(freeWindows: string, timeBlock: TimeBlock):
 }
 
 function getColorClass(count: number): string {
-  if (count === 0) return 'bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700';
-  if (count === 1) return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700/50';
-  if (count <= 3) return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-700/50';
-  if (count <= 5) return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700/50';
-  return 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50';
+  if (count <= 1) return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/50';
+  if (count <= 3) return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/50';
+  return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800/50';
 }
 
 function getStatusIcon(count: number) {
   if (count === 0) return <XCircle className="w-4 h-4" />;
   if (count === 1) return <AlertTriangle className="w-4 h-4" />;
-  if (count <= 3) return <Users className="w-4 h-4" />;
-  if (count <= 5) return <CheckCircle className="w-4 h-4" />;
-  return <Star className="w-5 h-5" />;
+  if (count <= 3) return <CheckCircle className="w-4 h-4" />;
+  return <Users className="w-4 h-4" />;
 }
 
 function TransportModeIcon({ transportMode }: { transportMode?: string }) {
@@ -288,76 +284,21 @@ export default function BDMatrix({ data }: BDMatrixProps) {
             Quick view of staff availability across standard time blocks for business development decisions
           </p>
         </CardHeader>
-        <CardContent className="p-6">
-          {/* Quick Guide */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-2">How to Use This Matrix</h3>
-                <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                  <p>• <strong>Select time blocks</strong> on the left to filter employees available in ALL selected slots</p>
-                  <p>• <strong>Click any cell</strong> to see detailed employee information with contact details</p>
-                  <p>• <strong>Colors indicate capacity:</strong> Red = Critical, Amber = Low, Blue = Moderate, Green = Good</p>
-                </div>
-              </div>
+        <CardContent className="p-4">
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Legend:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">0-1 employees</span>
             </div>
-          </div>
-
-          {/* Enhanced Legend with Icons */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <HelpCircle className="w-4 h-4" />
-                Availability Levels
-              </span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">2-3 employees</span>
             </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                <XCircle className="w-4 h-4 text-gray-400" />
-                <div className="w-3 h-3 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700"></div>
-                <span className="text-xs text-gray-600 dark:text-gray-400">No Staff</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50/30 dark:bg-amber-900/10">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <div className="w-3 h-3 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50"></div>
-                <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">1 Available</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-blue-200 dark:border-blue-700/50 bg-blue-50/30 dark:bg-blue-900/10">
-                <Users className="w-4 h-4 text-blue-600" />
-                <div className="w-3 h-3 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50"></div>
-                <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">2-3 Available</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-emerald-200 dark:border-emerald-700/50 bg-emerald-50/30 dark:bg-emerald-900/10">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <div className="w-3 h-3 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/50"></div>
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">4-5 Available</span>
-              </div>
-              
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/10">
-                <Star className="w-4 h-4 text-green-600" />
-                <div className="w-3 h-3 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50"></div>
-                <span className="text-xs text-green-700 dark:text-green-400 font-medium">6+ Available</span>
-              </div>
-            </div>
-            
-            {/* Transport Mode Legend */}
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                <span className="font-medium">Transport Icons:</span>
-                <div className="flex items-center gap-1">
-                  <Car className="w-3 h-3 text-blue-600" />
-                  <span>Car</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <PersonStanding className="w-3 h-3 text-green-600" />
-                  <span>Walking</span>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">4+ employees</span>
             </div>
           </div>
         </CardContent>
@@ -371,46 +312,32 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
-                    <th className="p-4 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 z-10 min-w-[200px]">
-                      <div className="space-y-3">
+                    <th className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 min-w-[180px]">
+                      <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900/30">
-                            <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-sm">Time Block Filters</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">Select to filter employees</div>
-                          </div>
+                          <Filter className="w-4 h-4" />
+                          Filter & Time Blocks
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              onClick={handleSelectAll}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 px-3 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-900/20"
-                            >
-                              Select All
-                            </Button>
-                            <Button
-                              onClick={handleSelectNone}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 px-3 hover:bg-gray-50 hover:border-gray-300 dark:hover:bg-gray-700"
-                            >
-                              Clear
-                            </Button>
-                          </div>
-                          <div className={`text-xs px-2 py-1 rounded-md text-center font-medium ${
-                            selectedTimeBlocks.size > 0 
-                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700' 
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {selectedTimeBlocks.size === 0 
-                              ? 'No filters active' 
-                              : `${selectedTimeBlocks.size} time ${selectedTimeBlocks.size === 1 ? 'block' : 'blocks'} selected`
-                            }
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={handleSelectAll}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                          >
+                            All
+                          </Button>
+                          <Button
+                            onClick={handleSelectNone}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-6 px-2"
+                          >
+                            None
+                          </Button>
+                          <span className="text-xs text-gray-500">
+                            {selectedTimeBlocks.size} selected
+                          </span>
                         </div>
                       </div>
                     </th>
@@ -476,9 +403,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     <Filter className="w-5 h-5" />
                                     Employees Available in ALL Selected Blocks
                                   </DialogTitle>
-                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
                                     {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees available in all {selectedTimeBlocks.size} selected time blocks
-                                  </DialogDescription>
+                                  </div>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
                                   <div className="space-y-3">
@@ -544,36 +471,17 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   
                   {/* Individual Time Block Rows */}
                   {COMPANY_TIME_BLOCKS.map((timeBlock, blockIndex) => (
-                    <tr key={timeBlock.label} className={`transition-colors hover:bg-blue-50/30 dark:hover:bg-blue-900/10 ${blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}`}>
-                      <td className={`p-4 border-r border-gray-200 dark:border-gray-600 sticky left-0 z-10 transition-all ${
-                        selectedTimeBlocks.has(timeBlock.label) 
-                          ? 'bg-blue-50/90 dark:bg-blue-900/40 border-blue-200 dark:border-blue-700' 
-                          : blockIndex % 2 === 0 ? 'bg-white/90 dark:bg-gray-900/90' : 'bg-gray-50/90 dark:bg-gray-800/90'
-                      }`}>
-                        <div className="flex items-center gap-3">
+                    <tr key={timeBlock.label} className={blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}>
+                      <td className="p-3 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-white/90 dark:bg-gray-900/90 z-10">
+                        <div className="flex items-center gap-2">
                           <Checkbox
                             id={`timeblock-${timeBlock.label}`}
                             checked={selectedTimeBlocks.has(timeBlock.label)}
                             onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
-                            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                           />
-                          <label htmlFor={`timeblock-${timeBlock.label}`} className={`cursor-pointer flex items-center gap-2 text-sm font-medium transition-colors ${
-                            selectedTimeBlocks.has(timeBlock.label) 
-                              ? 'text-blue-700 dark:text-blue-300' 
-                              : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                            <div className={`p-1 rounded ${
-                              selectedTimeBlocks.has(timeBlock.label) 
-                                ? 'bg-blue-100 dark:bg-blue-800/30' 
-                                : 'bg-gray-100 dark:bg-gray-700'
-                            }`}>
-                              <Clock className={`w-3 h-3 ${
-                                selectedTimeBlocks.has(timeBlock.label) 
-                                  ? 'text-blue-600 dark:text-blue-400' 
-                                  : 'text-gray-500'
-                              }`} />
-                            </div>
-                            <span className="font-mono">{timeBlock.label}</span>
+                          <label htmlFor={`timeblock-${timeBlock.label}`} className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex items-center gap-2 text-sm">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            {timeBlock.label}
                           </label>
                         </div>
                       </td>
@@ -604,9 +512,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     <Users className="w-5 h-5" />
                                     Available Employees - {timeBlock.label}
                                   </DialogTitle>
-                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
-                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees fully available during this time block
-                                  </DialogDescription>
+                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees fully available
+                                  </div>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
                                   <div className="space-y-3">
