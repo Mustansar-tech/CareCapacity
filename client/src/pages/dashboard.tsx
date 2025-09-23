@@ -284,7 +284,7 @@ export default function Dashboard() {
                   <BarChart3 className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="font-display text-5xl font-semibold text-foreground mb-2" data-testid="dashboard-title">
+                  <h1 className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2" data-testid="dashboard-title">
                     Care Capacity Dashboard
                   </h1>
                   <div className="w-24 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full mx-auto"></div>

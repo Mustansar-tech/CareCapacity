@@ -38,15 +38,6 @@ function Navigation() {
 
           {/* Status & Controls */}
           <div className="flex items-center gap-4">
-            {/* Enhanced Status Indicator */}
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 rounded-full border border-green-200 dark:border-green-800" data-testid="status-indicator">
-              <div className="relative">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75"></div>
-              </div>
-              <span className="text-xs font-medium text-green-700 dark:text-green-300" data-testid="text-system-status">System Online</span>
-            </div>
-
             {/* Theme Toggle with Enhanced Styling */}
             <div className="p-1 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30" data-testid="theme-toggle-container">
               <ThemeToggle />
