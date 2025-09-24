@@ -21,7 +21,6 @@ import { DataQualityPanel } from "@/components/data-quality-panel";
 import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import WeeklyOverview from "@/pages/weekly-overview";
 import BDMatrix from "@/pages/bd-matrix";
 
 
@@ -528,7 +527,7 @@ export default function Dashboard() {
           <div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
@@ -552,14 +551,6 @@ export default function Dashboard() {
             >
               <Users className="w-4 h-4 mr-2" />
               Summary
-            </TabsTrigger>
-            <TabsTrigger 
-              value="weekly-overview" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-weekly-overview"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Weekly Overview
             </TabsTrigger>
             <TabsTrigger 
               value="bd-matrix" 
@@ -791,15 +782,6 @@ export default function Dashboard() {
                 warnings={warnings}
               />
             </div>
-          </TabsContent>
-
-          {/* Weekly Overview Tab */}
-          <TabsContent value="weekly-overview" data-testid="content-weekly-overview">
-            <WeeklyOverview 
-              data={filteredData || processedData}
-              isLoading={isLoadingLatest}
-              error={latestDataError}
-            />
           </TabsContent>
 
           <TabsContent value="bd-matrix" data-testid="content-bd-matrix">
