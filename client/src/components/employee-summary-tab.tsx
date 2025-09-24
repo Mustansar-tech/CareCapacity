@@ -139,8 +139,9 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
                 <TableHead className="text-center font-semibold">Difference</TableHead>
-                <TableHead className="text-center font-semibold">Free Windows</TableHead>
-                <TableHead className="text-center font-semibold">Cancelled Visits</TableHead>
+                {/* Hidden columns - Free Windows and Cancelled Visits */}
+                {false && <TableHead className="text-center font-semibold">Free Windows</TableHead>}
+                {false && <TableHead className="text-center font-semibold">Cancelled Visits</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -182,7 +183,8 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                       {employee.difference > 0 ? '+' : ''}{employee.difference.toFixed(1)}h
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-center" data-testid={`text-free-windows-${index}`}>
+                  {/* Hidden columns - Free Windows and Cancelled Visits */}
+                  {false && <TableCell className="text-center" data-testid={`text-free-windows-${index}`}>
                     {employee.freeWindows ? (
                       <Badge variant="outline" className="bg-purple-50 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 text-xs font-mono">
                         {employee.freeWindows}
@@ -190,8 +192,8 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                     ) : (
                       <span className="text-gray-400 text-sm">None</span>
                     )}
-                  </TableCell>
-                  <TableCell className="text-center" data-testid={`text-cancelled-visits-${index}`}>
+                  </TableCell>}
+                  {false && <TableCell className="text-center" data-testid={`text-cancelled-visits-${index}`}>
                     {employee.cancelledVisits && employee.cancelledVisits !== '—' ? (
                       <Badge variant="outline" className="bg-red-50 text-red-800 dark:bg-red-900/50 dark:text-red-300 text-xs font-mono max-w-xs break-words">
                         {employee.cancelledVisits}
@@ -199,7 +201,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                     ) : (
                       <span className="text-gray-400 text-sm">None</span>
                     )}
-                  </TableCell>
+                  </TableCell>}
                 </TableRow>
               ))}
             </TableBody>
