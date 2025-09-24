@@ -38,11 +38,7 @@ export default function DataManagement() {
 
   // Cleanup mutation
   const cleanupMutation = useMutation({
-    mutationFn: () => apiRequest(`/api/cleanup`, {
-      method: 'POST',
-      body: JSON.stringify({ months: selectedMonths }),
-      headers: { 'Content-Type': 'application/json' }
-    }),
+    mutationFn: () => apiRequest('POST', '/api/cleanup', { months: selectedMonths }),
     onSuccess: (data: any) => {
       toast({
         title: "Data Cleanup Successful",
