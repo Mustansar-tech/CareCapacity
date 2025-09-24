@@ -20,6 +20,7 @@ import { AISuggestions } from "@/components/ai-suggestions";
 import { DataQualityPanel } from "@/components/data-quality-panel";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
+import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 
 
@@ -715,7 +716,6 @@ export default function Dashboard() {
                       </TableHeader>
                       <TableBody>
                         {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => {
-                          const isAdhoc = emp.status === "Ad-hoc";
                           return (
                           <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>

@@ -14,6 +14,7 @@ import { BarChart3, TrendingUp, Calendar, AlertTriangle, CheckCircle, Activity }
 interface InteractiveChartsProps {
   data: ProcessingResult | null;
   onDateSelect?: (date: string) => void;
+  onEmployeeSelect?: (employee: any) => void;
 }
 
 interface ChartDataPoint {

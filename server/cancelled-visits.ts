@@ -5,7 +5,7 @@
  * Based on the provided specification for processing cancelled visits.
  */
 
-import { format as fmt, addMinutes, startOfWeek, endOfWeek } from 'date-fns';
+import { addMinutes, startOfWeek, endOfWeek } from 'date-fns';
 import { GuaranteedHoursRow } from '@shared/schema';
 
 const HEADERS = {
