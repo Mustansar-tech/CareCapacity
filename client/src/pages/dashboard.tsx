@@ -622,7 +622,8 @@ export default function Dashboard() {
                       <TableRow>
                         <TableHead></TableHead>
                         <TableHead data-testid="header-date">Date</TableHead>
-                        <TableHead data-testid="header-available">Available</TableHead>
+                        {/* Hidden column - Available */}
+                        {false && <TableHead data-testid="header-available">Available</TableHead>}
                         <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
                         <TableHead data-testid="header-required">Client Required</TableHead>
                         <TableHead data-testid="header-gap">Gap</TableHead>
@@ -645,10 +646,10 @@ export default function Dashboard() {
                             {new Date(day.date).toLocaleDateString("en-GB")}
                           </TableCell>
 
-                          {/* Available */}
-                          <TableCell data-testid={`cell-available-${index}`}>
+                          {/* Hidden column - Available */}
+                          {false && <TableCell data-testid={`cell-available-${index}`}>
                             {fmtH(day.availableHours)}
-                          </TableCell>
+                          </TableCell>}
 
                           {/* Net Capacity */}
                           <TableCell data-testid={`cell-net-capacity-${index}`}>
