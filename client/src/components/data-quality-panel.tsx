@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
-  CheckCircle, AlertTriangle, Info, TrendingUp, 
+  AlertTriangle, Info, 
   Database, Users, Clock, Target, Shield
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
@@ -120,7 +120,7 @@ export function DataQualityPanel({ data, warnings = [] }: DataQualityPanelProps)
     });
 
     // Detect potential name variations
-    nameVariations.forEach((variations, baseName) => {
+    nameVariations.forEach((variations) => {
       if (variations.size > 1) {
         consistencyIssues++;
         metrics.anomalies.push({

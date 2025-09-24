@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -27,7 +26,7 @@ export default function DataManagement() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Get cleanup preview
-  const { data: cleanupPreview, refetch: refetchPreview } = useQuery<CleanupPreview>({
+  const { data: cleanupPreview } = useQuery<CleanupPreview>({
     queryKey: ['/api/cleanup/preview', selectedMonths],
   });
 

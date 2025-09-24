@@ -2,12 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { 
-  Lightbulb, 
-  TrendingUp, 
-  Users, 
   Calendar,
   Clock,
   Target,
@@ -17,13 +12,11 @@ import {
   Brain,
   Zap,
   Sparkles,
-  TrendingDown,
   Shield,
   Award,
   Rocket,
   Eye,
-  ChevronRight,
-  Activity
+  ChevronRight
 } from 'lucide-react';
 import type { ProcessingResult } from '@shared/schema';
 
@@ -71,7 +64,7 @@ interface AISuggestionsProps {
 }
 
 export function AISuggestions({ data }: AISuggestionsProps) {
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'scheduling' | 'business'>('all');
+  const [selectedCategory] = useState<'all' | 'scheduling' | 'business'>('all');
   const [showDetails, setShowDetails] = useState<{[key: string]: boolean}>({});
 
   const suggestions = useMemo((): AISuggestion[] => {
@@ -532,9 +525,6 @@ export function AISuggestions({ data }: AISuggestionsProps) {
   }, [data]);
 
   const filteredSuggestions = selectedCategory === 'all' ? suggestions : suggestions.filter(s => s.category === selectedCategory);
-  const schedulingSuggestions = suggestions.filter(s => s.category === 'scheduling');
-  const businessSuggestions = suggestions.filter(s => s.category === 'business');
-  const criticalSuggestions = suggestions.filter(s => s.impact === 'critical');
 
   const toggleDetails = (id: string) => {
     setShowDetails(prev => ({ ...prev, [id]: !prev[id] }));

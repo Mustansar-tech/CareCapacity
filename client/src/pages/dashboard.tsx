@@ -10,17 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, Filter, BarChart3, RefreshCw, Target, Lightbulb as LightBulbIcon, Zap
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { ProcessingResult, EmployeeDailyDetail } from "@shared/schema";
+import type { ProcessingResult } from "@shared/schema";
 import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
 import { InteractiveCharts } from "@/components/interactive-charts";
 import { AISuggestions } from "@/components/ai-suggestions";
 import { DataQualityPanel } from "@/components/data-quality-panel";
-import { LoadingSkeleton, MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
+import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
-import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 
 
@@ -75,7 +74,7 @@ export default function Dashboard() {
   const [processedData, setProcessedData] = useState<ProcessingResult | null>(null);
   const [filteredData, setFilteredData] = useState<ProcessingResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
+  const [warnings] = useState<string[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("overview");
 

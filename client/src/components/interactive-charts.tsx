@@ -1,21 +1,19 @@
 import React, { useMemo, useState } from "react";
-import { format, parseISO, startOfWeek, eachDayOfInterval } from "date-fns";
-import type { ProcessingResult, DailySummaryRecord } from "@shared/schema";
+import { format, parseISO } from "date-fns";
+import type { ProcessingResult } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { 
-  BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+  LineChart, Line, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart
 } from 'recharts';
-import { BarChart3, TrendingUp, TrendingDown, Calendar, Users, Clock, AlertTriangle, CheckCircle, Activity, Target } from "lucide-react";
+import { BarChart3, TrendingUp, Calendar, AlertTriangle, CheckCircle, Activity } from "lucide-react";
 
 interface InteractiveChartsProps {
   data: ProcessingResult | null;
   onDateSelect?: (date: string) => void;
-  onEmployeeSelect?: (employee: string) => void;
 }
 
 interface ChartDataPoint {
