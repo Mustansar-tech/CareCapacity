@@ -7,7 +7,6 @@ import {
 } from "./time-window-utils";
 import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
-import { extractCancelledWindows } from "./cancelled-visits";
 import { extractCancelledWindowsFromGHWorkbook } from "./cancelled-visits-from-gh";
 import {
   AvailabilityRow,
