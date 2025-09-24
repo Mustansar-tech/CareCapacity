@@ -5,7 +5,7 @@
  * Based on the provided specification for processing cancelled visits.
  */
 
-import { addMinutes, startOfWeek, endOfWeek } from 'date-fns';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 import { GuaranteedHoursRow } from '@shared/schema';
 
 const HEADERS = {
@@ -71,7 +71,7 @@ export function extractCancelledWindows(
       .find(v => v && String(v).trim() !== '');
     
     if (!staff) continue;
-    const label = `${fmt(startTime, 'EEE dd MMM')} • ${fmt(startTime, 'HH:mm')}–${fmt(endTime, 'HH:mm')}`;
+    const label = `${format(startTime, 'EEE dd MMM')} • ${format(startTime, 'HH:mm')}–${format(endTime, 'HH:mm')}`;
     const key = normalizeName(String(staff));
     
     if (!tmp.has(key)) tmp.set(key, []);

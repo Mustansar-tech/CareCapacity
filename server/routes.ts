@@ -1,13 +1,9 @@
 
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
-import { CapacityAnalysis, getCanonicalWeekBoundaries } from "@shared/schema";
-import { aggregateMonthlyData } from "./monthlyAnalysis";
+import { getCanonicalWeekBoundaries } from "@shared/schema";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -32,7 +28,6 @@ const upload = multer({
 });
 
 // Store the latest processed data and export file
-let latestProcessingResult: any = null;
 let latestExportBuffer: Buffer | null = null;
 
 // Helper function to normalize file names by removing browser download numbers
@@ -238,36 +233,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/history/monthly/:year/:month - Get monthly analysis
-  app.get('/api/history/monthly/:year/:month', async (req, res) => {
-    try {
-      const year = parseInt(req.params.year);
-      const month = parseInt(req.params.month);
-      
-      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-        return res.status(400).json({
-          message: 'Invalid year or month parameters'
-        });
-      }
-
-      const analyses = await storage.getCapacityAnalysesByMonth(year, month);
-      
-      // Aggregate monthly data
-      const monthlyAnalysis = aggregateMonthlyData(analyses);
-      
-      res.json({
-        year,
-        month,
-        weeklyAnalyses: analyses,
-        monthlyAggregate: monthlyAnalysis
-      });
-    } catch (error) {
-      console.error('Monthly analysis error:', error);
-      res.status(500).json({
-        message: 'Failed to generate monthly analysis'
-      });
-    }
-  });
 
   // GET /api/history/range/:startDate/:endDate - Get analyses by date range
   app.get('/api/history/range/:startDate/:endDate', async (req, res) => {

@@ -5,7 +5,7 @@ import {
   parseGuaranteedDate,
   timeToString,
 } from "./time-window-utils";
-import { computeCapacityWindows, toHours1dp } from "./capacity-windows";
+import { computeCapacityWindows } from "./capacity-windows";
 import { applyServiceRules } from "./service-delivery-rules";
 import { extractCancelledWindowsFromGHWorkbook } from "./cancelled-visits-from-gh";
 import {
@@ -59,14 +59,6 @@ interface ParsedAvailabilityRow extends AvailabilityRow {
   calculatedHours: number;
 }
 
-interface EmployeeGuaranteedHours {
-  originalName: string;
-  normalizedName: string;
-  weeklyHours: number;
-  payRateHours: number;
-  serviceStartDate: Date;
-  serviceEndDate: Date;
-}
 
 // ====== SHEET NAMES (EXACT MATCH TO WORKING IMPLEMENTATION) ======
 const AVAIL_SHEET = "CAREGiver Availability";
@@ -83,10 +75,6 @@ function pickCol(row: Record<string, any>, names: string[]): any {
   return undefined;
 }
 
-// Legacy pick function for backward compatibility
-function pick(row: Record<string, any>, candidates: string[]): any {
-  return pickCol(row, candidates);
-}
 
 // Find the right CG sheet instead of always taking the first one
 function getCGSheetName(wb: any): string {
