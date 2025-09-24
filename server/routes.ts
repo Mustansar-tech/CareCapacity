@@ -290,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/cleanup/preview/:months - Preview what would be deleted
   app.get('/api/cleanup/preview/:months', async (_req, res) => {
     try {
-      const months = parseInt(req.params.months);
+      const months = parseInt(_req.params.months);
       
       if (isNaN(months) || months < 1 || months > 60) {
         return res.status(400).json({

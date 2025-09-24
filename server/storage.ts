@@ -12,12 +12,10 @@ export interface IStorage {
   // Capacity analysis methods
   saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis>;
   getCapacityAnalysesByDateRange(startDate: string, endDate: string): Promise<CapacityAnalysis[]>;
-  getCapacityAnalysesByMonth(year: number, month: number): Promise<CapacityAnalysis[]>;
   getAllCapacityAnalyses(): Promise<CapacityAnalysis[]>;
   getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(limit?: number): Promise<CapacityAnalysis[]>;
   enforceRetentionLatestWeeks(limit?: number): Promise<number>;
-  enforceRetentionByMonth(weeksPerMonth?: number, monthsToKeep?: number): Promise<number>;
   cleanupOldAnalyses(monthsOld: number): Promise<number>;
 }
 
@@ -79,17 +77,6 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getCapacityAnalysesByMonth(year: number, month: number): Promise<CapacityAnalysis[]> {
-    const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
-    const allAnalyses = await this.getCapacityAnalysesByDateRange(startDate, endDate);
-    
-    // Return only the latest 4 weeks to prevent showing too many results
-    const sortedAnalyses = allAnalyses.sort(
-      (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-    );
-    return sortedAnalyses.slice(0, 4);
-  }
 
   async getAllCapacityAnalyses(): Promise<CapacityAnalysis[]> {
     return Array.from(this.capacityAnalyses.values()).sort(
