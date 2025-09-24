@@ -719,6 +719,7 @@ interface CGDataRow {
   TransportModeDescription?: string;
   Title?: string;
   Gender?: string;
+  PostCode?: string;
   [key: string]: any;
 }
 
@@ -831,6 +832,9 @@ export function parseExcelFiles(
       const title =
         pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
 
+      const postCode =
+        pickCol(row, ["Post Code", "PostCode", "Postal Code", "ZIP Code", "Zip Code"]) || "";
+
       // Determine gender from title
       const gender = (() => {
         const titleLower = title.toLowerCase().trim();
@@ -846,6 +850,7 @@ export function parseExcelFiles(
         TransportModeDescription: transportMode,
         Title: title,
         Gender: gender,
+        PostCode: postCode,
       };
     })
     .filter((r) => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
@@ -2060,6 +2065,7 @@ export function processCapacityData(
 export function generateExcelExport(
   result: ProcessingResult,
   cleanedRecords: CleanedEmployeeRecord[],
+  cgData: CGDataRow[],
 ): Buffer {
   const workbook = XLSX.utils.book_new();
 
@@ -2150,6 +2156,29 @@ export function generateExcelExport(
 
   const detailSheet = XLSX.utils.aoa_to_sheet(detailData);
   XLSX.utils.book_append_sheet(workbook, detailSheet, "EmployeeDailyDetail");
+
+  // Employee Master List sheet (CG Data with PostCode)
+  const masterListData = [
+    [
+      "Employee Name",
+      "Weekly Hours",
+      "Transport Mode",
+      "Title",
+      "Gender",
+      "Post Code",
+    ],
+    ...cgData.map((emp) => [
+      emp["CAREGiver Name"],
+      emp["Weekly Hours"].toString(),
+      emp.TransportModeDescription || "",
+      emp.Title || "",
+      emp.Gender || "",
+      emp.PostCode || "",
+    ]),
+  ];
+
+  const masterListSheet = XLSX.utils.aoa_to_sheet(masterListData);
+  XLSX.utils.book_append_sheet(workbook, masterListSheet, "EmployeeMasterList");
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }

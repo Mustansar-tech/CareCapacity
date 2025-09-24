@@ -129,7 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cleanedRecords = result.cleanedRecords;
 
       // Generate Excel export
-      const exportBuffer = generateExcelExport(result, cleanedRecords);
+      const exportBuffer = generateExcelExport(result, cleanedRecords, parsedData.cgData);
       
       // Store for export endpoint
       latestProcessingResult = result;
