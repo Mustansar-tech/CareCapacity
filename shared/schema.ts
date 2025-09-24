@@ -118,6 +118,7 @@ export interface CleanedEmployeeRecord {
   hours: number;
   netCapacity: number;
   notes: string;
+  postCode: string;
 }
 
 export interface DailySummaryRecord {

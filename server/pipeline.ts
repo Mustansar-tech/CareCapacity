@@ -1157,6 +1157,15 @@ export function processCapacityData(
     masterEmployeeMap.set(emp.normalizedName, emp);
   });
 
+  // Create postCode lookup map from CG Data
+  const postCodeMap = new Map<string, string>();
+  cgData.forEach((row) => {
+    if (row["CAREGiver Name"] && row.PostCode) {
+      const normalizedName = normalizeName(row["CAREGiver Name"]);
+      postCodeMap.set(normalizedName, row.PostCode);
+    }
+  });
+
   // Step 2: Filter availability data to ONLY include master employees (EXACT MATCH TO WORKING IMPLEMENTATION)
   const availabilityFiltered: any[] = [];
   availability.forEach((row, i) => {
@@ -1516,6 +1525,10 @@ export function processCapacityData(
         windowsStr = bookableWindows.join("; ");
       }
 
+      // Look up postCode for this employee
+      const normalizedEmpName = normalizeName(empName);
+      const postCode = postCodeMap.get(normalizedEmpName) || "";
+
       cleanedRecords.push({
         employeeName: empName,
         contractedWeeklyHours: Math.round(weekly * 100) / 100,
@@ -1531,6 +1544,7 @@ export function processCapacityData(
           (hasDayKiller
             ? " [availability ignored due to day-level leave]"
             : ""),
+        postCode,
       });
     }
   });
@@ -2081,6 +2095,7 @@ export function generateExcelExport(
       "Hours",
       "Net Capacity",
       "Notes",
+      "Post Code",
     ],
     ...cleanedRecords.map((record) => [
       record.employeeName,
@@ -2092,6 +2107,7 @@ export function generateExcelExport(
       record.hours.toString(),
       record.netCapacity.toString(),
       record.notes,
+      record.postCode,
     ]),
   ];
 
