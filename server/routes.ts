@@ -31,7 +31,6 @@ const upload = multer({
 });
 
 // Store the latest processed data and export file
-let latestProcessingResult: any = null;
 let latestExportBuffer: Buffer | null = null;
 
 // Helper function to normalize file names by removing browser download numbers
@@ -131,7 +130,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const exportBuffer = generateExcelExport(result, cleanedRecords, parsedData.cgData);
       
       // Store for export endpoint
-      latestProcessingResult = result;
       latestExportBuffer = exportBuffer;
 
       // Save Excel file to disk
@@ -186,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/export - Download the latest generated Excel file
-  app.get('/api/export', (req, res) => {
+  app.get('/api/export', (_req, res) => {
     try {
       if (!latestExportBuffer) {
         return res.status(404).json({

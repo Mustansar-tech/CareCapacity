@@ -763,7 +763,7 @@ export function parseExcelFiles(
     throw error;
   }
 
-  const { meta, filteredRows, hoursByWeekday, serviceTypeByWeekday } =
+  const { meta, hoursByWeekday } =
     serviceRulesResult;
 
   console.log(
@@ -1261,57 +1261,6 @@ export function processCapacityData(
     groupedData.get(key)!.push(row);
   });
 
-  // Helper function to merge overlapping time windows
-  function mergeTimeWindows(windows: string[]): string[] {
-    if (windows.length <= 1) return windows;
-
-    const timeRanges = windows
-      .filter((w) => w && w !== "" && w !== "-" && !w.includes("undefined"))
-      .map((window) => {
-        const parts = window.split("-");
-        if (parts.length === 2) {
-          return {
-            start: parts[0].trim(),
-            end: parts[1].trim(),
-            original: window,
-          };
-        }
-        return null;
-      })
-      .filter(Boolean) as { start: string; end: string; original: string }[];
-
-    if (timeRanges.length === 0) return [];
-
-    // Sort by start time
-    timeRanges.sort((a, b) => {
-      const aTime = new Date(`2000-01-01 ${a.start}`);
-      const bTime = new Date(`2000-01-01 ${b.start}`);
-      return aTime.getTime() - bTime.getTime();
-    });
-
-    const merged = [timeRanges[0]];
-
-    for (let i = 1; i < timeRanges.length; i++) {
-      const current = timeRanges[i];
-      const last = merged[merged.length - 1];
-
-      const currentStart = new Date(`2000-01-01 ${current.start}`);
-      const lastEnd = new Date(`2000-01-01 ${last.end}`);
-
-      // If windows overlap or touch, merge them
-      if (currentStart.getTime() <= lastEnd.getTime()) {
-        const currentEnd = new Date(`2000-01-01 ${current.end}`);
-        if (currentEnd.getTime() > lastEnd.getTime()) {
-          last.end = current.end;
-          last.original = `${last.start}-${last.end}`;
-        }
-      } else {
-        merged.push(current);
-      }
-    }
-
-    return merged.map((range) => range.original);
-  }
 
   // Step 6: Collapse function - exactly like your collapse_one_group function
   const cleanedRecords: CleanedEmployeeRecord[] = [];
@@ -1393,7 +1342,7 @@ export function processCapacityData(
     let dayKillerStatus = "";
     let dayKillerPriority = 999;
 
-    statusAgg.forEach((agg, status) => {
+    statusAgg.forEach((_agg, status) => {
       if (DAY_KILLERS.has(status)) {
         const p = STATUS_PRIORITY[status] || 999;
         if (p < dayKillerPriority) {
@@ -1406,7 +1355,7 @@ export function processCapacityData(
 
     // Check for time-killers
     let hasTimeKiller = false;
-    statusAgg.forEach((agg, status) => {
+    statusAgg.forEach((_agg, status) => {
       if (TIME_KILLERS.has(status)) {
         hasTimeKiller = true;
       }
@@ -1420,9 +1369,9 @@ export function processCapacityData(
     );
 
     const blockerPairs: Array<[number, number]> = [];
-    statusAgg.forEach((agg, status) => {
+    statusAgg.forEach((_agg, status) => {
       if (TIME_KILLERS.has(status))
-        blockerPairs.push(...windowListToPairs(agg.windows));
+        blockerPairs.push(...windowListToPairs(_agg.windows));
     });
     const mergedBlockers = mergeIntervals(blockerPairs, 0);
 
@@ -1583,7 +1532,7 @@ export function processCapacityData(
 
     const summary = dailySummaryMap.get(date)!;
 
-    employeeMap.forEach((records, employeeName) => {
+    employeeMap.forEach((records, _employeeName) => {
       // Apply same consolidation logic as Employee Summary
       let hasUnavailableStatus = false;
       let bestRecord = records[0]; // Start with first record

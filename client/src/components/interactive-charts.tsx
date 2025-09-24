@@ -41,7 +41,7 @@ const COLORS = {
   available: 'hsl(239, 84%, 67%)'
 };
 
-export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect }: InteractiveChartsProps) {
+export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect: _ }: InteractiveChartsProps) {
   const [selectedChart, setSelectedChart] = useState<string>("overview");
   const [selectedDataPoint, setSelectedDataPoint] = useState<ChartDataPoint | null>(null);
 
