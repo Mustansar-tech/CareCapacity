@@ -1,6 +1,9 @@
 
 import type { Express } from "express";
+import { createServer, type Server } from "http";
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
@@ -11,7 +14,7 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     console.log(`📂 File upload attempt: "${file.originalname}" with MIME type: "${file.mimetype}"`);
     
     if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
@@ -28,6 +31,7 @@ const upload = multer({
 });
 
 // Store the latest processed data and export file
+let latestProcessingResult: any = null;
 let latestExportBuffer: Buffer | null = null;
 
 // Helper function to normalize file names by removing browser download numbers
@@ -203,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/history - Get all historical analyses (latest 8 weeks only)
-  app.get('/api/history', async (req, res) => {
+  app.get('/api/history', async (_req, res) => {
     try {
       const analyses = await storage.getLatestWeeksAnalyses(8);
       res.json(analyses);
@@ -216,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/history/latest - Get the latest analysis
-  app.get('/api/history/latest', async (req, res) => {
+  app.get('/api/history/latest', async (_req, res) => {
     try {
       const analysis = await storage.getLatestCapacityAnalysis();
       if (!analysis) {
@@ -284,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/cleanup/preview/:months - Preview what would be deleted
-  app.get('/api/cleanup/preview/:months', async (req, res) => {
+  app.get('/api/cleanup/preview/:months', async (_req, res) => {
     try {
       const months = parseInt(req.params.months);
       
