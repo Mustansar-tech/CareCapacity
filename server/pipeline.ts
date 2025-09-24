@@ -12,14 +12,10 @@ import {
   AvailabilityRow,
   GuaranteedHoursRow,
   ClientDemandRow,
-  ServiceDeliveryRow,
   CleanedEmployeeRecord,
   DailySummaryRecord,
   EmployeeDailyDetail,
   ProcessingResult,
-  availabilitySchema,
-  guaranteedSchema,
-  clientDemandSchema,
   InsertCapacityAnalysis,
 } from "@shared/schema";
 import { storage } from "./storage";
