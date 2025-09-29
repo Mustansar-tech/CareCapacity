@@ -2102,57 +2102,117 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       await storage.upsertClientLocation(locationData);
     }
 
-    console.log(`🗺️ Starting automatic geocoding for locations...`);
+    console.log(`🗺️ Starting enhanced batch geocoding for locations...`);
     
-    // Auto-geocode employee locations
+    // Postcode normalization helper function
+    function normalisePostcode(pc: string) {
+      if (!pc) return "";
+      const s = pc.toUpperCase().replace(/\s+/g, "");
+      if (s.length < 5 || s.length > 7) return pc.toUpperCase().trim();
+      return s.slice(0, s.length - 3) + " " + s.slice(-3);
+    }
+
+    // Build reverse lookup for employees by postcode (so we can map geocoder results back)
+    const employeeByPostcode = new Map<string, string[]>();
+    for (const [name, data] of employeeLocationsMap.entries()) {
+      const pc = normalisePostcode(data.homePostcode || "");
+      if (!pc) continue;
+      if (!employeeByPostcode.has(pc)) employeeByPostcode.set(pc, []);
+      employeeByPostcode.get(pc)!.push(name);
+    }
+
+    // Build a lookup key for clients "<ADDRESS>|<POSTCODE>" -> clientName
+    const clientKeyMap = new Map<string, string>();
+    for (const v of Array.from(clientLocationsMap.values())) {
+      const pc = normalisePostcode(v.postcode || "");
+      const addr = (v.addressLine || "").trim().toUpperCase();
+      clientKeyMap.set(`${addr}|${pc}`, v.clientName);
+    }
+
+    // ----------------- EMPLOYEE GEOCODING (SAVE RESULTS) -----------------
     const employeePostcodes = Array.from(employeeLocationsMap.values())
-      .map(emp => emp.homePostcode)
-      .filter(postcode => postcode);
-    
+      .map(v => v.homePostcode)
+      .filter(Boolean)
+      .map(normalisePostcode);
+
     if (employeePostcodes.length > 0) {
-      console.log(`📍 Geocoding ${employeePostcodes.length} employee postcodes...`);
       try {
-        const geocodeResponse = await fetch('http://localhost:5000/api/geo/geocode-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            postcodes: employeePostcodes,
-            addresses: []
-          })
+        const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postcodes: employeePostcodes, addresses: [] }),
         });
-        if (geocodeResponse.ok) {
-          console.log(`✅ Employee geocoding completed successfully`);
+        if (!res.ok) {
+          console.log("⚠️ Employee geocoding failed:", await res.text());
         } else {
-          console.log(`⚠️ Employee geocoding failed:`, await geocodeResponse.text());
+          const payload = await res.json(); // expect { results: [{ input, lat, lng, success, ...}] }
+          const results = payload?.results ?? [];
+          let saved = 0;
+          for (const r of results) {
+            if (!r?.success || !Number.isFinite(r.lat) || !Number.isFinite(r.lng)) continue;
+            const pc = normalisePostcode(r.input || r.postcode || "");
+            const names = employeeByPostcode.get(pc) ?? [];
+            for (const employeeName of names) {
+              const base = employeeLocationsMap.get(employeeName) || {};
+              await storage.upsertEmployeeLocation({
+                employeeName,
+                homePostcode: pc,
+                lat: r.lat,
+                lng: r.lng,
+                transportMode: base.transportMode || "car",
+              });
+              saved++;
+            }
+          }
+          console.log(`✅ Employee geocoding saved for ${saved} records`);
         }
-      } catch (error) {
-        console.log(`⚠️ Employee geocoding error:`, error);
+      } catch (err) {
+        console.log("⚠️ Employee geocoding error:", err);
       }
     }
 
-    // Auto-geocode client locations  
+    // ----------------- CLIENT GEOCODING (SAVE RESULTS) -----------------
     const clientAddresses = Array.from(clientLocationsMap.values())
-      .map(client => ({ address: client.addressLine, postcode: client.postcode }))
-      .filter(addr => addr.address || addr.postcode);
-    
+      .map(v => ({ address: (v.addressLine || "").trim(), postcode: normalisePostcode(v.postcode || "") }))
+      .filter(v => v.address || v.postcode);
+
     if (clientAddresses.length > 0) {
-      console.log(`📍 Geocoding ${clientAddresses.length} client addresses...`);
       try {
-        const geocodeResponse = await fetch('http://localhost:5000/api/geo/geocode-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
-            addresses: clientAddresses.map(a => a.address).filter(Boolean)
-          })
+        const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            postcodes: clientAddresses.map(a => a.postcode),
+            addresses: clientAddresses.map(a => a.address),
+          }),
         });
-        if (geocodeResponse.ok) {
-          console.log(`✅ Client geocoding completed successfully`);
+        if (!res.ok) {
+          console.log("⚠️ Client geocoding failed:", await res.text());
         } else {
-          console.log(`⚠️ Client geocoding failed:`, await geocodeResponse.text());
+          const payload = await res.json(); // expect { results: [{ address, postcode, lat, lng, success }] }
+          const results = payload?.results ?? [];
+          let saved = 0;
+          for (const r of results) {
+            if (!r?.success || !Number.isFinite(r.lat) || !Number.isFinite(r.lng)) continue;
+            const pc = normalisePostcode(r.postcode || r.input || "");
+            const addr = (r.address || "").trim().toUpperCase();
+            const key = `${addr}|${pc}`;
+            const clientName = clientKeyMap.get(key);
+            if (!clientName) continue;
+
+            await storage.upsertClientLocation({
+              clientName,
+              addressLine: addr,
+              postcode: pc,
+              lat: r.lat,
+              lng: r.lng,
+            });
+            saved++;
+          }
+          console.log(`✅ Client geocoding saved for ${saved} records`);
         }
-      } catch (error) {
-        console.log(`⚠️ Client geocoding error:`, error);
+      } catch (err) {
+        console.log("⚠️ Client geocoding error:", err);
       }
     }
     
@@ -2245,6 +2305,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     for (const visitData of Array.from(visitsMap.values())) {
       await storage.saveVisit(visitData);
     }
+    
+    // Log final geocoding statistics
+    const empLocs = await storage.getAllEmployeeLocations?.() ?? [];
+    const cliLocs = await storage.getAllClientLocations?.() ?? [];
+    console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(e.lat)&&Number.isFinite(e.lng)).length}/${empLocs.length}`);
+    console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(c.lat)&&Number.isFinite(c.lng)).length}/${cliLocs.length}`);
     
     console.log(`✅ Geographical data extraction complete!`);
     
