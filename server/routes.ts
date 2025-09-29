@@ -553,7 +553,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Travel time optimization endpoint
+  app.get('/api/travel-optimization/:date', async (req, res) => {
+    try {
+      const { date } = req.params;
+      
+      // Get all employees with locations and their time windows for the date
+      const employeeLocations = await storage.getAllEmployeeLocations();
+      const clientLocations = await storage.getAllClientLocations();
+      const visits = await storage.getVisitsByDate(date);
+      
+      // Get latest analysis for employee time windows
+      const latestAnalysis = await storage.getLatestAnalysis();
+      if (!latestAnalysis) {
+        return res.status(404).json({ error: 'No analysis data found. Please process Excel files first.' });
+      }
+      
+      // Find employee data for the specific date
+      const employeeData = latestAnalysis.dailyCapacity?.find(day => day.date === date);
+      if (!employeeData) {
+        return res.status(404).json({ error: `No employee data found for date ${date}` });
+      }
+      
+      // Create travel time optimization matrix
+      const optimization = [];
+      
+      for (const empData of employeeData.employees) {
+        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employee);
+        if (!empLocation || !empLocation.homeLat || !empLocation.homeLng) continue;
+        
+        // Only include employees with free time windows
+        if (!empData.freeWindows || empData.freeWindowsMinutes === 0) continue;
+        
+        const employeeOptimization = {
+          employeeName: empData.employee,
+          date: date,
+          homePostcode: empLocation.homePostcode,
+          transportMode: empLocation.transportMode,
+          freeWindows: empData.freeWindows,
+          freeWindowsMinutes: empData.freeWindowsMinutes,
+          netCapacity: empData.netCapacity,
+          recommendedClients: []
+        };
+        
+        // Calculate travel distances to all available clients
+        const clientDistances = [];
+        for (const client of clientLocations) {
+          if (!client.lat || !client.lng) continue;
+          
+          // Check if this client has visits available
+          const clientVisits = visits.filter(v => v.clientId === client.id);
+          
+          // Calculate distance (using Haversine formula as approximation)
+          const distance = calculateDistance(
+            parseFloat(empLocation.homeLat),
+            parseFloat(empLocation.homeLng),
+            parseFloat(client.lat),
+            parseFloat(client.lng)
+          );
+          
+          clientDistances.push({
+            clientName: client.clientName,
+            address: client.addressLine,
+            postcode: client.postcode,
+            distanceKm: distance,
+            estimatedTravelMinutes: Math.round(distance * (empLocation.transportMode === 'walking' ? 12 : 3)), // 5km/h walking, 20km/h driving
+            availableVisits: clientVisits.length
+          });
+        }
+        
+        // Sort by travel time (closest first) and recommend top 5
+        employeeOptimization.recommendedClients = clientDistances
+          .sort((a, b) => a.estimatedTravelMinutes - b.estimatedTravelMinutes)
+          .slice(0, 5)
+          .map((client, index) => ({
+            ...client,
+            priority: index + 1,
+            feasible: client.estimatedTravelMinutes <= 15 // 15-minute travel constraint
+          }));
+        
+        optimization.push(employeeOptimization);
+      }
+      
+      // Sort employees by most available capacity first
+      optimization.sort((a, b) => b.freeWindowsMinutes - a.freeWindowsMinutes);
+      
+      res.json({
+        date,
+        totalEmployeesWithCapacity: optimization.length,
+        optimization
+      });
+      
+    } catch (error) {
+      console.error('Travel optimization error:', error);
+      res.status(500).json({ error: 'Travel optimization failed', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
+}
+
+// Haversine distance formula
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }

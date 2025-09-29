@@ -2048,7 +2048,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
       if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
       
-      const clientName = row["Actual Client Name"] || row["Client Name"];
+      const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
       const serviceLocationAddress = row["Service Location Address"];
       
       // Try to extract postcode from the address if possible
@@ -2091,17 +2091,19 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
       if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
       
-      const clientName = row["Actual Client Name"] || row["Client Name"];
+      const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
+      const plannedStartTime = row["Planned Start Date And Time"];
+      const plannedEndTime = row["Planned End Date And Time"];
       const startTime = row["Service Requirement Start Date And Time"];
       const endTime = row["Service Requirement End Date And Time"];
       const actualStartTime = row["Actual Start Date And Time"];
       const actualEndTime = row["Actual End Date And Time"];
       const serviceType = row["Actual Service Type Description"];
       
-      if (clientName && (startTime || actualStartTime)) {
-        // Use actual times if available, otherwise fall back to service requirement times
-        const visitStart = actualStartTime || startTime;
-        const visitEnd = actualEndTime || endTime;
+      if (clientName && (plannedStartTime || startTime || actualStartTime)) {
+        // Use planned times first, then actual times, then fall back to service requirement times
+        const visitStart = plannedStartTime || actualStartTime || startTime;
+        const visitEnd = plannedEndTime || actualEndTime || endTime;
         
         if (visitStart) {
           try {
