@@ -110,7 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       // Process the data with CG Data as master employee list
-      const result = processCapacityData(
+      const result = await processCapacityData(
         parsedData.availability,
         parsedData.guaranteed,     // still the filtered rows for scheduling
         parsedData.demand,

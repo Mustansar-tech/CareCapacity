@@ -1050,13 +1050,13 @@ export function parseExcelFiles(
 }
 
 // Process and clean the data starting with CG Data as master employee list
-export function processCapacityData(
+export async function processCapacityData(
   availability: ParsedAvailabilityRow[],
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
   options?: { ghWorkbookBuffer?: Buffer }, // ← NEW optional param
-): ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } {
+): Promise<ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] }> {
   const warnings: string[] = [];
 
   // REVOLUTIONARY CHANGE: Start with CG Data as master employee list
