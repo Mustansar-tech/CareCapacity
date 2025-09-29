@@ -678,6 +678,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Find employee data for the specific date from Daily Capacity Summary ONLY
+      console.log(`🔍 DEBUG: Looking for date "${date}" in dailyCapacity`);
+      console.log(`🔍 DEBUG: Available dates:`, latestAnalysis.dailyCapacity?.map((d: any) => d.date));
+      
       const employeeData = latestAnalysis.dailyCapacity?.find((day: any) => day.date === date);
       if (!employeeData) {
         return res.status(404).json({ 
@@ -685,6 +688,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           availableDates: latestAnalysis.dailyCapacity?.map((d: any) => d.date) || []
         });
       }
+      
+      console.log(`✅ Found data for ${date}: ${employeeData.employees?.length || 0} employees`);
       
       // Get postcodes from CG Data and clients from Guaranteed Hours
       const employeeLocations = await storage.getAllEmployeeLocations();
