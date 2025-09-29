@@ -2437,7 +2437,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               saved++;
             }
           }
-          console.log(`✅ Employee geocoding saved for ${saved} records`);
+          if (saved > 0) {
+            console.log(`✅ Employee geocoding saved for ${saved} new records`);
+          } else {
+            console.log(`✅ Employee geocoding: All ${employeeLocationsMap.size} employees already geocoded (using cached coordinates)`);
+          }
         }
       } catch (err) {
         console.log("⚠️ Employee geocoding error:", err);
@@ -2482,7 +2486,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             });
             saved++;
           }
-          console.log(`✅ Client geocoding saved for ${saved} records`);
+          if (saved > 0) {
+            console.log(`✅ Client geocoding saved for ${saved} new records`);
+          } else {
+            console.log(`✅ Client geocoding: All ${clientAddresses.length} clients already geocoded (using cached coordinates)`);
+          }
         }
       } catch (err) {
         console.log("⚠️ Client geocoding error:", err);
