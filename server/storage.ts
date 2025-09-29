@@ -50,6 +50,7 @@ export interface IStorage {
   getVisitById(id: string): Promise<Visit | undefined>;
   getVisitsByDate(date: string): Promise<Visit[]>;
   getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
+  listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]>;
   
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
   getRoutePlansByDate(date: string): Promise<RoutePlan[]>;
@@ -371,6 +372,18 @@ export class MemStorage implements IStorage {
     return Array.from(this.visits.values()).filter(
       visit => visit.clientId === clientId && visit.date === date
     );
+  }
+
+  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    const allVisits = Array.from(this.visits.values());
+    if (!startDate && !endDate) {
+      return allVisits;
+    }
+    return allVisits.filter(visit => {
+      if (startDate && visit.date < startDate) return false;
+      if (endDate && visit.date > endDate) return false;
+      return true;
+    });
   }
 
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
@@ -768,6 +781,20 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(visits)
       .where(and(eq(visits.clientId, clientId), eq(visits.date, date)));
+  }
+
+  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    let query = db.select().from(visits);
+    
+    if (startDate && endDate) {
+      query = query.where(and(gte(visits.date, startDate), lte(visits.date, endDate)));
+    } else if (startDate) {
+      query = query.where(gte(visits.date, startDate));
+    } else if (endDate) {
+      query = query.where(lte(visits.date, endDate));
+    }
+    
+    return await query;
   }
 
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
