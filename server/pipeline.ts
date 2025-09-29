@@ -2043,13 +2043,28 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     
     // Extract client locations from Care Pro Guaranteed Hours
     const clientLocationsMap = new Map<string, any>();
+    console.log(`🔍 DEBUG: Processing ${guaranteed.length} guaranteed hours rows for client locations`);
+    
+    // Debug: Check what columns are available
+    if (guaranteed.length > 0) {
+      console.log(`🔍 DEBUG: Available columns in first row:`, Object.keys(guaranteed[0]));
+    }
+    
     for (const row of guaranteed) {
       // Skip cancelled or secondary multiple care entries
-      if (!isCancellationBlank(row["Cancellation Description"])) continue;
-      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+      if (!isCancellationBlank(row["Cancellation Description"])) {
+        console.log(`🔍 DEBUG: Skipping cancelled entry for client: ${row["Service Location Name"] || row["Actual Client Name"]}`);
+        continue;
+      }
+      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) {
+        console.log(`🔍 DEBUG: Skipping secondary multiple care for client: ${row["Service Location Name"] || row["Actual Client Name"]}`);
+        continue;
+      }
       
       const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
       const serviceLocationAddress = row["Service Location Address"];
+      
+      console.log(`🔍 DEBUG: Processing row - Service Location Name: "${row["Service Location Name"]}", Service Location Address: "${row["Service Location Address"]}", Client Name: "${clientName}"`);;
       
       // Try to extract postcode from the address if possible
       let postcode = "";
@@ -2068,12 +2083,15 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       if (clientName && (serviceLocationAddress || postcode)) {
         const clientKey = clientName.trim();
         if (!clientLocationsMap.has(clientKey)) {
+          console.log(`🔍 DEBUG: Adding client - Name: "${clientKey}", Address: "${addressLine}", Postcode: "${postcode}"`);
           clientLocationsMap.set(clientKey, {
             clientName: clientKey,
             addressLine: addressLine,
             postcode: postcode,
           });
         }
+      } else {
+        console.log(`🔍 DEBUG: Skipping client - Name: "${clientName}", Address: "${serviceLocationAddress}", missing data`);
       }
     }
     
@@ -2082,6 +2100,60 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     // Store client locations
     for (const locationData of Array.from(clientLocationsMap.values())) {
       await storage.upsertClientLocation(locationData);
+    }
+
+    console.log(`🗺️ Starting automatic geocoding for locations...`);
+    
+    // Auto-geocode employee locations
+    const employeePostcodes = Array.from(employeeLocationsMap.values())
+      .map(emp => emp.homePostcode)
+      .filter(postcode => postcode);
+    
+    if (employeePostcodes.length > 0) {
+      console.log(`📍 Geocoding ${employeePostcodes.length} employee postcodes...`);
+      try {
+        const geocodeResponse = await fetch('http://localhost:5000/api/geo/geocode-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            postcodes: employeePostcodes,
+            addresses: []
+          })
+        });
+        if (geocodeResponse.ok) {
+          console.log(`✅ Employee geocoding completed successfully`);
+        } else {
+          console.log(`⚠️ Employee geocoding failed:`, await geocodeResponse.text());
+        }
+      } catch (error) {
+        console.log(`⚠️ Employee geocoding error:`, error);
+      }
+    }
+
+    // Auto-geocode client locations  
+    const clientAddresses = Array.from(clientLocationsMap.values())
+      .map(client => ({ address: client.addressLine, postcode: client.postcode }))
+      .filter(addr => addr.address || addr.postcode);
+    
+    if (clientAddresses.length > 0) {
+      console.log(`📍 Geocoding ${clientAddresses.length} client addresses...`);
+      try {
+        const geocodeResponse = await fetch('http://localhost:5000/api/geo/geocode-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
+            addresses: clientAddresses.map(a => a.address).filter(Boolean)
+          })
+        });
+        if (geocodeResponse.ok) {
+          console.log(`✅ Client geocoding completed successfully`);
+        } else {
+          console.log(`⚠️ Client geocoding failed:`, await geocodeResponse.text());
+        }
+      } catch (error) {
+        console.log(`⚠️ Client geocoding error:`, error);
+      }
     }
     
     // Extract visit data for route optimization

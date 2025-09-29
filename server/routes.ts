@@ -564,12 +564,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const visits = await storage.getVisitsByDate(date);
       
       // Get latest analysis for employee time windows
-      const recentAnalyses = await storage.getAnalysesForTimeRange();
-      if (!recentAnalyses.length) {
+      const latestAnalysis = await storage.getLatestCapacityAnalysis();
+      if (!latestAnalysis) {
         return res.status(404).json({ error: 'No analysis data found. Please process Excel files first.' });
       }
-      
-      const latestAnalysis = recentAnalyses[recentAnalyses.length - 1];
       
       // Find employee data for the specific date
       const employeeData = latestAnalysis.dailyCapacity?.find((day: any) => day.date === date);
