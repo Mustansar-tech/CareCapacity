@@ -103,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ FILE VALIDATION PASSED - Proceeding to parsing...`);
 
       // Parse Excel files including CG Data Export
-      const parsedData = parseExcelFiles(
+      const parsedData = await parseExcelFiles(
         availabilityFile.buffer,
         guaranteedFile.buffer,
         demandFile.buffer,

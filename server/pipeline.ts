@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { parse, format } from "date-fns";
+import { parse, format, addDays } from "date-fns";
 import {
   buildTimeWindow,
   parseGuaranteedDate,
@@ -19,6 +19,112 @@ import {
   InsertCapacityAnalysis,
 } from "@shared/schema";
 import { storage } from "./storage";
+
+// Add interface for CleanRow from service delivery rules
+interface CleanRow {
+  serviceType: string;
+  weekday: string;
+  duration: number;
+  cancellation: string | null;
+}
+
+// Generate client visits from demand data (Hours by Service Type)
+async function generateVisitsFromDemand(
+  filteredRows: CleanRow[],
+  startDate: Date,
+  numDays: number = 7
+): Promise<void> {
+  console.log(`📅 Generating client visits from ${filteredRows.length} demand rows for ${numDays} days starting ${format(startDate, 'yyyy-MM-dd')}`);
+  
+  // Default time windows based on service type
+  const getDefaultTimeWindows = (serviceType: string): { start: string; end: string }[] => {
+    const type = serviceType.toLowerCase();
+    
+    // Morning slots for basic care services
+    if (type.includes('personal care') || type.includes('medication') || type.includes('breakfast')) {
+      return [{ start: '07:00', end: '11:00' }];
+    }
+    
+    // Lunch time slots
+    if (type.includes('lunch') || type.includes('meal')) {
+      return [{ start: '11:30', end: '14:30' }];
+    }
+    
+    // Evening slots for dinner and bedtime care
+    if (type.includes('dinner') || type.includes('bedtime') || type.includes('evening')) {
+      return [{ start: '17:00', end: '21:00' }];
+    }
+    
+    // Day time slots for general activities
+    if (type.includes('domestic') || type.includes('shopping') || type.includes('companionship')) {
+      return [{ start: '09:00', end: '17:00' }];
+    }
+    
+    // Default to flexible daytime windows
+    return [
+      { start: '09:00', end: '12:00' },
+      { start: '14:00', end: '17:00' }
+    ];
+  };
+  
+  // Weekday name mapping
+  const weekdayMap: Record<string, number> = {
+    'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+    'thursday': 4, 'friday': 5, 'saturday': 6
+  };
+  
+  let totalVisitsCreated = 0;
+  
+  // Generate visits for each demand row across the date range
+  for (const row of filteredRows) {
+    const weekdayNum = weekdayMap[row.weekday.toLowerCase()];
+    if (weekdayNum === undefined) continue;
+    
+    // Find matching dates for this weekday
+    for (let dayOffset = 0; dayOffset < numDays; dayOffset++) {
+      const currentDate = addDays(startDate, dayOffset);
+      if (currentDate.getDay() !== weekdayNum) continue;
+      
+      const dateStr = format(currentDate, 'yyyy-MM-dd');
+      const timeWindows = getDefaultTimeWindows(row.serviceType);
+      
+      for (const timeWindow of timeWindows) {
+        // Create or get client location
+        const clientName = `${row.serviceType} Client`;
+        let existingClient = await storage.getClientLocationByName?.(clientName);
+        if (!existingClient) {
+          existingClient = await storage.upsertClientLocation({
+            clientName: clientName,
+            addressLine: `Service Location for ${row.serviceType}`,
+            postcode: 'EH1 1AA', // Default Edinburgh postcode for geocoding
+            lat: null,
+            lng: null
+          });
+        }
+        
+        // Create a visit for this service demand
+        const visit = {
+          clientId: existingClient.id,
+          date: dateStr,
+          durationMinutes: Math.max(30, Math.round((row.duration || 1) * 60)), // Convert hours to minutes, minimum 30min
+          preferredStartTime: `${dateStr} ${timeWindow.start}`,
+          preferredEndTime: `${dateStr} ${timeWindow.end}`,
+          priority: row.serviceType.toLowerCase().includes('medication') ? 1 : 
+                   row.serviceType.toLowerCase().includes('personal care') ? 2 : 3,
+          serviceType: row.serviceType
+        };
+        
+        // Save the visit
+        await storage.saveVisit(visit);
+        totalVisitsCreated++;
+        
+        console.log(`📋 Created visit: ${visit.clientId} on ${dateStr} (${timeWindow.start}-${timeWindow.end}) for ${visit.durationMinutes}min`);
+      }
+    }
+  }
+  
+  console.log(`✅ Generated ${totalVisitsCreated} client visits from demand data`);
+}
 
 // Postcode normalization helper function
 function normalisePostcode(pc: string) {
@@ -714,18 +820,18 @@ interface CGDataRow {
   [key: string]: any;
 }
 
-export function parseExcelFiles(
+export async function parseExcelFiles(
   availabilityBuffer: Buffer,
   guaranteedBuffer: Buffer,
   demandBuffer: Buffer,
   cgDataBuffer: Buffer,
-): {
+): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
   demand: ClientDemandRow[];
   cgData: CGDataRow[];
   warnings: string[];
-} {
+}> {
   console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
   console.log(
     `🔧 Buffer lengths: availability=${availabilityBuffer?.length}, guaranteed=${guaranteedBuffer?.length}, demand=${demandBuffer?.length}, cgData=${cgDataBuffer?.length}`,
@@ -771,7 +877,7 @@ export function parseExcelFiles(
     throw error;
   }
 
-  const { meta, hoursByWeekday } =
+  const { meta, hoursByWeekday, filteredRows } =
     serviceRulesResult;
 
   console.log(
@@ -779,6 +885,11 @@ export function parseExcelFiles(
   );
   console.log(`🔍 Column mapping:`, meta.columnMap);
   console.log(`📊 Weekday totals:`, hoursByWeekday);
+  console.log(`📊 Filtered demand rows for visit generation: ${filteredRows.length}`);
+
+  // Generate client visits from demand data (Hours by Service Type)
+  const analysisStartDate = new Date(); // Use current date as start
+  await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
 
   // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
