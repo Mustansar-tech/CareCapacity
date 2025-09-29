@@ -994,10 +994,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Helper function to convert time string to minutes
-      function timeToMinutes(timeStr: string): number {
+      const timeToMinutes = (timeStr: string): number => {
         const [hours, minutes] = timeStr.split(':').map(Number);
         return hours * 60 + minutes;
-      }
+      };
       
       // Filter employees based on Daily Capacity Summary availability rules ONLY
       for (const empData of employeeData) {
