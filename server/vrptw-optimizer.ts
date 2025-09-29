@@ -3,7 +3,7 @@
  * Assigns client visits to employees while respecting time windows and travel constraints
  */
 
-import { travelTimeService, TravelMatrix, TransportMode } from "./travel-time-service.js";
+import { travelTimeService, TravelTimeService, TravelMatrix, TransportMode } from "./travel-time-service.js";
 
 export interface EmployeeWindow {
   employeeId: string;
@@ -61,7 +61,13 @@ export interface OptimizationResult {
 }
 
 export class VRPTWOptimizer {
-  private readonly MAX_TRAVEL_MINUTES = 15;
+  private maxTravelMinutes: number;
+  private travelService: TravelTimeService;
+
+  constructor(maxTravelMinutes: number = 30) {
+    this.maxTravelMinutes = maxTravelMinutes;
+    this.travelService = new TravelTimeService(maxTravelMinutes);
+  }
 
   /**
    * Optimize routes for a given date
@@ -214,13 +220,13 @@ export class VRPTWOptimizer {
       if (route.stops.some(stop => stop.visitId === visit.visitId)) continue;
 
       // Calculate travel time to this visit
-      const travelTime = travelTimeService.calculateTravelTime(
+      const travelTime = this.travelService.calculateTravelTime(
         currentLocation,
         visit.location,
         transportMode
       );
 
-      // Check 15-minute travel constraint
+      // Skip only if completely unreasonable (beyond max limit)
       if (!travelTime.feasible) continue;
 
       // Calculate arrival time
@@ -233,9 +239,10 @@ export class VRPTWOptimizer {
       // Check if we can complete within employee window
       if (departureTime > employeeEndTime) continue;
 
-      // Score based on travel time and waiting time
+      // Score based on travel time, penalty, and waiting time
       const waitingTime = Math.max(0, visit.startMinutes - (currentTime + travelTime.travelTimeMinutes));
-      const score = travelTime.travelTimeMinutes + waitingTime * 0.5; // Weight waiting time less
+      const baseScore = travelTime.travelTimeMinutes + waitingTime * 0.5; // Weight waiting time less
+      const score = baseScore + travelTime.penaltyScore; // Add soft penalty for longer travel times
 
       if (score < bestScore) {
         bestScore = score;
@@ -327,4 +334,5 @@ export class VRPTWOptimizer {
   }
 }
 
+// Default instance with 30-minute travel constraint
 export const vrptwOptimizer = new VRPTWOptimizer();

@@ -14,7 +14,8 @@ export interface TravelMatrix {
   toLocation: Location;
   distanceKm: number;
   travelTimeMinutes: number;
-  feasible: boolean; // Within 15-minute constraint
+  feasible: boolean; // Within preferred travel time
+  penaltyScore: number; // Soft penalty for longer travel times
 }
 
 export type TransportMode = "car" | "walking" | "public";
@@ -27,7 +28,13 @@ export class TravelTimeService {
     public: 25      // Public transport average
   };
 
-  private readonly MAX_TRAVEL_MINUTES = 15; // 15-minute constraint
+  private readonly maxTravelMinutes: number;
+  private readonly softLimitMinutes: number;
+
+  constructor(maxTravelMinutes: number = 30, softLimitMinutes?: number) {
+    this.maxTravelMinutes = maxTravelMinutes;
+    this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.6); // 60% of max as soft limit
+  }
 
   /**
    * Calculate haversine distance between two points
@@ -57,12 +64,22 @@ export class TravelTimeService {
     const speedKmh = this.SPEED_KMH[transportMode];
     const travelTimeMinutes = Math.round((distanceKm / speedKmh) * 60);
     
+    // Calculate soft penalty score
+    let penaltyScore = 0;
+    if (travelTimeMinutes > this.softLimitMinutes) {
+      // Exponential penalty for travel times exceeding soft limit
+      const excess = travelTimeMinutes - this.softLimitMinutes;
+      const maxExcess = this.maxTravelMinutes - this.softLimitMinutes;
+      penaltyScore = Math.pow(excess / maxExcess, 2) * 100; // 0-100 penalty score
+    }
+    
     return {
       fromLocation: from,
       toLocation: to,
       distanceKm: Math.round(distanceKm * 100) / 100, // Round to 2 decimal places
       travelTimeMinutes,
-      feasible: travelTimeMinutes <= this.MAX_TRAVEL_MINUTES
+      feasible: travelTimeMinutes <= this.maxTravelMinutes, // Still mark as feasible within max limit
+      penaltyScore
     };
   }
 
@@ -129,4 +146,5 @@ export class TravelTimeService {
   }
 }
 
+// Default instance for backward compatibility
 export const travelTimeService = new TravelTimeService();
