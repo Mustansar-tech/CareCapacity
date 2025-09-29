@@ -897,6 +897,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientLocations = await storage.getAllClientLocations();
       const employeeLocations = await storage.getAllEmployeeLocations();
       
+      console.log(`🔍 DEBUG: Retrieved ${clientLocations.length} client locations from database`);
+      console.log(`🔍 DEBUG: First 3 clients:`, clientLocations.slice(0, 3).map(c => ({ 
+        name: c.clientName, 
+        postcode: c.postcode, 
+        hasCoords: !!(c.lat && c.lng),
+        lat: c.lat,
+        lng: c.lng 
+      })));
+      
       // Process backend optimization: Employee Name + Best Client Matches
       const optimizedSchedule = [];
       const diagnostics = {

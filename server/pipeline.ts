@@ -2477,6 +2477,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             const clientName = clientKeyMap.get(key);
             if (!clientName) continue;
 
+            console.log(`🔍 DEBUG: Saving client geocode - Name: ${clientName}, Coordinates: ${r.lat}, ${r.lng}`);
+            
             await storage.upsertClientLocation({
               clientName,
               addressLine: addr,
