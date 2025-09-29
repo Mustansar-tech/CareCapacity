@@ -2004,7 +2004,148 @@ export function processCapacityData(
     // Don't throw - still return the result even if save fails
   }
 
+  // Extract and store geographical data for scheduling optimization
+  await extractAndStoreGeographicalData(cgData, guaranteed);
+
   return result;
+}
+
+// Extract and store geographical data for route optimization
+async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[]) {
+  console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
+  
+  try {
+    // Extract employee locations from CG Data Export
+    const employeeLocationsMap = new Map<string, any>();
+    for (const row of cgData) {
+      const employeeName = row["CAREGiver Name"];
+      const postcode = row["PostCode"];
+      const transportMode = row["TransportModeDescription"]?.toLowerCase();
+      
+      if (employeeName && postcode) {
+        const normalizedTransport = transportMode?.includes("car") ? "car" : 
+                                  transportMode?.includes("walk") ? "walking" : "car";
+        
+        employeeLocationsMap.set(employeeName, {
+          employeeName,
+          homePostcode: postcode,
+          transportMode: normalizedTransport,
+        });
+      }
+    }
+    
+    console.log(`👥 Found ${employeeLocationsMap.size} employee locations from CG Data`);
+    
+    // Store employee locations
+    for (const locationData of employeeLocationsMap.values()) {
+      await storage.upsertEmployeeLocation(locationData);
+    }
+    
+    // Extract client locations from Care Pro Guaranteed Hours
+    const clientLocationsMap = new Map<string, any>();
+    for (const row of guaranteed) {
+      // Skip cancelled or secondary multiple care entries
+      if (!isCancellationBlank(row["Cancellation Description"])) continue;
+      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+      
+      const clientName = row["Actual Client Name"] || row["Client Name"];
+      const serviceLocationAddress = row["Service Location Address"];
+      
+      // Try to extract postcode from the address if possible
+      let postcode = "";
+      let addressLine = serviceLocationAddress || "";
+      
+      if (serviceLocationAddress) {
+        // Try to extract UK postcode pattern from the address
+        const postcodeMatch = serviceLocationAddress.match(/([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\s*$/i);
+        if (postcodeMatch) {
+          postcode = postcodeMatch[1].trim().toUpperCase();
+          // Remove postcode from address line
+          addressLine = serviceLocationAddress.replace(postcodeMatch[0], "").trim();
+        }
+      }
+      
+      if (clientName && (serviceLocationAddress || postcode)) {
+        const clientKey = clientName.trim();
+        if (!clientLocationsMap.has(clientKey)) {
+          clientLocationsMap.set(clientKey, {
+            clientName: clientKey,
+            addressLine: addressLine,
+            postcode: postcode,
+          });
+        }
+      }
+    }
+    
+    console.log(`🏠 Found ${clientLocationsMap.size} client locations from Guaranteed Hours`);
+    
+    // Store client locations
+    for (const locationData of clientLocationsMap.values()) {
+      await storage.upsertClientLocation(locationData);
+    }
+    
+    // Extract visit data for route optimization
+    const visitsMap = new Map<string, any>();
+    for (const row of guaranteed) {
+      // Skip cancelled or secondary multiple care entries
+      if (!isCancellationBlank(row["Cancellation Description"])) continue;
+      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+      
+      const clientName = row["Actual Client Name"] || row["Client Name"];
+      const startTime = row["Service Requirement Start Date And Time"];
+      const endTime = row["Service Requirement End Date And Time"];
+      const actualStartTime = row["Actual Start Date And Time"];
+      const actualEndTime = row["Actual End Date And Time"];
+      const serviceType = row["Actual Service Type Description"];
+      
+      if (clientName && (startTime || actualStartTime)) {
+        // Use actual times if available, otherwise fall back to service requirement times
+        const visitStart = actualStartTime || startTime;
+        const visitEnd = actualEndTime || endTime;
+        
+        if (visitStart) {
+          try {
+            const visitDate = format(parseDate(visitStart), "yyyy-MM-dd");
+            const duration = visitEnd ? 
+              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) : 
+              60; // Default 60 minutes if end time not available
+            
+            const visitKey = `${clientName}-${visitDate}-${visitStart}`;
+            
+            // Get client location for this visit
+            const clientLocation = await storage.getClientLocationByName(clientName);
+            
+            if (clientLocation && !visitsMap.has(visitKey)) {
+              visitsMap.set(visitKey, {
+                clientId: clientLocation.id,
+                date: visitDate,
+                durationMinutes: Math.max(duration, 15), // Minimum 15 minutes
+                preferredStartTime: visitStart,
+                preferredEndTime: visitEnd,
+                serviceType: serviceType,
+                priority: 1,
+              });
+            }
+          } catch (dateError) {
+            // Skip visits with invalid dates
+            console.warn(`Skipping visit with invalid date: ${visitStart}`);
+          }
+        }
+      }
+    }
+    
+    console.log(`📅 Found ${visitsMap.size} visits for route optimization`);
+    
+    // Store visit data
+    for (const visitData of visitsMap.values()) {
+      await storage.saveVisit(visitData);
+    }
+    
+    console.log(`✅ Geographical data extraction complete!`);
+    
+  } catch (error) {
+    console.error('❌ Error extracting geographical data:', error);
+  }
 }
 
 // Generate Excel export

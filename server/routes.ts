@@ -323,6 +323,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Geographical scheduling optimization routes
+  
+  // POST /api/geo/geocode-batch - Batch geocode postcodes and addresses
+  app.post('/api/geo/geocode-batch', async (req, res) => {
+    try {
+      const { postcodes = [], addresses = [] } = req.body;
+      const results = [];
+      
+      // Process postcodes using postcodes.io (free UK postcodes)
+      for (const postcode of postcodes) {
+        try {
+          // Check cache first
+          const cached = await storage.getGeocode(`postcode:${postcode}`);
+          if (cached) {
+            results.push({
+              query: postcode,
+              type: 'postcode',
+              lat: cached.lat,
+              lng: cached.lng,
+              source: 'cache'
+            });
+            continue;
+          }
+          
+          // Geocode using postcodes.io
+          const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === 200 && data.result) {
+              const lat = data.result.latitude.toString();
+              const lng = data.result.longitude.toString();
+              
+              // Cache the result
+              await storage.saveGeocode({
+                key: `postcode:${postcode}`,
+                lat,
+                lng,
+                source: 'postcodes.io'
+              });
+              
+              results.push({
+                query: postcode,
+                type: 'postcode',
+                lat,
+                lng,
+                source: 'postcodes.io'
+              });
+            } else {
+              results.push({
+                query: postcode,
+                type: 'postcode',
+                error: 'Postcode not found',
+                source: 'postcodes.io'
+              });
+            }
+          } else {
+            results.push({
+              query: postcode,
+              type: 'postcode',
+              error: 'Geocoding service unavailable',
+              source: 'postcodes.io'
+            });
+          }
+        } catch (error) {
+          results.push({
+            query: postcode,
+            type: 'postcode',
+            error: 'Geocoding failed',
+            source: 'postcodes.io'
+          });
+        }
+      }
+      
+      // TODO: Process full addresses using Mapbox/Google Maps when needed
+      for (const address of addresses) {
+        results.push({
+          query: address,
+          type: 'address',
+          error: 'Address geocoding not implemented yet',
+          source: 'none'
+        });
+      }
+      
+      res.json({ results });
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      res.status(500).json({ message: 'Geocoding failed' });
+    }
+  });
+  
+  // POST /api/routing/distance-matrix - Calculate travel times between locations
+  app.post('/api/routing/distance-matrix', async (req, res) => {
+    try {
+      const { origins, destinations, transportMode = 'driving' } = req.body;
+      
+      if (!origins || !destinations || origins.length === 0 || destinations.length === 0) {
+        return res.status(400).json({ message: 'Origins and destinations are required' });
+      }
+      
+      // Format coordinates for OpenRouteService
+      const originsCoords = origins.map((o: any) => [parseFloat(o.lng), parseFloat(o.lat)]);
+      const destinationsCoords = destinations.map((d: any) => [parseFloat(d.lng), parseFloat(d.lat)]);
+      
+      // TODO: Add OpenRouteService API key via environment variable
+      const ORS_API_KEY = process.env.ORS_API_KEY;
+      if (!ORS_API_KEY) {
+        return res.status(500).json({ message: 'OpenRouteService API key not configured' });
+      }
+      
+      const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': ORS_API_KEY
+        },
+        body: JSON.stringify({
+          locations: [...originsCoords, ...destinationsCoords],
+          sources: Array.from({ length: origins.length }, (_, i) => i),
+          destinations: Array.from({ length: destinations.length }, (_, i) => origins.length + i),
+          metrics: ['duration', 'distance']
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`OpenRouteService error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Format response to match our needs
+      const matrix = {
+        durations: data.durations, // in seconds
+        distances: data.distances, // in meters
+        origins: origins,
+        destinations: destinations
+      };
+      
+      res.json(matrix);
+    } catch (error) {
+      console.error('Distance matrix error:', error);
+      res.status(500).json({ message: 'Distance matrix calculation failed' });
+    }
+  });
+  
+  // POST /api/routing/optimize - Optimize routes for employees with 15-minute constraint
+  app.post('/api/routing/optimize', async (req, res) => {
+    try {
+      const { date, employeeIds = [] } = req.body;
+      
+      if (!date) {
+        return res.status(400).json({ message: 'Date is required' });
+      }
+      
+      // TODO: Implement route optimization algorithm
+      // 1. Get employee locations and visits for the date
+      // 2. Calculate distance matrix between all locations
+      // 3. Apply 15-minute travel constraint
+      // 4. Use constructive heuristic + local search optimization
+      // 5. Return optimized route plans
+      
+      const optimizedRoutes = [];
+      
+      // Placeholder implementation
+      for (const employeeId of employeeIds) {
+        const employeeLocation = await storage.getEmployeeLocationByName(employeeId);
+        if (employeeLocation) {
+          const routePlan = await storage.saveRoutePlan({
+            date,
+            employeeId: employeeLocation.id,
+            status: 'infeasible',
+            warnings: ['Route optimization algorithm not yet implemented']
+          });
+          optimizedRoutes.push(routePlan);
+        }
+      }
+      
+      res.json({ optimizedRoutes });
+    } catch (error) {
+      console.error('Route optimization error:', error);
+      res.status(500).json({ message: 'Route optimization failed' });
+    }
+  });
+  
+  // GET /api/routing/plans?date=YYYY-MM-DD - Get route plans for a date
+  app.get('/api/routing/plans', async (req, res) => {
+    try {
+      const date = req.query.date as string;
+      if (!date) {
+        return res.status(400).json({ message: 'Date parameter is required' });
+      }
+      
+      const plans = await storage.getRoutePlansByDate(date);
+      
+      // Fetch route stops for each plan
+      const plansWithStops = await Promise.all(
+        plans.map(async (plan) => {
+          const stops = await storage.getRouteStopsByPlan(plan.id);
+          return { ...plan, stops };
+        })
+      );
+      
+      res.json(plansWithStops);
+    } catch (error) {
+      console.error('Get route plans error:', error);
+      res.status(500).json({ message: 'Failed to get route plans' });
+    }
+  });
+  
+  // GET /api/geographical/employees - Get all employee locations
+  app.get('/api/geographical/employees', async (req, res) => {
+    try {
+      const locations = await storage.getAllEmployeeLocations();
+      res.json(locations);
+    } catch (error) {
+      console.error('Get employee locations error:', error);
+      res.status(500).json({ message: 'Failed to get employee locations' });
+    }
+  });
+  
+  // GET /api/geographical/clients - Get all client locations
+  app.get('/api/geographical/clients', async (req, res) => {
+    try {
+      const locations = await storage.getAllClientLocations();
+      res.json(locations);
+    } catch (error) {
+      console.error('Get client locations error:', error);
+      res.status(500).json({ message: 'Failed to get client locations' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
