@@ -199,7 +199,7 @@ export const clientDemandSchema = z.object({
 // Employee location data
 export const employeeLocations = pgTable("employee_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  employeeName: text("employee_name").notNull(),
+  employeeName: text("employee_name").notNull().unique(),
   homePostcode: text("home_postcode").notNull(),
   homeLat: text("home_lat"),
   homeLng: text("home_lng"),
@@ -213,7 +213,7 @@ export const employeeLocations = pgTable("employee_locations", {
 // Client location data
 export const clientLocations = pgTable("client_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientName: text("client_name").notNull(),
+  clientName: text("client_name").notNull().unique(),
   addressLine: text("address_line").notNull(),
   postcode: text("postcode").notNull(),
   lat: text("lat"),
