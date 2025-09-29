@@ -14,7 +14,9 @@ import {
   type RouteStop,
   type InsertRouteStop,
   type GeocodeCache,
-  type InsertGeocode
+  type InsertGeocode,
+  type TimeWindowAssignment,
+  type InsertTimeWindowAssignment
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -61,6 +63,13 @@ export interface IStorage {
   
   getGeocode(key: string): Promise<GeocodeCache | undefined>;
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
+  
+  // Time window assignment methods
+  saveTimeWindowAssignment(assignment: InsertTimeWindowAssignment): Promise<TimeWindowAssignment>;
+  getTimeWindowAssignmentsByDate(date: string): Promise<TimeWindowAssignment[]>;
+  getTimeWindowAssignmentsByEmployee(employeeName: string, date: string): Promise<TimeWindowAssignment[]>;
+  deleteTimeWindowAssignment(id: string): Promise<boolean>;
+  deleteTimeWindowAssignmentsByDate(date: string): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -72,6 +81,7 @@ export class MemStorage implements IStorage {
   private routePlans: Map<string, RoutePlan>;
   private routeStops: Map<string, RouteStop>;
   private geocodeCache: Map<string, GeocodeCache>;
+  private timeWindowAssignments: Map<string, TimeWindowAssignment>;
 
   constructor() {
     this.users = new Map();
@@ -82,6 +92,7 @@ export class MemStorage implements IStorage {
     this.routePlans = new Map();
     this.routeStops = new Map();
     this.geocodeCache = new Map();
+    this.timeWindowAssignments = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -451,6 +462,43 @@ export class MemStorage implements IStorage {
     this.geocodeCache.set(insertGeocode.key, geocode);
     return geocode;
   }
+
+  // Time window assignment methods
+  async saveTimeWindowAssignment(insertAssignment: InsertTimeWindowAssignment): Promise<TimeWindowAssignment> {
+    const id = randomUUID();
+    const assignment: TimeWindowAssignment = {
+      ...insertAssignment,
+      id,
+      assignedAt: new Date(),
+      assignedBy: insertAssignment.assignedBy || "system"
+    };
+    this.timeWindowAssignments.set(id, assignment);
+    return assignment;
+  }
+
+  async getTimeWindowAssignmentsByDate(date: string): Promise<TimeWindowAssignment[]> {
+    return Array.from(this.timeWindowAssignments.values()).filter(
+      assignment => assignment.date === date
+    );
+  }
+
+  async getTimeWindowAssignmentsByEmployee(employeeName: string, date: string): Promise<TimeWindowAssignment[]> {
+    return Array.from(this.timeWindowAssignments.values()).filter(
+      assignment => assignment.employeeName === employeeName && assignment.date === date
+    );
+  }
+
+  async deleteTimeWindowAssignment(id: string): Promise<boolean> {
+    return this.timeWindowAssignments.delete(id);
+  }
+
+  async deleteTimeWindowAssignmentsByDate(date: string): Promise<number> {
+    const toDelete = Array.from(this.timeWindowAssignments.entries()).filter(
+      ([_, assignment]) => assignment.date === date
+    );
+    toDelete.forEach(([id]) => this.timeWindowAssignments.delete(id));
+    return toDelete.length;
+  }
 }
 
 // Switch to database storage in production
@@ -463,7 +511,8 @@ import {
   visits, 
   routePlans, 
   routeStops, 
-  geocodeCache 
+  geocodeCache,
+  timeWindowAssignments
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
@@ -867,6 +916,50 @@ export class DatabaseStorage implements IStorage {
     }
     
     return geocode;
+  }
+
+  // Time window assignment methods
+  async saveTimeWindowAssignment(insertAssignment: InsertTimeWindowAssignment): Promise<TimeWindowAssignment> {
+    const [assignment] = await db
+      .insert(timeWindowAssignments)
+      .values(insertAssignment)
+      .returning();
+    return assignment;
+  }
+
+  async getTimeWindowAssignmentsByDate(date: string): Promise<TimeWindowAssignment[]> {
+    return await db
+      .select()
+      .from(timeWindowAssignments)
+      .where(eq(timeWindowAssignments.date, date))
+      .orderBy(timeWindowAssignments.block, timeWindowAssignments.startMinutes);
+  }
+
+  async getTimeWindowAssignmentsByEmployee(employeeName: string, date: string): Promise<TimeWindowAssignment[]> {
+    return await db
+      .select()
+      .from(timeWindowAssignments)
+      .where(
+        and(
+          eq(timeWindowAssignments.employeeName, employeeName),
+          eq(timeWindowAssignments.date, date)
+        )
+      )
+      .orderBy(timeWindowAssignments.startMinutes);
+  }
+
+  async deleteTimeWindowAssignment(id: string): Promise<boolean> {
+    const result = await db
+      .delete(timeWindowAssignments)
+      .where(eq(timeWindowAssignments.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async deleteTimeWindowAssignmentsByDate(date: string): Promise<number> {
+    const result = await db
+      .delete(timeWindowAssignments)
+      .where(eq(timeWindowAssignments.date, date));
+    return result.rowCount || 0;
   }
 }
 
