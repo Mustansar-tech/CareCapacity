@@ -1,4 +1,21 @@
-import { type User, type InsertUser, type CapacityAnalysis, type InsertCapacityAnalysis } from "@shared/schema";
+import { 
+  type User, 
+  type InsertUser, 
+  type CapacityAnalysis, 
+  type InsertCapacityAnalysis,
+  type EmployeeLocation,
+  type InsertEmployeeLocation,
+  type ClientLocation,
+  type InsertClientLocation,
+  type Visit,
+  type InsertVisit,
+  type RoutePlan,
+  type InsertRoutePlan,
+  type RouteStop,
+  type InsertRouteStop,
+  type GeocodeCache,
+  type InsertGeocode
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // modify the interface with any CRUD methods
@@ -17,15 +34,50 @@ export interface IStorage {
   getLatestWeeksAnalyses(limit?: number): Promise<CapacityAnalysis[]>;
   enforceRetentionLatestWeeks(limit?: number): Promise<number>;
   cleanupOldAnalyses(monthsOld: number): Promise<number>;
+
+  // Geographical scheduling methods
+  upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation>;
+  getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined>;
+  getAllEmployeeLocations(): Promise<EmployeeLocation[]>;
+  
+  upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation>;
+  getClientLocationByName(clientName: string): Promise<ClientLocation | undefined>;
+  getAllClientLocations(): Promise<ClientLocation[]>;
+  
+  saveVisit(visit: InsertVisit): Promise<Visit>;
+  getVisitsByDate(date: string): Promise<Visit[]>;
+  getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
+  
+  saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
+  getRoutePlansByDate(date: string): Promise<RoutePlan[]>;
+  getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined>;
+  
+  saveRouteStop(stop: InsertRouteStop): Promise<RouteStop>;
+  getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]>;
+  
+  getGeocode(key: string): Promise<GeocodeCache | undefined>;
+  saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private capacityAnalyses: Map<string, CapacityAnalysis>;
+  private employeeLocations: Map<string, EmployeeLocation>;
+  private clientLocations: Map<string, ClientLocation>;
+  private visits: Map<string, Visit>;
+  private routePlans: Map<string, RoutePlan>;
+  private routeStops: Map<string, RouteStop>;
+  private geocodeCache: Map<string, GeocodeCache>;
 
   constructor() {
     this.users = new Map();
     this.capacityAnalyses = new Map();
+    this.employeeLocations = new Map();
+    this.clientLocations = new Map();
+    this.visits = new Map();
+    this.routePlans = new Map();
+    this.routeStops = new Map();
+    this.geocodeCache = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -206,11 +258,168 @@ export class MemStorage implements IStorage {
     
     return oldAnalyses.length;
   }
+
+  // Geographical scheduling method implementations
+  async upsertEmployeeLocation(insertLocation: InsertEmployeeLocation): Promise<EmployeeLocation> {
+    // Check if employee already exists
+    const existing = Array.from(this.employeeLocations.values()).find(
+      loc => loc.employeeName === insertLocation.employeeName
+    );
+    
+    if (existing) {
+      // Update existing
+      const updated: EmployeeLocation = { ...existing, ...insertLocation };
+      this.employeeLocations.set(existing.id, updated);
+      return updated;
+    } else {
+      // Create new
+      const id = randomUUID();
+      const location: EmployeeLocation = {
+        ...insertLocation,
+        id,
+        geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
+      };
+      this.employeeLocations.set(id, location);
+      return location;
+    }
+  }
+
+  async getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined> {
+    return Array.from(this.employeeLocations.values()).find(
+      loc => loc.employeeName === employeeName
+    );
+  }
+
+  async getAllEmployeeLocations(): Promise<EmployeeLocation[]> {
+    return Array.from(this.employeeLocations.values());
+  }
+
+  async upsertClientLocation(insertLocation: InsertClientLocation): Promise<ClientLocation> {
+    // Check if client already exists
+    const existing = Array.from(this.clientLocations.values()).find(
+      loc => loc.clientName === insertLocation.clientName
+    );
+    
+    if (existing) {
+      // Update existing
+      const updated: ClientLocation = { ...existing, ...insertLocation };
+      this.clientLocations.set(existing.id, updated);
+      return updated;
+    } else {
+      // Create new
+      const id = randomUUID();
+      const location: ClientLocation = {
+        ...insertLocation,
+        id,
+        geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
+      };
+      this.clientLocations.set(id, location);
+      return location;
+    }
+  }
+
+  async getClientLocationByName(clientName: string): Promise<ClientLocation | undefined> {
+    return Array.from(this.clientLocations.values()).find(
+      loc => loc.clientName === clientName
+    );
+  }
+
+  async getAllClientLocations(): Promise<ClientLocation[]> {
+    return Array.from(this.clientLocations.values());
+  }
+
+  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
+    const id = randomUUID();
+    const visit: Visit = {
+      ...insertVisit,
+      id,
+      createdAt: new Date(),
+    };
+    this.visits.set(id, visit);
+    return visit;
+  }
+
+  async getVisitsByDate(date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(visit => visit.date === date);
+  }
+
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(
+      visit => visit.clientId === clientId && visit.date === date
+    );
+  }
+
+  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
+    const id = randomUUID();
+    const plan: RoutePlan = {
+      ...insertPlan,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.routePlans.set(id, plan);
+    return plan;
+  }
+
+  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+    return Array.from(this.routePlans.values()).filter(plan => plan.date === date);
+  }
+
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
+    return Array.from(this.routePlans.values()).find(
+      plan => plan.employeeId === employeeId && plan.date === date
+    );
+  }
+
+  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
+    const id = randomUUID();
+    const stop: RouteStop = {
+      ...insertStop,
+      id,
+    };
+    this.routeStops.set(id, stop);
+    return stop;
+  }
+
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
+    return Array.from(this.routeStops.values())
+      .filter(stop => stop.routePlanId === routePlanId)
+      .sort((a, b) => a.sequence - b.sequence);
+  }
+
+  async getGeocode(key: string): Promise<GeocodeCache | undefined> {
+    return this.geocodeCache.get(key);
+  }
+
+  async saveGeocode(insertGeocode: InsertGeocode): Promise<GeocodeCache> {
+    const existing = this.geocodeCache.get(insertGeocode.key);
+    if (existing) {
+      return existing;
+    }
+    
+    const id = randomUUID();
+    const geocode: GeocodeCache = {
+      ...insertGeocode,
+      id,
+      cachedAt: new Date(),
+    };
+    this.geocodeCache.set(insertGeocode.key, geocode);
+    return geocode;
+  }
 }
 
 // Switch to database storage in production
 import { db } from "./db";
-import { users, capacityAnalyses } from "@shared/schema";
+import { 
+  users, 
+  capacityAnalyses, 
+  employeeLocations, 
+  clientLocations, 
+  visits, 
+  routePlans, 
+  routeStops, 
+  geocodeCache 
+} from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
 export class DatabaseStorage implements IStorage {
@@ -403,6 +612,180 @@ export class DatabaseStorage implements IStorage {
       .returning({ id: capacityAnalyses.id });
     
     return result.length;
+  }
+
+  // Geographical scheduling database method implementations
+  async upsertEmployeeLocation(insertLocation: InsertEmployeeLocation): Promise<EmployeeLocation> {
+    const [location] = await db
+      .insert(employeeLocations)
+      .values({
+        ...insertLocation,
+        homeLat: insertLocation.homeLat || null,
+        homeLng: insertLocation.homeLng || null,
+        transportMode: insertLocation.transportMode || "car",
+        geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
+      })
+      .onConflictDoUpdate({
+        target: employeeLocations.employeeName,
+        set: {
+          homePostcode: insertLocation.homePostcode,
+          homeLat: insertLocation.homeLat || null,
+          homeLng: insertLocation.homeLng || null,
+          transportMode: insertLocation.transportMode || "car",
+          geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
+        },
+      })
+      .returning();
+    return location;
+  }
+
+  async getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined> {
+    const [location] = await db
+      .select()
+      .from(employeeLocations)
+      .where(eq(employeeLocations.employeeName, employeeName));
+    return location || undefined;
+  }
+
+  async getAllEmployeeLocations(): Promise<EmployeeLocation[]> {
+    return await db.select().from(employeeLocations);
+  }
+
+  async upsertClientLocation(insertLocation: InsertClientLocation): Promise<ClientLocation> {
+    const [location] = await db
+      .insert(clientLocations)
+      .values({
+        ...insertLocation,
+        lat: insertLocation.lat || null,
+        lng: insertLocation.lng || null,
+        geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
+      })
+      .onConflictDoUpdate({
+        target: clientLocations.clientName,
+        set: {
+          addressLine: insertLocation.addressLine,
+          postcode: insertLocation.postcode,
+          lat: insertLocation.lat || null,
+          lng: insertLocation.lng || null,
+          geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
+        },
+      })
+      .returning();
+    return location;
+  }
+
+  async getClientLocationByName(clientName: string): Promise<ClientLocation | undefined> {
+    const [location] = await db
+      .select()
+      .from(clientLocations)
+      .where(eq(clientLocations.clientName, clientName));
+    return location || undefined;
+  }
+
+  async getAllClientLocations(): Promise<ClientLocation[]> {
+    return await db.select().from(clientLocations);
+  }
+
+  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
+    const [visit] = await db
+      .insert(visits)
+      .values({
+        ...insertVisit,
+        preferredStartTime: insertVisit.preferredStartTime || null,
+        preferredEndTime: insertVisit.preferredEndTime || null,
+        priority: insertVisit.priority || 1,
+        serviceType: insertVisit.serviceType || null,
+      })
+      .returning();
+    return visit;
+  }
+
+  async getVisitsByDate(date: string): Promise<Visit[]> {
+    return await db
+      .select()
+      .from(visits)
+      .where(eq(visits.date, date));
+  }
+
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
+    return await db
+      .select()
+      .from(visits)
+      .where(and(eq(visits.clientId, clientId), eq(visits.date, date)));
+  }
+
+  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
+    const [plan] = await db
+      .insert(routePlans)
+      .values({
+        ...insertPlan,
+        totalDistanceKm: insertPlan.totalDistanceKm || null,
+        totalTravelMinutes: insertPlan.totalTravelMinutes || null,
+        status: insertPlan.status || "optimized",
+        warnings: insertPlan.warnings || [],
+      })
+      .returning();
+    return plan;
+  }
+
+  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+    return await db
+      .select()
+      .from(routePlans)
+      .where(eq(routePlans.date, date));
+  }
+
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(routePlans)
+      .where(and(eq(routePlans.employeeId, employeeId), eq(routePlans.date, date)));
+    return plan || undefined;
+  }
+
+  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
+    const [stop] = await db
+      .insert(routeStops)
+      .values({
+        ...insertStop,
+        scheduledStart: insertStop.scheduledStart || null,
+        scheduledEnd: insertStop.scheduledEnd || null,
+        travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
+        distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
+      })
+      .returning();
+    return stop;
+  }
+
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
+    return await db
+      .select()
+      .from(routeStops)
+      .where(eq(routeStops.routePlanId, routePlanId))
+      .orderBy(routeStops.sequence);
+  }
+
+  async getGeocode(key: string): Promise<GeocodeCache | undefined> {
+    const [geocode] = await db
+      .select()
+      .from(geocodeCache)
+      .where(eq(geocodeCache.key, key));
+    return geocode || undefined;
+  }
+
+  async saveGeocode(insertGeocode: InsertGeocode): Promise<GeocodeCache> {
+    const [geocode] = await db
+      .insert(geocodeCache)
+      .values(insertGeocode)
+      .onConflictDoNothing()
+      .returning();
+    
+    if (!geocode) {
+      // If no insert happened due to conflict, get existing
+      return (await this.getGeocode(insertGeocode.key))!;
+    }
+    
+    return geocode;
   }
 }
 
