@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
+import MatrixScheduling from "@/pages/matrix-scheduling";
 import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
 import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
@@ -33,6 +34,16 @@ function Navigation() {
             </div>
           </Link>
 
+          {/* Navigation Menu */}
+          <div className="hidden md:flex items-center gap-1">
+            <Link href="/" className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-white/60 dark:hover:bg-gray-800/60" data-testid="link-dashboard">
+              Dashboard
+            </Link>
+            <Link href="/matrix-scheduling" className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-white/60 dark:hover:bg-gray-800/60" data-testid="link-matrix-scheduling">
+              Matrix Scheduling
+            </Link>
+          </div>
+
           {/* Status & Controls */}
           <div className="flex items-center gap-4">
             {/* Theme Toggle with Enhanced Styling */}
@@ -53,6 +64,7 @@ function Router() {
       <main className="animate-fade-in pt-20">
         <Switch>
           <Route path="/" component={Dashboard} />
+          <Route path="/matrix-scheduling" component={MatrixScheduling} />
           <Route component={NotFound} />
         </Switch>
       </main>
