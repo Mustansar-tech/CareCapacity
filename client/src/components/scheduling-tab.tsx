@@ -21,6 +21,34 @@ interface SchedulingTabProps {
   onDateChange?: (date: string) => void;
 }
 
+interface TravelOptimization {
+  date: string;
+  totalEmployeesWithCapacity: number;
+  optimization: EmployeeOptimization[];
+}
+
+interface EmployeeOptimization {
+  employeeName: string;
+  date: string;
+  homePostcode: string;
+  transportMode: string | null;
+  freeWindows: string;
+  freeWindowsMinutes: number;
+  netCapacity: number;
+  recommendedClients: ClientRecommendation[];
+}
+
+interface ClientRecommendation {
+  clientName: string;
+  address: string;
+  postcode: string;
+  distanceKm: number;
+  estimatedTravelMinutes: number;
+  availableVisits: number;
+  priority: number;
+  feasible: boolean;
+}
+
 interface EmployeeLocation {
   id: string;
   employeeName: string;
@@ -90,6 +118,12 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   const { data: routePlans, isLoading: isLoadingRoutes, refetch: refetchRoutes } = useQuery<RoutePlan[]>({
     queryKey: ['/api/routing/plans', optimizationDate],
     queryFn: () => fetch(`/api/routing/plans?date=${optimizationDate}`).then(res => res.json()),
+  });
+
+  // Query travel optimization for selected date
+  const { data: travelOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<TravelOptimization>({
+    queryKey: ['/api/travel-optimization', optimizationDate],
+    queryFn: () => fetch(`/api/travel-optimization/${optimizationDate}`).then(res => res.json()),
   });
 
   // Geocoding mutation
@@ -234,6 +268,120 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
+          {/* Travel Time Optimization Results */}
+          {travelOptimization && travelOptimization.optimization?.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Daily Travel Time Optimization for {optimizationDate}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Best client assignments for employees with available capacity
+                  </p>
+                </div>
+                <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
+                  <Users className="w-3 h-3 mr-1" />
+                  {travelOptimization.totalEmployeesWithCapacity} employees with capacity
+                </Badge>
+              </div>
+
+              <div className="grid gap-4">
+                {travelOptimization.optimization.map((emp, index) => (
+                  <Card key={emp.employeeName} className="glass">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${getGenderColorClass(emp.employeeName)}`}>
+                            {emp.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className={`font-medium ${getGenderColorClass(emp.employeeName, true)}`}>
+                              {emp.employeeName}
+                            </h4>
+                            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                              <span>{emp.homePostcode}</span>
+                              {emp.transportMode === 'car' && <Car className="w-3 h-3" />}
+                              {emp.transportMode === 'walking' && <span>🚶</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="outline" className="mb-1">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {emp.freeWindowsMinutes}m available
+                          </Badge>
+                          <p className="text-xs text-gray-600 dark:text-gray-300">
+                            {emp.freeWindows}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Recommended Clients (by travel time):
+                        </h5>
+                        <div className="grid gap-2">
+                          {emp.recommendedClients.map((client, clientIndex) => (
+                            <div 
+                              key={`${client.clientName}-${clientIndex}`} 
+                              className={`flex items-center justify-between p-2 rounded-lg border ${
+                                client.feasible 
+                                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  #{client.priority}
+                                </Badge>
+                                <div>
+                                  <span className="font-medium text-sm">{client.clientName}</span>
+                                  <div className="text-xs text-gray-600 dark:text-gray-300">
+                                    {client.address}, {client.postcode}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right text-xs">
+                                <div className={`font-medium ${client.feasible ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                                  {client.estimatedTravelMinutes}m travel
+                                </div>
+                                <div className="text-gray-600 dark:text-gray-300">
+                                  {client.distanceKm.toFixed(1)}km
+                                </div>
+                                {client.feasible && (
+                                  <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800 mt-1">
+                                    ✓ Within 15min
+                                  </Badge>
+                                )}
+                                {!client.feasible && (
+                                  <Badge variant="outline" className="text-xs bg-red-100 dark:bg-red-800 mt-1">
+                                    ⚠ Over 15min
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isLoadingOptimization && (
+            <div className="mb-8">
+              <Card className="glass">
+                <CardContent className="p-6 text-center">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                  <p className="text-gray-600 dark:text-gray-300">Loading travel optimization...</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">

@@ -564,13 +564,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const visits = await storage.getVisitsByDate(date);
       
       // Get latest analysis for employee time windows
-      const latestAnalysis = await storage.getLatestAnalysis();
-      if (!latestAnalysis) {
+      const recentAnalyses = await storage.getRecentAnalyses(1);
+      if (!recentAnalyses.length) {
         return res.status(404).json({ error: 'No analysis data found. Please process Excel files first.' });
       }
       
+      const latestAnalysis = recentAnalyses[0];
+      
       // Find employee data for the specific date
-      const employeeData = latestAnalysis.dailyCapacity?.find(day => day.date === date);
+      const employeeData = latestAnalysis.dailyCapacity?.find((day: any) => day.date === date);
       if (!employeeData) {
         return res.status(404).json({ error: `No employee data found for date ${date}` });
       }
@@ -593,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           freeWindows: empData.freeWindows,
           freeWindowsMinutes: empData.freeWindowsMinutes,
           netCapacity: empData.netCapacity,
-          recommendedClients: []
+          recommendedClients: [] as any[]
         };
         
         // Calculate travel distances to all available clients
