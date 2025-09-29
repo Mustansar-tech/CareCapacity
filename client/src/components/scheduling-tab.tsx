@@ -6,9 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { 
   MapPin, Route, Clock, Car, Navigation, AlertTriangle, CheckCircle, 
-  RefreshCw, Zap, Target, Users, Calendar, ArrowRight
+  RefreshCw, Zap, Target, Users, Calendar, ArrowRight, Settings, Sliders
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -89,6 +92,13 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   const [optimizationDate, setOptimizationDate] = useState<string>(
     selectedDate || new Date().toISOString().split('T')[0]
   );
+  
+  // Travel constraint settings
+  const [travelTimeLimit, setTravelTimeLimit] = useState<number>(30);
+  const [useSoftConstraints, setUseSoftConstraints] = useState<boolean>(true);
+  const [maxTravelTime, setMaxTravelTime] = useState<number>(45);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+  
   const { toast } = useToast();
 
   // Update optimization date when selectedDate changes
@@ -148,8 +158,18 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
 
   // Route optimization mutation
   const optimizeMutation = useMutation({
-    mutationFn: async ({ date }: { date: string }) => {
-      const response = await apiRequest('POST', '/api/routing/optimize', { date });
+    mutationFn: async ({ date, travelTimeLimit, useSoftConstraints, maxTravelTime }: { 
+      date: string; 
+      travelTimeLimit?: number; 
+      useSoftConstraints?: boolean; 
+      maxTravelTime?: number; 
+    }) => {
+      const response = await apiRequest('POST', '/api/routing/optimize', { 
+        date, 
+        travelTimeLimit, 
+        useSoftConstraints, 
+        maxTravelTime 
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -212,7 +232,10 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
     }
 
     optimizeMutation.mutate({
-      date: optimizationDate
+      date: optimizationDate,
+      travelTimeLimit,
+      useSoftConstraints,
+      maxTravelTime: useSoftConstraints ? maxTravelTime : travelTimeLimit
     });
   };
 
@@ -253,7 +276,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                   Route Scheduling Optimization
                 </span>
                 <p className="text-sm text-gray-600 dark:text-gray-300 font-normal mt-1">
-                  Optimize employee routes with 15-minute travel constraints and geographical proximity
+                  Optimize employee routes with configurable travel constraints and geographical proximity
                 </p>
               </div>
             </div>
@@ -308,7 +331,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
 
                       <div className="space-y-2">
                         <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Best Client Matches (within 15 minutes):
+                          Best Client Matches (within {travelTimeLimit} minutes):
                         </h5>
                         <div className="grid gap-2">
                           {emp.bestClientMatches.length > 0 ? (
@@ -326,7 +349,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                             ))
                           ) : (
                             <div className="text-xs text-gray-600 dark:text-gray-300 p-2 border rounded-lg">
-                              No clients within 15-minute travel time
+                              No clients within {travelTimeLimit}-minute travel time
                             </div>
                           )}
                         </div>
@@ -348,6 +371,115 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
               </Card>
             </div>
           )}
+
+          {/* Travel Constraint Controls */}
+          <Card className="glass mb-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Travel Constraints
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                  className="text-xs"
+                  data-testid="button-toggle-advanced"
+                >
+                  <Sliders className="w-3 h-3 mr-1" />
+                  {showAdvancedSettings ? 'Hide' : 'Show'} Advanced
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Travel Time Limit */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Preferred Travel Time Limit: {travelTimeLimit} minutes
+                  </Label>
+                  <Input
+                    type="range"
+                    value={travelTimeLimit}
+                    onChange={(e) => setTravelTimeLimit(parseInt(e.target.value))}
+                    max={60}
+                    min={5}
+                    step={5}
+                    className="w-full"
+                    data-testid="slider-travel-time"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>5 min</span>
+                    <span>60 min</span>
+                  </div>
+                </div>
+
+                {/* Constraint Flexibility */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Constraint Mode</Label>
+                    <div className="flex items-center space-x-2">
+                      <Label className="text-xs text-gray-500">Hard</Label>
+                      <Checkbox
+                        checked={useSoftConstraints}
+                        onCheckedChange={(checked) => setUseSoftConstraints(checked === true)}
+                        data-testid="switch-soft-constraints"
+                      />
+                      <Label className="text-xs text-gray-500">Soft</Label>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {useSoftConstraints 
+                      ? "Allow longer travel times with penalties (more flexible)"
+                      : "Strictly reject assignments exceeding travel limit (stricter)"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Advanced Settings */}
+              {showAdvancedSettings && (
+                <div className="border-t pt-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Maximum Travel Time (for soft constraints) */}
+                    {useSoftConstraints && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">
+                          Maximum Travel Time: {maxTravelTime} minutes
+                        </Label>
+                        <Input
+                          type="range"
+                          value={maxTravelTime}
+                          onChange={(e) => setMaxTravelTime(parseInt(e.target.value))}
+                          max={120}
+                          min={travelTimeLimit}
+                          step={5}
+                          className="w-full"
+                          data-testid="slider-max-travel"
+                        />
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Hard cutoff for soft constraints (beyond this time, assignments are rejected)
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Constraint Summary */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Current Settings</Label>
+                      <div className="text-xs space-y-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>• Preferred limit: <strong>{travelTimeLimit} minutes</strong></div>
+                        <div>• Mode: <strong>{useSoftConstraints ? 'Soft penalties' : 'Hard cutoff'}</strong></div>
+                        {useSoftConstraints && (
+                          <div>• Maximum allowed: <strong>{maxTravelTime} minutes</strong></div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
