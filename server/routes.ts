@@ -993,6 +993,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
+      // Helper function to convert time string to minutes
+      function timeToMinutes(timeStr: string): number {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+      }
+      
       // Filter employees based on Daily Capacity Summary availability rules ONLY
       for (const empData of employeeData) {
         // Daily Capacity Summary rule: Employee must be Available (not Holiday, Sick, etc.)
@@ -1051,9 +1057,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         diagnostics.dataQuality.availableEmployees++;
         
         
-        // Backend processing: Calculate best client matches within 15-minute travel constraint
+        // Backend processing: Calculate best client matches within 15-minute travel constraint AND time window overlap
         const bestClientMatches = [];
         const rejectedClients = [];
+        
+        // Get all visits for this date to check client visit times
+        const visitsForDate = await storage.getVisitsByDate(date);
         
         for (const client of clientLocations) {
           // Check if client is geocoded (should be done during data upload)
@@ -1069,6 +1078,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
+          // Check if client has visits scheduled for this date
+          const clientVisits = visitsForDate.filter(visit => visit.clientId === client.id);
+          if (clientVisits.length === 0) {
+            console.log(`🔍 DEBUG: Skipping client ${client.clientName} - No visits scheduled for ${date}`);
+            rejectedClients.push({
+              clientName: client.clientName,
+              travelTimeMinutes: 0,
+              reason: 'no_visits_scheduled'
+            });
+            continue;
+          }
+          
           // Calculate travel distance
           const distance = calculateDistance(
             parseFloat(empLocation.homeLat!),
@@ -1080,8 +1101,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Estimate travel time based on transport mode
           const travelTimeMinutes = Math.round(distance * (empLocation.transportMode === 'walking' ? 12 : 3));
           
-          // Apply 15-minute travel constraint
-          if (travelTimeMinutes <= 15) {
+          // Apply 15-minute travel constraint first
+          if (travelTimeMinutes > 15) {
+            rejectedClients.push({
+              clientName: client.clientName,
+              travelTimeMinutes: travelTimeMinutes,
+              reason: 'travel_time_exceeded'
+            });
+            continue;
+          }
+          
+          // Check time window overlap between employee availability and client visit times
+          let hasTimeOverlap = false;
+          let timeConflictReason = '';
+          
+          for (const visit of clientVisits) {
+            if (!visit.preferredStartTime || !visit.preferredEndTime) {
+              hasTimeOverlap = true; // If no specific time constraints, consider it available
+              break;
+            }
+            
+            // Extract time from preferredStartTime/preferredEndTime (format: "YYYY-MM-DD HH:mm")
+            const visitStartTime = visit.preferredStartTime.split(' ')[1] || '09:00';
+            const visitEndTime = visit.preferredEndTime.split(' ')[1] || '17:00';
+            
+            // Check overlap with employee time windows
+            const employeeTimeWindows = Array.isArray(empData.timeWindows) ? empData.timeWindows : [empData.timeWindows];
+            
+            for (const timeWindow of employeeTimeWindows) {
+              if (!timeWindow || typeof timeWindow !== 'string') continue;
+              
+              // Parse employee time window (format: "HH:mm-HH:mm")
+              const timeMatch = timeWindow.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/);
+              if (!timeMatch) continue;
+              
+              const empStartTime = timeMatch[1];
+              const empEndTime = timeMatch[2];
+              
+              // Check if times overlap
+              if (timeToMinutes(visitStartTime) < timeToMinutes(empEndTime) && 
+                  timeToMinutes(visitEndTime) > timeToMinutes(empStartTime)) {
+                hasTimeOverlap = true;
+                break;
+              }
+            }
+            
+            if (!hasTimeOverlap) {
+              timeConflictReason = `Visit time ${visitStartTime}-${visitEndTime} conflicts with employee availability`;
+            }
+          }
+          
+          if (hasTimeOverlap) {
             bestClientMatches.push({
               clientName: client.clientName,
               travelTimeMinutes: travelTimeMinutes
@@ -1090,7 +1160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             rejectedClients.push({
               clientName: client.clientName,
               travelTimeMinutes: travelTimeMinutes,
-              reason: 'travel_time_exceeded'
+              reason: 'time_window_conflict',
+              detail: timeConflictReason
             });
           }
         }
