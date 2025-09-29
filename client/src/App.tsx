@@ -1,14 +1,18 @@
-import { Switch, Route, Link } from "wouter";
+import { Switch, Route, Link, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
+import SchedulingSimple from "@/pages/scheduling-simple";
 import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { CalendarDays, BarChart3 } from "lucide-react";
 import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
 
 function Navigation() {
+  const [location] = useLocation();
   
   return (
     <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
@@ -33,6 +37,30 @@ function Navigation() {
             </div>
           </Link>
 
+          {/* Navigation Menu */}
+          <div className="flex items-center gap-2">
+            <Link href="/" data-testid="link-dashboard">
+              <Button 
+                variant={location === "/" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Dashboard
+              </Button>
+            </Link>
+            <Link href="/daily-scheduling" data-testid="link-daily-scheduling">
+              <Button 
+                variant={location === "/daily-scheduling" ? "default" : "ghost"}
+                size="sm"
+                className="gap-2"
+              >
+                <CalendarDays className="w-4 h-4" />
+                Daily Scheduling
+              </Button>
+            </Link>
+          </div>
+
           {/* Status & Controls */}
           <div className="flex items-center gap-4">
             {/* Theme Toggle with Enhanced Styling */}
@@ -53,6 +81,7 @@ function Router() {
       <main className="animate-fade-in pt-20">
         <Switch>
           <Route path="/" component={Dashboard} />
+          <Route path="/daily-scheduling" component={SchedulingSimple} />
           <Route component={NotFound} />
         </Switch>
       </main>
