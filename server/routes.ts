@@ -1103,6 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add to optimized schedule (enhanced backend response with diagnostics)
         optimizedSchedule.push({
           employeeName: empData.employeeName,
+          timeWindows: empData.timeWindows || "No time windows", // Include time windows from Daily Capacity Summary
           postcode: empLocation.homePostcode,
           bestClientMatches: topMatches,
           rejectedClients: rejectedClients.slice(0, 5), // Show top 5 rejected for insights

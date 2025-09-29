@@ -67,6 +67,7 @@ interface DataQualityMetrics {
 
 interface EmployeeSchedule {
   employeeName: string;
+  timeWindows?: any; // Time windows from Daily Capacity Summary - flexible format
   postcode: string;
   bestClientMatches: ClientMatch[];
   rejectedClients?: RejectedClient[];
@@ -520,6 +521,12 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                               <MapPin className="w-3 h-3" />
                               <span>{emp.postcode}</span>
                             </div>
+                            {emp.timeWindows && emp.timeWindows !== "No time windows" && (
+                              <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                <Clock className="w-3 h-3" />
+                                <span>Time Window(s): {typeof emp.timeWindows === 'string' ? emp.timeWindows : (Array.isArray(emp.timeWindows) ? emp.timeWindows.join(', ') : String(emp.timeWindows))}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20">
