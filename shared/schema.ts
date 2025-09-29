@@ -3,6 +3,22 @@ import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer } from
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Clean Daily Scheduling Types (separate from other functionality)
+export const DailySchedulingResultSchema = z.object({
+  date: z.string(),
+  totalAvailableEmployees: z.number(),
+  employees: z.array(z.object({
+    employeeName: z.string(),
+    postcode: z.string(),
+    bestClientMatches: z.array(z.object({
+      clientName: z.string(),
+      travelTimeMinutes: z.number()
+    }))
+  }))
+});
+
+export type DailySchedulingResult = z.infer<typeof DailySchedulingResultSchema>;
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
