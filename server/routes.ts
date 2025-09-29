@@ -582,8 +582,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employee);
         if (!empLocation || !empLocation.homeLat || !empLocation.homeLng) continue;
         
-        // Only include employees with free time windows
-        if (!empData.freeWindows || empData.freeWindowsMinutes === 0) continue;
+        // Follow Daily Capacity Summary availability rules: Employee + Time Window(s)
+        // 1. Employee must be Available (not Holiday, Sick, etc.)
+        if (empData.status !== 'Available') {
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} - Status: ${empData.status}`);
+          continue;
+        }
+        
+        // 2. Employee must have time windows (scheduled capacity)
+        if (!empData.timeWindows || empData.timeWindows.length === 0) {
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} - No time windows`);
+          continue;
+        }
+        
+        // 3. Employee should have some available capacity (free windows for new clients)
+        if (!empData.freeWindows || empData.freeWindowsMinutes === 0) {
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} - No free capacity (${empData.freeWindowsMinutes || 0} minutes)`);
+          continue;
+        }
+        
+        console.log(`✅ Including ${empData.employee} - Status: ${empData.status}, Free: ${empData.freeWindowsMinutes} minutes`);
         
         const employeeOptimization = {
           employeeName: empData.employee,
