@@ -784,17 +784,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
-    let query = db.select().from(visits);
-    
     if (startDate && endDate) {
-      query = query.where(and(gte(visits.date, startDate), lte(visits.date, endDate)));
+      return await db.select().from(visits).where(and(gte(visits.date, startDate), lte(visits.date, endDate)));
     } else if (startDate) {
-      query = query.where(gte(visits.date, startDate));
+      return await db.select().from(visits).where(gte(visits.date, startDate));
     } else if (endDate) {
-      query = query.where(lte(visits.date, endDate));
+      return await db.select().from(visits).where(lte(visits.date, endDate));
     }
     
-    return await query;
+    return await db.select().from(visits);
   }
 
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {

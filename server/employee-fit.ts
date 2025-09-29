@@ -10,16 +10,18 @@ type EmployeeDetail = {
 };
 
 type Visit = {
-  id: number;
-  clientId: number;
+  id: string;
+  clientId: string;
   date: string;                 // yyyy-MM-dd
   durationMinutes: number;
-  preferredStartTime?: string;  // ISO or HH:mm
-  preferredEndTime?: string;
-  priority?: number;
+  preferredStartTime: string | null;  // ISO or HH:mm
+  preferredEndTime: string | null;
+  priority: number | null;
+  serviceType: string | null;
+  createdAt: Date;
 };
 
-type ClientLoc = { id: number; clientName: string; lat?: number; lng?: number };
+type ClientLoc = { id: string; clientName: string; lat: string | null; lng: string | null; };
 
 function hhmmToMin(hhmm?: string): number | null {
   if (!hhmm) return null;
@@ -67,8 +69,8 @@ export async function buildEmployeeFitRows(
       storage.getAllEmployeeLocations?.() ?? [],
     ]);
 
-  // For now, use empty visits array - this will be populated when visit persistence is added
-  const visits: Visit[] = [];
+  // Get all visits for analysis
+  const visits = await storage.listVisitsBetween(null, null);
 
   const clientById = new Map(clients.map(c => [c.id, c]));
   const empLocByName = new Map(employeesLoc.map(e => [e.employeeName, e]));
@@ -99,17 +101,22 @@ export async function buildEmployeeFitRows(
       for (const v of todays) {
         const c = clientById.get(v.clientId)!;
         const dur = Math.max(15, v.durationMinutes || 60);
-        const can = windowCanHost(freePairs, dur, v.preferredStartTime, v.preferredEndTime, 5);
+        const can = windowCanHost(freePairs, dur, v.preferredStartTime || undefined, v.preferredEndTime || undefined, 5);
         if (!can) continue;
 
         // Use TravelTimeService for realistic travel time estimates
         let travelMin = 10; // fallback
-        if (Number.isFinite(empLoc.lat) && Number.isFinite(empLoc.lng) && 
-            Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
+        const empLat = empLoc.homeLat ? Number(empLoc.homeLat) : null;
+        const empLng = empLoc.homeLng ? Number(empLoc.homeLng) : null;
+        const clientLat = c.lat ? Number(c.lat) : null;
+        const clientLng = c.lng ? Number(c.lng) : null;
+        
+        if (Number.isFinite(empLat) && Number.isFinite(empLng) && 
+            Number.isFinite(clientLat) && Number.isFinite(clientLng)) {
           try {
             const travelMatrix = travelService.calculateTravelTime(
-              { lat: empLoc.lat, lng: empLoc.lng },
-              { lat: c.lat, lng: c.lng },
+              { lat: empLat!, lng: empLng! },
+              { lat: clientLat!, lng: clientLng! },
               empLoc.transportMode || "car"
             );
             travelMin = travelMatrix.travelTimeMinutes;

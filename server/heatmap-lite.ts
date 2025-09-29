@@ -10,16 +10,18 @@ type EmployeeDetail = {
 };
 
 type Visit = { 
-  id: number; 
-  clientId: number; 
+  id: string; 
+  clientId: string; 
   date: string; 
   durationMinutes: number; 
-  preferredStartTime?: string; 
-  preferredEndTime?: string; 
-  priority?: number; 
+  preferredStartTime: string | null; 
+  preferredEndTime: string | null; 
+  priority: number | null; 
+  serviceType: string | null;
+  createdAt: Date;
 };
 
-type ClientLoc = { id: number; clientName: string; lat?: number; lng?: number };
+type ClientLoc = { id: string; clientName: string; lat: string | null; lng: string | null; };
 
 function hhmmToMin(h?: string){ 
   if(!h) return null; 
@@ -64,8 +66,8 @@ export async function buildHeatmapMatrixLite(
       storage.getAllEmployeeLocations?.() ?? [],
     ]);
 
-  // For now, use empty visits array - this will be populated when visit persistence is added
-  const visits: Visit[] = [];
+  // Get all visits for analysis
+  const visits = await storage.listVisitsBetween(null, null);
   
   const clientById = new Map(clients.map(c=>[c.id,c]));
   const empLocByName = new Map(employeesLoc.map(e => [e.employeeName, e]));
@@ -105,7 +107,7 @@ export async function buildHeatmapMatrixLite(
 
       for (const v of todays){
         const dur=Math.max(15, v.durationMinutes || 60);
-        if (!canFit(free, dur, v.preferredStartTime, v.preferredEndTime)) { 
+        if (!canFit(free, dur, v.preferredStartTime || undefined, v.preferredEndTime || undefined)) { 
           row.push(""); 
           continue; 
         }
@@ -115,11 +117,16 @@ export async function buildHeatmapMatrixLite(
         const eLoc = empLocByName.get(empName) || {};
         let t = 10; // fallback
         
-        if (Number.isFinite(eLoc.lat) && Number.isFinite(eLoc.lng) && Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
+        const empLat = eLoc.homeLat ? Number(eLoc.homeLat) : null;
+        const empLng = eLoc.homeLng ? Number(eLoc.homeLng) : null;
+        const clientLat = c.lat ? Number(c.lat) : null;
+        const clientLng = c.lng ? Number(c.lng) : null;
+        
+        if (Number.isFinite(empLat) && Number.isFinite(empLng) && Number.isFinite(clientLat) && Number.isFinite(clientLng)) {
           try {
             const travelMatrix = travelService.calculateTravelTime(
-              { lat: eLoc.lat, lng: eLoc.lng },
-              { lat: c.lat, lng: c.lng },
+              { lat: empLat!, lng: empLng! },
+              { lat: clientLat!, lng: clientLng! },
               eLoc.transportMode || "car"
             );
             t = travelMatrix.travelTimeMinutes;

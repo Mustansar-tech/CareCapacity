@@ -20,6 +20,14 @@ import {
 } from "@shared/schema";
 import { storage } from "./storage";
 
+// Postcode normalization helper function
+function normalisePostcode(pc: string) {
+  if (!pc) return "";
+  const s = pc.toUpperCase().replace(/\s+/g, "");
+  if (s.length < 5 || s.length > 7) return pc.toUpperCase().trim();
+  return s.slice(0, s.length - 3) + " " + s.slice(-3);
+}
+
 // Leave types and priority (1=highest, 7=lowest like your Python code)
 const LEAVE_TYPES = [
   "Maternity/Paternity",
@@ -2103,18 +2111,10 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     }
 
     console.log(`🗺️ Starting enhanced batch geocoding for locations...`);
-    
-    // Postcode normalization helper function
-    function normalisePostcode(pc: string) {
-      if (!pc) return "";
-      const s = pc.toUpperCase().replace(/\s+/g, "");
-      if (s.length < 5 || s.length > 7) return pc.toUpperCase().trim();
-      return s.slice(0, s.length - 3) + " " + s.slice(-3);
-    }
 
     // Build reverse lookup for employees by postcode (so we can map geocoder results back)
     const employeeByPostcode = new Map<string, string[]>();
-    for (const [name, data] of employeeLocationsMap.entries()) {
+    for (const [name, data] of Array.from(employeeLocationsMap.entries())) {
       const pc = normalisePostcode(data.homePostcode || "");
       if (!pc) continue;
       if (!employeeByPostcode.has(pc)) employeeByPostcode.set(pc, []);
@@ -2157,8 +2157,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               await storage.upsertEmployeeLocation({
                 employeeName,
                 homePostcode: pc,
-                lat: r.lat,
-                lng: r.lng,
+                homeLat: r.lat.toString(),
+                homeLng: r.lng.toString(),
                 transportMode: base.transportMode || "car",
               });
               saved++;
@@ -2309,8 +2309,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     // Log final geocoding statistics
     const empLocs = await storage.getAllEmployeeLocations?.() ?? [];
     const cliLocs = await storage.getAllClientLocations?.() ?? [];
-    console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(e.lat)&&Number.isFinite(e.lng)).length}/${empLocs.length}`);
-    console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(c.lat)&&Number.isFinite(c.lng)).length}/${cliLocs.length}`);
+    console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
+    console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
     
     console.log(`✅ Geographical data extraction complete!`);
     
