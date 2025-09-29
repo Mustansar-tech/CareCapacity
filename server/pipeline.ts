@@ -2037,7 +2037,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     console.log(`👥 Found ${employeeLocationsMap.size} employee locations from CG Data`);
     
     // Store employee locations
-    for (const locationData of employeeLocationsMap.values()) {
+    for (const locationData of Array.from(employeeLocationsMap.values())) {
       await storage.upsertEmployeeLocation(locationData);
     }
     
@@ -2080,7 +2080,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     console.log(`🏠 Found ${clientLocationsMap.size} client locations from Guaranteed Hours`);
     
     // Store client locations
-    for (const locationData of clientLocationsMap.values()) {
+    for (const locationData of Array.from(clientLocationsMap.values())) {
       await storage.upsertClientLocation(locationData);
     }
     
@@ -2137,7 +2137,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     console.log(`📅 Found ${visitsMap.size} visits for route optimization`);
     
     // Store visit data
-    for (const visitData of visitsMap.values()) {
+    for (const visitData of Array.from(visitsMap.values())) {
       await storage.saveVisit(visitData);
     }
     

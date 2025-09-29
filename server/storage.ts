@@ -277,6 +277,9 @@ export class MemStorage implements IStorage {
       const location: EmployeeLocation = {
         ...insertLocation,
         id,
+        homeLat: insertLocation.homeLat || null,
+        homeLng: insertLocation.homeLng || null,
+        transportMode: insertLocation.transportMode || null,
         geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
       };
       this.employeeLocations.set(id, location);
@@ -311,6 +314,8 @@ export class MemStorage implements IStorage {
       const location: ClientLocation = {
         ...insertLocation,
         id,
+        lat: insertLocation.lat || null,
+        lng: insertLocation.lng || null,
         geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
       };
       this.clientLocations.set(id, location);
@@ -333,6 +338,10 @@ export class MemStorage implements IStorage {
     const visit: Visit = {
       ...insertVisit,
       id,
+      preferredStartTime: insertVisit.preferredStartTime || null,
+      preferredEndTime: insertVisit.preferredEndTime || null,
+      priority: insertVisit.priority || null,
+      serviceType: insertVisit.serviceType || null,
       createdAt: new Date(),
     };
     this.visits.set(id, visit);
@@ -354,6 +363,10 @@ export class MemStorage implements IStorage {
     const plan: RoutePlan = {
       ...insertPlan,
       id,
+      status: insertPlan.status || null,
+      warnings: insertPlan.warnings || [],
+      totalDistanceKm: insertPlan.totalDistanceKm || null,
+      totalTravelMinutes: insertPlan.totalTravelMinutes || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -376,6 +389,10 @@ export class MemStorage implements IStorage {
     const stop: RouteStop = {
       ...insertStop,
       id,
+      scheduledStart: insertStop.scheduledStart || null,
+      scheduledEnd: insertStop.scheduledEnd || null,
+      travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
+      distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
     };
     this.routeStops.set(id, stop);
     return stop;
