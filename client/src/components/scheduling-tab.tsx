@@ -21,32 +21,22 @@ interface SchedulingTabProps {
   onDateChange?: (date: string) => void;
 }
 
+// Simplified backend-processed interfaces
 interface TravelOptimization {
   date: string;
-  totalEmployeesWithCapacity: number;
-  optimization: EmployeeOptimization[];
+  totalAvailableEmployees: number;
+  employees: EmployeeSchedule[];
 }
 
-interface EmployeeOptimization {
+interface EmployeeSchedule {
   employeeName: string;
-  date: string;
-  homePostcode: string;
-  transportMode: string | null;
-  freeWindows: string;
-  freeWindowsMinutes: number;
-  netCapacity: number;
-  recommendedClients: ClientRecommendation[];
+  postcode: string;
+  bestClientMatches: ClientMatch[];
 }
 
-interface ClientRecommendation {
+interface ClientMatch {
   clientName: string;
-  address: string;
-  postcode: string;
-  distanceKm: number;
-  estimatedTravelMinutes: number;
-  availableVisits: number;
-  priority: number;
-  feasible: boolean;
+  travelTimeMinutes: number;
 }
 
 interface EmployeeLocation {
@@ -268,26 +258,26 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {/* Travel Time Optimization Results */}
-          {travelOptimization && travelOptimization.optimization?.length > 0 && (
+          {/* Simplified Employee-Client Matching Results */}
+          {travelOptimization && travelOptimization.employees?.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Daily Travel Time Optimization for {optimizationDate}
+                    Available Employees for {optimizationDate}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Best client assignments for employees with available capacity
+                    From Daily Capacity Summary - Employee availability with best client matches
                   </p>
                 </div>
                 <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
                   <Users className="w-3 h-3 mr-1" />
-                  {travelOptimization.totalEmployeesWithCapacity} employees with capacity
+                  {travelOptimization.totalAvailableEmployees} available employees
                 </Badge>
               </div>
 
               <div className="grid gap-4">
-                {travelOptimization.optimization.map((emp, index) => (
+                {travelOptimization.employees.map((emp, index) => (
                   <Card key={emp.employeeName} className="glass">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
@@ -300,68 +290,39 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                               {emp.employeeName}
                             </h4>
                             <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                              <span>{emp.homePostcode}</span>
-                              {emp.transportMode === 'car' && <Car className="w-3 h-3" />}
-                              {emp.transportMode === 'walking' && <span>🚶</span>}
+                              <MapPin className="w-3 h-3" />
+                              <span>{emp.postcode}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <Badge variant="outline" className="mb-1">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {emp.freeWindowsMinutes}m available
-                          </Badge>
-                          <p className="text-xs text-gray-600 dark:text-gray-300">
-                            {emp.freeWindows}
-                          </p>
-                        </div>
+                        <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20">
+                          Available Today
+                        </Badge>
                       </div>
 
                       <div className="space-y-2">
                         <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Recommended Clients (by travel time):
+                          Best Client Matches (within 15 minutes):
                         </h5>
                         <div className="grid gap-2">
-                          {emp.recommendedClients.map((client, clientIndex) => (
-                            <div 
-                              key={`${client.clientName}-${clientIndex}`} 
-                              className={`flex items-center justify-between p-2 rounded-lg border ${
-                                client.feasible 
-                                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  #{client.priority}
+                          {emp.bestClientMatches.length > 0 ? (
+                            emp.bestClientMatches.map((client, clientIndex) => (
+                              <div 
+                                key={`${client.clientName}-${clientIndex}`} 
+                                className="flex items-center justify-between p-2 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                              >
+                                <span className="font-medium text-sm">{client.clientName}</span>
+                                <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {client.travelTimeMinutes}m
                                 </Badge>
-                                <div>
-                                  <span className="font-medium text-sm">{client.clientName}</span>
-                                  <div className="text-xs text-gray-600 dark:text-gray-300">
-                                    {client.address}, {client.postcode}
-                                  </div>
-                                </div>
                               </div>
-                              <div className="text-right text-xs">
-                                <div className={`font-medium ${client.feasible ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                                  {client.estimatedTravelMinutes}m travel
-                                </div>
-                                <div className="text-gray-600 dark:text-gray-300">
-                                  {client.distanceKm.toFixed(1)}km
-                                </div>
-                                {client.feasible && (
-                                  <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800 mt-1">
-                                    ✓ Within 15min
-                                  </Badge>
-                                )}
-                                {!client.feasible && (
-                                  <Badge variant="outline" className="text-xs bg-red-100 dark:bg-red-800 mt-1">
-                                    ⚠ Over 15min
-                                  </Badge>
-                                )}
-                              </div>
+                            ))
+                          ) : (
+                            <div className="text-xs text-gray-600 dark:text-gray-300 p-2 border rounded-lg">
+                              No clients within 15-minute travel time
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     </CardContent>

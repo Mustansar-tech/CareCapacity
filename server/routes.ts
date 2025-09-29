@@ -553,76 +553,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Travel time optimization endpoint
+  // Travel time optimization endpoint - Process everything on backend
   app.get('/api/travel-optimization/:date', async (req, res) => {
     try {
       const { date } = req.params;
       
-      // Get all employees with locations and their time windows for the date
-      const employeeLocations = await storage.getAllEmployeeLocations();
-      const clientLocations = await storage.getAllClientLocations();
-      const visits = await storage.getVisitsByDate(date);
-      
-      // Get latest analysis for employee time windows
+      // Get Daily Capacity Summary data only (this is the source of truth)
       const latestAnalysis = await storage.getLatestCapacityAnalysis();
       if (!latestAnalysis) {
         return res.status(404).json({ error: 'No analysis data found. Please process Excel files first.' });
       }
       
-      // Find employee data for the specific date
+      // Find employee data for the specific date from Daily Capacity Summary
+      console.log(`🔍 DEBUG: Looking for date ${date} in dailyCapacity`);
+      console.log(`🔍 DEBUG: Available dates:`, latestAnalysis.dailyCapacity?.map((d: any) => d.date));
+      
       const employeeData = latestAnalysis.dailyCapacity?.find((day: any) => day.date === date);
       if (!employeeData) {
-        return res.status(404).json({ error: `No employee data found for date ${date}` });
+        return res.status(404).json({ 
+          error: `No employee data found for date ${date}`,
+          availableDates: latestAnalysis.dailyCapacity?.map((d: any) => d.date) || []
+        });
       }
       
-      // Create travel time optimization matrix
-      const optimization = [];
+      // Get client locations and employee postcodes
+      const clientLocations = await storage.getAllClientLocations();
+      const employeeLocations = await storage.getAllEmployeeLocations();
       
+      // Process backend optimization: Employee Name + Best Client Matches
+      const optimizedSchedule = [];
+      
+      // Filter employees based on Daily Capacity Summary availability rules ONLY
       for (const empData of employeeData.employees) {
-        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employee);
-        if (!empLocation || !empLocation.homeLat || !empLocation.homeLng) continue;
-        
-        // Follow Daily Capacity Summary availability rules: Employee + Time Window(s)
-        // 1. Employee must be Available (not Holiday, Sick, etc.)
+        // Daily Capacity Summary rule: Employee must be Available (not Holiday, Sick, etc.)
         if (empData.status !== 'Available') {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} - Status: ${empData.status}`);
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - Status: ${empData.status}`);
           continue;
         }
         
-        // 2. Employee must have time windows (scheduled capacity)
+        // Daily Capacity Summary rule: Employee must have time windows
         if (!empData.timeWindows || empData.timeWindows.length === 0) {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} - No time windows`);
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - No time windows`);
           continue;
         }
         
-        // 3. Employee should have some available capacity (free windows for new clients)
-        if (!empData.freeWindows || empData.freeWindowsMinutes === 0) {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} - No free capacity (${empData.freeWindowsMinutes || 0} minutes)`);
+        // Get employee postcode from CG Data
+        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employee);
+        if (!empLocation || !empLocation.homePostcode) {
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - No postcode available`);
           continue;
         }
         
-        console.log(`✅ Including ${empData.employee} - Status: ${empData.status}, Free: ${empData.freeWindowsMinutes} minutes`);
+        // Check if employee is geocoded for distance calculations
+        if (!empLocation.homeLat || !empLocation.homeLng) {
+          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - Not geocoded`);
+          continue;
+        }
         
-        const employeeOptimization = {
-          employeeName: empData.employee,
-          date: date,
-          homePostcode: empLocation.homePostcode,
-          transportMode: empLocation.transportMode,
-          freeWindows: empData.freeWindows,
-          freeWindowsMinutes: empData.freeWindowsMinutes,
-          netCapacity: empData.netCapacity,
-          recommendedClients: [] as any[]
-        };
+        console.log(`✅ Available: ${empData.employee} on ${date} - Status: ${empData.status}, Postcode: ${empLocation.homePostcode}`);
         
-        // Calculate travel distances to all available clients
-        const clientDistances = [];
+        // Backend processing: Calculate best client matches within 15-minute travel constraint
+        const bestClientMatches = [];
+        
         for (const client of clientLocations) {
           if (!client.lat || !client.lng) continue;
           
-          // Check if this client has visits available
-          const clientVisits = visits.filter(v => v.clientId === client.id);
-          
-          // Calculate distance (using Haversine formula as approximation)
+          // Calculate travel distance
           const distance = calculateDistance(
             parseFloat(empLocation.homeLat),
             parseFloat(empLocation.homeLng),
@@ -630,36 +626,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
             parseFloat(client.lng)
           );
           
-          clientDistances.push({
-            clientName: client.clientName,
-            address: client.addressLine,
-            postcode: client.postcode,
-            distanceKm: distance,
-            estimatedTravelMinutes: Math.round(distance * (empLocation.transportMode === 'walking' ? 12 : 3)), // 5km/h walking, 20km/h driving
-            availableVisits: clientVisits.length
-          });
+          // Estimate travel time based on transport mode
+          const travelTimeMinutes = Math.round(distance * (empLocation.transportMode === 'walking' ? 12 : 3));
+          
+          // Apply 15-minute travel constraint
+          if (travelTimeMinutes <= 15) {
+            bestClientMatches.push({
+              clientName: client.clientName,
+              travelTimeMinutes: travelTimeMinutes
+            });
+          }
         }
         
-        // Sort by travel time (closest first) and recommend top 5
-        employeeOptimization.recommendedClients = clientDistances
-          .sort((a, b) => a.estimatedTravelMinutes - b.estimatedTravelMinutes)
-          .slice(0, 5)
-          .map((client, index) => ({
-            ...client,
-            priority: index + 1,
-            feasible: client.estimatedTravelMinutes <= 15 // 15-minute travel constraint
-          }));
+        // Sort by travel time (closest first) and take top 3 matches
+        const topMatches = bestClientMatches
+          .sort((a, b) => a.travelTimeMinutes - b.travelTimeMinutes)
+          .slice(0, 3);
         
-        optimization.push(employeeOptimization);
+        // Add to optimized schedule (simple backend response)
+        optimizedSchedule.push({
+          employeeName: empData.employee,
+          postcode: empLocation.homePostcode,
+          bestClientMatches: topMatches
+        });
+        
+        console.log(`✅ ${empData.employee}: ${topMatches.length} client matches within 15 minutes`);
       }
       
-      // Sort employees by most available capacity first
-      optimization.sort((a, b) => b.freeWindowsMinutes - a.freeWindowsMinutes);
-      
+      // Return simple backend-processed data: Employee Name + Best Client Matches
       res.json({
         date,
-        totalEmployeesWithCapacity: optimization.length,
-        optimization
+        totalAvailableEmployees: optimizedSchedule.length,
+        employees: optimizedSchedule
       });
       
     } catch (error) {
