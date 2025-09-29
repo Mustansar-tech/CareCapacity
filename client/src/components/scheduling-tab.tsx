@@ -30,16 +30,7 @@ interface TravelOptimization {
   date: string;
   totalAvailableEmployees: number;
   employees: EmployeeSchedule[];
-  allEmployeesGeoStatus?: EmployeeGeoStatus[];
   diagnostics?: DiagnosticData;
-}
-
-interface EmployeeGeoStatus {
-  employeeName: string;
-  status: string;
-  postcode: string;
-  geocoded: boolean;
-  hasTimeWindows: boolean;
 }
 
 interface DiagnosticData {
@@ -494,67 +485,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
             </div>
           )}
 
-          {/* All Employees Geocoding Status */}
-          {travelOptimization?.allEmployeesGeoStatus && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                  <MapPin className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">All Employees Geocoding Status</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Complete list of all employees with their location and availability status
-                  </p>
-                </div>
-              </div>
-
-              <Card className="glass">
-                <CardContent className="p-6">
-                  <div className="space-y-3">
-                    {travelOptimization.allEmployeesGeoStatus.map((emp, index) => (
-                      <div 
-                        key={`geo-${emp.employeeName}-${index}`} 
-                        className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            {emp.geocoded ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )}
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              {emp.employeeName}
-                            </span>
-                          </div>
-                          <Badge 
-                            variant={emp.status === 'Available' ? 'default' : 
-                                   emp.status === 'Partial Availability' ? 'secondary' : 'outline'}
-                            className="text-xs"
-                          >
-                            {emp.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {emp.postcode}
-                          </Badge>
-                          {!emp.hasTimeWindows && (
-                            <Badge variant="destructive" className="text-xs">
-                              No Time Windows
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Available Employees for Scheduling */}
+          {/* Employee-Client Matching Results */}
           {travelOptimization && travelOptimization.employees?.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -563,7 +494,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                     Available Employees for {optimizationDate}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    From Daily Capacity Summary - Available & Partial Availability employees with best client matches
+                    From Daily Capacity Summary - Employee availability with best client matches
                   </p>
                 </div>
                 <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">

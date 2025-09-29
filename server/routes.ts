@@ -899,7 +899,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Process backend optimization: Employee Name + Best Client Matches
       const optimizedSchedule = [];
-      const allEmployeesGeoStatus = [];
       const diagnostics = {
         employeeIssues: [] as any[],
         clientIssues: [] as any[],
@@ -916,41 +915,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      // First pass: Check geocoding status for ALL employees
+      // Filter employees based on Daily Capacity Summary availability rules ONLY
       for (const empData of employeeData) {
-        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employeeName);
-        
-        const geoStatus = {
-          employeeName: empData.employeeName,
-          status: empData.status,
-          postcode: empLocation?.homePostcode || 'Missing',
-          geocoded: !!(empLocation?.homeLat && empLocation?.homeLng),
-          hasTimeWindows: !!(empData.timeWindows && empData.timeWindows.length > 0)
-        };
-        
-        allEmployeesGeoStatus.push(geoStatus);
-        
-        // Update diagnostics for geocoding issues
-        if (!empLocation || !empLocation.homePostcode) {
-          diagnostics.dataQuality.employeesWithoutPostcode++;
-        }
-        if (!empLocation?.homeLat || !empLocation?.homeLng) {
-          diagnostics.dataQuality.employeesWithoutGeocode++;
-        }
-        if (!empData.timeWindows || empData.timeWindows.length === 0) {
-          diagnostics.dataQuality.employeesWithoutTimeWindows++;
-        }
-      }
-      
-      // Second pass: Process only Available and Partial Availability employees for scheduling
-      for (const empData of employeeData) {
-        // Only process Available and Partial Availability employees for client matching
-        if (empData.status !== 'Available' && empData.status !== 'Partial Availability') {
-          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Status: ${empData.status} (not Available/Partial)`);
+        // Daily Capacity Summary rule: Employee must be Available (not Holiday, Sick, etc.)
+        if (empData.status !== 'Available') {
+          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Status: ${empData.status}`);
           diagnostics.employeeIssues.push({
             employeeName: empData.employeeName,
             reason: 'status_unavailable',
-            detail: `Status: ${empData.status} - Only Available/Partial Availability included in scheduling`,
+            detail: `Status: ${empData.status}`,
             severity: 'info'
           });
           continue;
@@ -1069,7 +1042,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date,
         totalAvailableEmployees: optimizedSchedule.length,
         employees: optimizedSchedule,
-        allEmployeesGeoStatus: allEmployeesGeoStatus,
         diagnostics: diagnostics
       });
       
