@@ -1062,7 +1062,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rejectedClients = [];
         
         // Get all visits for this date to check client visit times
-        const visitsForDate = await storage.getVisitsByDate(date);
+        console.log(`🔍 EMPLOYEE DEBUG: Starting client matching for ${empData.employeeName}`);
+        let visitsForDate: any[] = [];
+        try {
+          visitsForDate = await storage.getVisitsByDate(date);
+          console.log(`🔍 VISITS DEBUG: Found ${visitsForDate.length} total visits for ${date}`);
+        } catch (error) {
+          console.log(`🔍 ERROR: Failed to get visits for ${date}:`, error);
+          visitsForDate = [];
+        }
         
         for (const client of clientLocations) {
           // Check if client is geocoded (should be done during data upload)
@@ -1115,8 +1123,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let hasTimeOverlap = false;
           let timeConflictReason = '';
           
+          console.log(`🕐 TIME DEBUG: Checking ${client.clientName} for ${empData.employeeName}`);
+          console.log(`🕐 Employee time windows:`, empData.timeWindows);
+          
           for (const visit of clientVisits) {
             if (!visit.preferredStartTime || !visit.preferredEndTime) {
+              console.log(`🕐 No specific visit times for ${client.clientName}, accepting as available`);
               hasTimeOverlap = true; // If no specific time constraints, consider it available
               break;
             }
@@ -1124,6 +1136,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Extract time from preferredStartTime/preferredEndTime (format: "YYYY-MM-DD HH:mm")
             const visitStartTime = visit.preferredStartTime.split(' ')[1] || '09:00';
             const visitEndTime = visit.preferredEndTime.split(' ')[1] || '17:00';
+            
+            console.log(`🕐 Client ${client.clientName} visit time: ${visitStartTime}-${visitEndTime}`);
             
             // Check overlap with employee time windows
             const employeeTimeWindows = Array.isArray(empData.timeWindows) ? empData.timeWindows : [empData.timeWindows];
@@ -1138,11 +1152,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const empStartTime = timeMatch[1];
               const empEndTime = timeMatch[2];
               
+              console.log(`🕐 Checking overlap: Employee ${empStartTime}-${empEndTime} vs Client ${visitStartTime}-${visitEndTime}`);
+              console.log(`🕐 Employee start minutes: ${timeToMinutes(empStartTime)}, end: ${timeToMinutes(empEndTime)}`);
+              console.log(`🕐 Client start minutes: ${timeToMinutes(visitStartTime)}, end: ${timeToMinutes(visitEndTime)}`);
+              
               // Check if times overlap
               if (timeToMinutes(visitStartTime) < timeToMinutes(empEndTime) && 
                   timeToMinutes(visitEndTime) > timeToMinutes(empStartTime)) {
+                console.log(`🕐 ✅ TIME OVERLAP FOUND for ${client.clientName}`);
                 hasTimeOverlap = true;
                 break;
+              } else {
+                console.log(`🕐 ❌ NO TIME OVERLAP for ${client.clientName}`);
               }
             }
             
