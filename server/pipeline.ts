@@ -2156,14 +2156,19 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
     
-    // Extract visit data for route optimization
+    // Extract visit data for route optimization using Planned Start/End Date And Time
     const visitsMap = new Map<string, any>();
+    const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
+    
+    console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
+    
     for (const row of guaranteed) {
       // Skip cancelled or secondary multiple care entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
       if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
       
       const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
+      // Prioritize Planned Start/End Date And Time as user requested
       const plannedStartTime = row["Planned Start Date And Time"];
       const plannedEndTime = row["Planned End Date And Time"];
       const startTime = row["Service Requirement Start Date And Time"];
@@ -2173,7 +2178,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       const serviceType = row["Actual Service Type Description"];
       
       if (clientName && (plannedStartTime || startTime || actualStartTime)) {
-        // Use planned times first, then actual times, then fall back to service requirement times
+        // Use planned times first as requested, then fall back to others
         const visitStart = plannedStartTime || actualStartTime || startTime;
         const visitEnd = plannedEndTime || actualEndTime || endTime;
         
@@ -2190,15 +2195,41 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             const clientLocation = await storage.getClientLocationByName(clientName);
             
             if (clientLocation && !visitsMap.has(visitKey)) {
-              visitsMap.set(visitKey, {
+              // Extract time windows for VRPTW optimizer
+              const startDate = parseDate(visitStart);
+              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + duration * 60000);
+              
+              // Convert to minutes since midnight for optimizer
+              const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+              const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+              
+              const visitData = {
                 clientId: clientLocation.id,
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes
                 preferredStartTime: visitStart,
-                preferredEndTime: visitEnd,
+                preferredEndTime: visitEnd || format(endDate, "yyyy-MM-dd HH:mm:ss"),
                 serviceType: serviceType,
                 priority: 1,
-              });
+                // Additional fields for VRPTW optimizer
+                startMinutes: startMinutes,
+                endMinutes: endMinutes,
+                clientName: clientName,
+                location: clientLocation.lat && clientLocation.lng ? {
+                  lat: parseFloat(clientLocation.lat),
+                  lng: parseFloat(clientLocation.lng)
+                } : null
+              };
+              
+              visitsMap.set(visitKey, visitData);
+              
+              // Group by date for optimization
+              if (!visitsByDate.has(visitDate)) {
+                visitsByDate.set(visitDate, []);
+              }
+              visitsByDate.get(visitDate)!.push(visitData);
+              
+              console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
             }
           } catch (dateError) {
             // Skip visits with invalid dates
@@ -2208,7 +2239,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
     
-    console.log(`📅 Found ${visitsMap.size} visits for route optimization`);
+    console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
     
     // Store visit data
     for (const visitData of Array.from(visitsMap.values())) {
