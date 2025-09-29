@@ -127,8 +127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use cleaned records from pipeline
       const cleanedRecords = result.cleanedRecords;
 
-      // Generate Excel export
-      const exportBuffer = generateExcelExport(result, cleanedRecords, parsedData.cgData);
+      // Generate Excel export with enhanced analysis tabs
+      const exportBuffer = await generateExcelExport(result, cleanedRecords, parsedData.cgData);
       
       // Store for export endpoint
       latestExportBuffer = exportBuffer;
