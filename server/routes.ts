@@ -7,6 +7,7 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
+import { vrptwOptimizer, VRPTWOptimizer, type EmployeeWindow, type ClientVisit } from './vrptw-optimizer';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -553,6 +554,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== ROUTE OPTIMIZATION ENDPOINTS =====
+  
+  // POST /api/routing/optimize - Trigger VRPTW optimization for a specific date
+  app.post('/api/routing/optimize', async (req, res) => {
+    try {
+      const { date } = req.body;
+      
+      if (!date) {
+        return res.status(400).json({ error: 'Date is required' });
+      }
+      
+      console.log(`🚀 Starting VRPTW optimization for ${date}`);
+      
+      // Get employee availability from Daily Capacity Summary
+      const latestAnalysis = await storage.getLatestCapacityAnalysis();
+      if (!latestAnalysis) {
+        return res.status(404).json({ error: 'No analysis data found. Please process Excel files first.' });
+      }
+      
+      const employeesByDate = latestAnalysis.employeesByDate as Record<string, any[]>;
+      const employeeData = employeesByDate[date];
+      
+      if (!employeeData) {
+        return res.status(404).json({ 
+          error: `No employee data found for date ${date}`,
+          availableDates: Object.keys(employeesByDate)
+        });
+      }
+      
+      // Get visits for the date
+      const visits = await storage.getVisitsByDate(date);
+      if (!visits || visits.length === 0) {
+        return res.status(404).json({ error: `No visits found for date ${date}` });
+      }
+      
+      // Get location data
+      const employeeLocations = await storage.getAllEmployeeLocations();
+      const clientLocations = await storage.getAllClientLocations();
+      
+      // Convert employee data to VRPTW format
+      const employeeWindows: EmployeeWindow[] = [];
+      
+      for (const empData of employeeData) {
+        if (empData.status !== 'Available' || !empData.timeWindows) continue;
+        
+        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employeeName);
+        if (!empLocation?.homeLat || !empLocation?.homeLng) continue;
+        
+        // Parse time windows from string (e.g., "09:00-17:00")
+        const timeWindowParts = empData.timeWindows.split('-');
+        if (timeWindowParts.length !== 2) continue;
+        
+        const startMinutes = VRPTWOptimizer.timeToMinutes(timeWindowParts[0].trim());
+        const endMinutes = VRPTWOptimizer.timeToMinutes(timeWindowParts[1].trim());
+        
+        employeeWindows.push({
+          employeeId: empLocation.id,
+          employeeName: empData.employeeName,
+          date: date,
+          startMinutes: startMinutes,
+          endMinutes: endMinutes,
+          location: {
+            lat: parseFloat(empLocation.homeLat),
+            lng: parseFloat(empLocation.homeLng)
+          },
+          transportMode: (empLocation.transportMode as any) || 'car'
+        });
+      }
+      
+      // Convert visit data to VRPTW format
+      const clientVisits: ClientVisit[] = [];
+      
+      for (const visit of visits) {
+        const clientLocation = clientLocations.find(loc => loc.id === visit.clientId);
+        if (!clientLocation?.lat || !clientLocation?.lng) continue;
+        
+        clientVisits.push({
+          visitId: visit.id,
+          clientId: visit.clientId,
+          clientName: clientLocation.clientName,
+          date: date,
+          startMinutes: VRPTWOptimizer.timeToMinutes(visit.preferredStartTime?.split(' ')[1] || '09:00'),
+          endMinutes: VRPTWOptimizer.timeToMinutes(visit.preferredEndTime?.split(' ')[1] || '17:00'),
+          durationMinutes: visit.durationMinutes,
+          location: {
+            lat: parseFloat(clientLocation.lat),
+            lng: parseFloat(clientLocation.lng)
+          },
+          priority: visit.priority || 1
+        });
+      }
+      
+      console.log(`🔍 VRPTW Input: ${employeeWindows.length} employees, ${clientVisits.length} visits`);
+      
+      // Run VRPTW optimization
+      const optimizationResult = vrptwOptimizer.optimize(employeeWindows, clientVisits);
+      
+      // Store optimized routes in database
+      for (const route of optimizationResult.routes) {
+        if (route.stops.length === 0) continue; // Skip empty routes
+        
+        // Save route plan
+        const routePlanData = {
+          date: route.date,
+          employeeId: route.employeeId,
+          totalDistanceKm: route.totalDistanceKm.toString(),
+          totalTravelMinutes: route.totalTravelMinutes,
+          status: (route.feasible ? 'optimized' : 'infeasible') as 'optimized' | 'manual' | 'infeasible',
+          warnings: route.warnings
+        };
+        
+        const routePlan = await storage.saveRoutePlan(routePlanData);
+        
+        // Save route stops
+        for (const stop of route.stops) {
+          const routeStopData = {
+            routePlanId: routePlan.id,
+            visitId: stop.visitId,
+            sequence: stop.sequence,
+            scheduledStart: VRPTWOptimizer.minutesToTime(stop.scheduledStartMinutes),
+            scheduledEnd: VRPTWOptimizer.minutesToTime(stop.scheduledEndMinutes),
+            travelMinutesFromPrev: stop.travelMinutesFromPrev,
+            distanceKmFromPrev: "0" // Will be calculated properly in future
+          };
+          
+          await storage.saveRouteStop(routeStopData);
+        }
+      }
+      
+      console.log(`✅ VRPTW Optimization complete: ${optimizationResult.optimizationStats.assignedVisits} visits assigned`);
+      
+      res.json({
+        success: true,
+        date: date,
+        optimizationStats: optimizationResult.optimizationStats,
+        routes: optimizationResult.routes.map(route => ({
+          employeeName: route.employeeName,
+          stopsCount: route.stops.length,
+          totalTravelMinutes: route.totalTravelMinutes,
+          feasible: route.feasible
+        })),
+        unassignedVisits: optimizationResult.unassignedVisits.length
+      });
+      
+    } catch (error) {
+      console.error('VRPTW optimization error:', error);
+      res.status(500).json({ 
+        error: 'Route optimization failed', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+  
+  // GET /api/routing/plans?date=YYYY-MM-DD - Get optimized route plans
+  app.get('/api/routing/plans', async (req, res) => {
+    try {
+      const { date } = req.query;
+      
+      if (!date || typeof date !== 'string') {
+        return res.status(400).json({ error: 'Date parameter is required' });
+      }
+      
+      console.log(`📋 Getting route plans for ${date}`);
+      
+      const routePlans = await storage.getRoutePlansByDate(date);
+      
+      // Get detailed route information with stops
+      const detailedRoutes = [];
+      
+      for (const plan of routePlans) {
+        const stops = await storage.getRouteStopsByPlan(plan.id);
+        const employee = await storage.getEmployeeLocationById(plan.employeeId);
+        
+        // Get visit and client details for each stop
+        const detailedStops = [];
+        
+        for (const stop of stops) {
+          const visit = await storage.getVisitById(stop.visitId);
+          const client = visit ? await storage.getClientLocationById(visit.clientId) : null;
+          
+          detailedStops.push({
+            sequence: stop.sequence,
+            visitId: stop.visitId,
+            clientName: client?.clientName || 'Unknown Client',
+            scheduledStart: stop.scheduledStart,
+            scheduledEnd: stop.scheduledEnd,
+            travelMinutesFromPrev: stop.travelMinutesFromPrev,
+            distanceKmFromPrev: stop.distanceKmFromPrev
+          });
+        }
+        
+        detailedRoutes.push({
+          routePlanId: plan.id,
+          employeeName: employee?.employeeName || 'Unknown Employee',
+          totalDistanceKm: plan.totalDistanceKm,
+          totalTravelMinutes: plan.totalTravelMinutes,
+          status: plan.status,
+          warnings: plan.warnings,
+          stops: detailedStops.sort((a, b) => a.sequence - b.sequence)
+        });
+      }
+      
+      console.log(`📊 Found ${detailedRoutes.length} route plans for ${date}`);
+      
+      res.json({
+        date: date,
+        routePlans: detailedRoutes
+      });
+      
+    } catch (error) {
+      console.error('Get route plans error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get route plans', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   // Travel time optimization endpoint - Process everything on backend
   app.get('/api/travel-optimization/:date', async (req, res) => {
     try {
@@ -564,15 +783,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'No analysis data found. Please process Excel files first.' });
       }
       
-      // Find employee data for the specific date from Daily Capacity Summary
-      console.log(`🔍 DEBUG: Looking for date ${date} in dailyCapacity`);
-      console.log(`🔍 DEBUG: Available dates:`, latestAnalysis.dailyCapacity?.map((d: any) => d.date));
+      // Find employee data for the specific date from employeesByDate
+      console.log(`🔍 DEBUG: Looking for date ${date} in employeesByDate`);
+      const employeesByDate = latestAnalysis.employeesByDate as Record<string, any[]>;
+      console.log(`🔍 DEBUG: Available dates:`, Object.keys(employeesByDate));
       
-      const employeeData = latestAnalysis.dailyCapacity?.find((day: any) => day.date === date);
+      const employeeData = employeesByDate[date];
       if (!employeeData) {
         return res.status(404).json({ 
           error: `No employee data found for date ${date}`,
-          availableDates: latestAnalysis.dailyCapacity?.map((d: any) => d.date) || []
+          availableDates: Object.keys(employeesByDate)
         });
       }
       
@@ -584,33 +804,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const optimizedSchedule = [];
       
       // Filter employees based on Daily Capacity Summary availability rules ONLY
-      for (const empData of employeeData.employees) {
+      for (const empData of employeeData) {
         // Daily Capacity Summary rule: Employee must be Available (not Holiday, Sick, etc.)
         if (empData.status !== 'Available') {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - Status: ${empData.status}`);
+          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Status: ${empData.status}`);
           continue;
         }
         
         // Daily Capacity Summary rule: Employee must have time windows
         if (!empData.timeWindows || empData.timeWindows.length === 0) {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - No time windows`);
+          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - No time windows`);
           continue;
         }
         
         // Get employee postcode from CG Data
-        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employee);
+        const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employeeName);
         if (!empLocation || !empLocation.homePostcode) {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - No postcode available`);
+          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - No postcode available`);
           continue;
         }
         
         // Check if employee is geocoded for distance calculations
         if (!empLocation.homeLat || !empLocation.homeLng) {
-          console.log(`🔍 DEBUG: Skipping ${empData.employee} on ${date} - Not geocoded`);
+          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Not geocoded`);
           continue;
         }
         
-        console.log(`✅ Available: ${empData.employee} on ${date} - Status: ${empData.status}, Postcode: ${empLocation.homePostcode}`);
+        console.log(`✅ Available: ${empData.employeeName} on ${date} - Status: ${empData.status}, Postcode: ${empLocation.homePostcode}`);
         
         // Backend processing: Calculate best client matches within 15-minute travel constraint
         const bestClientMatches = [];
@@ -645,12 +865,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Add to optimized schedule (simple backend response)
         optimizedSchedule.push({
-          employeeName: empData.employee,
+          employeeName: empData.employeeName,
           postcode: empLocation.homePostcode,
           bestClientMatches: topMatches
         });
         
-        console.log(`✅ ${empData.employee}: ${topMatches.length} client matches within 15 minutes`);
+        console.log(`✅ ${empData.employeeName}: ${topMatches.length} client matches within 15 minutes`);
       }
       
       // Return simple backend-processed data: Employee Name + Best Client Matches

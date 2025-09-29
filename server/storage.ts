@@ -38,13 +38,16 @@ export interface IStorage {
   // Geographical scheduling methods
   upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation>;
   getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined>;
+  getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined>;
   getAllEmployeeLocations(): Promise<EmployeeLocation[]>;
   
   upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation>;
   getClientLocationByName(clientName: string): Promise<ClientLocation | undefined>;
+  getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(): Promise<ClientLocation[]>;
   
   saveVisit(visit: InsertVisit): Promise<Visit>;
+  getVisitById(id: string): Promise<Visit | undefined>;
   getVisitsByDate(date: string): Promise<Visit[]>;
   getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
   
@@ -293,6 +296,10 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
+    return this.employeeLocations.get(id);
+  }
+
   async getAllEmployeeLocations(): Promise<EmployeeLocation[]> {
     return Array.from(this.employeeLocations.values());
   }
@@ -329,6 +336,10 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getClientLocationById(id: string): Promise<ClientLocation | undefined> {
+    return this.clientLocations.get(id);
+  }
+
   async getAllClientLocations(): Promise<ClientLocation[]> {
     return Array.from(this.clientLocations.values());
   }
@@ -346,6 +357,10 @@ export class MemStorage implements IStorage {
     };
     this.visits.set(id, visit);
     return visit;
+  }
+
+  async getVisitById(id: string): Promise<Visit | undefined> {
+    return this.visits.get(id);
   }
 
   async getVisitsByDate(date: string): Promise<Visit[]> {
@@ -664,6 +679,14 @@ export class DatabaseStorage implements IStorage {
     return location || undefined;
   }
 
+  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
+    const [location] = await db
+      .select()
+      .from(employeeLocations)
+      .where(eq(employeeLocations.id, id));
+    return location || undefined;
+  }
+
   async getAllEmployeeLocations(): Promise<EmployeeLocation[]> {
     return await db.select().from(employeeLocations);
   }
@@ -699,6 +722,14 @@ export class DatabaseStorage implements IStorage {
     return location || undefined;
   }
 
+  async getClientLocationById(id: string): Promise<ClientLocation | undefined> {
+    const [location] = await db
+      .select()
+      .from(clientLocations)
+      .where(eq(clientLocations.id, id));
+    return location || undefined;
+  }
+
   async getAllClientLocations(): Promise<ClientLocation[]> {
     return await db.select().from(clientLocations);
   }
@@ -715,6 +746,14 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return visit;
+  }
+
+  async getVisitById(id: string): Promise<Visit | undefined> {
+    const [visit] = await db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, id));
+    return visit || undefined;
   }
 
   async getVisitsByDate(date: string): Promise<Visit[]> {
