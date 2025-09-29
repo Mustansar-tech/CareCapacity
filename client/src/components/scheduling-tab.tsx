@@ -59,26 +59,30 @@ interface ClientLocation {
   geocodedAt: Date | null;
 }
 
-interface RoutePlan {
-  id: string;
+// Backend API response interfaces
+interface RoutePlansResponse {
   date: string;
-  employeeId: string;
-  status: "optimized" | "manual" | "infeasible" | null;
-  totalDistanceKm: string | null;
-  totalTravelMinutes: number | null;
+  routePlans: RoutePlan[];
+}
+
+interface RoutePlan {
+  routePlanId: string;
+  employeeName: string;
+  status: "optimized" | "manual" | "infeasible";
+  totalDistanceKm: string;
+  totalTravelMinutes: number;
   warnings: unknown;
-  stops?: RouteStop[];
+  stops: RouteStop[];
 }
 
 interface RouteStop {
-  id: string;
-  routePlanId: string;
-  visitId: string;
   sequence: number;
-  scheduledStart: string | null;
-  scheduledEnd: string | null;
-  travelMinutesFromPrev: number | null;
-  distanceKmFromPrev: string | null;
+  visitId: string;
+  clientName: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  travelMinutesFromPrev: number;
+  distanceKmFromPrev: string;
 }
 
 export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTabProps) {
@@ -105,10 +109,13 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   });
 
   // Query route plans for selected date
-  const { data: routePlans, isLoading: isLoadingRoutes, refetch: refetchRoutes } = useQuery<RoutePlan[]>({
+  const { data: routePlansResponse, isLoading: isLoadingRoutes, refetch: refetchRoutes } = useQuery<RoutePlansResponse>({
     queryKey: ['/api/routing/plans', optimizationDate],
     queryFn: () => fetch(`/api/routing/plans?date=${optimizationDate}`).then(res => res.json()),
   });
+
+  // Extract route plans from response
+  const routePlans = routePlansResponse?.routePlans || [];
 
   // Query travel optimization for selected date
   const { data: travelOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<TravelOptimization>({
@@ -141,8 +148,8 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
 
   // Route optimization mutation
   const optimizeMutation = useMutation({
-    mutationFn: async ({ date, employeeIds }: { date: string; employeeIds: string[] }) => {
-      const response = await apiRequest('POST', '/api/routing/optimize', { date, employeeIds });
+    mutationFn: async ({ date }: { date: string }) => {
+      const response = await apiRequest('POST', '/api/routing/optimize', { date });
       return response.json();
     },
     onSuccess: () => {
@@ -205,8 +212,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
     }
 
     optimizeMutation.mutate({
-      date: optimizationDate,
-      employeeIds: geocodedEmployees.map(emp => emp.employeeName)
+      date: optimizationDate
     });
   };
 
@@ -224,9 +230,9 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   };
 
   const routeStats = {
-    total: routePlans?.length || 0,
-    optimized: routePlans?.filter((plan: RoutePlan) => plan.status === "optimized").length || 0,
-    infeasible: routePlans?.filter((plan: RoutePlan) => plan.status === "infeasible").length || 0,
+    total: routePlans.length,
+    optimized: routePlans.filter(plan => plan.status === "optimized").length,
+    infeasible: routePlans.filter(plan => plan.status === "infeasible").length,
   };
 
   // Available dates from data
@@ -286,7 +292,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                             {emp.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <h4 className={`font-medium ${getGenderColorClass(emp.employeeName, true)}`}>
+                            <h4 className={`font-medium ${getGenderColorClass(emp.employeeName)}`}>
                               {emp.employeeName}
                             </h4>
                             <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
@@ -596,52 +602,181 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {routePlans?.map((plan: RoutePlan) => {
-                    const employee = employeeLocations?.find(emp => emp.id === plan.employeeId);
-                    return (
-                      <TableRow key={plan.id}>
-                        <TableCell>
-                          <span className={employee ? getGenderColorClass(employee.employeeName) : ""}>
-                            {employee?.employeeName || plan.employeeId}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              plan.status === "optimized" ? "default" :
-                              plan.status === "infeasible" ? "destructive" : "secondary"
-                            }
-                          >
-                            {plan.status || "unknown"}
+                  {routePlans.map((plan: RoutePlan) => (
+                    <TableRow key={plan.routePlanId}>
+                      <TableCell>
+                        <span className={getGenderColorClass(plan.employeeName)}>
+                          {plan.employeeName}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            plan.status === "optimized" ? "default" :
+                            plan.status === "infeasible" ? "destructive" : "secondary"
+                          }
+                        >
+                          {plan.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {plan.totalDistanceKm ? `${parseFloat(plan.totalDistanceKm).toFixed(1)} km` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {plan.totalTravelMinutes ? `${plan.totalTravelMinutes} min` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {plan.stops.length} stops
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {Array.isArray(plan.warnings) && plan.warnings.length > 0 ? (
+                          <Badge variant="destructive" className="text-xs">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            {plan.warnings.length} warnings
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {plan.totalDistanceKm ? `${parseFloat(plan.totalDistanceKm).toFixed(1)} km` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {plan.totalTravelMinutes ? `${plan.totalTravelMinutes} min` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {plan.stops?.length || 0} stops
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {Array.isArray(plan.warnings) && plan.warnings.length > 0 ? (
-                            <Badge variant="destructive" className="text-xs">
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              {plan.warnings.length} warnings
-                            </Badge>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Detailed Route Stops Display */}
+      {routePlans && routePlans.length > 0 && routePlans.some(plan => plan.stops.length > 0) && (
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Navigation className="w-5 h-5" />
+              Multi-Stop Route Details for {new Date(optimizationDate).toLocaleDateString('en-GB', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long' 
+              })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {routePlans
+                .filter(plan => plan.stops.length > 0)
+                .map((plan: RoutePlan) => (
+                  <div key={plan.routePlanId} className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20">
+                    {/* Route Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${getGenderColorClass(plan.employeeName)}`}>
+                          {plan.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <h4 className={`font-semibold text-lg ${getGenderColorClass(plan.employeeName)}`}>
+                            {plan.employeeName}
+                          </h4>
+                          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                            <div className="flex items-center gap-1">
+                              <Route className="w-4 h-4" />
+                              <span>{plan.stops.length} stops</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-4 h-4" />
+                              <span>{plan.totalTravelMinutes} min travel</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              <span>{parseFloat(plan.totalDistanceKm).toFixed(1)} km total</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={plan.status === "optimized" ? "default" : "destructive"}
+                        className="text-sm"
+                      >
+                        {plan.status}
+                      </Badge>
+                    </div>
+
+                    {/* Route Timeline */}
+                    <div className="space-y-3">
+                      {plan.stops
+                        .sort((a, b) => a.sequence - b.sequence)
+                        .map((stop, index) => (
+                          <div key={stop.visitId} className="flex items-center gap-4">
+                            {/* Sequence Number */}
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                              {stop.sequence}
+                            </div>
+                            
+                            {/* Stop Details */}
+                            <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h5 className="font-medium text-gray-900 dark:text-white">
+                                    {stop.clientName}
+                                  </h5>
+                                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      <span>{stop.scheduledStart} - {stop.scheduledEnd}</span>
+                                    </div>
+                                    {index > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        <Car className="w-3 h-3" />
+                                        <span>{stop.travelMinutesFromPrev} min from previous</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant="outline" className="text-xs">
+                                    Visit {stop.sequence}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Travel Arrow (except for last stop) */}
+                            {index < plan.stops.length - 1 && (
+                              <div className="flex-shrink-0 w-6 h-6 text-gray-400">
+                                <ArrowRight className="w-full h-full" />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+
+                    {/* Route Summary */}
+                    <div className="mt-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                            {plan.stops.length}
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">Total Visits</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+                            {plan.totalTravelMinutes}m
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">Travel Time</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-semibold text-purple-600 dark:text-purple-400">
+                            {parseFloat(plan.totalDistanceKm).toFixed(1)}km
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">Total Distance</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
           </CardContent>
         </Card>
       )}
