@@ -2474,8 +2474,23 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             const pc = normalisePostcode(r.postcode || r.input || "");
             const addr = (r.address || "").trim().toUpperCase();
             const key = `${addr}|${pc}`;
-            const clientName = clientKeyMap.get(key);
-            if (!clientName) continue;
+            let clientName = clientKeyMap.get(key);
+            
+            // If exact match fails, try postcode-only lookup
+            if (!clientName) {
+              for (const [mapKey, mapClientName] of Array.from(clientKeyMap.entries())) {
+                if (mapKey.endsWith(`|${pc}`)) {
+                  clientName = mapClientName;
+                  console.log(`🔄 Found client ${clientName} via postcode match: ${pc}`);
+                  break;
+                }
+              }
+            }
+            
+            if (!clientName) {
+              console.log(`⚠️ No client found for key: ${key}, available keys:`, Array.from(clientKeyMap.keys()).slice(0, 3));
+              continue;
+            }
 
             console.log(`🔍 DEBUG: Saving client geocode - Name: ${clientName}, Coordinates: ${r.lat}, ${r.lng}`);
             

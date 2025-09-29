@@ -41,6 +41,52 @@ function normalizeFileName(fileName: string): string {
   return fileName.replace(/\s*\(\d+\)/g, '');
 }
 
+// Enhanced geocoding with fallback hierarchy
+async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
+  const normalizedPostcode = postcode.trim().toUpperCase();
+  
+  // Step 1: Try exact postcode from cache
+  const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
+  if (cached) {
+    return {
+      query: normalizedPostcode,
+      type: 'postcode',
+      lat: cached.lat,
+      lng: cached.lng,
+    };
+  }
+
+  // Step 2: Try postcodes.io API
+  try {
+    const response = await fetch(`https://api.postcodes.io/postcodes/${normalizedPostcode}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.result) {
+        const result = {
+          query: normalizedPostcode,
+          type: 'postcode',
+          lat: data.result.latitude,
+          lng: data.result.longitude,
+        };
+        
+        // Cache the result
+        await storage.saveGeocode({
+          key: `postcode:${normalizedPostcode}`,
+          lat: result.lat,
+          lng: result.lng,
+          source: 'postcodes.io'
+        });
+        
+        return result;
+      }
+    }
+  } catch (error) {
+    console.log(`geocodeWithFallback: postcodes.io failed for ${normalizedPostcode}:`, error);
+  }
+
+  return null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/process - Process uploaded Excel files
   app.post('/api/process', upload.fields([
@@ -898,13 +944,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const employeeLocations = await storage.getAllEmployeeLocations();
       
       console.log(`🔍 DEBUG: Retrieved ${clientLocations.length} client locations from database`);
-      console.log(`🔍 DEBUG: First 3 clients:`, clientLocations.slice(0, 3).map(c => ({ 
-        name: c.clientName, 
-        postcode: c.postcode, 
-        hasCoords: !!(c.lat && c.lng),
-        lat: c.lat,
-        lng: c.lng 
-      })));
+      
+      // Auto-geocode any missing client coordinates as safety net
+      const missingCoords = clientLocations.filter(c => (!c.lat || !c.lng) && c.postcode);
+      if (missingCoords.length > 0) {
+        console.log(`🔄 Auto-geocoding ${missingCoords.length} clients with missing coordinates...`);
+        
+        for (const client of missingCoords) {
+          try {
+            const geocoded = await geocodeWithFallback(client.postcode, storage);
+            if (geocoded && geocoded.lat && geocoded.lng) {
+              await storage.upsertClientLocation({
+                clientName: client.clientName,
+                addressLine: client.addressLine,
+                postcode: client.postcode,
+                lat: geocoded.lat,
+                lng: geocoded.lng,
+              });
+              console.log(`✅ Auto-geocoded ${client.clientName}`);
+            }
+          } catch (err) {
+            console.log(`❌ Failed to auto-geocode ${client.clientName}: ${err}`);
+          }
+        }
+        
+        // Refresh client locations after auto-geocoding
+        const updatedClientLocations = await storage.getAllClientLocations();
+        clientLocations.splice(0, clientLocations.length, ...updatedClientLocations);
+      }
+      
+      console.log(`🔍 DEBUG: Final client status: ${clientLocations.filter(c => c.lat && c.lng).length}/${clientLocations.length} with coordinates`);
       
       // Process backend optimization: Employee Name + Best Client Matches
       const optimizedSchedule = [];
