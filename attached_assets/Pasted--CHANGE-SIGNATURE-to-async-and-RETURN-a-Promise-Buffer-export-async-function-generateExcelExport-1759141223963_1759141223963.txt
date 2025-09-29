@@ -1,0 +1,70 @@
+// CHANGE SIGNATURE to async and RETURN a Promise<Buffer>
+export async function generateExcelExport(
+  result: ProcessingResult,
+  cleanedRecords: CleanedEmployeeRecord[],
+  cgData: any[], // your CGDataRow
+): Promise<Buffer> {
+  const workbook = XLSX.utils.book_new();
+
+  // --- your existing 4 sheets (unchanged) ---
+  // Cleaned
+  // DailySummary
+  // EmployeeDailyDetail
+  // EmployeeMasterList
+  // (keep your current code here)
+
+  // === EmployeeFit tab ===
+  try {
+    const { buildEmployeeFitRows } = await import("./employee-fit");
+    const fitRows = await buildEmployeeFitRows(
+      result.employeesByDate,
+      result.employeeSummaryByDate,
+      5
+    );
+
+    const header = [
+      "Date","Employee","Status","Windows","Contracted Daily (h)","Scheduled (h)",
+      "Client 1","Travel 1 (min)","Duration 1 (min)",
+      "Client 2","Travel 2 (min)","Duration 2 (min)",
+      "Client 3","Travel 3 (min)","Duration 3 (min)",
+      "Client 4","Travel 4 (min)","Duration 4 (min)",
+      "Client 5","Travel 5 (min)","Duration 5 (min)",
+    ];
+    const aoa = [ header, ...fitRows.map(r => [
+      r.Date, r.Employee, r.Status, r.Windows, r.ContractedDaily, r.ScheduledHours,
+      r.Client1, r.Travel1, r.Duration1,
+      r.Client2, r.Travel2, r.Duration2,
+      r.Client3, r.Travel3, r.Duration3,
+      r.Client4, r.Travel4, r.Duration4,
+      r.Client5, r.Travel5, r.Duration5,
+    ])];
+
+    const sheet = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(workbook, sheet, "EmployeeFit");
+  } catch (e) {
+    console.log("EmployeeFit generation skipped:", e);
+  }
+
+  // === Heatmap tabs (one per date with data) ===
+  try {
+    const { buildHeatmapMatrixLite } = await import("./heatmap-lite");
+    const heatmaps = await buildHeatmapMatrixLite(
+      result.employeesByDate,
+      result.employeeSummaryByDate
+    );
+
+    for (const hm of heatmaps) {
+      const aoa: any[][] = [];
+      aoa.push(["Employee \\ Client", ...hm.columns]);
+      hm.employees.forEach((emp, i) => {
+        aoa.push([emp, ...hm.matrix[i]]);
+      });
+      const sh = XLSX.utils.aoa_to_sheet(aoa);
+      XLSX.utils.book_append_sheet(workbook, sh, `Heatmap-${hm.date}`);
+    }
+  } catch (e) {
+    console.log("Heatmap (lite) generation skipped:", e);
+  }
+
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+}
