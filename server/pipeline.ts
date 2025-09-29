@@ -20,6 +20,151 @@ import {
 } from "@shared/schema";
 import { storage } from "./storage";
 
+// Enhanced geocoding with fallback hierarchy
+async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
+  const normalizedPostcode = postcode.trim().toUpperCase();
+  
+  // Step 1: Try exact postcode from cache
+  const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
+  if (cached) {
+    return {
+      query: normalizedPostcode,
+      type: 'postcode',
+      lat: cached.lat,
+      lng: cached.lng,
+      source: 'cache',
+      approximate: false
+    };
+  }
+  
+  // Step 2: Try exact postcode from API
+  try {
+    const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.status === 200 && data.result) {
+        const lat = data.result.latitude.toString();
+        const lng = data.result.longitude.toString();
+        
+        // Cache the exact result
+        await storage.saveGeocode({
+          key: `postcode:${normalizedPostcode}`,
+          lat,
+          lng,
+          source: 'postcodes.io'
+        });
+        
+        return {
+          query: normalizedPostcode,
+          type: 'postcode',
+          lat,
+          lng,
+          source: 'postcodes.io',
+          approximate: false
+        };
+      }
+    }
+  } catch (err) {
+    console.log(`🔄 Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
+  }
+  
+  // Step 3: Try postcode district (first part)
+  const parts = normalizedPostcode.split(' ');
+  if (parts.length >= 2) {
+    const district = parts[0];
+    
+    // Check cache for district
+    const districtCached = await storage.getGeocode(`district:${district}`);
+    if (districtCached) {
+      return {
+        query: normalizedPostcode,
+        type: 'postcode',
+        lat: districtCached.lat,
+        lng: districtCached.lng,
+        source: 'cache-district',
+        approximate: true
+      };
+    }
+    
+    // Try district from API
+    try {
+      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(district)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 200 && data.result) {
+          const lat = data.result.latitude.toString();
+          const lng = data.result.longitude.toString();
+          
+          // Cache the district result
+          await storage.saveGeocode({
+            key: `district:${district}`,
+            lat,
+            lng,
+            source: 'postcodes.io'
+          });
+          
+          return {
+            query: normalizedPostcode,
+            type: 'postcode',
+            lat,
+            lng,
+            source: 'postcodes.io-district',
+            approximate: true
+          };
+        }
+      }
+    } catch (err) {
+      console.log(`🔄 District geocoding failed for ${district}, trying area fallback...`);
+    }
+  }
+  
+  // Step 4: Default to approximate city center based on postcode prefix
+  const prefix = normalizedPostcode.substring(0, 2);
+  const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
+    'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },  // Edinburgh
+    'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },      // Glasgow  
+    'AB': { lat: '57.1497', lng: '-2.0943', name: 'Aberdeen' },    // Aberdeen
+    'DD': { lat: '56.4620', lng: '-2.9707', name: 'Dundee' },      // Dundee
+    'IV': { lat: '57.4778', lng: '-4.2247', name: 'Inverness' },   // Inverness
+    'KY': { lat: '56.1165', lng: '-3.1359', name: 'Fife' },        // Fife
+    'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },       // Perth
+    'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },     // Falkirk
+  };
+  
+  const fallback = fallbackLocations[prefix];
+  if (fallback) {
+    console.log(`📍 Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
+    
+    // Cache the fallback to avoid repeated lookups
+    await storage.saveGeocode({
+      key: `fallback:${prefix}`,
+      lat: fallback.lat,
+      lng: fallback.lng,
+      source: 'fallback'
+    });
+    
+    return {
+      query: normalizedPostcode,
+      type: 'postcode',
+      lat: fallback.lat,
+      lng: fallback.lng,
+      source: 'fallback-' + fallback.name.toLowerCase(),
+      approximate: true
+    };
+  }
+  
+  // Step 5: Ultimate fallback to Edinburgh city center
+  console.log(`📍 Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
+  return {
+    query: normalizedPostcode,
+    type: 'postcode',
+    lat: '55.9533',
+    lng: '-3.1883',
+    source: 'fallback-edinburgh',
+    approximate: true
+  };
+}
+
 // Add interface for CleanRow from service delivery rules
 interface CleanRow {
   serviceType: string;
@@ -2155,8 +2300,25 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     
     console.log(`👥 Found ${employeeLocationsMap.size} employee locations from CG Data`);
     
-    // Store employee locations
+    // Geocode all employee locations during data upload
+    console.log(`🔍 Geocoding all employee postcodes...`);
     for (const locationData of Array.from(employeeLocationsMap.values())) {
+      try {
+        console.log(`🔄 Geocoding ${locationData.employeeName} at ${locationData.homePostcode}...`);
+        const geocoded = await geocodeWithFallback(locationData.homePostcode, storage);
+        
+        if (geocoded && geocoded.lat && geocoded.lng) {
+          locationData.homeLat = geocoded.lat;
+          locationData.homeLng = geocoded.lng;
+          console.log(`✅ Successfully geocoded ${locationData.employeeName}`);
+        } else {
+          console.log(`❌ Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
+        }
+      } catch (err) {
+        console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
+      }
+      
+      // Store employee location (with or without geocoding)
       await storage.upsertEmployeeLocation(locationData);
     }
     

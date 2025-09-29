@@ -956,121 +956,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
         
-        // Check if employee is geocoded for distance calculations, try fallback if needed
+        // Check if employee location is geocoded (should be done during data upload)
         if (!empLocation.homeLat || !empLocation.homeLng) {
-          console.log(`🔄 DEBUG: ${empData.employeeName} not geocoded, attempting fallback geocoding...`);
-          
-          try {
-            // Use fallback geocoding to get approximate coordinates
-            const geocodeResult = await geocodeWithFallback(empLocation.homePostcode, storage);
-            
-            if (geocodeResult.lat && geocodeResult.lng) {
-              // Update employee location with fallback coordinates
-              await storage.upsertEmployeeLocation({
-                employeeName: empData.employeeName,
-                homePostcode: empLocation.homePostcode,
-                homeLat: geocodeResult.lat,
-                homeLng: geocodeResult.lng,
-                transportMode: empLocation.transportMode
-              });
-              
-              // Update the current location object for immediate use
-              empLocation.homeLat = geocodeResult.lat;
-              empLocation.homeLng = geocodeResult.lng;
-              
-              console.log(`📍 DEBUG: ${empData.employeeName} geocoded using ${geocodeResult.source} (approximate: ${geocodeResult.approximate})`);
-            } else {
-              console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Geocoding failed completely`);
-              diagnostics.employeeIssues.push({
-                employeeName: empData.employeeName,
-                reason: 'geocoding_failed',
-                detail: `Failed to geocode postcode: ${empLocation.homePostcode}`,
-                severity: 'error'
-              });
-              diagnostics.dataQuality.employeesWithoutGeocode++;
-              continue;
-            }
-          } catch (err) {
-            console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Geocoding error: ${err}`);
-            diagnostics.employeeIssues.push({
-              employeeName: empData.employeeName,
-              reason: 'geocoding_error',
-              detail: `Geocoding error: ${err}`,
-              severity: 'error'
-            });
-            diagnostics.dataQuality.employeesWithoutGeocode++;
-            continue;
-          }
+          console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Not geocoded (should be done during data upload)`);
+          diagnostics.employeeIssues.push({
+            employeeName: empData.employeeName,
+            reason: 'geocoding_failed',
+            detail: `Employee location not geocoded during data upload: ${empLocation.homePostcode}`,
+            severity: 'error'
+          });
+          diagnostics.dataQuality.employeesWithoutGeocode++;
+          continue;
         }
         
         console.log(`✅ Available: ${empData.employeeName} on ${date} - Status: ${empData.status}, Postcode: ${empLocation.homePostcode}`);
         diagnostics.dataQuality.availableEmployees++;
         
-        // Track geocoding attempts and successes
-        if (!empLocation.homeLat || !empLocation.homeLng) {
-          diagnostics.dataQuality.geocodingAttempts++;
-          diagnostics.dataQuality.geocodingSuccesses++; // Incremented here because we successfully geocoded
-        }
         
         // Backend processing: Calculate best client matches within 15-minute travel constraint
         const bestClientMatches = [];
         const rejectedClients = [];
         
         for (const client of clientLocations) {
-          // Check if client is geocoded, try fallback if needed
-          let clientLat = client.lat;
-          let clientLng = client.lng;
-          
-          if (!clientLat || !clientLng) {
-            console.log(`🔄 DEBUG: Client ${client.clientName} not geocoded, attempting fallback...`);
-            
-            try {
-              const geocodeResult = await geocodeWithFallback(client.postcode, storage);
-              
-              if (geocodeResult.lat && geocodeResult.lng) {
-                // Update client location with fallback coordinates
-                await storage.upsertClientLocation({
-                  clientName: client.clientName,
-                  addressLine: client.addressLine,
-                  postcode: client.postcode,
-                  lat: geocodeResult.lat,
-                  lng: geocodeResult.lng
-                });
-                
-                clientLat = geocodeResult.lat;
-                clientLng = geocodeResult.lng;
-                
-                console.log(`📍 DEBUG: Client ${client.clientName} geocoded using ${geocodeResult.source} (approximate: ${geocodeResult.approximate})`);
-              } else {
-                console.log(`🔍 DEBUG: Skipping client ${client.clientName} - Geocoding failed completely`);
-                diagnostics.clientIssues.push({
-                  clientName: client.clientName,
-                  reason: 'geocoding_failed',
-                  detail: `Failed to geocode postcode: ${client.postcode}`,
-                  severity: 'error'
-                });
-                diagnostics.dataQuality.clientsWithoutGeocode++;
-                continue;
-              }
-            } catch (err) {
-              console.log(`🔍 DEBUG: Skipping client ${client.clientName} - Geocoding error: ${err}`);
-              diagnostics.clientIssues.push({
-                clientName: client.clientName,
-                reason: 'geocoding_error',
-                detail: `Geocoding error: ${err}`,
-                severity: 'error'
-              });
-              diagnostics.dataQuality.clientsWithoutGeocode++;
-              continue;
-            }
+          // Check if client is geocoded (should be done during data upload)
+          if (!client.lat || !client.lng) {
+            console.log(`🔍 DEBUG: Skipping client ${client.clientName} - Not geocoded (should be done during data upload)`);
+            diagnostics.clientIssues.push({
+              clientName: client.clientName,
+              reason: 'geocoding_failed',
+              detail: `Client location not geocoded during data upload: ${client.postcode}`,
+              severity: 'error'
+            });
+            diagnostics.dataQuality.clientsWithoutGeocode++;
+            continue;
           }
           
           // Calculate travel distance
           const distance = calculateDistance(
             parseFloat(empLocation.homeLat!),
             parseFloat(empLocation.homeLng!),
-            parseFloat(clientLat!),
-            parseFloat(clientLng!)
+            parseFloat(client.lat!),
+            parseFloat(client.lng!)
           );
           
           // Estimate travel time based on transport mode
