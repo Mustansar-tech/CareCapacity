@@ -11,7 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { 
   MapPin, Route, Clock, Car, Navigation, AlertTriangle, CheckCircle, 
-  RefreshCw, Zap, Target, Users, Calendar, ArrowRight, Settings, Sliders
+  RefreshCw, Zap, Target, Users, Calendar, ArrowRight, Settings, Sliders,
+  AlertCircle, Info, XCircle, TrendingUp, BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -24,17 +25,58 @@ interface SchedulingTabProps {
   onDateChange?: (date: string) => void;
 }
 
-// Simplified backend-processed interfaces
+// Enhanced backend-processed interfaces with diagnostics
 interface TravelOptimization {
   date: string;
   totalAvailableEmployees: number;
   employees: EmployeeSchedule[];
+  diagnostics?: DiagnosticData;
+}
+
+interface DiagnosticData {
+  employeeIssues: EmployeeIssue[];
+  clientIssues: ClientIssue[];
+  dataQuality: DataQualityMetrics;
+}
+
+interface EmployeeIssue {
+  employeeName: string;
+  reason: 'status_unavailable' | 'no_time_windows' | 'no_postcode' | 'geocoding_failed' | 'geocoding_error';
+  detail: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
+interface ClientIssue {
+  clientName: string;
+  reason: 'geocoding_failed' | 'geocoding_error';
+  detail: string;
+  severity: 'error';
+}
+
+interface DataQualityMetrics {
+  totalEmployees: number;
+  availableEmployees: number;
+  employeesWithoutGeocode: number;
+  employeesWithoutPostcode: number;
+  employeesWithoutTimeWindows: number;
+  totalClients: number;
+  clientsWithoutGeocode: number;
+  geocodingAttempts: number;
+  geocodingSuccesses: number;
 }
 
 interface EmployeeSchedule {
   employeeName: string;
   postcode: string;
   bestClientMatches: ClientMatch[];
+  rejectedClients?: RejectedClient[];
+  totalRejectedClients?: number;
+}
+
+interface RejectedClient {
+  clientName: string;
+  travelTimeMinutes: number;
+  reason: string;
 }
 
 interface ClientMatch {
@@ -287,7 +329,163 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {/* Simplified Employee-Client Matching Results */}
+          {/* Data Quality and Diagnostics Section */}
+          {travelOptimization?.diagnostics && (
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                  <BarChart3 className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Data Quality Analysis</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Issues that may affect scheduling optimization
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Employee Data Quality */}
+                <Card className="glass">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white">Employee Data</h4>
+                      <Users className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span>Total:</span>
+                        <Badge variant="outline">{travelOptimization.diagnostics.dataQuality.totalEmployees}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Available:</span>
+                        <Badge variant="default">{travelOptimization.diagnostics.dataQuality.availableEmployees}</Badge>
+                      </div>
+                      {travelOptimization.diagnostics.dataQuality.employeesWithoutPostcode > 0 && (
+                        <div className="flex justify-between">
+                          <span>No postcode:</span>
+                          <Badge variant="destructive">{travelOptimization.diagnostics.dataQuality.employeesWithoutPostcode}</Badge>
+                        </div>
+                      )}
+                      {travelOptimization.diagnostics.dataQuality.employeesWithoutTimeWindows > 0 && (
+                        <div className="flex justify-between">
+                          <span>No time windows:</span>
+                          <Badge variant="secondary">{travelOptimization.diagnostics.dataQuality.employeesWithoutTimeWindows}</Badge>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Client Data Quality */}
+                <Card className="glass">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white">Client Data</h4>
+                      <MapPin className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span>Total:</span>
+                        <Badge variant="outline">{travelOptimization.diagnostics.dataQuality.totalClients}</Badge>
+                      </div>
+                      {travelOptimization.diagnostics.dataQuality.clientsWithoutGeocode > 0 && (
+                        <div className="flex justify-between">
+                          <span>No geocode:</span>
+                          <Badge variant="destructive">{travelOptimization.diagnostics.dataQuality.clientsWithoutGeocode}</Badge>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Assignment Issues */}
+                <Card className="glass">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white">Issues Found</h4>
+                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span>Employee issues:</span>
+                        <Badge variant="secondary">{travelOptimization.diagnostics.employeeIssues.length}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Client issues:</span>
+                        <Badge variant="secondary">{travelOptimization.diagnostics.clientIssues.length}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Detailed Issues */}
+              {(travelOptimization.diagnostics.employeeIssues.length > 0 || travelOptimization.diagnostics.clientIssues.length > 0) && (
+                <Card className="glass">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Detailed Issues
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Employee Issues */}
+                      {travelOptimization.diagnostics.employeeIssues.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-sm mb-2 text-gray-700 dark:text-gray-300">Employee Issues</h5>
+                          <div className="space-y-2">
+                            {travelOptimization.diagnostics.employeeIssues.slice(0, 5).map((issue, index) => (
+                              <div key={index} className="p-2 rounded border text-xs">
+                                <div className="flex items-center gap-2 mb-1">
+                                  {issue.severity === 'error' && <XCircle className="w-3 h-3 text-red-500" />}
+                                  {issue.severity === 'warning' && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                                  {issue.severity === 'info' && <Info className="w-3 h-3 text-blue-500" />}
+                                  <span className="font-medium">{issue.employeeName}</span>
+                                </div>
+                                <p className="text-gray-600 dark:text-gray-400">{issue.detail}</p>
+                              </div>
+                            ))}
+                            {travelOptimization.diagnostics.employeeIssues.length > 5 && (
+                              <p className="text-xs text-gray-500">
+                                +{travelOptimization.diagnostics.employeeIssues.length - 5} more issues...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Client Issues */}
+                      {travelOptimization.diagnostics.clientIssues.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-sm mb-2 text-gray-700 dark:text-gray-300">Client Issues</h5>
+                          <div className="space-y-2">
+                            {travelOptimization.diagnostics.clientIssues.slice(0, 5).map((issue, index) => (
+                              <div key={index} className="p-2 rounded border text-xs">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <XCircle className="w-3 h-3 text-red-500" />
+                                  <span className="font-medium">{issue.clientName}</span>
+                                </div>
+                                <p className="text-gray-600 dark:text-gray-400">{issue.detail}</p>
+                              </div>
+                            ))}
+                            {travelOptimization.diagnostics.clientIssues.length > 5 && (
+                              <p className="text-xs text-gray-500">
+                                +{travelOptimization.diagnostics.clientIssues.length - 5} more issues...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Employee-Client Matching Results */}
           {travelOptimization && travelOptimization.employees?.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
@@ -329,30 +527,62 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                         </Badge>
                       </div>
 
-                      <div className="space-y-2">
-                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Best Client Matches (within {travelTimeLimit} minutes):
-                        </h5>
-                        <div className="grid gap-2">
-                          {emp.bestClientMatches.length > 0 ? (
-                            emp.bestClientMatches.map((client, clientIndex) => (
-                              <div 
-                                key={`${client.clientName}-${clientIndex}`} 
-                                className="flex items-center justify-between p-2 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                              >
-                                <span className="font-medium text-sm">{client.clientName}</span>
-                                <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800">
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  {client.travelTimeMinutes}m
-                                </Badge>
+                      <div className="space-y-4">
+                        {/* Best Client Matches */}
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Best Client Matches (within {travelTimeLimit} minutes):
+                          </h5>
+                          <div className="grid gap-2 mt-2">
+                            {emp.bestClientMatches.length > 0 ? (
+                              emp.bestClientMatches.map((client, clientIndex) => (
+                                <div 
+                                  key={`${client.clientName}-${clientIndex}`} 
+                                  className="flex items-center justify-between p-2 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                                >
+                                  <span className="font-medium text-sm">{client.clientName}</span>
+                                  <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {client.travelTimeMinutes}m
+                                  </Badge>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-xs text-gray-600 dark:text-gray-300 p-2 border rounded-lg">
+                                No clients within {travelTimeLimit}-minute travel time
                               </div>
-                            ))
-                          ) : (
-                            <div className="text-xs text-gray-600 dark:text-gray-300 p-2 border rounded-lg">
-                              No clients within {travelTimeLimit}-minute travel time
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
+
+                        {/* Rejected Clients (Travel Time Too Long) */}
+                        {emp.rejectedClients && emp.rejectedClients.length > 0 && (
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                              <AlertTriangle className="w-3 h-3 text-orange-500" />
+                              Clients Beyond Travel Limit ({emp.totalRejectedClients} total):
+                            </h5>
+                            <div className="grid gap-2 mt-2">
+                              {emp.rejectedClients.slice(0, 3).map((client, clientIndex) => (
+                                <div 
+                                  key={`rejected-${client.clientName}-${clientIndex}`} 
+                                  className="flex items-center justify-between p-2 rounded-lg border bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+                                >
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">{client.clientName}</span>
+                                  <Badge variant="outline" className="text-xs bg-orange-100 dark:bg-orange-800">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {client.travelTimeMinutes}m
+                                  </Badge>
+                                </div>
+                              ))}
+                              {emp.totalRejectedClients! > 3 && (
+                                <div className="text-xs text-gray-500 p-2">
+                                  +{emp.totalRejectedClients! - 3} more clients exceed {travelTimeLimit}min limit...
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

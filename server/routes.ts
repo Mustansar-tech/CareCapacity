@@ -899,18 +899,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Process backend optimization: Employee Name + Best Client Matches
       const optimizedSchedule = [];
+      const diagnostics = {
+        employeeIssues: [] as any[],
+        clientIssues: [] as any[],
+        dataQuality: {
+          totalEmployees: employeeData.length,
+          availableEmployees: 0,
+          employeesWithoutGeocode: 0,
+          employeesWithoutPostcode: 0,
+          employeesWithoutTimeWindows: 0,
+          totalClients: clientLocations.length,
+          clientsWithoutGeocode: 0,
+          geocodingAttempts: 0,
+          geocodingSuccesses: 0
+        }
+      };
       
       // Filter employees based on Daily Capacity Summary availability rules ONLY
       for (const empData of employeeData) {
         // Daily Capacity Summary rule: Employee must be Available (not Holiday, Sick, etc.)
         if (empData.status !== 'Available') {
           console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Status: ${empData.status}`);
+          diagnostics.employeeIssues.push({
+            employeeName: empData.employeeName,
+            reason: 'status_unavailable',
+            detail: `Status: ${empData.status}`,
+            severity: 'info'
+          });
           continue;
         }
         
         // Daily Capacity Summary rule: Employee must have time windows
         if (!empData.timeWindows || empData.timeWindows.length === 0) {
           console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - No time windows`);
+          diagnostics.employeeIssues.push({
+            employeeName: empData.employeeName,
+            reason: 'no_time_windows',
+            detail: 'No available time windows for scheduling',
+            severity: 'warning'
+          });
+          diagnostics.dataQuality.employeesWithoutTimeWindows++;
           continue;
         }
         
@@ -918,6 +946,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const empLocation = employeeLocations.find(loc => loc.employeeName === empData.employeeName);
         if (!empLocation || !empLocation.homePostcode) {
           console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - No postcode available`);
+          diagnostics.employeeIssues.push({
+            employeeName: empData.employeeName,
+            reason: 'no_postcode',
+            detail: 'Missing home postcode for location calculation',
+            severity: 'error'
+          });
+          diagnostics.dataQuality.employeesWithoutPostcode++;
           continue;
         }
         
@@ -946,18 +981,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`📍 DEBUG: ${empData.employeeName} geocoded using ${geocodeResult.source} (approximate: ${geocodeResult.approximate})`);
             } else {
               console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Geocoding failed completely`);
+              diagnostics.employeeIssues.push({
+                employeeName: empData.employeeName,
+                reason: 'geocoding_failed',
+                detail: `Failed to geocode postcode: ${empLocation.homePostcode}`,
+                severity: 'error'
+              });
+              diagnostics.dataQuality.employeesWithoutGeocode++;
               continue;
             }
           } catch (err) {
             console.log(`🔍 DEBUG: Skipping ${empData.employeeName} on ${date} - Geocoding error: ${err}`);
+            diagnostics.employeeIssues.push({
+              employeeName: empData.employeeName,
+              reason: 'geocoding_error',
+              detail: `Geocoding error: ${err}`,
+              severity: 'error'
+            });
+            diagnostics.dataQuality.employeesWithoutGeocode++;
             continue;
           }
         }
         
         console.log(`✅ Available: ${empData.employeeName} on ${date} - Status: ${empData.status}, Postcode: ${empLocation.homePostcode}`);
+        diagnostics.dataQuality.availableEmployees++;
+        
+        // Track geocoding attempts and successes
+        if (!empLocation.homeLat || !empLocation.homeLng) {
+          diagnostics.dataQuality.geocodingAttempts++;
+          diagnostics.dataQuality.geocodingSuccesses++; // Incremented here because we successfully geocoded
+        }
         
         // Backend processing: Calculate best client matches within 15-minute travel constraint
         const bestClientMatches = [];
+        const rejectedClients = [];
         
         for (const client of clientLocations) {
           // Check if client is geocoded, try fallback if needed
@@ -986,10 +1043,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`📍 DEBUG: Client ${client.clientName} geocoded using ${geocodeResult.source} (approximate: ${geocodeResult.approximate})`);
               } else {
                 console.log(`🔍 DEBUG: Skipping client ${client.clientName} - Geocoding failed completely`);
+                diagnostics.clientIssues.push({
+                  clientName: client.clientName,
+                  reason: 'geocoding_failed',
+                  detail: `Failed to geocode postcode: ${client.postcode}`,
+                  severity: 'error'
+                });
+                diagnostics.dataQuality.clientsWithoutGeocode++;
                 continue;
               }
             } catch (err) {
               console.log(`🔍 DEBUG: Skipping client ${client.clientName} - Geocoding error: ${err}`);
+              diagnostics.clientIssues.push({
+                clientName: client.clientName,
+                reason: 'geocoding_error',
+                detail: `Geocoding error: ${err}`,
+                severity: 'error'
+              });
+              diagnostics.dataQuality.clientsWithoutGeocode++;
               continue;
             }
           }
@@ -1011,6 +1082,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               clientName: client.clientName,
               travelTimeMinutes: travelTimeMinutes
             });
+          } else {
+            rejectedClients.push({
+              clientName: client.clientName,
+              travelTimeMinutes: travelTimeMinutes,
+              reason: 'travel_time_exceeded'
+            });
           }
         }
         
@@ -1019,21 +1096,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .sort((a, b) => a.travelTimeMinutes - b.travelTimeMinutes)
           .slice(0, 3);
         
-        // Add to optimized schedule (simple backend response)
+        // Add to optimized schedule (enhanced backend response with diagnostics)
         optimizedSchedule.push({
           employeeName: empData.employeeName,
           postcode: empLocation.homePostcode,
-          bestClientMatches: topMatches
+          bestClientMatches: topMatches,
+          rejectedClients: rejectedClients.slice(0, 5), // Show top 5 rejected for insights
+          totalRejectedClients: rejectedClients.length
         });
         
-        console.log(`✅ ${empData.employeeName}: ${topMatches.length} client matches within 15 minutes`);
+        console.log(`✅ ${empData.employeeName}: ${topMatches.length} client matches within 15 minutes, ${rejectedClients.length} rejected`);
       }
       
-      // Return simple backend-processed data: Employee Name + Best Client Matches
+      // Count clients without geocoding from initial data
+      diagnostics.dataQuality.clientsWithoutGeocode = clientLocations.filter(client => !client.lat || !client.lng).length;
+      
+      // Return enhanced backend-processed data: Employee Name + Best Client Matches + Diagnostics
       res.json({
         date,
         totalAvailableEmployees: optimizedSchedule.length,
-        employees: optimizedSchedule
+        employees: optimizedSchedule,
+        diagnostics: diagnostics
       });
       
     } catch (error) {
