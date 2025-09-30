@@ -258,35 +258,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/visits/:date - Get client visits for a specific date from Excel
-  app.get('/api/visits/:date', async (req, res) => {
+  // Get visits for a specific date for scheduling
+  app.get("/api/visits/:date", async (req, res) => {
     try {
       const { date } = req.params;
+      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
 
-      // Validate date format (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(date)) {
-        return res.status(400).json({
-          message: 'Invalid date format. Use YYYY-MM-DD'
-        });
-      }
-
-      if (!latestGuaranteedBuffer) {
-        return res.status(404).json({
-          message: 'No Guaranteed Hours data available. Please upload files first.'
-        });
-      }
-
+      // Dynamically import the function to avoid circular dependencies or unnecessary loads
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
       const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
-
       res.json(visits);
     } catch (error) {
-      console.error('Visits fetch error:', error);
-      res.status(500).json({
-        message: 'Failed to fetch visits for date'
-      });
+      console.error("Error extracting visits:", error);
+      res.status(500).json({ error: "Failed to extract visits" });
+    }
+  });
+
+  // Auto-schedule a single day
+  app.post("/api/schedule/auto-day", async (req, res) => {
+    try {
+      const { date } = req.body;
+
+      if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+      }
+
+      const { autoScheduler } = await import("./auto-scheduler");
+      const schedule = await autoScheduler.scheduleDay(date);
+
+      res.json(schedule);
+    } catch (error) {
+      console.error("Error auto-scheduling day:", error);
+      res.status(500).json({ error: "Failed to auto-schedule day" });
+    }
+  });
+
+  // Auto-schedule entire week
+  app.post("/api/schedule/auto-week", async (req, res) => {
+    try {
+      const { startDate } = req.body;
+
+      if (!startDate) {
+        return res.status(400).json({ error: "Start date is required" });
+      }
+
+      const { autoScheduler } = await import("./auto-scheduler");
+      const weekSchedule = await autoScheduler.scheduleWeek(startDate);
+
+      res.json(weekSchedule);
+    } catch (error) {
+      console.error("Error auto-scheduling week:", error);
+      res.status(500).json({ error: "Failed to auto-schedule week" });
+    }
+  });
+
+  // Get weekly schedule
+  app.get("/api/schedule/week/:startDate", async (req, res) => {
+    try {
+      const { startDate } = req.params;
+
+      const { autoScheduler } = await import("./auto-scheduler");
+      const weekSchedule = await autoScheduler.scheduleWeek(startDate);
+
+      res.json(weekSchedule);
+    } catch (error) {
+      console.error("Error getting weekly schedule:", error);
+      res.status(500).json({ error: "Failed to get weekly schedule" });
     }
   });
 
