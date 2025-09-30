@@ -57,8 +57,8 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   // Build employee run for selected employee
   const employeeRun: EmployeeRun | null = selectedEmp && selectedEmployee ? {
     visits: assignedVisits[selectedEmployee] || [],
-    homeLat: 55.9533, // Default Glasgow coordinates (would geocode from postcode in production)
-    homeLng: -3.1883,
+    homeLat: data?.employeeLocations?.find(e => e.name === selectedEmployee)?.lat || 55.9533,
+    homeLng: data?.employeeLocations?.find(e => e.name === selectedEmployee)?.lng || -3.1883,
     mode: selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking',
   } : null;
 
@@ -79,13 +79,17 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   // Get top matches for selected employee
   const topMatches = employeeRun && unallocatedVisits.length > 0
     ? getTopMatches(
-        unallocatedVisits.map(v => ({
-          clientName: v.clientName,
-          start: parseInt(v.startTime.split(':')[0]) * 60 + parseInt(v.startTime.split(':')[1]),
-          end: parseInt(v.endTime.split(':')[0]) * 60 + parseInt(v.endTime.split(':')[1]),
-          lat: 55.9533, // Would geocode from postcode in production
-          lng: -3.1883,
-        })),
+        unallocatedVisits.map(v => {
+          // Find client coordinates from data
+          const clientData = data?.clientLocations?.find(c => c.name === v.clientName);
+          return {
+            clientName: v.clientName,
+            start: parseInt(v.startTime.split(':')[0]) * 60 + parseInt(v.startTime.split(':')[1]),
+            end: parseInt(v.endTime.split(':')[0]) * 60 + parseInt(v.endTime.split(':')[1]),
+            lat: clientData?.lat || 55.9533, // Use actual coordinates or fallback
+            lng: clientData?.lng || -3.1883,
+          };
+        }),
         employeeRun,
         timeWindows,
         5
@@ -105,8 +109,8 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
       clientName: visit.clientName,
       start: parseInt(visit.startTime.split(':')[0]) * 60 + parseInt(visit.startTime.split(':')[1]),
       end: parseInt(visit.endTime.split(':')[0]) * 60 + parseInt(visit.endTime.split(':')[1]),
-      lat: 55.9533,
-      lng: -3.1883,
+      lat: data?.clientLocations?.find(c => c.name === visit.clientName)?.lat || 55.9533,
+      lng: data?.clientLocations?.find(c => c.name === visit.clientName)?.lng || -3.1883,
     };
 
     // Check feasibility using scoreVisitMatch (which includes feasibility validation)
