@@ -258,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/visits/:date - Get client visits for a specific date from Excel
+  // GET /api/visits/:date - Get client visits for a specific date from database
   app.get('/api/visits/:date', async (req, res) => {
     try {
       const { date } = req.params;
@@ -271,17 +271,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (!latestGuaranteedBuffer) {
-        return res.status(404).json({
-          message: 'No Guaranteed Hours data available. Please upload files first.'
-        });
-      }
+      // Get visits from database
+      const visits = await storage.getVisitsByDate(date);
+      
+      // Convert database visits to the format expected by the frontend
+      const clientLocations = await storage.getAllClientLocations();
+      const formattedVisits = await Promise.all(visits.map(async (visit) => {
+        const client = clientLocations.find(c => c.id === visit.clientId);
+        if (!client) return null;
 
-      const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
-      const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
-      const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
+        // Extract time from preferredStartTime and preferredEndTime
+        const startTime = visit.preferredStartTime ? 
+          new Date(visit.preferredStartTime).toTimeString().slice(0, 5) : '09:00';
+        const endTime = visit.preferredEndTime ? 
+          new Date(visit.preferredEndTime).toTimeString().slice(0, 5) : '10:00';
 
-      res.json(visits);
+        return {
+          clientName: client.clientName,
+          startTime,
+          endTime,
+          durationMinutes: visit.durationMinutes,
+          address: client.addressLine,
+          postcode: client.postcode,
+        };
+      }));
+
+      // Filter out null values
+      const validVisits = formattedVisits.filter(v => v !== null);
+
+      res.json(validVisits);
     } catch (error) {
       console.error('Visits fetch error:', error);
       res.status(500).json({
@@ -312,7 +330,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: 'No historical data found'
         });
       }
-      res.json(analysis);
+
+      // Add geographical data to historical analysis
+      const employeeLocations = await storage.getAllEmployeeLocations();
+      const clientLocations = await storage.getAllClientLocations();
+
+      const enrichedAnalysis = {
+        ...analysis,
+        employeeLocations: employeeLocations.map(emp => ({
+          name: emp.employeeName,
+          lat: emp.homeLat ? parseFloat(emp.homeLat) : null,
+          lng: emp.homeLng ? parseFloat(emp.homeLng) : null,
+          transportMode: emp.transportMode,
+        })),
+        clientLocations: clientLocations.map(client => ({
+          name: client.clientName,
+          lat: client.lat ? parseFloat(client.lat) : null,
+          lng: client.lng ? parseFloat(client.lng) : null,
+          address: client.addressLine,
+          postcode: client.postcode,
+        }))
+      };
+
+      res.json(enrichedAnalysis);
     } catch (error) {
       console.error('Latest history fetch error:', error);
       res.status(500).json({
