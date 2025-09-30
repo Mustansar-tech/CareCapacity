@@ -90,6 +90,27 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
 
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  // Helper function to parse time windows
+  const parseTimeWindows = (windows: string): Array<{ start: number; end: number }> => {
+    if (!windows) return [];
+    
+    const timeRanges = windows.split(',').map(w => w.trim()).filter(w => w);
+    return timeRanges.map(range => {
+      const match = range.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+      if (!match) return null;
+      
+      const startHour = parseInt(match[1]);
+      const startMin = parseInt(match[2]);
+      const endHour = parseInt(match[3]);
+      const endMin = parseInt(match[4]);
+      
+      return {
+        start: startHour * 60 + startMin,
+        end: endHour * 60 + endMin,
+      };
+    }).filter((w): w is { start: number; end: number } => w !== null);
+  };
+
   // Generate weekly data from processed data directly
   const weeklyData = React.useMemo(() => {
     if (!data || !data.dailySummary) return null;
@@ -186,27 +207,6 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
 
     return weeklyDataResult;
   }, [data, weekStartDate]);
-
-  // Helper function to parse time windows
-  const parseTimeWindows = (windows: string): Array<{ start: number; end: number }> => {
-    if (!windows) return [];
-    
-    const timeRanges = windows.split(',').map(w => w.trim()).filter(w => w);
-    return timeRanges.map(range => {
-      const match = range.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
-      if (!match) return null;
-      
-      const startHour = parseInt(match[1]);
-      const startMin = parseInt(match[2]);
-      const endHour = parseInt(match[3]);
-      const endMin = parseInt(match[4]);
-      
-      return {
-        start: startHour * 60 + startMin,
-        end: endHour * 60 + endMin,
-      };
-    }).filter((w): w is { start: number; end: number } => w !== null);
-  };
 
   const isLoading = false;
   const error = null;
