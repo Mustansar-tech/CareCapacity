@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,6 +83,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
