@@ -1035,7 +1035,7 @@ export async function parseExcelFiles(
   // Clear old visits data before generating new visits to prevent accumulation
   console.log(`🧹 Clearing old visits data before generating new visits...`);
   await storage.clearAllVisits();
-  
+
   // Generate client visits from demand data (Hours by Service Type)
   const analysisStartDate = new Date(); // Use current date as start
   await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
@@ -2234,6 +2234,28 @@ export async function processCapacityData(
     );
   });
 
+  // === ALL VISIT DATA EXTRACTION NOW MOVED TO extractAndStoreGeographicalData ===
+  // The original loop that created visits from 'guaranteed' data has been removed
+  // and replaced with a comment indicating that the new extraction is handled elsewhere.
+  const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
+  const visitsByDate = new Map<string, any[]>(); // Placeholder
+  const CLIENT_COLS = [
+    'Service Location Name', 
+    'Client Name', 
+    'Service User Name', 
+    'Customer Name'
+  ];
+
+  // Note: Visit extraction is now handled above using the excel-visit-extractor
+  // This ensures we get exact client names and times from the Excel file
+
+
+  // Re-sort after injection
+  Object.values(employeesByDate).forEach((employees) => {
+    employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  });
+
+
   const result = {
     kpis,
     dailySummary,
@@ -2349,8 +2371,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       // Prioritize 'Service Location Name' as the client identifier
       const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
       const serviceLocationAddress = row["Service Location Address"];
-
-      console.log(`🔍 DEBUG: Processing row - Service Location Name: "${row["Service Location Name"]}", Service Location Address: "${row["Service Location Address"]}", Client Name: "${clientName}"`);;
 
       // Try to extract postcode from the address if possible
       let postcode = "";
@@ -2522,7 +2542,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     // Extract visit data for route optimization using Planned Start/End Date And Time
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
-    
+
     // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
     const CLIENT_COLS = [
       'Service Location Name', // Prioritized as per the user request
@@ -2541,7 +2561,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
       const serviceLocationAddress = row["Service Location Address"];
-      
+
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
       const plannedEndTime = row["Planned End Date And Time"];
@@ -2573,7 +2593,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               // Extract time windows for VRPTW optimizer
               const startDate = parseDate(visitStart);
               // Ensure end date is valid, default to start date + duration if missing
-              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + duration * 60000);
+              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + 
+                duration * 60000);
 
               // Convert to minutes since midnight for optimizer
               const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
