@@ -1,0 +1,51 @@
+[vite] connecting...
+[vite] connected.
+Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/badge.tsx:35:18)
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-EVLBUYTV.js?v=0e3e9a22:79:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-EVLBUYTV.js?v=0e3e9a22:56:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BOL2CCOG.js?v=0e3e9a22:42:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-EVLBUYTV.js?v=0e3e9a22:79:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-EVLBUYTV.js?v=0e3e9a22:56:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BOL2CCOG.js?v=0e3e9a22:42:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LWWEURRJ.js?v=0e3e9a22:1929:13
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-popover.js?v=0e3e9a22:115:13
+    at Provider (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=0e3e9a22:38:15)
+    at Provider (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=0e3e9a22:38:15)
+    at Popper (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LWWEURRJ.js?v=0e3e9a22:1921:11)
+    at Popover (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-popover.js?v=0e3e9a22:64:5)
+    at div
+    at FlexibleTimeWindow (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/flexible-time-window.tsx:25:3)
+    at td
+    at _c13 (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/table.tsx:152:13)
+    at tr
+    at _c9 (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/table.tsx:102:12)
+    at tbody
+    at _c5 (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/table.tsx:55:12)
+    at table
+    at div
+    at _c (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/table.tsx:20:11)
+    at div
+    at div
+    at _c9 (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BOL2CCOG.js?v=0e3e9a22:42:13
+    at Presence (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-TBV7QY7X.js?v=0e3e9a22:24:11)
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=0e3e9a22:387:13
+    at _c5 (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/components/ui/tabs.tsx:72:12)
+    at div
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-BOL2CCOG.js?v=0e3e9a22:42:13
+    at Provider (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=0e3e9a22:38:15)
+    at https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=0e3e9a22:265:7
+    at div
+    at div
+    at div
+    at Dashboard (https://f111f999-5923-4927-b1a6-82fa47fe9a5b-00-31gtcnbbujc90.picard.replit.dev/src/pages/dashboard.tsx:98:29)
+    at Route…
+Processing error: 
+ReferenceError {}
+
