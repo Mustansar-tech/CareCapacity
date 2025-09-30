@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,7 +197,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
       const employees: EmployeeSchedule[] = availableEmployees.map(emp => {
         const empLocation = data.employeeLocations?.find(e => e.employeeName === emp.employeeName);
         const timeWindows = emp.timeWindows ? parseTimeWindows(emp.timeWindows) : [];
-        
+
         return {
           employeeName: emp.employeeName,
           homeLat: empLocation?.homeLat ? Number(empLocation.homeLat) : 55.9533,
@@ -217,7 +216,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
       // Transform visits
       const visits: Visit[] = dayVisits.map((v: any) => {
         const clientLocation = data.clientLocations?.find(c => c.clientName === v.clientName);
-        
+
         return {
           id: v.id || `${v.clientName}-${date}`,
           clientName: v.clientName,
@@ -253,7 +252,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
     // This would implement the actual route optimization logic
     // For now, return a simplified version
     const updatedEmployee = { ...employee };
-    
+
     // Calculate travel time from previous visit or home
     let travelTimeBefore = 0;
     if (preferredIndex === 0) {
@@ -302,7 +301,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
 
     // Insert visit at preferred index
     updatedEmployee.visits.splice(preferredIndex, 0, assignedVisit);
-    
+
     // Recalculate metrics
     updatedEmployee.totalTravelTime = updatedEmployee.visits.reduce(
       (sum, v) => sum + v.travelTimeBefore + v.travelTimeAfter, 0
@@ -391,7 +390,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
     const avgRouteEfficiency = days.length > 0
       ? Math.round(days.reduce((sum, day) => sum + day.metrics.routeEfficiency, 0) / days.length)
       : 0;
-    
+
     return {
       totalAssigned,
       totalUnassigned,
@@ -437,27 +436,32 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Route className="h-5 w-5" />
-              Weekly Route-Optimized Scheduling
+              <span className="bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+                Weekly Best Matches Scheduling
+              </span>
+              <p className="text-sm text-gray-600 dark:text-gray-300 font-normal mt-1">
+                Future scheduling using the proven best matches algorithm from the scheduling tab
+              </p>
             </CardTitle>
-            
+
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => navigateWeek('prev')}>
                 ← Previous Week
               </Button>
-              
+
               <Input
                 type="date"
                 value={weekStartDate}
                 onChange={(e) => setWeekStartDate(e.target.value)}
                 className="w-40"
               />
-              
+
               <Button variant="outline" onClick={() => navigateWeek('next')}>
                 Next Week →
               </Button>
-              
+
               <Separator orientation="vertical" className="h-6" />
-              
+
               <Button
                 onClick={handleAutoScheduleWeek}
                 disabled={autoScheduleMutation.isPending}
@@ -473,7 +477,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
             </div>
           </div>
         </CardHeader>
-        
+
         {/* Optimization Settings */}
         <CardContent>
           <div className="grid grid-cols-3 gap-4 mb-4">
@@ -555,7 +559,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
           <TabsTrigger value="employee">Employee View</TabsTrigger>
           <TabsTrigger value="unassigned">Unassigned Visits</TabsTrigger>
         </TabsList>
-        
+
         {/* Grid View - Shows all employees across all days */}
         <TabsContent value="grid">
           <Card>
@@ -584,12 +588,12 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                       </Button>
                     </div>
                   ))}
-                  
+
                   {/* Employee rows */}
                   {allEmployees.map(employeeName => {
                     const employeeInfo = data?.employeeLocations?.find(e => e.employeeName === employeeName);
                     const transportMode = employeeInfo?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking';
-                    
+
                     return (
                       <React.Fragment key={employeeName}>
                         <div className="p-2 border-r">
@@ -607,11 +611,11 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                             {employeeName}
                           </div>
                         </div>
-                        
+
                         {weekDates.map(date => {
                           const daySchedule = weeklySchedules[date];
                           const employee = daySchedule?.employees.find(e => e.employeeName === employeeName);
-                          
+
                           return (
                             <div key={date} className="p-2 border min-h-[120px]">
                               {employee ? (
@@ -620,7 +624,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                     <span>{employee.visits.length} visits</span>
                                     <span className="text-blue-600">{employee.utilizationPercent}%</span>
                                   </div>
-                                  
+
                                   {employee.visits.map((visit, idx) => (
                                     <div key={idx} className="text-xs p-1 bg-green-50 rounded border-l-2 border-green-500">
                                       <div className="font-medium truncate">{visit.clientName}</div>
@@ -642,7 +646,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                       </div>
                                     </div>
                                   ))}
-                                  
+
                                   {employee.totalTravelTime > 0 && (
                                     <div className="text-xs text-orange-600 mt-1">
                                       Travel: {employee.totalTravelTime}m
@@ -665,7 +669,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         {/* Employee View */}
         <TabsContent value="employee">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -683,7 +687,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                     {allEmployees.map(employeeName => {
                       const employeeInfo = data?.employeeLocations?.find(e => e.employeeName === employeeName);
                       const transportMode = employeeInfo?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking';
-                      
+
                       // Calculate weekly stats
                       const weeklyVisits = weekDates.reduce((total, date) => {
                         const daySchedule = weeklySchedules[date];
@@ -721,7 +725,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                 </ScrollArea>
               </CardContent>
             </Card>
-            
+
             {/* Employee Weekly Detail */}
             <Card className="lg:col-span-3">
               <CardHeader>
@@ -735,7 +739,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                     {weekDates.map((date, index) => {
                       const daySchedule = weeklySchedules[date];
                       const employee = daySchedule?.employees.find(e => e.employeeName === selectedEmployeeName);
-                      
+
                       return (
                         <Card key={date} className="border-l-4 border-l-blue-500">
                           <CardHeader className="pb-3">
@@ -746,7 +750,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                   {new Date(date).toLocaleDateString()}
                                 </Badge>
                               </div>
-                              
+
                               {employee && (
                                 <div className="flex items-center gap-4 text-sm">
                                   <span className="flex items-center gap-1">
@@ -765,7 +769,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                               )}
                             </div>
                           </CardHeader>
-                          
+
                           <CardContent>
                             {employee && employee.visits.length > 0 ? (
                               <div className="space-y-3">
@@ -781,7 +785,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                   ))}
                                   <span>→ Home</span>
                                 </div>
-                                
+
                                 {employee.visits.map((visit, idx) => (
                                   <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                     <div className="flex-1">
@@ -790,7 +794,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                         {visit.serviceType}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="text-right">
                                       <div className="text-sm font-medium">
                                         {minutesToTime(visit.actualStartTime)} - {minutesToTime(visit.actualEndTime)}
@@ -802,7 +806,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                         )}
                                       </div>
                                     </div>
-                                    
+
                                     <Badge 
                                       variant="outline"
                                       className={visit.score > 0.7 ? "border-green-500 text-green-700" : 
@@ -847,9 +851,9 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                 {weekDates.map(date => {
                   const daySchedule = weeklySchedules[date];
                   const unassignedVisits = daySchedule?.unassignedVisits || [];
-                  
+
                   if (unassignedVisits.length === 0) return null;
-                  
+
                   return (
                     <Card key={date}>
                       <CardHeader>
@@ -874,7 +878,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                     Priority {visit.priority}
                                   </Badge>
                                 </div>
-                                
+
                                 <div className="text-sm text-muted-foreground mb-3">
                                   <div className="flex items-center gap-1">
                                     <Clock className="h-3 w-3" />
@@ -885,7 +889,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                     {visit.lat && visit.lng ? 'Located' : 'Location unknown'}
                                   </div>
                                 </div>
-                                
+
                                 {/* Show best employee matches */}
                                 <div className="space-y-1">
                                   <div className="text-xs font-medium">Best matches:</div>
@@ -895,7 +899,7 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                                       { lat: visit.lat, lng: visit.lng },
                                       emp.transportMode
                                     ) : 0;
-                                    
+
                                     return (
                                       <div key={emp.employeeName} className="flex items-center justify-between text-xs">
                                         <span className="truncate">{emp.employeeName}</span>
