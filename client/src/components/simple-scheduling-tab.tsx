@@ -64,18 +64,18 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
 
   // Build employee run for selected employee
   const employeeRun: EmployeeRun | null = selectedEmp && selectedEmployee ? (() => {
-    const empLocation = data?.employeeLocations?.find(e => e.name === selectedEmployee);
-    const empLat = empLocation?.lat ? Number(empLocation.lat) : 55.9533;
-    const empLng = empLocation?.lng ? Number(empLocation.lng) : -3.1883;
+    // Use default Edinburgh coordinates (location data not yet available in ProcessingResult)
+    const empLat = 55.9533;
+    const empLng = -3.1883;
 
-    // Determine transport mode more accurately
+    // Determine transport mode from employee summary
     const transportMode = selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
                          selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'walking';
 
     return {
       visits: assignedVisits[selectedEmployee] || [],
-      homeLat: Number.isFinite(empLat) ? empLat : 55.9533,
-      homeLng: Number.isFinite(empLng) ? empLng : -3.1883,
+      homeLat: empLat,
+      homeLng: empLng,
       mode: transportMode as 'car' | 'walking' | 'public',
     };
   })() : null;
@@ -98,21 +98,17 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const topMatches = employeeRun && unallocatedVisits.length > 0
     ? getTopMatches(
         unallocatedVisits.map(v => {
-          // Find client coordinates from data with proper validation
-          const clientData = data?.clientLocations?.find(c => c.name === v.clientName);
-          const clientLat = clientData?.lat ? Number(clientData.lat) : 55.9533;
-          const clientLng = clientData?.lng ? Number(clientData.lng) : -3.1883;
+          // Use default coordinates (location data not yet available in ProcessingResult)
+          const clientLat = 55.9533;
+          const clientLng = -3.1883;
 
           return {
             clientName: v.clientName,
             start: parseInt(v.startTime.split(':')[0]) * 60 + parseInt(v.startTime.split(':')[1]),
             end: parseInt(v.endTime.split(':')[0]) * 60 + parseInt(v.endTime.split(':')[1]),
-            lat: Number.isFinite(clientLat) ? clientLat : 55.9533,
-            lng: Number.isFinite(clientLng) ? clientLng : -3.1883,
+            lat: clientLat,
+            lng: clientLng,
           };
-        }).filter(v => {
-          // Filter out visits with invalid coordinates
-          return Number.isFinite(v.lat) && Number.isFinite(v.lng);
         }),
         employeeRun,
         timeWindows,
@@ -129,17 +125,16 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
     );
     if (!visit) return;
 
-    // Find client coordinates with proper validation
-    const clientLocation = data?.clientLocations?.find(c => c.name === visit.clientName);
-    const clientLat = clientLocation?.lat ? Number(clientLocation.lat) : 55.9533;
-    const clientLng = clientLocation?.lng ? Number(clientLocation.lng) : -3.1883;
+    // Use default coordinates (location data not yet available in ProcessingResult)
+    const clientLat = 55.9533;
+    const clientLng = -3.1883;
 
     const visitData: AssignedVisit = {
       clientName: visit.clientName,
       start: parseInt(visit.startTime.split(':')[0]) * 60 + parseInt(visit.startTime.split(':')[1]),
       end: parseInt(visit.endTime.split(':')[0]) * 60 + parseInt(visit.endTime.split(':')[1]),
-      lat: Number.isFinite(clientLat) ? clientLat : 55.9533,
-      lng: Number.isFinite(clientLng) ? clientLng : -3.1883,
+      lat: clientLat,
+      lng: clientLng,
     };
 
     // Check feasibility using scoreVisitMatch (which includes feasibility validation)
