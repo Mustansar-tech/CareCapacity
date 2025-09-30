@@ -62,12 +62,22 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const selectedEmpSummary = employeeSummary.find(e => e.employeeName === selectedEmployee);
 
   // Build employee run for selected employee
-  const employeeRun: EmployeeRun | null = selectedEmp && selectedEmployee ? {
-    visits: assignedVisits[selectedEmployee] || [],
-    homeLat: data?.employeeLocations?.find(e => e.name === selectedEmployee)?.lat || 55.9533,
-    homeLng: data?.employeeLocations?.find(e => e.name === selectedEmployee)?.lng || -3.1883,
-    mode: selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking',
-  } : null;
+  const employeeRun: EmployeeRun | null = selectedEmp && selectedEmployee ? (() => {
+    const empLocation = data?.employeeLocations?.find(e => e.name === selectedEmployee);
+    const empLat = empLocation?.lat ? Number(empLocation.lat) : 55.9533;
+    const empLng = empLocation?.lng ? Number(empLocation.lng) : -3.1883;
+    
+    // Determine transport mode more accurately
+    const transportMode = selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
+                         selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'walking';
+    
+    return {
+      visits: assignedVisits[selectedEmployee] || [],
+      homeLat: Number.isFinite(empLat) ? empLat : 55.9533,
+      homeLng: Number.isFinite(empLng) ? empLng : -3.1883,
+      mode: transportMode as 'car' | 'walking' | 'public',
+    };
+  })() : null;
 
   // Parse time windows for selected employee
   const timeWindows = selectedEmp ? parseTimeWindows(selectedEmp.timeWindows) : [];
@@ -87,15 +97,21 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const topMatches = employeeRun && unallocatedVisits.length > 0
     ? getTopMatches(
         unallocatedVisits.map(v => {
-          // Find client coordinates from data
+          // Find client coordinates from data with proper validation
           const clientData = data?.clientLocations?.find(c => c.name === v.clientName);
+          const clientLat = clientData?.lat ? Number(clientData.lat) : 55.9533;
+          const clientLng = clientData?.lng ? Number(clientData.lng) : -3.1883;
+          
           return {
             clientName: v.clientName,
             start: parseInt(v.startTime.split(':')[0]) * 60 + parseInt(v.startTime.split(':')[1]),
             end: parseInt(v.endTime.split(':')[0]) * 60 + parseInt(v.endTime.split(':')[1]),
-            lat: clientData?.lat || 55.9533, // Use actual coordinates or fallback
-            lng: clientData?.lng || -3.1883,
+            lat: Number.isFinite(clientLat) ? clientLat : 55.9533,
+            lng: Number.isFinite(clientLng) ? clientLng : -3.1883,
           };
+        }).filter(v => {
+          // Filter out visits with invalid coordinates
+          return Number.isFinite(v.lat) && Number.isFinite(v.lng);
         }),
         employeeRun,
         timeWindows,
@@ -112,12 +128,17 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
     );
     if (!visit) return;
 
+    // Find client coordinates with proper validation
+    const clientLocation = data?.clientLocations?.find(c => c.name === visit.clientName);
+    const clientLat = clientLocation?.lat ? Number(clientLocation.lat) : 55.9533;
+    const clientLng = clientLocation?.lng ? Number(clientLocation.lng) : -3.1883;
+
     const visitData: AssignedVisit = {
       clientName: visit.clientName,
       start: parseInt(visit.startTime.split(':')[0]) * 60 + parseInt(visit.startTime.split(':')[1]),
       end: parseInt(visit.endTime.split(':')[0]) * 60 + parseInt(visit.endTime.split(':')[1]),
-      lat: data?.clientLocations?.find(c => c.name === visit.clientName)?.lat || 55.9533,
-      lng: data?.clientLocations?.find(c => c.name === visit.clientName)?.lng || -3.1883,
+      lat: Number.isFinite(clientLat) ? clientLat : 55.9533,
+      lng: Number.isFinite(clientLng) ? clientLng : -3.1883,
     };
 
     // Check feasibility using scoreVisitMatch (which includes feasibility validation)
@@ -298,18 +319,36 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                           return null; // Skip rendering this match if data is missing
                         }
 
-                        const empLocation = { lat: employeeLocation.lat, lng: employeeLocation.lng };
-                        const clientLocationCoords = { lat: clientLocation.lat, lng: clientLocation.lng };
+                        // Parse coordinates as numbers and validate
+                        const empLat = Number(employeeLocation.lat);
+                        const empLng = Number(employeeLocation.lng);
+                        const clientLat = Number(clientLocation.lat);
+                        const clientLng = Number(clientLocation.lng);
+
+                        // Validate coordinates are valid numbers
+                        if (!Number.isFinite(empLat) || !Number.isFinite(empLng) || 
+                            !Number.isFinite(clientLat) || !Number.isFinite(clientLng)) {
+                          console.warn(`Invalid coordinates: emp(${empLat}, ${empLng}) client(${clientLat}, ${clientLng})`);
+                          return null;
+                        }
+
+                        const empLocation = { lat: empLat, lng: empLng };
+                        const clientLocationCoords = { lat: clientLat, lng: clientLng };
+                        
+                        // Determine transport mode from employeeSummary (more accurate)
+                        const transportMode = selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
+                                            selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'car';
                         
                         const travelMinutes = getTravelMinutes(
                             empLocation,
                             clientLocationCoords,
-                            selectedEmpSummary?.transportMode || 'car'
+                            transportMode as 'car' | 'walking' | 'public'
                           );
 
                           console.log(`🔍 Frontend travel calc: ${selectedEmployee} -> ${visit.clientName}: ${travelMinutes}min`);
                           console.log(`  Emp coords: ${empLocation.lat}, ${empLocation.lng}`);
                           console.log(`  Client coords: ${clientLocationCoords.lat}, ${clientLocationCoords.lng}`);
+                          console.log(`  Transport mode: ${transportMode}`);
 
                         return (
                           <Card key={idx}>
