@@ -35,6 +35,9 @@ const upload = multer({
 // Store the latest processed data and export file
 let latestExportBuffer: Buffer | null = null;
 
+// Store Guaranteed Hours Excel buffer for extracting real client visit times
+let latestGuaranteedBuffer: Buffer | null = null;
+
 // Helper function to normalize file names by removing browser download numbers
 function normalizeFileName(fileName: string): string {
   // Remove numbers in parentheses that browsers add for duplicate downloads
@@ -179,6 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Store for export endpoint
       latestExportBuffer = exportBuffer;
+      
+      // Store Guaranteed Hours buffer for real-time visit extraction
+      latestGuaranteedBuffer = guaranteedFile.buffer;
 
       // Save Excel file to disk
       const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
@@ -1293,15 +1299,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const bestClientMatches = [];
         const rejectedClients = [];
         
-        // Get all visits for this date to check client visit times
+        // Extract real client visit times directly from Guaranteed Hours Excel file
         console.log(`🔍 EMPLOYEE DEBUG: Starting client matching for ${empData.employeeName}`);
-        let visitsForDate: any[] = [];
-        try {
-          visitsForDate = await storage.getVisitsByDate(date);
-          console.log(`🔍 VISITS DEBUG: Found ${visitsForDate.length} total visits for ${date}`);
-        } catch (error) {
-          console.log(`🔍 ERROR: Failed to get visits for ${date}:`, error);
-          visitsForDate = [];
+        let clientVisits: Array<{clientName: string; startTime: string; endTime: string; durationMinutes: number}> = [];
+        
+        // Get Guaranteed Hours buffer and extract real visit times
+        const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
+        if (latestGuaranteedBuffer) {
+          try {
+            const parsedDate = new Date(date);
+            clientVisits = extractClientVisitsFromGHExcel(
+              latestGuaranteedBuffer,
+              parsedDate
+            );
+            console.log(`📋 EXCEL VISITS: Extracted ${clientVisits.length} visits with REAL times from Guaranteed Hours Excel for ${date}`);
+          } catch (error) {
+            console.log(`❌ ERROR: Failed to extract visits from Excel:`, error);
+            clientVisits = [];
+          }
+        } else {
+          console.log(`⚠️ WARNING: No Guaranteed Hours buffer found - please upload files first`);
         }
         
         // Create a map to avoid duplicate processing
@@ -1326,9 +1343,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Check if client has visits scheduled for this date - only check once
-          const clientVisits = visitsForDate.filter(visit => visit.clientId === client.id);
-          if (clientVisits.length === 0) {
+          // Check if client has visits scheduled for this date from Excel data
+          const thisClientVisits = clientVisits.filter(v => 
+            v.clientName.toLowerCase().trim() === client.clientName.toLowerCase().trim()
+          );
+          if (thisClientVisits.length === 0) {
+            console.log(`🔍 DEBUG: Skipping client ${client.clientName} - No visits scheduled for ${date}`);
             rejectedClients.push({
               clientName: client.clientName,
               travelTimeMinutes: 0,
@@ -1358,7 +1378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Check time window overlap - optimized logic
+          // Check time window overlap using REAL Excel visit times
           let hasTimeOverlap = false;
           
           // Parse employee time windows once
@@ -1367,33 +1387,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : [empData.timeWindows];
           
           const parsedEmpWindows = employeeTimeWindows
-            .filter(tw => tw && typeof tw === 'string')
-            .map(tw => {
+            .filter((tw: any) => tw && typeof tw === 'string')
+            .map((tw: any) => {
               const timeMatch = tw.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/);
               return timeMatch ? {
                 start: timeToMinutes(timeMatch[1]),
                 end: timeToMinutes(timeMatch[2])
               } : null;
             })
-            .filter(Boolean);
+            .filter(Boolean) as Array<{start: number; end: number}>;
           
-          // Check each visit for time overlap
-          for (const visit of clientVisits) {
-            if (!visit.preferredStartTime || !visit.preferredEndTime) {
-              hasTimeOverlap = true;
-              break;
-            }
+          console.log(`🕐 TIME DEBUG: Checking ${client.clientName} for ${empData.employeeName}`);
+          console.log(`🕐 Employee time windows: ${parsedEmpWindows.map((w: {start: number; end: number}) => `${Math.floor(w.start/60).toString().padStart(2,'0')}:${(w.start%60).toString().padStart(2,'0')}-${Math.floor(w.end/60).toString().padStart(2,'0')}:${(w.end%60).toString().padStart(2,'0')}`).join(', ')}`);
+          
+          // Check each visit for time overlap using REAL Excel times
+          for (const visit of thisClientVisits) {
+            const visitStart = timeToMinutes(visit.startTime);
+            const visitEnd = timeToMinutes(visit.endTime);
             
-            const visitStartTime = visit.preferredStartTime.split(' ')[1] || '09:00';
-            const visitEndTime = visit.preferredEndTime.split(' ')[1] || '17:00';
-            const visitStart = timeToMinutes(visitStartTime);
-            const visitEnd = timeToMinutes(visitEndTime);
+            console.log(`🕐 Client ${client.clientName} visit time: ${visit.startTime}-${visit.endTime}`);
             
             // Check overlap with any employee time window
             for (const empWindow of parsedEmpWindows) {
+              console.log(`🕐 Checking overlap: Employee ${Math.floor(empWindow.start/60).toString().padStart(2,'0')}:${(empWindow.start%60).toString().padStart(2,'0')}-${Math.floor(empWindow.end/60).toString().padStart(2,'0')}:${(empWindow.end%60).toString().padStart(2,'0')} vs Client ${visit.startTime}-${visit.endTime}`);
+              console.log(`🕐 Employee start minutes: ${empWindow.start}, end: ${empWindow.end}`);
+              console.log(`🕐 Client start minutes: ${visitStart}, end: ${visitEnd}`);
+              
               if (visitStart < empWindow.end && visitEnd > empWindow.start) {
                 hasTimeOverlap = true;
+                console.log(`🕐 ✅ TIME OVERLAP FOUND for ${client.clientName}`);
                 break;
+              } else {
+                console.log(`🕐 ❌ NO OVERLAP: Visit ${visit.startTime}-${visit.endTime} does NOT overlap with employee window ${Math.floor(empWindow.start/60).toString().padStart(2,'0')}:${(empWindow.start%60).toString().padStart(2,'0')}-${Math.floor(empWindow.end/60).toString().padStart(2,'0')}:${(empWindow.end%60).toString().padStart(2,'0')}`);
               }
             }
             
