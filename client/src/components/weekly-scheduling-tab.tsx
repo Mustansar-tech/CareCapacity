@@ -91,10 +91,11 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // Fetch weekly schedule data
-  const { data: weeklyData, isLoading, refetch } = useQuery<WeeklyData>({
+  const { data: weeklyData, isLoading, error, refetch } = useQuery<WeeklyData>({
     queryKey: ['/api/schedule/week', weekStartDate],
-    enabled: !!weekStartDate,
+    enabled: !!weekStartDate && !!data, // Only fetch if we have processed data
     staleTime: 30000, // 30 seconds
+    retry: 1,
   });
 
   // Auto-schedule mutation
@@ -180,6 +181,38 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Loading weekly schedule...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+          <p className="text-red-600 font-medium">Failed to load weekly schedule</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {error instanceof Error ? error.message : 'An unknown error occurred'}
+          </p>
+          <Button onClick={() => refetch()} variant="outline" className="mt-4">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-orange-500 mx-auto mb-2" />
+          <p className="text-orange-600 font-medium">No processed data available</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Please process files first to enable weekly scheduling
+          </p>
         </div>
       </div>
     );

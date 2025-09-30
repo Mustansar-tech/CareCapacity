@@ -307,9 +307,9 @@ export class AutoScheduler {
       const clientLocationMap = new Map(clientLocations.map(c => [c.clientName, c]));
 
       return visits
-        .filter(visit => visit.date === date)
+        .filter(visit => visit.date === date && visit.clientName) // Filter out visits without client names
         .map(visit => {
-          const client = clientLocationMap.get(visit.clientName || '');
+          const client = clientLocationMap.get(visit.clientName);
           
           if (!client || !client.lat || !client.lng) {
             console.warn(`⚠️ Missing location data for client ${visit.clientName}`);
@@ -318,7 +318,7 @@ export class AutoScheduler {
 
           return {
             id: visit.id || `${visit.clientName}-${visit.date}`,
-            clientName: visit.clientName || '',
+            clientName: visit.clientName,
             clientLat: parseFloat(client.lat),
             clientLng: parseFloat(client.lng),
             startTime: this.timeStringToMinutes(visit.preferredStartTime || '09:00'),
