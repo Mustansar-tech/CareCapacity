@@ -15,22 +15,20 @@ export function minutesToTime(minutes: number): string {
 
 // Calculate Haversine distance between two lat/lng points in kilometers
 export function haversineDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
+  point1: { lat: number; lng: number },
+  point2: { lat: number; lng: number }
 ): number {
   const R = 6371; // Earth's radius in kilometers
-  const dLat = toRadians(lat2 - lat1);
-  const dLng = toRadians(lng2 - lng1);
-  
+  const dLat = toRadians(point2.lat - point1.lat);
+  const dLng = toRadians(point2.lng - point1.lng);
+
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
+    Math.cos(toRadians(point1.lat)) *
+      Math.cos(toRadians(point2.lat)) *
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
-  
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -50,7 +48,7 @@ export function calculateTravelTime(
     walking: 4.5, // Average walking speed
     public: 25,   // Public transport average
   };
-  
+
   const speed = speeds[mode] || speeds.car;
   const hours = distanceKm / speed;
   return Math.ceil(hours * 60); // Return minutes, rounded up
@@ -62,12 +60,46 @@ export function getTravelMinutes(
   to: { lat: number; lng: number },
   mode: 'car' | 'walking' | 'public' = 'car'
 ): number {
-  const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  const travelTime = calculateTravelTime(distance, mode);
-  
-  console.log(`🔍 Utils travel calc: distance=${distance.toFixed(2)}km, mode=${mode}, time=${travelTime}min`);
-  
-  return travelTime;
+  // Parse coordinates to ensure they are numbers
+  const fromLat = Number(from.lat);
+  const fromLng = Number(from.lng);
+  const toLat = Number(to.lat);
+  const toLng = Number(to.lng);
+
+  // Validate coordinates
+  if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) ||
+      !Number.isFinite(toLat) || !Number.isFinite(toLng)) {
+    console.warn(`Invalid coordinates: from(${from.lat}, ${from.lng}) to(${to.lat}, ${to.lng})`);
+    console.warn(`Parsed coordinates: from(${fromLat}, ${fromLng}) to(${toLat}, ${toLng})`);
+    return 0;
+  }
+
+  // Check for zero coordinates (indicates missing geocoding)
+  if ((fromLat === 0 && fromLng === 0) || (toLat === 0 && toLng === 0)) {
+    console.warn(`Zero coordinates detected: from(${fromLat}, ${fromLng}) to(${toLat}, ${toLng})`);
+    return 0;
+  }
+
+  const distance = haversineDistance(
+    { lat: fromLat, lng: fromLng },
+    { lat: toLat, lng: toLng }
+  );
+
+  // Transport mode speeds (km/h)
+  const speeds = {
+    car: 40,        // Urban driving speed
+    walking: 4.5,   // Average walking speed
+    public: 25      // Public transport average
+  };
+
+  const speedKmh = speeds[mode] || speeds.car;
+  const travelTimeMinutes = Math.max(1, Math.round((distance / speedKmh) * 60));
+
+  console.log(`🔍 Utils travel calc: distance=${distance.toFixed(2)}km, mode=${mode}, time=${travelTimeMinutes}min`);
+  console.log(`  From coords: ${fromLat}, ${fromLng}`);
+  console.log(`  To coords: ${toLat}, ${toLng}`);
+
+  return travelTimeMinutes;
 }
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
@@ -78,7 +110,7 @@ export interface TimeWindow {
 
 export function parseTimeWindows(windows: string | string[]): TimeWindow[] {
   const windowArray = Array.isArray(windows) ? windows : [windows];
-  
+
   return windowArray
     .filter(w => w && typeof w === 'string')
     .map(w => {
@@ -123,7 +155,7 @@ export function isInsertionFeasible(
   if (!fitsInWindow(visit.start, visit.end, windows)) {
     return false;
   }
-  
+
   // Check travel constraint with previous visit
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
@@ -135,7 +167,7 @@ export function isInsertionFeasible(
       return false; // Not enough time to travel from previous visit
     }
   }
-  
+
   // Check travel constraint with next visit
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
@@ -147,7 +179,7 @@ export function isInsertionFeasible(
       return false; // Not enough time to travel to next visit
     }
   }
-  
+
   return true;
 }
 
@@ -160,14 +192,14 @@ export function calculateInsertionGap(
   travelToNext: number
 ): number {
   let gap = 0;
-  
+
   if (prevVisit) {
     gap += visit.start - (prevVisit.end + travelFromPrev);
   }
-  
+
   if (nextVisit) {
     gap += nextVisit.start - (visit.end + travelToNext);
   }
-  
+
   return gap;
 }

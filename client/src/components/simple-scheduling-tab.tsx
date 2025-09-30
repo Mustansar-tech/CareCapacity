@@ -26,6 +26,7 @@ interface ClientVisit {
   durationMinutes: number;
   address?: string;
   postcode?: string;
+  location?: { lat: string; lng: string }; // Added for potential location data
 }
 
 export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabProps) {
@@ -66,11 +67,11 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
     const empLocation = data?.employeeLocations?.find(e => e.name === selectedEmployee);
     const empLat = empLocation?.lat ? Number(empLocation.lat) : 55.9533;
     const empLng = empLocation?.lng ? Number(empLocation.lng) : -3.1883;
-    
+
     // Determine transport mode more accurately
     const transportMode = selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
                          selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'walking';
-    
+
     return {
       visits: assignedVisits[selectedEmployee] || [],
       homeLat: Number.isFinite(empLat) ? empLat : 55.9533,
@@ -101,7 +102,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
           const clientData = data?.clientLocations?.find(c => c.name === v.clientName);
           const clientLat = clientData?.lat ? Number(clientData.lat) : 55.9533;
           const clientLng = clientData?.lng ? Number(clientData.lng) : -3.1883;
-          
+
           return {
             clientName: v.clientName,
             start: parseInt(v.startTime.split(':')[0]) * 60 + parseInt(v.startTime.split(':')[1]),
@@ -310,39 +311,71 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                     <div className="space-y-2">
                       {topMatches.map((match, idx) => {
                         const visit = match.visit; // Alias for clarity
-                        const clientLocation = data?.clientLocations?.find(c => c.name === visit.clientName);
-                        const employeeLocation = data?.employeeLocations?.find(e => e.name === selectedEmployee);
                         
-                        // Ensure we have necessary location data before calculating travel
-                        if (!clientLocation || !employeeLocation) {
-                          console.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
-                          return null; // Skip rendering this match if data is missing
+                        // Get employee coordinates from geographic data
+                        let empLat = 0;
+                        let empLng = 0;
+                        let transportMode = 'car';
+
+                        // Try to get coordinates from geographic data first
+                        const empGeoData = data?.geographicalData?.employees?.find(
+                          (emp: any) => emp.employeeName === selectedEmployee
+                        );
+
+                        if (empGeoData?.homeLat && empGeoData?.homeLng) {
+                          empLat = parseFloat(empGeoData.homeLat);
+                          empLng = parseFloat(empGeoData.homeLng);
+                          transportMode = empGeoData.transportMode?.toLowerCase() || 'car';
+                        } else {
+                          // Fallback to employee summary data (less reliable for coordinates)
+                          const selectedEmpSummary = employeeSummary.find(
+                            (emp: any) => emp.employeeName === selectedEmployee
+                          );
+
+                          if (selectedEmpSummary) {
+                            empLat = parseFloat(selectedEmpSummary.homeLat || '0');
+                            empLng = parseFloat(selectedEmpSummary.homeLng || '0');
+                            transportMode = selectedEmpSummary.transportMode?.toLowerCase() || 'car';
+                          }
                         }
 
-                        // Parse coordinates as numbers and validate
-                        const empLat = Number(employeeLocation.lat);
-                        const empLng = Number(employeeLocation.lng);
-                        const clientLat = Number(clientLocation.lat);
-                        const clientLng = Number(clientLocation.lng);
+                        // Get client coordinates from visit data or geographic data
+                        let clientLat = 0;
+                        let clientLng = 0;
 
-                        // Validate coordinates are valid numbers
+                        if (visit.location?.lat && visit.location?.lng) {
+                          clientLat = parseFloat(visit.location.lat);
+                          clientLng = parseFloat(visit.location.lng);
+                        } else {
+                          // Try to find client in geographic data
+                          const clientGeoData = data?.geographicalData?.clients?.find(
+                            (client: any) => client.clientName === visit.clientName
+                          );
+                          if (clientGeoData?.lat && clientGeoData?.lng) {
+                            clientLat = parseFloat(clientGeoData.lat);
+                            clientLng = parseFloat(clientGeoData.lng);
+                          }
+                        }
+
+                        // Validate coordinates are valid numbers and not zero
                         if (!Number.isFinite(empLat) || !Number.isFinite(empLng) || 
-                            !Number.isFinite(clientLat) || !Number.isFinite(clientLng)) {
-                          console.warn(`Invalid coordinates: emp(${empLat}, ${empLng}) client(${clientLat}, ${clientLng})`);
+                            !Number.isFinite(clientLat) || !Number.isFinite(clientLng) ||
+                            (empLat === 0 && empLng === 0) || (clientLat === 0 && clientLng === 0)) {
+                          console.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
                           return null;
                         }
 
                         const empLocation = { lat: empLat, lng: empLng };
                         const clientLocationCoords = { lat: clientLat, lng: clientLng };
-                        
-                        // Determine transport mode from employeeSummary (more accurate)
-                        const transportMode = selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
-                                            selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'car';
-                        
+
+                        // Normalize transport mode
+                        const normalizedTransportMode = transportMode.includes('car') ? 'car' : 
+                                                      transportMode.includes('walk') ? 'walking' : 'car';
+
                         const travelMinutes = getTravelMinutes(
                             empLocation,
                             clientLocationCoords,
-                            transportMode as 'car' | 'walking' | 'public'
+                            normalizedTransportMode as 'car' | 'walking' | 'public'
                           );
 
                           console.log(`🔍 Frontend travel calc: ${selectedEmployee} -> ${visit.clientName}: ${travelMinutes}min`);
