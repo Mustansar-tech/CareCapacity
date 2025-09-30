@@ -25,7 +25,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Capacity analysis methods
   saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis>;
   getCapacityAnalysesByDateRange(startDate: string, endDate: string): Promise<CapacityAnalysis[]>;
@@ -40,28 +40,29 @@ export interface IStorage {
   getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined>;
   getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined>;
   getAllEmployeeLocations(): Promise<EmployeeLocation[]>;
-  
+
   upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation>;
   getClientLocationByName(clientName: string): Promise<ClientLocation | undefined>;
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(): Promise<ClientLocation[]>;
-  
+
   saveVisit(visit: InsertVisit): Promise<Visit>;
   getVisitById(id: string): Promise<Visit | undefined>;
   getVisitsByDate(date: string): Promise<Visit[]>;
   getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
   listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]>;
-  
+  clearAllVisits(): Promise<any>;
+
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
   getRoutePlansByDate(date: string): Promise<RoutePlan[]>;
   getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined>;
-  
+
   saveRouteStop(stop: InsertRouteStop): Promise<RouteStop>;
   getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]>;
-  
+
   getGeocode(key: string): Promise<GeocodeCache | undefined>;
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
-  
+
   clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
 }
 
@@ -122,10 +123,10 @@ export class MemStorage implements IStorage {
       warnings: insertAnalysis.warnings || [],
     };
     this.capacityAnalyses.set(id, analysis);
-    
+
     // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
     await this.enforceSimpleRetention(3);
-    
+
     return analysis;
   }
 
@@ -150,7 +151,7 @@ export class MemStorage implements IStorage {
   async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
     // Group by week, then get the latest analysis per week, then take the latest N weeks
     const weekMap = new Map<string, CapacityAnalysis>();
-    
+
     Array.from(this.capacityAnalyses.values()).forEach(analysis => {
       const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
       const existing = weekMap.get(weekKey);
@@ -158,7 +159,7 @@ export class MemStorage implements IStorage {
         weekMap.set(weekKey, analysis);
       }
     });
-    
+
     return Array.from(weekMap.values())
       .sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime())
       .slice(0, limit);
@@ -167,7 +168,7 @@ export class MemStorage implements IStorage {
   async enforceRetentionLatestWeeks(limit: number = 4): Promise<number> {
     // Group by week and keep only the latest N weeks
     const weekMap = new Map<string, CapacityAnalysis[]>();
-    
+
     Array.from(this.capacityAnalyses.values()).forEach(analysis => {
       const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
       if (!weekMap.has(weekKey)) {
@@ -175,7 +176,7 @@ export class MemStorage implements IStorage {
       }
       weekMap.get(weekKey)!.push(analysis);
     });
-    
+
     // Sort weeks by start date descending using actual weekStartDate from analyses
     const sortedWeeks = Array.from(weekMap.entries())
       .sort(([, analysesA], [, analysesB]) => {
@@ -183,9 +184,9 @@ export class MemStorage implements IStorage {
         const dateB = new Date(analysesB[0].weekStartDate); 
         return dateB.getTime() - dateA.getTime();
       });
-    
+
     let deletedCount = 0;
-    
+
     // Delete weeks beyond the limit
     sortedWeeks.slice(limit).forEach(([_weekKey, analyses]) => {
       analyses.forEach(analysis => {
@@ -193,7 +194,7 @@ export class MemStorage implements IStorage {
         deletedCount++;
       });
     });
-    
+
     // For remaining weeks, keep only the latest analysis per week
     sortedWeeks.slice(0, limit).forEach(([_weekKey, analyses]) => {
       if (analyses.length > 1) {
@@ -207,7 +208,7 @@ export class MemStorage implements IStorage {
         });
       }
     });
-    
+
     return deletedCount;
   }
 
@@ -216,9 +217,9 @@ export class MemStorage implements IStorage {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
-    
+
     let deletedCount = 0;
-    
+
     // Delete anything older than cutoff date
     Array.from(this.capacityAnalyses.values()).forEach(analysis => {
       if (analysis.weekStartDate < cutoffString) {
@@ -226,10 +227,10 @@ export class MemStorage implements IStorage {
         deletedCount++;
       }
     });
-    
+
     // Remove duplicates - keep only latest per week
     const weekMap = new Map<string, CapacityAnalysis>();
-    
+
     Array.from(this.capacityAnalyses.values()).forEach(analysis => {
       const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
       const existing = weekMap.get(weekKey);
@@ -244,7 +245,7 @@ export class MemStorage implements IStorage {
         deletedCount++;
       }
     });
-    
+
     return deletedCount;
   }
 
@@ -253,15 +254,15 @@ export class MemStorage implements IStorage {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
-    
+
     const oldAnalyses = Array.from(this.capacityAnalyses.values()).filter(
       analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
     );
-    
+
     oldAnalyses.forEach(analysis => {
       this.capacityAnalyses.delete(analysis.id);
     });
-    
+
     return oldAnalyses.length;
   }
 
@@ -271,7 +272,7 @@ export class MemStorage implements IStorage {
     const existing = Array.from(this.employeeLocations.values()).find(
       loc => loc.employeeName === insertLocation.employeeName
     );
-    
+
     if (existing) {
       // Update existing
       const updated: EmployeeLocation = { ...existing, ...insertLocation };
@@ -312,7 +313,7 @@ export class MemStorage implements IStorage {
     const existing = Array.from(this.clientLocations.values()).find(
       loc => loc.clientName === insertLocation.clientName
     );
-    
+
     if (existing) {
       // Update existing
       const updated: ClientLocation = { ...existing, ...insertLocation };
@@ -388,6 +389,13 @@ export class MemStorage implements IStorage {
     });
   }
 
+  async clearAllVisits(): Promise<any> {
+    console.log(`🧹 Clearing all visits data...`);
+    this.visits.clear();
+    console.log(`✅ Cleared visits data`);
+    return { visitsDeleted: this.visits.size };
+  }
+
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
     const id = randomUUID();
     const plan: RoutePlan = {
@@ -443,7 +451,7 @@ export class MemStorage implements IStorage {
     if (existing) {
       return existing;
     }
-    
+
     const id = randomUUID();
     const geocode: GeocodeCache = {
       ...insertGeocode,
@@ -458,11 +466,11 @@ export class MemStorage implements IStorage {
     const routePlansDeleted = this.routePlans.size;
     const routeStopsDeleted = this.routeStops.size;
     const visitsDeleted = this.visits.size;
-    
+
     this.routePlans.clear();
     this.routeStops.clear();
     this.visits.clear();
-    
+
     return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
 }
@@ -521,10 +529,10 @@ export class DatabaseStorage implements IStorage {
         },
       })
       .returning();
-    
+
     // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
     await this.enforceSimpleRetention(3);
-    
+
     return analysis;
   }
 
@@ -618,7 +626,7 @@ export class DatabaseStorage implements IStorage {
       DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
     `);
-    
+
     return result.rowCount || 0;
   }
 
@@ -627,7 +635,7 @@ export class DatabaseStorage implements IStorage {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
-    
+
     const result = await db.execute(sql`
       WITH latest_per_week AS (
         -- Keep only the latest entry for each week
@@ -647,7 +655,7 @@ export class DatabaseStorage implements IStorage {
       DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
     `);
-    
+
     return result.rowCount || 0;
   }
 
@@ -664,12 +672,12 @@ export class DatabaseStorage implements IStorage {
   async cleanupOldAnalyses(monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
-    
+
     const result = await db
       .delete(capacityAnalyses)
       .where(lte(capacityAnalyses.uploadedAt, cutoffDate))
       .returning({ id: capacityAnalyses.id });
-    
+
     return result.length;
   }
 
@@ -805,8 +813,15 @@ export class DatabaseStorage implements IStorage {
     } else if (endDate) {
       return await db.select().from(visits).where(lte(visits.date, endDate));
     }
-    
+
     return await db.select().from(visits);
+  }
+
+  async clearAllVisits(): Promise<any> {
+    console.log(`🧹 Clearing all visits data...`);
+    const result = await db.delete(visits);
+    console.log(`✅ Cleared visits data`);
+    return result;
   }
 
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
@@ -874,12 +889,12 @@ export class DatabaseStorage implements IStorage {
       .values(insertGeocode)
       .onConflictDoNothing()
       .returning();
-    
+
     if (!geocode) {
       // If no insert happened due to conflict, get existing
       return (await this.getGeocode(insertGeocode.key))!;
     }
-    
+
     return geocode;
   }
 
@@ -888,16 +903,16 @@ export class DatabaseStorage implements IStorage {
     const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans`);
     const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops`);
     const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits`);
-    
+
     const routePlansDeleted = Number(routePlansCount.rows[0]?.count || 0);
     const routeStopsDeleted = Number(routeStopsCount.rows[0]?.count || 0);
     const visitsDeleted = Number(visitsCount.rows[0]?.count || 0);
-    
+
     // Delete in correct order (route_stops first due to foreign key)
     await db.delete(routeStops);
     await db.delete(routePlans);
     await db.delete(visits);
-    
+
     return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
 }

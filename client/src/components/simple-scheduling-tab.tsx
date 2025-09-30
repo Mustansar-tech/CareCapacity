@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,10 +36,17 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const { toast } = useToast();
 
   // Fetch client visits for the selected date
-  const { data: visits = [] } = useQuery<ClientVisit[]>({
+  const { data: visits = [], refetch: refetchVisits } = useQuery<ClientVisit[]>({
     queryKey: ['/api/visits', date],
     enabled: !!date,
   });
+
+  // Refetch visits when date changes
+  React.useEffect(() => {
+    if (date) {
+      refetchVisits();
+    }
+  }, [date, refetchVisits]);
 
   // Get employees for the selected date
   const employees = data?.employeesByDate?.[date] || [];

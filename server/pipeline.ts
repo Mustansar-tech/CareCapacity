@@ -1032,6 +1032,10 @@ export async function parseExcelFiles(
   console.log(`📊 Weekday totals:`, hoursByWeekday);
   console.log(`📊 Filtered demand rows for visit generation: ${filteredRows.length}`);
 
+  // Clear old visits data before generating new visits to prevent accumulation
+  console.log(`🧹 Clearing old visits data before generating new visits...`);
+  await storage.clearAllVisits();
+  
   // Generate client visits from demand data (Hours by Service Type)
   const analysisStartDate = new Date(); // Use current date as start
   await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);

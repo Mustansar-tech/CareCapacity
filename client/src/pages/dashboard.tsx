@@ -197,6 +197,9 @@ export default function Dashboard() {
       setProcessedData(result);
       setSelectedDate(result.dailySummary[0]?.date || null);
 
+      // Invalidate visits queries to ensure scheduling tab shows fresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/visits'] });
+
       toast({
         title: "Processing Successful",
         description: `Processed ${result.dailySummary.length} days of data successfully.`,

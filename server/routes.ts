@@ -1,4 +1,3 @@
-
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from 'multer';
@@ -17,7 +16,7 @@ const upload = multer({
   },
   fileFilter: (_req, file, cb) => {
     console.log(`📂 File upload attempt: "${file.originalname}" with MIME type: "${file.mimetype}"`);
-    
+
     if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
         file.mimetype === 'application/vnd.ms-excel' ||
         file.originalname.toLowerCase().endsWith('.xlsx') ||
@@ -47,7 +46,7 @@ function normalizeFileName(fileName: string): string {
 // Enhanced geocoding with fallback hierarchy
 async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
-  
+
   // Step 1: Try exact postcode from cache
   const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
   if (cached) {
@@ -71,7 +70,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
           lat: data.result.latitude,
           lng: data.result.longitude,
         };
-        
+
         // Cache the result
         await storage.saveGeocode({
           key: `postcode:${normalizedPostcode}`,
@@ -79,7 +78,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
           lng: result.lng,
           source: 'postcodes.io'
         });
-        
+
         return result;
       }
     }
@@ -102,7 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
-      
+
       // Validate that all four files are present
       if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
         return res.status(400).json({
@@ -127,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
       const normalizedDemandName = normalizeFileName(demandFile.originalname);
       const normalizedCgDataName = normalizeFileName(cgDataFile.originalname);
-      
+
       console.log(`📁 File name validation:`);
       console.log(`  Availability: "${availabilityFile.originalname}" -> "${normalizedAvailabilityName}"`);
       console.log(`  Guaranteed: "${guaranteedFile.originalname}" -> "${normalizedGuaranteedName}"`);
@@ -178,10 +177,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate Excel export with enhanced analysis tabs
       const exportBuffer = await generateExcelExport(result, cleanedRecords, parsedData.cgData);
-      
+
       // Store for export endpoint
       latestExportBuffer = exportBuffer;
-      
+
       // Store Guaranteed Hours buffer for real-time visit extraction
       latestGuaranteedBuffer = guaranteedFile.buffer;
 
@@ -195,9 +194,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get week boundaries from the first date in daily summary
           const firstDate = result.dailySummary[0].date;
           const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
-          
+
           console.log(`💾 Persisting analysis for week: ${weekStart} to ${weekEnd}`);
-          
+
           // Save to database (will upsert if week already exists)
           await storage.saveCapacityAnalysis({
             weekStartDate: weekStart,
@@ -208,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             employeeSummaryByDate: result.employeeSummaryByDate || {},
             warnings: result.warnings || [],
           });
-          
+
           console.log(`✅ Analysis persisted successfully for week ${weekStart}`);
         } else {
           console.log(`⚠️  No daily summary data to persist`);
@@ -218,6 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the request if persistence fails
       }
 
+      console.log(`✅ Data processing complete - scheduling tab will show new visits on next load`);
+
       res.json(result);
 
     } catch (error) {
@@ -225,11 +226,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error type:', (error as any)?.constructor?.name);
       console.error('Error message:', (error as any)?.message);
       console.error('Error stack:', (error as any)?.stack);
-      
+
       if (error && typeof error === 'object') {
         console.error('Error details:', JSON.stringify(error, null, 2));
       }
-      
+
       res.status(500).json({
         message: error instanceof Error ? error.message : 'Internal processing error'
       });
@@ -261,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/visits/:date', async (req, res) => {
     try {
       const { date } = req.params;
-      
+
       // Validate date format (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(date)) {
@@ -269,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: 'Invalid date format. Use YYYY-MM-DD'
         });
       }
-      
+
       if (!latestGuaranteedBuffer) {
         return res.status(404).json({
           message: 'No Guaranteed Hours data available. Please upload files first.'
@@ -279,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
       const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
-      
+
       res.json(visits);
     } catch (error) {
       console.error('Visits fetch error:', error);
@@ -325,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/history/range/:startDate/:endDate', async (req, res) => {
     try {
       const { startDate, endDate } = req.params;
-      
+
       // Validate date format (YYYY-MM-DD)
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
@@ -348,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/cleanup', async (req, res) => {
     try {
       const { months = 6 } = req.body;
-      
+
       if (typeof months !== 'number' || months < 1 || months > 60) {
         return res.status(400).json({
           message: 'Months parameter must be between 1 and 60'
@@ -356,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const deletedCount = await storage.cleanupOldAnalyses(months);
-      
+
       res.json({
         message: `Successfully cleaned up old data`,
         deletedAnalyses: deletedCount,
@@ -374,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/cleanup/preview/:months', async (_req, res) => {
     try {
       const months = parseInt(_req.params.months);
-      
+
       if (isNaN(months) || months < 1 || months > 60) {
         return res.status(400).json({
           message: 'Months parameter must be between 1 and 60'
@@ -384,13 +385,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cutoffDate = new Date();
       cutoffDate.setMonth(cutoffDate.getMonth() - months);
       const cutoffString = cutoffDate.toISOString().split('T')[0];
-      
+
       // Get all analyses to count how many would be deleted
       const allAnalyses = await storage.getLatestWeeksAnalyses(12); // Get more for cleanup preview
       const oldAnalyses = allAnalyses.filter(
         analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
       );
-      
+
       res.json({
         cutoffDate: cutoffString,
         monthsOld: months,
@@ -409,11 +410,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Geographical scheduling optimization routes
-  
+
   // Enhanced geocoding with fallback hierarchy
   async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
     const normalizedPostcode = postcode.trim().toUpperCase();
-    
+
     // Step 1: Try exact postcode from cache
     const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
     if (cached) {
@@ -426,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approximate: false
       };
     }
-    
+
     // Step 2: Try exact postcode from API
     try {
       const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
@@ -435,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (data.status === 200 && data.result) {
           const lat = data.result.latitude.toString();
           const lng = data.result.longitude.toString();
-          
+
           // Cache the exact result
           await storage.saveGeocode({
             key: `postcode:${normalizedPostcode}`,
@@ -443,7 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lng,
             source: 'postcodes.io'
           });
-          
+
           return {
             query: normalizedPostcode,
             type: 'postcode',
@@ -457,12 +458,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.log(`🔄 Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
     }
-    
+
     // Step 3: Try postcode district (first part)
     const parts = normalizedPostcode.split(' ');
     if (parts.length >= 2) {
       const district = parts[0];
-      
+
       // Check cache for district
       const districtCached = await storage.getGeocode(`district:${district}`);
       if (districtCached) {
@@ -475,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approximate: true
         };
       }
-      
+
       // Try district from API
       try {
         const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(district)}`);
@@ -484,7 +485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (data.status === 200 && data.result) {
             const lat = data.result.latitude.toString();
             const lng = data.result.longitude.toString();
-            
+
             // Cache the district result
             await storage.saveGeocode({
               key: `district:${district}`,
@@ -492,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lng,
               source: 'postcodes.io'
             });
-            
+
             return {
               query: normalizedPostcode,
               type: 'postcode',
@@ -507,7 +508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🔄 District geocoding failed for ${district}, trying area fallback...`);
       }
     }
-    
+
     // Step 4: Default to approximate city center based on postcode prefix
     const prefix = normalizedPostcode.substring(0, 2);
     const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
@@ -520,11 +521,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },       // Perth
       'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },     // Falkirk
     };
-    
+
     const fallback = fallbackLocations[prefix];
     if (fallback) {
       console.log(`📍 Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
-      
+
       // Cache the fallback to avoid repeated lookups
       await storage.saveGeocode({
         key: `fallback:${prefix}`,
@@ -532,7 +533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lng: fallback.lng,
         source: 'fallback'
       });
-      
+
       return {
         query: normalizedPostcode,
         type: 'postcode',
@@ -542,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approximate: true
       };
     }
-    
+
     // Step 5: Ultimate fallback to Edinburgh city center
     console.log(`📍 Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
     return {
@@ -560,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { postcodes = [], addresses = [] } = req.body;
       const results = [];
-      
+
       // Process postcodes using postcodes.io (free UK postcodes)
       for (const postcode of postcodes) {
         try {
@@ -577,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-      
+
       // TODO: Process full addresses using Mapbox/Google Maps when needed
       for (const address of addresses) {
         results.push({
@@ -587,33 +588,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           source: 'none'
         });
       }
-      
+
       res.json({ results });
     } catch (error) {
       console.error('Geocoding error:', error);
       res.status(500).json({ message: 'Geocoding failed' });
     }
   });
-  
+
   // POST /api/routing/distance-matrix - Calculate travel times between locations
   app.post('/api/routing/distance-matrix', async (req, res) => {
     try {
       const { origins, destinations, transportMode = 'driving' } = req.body;
-      
+
       if (!origins || !destinations || origins.length === 0 || destinations.length === 0) {
         return res.status(400).json({ message: 'Origins and destinations are required' });
       }
-      
+
       // Format coordinates for OpenRouteService
       const originsCoords = origins.map((o: any) => [parseFloat(o.lng), parseFloat(o.lat)]);
       const destinationsCoords = destinations.map((d: any) => [parseFloat(d.lng), parseFloat(d.lat)]);
-      
+
       // TODO: Add OpenRouteService API key via environment variable
       const ORS_API_KEY = process.env.ORS_API_KEY;
       if (!ORS_API_KEY) {
         return res.status(500).json({ message: 'OpenRouteService API key not configured' });
       }
-      
+
       const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
         method: 'POST',
         headers: {
@@ -627,13 +628,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           metrics: ['duration', 'distance']
         })
       });
-      
+
       if (!response.ok) {
         throw new Error(`OpenRouteService error: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Format response to match our needs
       const matrix = {
         durations: data.durations, // in seconds
@@ -641,32 +642,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         origins: origins,
         destinations: destinations
       };
-      
+
       res.json(matrix);
     } catch (error) {
       console.error('Distance matrix error:', error);
       res.status(500).json({ message: 'Distance matrix calculation failed' });
     }
   });
-  
+
   // POST /api/routing/optimize - Optimize routes for employees with 15-minute constraint
   app.post('/api/routing/optimize', async (req, res) => {
     try {
       const { date, employeeIds = [] } = req.body;
-      
+
       if (!date) {
         return res.status(400).json({ message: 'Date is required' });
       }
-      
+
       // TODO: Implement route optimization algorithm
       // 1. Get employee locations and visits for the date
       // 2. Calculate distance matrix between all locations
       // 3. Apply 15-minute travel constraint
       // 4. Use constructive heuristic + local search optimization
       // 5. Return optimized route plans
-      
+
       const optimizedRoutes = [];
-      
+
       // Placeholder implementation
       for (const employeeId of employeeIds) {
         const employeeLocation = await storage.getEmployeeLocationByName(employeeId);
@@ -680,14 +681,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           optimizedRoutes.push(routePlan);
         }
       }
-      
+
       res.json({ optimizedRoutes });
     } catch (error) {
       console.error('Route optimization error:', error);
       res.status(500).json({ message: 'Route optimization failed' });
     }
   });
-  
+
   // GET /api/routing/plans?date=YYYY-MM-DD - Get route plans for a date
   app.get('/api/routing/plans', async (req, res) => {
     try {
@@ -695,9 +696,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!date) {
         return res.status(400).json({ message: 'Date parameter is required' });
       }
-      
+
       const plans = await storage.getRoutePlansByDate(date);
-      
+
       // Fetch route stops for each plan
       const plansWithStops = await Promise.all(
         plans.map(async (plan) => {
@@ -705,14 +706,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { ...plan, stops };
         })
       );
-      
+
       res.json(plansWithStops);
     } catch (error) {
       console.error('Get route plans error:', error);
       res.status(500).json({ message: 'Failed to get route plans' });
     }
   });
-  
+
   // GET /api/geographical/employees - Get all employee locations
   app.get('/api/geographical/employees', async (req, res) => {
     try {
@@ -723,7 +724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to get employee locations' });
     }
   });
-  
+
   // GET /api/geographical/clients - Get all client locations
   app.get('/api/geographical/clients', async (req, res) => {
     try {
@@ -735,22 +736,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  
+
 
   // POST /api/cleanup/routes-visits - Clean up routes and visits data
   app.post('/api/cleanup/routes-visits', async (req, res) => {
     try {
       console.log('🧹 Starting cleanup of routes and visits data...');
-      
+
       const result = await storage.clearRoutesAndVisits();
-      
+
       console.log(`✅ Cleanup complete: ${result.routePlansDeleted} route plans, ${result.routeStopsDeleted} route stops, ${result.visitsDeleted} visits deleted`);
-      
+
       res.json({
         message: 'Routes and visits data cleaned successfully',
         deletedCounts: result
       });
-      
+
     } catch (error) {
       console.error('Cleanup error:', error);
       res.status(500).json({ 
