@@ -258,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/visits/:date - Get client visits for a specific date from Excel
-  app.get('/api/visits/:date', (req, res) => {
+  app.get('/api/visits/:date', async (req, res) => {
     try {
       const { date } = req.params;
       
