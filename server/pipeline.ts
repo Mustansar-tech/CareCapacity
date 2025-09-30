@@ -2297,6 +2297,35 @@ export async function processCapacityData(
   // Extract and store geographical data for scheduling optimization
   await extractAndStoreGeographicalData(cgData, guaranteed);
 
+  // Retrieve geographical data to include in the result
+  try {
+    const employeeLocations = await storage.getAllEmployeeLocations();
+    const clientLocations = await storage.getAllClientLocations();
+    
+    const resultWithLocations = result as ProcessingResult;
+    
+    resultWithLocations.employeeLocations = employeeLocations.map(emp => ({
+      employeeName: emp.employeeName,
+      homePostcode: emp.homePostcode,
+      homeLat: emp.homeLat ? Number(emp.homeLat) : undefined,
+      homeLng: emp.homeLng ? Number(emp.homeLng) : undefined,
+      transportMode: emp.transportMode || undefined,
+    }));
+    
+    resultWithLocations.clientLocations = clientLocations.map(cli => ({
+      clientName: cli.clientName,
+      addressLine: cli.addressLine,
+      postcode: cli.postcode,
+      lat: cli.lat ? Number(cli.lat) : undefined,
+      lng: cli.lng ? Number(cli.lng) : undefined,
+    }));
+    
+    console.log(`📍 Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result`);
+  } catch (error) {
+    console.error('❌ Error retrieving geographical data:', error);
+    // Don't throw - return result without location data
+  }
+
   return result;
 }
 

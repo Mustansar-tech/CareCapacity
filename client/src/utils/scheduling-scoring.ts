@@ -112,11 +112,6 @@ export function scoreVisitMatch(
   const tightnessScore = Math.max(0, 1 - (bestGap / 120));
   
   // 2. Travel added score (prefer minimal travel)
-  // Handle case where all locations are the same (missing geocoding)
-  const hasRealLocations = !(visit.lat === homeLat && visit.lng === homeLng) || visits.some(v => 
-    v.lat !== homeLat || v.lng !== homeLng
-  );
-  
   // Calculate current route travel
   let currentTravel = 0;
   for (let i = 0; i < visits.length - 1; i++) {
@@ -185,24 +180,12 @@ export function scoreVisitMatch(
     homeProximityScore = Math.max(0, 1 - (distToHome / 45));
   }
   
-  // Adjust weights if we don't have real location data
-  let adjustedWeights = WEIGHTS;
-  if (!hasRealLocations) {
-    // Prioritize time-based scoring when location data is missing
-    adjustedWeights = {
-      tightness: 0.60,      // Increase weight on time gaps
-      travelAdded: 0.05,    // Decrease travel weight (meaningless without locations)
-      windowSlack: 0.30,    // Increase window fit weight
-      homeProximity: 0.05,  // Decrease proximity weight (meaningless without locations)
-    };
-  }
-  
   // Calculate weighted total score
   const totalScore =
-    adjustedWeights.tightness * tightnessScore +
-    adjustedWeights.travelAdded * travelAddedScore +
-    adjustedWeights.windowSlack * windowSlackScore +
-    adjustedWeights.homeProximity * homeProximityScore;
+    WEIGHTS.tightness * tightnessScore +
+    WEIGHTS.travelAdded * travelAddedScore +
+    WEIGHTS.windowSlack * windowSlackScore +
+    WEIGHTS.homeProximity * homeProximityScore;
   
   return {
     visit,

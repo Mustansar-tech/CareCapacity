@@ -168,6 +168,21 @@ export interface ProcessingResult {
   employeesByDate: Record<string, EmployeeDailyDetail[]>;
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>;
   warnings?: string[];
+  // Geographical data for scheduling optimization
+  employeeLocations?: Array<{
+    employeeName: string;
+    homePostcode: string;
+    homeLat?: number;
+    homeLng?: number;
+    transportMode?: string;
+  }>;
+  clientLocations?: Array<{
+    clientName: string;
+    addressLine: string;
+    postcode: string;
+    lat?: number;
+    lng?: number;
+  }>;
 }
 
 // Validation schemas
