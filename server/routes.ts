@@ -257,6 +257,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/visits/:date - Get client visits for a specific date from Excel
+  app.get('/api/visits/:date', (req, res) => {
+    try {
+      const { date } = req.params;
+      
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        return res.status(400).json({
+          message: 'Invalid date format. Use YYYY-MM-DD'
+        });
+      }
+      
+      if (!latestGuaranteedBuffer) {
+        return res.status(404).json({
+          message: 'No Guaranteed Hours data available. Please upload files first.'
+        });
+      }
+
+      const { extractClientVisitsFromGHExcel } = require('./excel-visit-extractor');
+      const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
+      const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
+      
+      res.json(visits);
+    } catch (error) {
+      console.error('Visits fetch error:', error);
+      res.status(500).json({
+        message: 'Failed to fetch visits for date'
+      });
+    }
+  });
+
   // GET /api/history - Get all historical analyses (latest 8 weeks only)
   app.get('/api/history', async (_req, res) => {
     try {

@@ -26,6 +26,21 @@ const CLIENT_COLS = [
   'Customer Name',
 ];
 
+const ADDRESS_COLS = [
+  'Service Requirement Location',
+  'Service Location',
+  'Client Address',
+  'Address Line 1',
+  'Full Address',
+];
+
+const POSTCODE_COLS = [
+  'Postcode',
+  'Post Code',
+  'Postal Code',
+  'Client Postcode',
+];
+
 const CANCEL_COL = 'Cancellation Description';
 
 function toDate(v: any): Date | undefined {
@@ -45,6 +60,8 @@ export interface ExcelClientVisit {
   endTime: string;
   durationMinutes: number;
   date: string;
+  address?: string;
+  postcode?: string;
 }
 
 export function extractClientVisitsFromGHExcel(
@@ -109,12 +126,28 @@ export function extractClientVisitsFromGHExcel(
     const endDate = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
     if (!endDate) continue;
 
+    // Get address
+    const addressRaw = ADDRESS_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    const address = addressRaw ? String(addressRaw).trim() : undefined;
+    
+    // Get postcode (check dedicated columns first, then extract from address)
+    let postcode: string | undefined;
+    const postcodeRaw = POSTCODE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    if (postcodeRaw) {
+      postcode = String(postcodeRaw).trim().toUpperCase();
+    } else if (address) {
+      const postcodeMatch = address.match(/([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})/i);
+      postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
+    }
+
     visits.push({
       clientName,
       startTime: fmt(startDate, 'HH:mm'),
       endTime: fmt(endDate, 'HH:mm'),
       durationMinutes,
       date: dateStr,
+      address,
+      postcode,
     });
   }
 

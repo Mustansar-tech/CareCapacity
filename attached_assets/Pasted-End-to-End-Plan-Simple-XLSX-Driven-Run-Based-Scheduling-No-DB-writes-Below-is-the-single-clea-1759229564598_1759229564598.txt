@@ -1,0 +1,266 @@
+End-to-End Plan: Simple, XLSX-Driven, Run-Based Scheduling (No DB writes)
+
+Below is the single, clean plan that uses only your uploaded Excel files as the source of truth, honors fixed client times and employee availability windows, builds run-based chains (client→client), and shows a simple rota like your Sean example. No code here—just the blueprint.
+
+1) Inputs (XLSX only) & what we read from each
+
+Caregiver Availability (Availability Export.xlsx)
+
+Employee name, date, availability Time Window(s).
+
+Status (Available / Partial / Leave types).
+
+We will only use these windows to cap a day (no “≤9h” rule).
+
+Care Pro Guaranteed Hours.xlsx (or your Visits/Planned file)
+
+Planned Start & End (first), else Actual, else SR.
+
+Client name/location, service type, cancellations.
+
+This is where fixed visit times come from.
+
+CG Data / Master Employee List
+
+Weekly hours (for context), Post Code, Transport (car/walker), Gender/Title (for color), display name.
+
+Storage policy: No visit writes back to DB. We will keep all processed objects in memory (per upload/session) and optional cache only for geocodes (postcode→lat/lng). Nothing else persists.
+
+2) Geocoding (lightweight + cached)
+
+Employee home: geocode employee postcode from CG Data.
+
+Client location: parse postcode from service address; if missing, try district; else city fallback (EH/G/AB/DD/IV/KY/PH/FK → city centres).
+
+Cache: in-memory map {postcode|district|fallback → lat/lng, approximate flag} to avoid repeated lookups. (Optional: file cache; still not a DB of visits.)
+
+Transport mode per employee: car or walking (from CG Data).
+
+3) Travel-time model (used for feasibility + scoring)
+
+Distance: Haversine between A(lat,lng) and B(lat,lng).
+
+Speed by mode: car ≈ 40 km/h, walking ≈ 4.5 km/h (you can tune).
+
+Travel legs we compute:
+
+Client→Client (hard constraint for chaining).
+
+Home→First and Last→Home (scoring-only; never blocks).
+
+Soft penalty when leg exceeds a soft limit (e.g., 60% of max), but still feasible if under max (e.g., 30 min).
+
+4) Time logic (the rules we enforce)
+
+Visits are fixed: use Planned Start/End exactly.
+
+Employee feasibility = availability windows:
+
+A visit must fit entirely inside at least one of employee’s windows including travel to/from adjacent visits in the run.
+
+No global 9h cap. Day capacity comes only from availability windows.
+
+Chaining:
+
+When considering an insertion for an employee on a date, check:
+
+Left neighbor end + travel ≤ candidate start.
+
+Candidate end + travel ≤ right neighbor start.
+
+If no neighbors (first assignment), only check the visit fits an availability window (home legs ignored for feasibility).
+
+Multi-hour visits:
+
+They consume their exact duration.
+
+They can span multiple “company blocks”, but we schedule to the fixed times, not to block edges.
+
+5) Scoring (rank best matches per employee)
+
+When a candidate visit is feasible for an employee/date:
+
+Run tightness (prefer smaller gaps with neighbors).
+
+Travel added (client→client delta).
+
+Window slack (distance from availability edges; smaller is better).
+
+Home proximity bias (scoring-only):
+
+If candidate becomes new first: add Δ(Home→First) = T(Home, NewFirst) − T(Home, OldFirst).
+
+If candidate becomes new last: add Δ(Last→Home) = T(NewLast, Home) − T(OldLast, Home).
+
+This gently nudges start near home and finish near home.
+
+Weights (tunable): e.g., 40% tightness, 35% travel, 15% slack, 10% home.
+
+6) Simple Scheduling Tab (your exact UX)
+
+Top bar
+
+Pick a date (single day).
+
+Left pane: Employee picker
+
+Search list: Name + gender color + transport icon (car/walker) + home postcode.
+
+Selecting an employee shows their availability strips for the day.
+
+Main pane split (when employee selected)
+
+Employee Run (left column)
+
+Empty initially.
+
+Shows the run timeline for that day with:
+
+Availability windows (light bars)
+
+Assigned visits (cards with Client name + exact visit time)
+
+Thin lines for client→client travel mins (hover tooltip).
+
+Home pin at left/right ends (ghost), with tooltips for Home→First / Last→Home mins (scoring-only).
+
+Remove button on each assignment (sends visit back to Unallocated with reason).
+
+Best Matches (Top 5) (right column)
+
+Feasible, unallocated visits ranked by the scoring above.
+
+For each:
+
+Client name
+
+Visit time (planned)
+
+Added travel (mins) and resulting gap
+
+Score badge
+
+Assign button → inserts at the optimal position in the run.
+
+Bottom drawer: Unallocated (for the date)
+
+All remaining visits, grouped by time, client postcode area, or priority; filterable.
+
+Rota view toggle (weekly)
+
+For the selected employee, show Mon–Sun grid (like your Sean screenshot).
+
+Each cell: Client name and visit time(s) chained as assigned by date.
+
+Cell color respects gender color rules; transport icon in header.
+
+7) Data pipeline (clean and minimal)
+
+Parse the 3–4 XLSX files (Availability, Guaranteed/Visits, CG Data).
+
+Normalize names; drop cancelled/secondary entries; pick Planned times first.
+
+Build per-day:
+
+employees[date] = { windows[], gender, transport, homePostcode }
+
+visits[date] = [{ client, start, end, address/postcode }]
+
+Geocode employees and clients → lat/lng (with cache & fallbacks).
+
+In-memory indices:
+
+visitsByDate[date] (unallocated)
+
+runs[employeeId][date] = [] (builds as schedulers assign)
+
+On assign:
+
+Check feasibility against windows + client→client travel.
+
+If feasible → compute score → insert at the best position.
+
+Move from Unallocated → Run.
+
+On remove:
+
+Pop from run → push back to Unallocated (keeps date).
+
+Everything is session-memory driven; no DB visit writes/reads. Optional: persist only the final rota export (Excel) if you choose.
+
+8) Constraints & edge cases (how we handle them)
+
+No window fits → visit stays Unallocated with reason “No window”.
+
+Travel infeasible (client→client) → reason shows conflict pair.
+
+Overlap between visits → rejected with the exact clash times.
+
+Missing client geocode → use district/city fallback; mark “approximate”; still score but demote a bit.
+
+Walking mode too slow → feasibility fails if travel breaks fixed times.
+
+Multi-visit clients/day → each visit treated independently by fixed times; chaining will group if feasible.
+
+Overnight visits (rare) → supported if start<end crosses midnight (we keep per-date view, so typically out of scope).
+
+9) Output & audits
+
+Weekly Rota Export (XLSX):
+
+One sheet per employee (Mon–Sun) with Client & visit times per cell.
+
+“Unallocated” sheet by date/time.
+
+Activity log (in memory):
+
+Who assigned what, when, and why rejected (for on-screen audit, optional export).
+
+10) Performance & UX polish
+
+Batch geocode once per upload; cache results.
+
+Pre-compute nearest-neighbor hints per employee (k-nearest clients by mode) to speed Best Matches.
+
+Debounced recompute when you toggle employees/dates.
+
+Deterministic tie-breakers (travel, gaps, slack, name) so results are repeatable.
+
+11) Acceptance criteria (what “done” looks like)
+
+No DB dependency for visits: all assignments operate on the uploaded files.
+
+Employee feasibility is only their availability windows (not a 9h cap).
+
+Fixed client times always respected.
+
+Runs show client→client travel; Home legs affect ranking only.
+
+Best Matches accurately reflect feasibility and rank by the stated score.
+
+Weekly rota for a picked employee renders like your screenshot:
+Mon/Wed/Fri, each cell shows Client + visit time(s); gender color; transport icon.
+
+Unallocated list clearly shows what’s left and why.
+
+12) Rollout in three tight milestones
+
+M1: Parse & View
+
+Parse XLSX, show Employee picker, Availability strips, Unallocated list by date.
+
+Geocode employees & clients with cache; show approx flags.
+
+M2: Assign & Score
+
+Feasibility checks (windows + client→client travel).
+
+Best Matches Top 5 with full score breakdown.
+
+Insert into run; remove back to Unallocated.
+
+M3: Weekly Rota & Export
+
+Per-employee weekly grid (Mon–Sun) like Sean example.
+
+Excel export of rota + Unallocated tab.
