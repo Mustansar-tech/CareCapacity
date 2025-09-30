@@ -23,7 +23,7 @@ import { storage } from "./storage";
 // Enhanced geocoding with fallback hierarchy
 async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
-  
+
   // Step 1: Try exact postcode from cache
   const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
   if (cached) {
@@ -36,7 +36,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
       approximate: false
     };
   }
-  
+
   // Step 2: Try exact postcode from API
   try {
     const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
@@ -45,7 +45,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
       if (data.status === 200 && data.result) {
         const lat = data.result.latitude.toString();
         const lng = data.result.longitude.toString();
-        
+
         // Cache the exact result
         await storage.saveGeocode({
           key: `postcode:${normalizedPostcode}`,
@@ -53,7 +53,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
           lng,
           source: 'postcodes.io'
         });
-        
+
         return {
           query: normalizedPostcode,
           type: 'postcode',
@@ -67,12 +67,12 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
   } catch (err) {
     console.log(`🔄 Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
   }
-  
+
   // Step 3: Try postcode district (first part)
   const parts = normalizedPostcode.split(' ');
   if (parts.length >= 2) {
     const district = parts[0];
-    
+
     // Check cache for district
     const districtCached = await storage.getGeocode(`district:${district}`);
     if (districtCached) {
@@ -85,7 +85,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
         approximate: true
       };
     }
-    
+
     // Try district from API
     try {
       const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(district)}`);
@@ -94,7 +94,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
         if (data.status === 200 && data.result) {
           const lat = data.result.latitude.toString();
           const lng = data.result.longitude.toString();
-          
+
           // Cache the district result
           await storage.saveGeocode({
             key: `district:${district}`,
@@ -102,7 +102,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
             lng,
             source: 'postcodes.io'
           });
-          
+
           return {
             query: normalizedPostcode,
             type: 'postcode',
@@ -117,7 +117,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
       console.log(`🔄 District geocoding failed for ${district}, trying area fallback...`);
     }
   }
-  
+
   // Step 4: Default to approximate city center based on postcode prefix
   const prefix = normalizedPostcode.substring(0, 2);
   const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
@@ -130,11 +130,11 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
     'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },       // Perth
     'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },     // Falkirk
   };
-  
+
   const fallback = fallbackLocations[prefix];
   if (fallback) {
     console.log(`📍 Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
-    
+
     // Cache the fallback to avoid repeated lookups
     await storage.saveGeocode({
       key: `fallback:${prefix}`,
@@ -142,7 +142,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
       lng: fallback.lng,
       source: 'fallback'
     });
-    
+
     return {
       query: normalizedPostcode,
       type: 'postcode',
@@ -152,7 +152,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
       approximate: true
     };
   }
-  
+
   // Step 5: Ultimate fallback to Edinburgh city center
   console.log(`📍 Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
   return {
@@ -180,73 +180,73 @@ async function generateVisitsFromDemand(
   numDays: number = 7
 ): Promise<void> {
   console.log(`📅 Generating client visits from ${filteredRows.length} demand rows for ${numDays} days starting ${format(startDate, 'yyyy-MM-dd')}`);
-  
+
   // Default time windows based on service type
   const getDefaultTimeWindows = (serviceType: string): { start: string; end: string }[] => {
     const type = serviceType.toLowerCase();
-    
+
     // Morning slots for basic care services
     if (type.includes('personal care') || type.includes('medication') || type.includes('breakfast')) {
       return [{ start: '07:00', end: '11:00' }];
     }
-    
+
     // Lunch time slots
     if (type.includes('lunch') || type.includes('meal')) {
       return [{ start: '11:30', end: '14:30' }];
     }
-    
+
     // Evening slots for dinner and bedtime care
     if (type.includes('dinner') || type.includes('bedtime') || type.includes('evening')) {
       return [{ start: '17:00', end: '21:00' }];
     }
-    
+
     // Day time slots for general activities
     if (type.includes('domestic') || type.includes('shopping') || type.includes('companionship')) {
       return [{ start: '09:00', end: '17:00' }];
     }
-    
+
     // Default to flexible daytime windows
     return [
       { start: '09:00', end: '12:00' },
       { start: '14:00', end: '17:00' }
     ];
   };
-  
+
   // Weekday name mapping
   const weekdayMap: Record<string, number> = {
     'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
     'thursday': 4, 'friday': 5, 'saturday': 6
   };
-  
+
   let totalVisitsCreated = 0;
-  
+
   // Generate visits for each demand row across the date range
   for (const row of filteredRows) {
     const weekdayNum = weekdayMap[row.weekday.toLowerCase()];
     if (weekdayNum === undefined) continue;
-    
+
     // Find matching dates for this weekday
     for (let dayOffset = 0; dayOffset < numDays; dayOffset++) {
       const currentDate = addDays(startDate, dayOffset);
       if (currentDate.getDay() !== weekdayNum) continue;
-      
+
       const dateStr = format(currentDate, 'yyyy-MM-dd');
       const timeWindows = getDefaultTimeWindows(row.serviceType);
-      
+
       for (const timeWindow of timeWindows) {
         // Create or get client location
-        const clientName = `${row.serviceType} Client`;
+        const clientName = `${row.serviceType} Client`; // This will be replaced by Service Location Name
         let existingClient = await storage.getClientLocationByName?.(clientName);
         if (!existingClient) {
           existingClient = await storage.upsertClientLocation({
-            clientName: clientName,
+            clientName: clientName, // This will be replaced by Service Location Name
             addressLine: `Service Location for ${row.serviceType}`,
             postcode: 'EH1 1AA', // Default Edinburgh postcode for geocoding
             lat: null,
             lng: null
           });
         }
-        
+
         // Create a visit for this service demand
         const visit = {
           clientId: existingClient.id,
@@ -258,16 +258,16 @@ async function generateVisitsFromDemand(
                    row.serviceType.toLowerCase().includes('personal care') ? 2 : 3,
           serviceType: row.serviceType
         };
-        
+
         // Save the visit
         await storage.saveVisit(visit);
         totalVisitsCreated++;
-        
+
         console.log(`📋 Created visit: ${visit.clientId} on ${dateStr} (${timeWindow.start}-${timeWindow.end}) for ${visit.durationMinutes}min`);
       }
     }
   }
-  
+
   console.log(`✅ Generated ${totalVisitsCreated} client visits from demand data`);
 }
 
@@ -953,7 +953,7 @@ function parseDate(dateStr: any): Date {
   throw new Error(`Could not parse date: ${dateStr}. Tried multiple formats.`);
 }
 
-// Parse and validate Excel data
+// Parse and clean the data starting with CG Data as master employee list
 // Define CG Data row interface
 interface CGDataRow {
   "CAREGiver Name": string;
@@ -2277,7 +2277,7 @@ export async function processCapacityData(
 // Extract and store geographical data for route optimization
 async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[]) {
   console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
-  
+
   try {
     // Extract employee locations from CG Data Export
     const employeeLocationsMap = new Map<string, any>();
@@ -2285,11 +2285,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       const employeeName = row["CAREGiver Name"];
       const postcode = row["PostCode"];
       const transportMode = row["TransportModeDescription"]?.toLowerCase();
-      
+
       if (employeeName && postcode) {
         const normalizedTransport = transportMode?.includes("car") ? "car" : 
                                   transportMode?.includes("walk") ? "walking" : "car";
-        
+
         employeeLocationsMap.set(employeeName, {
           employeeName,
           homePostcode: postcode,
@@ -2297,16 +2297,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         });
       }
     }
-    
+
     console.log(`👥 Found ${employeeLocationsMap.size} employee locations from CG Data`);
-    
+
     // Geocode all employee locations during data upload
     console.log(`🔍 Geocoding all employee postcodes...`);
     for (const locationData of Array.from(employeeLocationsMap.values())) {
       try {
         console.log(`🔄 Geocoding ${locationData.employeeName} at ${locationData.homePostcode}...`);
         const geocoded = await geocodeWithFallback(locationData.homePostcode, storage);
-        
+
         if (geocoded && geocoded.lat && geocoded.lng) {
           locationData.homeLat = geocoded.lat;
           locationData.homeLng = geocoded.lng;
@@ -2317,20 +2317,20 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       } catch (err) {
         console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
       }
-      
+
       // Store employee location (with or without geocoding)
       await storage.upsertEmployeeLocation(locationData);
     }
-    
+
     // Extract client locations from Care Pro Guaranteed Hours
     const clientLocationsMap = new Map<string, any>();
     console.log(`🔍 DEBUG: Processing ${guaranteed.length} guaranteed hours rows for client locations`);
-    
+
     // Debug: Check what columns are available
     if (guaranteed.length > 0) {
       console.log(`🔍 DEBUG: Available columns in first row:`, Object.keys(guaranteed[0]));
     }
-    
+
     for (const row of guaranteed) {
       // Skip cancelled or secondary multiple care entries
       if (!isCancellationBlank(row["Cancellation Description"])) {
@@ -2341,16 +2341,17 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         console.log(`🔍 DEBUG: Skipping secondary multiple care for client: ${row["Service Location Name"] || row["Actual Client Name"]}`);
         continue;
       }
-      
+
+      // Prioritize 'Service Location Name' as the client identifier
       const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
       const serviceLocationAddress = row["Service Location Address"];
-      
+
       console.log(`🔍 DEBUG: Processing row - Service Location Name: "${row["Service Location Name"]}", Service Location Address: "${row["Service Location Address"]}", Client Name: "${clientName}"`);;
-      
+
       // Try to extract postcode from the address if possible
       let postcode = "";
       let addressLine = serviceLocationAddress || "";
-      
+
       if (serviceLocationAddress) {
         // Try to extract UK postcode pattern from the address
         const postcodeMatch = serviceLocationAddress.match(/([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\s*$/i);
@@ -2360,7 +2361,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           addressLine = serviceLocationAddress.replace(postcodeMatch[0], "").trim();
         }
       }
-      
+
       if (clientName && (serviceLocationAddress || postcode)) {
         const clientKey = clientName.trim();
         if (!clientLocationsMap.has(clientKey)) {
@@ -2375,9 +2376,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         console.log(`🔍 DEBUG: Skipping client - Name: "${clientName}", Address: "${serviceLocationAddress}", missing data`);
       }
     }
-    
+
     console.log(`🏠 Found ${clientLocationsMap.size} client locations from Guaranteed Hours`);
-    
+
     // Store client locations
     for (const locationData of Array.from(clientLocationsMap.values())) {
       await storage.upsertClientLocation(locationData);
@@ -2475,7 +2476,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             const addr = (r.address || "").trim().toUpperCase();
             const key = `${addr}|${pc}`;
             let clientName = clientKeyMap.get(key);
-            
+
             // If exact match fails, try postcode-only lookup
             if (!clientName) {
               for (const [mapKey, mapClientName] of Array.from(clientKeyMap.entries())) {
@@ -2486,14 +2487,14 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
                 }
               }
             }
-            
+
             if (!clientName) {
               console.log(`⚠️ No client found for key: ${key}, available keys:`, Array.from(clientKeyMap.keys()).slice(0, 3));
               continue;
             }
 
             console.log(`🔍 DEBUG: Saving client geocode - Name: ${clientName}, Coordinates: ${r.lat}, ${r.lng}`);
-            
+
             await storage.upsertClientLocation({
               clientName,
               addressLine: addr,
@@ -2513,62 +2514,75 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         console.log("⚠️ Client geocoding error:", err);
       }
     }
-    
+
     // Extract visit data for route optimization using Planned Start/End Date And Time
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
     
+    // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
+    const CLIENT_COLS = [
+      'Service Location Name', // Prioritized as per the user request
+      'Client Name', 
+      'Service User Name', 
+      'Customer Name'
+    ];
+
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
-    
+
     for (const row of guaranteed) {
       // Skip cancelled or secondary multiple care entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
       if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+
+      // Use the prioritized client name column
+      const clientName = pickCol(row, CLIENT_COLS);
+      const serviceLocationAddress = row["Service Location Address"];
       
-      const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
-      // Prioritize Planned Start/End Date And Time as user requested
+      // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
       const plannedEndTime = row["Planned End Date And Time"];
-      const startTime = row["Service Requirement Start Date And Time"];
-      const endTime = row["Service Requirement End Date And Time"];
       const actualStartTime = row["Actual Start Date And Time"];
       const actualEndTime = row["Actual End Date And Time"];
+      const startTime = row["Service Requirement Start Date And Time"];
+      const endTime = row["Service Requirement End Date And Time"];
       const serviceType = row["Actual Service Type Description"];
-      
-      if (clientName && (plannedStartTime || startTime || actualStartTime)) {
+
+      if (clientName && (plannedStartTime || actualStartTime || startTime)) {
         // Use planned times first as requested, then fall back to others
         const visitStart = plannedStartTime || actualStartTime || startTime;
         const visitEnd = plannedEndTime || actualEndTime || endTime;
-        
+
         if (visitStart) {
           try {
             const visitDate = format(parseDate(visitStart), "yyyy-MM-dd");
+            // Calculate duration, default to 60 minutes if end time is missing
             const duration = visitEnd ? 
               Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) : 
-              60; // Default 60 minutes if end time not available
-            
+              60; 
+
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
-            
+
             // Get client location for this visit
             const clientLocation = await storage.getClientLocationByName(clientName);
-            
+
             if (clientLocation && !visitsMap.has(visitKey)) {
               // Extract time windows for VRPTW optimizer
               const startDate = parseDate(visitStart);
+              // Ensure end date is valid, default to start date + duration if missing
               const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + duration * 60000);
-              
+
               // Convert to minutes since midnight for optimizer
               const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
               const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
-              
+
               const visitData = {
                 clientId: clientLocation.id,
                 date: visitDate,
-                durationMinutes: Math.max(duration, 15), // Minimum 15 minutes
+                durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
                 preferredStartTime: visitStart,
-                preferredEndTime: visitEnd || format(endDate, "yyyy-MM-dd HH:mm:ss"),
+                preferredEndTime: visitEnd || format(endDate, "yyyy-MM-dd HH:mm:ss"), // Use formatted end date if original was missing
                 serviceType: serviceType,
-                priority: 1,
+                priority: 1, // Default priority
                 // Additional fields for VRPTW optimizer
                 startMinutes: startMinutes,
                 endMinutes: endMinutes,
@@ -2578,16 +2592,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
                   lng: parseFloat(clientLocation.lng)
                 } : null
               };
-              
+
               visitsMap.set(visitKey, visitData);
-              
+
               // Group by date for optimization
               if (!visitsByDate.has(visitDate)) {
                 visitsByDate.set(visitDate, []);
               }
               visitsByDate.get(visitDate)!.push(visitData);
-              
+
               console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
+            } else if (!clientLocation) {
+              console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
             }
           } catch (dateError) {
             // Skip visits with invalid dates
@@ -2596,22 +2612,22 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         }
       }
     }
-    
+
     console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
-    
+
     // Store visit data
     for (const visitData of Array.from(visitsMap.values())) {
       await storage.saveVisit(visitData);
     }
-    
+
     // Log final geocoding statistics
     const empLocs = await storage.getAllEmployeeLocations?.() ?? [];
     const cliLocs = await storage.getAllClientLocations?.() ?? [];
     console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
     console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
-    
+
     console.log(`✅ Geographical data extraction complete!`);
-    
+
   } catch (error) {
     console.error('❌ Error extracting geographical data:', error);
   }

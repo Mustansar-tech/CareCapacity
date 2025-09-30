@@ -21,6 +21,7 @@ const DUR_COLS = [
 ];
 
 const CLIENT_COLS = [
+  'Service Location Name',
   'Client Name',
   'Service User Name',
   'Customer Name',
