@@ -512,14 +512,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Step 4: Default to approximate city center based on postcode prefix
     const prefix = normalizedPostcode.substring(0, 2);
     const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
-      'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },  // Edinburgh
-      'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },      // Glasgow  
-      'AB': { lat: '57.1497', lng: '-2.0943', name: 'Aberdeen' },    // Aberdeen
-      'DD': { lat: '56.4620', lng: '-2.9707', name: 'Dundee' },      // Dundee
-      'IV': { lat: '57.4778', lng: '-4.2247', name: 'Inverness' },   // Inverness
-      'KY': { lat: '56.1165', lng: '-3.1359', name: 'Fife' },        // Fife
-      'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },       // Perth
-      'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },     // Falkirk
+      'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },   // Edinburgh
+      'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },       // Glasgow  
+      'AB': { lat: '57.1497', lng: '-2.0943', name: 'Aberdeen' },     // Aberdeen
+      'DD': { lat: '56.4620', lng: '-2.9707', name: 'Dundee' },       // Dundee
+      'IV': { lat: '57.4778', lng: '-4.2247', name: 'Inverness' },    // Inverness
+      'KY': { lat: '56.1165', lng: '-3.1359', name: 'Fife' },         // Fife
+      'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },        // Perth
+      'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },      // Falkirk
+      'ML': { lat: '55.8642', lng: '-3.9442', name: 'Motherwell' },   // Motherwell/North Lanarkshire
+      'PA': { lat: '55.9467', lng: '-4.6249', name: 'Paisley' },      // Paisley
+      'KA': { lat: '55.6118', lng: '-4.6298', name: 'Kilmarnock' },   // Kilmarnock/Ayrshire
+      'DG': { lat: '55.0709', lng: '-3.6059', name: 'Dumfries' },     // Dumfries
+      'TD': { lat: '55.6038', lng: '-2.5650', name: 'Galashiels' },   // Scottish Borders
     };
 
     const fallback = fallbackLocations[prefix];
@@ -565,17 +570,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process postcodes using postcodes.io (free UK postcodes)
       for (const postcode of postcodes) {
         try {
+          console.log(`🔍 Geocoding postcode: "${postcode}"`);
           // Try geocoding with fallback hierarchy
           const geocodeResult = await geocodeWithFallback(postcode, storage);
-          results.push(geocodeResult);
+          if (geocodeResult && geocodeResult.lat && geocodeResult.lng) {
+            results.push({
+              ...geocodeResult,
+              success: true,
+              lat: Number(geocodeResult.lat),
+              lng: Number(geocodeResult.lng)
+            });
+            console.log(`✅ Geocoded "${postcode}" -> ${geocodeResult.lat}, ${geocodeResult.lng}`);
+          } else {
+            results.push({
+              query: postcode,
+              type: 'postcode',
+              error: 'No coordinates returned',
+              success: false,
+              source: 'none'
+            });
+            console.log(`❌ Failed to geocode "${postcode}" - no coordinates`);
+          }
         } catch (error) {
           results.push({
             query: postcode,
             type: 'postcode',
             error: 'Geocoding completely failed',
-            source: 'fallback',
-            approximate: false
+            success: false,
+            source: 'error'
           });
+          console.log(`❌ Error geocoding "${postcode}":`, error);
         }
       }
 
