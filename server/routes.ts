@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { extractClientVisitsFromGHExcel } = require('./excel-visit-extractor');
+      const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
       const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
       
