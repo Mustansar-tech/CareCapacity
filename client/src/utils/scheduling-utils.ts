@@ -63,7 +63,11 @@ export function getTravelMinutes(
   mode: 'car' | 'walking' | 'public' = 'car'
 ): number {
   const distance = haversineDistance(from.lat, from.lng, to.lat, to.lng);
-  return calculateTravelTime(distance, mode);
+  const travelTime = calculateTravelTime(distance, mode);
+  
+  console.log(`🔍 Utils travel calc: distance=${distance.toFixed(2)}km, mode=${mode}, time=${travelTime}min`);
+  
+  return travelTime;
 }
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings

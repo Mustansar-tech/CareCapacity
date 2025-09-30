@@ -60,7 +60,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   // Get selected employee details
   const selectedEmp = employees.find(e => e.employeeName === selectedEmployee);
   const selectedEmpSummary = employeeSummary.find(e => e.employeeName === selectedEmployee);
-  
+
   // Build employee run for selected employee
   const employeeRun: EmployeeRun | null = selectedEmp && selectedEmployee ? {
     visits: assignedVisits[selectedEmployee] || [],
@@ -106,7 +106,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   // Assign visit to employee
   const assignVisit = (clientName: string, startTime: string, endTime: string) => {
     if (!selectedEmployee || !selectedEmp || !employeeRun) return;
-    
+
     const visit = visits.find(v => 
       v.clientName === clientName && v.startTime === startTime && v.endTime === endTime
     );
@@ -122,7 +122,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
 
     // Check feasibility using scoreVisitMatch (which includes feasibility validation)
     const matchScore = scoreVisitMatch(visitData, employeeRun, timeWindows);
-    
+
     if (!matchScore) {
       toast({
         title: "Cannot Assign Visit",
@@ -199,7 +199,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                 {filteredEmployees.map((emp) => {
                   const summary = employeeSummary.find(s => s.employeeName === emp.employeeName);
                   const isAvailable = emp.status === 'Available' || emp.status === 'Partial Available';
-                  
+
                   return (
                     <Button
                       key={emp.employeeName}
@@ -241,7 +241,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                 {/* Employee Run (Left) */}
                 <div className="space-y-3">
                   <h3 className="font-semibold">Assigned Visits</h3>
-                  
+
                   {/* Availability Windows */}
                   <div className="text-sm text-muted-foreground">
                     <Clock className="h-4 w-4 inline mr-1" />
@@ -287,42 +287,68 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                   <h3 className="font-semibold">Best Matches (Top 5)</h3>
                   <ScrollArea className="h-[450px]">
                     <div className="space-y-2">
-                      {topMatches.map((match, idx) => (
-                        <Card key={idx}>
-                          <CardContent className="p-3">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="font-medium">{match.visit.clientName}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {minutesToTime(match.visit.start)} - {minutesToTime(match.visit.end)}
-                                </p>
-                                <div className="flex gap-2 mt-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    Score: {(match.score * 100).toFixed(0)}%
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    Travel: +{match.travelFromPrev + match.travelToNext}m
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    Gap: {match.gap}m
-                                  </Badge>
+                      {topMatches.map((match, idx) => {
+                        const visit = match.visit; // Alias for clarity
+                        const clientLocation = data?.clientLocations?.find(c => c.name === visit.clientName);
+                        const employeeLocation = data?.employeeLocations?.find(e => e.name === selectedEmployee);
+                        
+                        // Ensure we have necessary location data before calculating travel
+                        if (!clientLocation || !employeeLocation) {
+                          console.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
+                          return null; // Skip rendering this match if data is missing
+                        }
+
+                        const empLocation = { lat: employeeLocation.lat, lng: employeeLocation.lng };
+                        const clientLocationCoords = { lat: clientLocation.lat, lng: clientLocation.lng };
+                        
+                        const travelMinutes = getTravelMinutes(
+                            empLocation,
+                            clientLocationCoords,
+                            selectedEmpSummary?.transportMode || 'car'
+                          );
+
+                          console.log(`🔍 Frontend travel calc: ${selectedEmployee} -> ${visit.clientName}: ${travelMinutes}min`);
+                          console.log(`  Emp coords: ${empLocation.lat}, ${empLocation.lng}`);
+                          console.log(`  Client coords: ${clientLocationCoords.lat}, ${clientLocationCoords.lng}`);
+
+                        return (
+                          <Card key={idx}>
+                            <CardContent className="p-3">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <p className="font-medium">{visit.clientName}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {minutesToTime(visit.start)} - {minutesToTime(visit.end)}
+                                  </p>
+                                  <div className="flex gap-2 mt-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      Score: {(match.score * 100).toFixed(0)}%
+                                    </Badge>
+                                    {/* Use the calculated travelMinutes */}
+                                    <Badge variant="outline" className="text-xs">
+                                      Travel: +{travelMinutes}m 
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      Gap: {match.gap}m
+                                    </Badge>
+                                  </div>
                                 </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => assignVisit(
+                                    visit.clientName,
+                                    minutesToTime(visit.start),
+                                    minutesToTime(visit.end)
+                                  )}
+                                  data-testid={`button-assign-visit-${visit.clientName.replace(/\s+/g, '-')}`}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
                               </div>
-                              <Button
-                                size="sm"
-                                onClick={() => assignVisit(
-                                  match.visit.clientName,
-                                  minutesToTime(match.visit.start),
-                                  minutesToTime(match.visit.end)
-                                )}
-                                data-testid={`button-assign-visit-${match.visit.clientName.replace(/\s+/g, '-')}`}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                       {topMatches.length === 0 && (
                         <p className="text-sm text-muted-foreground text-center py-8">
                           No feasible matches found

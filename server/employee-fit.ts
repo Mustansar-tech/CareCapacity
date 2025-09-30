@@ -58,6 +58,8 @@ function windowCanHost(
   return false;
 }
 
+const travelService = new TravelTimeService(30, 15); // 30min max, 15min soft limit
+
 export async function buildEmployeeFitRows(
   employeesByDate: Record<string, EmployeeDetail[]>,
   employeeSummaryByDate: Record<string, any[]>,
@@ -80,7 +82,6 @@ export async function buildEmployeeFitRows(
     visitsByDate.get(v.date)!.push(v);
   }
 
-  const travelService = new TravelTimeService();
   const rows: any[] = [];
 
   for (const [date, empRows] of Object.entries(employeesByDate)) {
@@ -110,8 +111,8 @@ export async function buildEmployeeFitRows(
         const empLng = empLoc.homeLng ? Number(empLoc.homeLng) : null;
         const clientLat = c.lat ? Number(c.lat) : null;
         const clientLng = c.lng ? Number(c.lng) : null;
-        
-        if (Number.isFinite(empLat) && Number.isFinite(empLng) && 
+
+        if (Number.isFinite(empLat) && Number.isFinite(empLng) &&
             Number.isFinite(clientLat) && Number.isFinite(clientLng)) {
           try {
             const travelMatrix = travelService.calculateTravelTime(
@@ -124,7 +125,7 @@ export async function buildEmployeeFitRows(
             console.log(`⚠️ Travel time calculation failed for ${emp.employeeName} -> ${c.clientName}, using fallback`);
           }
         }
-        
+
         suggestions.push({ clientName: c.clientName, travelMin, duration: dur });
       }
 

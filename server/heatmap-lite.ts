@@ -1,6 +1,8 @@
 import { storage } from "./storage";
 import { TravelTimeService } from "./travel-time-service";
 
+const travelService = new TravelTimeService(30, 15); // 30min max, 15min soft limit
+
 type EmployeeDetail = { 
   employeeName: string; 
   status: string; 

@@ -60,9 +60,18 @@ export class TravelTimeService {
     to: Location, 
     transportMode: TransportMode = "car"
   ): TravelMatrix {
+    // Validate input coordinates
+    if (!Number.isFinite(from.lat) || !Number.isFinite(from.lng) || 
+        !Number.isFinite(to.lat) || !Number.isFinite(to.lng)) {
+      console.log(`⚠️ Invalid coordinates: from(${from.lat}, ${from.lng}) to(${to.lat}, ${to.lng})`);
+      throw new Error('Invalid coordinates provided');
+    }
+
     const distanceKm = this.calculateDistance(from, to);
-    const speedKmh = this.SPEED_KMH[transportMode];
-    const travelTimeMinutes = Math.round((distanceKm / speedKmh) * 60);
+    const speedKmh = this.SPEED_KMH[transportMode] || this.SPEED_KMH.car;
+    const travelTimeMinutes = Math.max(1, Math.round((distanceKm / speedKmh) * 60)); // Minimum 1 minute
+    
+    console.log(`🚗 Travel calc: ${distanceKm.toFixed(2)}km at ${speedKmh}km/h = ${travelTimeMinutes}min (${transportMode})`);
     
     // Calculate soft penalty score
     let penaltyScore = 0;
