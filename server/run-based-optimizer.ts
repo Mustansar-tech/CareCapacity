@@ -1,3 +1,4 @@
+
 /**
  * Run-Based Scheduling Optimizer
  * Implements true client-to-client chaining with advanced scoring
@@ -53,10 +54,6 @@ export interface VisitCandidate {
   duration: number;
   priority: number;
   feasibleEmployees: EmployeeMatch[];
-  // Add debug info for UI display
-  timeWindow: string;
-  originalStartTime: string | undefined;
-  originalEndTime: string | undefined;
 }
 
 export interface EmployeeMatch {
@@ -135,10 +132,10 @@ export class RunBasedOptimizer {
     // Check each available slot
     for (let slotIndex = 0; slotIndex < employee.availableSlots.length; slotIndex++) {
       const slot = employee.availableSlots[slotIndex];
-
+      
       // Calculate insertion details
       const match = this.calculateInsertionMatch(employee, visit, slot, slotIndex);
-
+      
       if (match.feasible) {
         matches.push(match);
       }
@@ -166,7 +163,7 @@ export class RunBasedOptimizer {
 
     // Calculate current location for travel calculation
     const currentLocation = prevVisit ? prevVisit.location : employee.homeLocation;
-
+    
     // Calculate travel time to this visit
     const travelToVisit = this.calculateTravelTime(
       currentLocation,
@@ -178,7 +175,7 @@ export class RunBasedOptimizer {
     const earliestStart = prevVisit 
       ? prevVisit.endTime + this.settings.bufferMinutes + travelToVisit
       : slot.start + travelToVisit;
-
+    
     const arriveTime = Math.max(earliestStart, visit.requiredStart);
     const departTime = arriveTime + visit.duration;
 
@@ -227,7 +224,7 @@ export class RunBasedOptimizer {
       visit.requiredStart,
       earliestStart
     );
-
+    
     const rightSlack = Math.min(
       slot.end,
       visit.requiredEnd,
@@ -346,22 +343,22 @@ export class RunBasedOptimizer {
    */
   private generateAvailableSlots(employee: EmployeeRunState): TimeSlot[] {
     const slots: TimeSlot[] = [];
-
+    
     // Sort booked visits by start time
     const sortedVisits = [...employee.bookedVisits].sort((a, b) => a.startTime - b.startTime);
 
     for (const timeWindow of employee.timeWindows) {
       let currentTime = timeWindow.start;
-
+      
       // Process each visit in this time window
       for (let i = 0; i < sortedVisits.length; i++) {
         const visit = sortedVisits[i];
-
+        
         // Skip visits outside this time window
         if (visit.startTime < timeWindow.start || visit.endTime > timeWindow.end) {
           continue;
         }
-
+        
         // Add slot before this visit
         if (currentTime < visit.startTime) {
           slots.push({
@@ -371,10 +368,10 @@ export class RunBasedOptimizer {
             afterVisitId: i > 0 ? sortedVisits[i-1].visitId : undefined
           });
         }
-
+        
         currentTime = visit.endTime;
       }
-
+      
       // Add slot after last visit in window
       if (currentTime < timeWindow.end) {
         slots.push({
@@ -414,12 +411,12 @@ export class RunBasedOptimizer {
     // Calculate feasible matches for each visit
     visitCandidates.forEach(visit => {
       visit.feasibleEmployees = [];
-
+      
       employees.forEach(emp => {
         const matches = this.findInsertionPoints(emp, visit);
         visit.feasibleEmployees.push(...matches);
       });
-
+      
       // Sort by score
       visit.feasibleEmployees.sort((a, b) => b.score - a.score);
     });
@@ -429,7 +426,7 @@ export class RunBasedOptimizer {
     const totalVisits = visitCandidates.length;
     const employeesUtilized = employees.filter(e => e.bookedVisits.length > 0).length;
     const totalTravelMinutes = employees.reduce((sum, e) => sum + e.travelMinutesTotal, 0);
-
+    
     const allScores = visitCandidates.flatMap(v => 
       v.feasibleEmployees.filter(e => e.feasible).map(e => e.score)
     );

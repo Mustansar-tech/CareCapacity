@@ -78,9 +78,6 @@ interface VisitCandidate {
   duration: number;
   priority: number;
   feasibleEmployees: EmployeeMatch[];
-  timeWindow?: string; // Display format like "10:30–11:30"
-  originalStartTime?: string | null;
-  originalEndTime?: string | null;
 }
 
 interface EmployeeMatch {
@@ -566,9 +563,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                             <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
                               <div className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                <span className="font-medium text-blue-600 dark:text-blue-400">
-                                  {visit.timeWindow || `${minutesToTime(visit.requiredStart)} - ${minutesToTime(visit.requiredEnd)}`}
-                                </span>
+                                <span>{minutesToTime(visit.requiredStart)} - {minutesToTime(visit.requiredEnd)}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Users className="w-3 h-3" />
@@ -576,11 +571,6 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                               </div>
                               <Badge variant="outline">Priority {visit.priority}</Badge>
                             </div>
-                            {visit.originalStartTime && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                Original times: {visit.originalStartTime} - {visit.originalEndTime || 'calculated'}
-                              </div>
-                            )}
                           </div>
                           <Badge variant={visit.feasibleEmployees.length > 0 ? "default" : "destructive"}>
                             {visit.feasibleEmployees.length} feasible matches
@@ -623,31 +613,22 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                                     </Button>
                                   </div>
 
-                                  <div className="space-y-2">
-                                    {/* Main visit details */}
-                                    <div className="text-sm font-medium">
-                                      Client: {visit.clientName} · {minutesToTime(visit.requiredStart)}–{minutesToTime(visit.requiredEnd)}
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                    <div>
+                                      <span className="text-gray-500">Arrive:</span>
+                                      <span className="ml-1 font-medium">{minutesToTime(empMatch.arriveTime)}</span>
                                     </div>
-                                    
-                                    {/* Travel details */}
-                                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                                      +Travel: {empMatch.addedTravelMin} min (from prior) / 
-                                      {empMatch.insertionPoint.beforeVisitId ? ' to next' : ' to home'}
+                                    <div>
+                                      <span className="text-gray-500">Travel:</span>
+                                      <span className="ml-1 font-medium">+{empMatch.addedTravelMin}m</span>
                                     </div>
-                                    
-                                    {/* Gap impact */}
-                                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                                      Gap impact: +{empMatch.gapBeforeMin + empMatch.gapAfterMin} min idle
+                                    <div>
+                                      <span className="text-gray-500">Slack:</span>
+                                      <span className="ml-1 font-medium">L:{empMatch.leftSlackMin}m R:{empMatch.rightSlackMin}m</span>
                                     </div>
-                                    
-                                    {/* Window fit */}
-                                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                                      Window fit: inside employee availability (margin: {Math.min(empMatch.leftSlackMin, empMatch.rightSlackMin)} min)
-                                    </div>
-                                    
-                                    {/* Day load */}
-                                    <div className="text-xs font-medium text-green-700 dark:text-green-400">
-                                      Day load after assign: {Math.floor(empMatch.careMinutesAfter / 60)}h{empMatch.careMinutesAfter % 60}m/{Math.floor(maxCareMinutes / 60)}h
+                                    <div>
+                                      <span className="text-gray-500">Care after:</span>
+                                      <span className="ml-1 font-medium">{Math.floor(empMatch.careMinutesAfter / 60)}h{empMatch.careMinutesAfter % 60}m</span>
                                     </div>
                                   </div>
 
