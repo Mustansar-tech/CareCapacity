@@ -2377,16 +2377,31 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       let addressLine = serviceLocationAddress || "";
 
       if (serviceLocationAddress && typeof serviceLocationAddress === 'string') {
-        // Enhanced UK postcode pattern matching - more flexible
-        const postcodeMatch = serviceLocationAddress.match(/([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i);
+        const addressStr = serviceLocationAddress.trim();
+        console.log(`🔍 DEBUG: Processing address for ${clientName}: "${addressStr}"`);
+        
+        // Enhanced UK postcode pattern matching - more flexible patterns
+        const postcodePatterns = [
+          /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i,  // Standard UK postcode
+          /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})\b/i,        // Alternative pattern
+          /([A-Z]{1,2}\d{1,2}\s*\d[A-Z]{2})$/i,                 // End of string pattern
+        ];
+        
+        let postcodeMatch = null;
+        for (const pattern of postcodePatterns) {
+          postcodeMatch = addressStr.match(pattern);
+          if (postcodeMatch) break;
+        }
+        
         if (postcodeMatch) {
-          postcode = postcodeMatch[1].trim().toUpperCase().replace(/\s+/g, ' ');
+          postcode = normalisePostcode(postcodeMatch[1]);
           // Remove postcode from address line and clean up
-          addressLine = serviceLocationAddress.replace(postcodeMatch[0], "").trim().replace(/,\s*$/, "");
+          addressLine = addressStr.replace(postcodeMatch[0], "").trim().replace(/,\s*$/, "").replace(/\s+/g, " ");
+          console.log(`✅ DEBUG: Extracted postcode "${postcode}" from address, remaining: "${addressLine}"`);
         } else {
           // If no postcode found, use the full address as addressLine
-          addressLine = serviceLocationAddress.trim();
-          console.log(`🔍 DEBUG: No postcode found in address: "${serviceLocationAddress}" for client: ${clientName}`);
+          addressLine = addressStr;
+          console.log(`❌ DEBUG: No postcode found in address: "${addressStr}" for client: ${clientName}`);
         }
       }
 
@@ -2445,11 +2460,27 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       employeeByPostcode.get(pc)!.push(name);
     }
 
-    // Build a lookup key for clients "<ADDRESS>|<POSTCODE>" -> clientName
+    // Build multiple lookup maps for clients to handle different matching scenarios
+    const clientByPostcode = new Map<string, string[]>();
+    const clientByAddress = new Map<string, string>();
     const clientKeyMap = new Map<string, string>();
+    
     for (const v of Array.from(clientLocationsMap.values())) {
       const pc = normalisePostcode(v.postcode || "");
       const addr = (v.addressLine || "").trim().toUpperCase();
+      
+      // Build postcode-based lookup
+      if (pc) {
+        if (!clientByPostcode.has(pc)) clientByPostcode.set(pc, []);
+        clientByPostcode.get(pc)!.push(v.clientName);
+      }
+      
+      // Build address-based lookup
+      if (addr) {
+        clientByAddress.set(addr, v.clientName);
+      }
+      
+      // Original key-based lookup
       clientKeyMap.set(`${addr}|${pc}`, v.clientName);
     }
 
@@ -2505,14 +2536,23 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       .filter(v => v.address || v.postcode);
 
     if (clientAddresses.length > 0) {
+      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} client addresses:`);
+      clientAddresses.slice(0, 5).forEach((addr, i) => {
+        console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
+      });
+      
       try {
+        const requestBody = {
+          postcodes: clientAddresses.map(a => a.postcode),
+          addresses: clientAddresses.map(a => a.address),
+        };
+        
+        console.log(`📤 Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
+        
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            postcodes: clientAddresses.map(a => a.postcode),
-            addresses: clientAddresses.map(a => a.address),
-          }),
+          body: JSON.stringify(requestBody),
         });
         if (!res.ok) {
           console.log("⚠️ Client geocoding failed:", await res.text());
@@ -2527,27 +2567,58 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             const key = `${addr}|${pc}`;
             let clientName = clientKeyMap.get(key);
 
-            // If exact match fails, try postcode-only lookup
+            console.log(`🔍 GEOCODING MATCH DEBUG: Processing result for address="${addr}", postcode="${pc}", key="${key}"`);
+
+            // Strategy 1: Exact key match
             if (!clientName) {
-              for (const [mapKey, mapClientName] of Array.from(clientKeyMap.entries())) {
-                if (mapKey.endsWith(`|${pc}`)) {
+              console.log(`❌ No exact key match for: ${key}`);
+            }
+
+            // Strategy 2: Postcode-only lookup (multiple clients possible)
+            if (!clientName && pc) {
+              const candidates = clientByPostcode.get(pc);
+              if (candidates && candidates.length > 0) {
+                clientName = candidates[0]; // Take first match
+                console.log(`🔄 Found client via postcode match: ${clientName} (postcode: ${pc})`);
+                if (candidates.length > 1) {
+                  console.log(`⚠️ Multiple clients found for postcode ${pc}:`, candidates);
+                }
+              }
+            }
+
+            // Strategy 3: Address-only lookup
+            if (!clientName && addr) {
+              clientName = clientByAddress.get(addr);
+              if (clientName) {
+                console.log(`🔄 Found client via address match: ${clientName} (address: ${addr})`);
+              }
+            }
+
+            // Strategy 4: Partial address matching
+            if (!clientName && addr) {
+              for (const [mapAddr, mapClientName] of Array.from(clientByAddress.entries())) {
+                if (addr.includes(mapAddr) || mapAddr.includes(addr)) {
                   clientName = mapClientName;
-                  console.log(`🔄 Found client ${clientName} via postcode match: ${pc}`);
+                  console.log(`🔄 Found client via partial address match: ${clientName} (${addr} ↔ ${mapAddr})`);
                   break;
                 }
               }
             }
 
             if (!clientName) {
-              console.log(`⚠️ No client found for key: ${key}, available keys:`, Array.from(clientKeyMap.keys()).slice(0, 3));
+              console.log(`❌ No client found for geocoding result:`);
+              console.log(`   Address: "${addr}"`);
+              console.log(`   Postcode: "${pc}"`);
+              console.log(`   Available postcodes:`, Array.from(clientByPostcode.keys()).slice(0, 5));
+              console.log(`   Available addresses:`, Array.from(clientByAddress.keys()).slice(0, 5));
               continue;
             }
 
-            console.log(`🔍 DEBUG: Saving client geocode - Name: ${clientName}, Coordinates: ${r.lat}, ${r.lng}`);
+            console.log(`✅ SAVING client geocode - Name: ${clientName}, Address: "${addr}", Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
 
             await storage.upsertClientLocation({
               clientName,
-              addressLine: addr,
+              addressLine: addr || clientLocationsMap.get(clientName)?.addressLine || "",
               postcode: pc,
               lat: r.lat,
               lng: r.lng,
