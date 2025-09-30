@@ -322,22 +322,22 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                       {topMatches.map((match, idx) => {
                         const visit = match.visit; // Alias for clarity
                         
-                        // Get employee coordinates from geographic data
+                        // Get employee coordinates from employeeLocations data
                         let empLat = 0;
                         let empLng = 0;
                         let transportMode = 'car';
 
-                        // Try to get coordinates from geographic data first
-                        const empGeoData = data?.geographicalData?.employees?.find(
+                        // Get employee location from the main employeeLocations array
+                        const empLocationData = data?.employeeLocations?.find(
                           (emp: any) => emp.employeeName === selectedEmployee
                         );
 
-                        if (empGeoData?.homeLat && empGeoData?.homeLng) {
-                          empLat = parseFloat(empGeoData.homeLat);
-                          empLng = parseFloat(empGeoData.homeLng);
-                          transportMode = empGeoData.transportMode?.toLowerCase() || 'car';
+                        if (empLocationData?.homeLat && empLocationData?.homeLng) {
+                          empLat = parseFloat(empLocationData.homeLat);
+                          empLng = parseFloat(empLocationData.homeLng);
+                          transportMode = empLocationData.transportMode?.toLowerCase() || 'car';
                         } else {
-                          // Fallback to employee summary data (less reliable for coordinates)
+                          // Fallback to employee summary data
                           const selectedEmpSummary = employeeSummary.find(
                             (emp: any) => emp.employeeName === selectedEmployee
                           );
@@ -349,30 +349,66 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                           }
                         }
 
-                        // Get client coordinates from visit data or geographic data
+                        // Get client coordinates from clientLocations data
                         let clientLat = 0;
                         let clientLng = 0;
 
-                        if (visit.location?.lat && visit.location?.lng) {
-                          clientLat = parseFloat(visit.location.lat);
-                          clientLng = parseFloat(visit.location.lng);
-                        } else {
-                          // Try to find client in geographic data
-                          const clientGeoData = data?.geographicalData?.clients?.find(
-                            (client: any) => client.clientName === visit.clientName
-                          );
-                          if (clientGeoData?.lat && clientGeoData?.lng) {
-                            clientLat = parseFloat(clientGeoData.lat);
-                            clientLng = parseFloat(clientGeoData.lng);
-                          }
+                        // Get client location from the main clientLocations array
+                        const clientLocationData = data?.clientLocations?.find(
+                          (client: any) => client.clientName === visit.clientName
+                        );
+
+                        if (clientLocationData?.lat && clientLocationData?.lng) {
+                          clientLat = parseFloat(clientLocationData.lat);
+                          clientLng = parseFloat(clientLocationData.lng);
                         }
 
                         // Validate coordinates are valid numbers and not zero
                         if (!Number.isFinite(empLat) || !Number.isFinite(empLng) || 
                             !Number.isFinite(clientLat) || !Number.isFinite(clientLng) ||
                             (empLat === 0 && empLng === 0) || (clientLat === 0 && clientLng === 0)) {
+                          
                           console.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
-                          return null;
+                          console.warn(`  Employee coords: ${empLat}, ${empLng} (from ${empLocationData ? 'employeeLocations' : 'employeeSummary'})`);
+                          console.warn(`  Client coords: ${clientLat}, ${clientLng} (from ${clientLocationData ? 'clientLocations' : 'not found'})`);
+                          
+                          // Show placeholder with "No location data" message
+                          return (
+                            <Card key={idx}>
+                              <CardContent className="p-3">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <p className="font-medium">{visit.clientName}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {minutesToTime(visit.start)} - {minutesToTime(visit.end)}
+                                    </p>
+                                    <div className="flex gap-2 mt-2">
+                                      <Badge variant="outline" className="text-xs">
+                                        Score: {(match.score * 100).toFixed(0)}%
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs text-red-500">
+                                        No location data
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        Gap: {match.gap}m
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => assignVisit(
+                                      visit.clientName,
+                                      minutesToTime(visit.start),
+                                      minutesToTime(visit.end)
+                                    )}
+                                    data-testid={`button-assign-visit-${visit.clientName.replace(/\s+/g, '-')}`}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
                         }
 
                         const empLocation = { lat: empLat, lng: empLng };
