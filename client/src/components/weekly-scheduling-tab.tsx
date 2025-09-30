@@ -217,12 +217,31 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
       const visits: Visit[] = dayVisits.map((v: any) => {
         const clientLocation = data.clientLocations?.find(c => c.clientName === v.clientName);
 
+        // Safe time parsing with fallbacks
+        const parseTime = (timeStr: string | undefined, defaultHour: number = 9): number => {
+          if (!timeStr || typeof timeStr !== 'string') {
+            return defaultHour * 60; // Default to specified hour
+          }
+
+          const parts = timeStr.split(':');
+          if (parts.length !== 2) {
+            return defaultHour * 60; // Default fallback
+          }
+
+          const hours = parseInt(parts[0]) || 0;
+          const minutes = parseInt(parts[1]) || 0;
+          return hours * 60 + minutes;
+        };
+
+        const startTime = parseTime(v.startTime, 9); // Default to 9:00
+        const endTime = parseTime(v.endTime, 10); // Default to 10:00
+
         return {
           id: v.id || `${v.clientName}-${date}`,
           clientName: v.clientName,
-          startTime: parseInt(v.startTime.split(':')[0]) * 60 + parseInt(v.startTime.split(':')[1]),
-          endTime: parseInt(v.endTime.split(':')[0]) * 60 + parseInt(v.endTime.split(':')[1]),
-          durationMinutes: v.durationMinutes || 60,
+          startTime,
+          endTime,
+          durationMinutes: v.durationMinutes || Math.max(60, endTime - startTime),
           priority: v.priority || 2,
           serviceType: v.serviceType || 'Personal Care',
           lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
