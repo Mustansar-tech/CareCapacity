@@ -1475,6 +1475,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/cleanup/routes-visits - Clean up routes and visits data
+  app.post('/api/cleanup/routes-visits', async (req, res) => {
+    try {
+      console.log('🧹 Starting cleanup of routes and visits data...');
+      
+      const result = await storage.clearRoutesAndVisits();
+      
+      console.log(`✅ Cleanup complete: ${result.routePlansDeleted} route plans, ${result.routeStopsDeleted} route stops, ${result.visitsDeleted} visits deleted`);
+      
+      res.json({
+        message: 'Routes and visits data cleaned successfully',
+        deletedCounts: result
+      });
+      
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      res.status(500).json({ 
+        message: 'Failed to cleanup routes and visits data', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

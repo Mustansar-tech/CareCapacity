@@ -61,6 +61,8 @@ export interface IStorage {
   
   getGeocode(key: string): Promise<GeocodeCache | undefined>;
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
+  
+  clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
 }
 
 export class MemStorage implements IStorage {
@@ -450,6 +452,18 @@ export class MemStorage implements IStorage {
     };
     this.geocodeCache.set(insertGeocode.key, geocode);
     return geocode;
+  }
+
+  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    const routePlansDeleted = this.routePlans.size;
+    const routeStopsDeleted = this.routeStops.size;
+    const visitsDeleted = this.visits.size;
+    
+    this.routePlans.clear();
+    this.routeStops.clear();
+    this.visits.clear();
+    
+    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
 }
 
@@ -867,6 +881,24 @@ export class DatabaseStorage implements IStorage {
     }
     
     return geocode;
+  }
+
+  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    // Count existing records
+    const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans`);
+    const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops`);
+    const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits`);
+    
+    const routePlansDeleted = Number(routePlansCount.rows[0]?.count || 0);
+    const routeStopsDeleted = Number(routeStopsCount.rows[0]?.count || 0);
+    const visitsDeleted = Number(visitsCount.rows[0]?.count || 0);
+    
+    // Delete in correct order (route_stops first due to foreign key)
+    await db.delete(routeStops);
+    await db.delete(routePlans);
+    await db.delete(visits);
+    
+    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
 }
 
