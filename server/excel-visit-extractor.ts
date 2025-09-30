@@ -28,11 +28,13 @@ const CLIENT_COLS = [
 ];
 
 const ADDRESS_COLS = [
+  'Service Location Address',
   'Service Requirement Location',
   'Service Location',
   'Client Address',
   'Address Line 1',
   'Full Address',
+  'Address',
 ];
 
 const POSTCODE_COLS = [

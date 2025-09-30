@@ -2376,28 +2376,54 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       let postcode = "";
       let addressLine = serviceLocationAddress || "";
 
-      if (serviceLocationAddress) {
-        // Try to extract UK postcode pattern from the address
-        const postcodeMatch = serviceLocationAddress.match(/([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\s*$/i);
+      if (serviceLocationAddress && typeof serviceLocationAddress === 'string') {
+        // Enhanced UK postcode pattern matching - more flexible
+        const postcodeMatch = serviceLocationAddress.match(/([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i);
         if (postcodeMatch) {
-          postcode = postcodeMatch[1].trim().toUpperCase();
-          // Remove postcode from address line
-          addressLine = serviceLocationAddress.replace(postcodeMatch[0], "").trim();
+          postcode = postcodeMatch[1].trim().toUpperCase().replace(/\s+/g, ' ');
+          // Remove postcode from address line and clean up
+          addressLine = serviceLocationAddress.replace(postcodeMatch[0], "").trim().replace(/,\s*$/, "");
+        } else {
+          // If no postcode found, use the full address as addressLine
+          addressLine = serviceLocationAddress.trim();
+          console.log(`🔍 DEBUG: No postcode found in address: "${serviceLocationAddress}" for client: ${clientName}`);
         }
       }
 
-      if (clientName && (serviceLocationAddress || postcode)) {
+      // Also check if there's a separate postcode column
+      if (!postcode && row["Postcode"]) {
+        postcode = String(row["Postcode"]).trim().toUpperCase();
+      }
+      if (!postcode && row["Post Code"]) {
+        postcode = String(row["Post Code"]).trim().toUpperCase();
+      }
+      if (!postcode && row["Postal Code"]) {
+        postcode = String(row["Postal Code"]).trim().toUpperCase();
+      }
+
+      if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
         if (!clientLocationsMap.has(clientKey)) {
           console.log(`🔍 DEBUG: Adding client - Name: "${clientKey}", Address: "${addressLine}", Postcode: "${postcode}"`);
           clientLocationsMap.set(clientKey, {
             clientName: clientKey,
-            addressLine: addressLine,
-            postcode: postcode,
+            addressLine: addressLine || "",
+            postcode: postcode || "",
           });
+        } else {
+          // Update existing entry if we have better data
+          const existing = clientLocationsMap.get(clientKey)!;
+          if (!existing.postcode && postcode) {
+            existing.postcode = postcode;
+            console.log(`🔍 DEBUG: Updated postcode for existing client "${clientKey}": "${postcode}"`);
+          }
+          if (!existing.addressLine && addressLine) {
+            existing.addressLine = addressLine;
+            console.log(`🔍 DEBUG: Updated address for existing client "${clientKey}": "${addressLine}"`);
+          }
         }
       } else {
-        console.log(`🔍 DEBUG: Skipping client - Name: "${clientName}", Address: "${serviceLocationAddress}", missing data`);
+        console.log(`🔍 DEBUG: Skipping client - Name: "${clientName}", Address: "${serviceLocationAddress}", Raw Address: "${addressLine}", Postcode: "${postcode}" - missing critical data`);
       }
     }
 
