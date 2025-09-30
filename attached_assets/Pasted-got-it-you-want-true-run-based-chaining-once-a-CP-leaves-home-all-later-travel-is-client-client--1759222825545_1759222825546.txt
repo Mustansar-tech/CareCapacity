@@ -1,0 +1,165 @@
+got it — you want true run-based chaining: once a CP leaves home, all later travel is client→client, not back to home, until the last job of the day.
+
+Here’s a tight plan you can drop into the Scheduling tab logic/UI (no extra data storage needed).
+
+Run logic (what the engine must do)
+
+Start of day location
+
+Use CP home lat/lng (or depot) as the run start.
+
+First assigned visit uses home→client travel.
+
+During the run
+
+Maintain a rolling current_location pointer = last visit’s location.
+
+Every candidate next visit uses current_location→candidate_client travel (not home).
+
+After assignment, update:
+
+current_location = candidate_client.location
+
+care_minutes_total += visit.duration
+
+travel_minutes_total += travel_current_to_client
+
+End of day
+
+Optionally include client→home for reporting, but don’t count it in the 9h care cap (cap is care only).
+
+Feasibility (must pass)
+
+For visit V (fixed [V.start,V.end]):
+
+It must fit fully inside both:
+
+the client’s required window (often identical to the visit time), and
+
+the CP’s bookable window after inserting mandatory travel from previous job and to next job (if already booked).
+
+Care cap: (care_minutes_total + V.duration) ≤ 540.
+
+If visit is the next in sequence, compute:
+
+arrive = prev.end + travel(prev.location → V.location)
+
+Require arrive ≤ V.start (if not, infeasible).
+
+If inserting between two already-booked visits A…B:
+
+Need A.end + travel(A→V) ≤ V.start and V.end + travel(V→B) ≤ B.start.
+(If either fails, hide this match.)
+
+Scoring (after feasible)
+
+Keep a single score that prefers tight, local runs:
+
+Score = 40·RunTightness + 35·Travel + 15·WindowSlack + 10·HomeEnd
+
+RunTightness (0–1) — minimize idle:
+
+gap_before = max(0, V.start − (prev.end + travel(prev→V)))
+
+gap_after = next ? max(0, next.start − (V.end + travel(V→next))) : 0
+
+RunTightness = 1 − clamp((gap_before + gap_after)/60, 0, 1) (penalize >60m total gaps)
+
+Travel (0–1) — less added travel is better:
+
+If appending: add_travel = travel(prev→V)
+
+If inserting: add_travel = travel(prev→V) + travel(V→next) − travel(prev→next)
+
+Travel = 1 − clamp(add_travel/30, 0, 1) (≥30m added → 0)
+
+WindowSlack (0–1) — robustness:
+
+left_slack = V.start − max(CP_window.start, client_window.start, prev.end + travel(prev→V))
+
+right_slack = min(CP_window.end, client_window.end, next?.start − travel(V→next) ?? +∞) − V.end
+
+WindowSlack = clamp(min(left_slack, right_slack)/30, 0, 1)
+
+HomeEnd (0–1) — nicer endings:
+
+HomeEnd = 1 − clamp(travel(V→home)/30, 0, 1) (only if it’s last slot today)
+
+All times in minutes. Clamp(x,0,1) trims to [0,1].
+
+What the Scheduling tab should show (at a glance)
+
+For each visit you’re allocating, list Top CPs (feasible only):
+
+CP Card
+
+Run preview bar (today): already booked visits as blocks; candidate slot highlighted where it would land.
+
+ETA & slack: “arrive 08:11 (travel 4m), slack L:4m R:16m”
+
+Added travel: “+4m” (inserting shows net +/− vs current chain)
+
+Care today: “7h booked → 8h with this (≤9h)”
+
+Badges:
+
+✅ Tight fit (gap ≤10m)
+
+🏠 Ends near home (≤10m)
+
+🚶/🚗 transport mode
+
+Sort by Score; tie-break with: lower added travel → larger slack → finishes closer to home → better weekly balance.
+
+Example (your Stepps case)
+
+Home → Stepps 08:00–09:00
+
+Then Stepps 09:15–10:15
+
+Travel client→client (not via home). If travel=4m:
+
+arrive = 09:00 + 0m buffer + 4m = 09:04 ≤ 09:15 ✅
+
+gap_before = 11m, RunTightness high, Travel near 1, WindowSlack depends on CP/client windows.
+
+How to keep it “clean” (no DB clutter)
+
+Treat a day’s run as ephemeral state in the tab:
+
+Keep only: current_location, the ordered list of visits with times, and rolling totals (care min, travel min).
+
+When the scheduler commits, write the final sequence only (or write nothing if your downstream system already holds the truth).
+
+You don’t need to store per-candidate tries; recompute on the fly from:
+
+CP availability windows (already in memory),
+
+fixed visit slots + client windows,
+
+geocoded locations (cache these once).
+
+Small but important rules
+
+Buffers: add a default handover buffer (e.g., 0–5m) before travel if your services need it; include that in feasibility and scoring.
+
+Mode aware travel: car vs walking (choose the CP’s mode).
+
+Multi-window days: a visit must fit wholly inside one CP window after travel.
+
+Double-ups: both CPs must pass feasibility independently at the same time; score the pair with worst RunTightness and net added travel.
+
+Fields your tab needs (per CP candidate)
+
+feasible: boolean
+
+arrive_time, added_travel_min, gap_before_min, gap_after_min
+
+left_slack_min, right_slack_min
+
+care_minutes_after, travel_minutes_after
+
+score
+(you can compute all of these without persisting any visit history beyond today’s tentative run)
+
+If you want, tell me one real visit (start–end, client location) and one CP’s current run for that day, and I’ll compute the exact numbers you should display for their card using this chaining logic.
