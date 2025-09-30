@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { 
   MapPin, Route, Clock, Car, Navigation, AlertTriangle, CheckCircle, 
   RefreshCw, Zap, Target, Users, Calendar, ArrowRight, Settings, Sliders,
-  AlertCircle, Info, XCircle, TrendingUp, BarChart3
+  AlertCircle, Info, XCircle, TrendingUp, BarChart3, Home, Play, Square
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -25,123 +25,108 @@ interface SchedulingTabProps {
   onDateChange?: (date: string) => void;
 }
 
-// Enhanced backend-processed interfaces with diagnostics
-interface TravelOptimization {
+// Enhanced run-based optimization interfaces
+interface RunOptimization {
   date: string;
-  totalAvailableEmployees: number;
-  employees: EmployeeSchedule[];
-  diagnostics?: DiagnosticData;
+  availableEmployees: EmployeeRunState[];
+  visitCandidates: VisitCandidate[];
+  optimizationStats: OptimizationStats;
 }
 
-interface DiagnosticData {
-  employeeIssues: EmployeeIssue[];
-  clientIssues: ClientIssue[];
-  dataQuality: DataQualityMetrics;
-}
-
-interface EmployeeIssue {
+interface EmployeeRunState {
+  employeeId: string;
   employeeName: string;
-  reason: 'status_unavailable' | 'no_time_windows' | 'no_postcode' | 'geocoding_failed' | 'geocoding_error';
-  detail: string;
-  severity: 'info' | 'warning' | 'error';
+  homeLocation: { lat: number; lng: number };
+  currentLocation: { lat: number; lng: number };
+  transportMode: 'car' | 'walking' | 'public';
+  timeWindows: TimeWindow[];
+  bookedVisits: BookedVisit[];
+  careMinutesTotal: number;
+  travelMinutesTotal: number;
+  availableSlots: TimeSlot[];
 }
 
-interface ClientIssue {
-  clientName: string;
-  reason: 'geocoding_failed' | 'geocoding_error';
-  detail: string;
-  severity: 'error';
+interface TimeWindow {
+  start: number; // minutes since midnight
+  end: number;
 }
 
-interface DataQualityMetrics {
-  totalEmployees: number;
-  availableEmployees: number;
-  employeesWithoutGeocode: number;
-  employeesWithoutPostcode: number;
-  employeesWithoutTimeWindows: number;
-  totalClients: number;
-  clientsWithoutGeocode: number;
-  geocodingAttempts: number;
-  geocodingSuccesses: number;
-}
-
-interface EmployeeSchedule {
-  employeeName: string;
-  timeWindows?: any; // Time windows from Daily Capacity Summary - flexible format
-  postcode: string;
-  bestClientMatches: ClientMatch[];
-  rejectedClients?: RejectedClient[];
-  totalRejectedClients?: number;
-}
-
-interface RejectedClient {
-  clientName: string;
-  travelTimeMinutes: number;
-  reason: string;
-}
-
-interface ClientMatch {
-  clientName: string;
-  travelTimeMinutes: number;
-}
-
-interface EmployeeLocation {
-  id: string;
-  employeeName: string;
-  homePostcode: string;
-  homeLat: string | null;
-  homeLng: string | null;
-  transportMode: "car" | "walking" | "public" | null;
-  geocodedAt: Date | null;
-}
-
-interface ClientLocation {
-  id: string;
-  clientName: string;
-  addressLine: string;
-  postcode: string;
-  lat: string | null;
-  lng: string | null;
-  geocodedAt: Date | null;
-}
-
-// Backend API response interfaces
-interface RoutePlansResponse {
-  date: string;
-  routePlans: RoutePlan[];
-}
-
-interface RoutePlan {
-  routePlanId: string;
-  employeeName: string;
-  status: "optimized" | "manual" | "infeasible";
-  totalDistanceKm: string;
-  totalTravelMinutes: number;
-  warnings: unknown;
-  stops: RouteStop[];
-}
-
-interface RouteStop {
-  sequence: number;
+interface BookedVisit {
   visitId: string;
   clientName: string;
-  scheduledStart: string;
-  scheduledEnd: string;
-  travelMinutesFromPrev: number;
-  distanceKmFromPrev: string;
+  location: { lat: number; lng: number };
+  startTime: number;
+  endTime: number;
+  duration: number;
+  sequence: number;
+}
+
+interface TimeSlot {
+  start: number;
+  end: number;
+  afterVisitId?: string;
+  beforeVisitId?: string;
+}
+
+interface VisitCandidate {
+  visitId: string;
+  clientId: string;
+  clientName: string;
+  location: { lat: number; lng: number };
+  requiredStart: number;
+  requiredEnd: number;
+  duration: number;
+  priority: number;
+  feasibleEmployees: EmployeeMatch[];
+}
+
+interface EmployeeMatch {
+  employeeId: string;
+  employeeName: string;
+  feasible: boolean;
+  arriveTime: number;
+  addedTravelMin: number;
+  gapBeforeMin: number;
+  gapAfterMin: number;
+  leftSlackMin: number;
+  rightSlackMin: number;
+  careMinutesAfter: number;
+  travelMinutesAfter: number;
+  score: number;
+  scoreBreakdown: {
+    runTightness: number;
+    travel: number;
+    windowSlack: number;
+    homeEnd: number;
+  };
+  insertionPoint: {
+    afterVisitId?: string;
+    beforeVisitId?: string;
+    slotIndex: number;
+  };
+  badges: string[];
+}
+
+interface OptimizationStats {
+  totalVisits: number;
+  assignedVisits: number;
+  unassignedVisits: number;
+  averageScore: number;
+  employeesUtilized: number;
+  totalTravelMinutes: number;
 }
 
 export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTabProps) {
   const [optimizationDate, setOptimizationDate] = useState<string>(
     selectedDate || new Date().toISOString().split('T')[0]
   );
-  
-  // Travel constraint settings
-  const [travelTimeLimit, setTravelTimeLimit] = useState<number>(30);
-  const [useSoftConstraints, setUseSoftConstraints] = useState<boolean>(true);
-  const [maxTravelTime, setMaxTravelTime] = useState<number>(45);
+
+  // Run optimization settings
+  const [maxCareMinutes, setMaxCareMinutes] = useState<number>(540); // 9 hours
+  const [bufferMinutes, setBufferMinutes] = useState<number>(5);
+  const [maxTravelBetweenVisits, setMaxTravelBetweenVisits] = useState<number>(30);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
-  
+
   const { toast } = useToast();
 
   // Update optimization date when selectedDate changes
@@ -151,154 +136,103 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
     }
   }, [selectedDate]);
 
-  // Query employee locations
-  const { data: employeeLocations, isLoading: isLoadingEmployees } = useQuery<EmployeeLocation[]>({
-    queryKey: ['/api/geographical/employees'],
+  // Query run optimization for selected date
+  const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization>({
+    queryKey: ['/api/run-optimization', optimizationDate],
+    queryFn: () => fetch(`/api/run-optimization/${optimizationDate}`).then(res => res.json()),
   });
 
-  // Query client locations
-  const { data: clientLocations, isLoading: isLoadingClients } = useQuery<ClientLocation[]>({
-    queryKey: ['/api/geographical/clients'],
-  });
-
-  // Query route plans for selected date
-  const { data: routePlansResponse, isLoading: isLoadingRoutes, refetch: refetchRoutes } = useQuery<RoutePlansResponse>({
-    queryKey: ['/api/routing/plans', optimizationDate],
-    queryFn: () => fetch(`/api/routing/plans?date=${optimizationDate}`).then(res => res.json()),
-  });
-
-  // Extract route plans from response
-  const routePlans = routePlansResponse?.routePlans || [];
-
-  // Query travel optimization for selected date
-  const { data: travelOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<TravelOptimization>({
-    queryKey: ['/api/travel-optimization', optimizationDate],
-    queryFn: () => fetch(`/api/travel-optimization/${optimizationDate}`).then(res => res.json()),
-  });
-
-  // Geocoding mutation
-  const geocodeMutation = useMutation({
-    mutationFn: async (postcodes: string[]) => {
-      const response = await apiRequest('POST', '/api/geo/geocode-batch', { postcodes, addresses: [] });
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Geocoding Complete",
-        description: "Location coordinates have been updated."
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/geographical/employees'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/geographical/clients'] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Geocoding Failed",
-        description: "Unable to geocode postcodes. Please try again.",
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Route optimization mutation
+  // Run optimization mutation
   const optimizeMutation = useMutation({
-    mutationFn: async ({ date, travelTimeLimit, useSoftConstraints, maxTravelTime }: { 
+    mutationFn: async ({ date, settings }: { 
       date: string; 
-      travelTimeLimit?: number; 
-      useSoftConstraints?: boolean; 
-      maxTravelTime?: number; 
+      settings: {
+        maxCareMinutes: number;
+        bufferMinutes: number;
+        maxTravelBetweenVisits: number;
+      }
     }) => {
-      const response = await apiRequest('POST', '/api/routing/optimize', { 
+      const response = await apiRequest('POST', '/api/run-optimization/optimize', { 
         date, 
-        travelTimeLimit, 
-        useSoftConstraints, 
-        maxTravelTime 
+        ...settings 
       });
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Route Optimization Complete",
-        description: "Routes have been optimized for the selected date."
+        title: "Run Optimization Complete",
+        description: "Employee runs have been optimized with chaining logic."
       });
-      refetchRoutes();
+      refetchOptimization();
     },
     onError: (error) => {
       toast({
-        title: "Route Optimization Failed",
-        description: "Unable to optimize routes. Please try again.",
+        title: "Run Optimization Failed",
+        description: "Unable to optimize runs. Please try again.",
         variant: "destructive"
       });
     }
   });
 
-  // Handle geocoding
-  const handleGeocode = () => {
-    const postcodes = new Set<string>();
-    
-    // Collect employee postcodes that need geocoding
-    employeeLocations?.forEach(emp => {
-      if (emp.homePostcode && (!emp.homeLat || !emp.homeLng)) {
-        postcodes.add(emp.homePostcode);
-      }
-    });
-    
-    // Collect client postcodes that need geocoding
-    clientLocations?.forEach(client => {
-      if (client.postcode && (!client.lat || !client.lng)) {
-        postcodes.add(client.postcode);
-      }
-    });
-
-    if (postcodes.size > 0) {
-      geocodeMutation.mutate(Array.from(postcodes));
-    } else {
+  // Assign visit mutation
+  const assignVisitMutation = useMutation({
+    mutationFn: async ({ visitId, employeeId, insertionPoint }: {
+      visitId: string;
+      employeeId: string;
+      insertionPoint: any;
+    }) => {
+      const response = await apiRequest('POST', '/api/run-optimization/assign', {
+        visitId,
+        employeeId,
+        insertionPoint
+      });
+      return response.json();
+    },
+    onSuccess: () => {
       toast({
-        title: "No Geocoding Needed",
-        description: "All locations already have coordinates."
+        title: "Visit Assigned",
+        description: "Visit has been assigned to employee run."
+      });
+      refetchOptimization();
+    },
+    onError: (error) => {
+      toast({
+        title: "Assignment Failed",
+        description: "Unable to assign visit. Please try again.",
+        variant: "destructive"
       });
     }
+  });
+
+  // Helper functions
+  const timeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
   };
 
-  // Handle route optimization
-  const handleOptimizeRoutes = () => {
-    const geocodedEmployees = employeeLocations?.filter(emp => 
-      emp.homeLat && emp.homeLng
-    ) || [];
-    
-    if (geocodedEmployees.length === 0) {
-      toast({
-        title: "No Geocoded Employees",
-        description: "Please geocode employee locations first.",
-        variant: "destructive"
-      });
-      return;
-    }
+  const minutesToTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
 
+  const handleOptimizeRuns = () => {
     optimizeMutation.mutate({
       date: optimizationDate,
-      travelTimeLimit,
-      useSoftConstraints,
-      maxTravelTime: useSoftConstraints ? maxTravelTime : travelTimeLimit
+      settings: {
+        maxCareMinutes,
+        bufferMinutes,
+        maxTravelBetweenVisits
+      }
     });
   };
 
-  // Calculate statistics
-  const employeeStats = {
-    total: employeeLocations?.length || 0,
-    geocoded: employeeLocations?.filter(emp => emp.homeLat && emp.homeLng).length || 0,
-    withCar: employeeLocations?.filter(emp => emp.transportMode === "car").length || 0,
-    walking: employeeLocations?.filter(emp => emp.transportMode === "walking").length || 0,
-  };
-
-  const clientStats = {
-    total: clientLocations?.length || 0,
-    geocoded: clientLocations?.filter(client => client.lat && client.lng).length || 0,
-  };
-
-  const routeStats = {
-    total: routePlans.length,
-    optimized: routePlans.filter(plan => plan.status === "optimized").length,
-    infeasible: routePlans.filter(plan => plan.status === "infeasible").length,
+  const handleAssignVisit = (visitId: string, employeeMatch: EmployeeMatch) => {
+    assignVisitMutation.mutate({
+      visitId,
+      employeeId: employeeMatch.employeeId,
+      insertionPoint: employeeMatch.insertionPoint
+    });
   };
 
   // Available dates from data
@@ -312,14 +246,14 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center shadow-lg">
-                <MapPin className="w-5 h-5 text-white" />
+                <Route className="w-5 h-5 text-white" />
               </div>
               <div>
                 <span className="bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
-                  Route Scheduling Optimization
+                  Run-Based Scheduling Optimization
                 </span>
                 <p className="text-sm text-gray-600 dark:text-gray-300 font-normal mt-1">
-                  Optimize employee routes with configurable travel constraints and geographical proximity
+                  Optimize employee runs with client-to-client chaining and tight scheduling
                 </p>
               </div>
             </div>
@@ -330,299 +264,19 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {/* Data Quality and Diagnostics Section */}
-          {travelOptimization?.diagnostics && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-                  <BarChart3 className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Data Quality Analysis</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Issues that may affect scheduling optimization
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {/* Employee Data Quality */}
-                <Card className="glass">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white">Employee Data</h4>
-                      <Users className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Total:</span>
-                        <Badge variant="outline">{travelOptimization.diagnostics.dataQuality.totalEmployees}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Available:</span>
-                        <Badge variant="default">{travelOptimization.diagnostics.dataQuality.availableEmployees}</Badge>
-                      </div>
-                      {travelOptimization.diagnostics.dataQuality.employeesWithoutPostcode > 0 && (
-                        <div className="flex justify-between">
-                          <span>No postcode:</span>
-                          <Badge variant="destructive">{travelOptimization.diagnostics.dataQuality.employeesWithoutPostcode}</Badge>
-                        </div>
-                      )}
-                      {travelOptimization.diagnostics.dataQuality.employeesWithoutTimeWindows > 0 && (
-                        <div className="flex justify-between">
-                          <span>No time windows:</span>
-                          <Badge variant="secondary">{travelOptimization.diagnostics.dataQuality.employeesWithoutTimeWindows}</Badge>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Client Data Quality */}
-                <Card className="glass">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white">Client Data</h4>
-                      <MapPin className="w-4 h-4 text-emerald-500" />
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Total:</span>
-                        <Badge variant="outline">{travelOptimization.diagnostics.dataQuality.totalClients}</Badge>
-                      </div>
-                      {travelOptimization.diagnostics.dataQuality.clientsWithoutGeocode > 0 && (
-                        <div className="flex justify-between">
-                          <span>No geocode:</span>
-                          <Badge variant="destructive">{travelOptimization.diagnostics.dataQuality.clientsWithoutGeocode}</Badge>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Assignment Issues */}
-                <Card className="glass">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white">Issues Found</h4>
-                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Employee issues:</span>
-                        <Badge variant="secondary">{travelOptimization.diagnostics.employeeIssues.length}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Client issues:</span>
-                        <Badge variant="secondary">{travelOptimization.diagnostics.clientIssues.length}</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Detailed Issues */}
-              {(travelOptimization.diagnostics.employeeIssues.length > 0 || travelOptimization.diagnostics.clientIssues.length > 0) && (
-                <Card className="glass">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      Detailed Issues
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {/* Employee Issues */}
-                      {travelOptimization.diagnostics.employeeIssues.length > 0 && (
-                        <div>
-                          <h5 className="font-medium text-sm mb-2 text-gray-700 dark:text-gray-300">Employee Issues</h5>
-                          <div className="space-y-2">
-                            {travelOptimization.diagnostics.employeeIssues.slice(0, 5).map((issue, index) => (
-                              <div key={index} className="p-2 rounded border text-xs">
-                                <div className="flex items-center gap-2 mb-1">
-                                  {issue.severity === 'error' && <XCircle className="w-3 h-3 text-red-500" />}
-                                  {issue.severity === 'warning' && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
-                                  {issue.severity === 'info' && <Info className="w-3 h-3 text-blue-500" />}
-                                  <span className="font-medium">{issue.employeeName}</span>
-                                </div>
-                                <p className="text-gray-600 dark:text-gray-400">{issue.detail}</p>
-                              </div>
-                            ))}
-                            {travelOptimization.diagnostics.employeeIssues.length > 5 && (
-                              <p className="text-xs text-gray-500">
-                                +{travelOptimization.diagnostics.employeeIssues.length - 5} more issues...
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Client Issues */}
-                      {travelOptimization.diagnostics.clientIssues.length > 0 && (
-                        <div>
-                          <h5 className="font-medium text-sm mb-2 text-gray-700 dark:text-gray-300">Client Issues</h5>
-                          <div className="space-y-2">
-                            {travelOptimization.diagnostics.clientIssues.slice(0, 5).map((issue, index) => (
-                              <div key={index} className="p-2 rounded border text-xs">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <XCircle className="w-3 h-3 text-red-500" />
-                                  <span className="font-medium">{issue.clientName}</span>
-                                </div>
-                                <p className="text-gray-600 dark:text-gray-400">{issue.detail}</p>
-                              </div>
-                            ))}
-                            {travelOptimization.diagnostics.clientIssues.length > 5 && (
-                              <p className="text-xs text-gray-500">
-                                +{travelOptimization.diagnostics.clientIssues.length - 5} more issues...
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Employee-Client Matching Results */}
-          {travelOptimization && travelOptimization.employees?.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Available Employees for {optimizationDate}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    From Daily Capacity Summary - Employee availability with best client matches
-                  </p>
-                </div>
-                <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
-                  <Users className="w-3 h-3 mr-1" />
-                  {travelOptimization.totalAvailableEmployees} available employees
-                </Badge>
-              </div>
-
-              <div className="grid gap-4">
-                {travelOptimization.employees.map((emp, index) => (
-                  <Card key={emp.employeeName} className="glass">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${getGenderColorClass(emp.employeeName)}`}>
-                            {emp.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <h4 className={`font-medium ${getGenderColorClass(emp.employeeName)}`}>
-                              {emp.employeeName}
-                            </h4>
-                            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                              <MapPin className="w-3 h-3" />
-                              <span>{emp.postcode}</span>
-                            </div>
-                            {emp.timeWindows && emp.timeWindows !== "No time windows" && (
-                              <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                <Clock className="w-3 h-3" />
-                                <span>Time Window(s): {typeof emp.timeWindows === 'string' ? emp.timeWindows : (Array.isArray(emp.timeWindows) ? emp.timeWindows.join(', ') : String(emp.timeWindows))}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20">
-                          Available Today
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-4">
-                        {/* Best Client Matches */}
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Best Client Matches (within {travelTimeLimit} minutes):
-                          </h5>
-                          <div className="grid gap-2 mt-2">
-                            {emp.bestClientMatches.length > 0 ? (
-                              emp.bestClientMatches.map((client, clientIndex) => (
-                                <div 
-                                  key={`${client.clientName}-${clientIndex}`} 
-                                  className="flex items-center justify-between p-2 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                                >
-                                  <span className="font-medium text-sm">{client.clientName}</span>
-                                  <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    {client.travelTimeMinutes}m
-                                  </Badge>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-xs text-gray-600 dark:text-gray-300 p-2 border rounded-lg">
-                                No clients within {travelTimeLimit}-minute travel time
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Rejected Clients (Travel Time Too Long) */}
-                        {emp.rejectedClients && emp.rejectedClients.length > 0 && (
-                          <div>
-                            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                              <AlertTriangle className="w-3 h-3 text-orange-500" />
-                              Clients Beyond Travel Limit ({emp.totalRejectedClients} total):
-                            </h5>
-                            <div className="grid gap-2 mt-2">
-                              {emp.rejectedClients.slice(0, 3).map((client, clientIndex) => (
-                                <div 
-                                  key={`rejected-${client.clientName}-${clientIndex}`} 
-                                  className="flex items-center justify-between p-2 rounded-lg border bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
-                                >
-                                  <span className="text-sm text-gray-700 dark:text-gray-300">{client.clientName}</span>
-                                  <Badge variant="outline" className="text-xs bg-orange-100 dark:bg-orange-800">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    {client.travelTimeMinutes}m
-                                  </Badge>
-                                </div>
-                              ))}
-                              {emp.totalRejectedClients! > 3 && (
-                                <div className="text-xs text-gray-500 p-2">
-                                  +{emp.totalRejectedClients! - 3} more clients exceed {travelTimeLimit}min limit...
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isLoadingOptimization && (
-            <div className="mb-8">
-              <Card className="glass">
-                <CardContent className="p-6 text-center">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  <p className="text-gray-600 dark:text-gray-300">Loading travel optimization...</p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Travel Constraint Controls */}
+          {/* Run Optimization Settings */}
           <Card className="glass mb-6">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Settings className="w-4 h-4" />
-                  Travel Constraints
+                  Run Optimization Settings
                 </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
                   className="text-xs"
-                  data-testid="button-toggle-advanced"
                 >
                   <Sliders className="w-3 h-3 mr-1" />
                   {showAdvancedSettings ? 'Hide' : 'Show'} Advanced
@@ -630,88 +284,67 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Travel Time Limit */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Max Care Hours */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
-                    Preferred Travel Time Limit: {travelTimeLimit} minutes
+                    Max Care Hours: {Math.floor(maxCareMinutes / 60)}h {maxCareMinutes % 60}m
                   </Label>
                   <Input
                     type="range"
-                    value={travelTimeLimit}
-                    onChange={(e) => setTravelTimeLimit(parseInt(e.target.value))}
-                    max={60}
-                    min={5}
-                    step={5}
+                    value={maxCareMinutes}
+                    onChange={(e) => setMaxCareMinutes(parseInt(e.target.value))}
+                    max={600}
+                    min={300}
+                    step={30}
                     className="w-full"
-                    data-testid="slider-travel-time"
                   />
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>5 min</span>
-                    <span>60 min</span>
+                    <span>5h</span>
+                    <span>10h</span>
                   </div>
                 </div>
 
-                {/* Constraint Flexibility */}
+                {/* Buffer Time */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Constraint Mode</Label>
-                    <div className="flex items-center space-x-2">
-                      <Label className="text-xs text-gray-500">Hard</Label>
-                      <Checkbox
-                        checked={useSoftConstraints}
-                        onCheckedChange={(checked) => setUseSoftConstraints(checked === true)}
-                        data-testid="switch-soft-constraints"
-                      />
-                      <Label className="text-xs text-gray-500">Soft</Label>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {useSoftConstraints 
-                      ? "Allow longer travel times with penalties (more flexible)"
-                      : "Strictly reject assignments exceeding travel limit (stricter)"
-                    }
-                  </p>
+                  <Label className="text-sm font-medium">
+                    Handover Buffer: {bufferMinutes} minutes
+                  </Label>
+                  <Input
+                    type="range"
+                    value={bufferMinutes}
+                    onChange={(e) => setBufferMinutes(parseInt(e.target.value))}
+                    max={15}
+                    min={0}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Max Travel Between Visits */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Max Travel (Client→Client): {maxTravelBetweenVisits}m
+                  </Label>
+                  <Input
+                    type="range"
+                    value={maxTravelBetweenVisits}
+                    onChange={(e) => setMaxTravelBetweenVisits(parseInt(e.target.value))}
+                    max={60}
+                    min={10}
+                    step={5}
+                    className="w-full"
+                  />
                 </div>
               </div>
 
               {/* Advanced Settings */}
               {showAdvancedSettings && (
-                <div className="border-t pt-4 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Maximum Travel Time (for soft constraints) */}
-                    {useSoftConstraints && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">
-                          Maximum Travel Time: {maxTravelTime} minutes
-                        </Label>
-                        <Input
-                          type="range"
-                          value={maxTravelTime}
-                          onChange={(e) => setMaxTravelTime(parseInt(e.target.value))}
-                          max={120}
-                          min={travelTimeLimit}
-                          step={5}
-                          className="w-full"
-                          data-testid="slider-max-travel"
-                        />
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Hard cutoff for soft constraints (beyond this time, assignments are rejected)
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Constraint Summary */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Current Settings</Label>
-                      <div className="text-xs space-y-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <div>• Preferred limit: <strong>{travelTimeLimit} minutes</strong></div>
-                        <div>• Mode: <strong>{useSoftConstraints ? 'Soft penalties' : 'Hard cutoff'}</strong></div>
-                        {useSoftConstraints && (
-                          <div>• Maximum allowed: <strong>{maxTravelTime} minutes</strong></div>
-                        )}
-                      </div>
-                    </div>
+                <div className="border-t pt-4 space-y-2">
+                  <div className="text-xs space-y-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div><strong>Run Logic:</strong> Start from home → chain client-to-client visits → optional return home</div>
+                    <div><strong>Scoring:</strong> 40% run tightness + 35% travel + 15% window slack + 10% home proximity</div>
+                    <div><strong>Feasibility:</strong> Care cap + time windows + travel constraints</div>
                   </div>
                 </div>
               )}
@@ -721,10 +354,10 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                Select Date for Route Optimization
+                Select Date for Run Optimization
               </label>
               <Select value={optimizationDate} onValueChange={setOptimizationDate}>
-                <SelectTrigger className="w-full" data-testid="select-optimization-date">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select date" />
                 </SelectTrigger>
                 <SelectContent>
@@ -743,420 +376,308 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
             </div>
             <div className="flex gap-2 sm:items-end">
               <Button
-                onClick={handleGeocode}
-                disabled={geocodeMutation.isPending}
-                variant="outline"
-                className="flex items-center gap-2"
-                data-testid="button-geocode"
-              >
-                {geocodeMutation.isPending ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Target className="w-4 h-4" />
-                )}
-                Geocode Locations
-              </Button>
-              <Button
-                onClick={handleOptimizeRoutes}
-                disabled={optimizeMutation.isPending || employeeStats.geocoded === 0}
+                onClick={handleOptimizeRuns}
+                disabled={optimizeMutation.isPending}
                 className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white"
-                data-testid="button-optimize"
               >
                 {optimizeMutation.isPending ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <Route className="w-4 h-4 mr-2" />
+                  <Zap className="w-4 h-4 mr-2" />
                 )}
-                Optimize Routes
+                Optimize Runs
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Employee Locations Stats */}
-        <Card className="glass hover-lift">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <Users className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-gray-700 dark:text-gray-300">Employee Locations</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Total Employees</span>
-                <Badge variant="outline" data-testid="stat-total-employees">{employeeStats.total}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Geocoded</span>
-                <Badge 
-                  variant={employeeStats.geocoded === employeeStats.total ? "default" : "secondary"}
-                  data-testid="stat-geocoded-employees"
-                >
-                  {employeeStats.geocoded}/{employeeStats.total}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                  <Car className="w-3 h-3" />
-                  Car Access
-                </span>
-                <Badge variant="outline" data-testid="stat-car-employees">{employeeStats.withCar}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Optimization Results */}
+      {runOptimization && (
+        <>
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="glass hover-lift">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Visits</p>
+                    <p className="text-2xl font-bold text-blue-600">{runOptimization.optimizationStats.totalVisits}</p>
+                  </div>
+                  <Calendar className="w-8 h-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Client Locations Stats */}
-        <Card className="glass hover-lift">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                <MapPin className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-gray-700 dark:text-gray-300">Client Locations</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Total Clients</span>
-                <Badge variant="outline" data-testid="stat-total-clients">{clientStats.total}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Geocoded</span>
-                <Badge 
-                  variant={clientStats.geocoded === clientStats.total ? "default" : "secondary"}
-                  data-testid="stat-geocoded-clients"
-                >
-                  {clientStats.geocoded}/{clientStats.total}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="glass hover-lift">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Assigned</p>
+                    <p className="text-2xl font-bold text-green-600">{runOptimization.optimizationStats.assignedVisits}</p>
+                  </div>
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Route Plans Stats */}
-        <Card className="glass hover-lift">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                <Route className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-gray-700 dark:text-gray-300">Route Plans</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Total Routes</span>
-                <Badge variant="outline" data-testid="stat-total-routes">{routeStats.total}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Optimized</span>
-                <Badge variant="default" data-testid="stat-optimized-routes">{routeStats.optimized}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Infeasible</span>
-                <Badge variant="destructive" data-testid="stat-infeasible-routes">{routeStats.infeasible}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="glass hover-lift">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Employees Used</p>
+                    <p className="text-2xl font-bold text-purple-600">{runOptimization.optimizationStats.employeesUtilized}</p>
+                  </div>
+                  <Users className="w-8 h-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* Employee Locations Table */}
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Employee Locations ({employeeStats.total})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingEmployees ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee Name</TableHead>
-                  <TableHead>Postcode</TableHead>
-                  <TableHead>Transport</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Coordinates</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {employeeLocations?.map((employee) => (
-                  <TableRow key={employee.id}>
-                    <TableCell>
-                      <span className={getGenderColorClass(employee.employeeName)}>
-                        {employee.employeeName}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{employee.homePostcode}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                        {employee.transportMode === "car" ? (
-                          <Car className="w-3 h-3" />
-                        ) : (
-                          <Users className="w-3 h-3" />
-                        )}
-                        {employee.transportMode || "car"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {employee.homeLat && employee.homeLng ? (
-                        <Badge variant="default" className="bg-green-600">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Geocoded
+            <Card className="glass hover-lift">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Avg Score</p>
+                    <p className="text-2xl font-bold text-orange-600">{runOptimization.optimizationStats.averageScore.toFixed(1)}</p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-orange-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Employee Run States */}
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Employee Run States ({runOptimization.availableEmployees.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {runOptimization.availableEmployees.map((employee) => (
+                  <Card key={employee.employeeId} className="border border-gray-200 dark:border-gray-700">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${getGenderColorClass(employee.employeeName)}`}>
+                            {employee.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className={`font-semibold ${getGenderColorClass(employee.employeeName)}`}>
+                              {employee.employeeName}
+                            </h4>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                              <div className="flex items-center gap-1">
+                                {employee.transportMode === 'car' ? <Car className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                                <span>{employee.transportMode}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{Math.floor(employee.careMinutesTotal / 60)}h {employee.careMinutesTotal % 60}m care</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Route className="w-3 h-3" />
+                                <span>{employee.travelMinutesTotal}m travel</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant={employee.bookedVisits.length > 0 ? "default" : "outline"}>
+                          {employee.bookedVisits.length} visits
                         </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          Pending
-                        </Badge>
+                      </div>
+
+                      {/* Run Timeline */}
+                      {employee.bookedVisits.length > 0 && (
+                        <div className="space-y-2 mb-4">
+                          <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">Today's Run:</h5>
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="flex items-center gap-1 px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/20">
+                              <Home className="w-3 h-3" />
+                              <span>Start</span>
+                            </div>
+                            {employee.bookedVisits
+                              .sort((a, b) => a.sequence - b.sequence)
+                              .map((visit, index) => (
+                                <React.Fragment key={visit.visitId}>
+                                  <ArrowRight className="w-3 h-3 text-gray-400" />
+                                  <div className="flex items-center gap-1 px-2 py-1 rounded bg-green-100 dark:bg-green-900/20">
+                                    <span>{visit.clientName}</span>
+                                    <span className="text-gray-500">
+                                      {minutesToTime(visit.startTime)}-{minutesToTime(visit.endTime)}
+                                    </span>
+                                  </div>
+                                </React.Fragment>
+                              ))}
+                            <ArrowRight className="w-3 h-3 text-gray-400" />
+                            <div className="flex items-center gap-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-900/20">
+                              <Home className="w-3 h-3" />
+                              <span>End</span>
+                            </div>
+                          </div>
+                        </div>
                       )}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-gray-500">
-                      {employee.homeLat && employee.homeLng 
-                        ? `${parseFloat(employee.homeLat).toFixed(4)}, ${parseFloat(employee.homeLng).toFixed(4)}`
-                        : "—"
-                      }
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Route Plans Table */}
-      {routePlans && routePlans.length > 0 && (
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Route className="w-5 h-5" />
-              Route Plans for {new Date(optimizationDate).toLocaleDateString('en-GB', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long' 
-              })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingRoutes ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+                      {/* Available Slots */}
+                      {employee.availableSlots.length > 0 && (
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Available Slots:</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            {employee.availableSlots.map((slot, index) => (
+                              <div key={index} className="px-2 py-1 rounded border border-dashed border-gray-300 dark:border-gray-600 text-xs">
+                                {minutesToTime(slot.start)} - {minutesToTime(slot.end)}
+                                {slot.afterVisitId && (
+                                  <span className="text-gray-500 ml-1">(after visit)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Distance</TableHead>
-                    <TableHead>Travel Time</TableHead>
-                    <TableHead>Stops</TableHead>
-                    <TableHead>Warnings</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {routePlans.map((plan: RoutePlan) => (
-                    <TableRow key={plan.routePlanId}>
-                      <TableCell>
-                        <span className={getGenderColorClass(plan.employeeName)}>
-                          {plan.employeeName}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            plan.status === "optimized" ? "default" :
-                            plan.status === "infeasible" ? "destructive" : "secondary"
-                          }
-                        >
-                          {plan.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {plan.totalDistanceKm ? `${parseFloat(plan.totalDistanceKm).toFixed(1)} km` : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {plan.totalTravelMinutes ? `${plan.totalTravelMinutes} min` : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {plan.stops.length} stops
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {Array.isArray(plan.warnings) && plan.warnings.length > 0 ? (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            {plan.warnings.length} warnings
+            </CardContent>
+          </Card>
+
+          {/* Visit Candidates with Employee Matches */}
+          {runOptimization.visitCandidates.length > 0 && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Visit Assignment Candidates ({runOptimization.visitCandidates.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {runOptimization.visitCandidates.map((visit) => (
+                    <Card key={visit.visitId} className="border border-orange-200 dark:border-orange-800">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h4 className="font-semibold text-lg">{visit.clientName}</h4>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{minutesToTime(visit.requiredStart)} - {minutesToTime(visit.requiredEnd)}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                <span>{visit.duration}m duration</span>
+                              </div>
+                              <Badge variant="outline">Priority {visit.priority}</Badge>
+                            </div>
+                          </div>
+                          <Badge variant={visit.feasibleEmployees.length > 0 ? "default" : "destructive"}>
+                            {visit.feasibleEmployees.length} feasible matches
                           </Badge>
+                        </div>
+
+                        {/* Employee Matches */}
+                        {visit.feasibleEmployees.length > 0 ? (
+                          <div className="grid gap-3">
+                            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Best Employee Matches (sorted by score):
+                            </h5>
+                            {visit.feasibleEmployees
+                              .filter(emp => emp.feasible)
+                              .sort((a, b) => b.score - a.score)
+                              .slice(0, 3)
+                              .map((empMatch) => (
+                                <div key={empMatch.employeeId} className="p-3 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-medium ${getGenderColorClass(empMatch.employeeName)}`}>
+                                        {empMatch.employeeName}
+                                      </span>
+                                      <Badge variant="outline" className="text-xs">
+                                        Score: {empMatch.score.toFixed(1)}
+                                      </Badge>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleAssignVisit(visit.visitId, empMatch)}
+                                      disabled={assignVisitMutation.isPending}
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                      {assignVisitMutation.isPending ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Play className="w-3 h-3" />
+                                      )}
+                                      Assign
+                                    </Button>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                    <div>
+                                      <span className="text-gray-500">Arrive:</span>
+                                      <span className="ml-1 font-medium">{minutesToTime(empMatch.arriveTime)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Travel:</span>
+                                      <span className="ml-1 font-medium">+{empMatch.addedTravelMin}m</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Slack:</span>
+                                      <span className="ml-1 font-medium">L:{empMatch.leftSlackMin}m R:{empMatch.rightSlackMin}m</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Care after:</span>
+                                      <span className="ml-1 font-medium">{Math.floor(empMatch.careMinutesAfter / 60)}h{empMatch.careMinutesAfter % 60}m</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Badges */}
+                                  {empMatch.badges.length > 0 && (
+                                    <div className="flex gap-1 mt-2">
+                                      {empMatch.badges.map((badge, index) => (
+                                        <Badge key={index} variant="secondary" className="text-xs">
+                                          {badge}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
                         ) : (
-                          "—"
+                          <div className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+                            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                              <AlertTriangle className="w-4 h-4" />
+                              <span className="text-sm">No feasible employee matches found for this visit</span>
+                            </div>
+                          </div>
                         )}
-                      </TableCell>
-                    </TableRow>
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
-      {/* Detailed Route Stops Display */}
-      {routePlans && routePlans.length > 0 && routePlans.some(plan => plan.stops.length > 0) && (
+      {isLoadingOptimization && (
         <Card className="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Navigation className="w-5 h-5" />
-              Multi-Stop Route Details for {new Date(optimizationDate).toLocaleDateString('en-GB', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long' 
-              })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {routePlans
-                .filter(plan => plan.stops.length > 0)
-                .map((plan: RoutePlan) => (
-                  <div key={plan.routePlanId} className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20">
-                    {/* Route Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${getGenderColorClass(plan.employeeName)}`}>
-                          {plan.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className={`font-semibold text-lg ${getGenderColorClass(plan.employeeName)}`}>
-                            {plan.employeeName}
-                          </h4>
-                          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
-                            <div className="flex items-center gap-1">
-                              <Route className="w-4 h-4" />
-                              <span>{plan.stops.length} stops</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              <span>{plan.totalTravelMinutes} min travel</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{parseFloat(plan.totalDistanceKm).toFixed(1)} km total</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge 
-                        variant={plan.status === "optimized" ? "default" : "destructive"}
-                        className="text-sm"
-                      >
-                        {plan.status}
-                      </Badge>
-                    </div>
-
-                    {/* Route Timeline */}
-                    <div className="space-y-3">
-                      {plan.stops
-                        .sort((a, b) => a.sequence - b.sequence)
-                        .map((stop, index) => (
-                          <div key={stop.visitId} className="flex items-center gap-4">
-                            {/* Sequence Number */}
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
-                              {stop.sequence}
-                            </div>
-                            
-                            {/* Stop Details */}
-                            <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h5 className="font-medium text-gray-900 dark:text-white">
-                                    {stop.clientName}
-                                  </h5>
-                                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />
-                                      <span>{stop.scheduledStart} - {stop.scheduledEnd}</span>
-                                    </div>
-                                    {index > 0 && (
-                                      <div className="flex items-center gap-1">
-                                        <Car className="w-3 h-3" />
-                                        <span>{stop.travelMinutesFromPrev} min from previous</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <Badge variant="outline" className="text-xs">
-                                    Visit {stop.sequence}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Travel Arrow (except for last stop) */}
-                            {index < plan.stops.length - 1 && (
-                              <div className="flex-shrink-0 w-6 h-6 text-gray-400">
-                                <ArrowRight className="w-full h-full" />
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-
-                    {/* Route Summary */}
-                    <div className="mt-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                            {plan.stops.length}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">Total Visits</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-semibold text-green-600 dark:text-green-400">
-                            {plan.totalTravelMinutes}m
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">Travel Time</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-semibold text-purple-600 dark:text-purple-400">
-                            {parseFloat(plan.totalDistanceKm).toFixed(1)}km
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">Total Distance</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
+          <CardContent className="p-6 text-center">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+            <p className="text-gray-600 dark:text-gray-300">Loading run optimization...</p>
           </CardContent>
         </Card>
       )}
 
       {/* Info Alert */}
       <Alert>
-        <Navigation className="h-4 w-4" />
+        <Route className="h-4 w-4" />
         <AlertDescription>
-          <strong>Route Optimization Process:</strong> First geocode all employee and client locations, 
-          then run route optimization to create efficient schedules with 15-minute travel constraints. 
-          The system minimizes total travel time while ensuring feasible routes.
+          <strong>Run-Based Chaining:</strong> Employees start from home, chain visits client-to-client without returning home between visits, 
+          optimizing for tight schedules with minimal travel time and maximum care efficiency.
         </AlertDescription>
       </Alert>
     </div>
