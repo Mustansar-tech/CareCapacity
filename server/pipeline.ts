@@ -2275,26 +2275,7 @@ export async function processCapacityData(
   // Extract and store geographical data for scheduling optimization
   await extractAndStoreGeographicalData(cgData, guaranteed);
 
-  // Add geographical data to result for scheduling tabs
-  const employeeLocations = await storage.getAllEmployeeLocations();
-  const clientLocations = await storage.getAllClientLocations();
-
-  return {
-    ...result,
-    employeeLocations: employeeLocations.map(emp => ({
-      name: emp.employeeName,
-      lat: emp.homeLat ? parseFloat(emp.homeLat) : null,
-      lng: emp.homeLng ? parseFloat(emp.homeLng) : null,
-      transportMode: emp.transportMode,
-    })),
-    clientLocations: clientLocations.map(client => ({
-      name: client.clientName,
-      lat: client.lat ? parseFloat(client.lat) : null,
-      lng: client.lng ? parseFloat(client.lng) : null,
-      address: client.addressLine,
-      postcode: client.postcode,
-    }))
-  };
+  return result;
 }
 
 // Extract and store geographical data for route optimization

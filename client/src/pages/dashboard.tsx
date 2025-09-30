@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon, Grid3X3
+import { 
+  Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
@@ -23,7 +23,6 @@ import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
-import { WeeklyGridTab } from "@/components/weekly-grid-tab";
 
 
 
@@ -31,7 +30,7 @@ import { WeeklyGridTab } from "@/components/weekly-grid-tab";
 const fmtH = (hours: number): string => `${hours}h`;
 const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
 const statusBadge = (status: string): string => {
-  return status === 'Sufficient'
+  return status === 'Sufficient' 
     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
     : 'bg-gradient-to-r from-red-500 to-red-600 text-white';
 };
@@ -83,7 +82,6 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
@@ -121,7 +119,7 @@ export default function Dashboard() {
       setSelectedWeekId(null);
       return;
     }
-
+    
     try {
       setSelectedWeekId(value);
       const analysis = allHistoryData?.find((item: any) => item.id === value);
@@ -147,7 +145,7 @@ export default function Dashboard() {
   }, [allHistoryData, toast]);
 
   // Handle file selection
-  const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') =>
+  const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') => 
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0] || null;
       setFiles(prev => ({ ...prev, [type]: file }));
@@ -166,7 +164,7 @@ export default function Dashboard() {
     }
 
     setIsProcessing(true);
-
+    
     const formData = new FormData();
     formData.append('availability', files.availability);
     formData.append('guaranteed', files.guaranteed);
@@ -217,10 +215,10 @@ export default function Dashboard() {
 
     } catch (error) {
       console.error('Processing error:', error);
-
+      
       let errorTitle = "Processing Failed";
       let errorDescription = "Unknown error occurred";
-
+      
       if (error instanceof Error) {
         if (error.message.includes('fetch')) {
           errorTitle = "Connection Error";
@@ -229,10 +227,10 @@ export default function Dashboard() {
           errorDescription = error.message;
         }
       }
-
+      
       toast({
         variant: "destructive",
-        title: errorTitle,
+        title: errorTitle, 
         description: errorDescription
       });
     } finally {
@@ -244,7 +242,7 @@ export default function Dashboard() {
   const handleExport = useCallback(async () => {
     try {
       const response = await fetch('/api/export');
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Export failed');
@@ -359,7 +357,7 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-
+          
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
             {/* Availability Export */}
             <div className="space-y-1.5">
@@ -534,73 +532,65 @@ export default function Dashboard() {
           <div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-9 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-            <TabsTrigger
-              value="overview"
+          <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+            <TabsTrigger 
+              value="overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger
-              value="daily-capacity"
+            <TabsTrigger 
+              value="daily-capacity" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-daily-capacity"
             >
               <Calendar className="w-4 h-4 mr-2" />
               Daily View
             </TabsTrigger>
-            <TabsTrigger
-              value="employee-summary"
+            <TabsTrigger 
+              value="employee-summary" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-employee-summary"
             >
               <Users className="w-4 h-4 mr-2" />
               Summary
             </TabsTrigger>
-            <TabsTrigger
-              value="bd-matrix"
+            <TabsTrigger 
+              value="bd-matrix" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-bd-matrix"
             >
               <Users className="w-4 h-4 mr-2" />
               BD Matrix
             </TabsTrigger>
-            <TabsTrigger
-              value="scheduling"
+            <TabsTrigger 
+              value="scheduling" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-scheduling"
             >
               <Target className="w-4 h-4 mr-2" />
               Scheduling
             </TabsTrigger>
-            <TabsTrigger
-              value="weekly-grid"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-weekly-grid"
-            >
-              <Grid3X3 className="w-4 h-4 mr-2" />
-              Weekly Grid
-            </TabsTrigger>
-            <TabsTrigger
-              value="ai-suggestions"
+            <TabsTrigger 
+              value="ai-suggestions" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-suggestions"
             >
               <LightBulbIcon className="w-4 h-4 mr-2" />
               AI Insights
             </TabsTrigger>
-            <TabsTrigger
-              value="charts"
+            <TabsTrigger 
+              value="charts" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-charts"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger
-              value="export"
+            <TabsTrigger 
+              value="export" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-export"
             >
@@ -715,11 +705,11 @@ export default function Dashboard() {
                   <div className="mt-6" data-testid="drilldown-section">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" data-testid="drilldown-title">
                       <Calendar className="h-5 w-5" />
-                      Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                      Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
                       })}
                       <Badge variant="outline" className="ml-2">
                         {selectedDayDetails.length} employees
@@ -750,7 +740,7 @@ export default function Dashboard() {
                               {renderStatusBadge(emp.status)}
                             </TableCell>
                             <TableCell data-testid={`drilldown-time-windows-${index}`}>
-                              <FlexibleTimeWindow
+                              <FlexibleTimeWindow 
                                 timeWindows={emp.timeWindows || '-'}
                                 compact={true}
                                 editable={false}
@@ -787,30 +777,30 @@ export default function Dashboard() {
 
           {/* Smart Alerts Tab - Only Alerts */}
           <TabsContent value="ai-suggestions" data-testid="content-ai-suggestions">
-            <AISuggestions
-              data={filteredData || processedData}
+            <AISuggestions 
+              data={filteredData || processedData} 
             />
           </TabsContent>
 
           {/* Interactive Charts Tab with Data Quality */}
           <TabsContent value="charts" data-testid="content-charts">
             <div className="space-y-6">
-              <InteractiveCharts
+              <InteractiveCharts 
                 data={filteredData || processedData}
                 onDateSelect={setSelectedDate}
                 onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
               />
-              <DataQualityPanel
+              <DataQualityPanel 
                 data={filteredData || processedData}
                 warnings={warnings}
               />
             </div>
           </TabsContent>
 
-
+          
 
           <TabsContent value="bd-matrix" data-testid="content-bd-matrix">
-            <BDMatrix
+            <BDMatrix 
               data={filteredData || processedData}
             />
           </TabsContent>
@@ -958,7 +948,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex justify-center gap-4">
-                  <Button
+                  <Button 
                     onClick={handleProcessFiles}
                     disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
@@ -1018,8 +1008,8 @@ export default function Dashboard() {
                         <div className="font-bold text-lg bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
                           Select Week:
                         </div>
-                        <Select
-                          value={selectedWeekId || "latest"}
+                        <Select 
+                          value={selectedWeekId || "latest"} 
                           onValueChange={handleWeekChange}
                         >
                           <SelectTrigger className="w-80" data-testid="week-selector">
@@ -1148,8 +1138,8 @@ export default function Dashboard() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
-                        ? 'bg-gradient-to-br from-green-500 to-green-600'
+                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 
+                        ? 'bg-gradient-to-br from-green-500 to-green-600' 
                         : 'bg-gradient-to-br from-red-500 to-red-600'
                     }`}>
                       {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
@@ -1163,8 +1153,8 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className={`text-3xl font-bold mb-1 ${
-                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
-                      ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent'
+                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 
+                      ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent' 
                       : 'bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent'
                   }`} data-testid="text-capacity-gap-sum">
                     {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
@@ -1218,10 +1208,10 @@ export default function Dashboard() {
               const data = filteredData || processedData;
               const currentDate = selectedDate || (data?.dailySummary?.[0]?.date) || new Date().toISOString().split('T')[0];
               const summaryData = data?.employeeSummaryByDate?.[currentDate] || [];
-
+              
               return (
-                <EmployeeSummaryTab
-                  data={summaryData}
+                <EmployeeSummaryTab 
+                  data={summaryData} 
                   selectedDate={currentDate}
                   availableDates={Object.keys(data?.employeeSummaryByDate || {})}
                   onDateChange={setSelectedDate}
@@ -1233,11 +1223,6 @@ export default function Dashboard() {
           {/* Scheduling Tab */}
           <TabsContent value="scheduling" className="space-y-6 animate-fade-in" data-testid="content-scheduling">
             <SimpleSchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
-          </TabsContent>
-
-          {/* Weekly Grid Tab */}
-          <TabsContent value="weekly-grid" className="space-y-6 animate-fade-in" data-testid="content-weekly-grid">
-            <WeeklyGridTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
           {/* Export Tab */}
@@ -1291,7 +1276,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <Button
+                <Button 
                   onClick={handleExport}
                   className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
                   disabled={isProcessing}
