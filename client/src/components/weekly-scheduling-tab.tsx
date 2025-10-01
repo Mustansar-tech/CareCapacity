@@ -92,10 +92,12 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
 
   const [selectedEmployeeName, setSelectedEmployeeName] = useState<string | null>(null);
   const [weeklySchedules, setWeeklySchedules] = useState<Record<string, DaySchedule>>({});
+  const [employeeCentricMode, setEmployeeCentricMode] = useState(true); // Always employee-centered
   const [optimizationSettings, setOptimizationSettings] = useState({
     maxTravelPerVisit: 30, // minutes
     bufferTime: 5, // minutes between visits
-    prioritizeTravel: true, // minimize travel vs maximize utilization
+    prioritizeEmployeeEfficiency: true, // prioritize employee routes over client preferences
+    employeeUtilizationTarget: 80, // target utilization percentage
   });
 
   const { toast } = useToast();
@@ -511,12 +513,12 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Route className="h-5 w-5" />
+              <Users className="h-5 w-5" />
               <span className="bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
-                Weekly Best Matches Scheduling
+                Employee-Centered Weekly Scheduling
               </span>
               <p className="text-sm text-gray-600 dark:text-gray-300 font-normal mt-1">
-                Future scheduling using the proven best matches algorithm from the scheduling tab
+                Build optimal employee routes first, then assign visits based on employee efficiency and location
               </p>
             </CardTitle>
 
@@ -554,9 +556,19 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
           </div>
         </CardHeader>
 
-        {/* Optimization Settings */}
+        {/* Employee-Centered Optimization Settings */}
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="h-4 w-4 text-blue-600" />
+              <span className="font-medium text-blue-800 dark:text-blue-200">Employee-Centered Scheduling Mode</span>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              All scheduling decisions prioritize employee efficiency, optimal routes, and work-life balance
+            </p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-4">
             <div>
               <label className="text-sm font-medium">Max Travel per Visit (min)</label>
               <Input
@@ -583,17 +595,30 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
                 max="30"
               />
             </div>
+            <div>
+              <label className="text-sm font-medium">Target Utilization (%)</label>
+              <Input
+                type="number"
+                value={optimizationSettings.employeeUtilizationTarget}
+                onChange={(e) => setOptimizationSettings(prev => ({
+                  ...prev,
+                  employeeUtilizationTarget: parseInt(e.target.value) || 80
+                }))}
+                min="50"
+                max="100"
+              />
+            </div>
             <div className="flex items-end">
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={optimizationSettings.prioritizeTravel}
+                  checked={optimizationSettings.prioritizeEmployeeEfficiency}
                   onChange={(e) => setOptimizationSettings(prev => ({
                     ...prev,
-                    prioritizeTravel: e.target.checked
+                    prioritizeEmployeeEfficiency: e.target.checked
                   }))}
                 />
-                Prioritize Travel Efficiency
+                Employee Routes First
               </label>
             </div>
           </div>
@@ -629,18 +654,266 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="grid" className="w-full">
+      <Tabs defaultValue="employee" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="grid">Week Grid View</TabsTrigger>
-          <TabsTrigger value="employee">Employee View</TabsTrigger>
-          <TabsTrigger value="unassigned">Unassigned Visits</TabsTrigger>
+          <TabsTrigger value="employee">Employee Routes</TabsTrigger>
+          <TabsTrigger value="grid">Week Overview</TabsTrigger>
+          <TabsTrigger value="unassigned">Available Visits</TabsTrigger>
         </TabsList>
+
+        {/* Employee View - Primary focus on individual employee routes and optimization */}
+        <TabsContent value="employee">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Employee Selector */}
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Select Employee
+                  <Badge variant="outline" className="ml-auto">
+                    {allEmployees.length} available
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-2">
+                    {allEmployees.map(employeeName => {
+                      const employeeInfo = data?.employeeLocations?.find(e => e.employeeName === employeeName);
+                      const transportMode = employeeInfo?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking';
+
+                      // Calculate weekly stats for employee-centered view
+                      const weeklyVisits = weekDates.reduce((total, date) => {
+                        const daySchedule = weeklySchedules[date];
+                        const employee = daySchedule?.employees.find(e => e.employeeName === employeeName);
+                        return total + (employee?.visits.length || 0);
+                      }, 0);
+
+                      const weeklyTravelTime = weekDates.reduce((total, date) => {
+                        const daySchedule = weeklySchedules[date];
+                        const employee = daySchedule?.employees.find(e => e.employeeName === employeeName);
+                        return total + (employee?.totalTravelTime || 0);
+                      }, 0);
+
+                      const avgUtilization = weekDates.reduce((total, date) => {
+                        const daySchedule = weeklySchedules[date];
+                        const employee = daySchedule?.employees.find(e => e.employeeName === employeeName);
+                        return total + (employee?.utilizationPercent || 0);
+                      }, 0) / weekDates.length;
+
+                      return (
+                        <Button
+                          key={employeeName}
+                          variant={selectedEmployeeName === employeeName ? "default" : "outline"}
+                          className="w-full justify-start p-3 h-auto"
+                          onClick={() => setSelectedEmployeeName(employeeName)}
+                        >
+                          <div className="flex items-center gap-3 w-full">
+                            <div className="flex flex-col items-center">
+                              <Badge className={getGenderColorClass('')}>
+                                {employeeName.split(' ')[0]}
+                              </Badge>
+                              {transportMode === 'car' ? (
+                                <Car className="h-3 w-3 mt-1" />
+                              ) : (
+                                <User className="h-3 w-3 mt-1" />
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="text-sm font-medium truncate">{employeeName}</div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <div>{weeklyVisits} weekly visits</div>
+                                <div>{Math.round(weeklyTravelTime / 60)}h travel</div>
+                                <div>{Math.round(avgUtilization)}% avg util</div>
+                              </div>
+                            </div>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Employee Weekly Detail */}
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>
+                  {selectedEmployeeName ? `${selectedEmployeeName} - Employee-Centered Weekly Plan` : 'Select an employee to view their optimized weekly schedule'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedEmployeeName ? (
+                  <div className="space-y-4">
+                    {/* Employee Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {weekDates.reduce((total, date) => {
+                            const employee = weeklySchedules[date]?.employees.find(e => e.employeeName === selectedEmployeeName);
+                            return total + (employee?.visits.length || 0);
+                          }, 0)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Weekly Visits</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                          {Math.round(weekDates.reduce((total, date) => {
+                            const employee = weeklySchedules[date]?.employees.find(e => e.employeeName === selectedEmployeeName);
+                            return total + (employee?.totalTravelTime || 0);
+                          }, 0) / 60)}h
+                        </div>
+                        <div className="text-sm text-muted-foreground">Total Travel</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {Math.round(weekDates.reduce((total, date) => {
+                            const employee = weeklySchedules[date]?.employees.find(e => e.employeeName === selectedEmployeeName);
+                            return total + (employee?.utilizationPercent || 0);
+                          }, 0) / weekDates.length)}%
+                        </div>
+                        <div className="text-sm text-muted-foreground">Avg Utilization</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {weekDates.filter(date => {
+                            const employee = weeklySchedules[date]?.employees.find(e => e.employeeName === selectedEmployeeName);
+                            return (employee?.visits.length || 0) > 0;
+                          }).length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Active Days</div>
+                      </div>
+                    </div>
+
+                    {weekDates.map((date, index) => {
+                      const daySchedule = weeklySchedules[date];
+                      const employee = daySchedule?.employees.find(e => e.employeeName === selectedEmployeeName);
+                      const assignedVisits = getAssignedVisits(selectedEmployeeName, date);
+
+                      return (
+                        <Card key={date} className="border-l-4 border-l-blue-500">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{dayNames[index]}</h3>
+                                <Badge variant="outline">
+                                  {new Date(date).toLocaleDateString()}
+                                </Badge>
+                                {employee && assignedVisits.length > 0 && (
+                                  <Badge variant="default" className="bg-green-600">
+                                    Optimized Route
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {employee && (
+                                <div className="flex items-center gap-4 text-sm">
+                                  <span className="flex items-center gap-1">
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                    {assignedVisits.length} visits
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Route className="h-4 w-4 text-blue-600" />
+                                    {employee.totalTravelTime}m travel
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <TrendingUp className="h-4 w-4 text-purple-600" />
+                                    {employee.utilizationPercent}% util
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </CardHeader>
+
+                          <CardContent>
+                            {employee && assignedVisits.length > 0 ? (
+                              <div className="space-y-3">
+                                {/* Optimized Route visualization */}
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <MapPin className="h-4 w-4" />
+                                  <span className="font-medium text-blue-600">Employee-Optimized Route:</span>
+                                  <span>Home</span>
+                                  {assignedVisits.map((visit, idx) => (
+                                    <React.Fragment key={idx}>
+                                      <span>→ {visit.travelTimeBefore}m →</span>
+                                      <span className="font-medium text-foreground">{visit.clientName}</span>
+                                    </React.Fragment>
+                                  ))}
+                                  <span>→ Home</span>
+                                </div>
+
+                                {assignedVisits.map((visit, idx) => (
+                                  <div key={idx} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                    <div className="flex-1">
+                                      <div className="font-medium">{visit.clientName}</div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {visit.serviceType}
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <div className="text-sm font-medium">
+                                        {minutesToTime(visit.actualStartTime)} - {minutesToTime(visit.actualEndTime)}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {visit.durationMinutes}m visit
+                                        {visit.travelTimeBefore > 0 && (
+                                          <span className="text-orange-600"> • {visit.travelTimeBefore}m travel</span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-1">
+                                      <Badge
+                                        variant="outline"
+                                        className={visit.score > 0.7 ? "border-green-500 text-green-700" :
+                                                 visit.score > 0.4 ? "border-yellow-500 text-yellow-700" :
+                                                 "border-red-500 text-red-700"}
+                                      >
+                                        {Math.round(visit.score * 100)}% fit
+                                      </Badge>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleUnassignVisit(visit.clientName, selectedEmployeeName, date)}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                                <p>No optimized route for this day</p>
+                                <p className="text-xs mt-1">Run auto-schedule to generate employee-centered routes</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4" />
+                    <p className="text-lg font-medium">Employee-Centered Scheduling</p>
+                    <p>Select an employee to view their optimized weekly routes and efficiency metrics</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         {/* Grid View - Shows all employees across all days */}
         <TabsContent value="grid">
           <Card>
             <CardHeader>
-              <CardTitle>Weekly Schedule Grid - Route Optimized</CardTitle>
+              <CardTitle>Weekly Employee Overview - Route Optimized</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -914,11 +1187,14 @@ export function WeeklySchedulingTab({ data, selectedDate }: WeeklySchedulingTabP
           </div>
         </TabsContent>
 
-        {/* Unassigned Visits */}
+        {/* Available Visits for Employee Assignment */}
         <TabsContent value="unassigned">
           <Card>
             <CardHeader>
-              <CardTitle>Unassigned Visits - Manual Assignment</CardTitle>
+              <CardTitle>Available Visits - Employee Assignment</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Assign these visits to employees based on their routes, availability, and efficiency
+              </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
