@@ -24,8 +24,8 @@ import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
-// Import the new WeeklySchedulingTab component
-import { WeeklySchedulingTab } from "@/components/weekly-scheduling-tab";
+// Import the new WeeklyPlanTab component
+import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 
 
 
@@ -1235,9 +1235,9 @@ export default function Dashboard() {
             <SimpleSchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
-          {/* Weekly Scheduling Tab */}
-          <TabsContent value="weekly" className="space-y-6 animate-fade-in" data-testid="content-weekly-scheduling">
-            <WeeklySchedulingTab data={filteredData || processedData} />
+          {/* Weekly Plan Tab */}
+          <TabsContent value="weekly" className="space-y-6 animate-fade-in" data-testid="content-weekly-plan">
+            <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
           {/* Export Tab */}
