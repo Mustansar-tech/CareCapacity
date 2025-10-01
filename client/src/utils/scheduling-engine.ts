@@ -163,20 +163,8 @@ function assignVisitToBestEmployee(
     return { success: false, reason: 'Already assigned' };
   }
 
-  // Skip office visits
-  if (isOfficeVisit(originalVisit.clientName)) {
-    return { success: false, reason: 'Office visit excluded' };
-  }
-
-  // Skip secondary multiple care visits
-  if (isSecondaryMultipleCare(originalVisit.serviceType || '')) {
-    return { success: false, reason: 'Secondary multiple care visit excluded' };
-  }
-
-  // Skip if no location data
-  if (!originalVisit.lat || !originalVisit.lng) {
-    return { success: false, reason: 'Missing location data' };
-  }
+  // Note: Office visits, secondary multiple care, and visits without location data
+  // are already filtered out in generateWeeklySchedule, so no need to check again here
 
   const candidates: Array<{
     employeeName: string;
@@ -287,6 +275,33 @@ export function generateWeeklySchedule(
   }>,
   weekDates: string[]
 ): WeeklyScheduleResult {
+  // Filter out excluded visits at the beginning
+  const filteredVisits = visits.filter(visit => {
+    // Skip office visits
+    if (isOfficeVisit(visit.clientName)) {
+      console.log(`🚫 Excluding office visit: ${visit.clientName}`);
+      return false;
+    }
+
+    // Skip secondary multiple care visits
+    if (isSecondaryMultipleCare(visit.serviceType || '')) {
+      console.log(`🚫 Excluding secondary multiple care visit: ${visit.clientName} (${visit.serviceType})`);
+      return false;
+    }
+
+    // Skip if no location data
+    if (!visit.lat || !visit.lng) {
+      console.log(`🚫 Excluding visit without location: ${visit.clientName}`);
+      return false;
+    }
+
+    return true;
+  });
+
+  console.log(`📊 Filtered visits: ${visits.length} → ${filteredVisits.length} (excluded ${visits.length - filteredVisits.length} visits)`);
+
+  // Use filtered visits for the rest of the function
+  visits = filteredVisits;
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
   
