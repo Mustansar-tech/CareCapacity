@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
-import { getCanonicalWeekBoundaries } from "@shared/schema";
+import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
 
 
 // Configure multer for file uploads
@@ -264,6 +264,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { date } = req.params;
       console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
 
+      if (!latestGuaranteedBuffer) {
+        return res.status(404).json({ error: "No processed data available. Please process files first." });
+      }
+
       // Dynamically import the function to avoid circular dependencies or unnecessary loads
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
@@ -360,6 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`🤖 Starting run optimization for ${date}`);
+      const { autoScheduler } = await import("./auto-scheduler");
       const result = await autoScheduler.scheduleDay(date);
 
       res.json(result);
@@ -937,9 +942,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const employeeLocations = results.employeeLocations || [];
 
       return employeesForDate
-        .filter(emp => ['Available', 'Partial Availability'].includes(emp.status))
-        .map(emp => {
-          const location = employeeLocations.find(loc => loc.employeeName === emp.employeeName);
+        .filter((emp: any) => ['Available', 'Partial Availability'].includes(emp.status))
+        .map((emp: any) => {
+          const location = employeeLocations.find((loc: any) => loc.employeeName === emp.employeeName);
           const timeWindows = parseTimeWindowsForRouting(emp.timeWindows);
 
           return {
@@ -967,12 +972,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await getProcessingResults();
       const clientLocations = results?.clientLocations || [];
 
-      return visits.map(visit => {
-        const client = clientLocations.find(c => c.clientName === visit.clientName);
+      return visits.map((visit: any) => {
+        const clientName = visit.clientId || visit.clientName || 'Unknown Client';
+        const client = clientLocations.find((c: any) => c.clientName === clientName);
 
         return {
-          id: visit.id || `${visit.clientName}-${date}`,
-          clientName: visit.clientName,
+          id: visit.id || `${clientName}-${date}`,
+          clientName,
           startTime: timeStringToMinutes(visit.preferredStartTime || '09:00'),
           endTime: timeStringToMinutes(visit.preferredEndTime || '10:00'),
           durationMinutes: visit.durationMinutes || 60,
