@@ -1288,6 +1288,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all employee and client locations for scheduling
+  app.get('/api/locations', async (req, res) => {
+    try {
+      const [employees, clients] = await Promise.all([
+        storage.getAllEmployeeLocations(),
+        storage.getAllClientLocations()
+      ]);
+      
+      res.json({
+        employees,
+        clients
+      });
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch location data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Get latest weekly schedule
   app.get('/api/weekly-schedule/latest', async (req, res) => {
     try {

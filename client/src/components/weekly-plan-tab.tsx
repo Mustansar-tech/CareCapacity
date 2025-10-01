@@ -1,290 +1,157 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Zap, Loader2 } from "lucide-react";
+import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import { minutesToTime, getTravelMinutes, parseTimeWindows } from "@/utils/scheduling-utils";
-import { scoreVisitMatch } from "@/utils/scheduling-scoring";
-import type { ProcessingResult, ScheduledVisit, WeeklySchedule } from "@shared/schema";
+import { minutesToTime } from "@/utils/scheduling-utils";
+import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
+import { generateWeeklySchedule } from "@/utils/scheduling-engine";
 
 interface WeeklyPlanTabProps {
   data: ProcessingResult | null;
   selectedDate?: string | null;
 }
 
-interface EmployeeRun {
-  employeeName: string;
-  homeLat: number;
-  homeLng: number;
-  mode: 'car' | 'walking';
-  timeWindows: Array<{ start: number; end: number }>;
-  visits: AssignedVisit[];
-}
-
 interface AssignedVisit {
-  clientName: string;
-  start: number;
-  end: number;
-  lat: number;
-  lng: number;
-}
-
-interface WeeklyAssignments {
-  [date: string]: {
-    [employeeName: string]: ScheduledVisit[];
-  };
-}
-
-interface ClientVisit {
+  id: string;
   clientName: string;
   startTime: string;
   endTime: string;
+  durationMinutes: number;
   lat?: number;
   lng?: number;
+  travelTimeBefore: number;
+  score: number;
+}
+
+interface WeeklyScheduleData {
+  assignments: Record<string, Record<string, AssignedVisit[]>>; // date -> employee -> visits
+  unallocated: Array<ClientVisit & { reason: string }>;
+  metrics: {
+    totalVisitsAssigned: number;
+    totalVisitsUnallocated: number;
+    averageTravelTimePerVisit: number;
+    employeesUtilized: number;
+  };
 }
 
 export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const { toast } = useToast();
-  
-  // Get week boundaries
-  const weekBoundaries = useMemo(() => {
-    const date = selectedDate || new Date().toISOString().split('T')[0];
-    return getCanonicalWeekBoundaries(date);
-  }, [selectedDate]);
-
-  const weekDates = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(weekBoundaries.weekStart);
-      date.setDate(date.getDate() + i);
-      return date.toISOString().split('T')[0];
-    });
-  }, [weekBoundaries]);
-
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
-  const [weeklyAssignments, setWeeklyAssignments] = useState<WeeklyAssignments>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
 
-  // Get all available employees across the week
-  const availableEmployees = useMemo(() => {
-    if (!data) return [];
-    
-    const employeeSet = new Set<string>();
-    weekDates.forEach(date => {
-      data.employeesByDate?.[date]?.forEach(emp => {
-        if (['Available', 'Partial Availability'].includes(emp.status)) {
-          employeeSet.add(emp.employeeName);
-        }
-      });
-    });
-    
-    return Array.from(employeeSet).sort();
-  }, [data, weekDates]);
+  // Get week boundaries - default to current week if no date selected
+  const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
+  const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
 
-  // Fetch real client visits from the API for the entire week
-  const { data: weeklyVisitsData, isLoading: isLoadingVisits } = useQuery<Record<string, ClientVisit[]>>({
-    queryKey: ['/api/visits', weekBoundaries.weekStart, weekBoundaries.weekEnd],
-    queryFn: async () => {
-      const visitsPerDay: Record<string, ClientVisit[]> = {};
-      
-      // Fetch visits for each day of the week
-      await Promise.all(
-        weekDates.map(async (date) => {
-          try {
-            const response = await fetch(`/api/visits/${date}`);
-            if (response.ok) {
-              const visits = await response.json();
-              visitsPerDay[date] = visits;
-              console.log(`✅ Fetched ${visits.length} visits for ${date}`);
-            } else {
-              console.error(`❌ Failed to fetch visits for ${date}:`, response.statusText);
-              visitsPerDay[date] = [];
-            }
-          } catch (error) {
-            console.error(`❌ Error fetching visits for ${date}:`, error);
-            visitsPerDay[date] = [];
-          }
-        })
-      );
-      
-      console.log(`📊 Total visits per day:`, visitsPerDay);
-      return visitsPerDay;
-    },
-    enabled: !!data && weekDates.length > 0,
+  // Generate week dates array (Mon-Sun)
+  const weekDates = (() => {
+    const dates: string[] = [];
+    const start = new Date(weekStart + 'T00:00:00.000Z');
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + i);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+    return dates;
+  })();
+
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  // Fetch locations
+  const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
+    queryKey: ['/api/locations'],
+    enabled: !!data,
   });
 
-  // Flatten all week visits with date information
-  const allWeekVisits = useMemo(() => {
-    if (!weeklyVisitsData) {
-      console.log('⚠️ weeklyVisitsData is undefined');
-      return [];
-    }
-    
-    const visits: Array<ClientVisit & { date: string }> = [];
-    
-    Object.entries(weeklyVisitsData).forEach(([date, dayVisits]) => {
-      dayVisits.forEach(visit => {
-        visits.push({ ...visit, date });
-      });
-    });
-    
-    console.log(`📋 Total flattened visits for the week: ${visits.length}`);
-    return visits;
-  }, [weeklyVisitsData]);
+  // Fetch visits for each day of the week
+  const visitQueries = weekDates.map(date => 
+    useQuery<ClientVisit[]>({
+      queryKey: ['/api/visits', date],
+      enabled: !!data && weekDates.length > 0,
+    })
+  );
 
-  // Calculate unallocated visits
-  const unallocatedVisits = useMemo(() => {
-    const allocatedSet = new Set<string>();
-    
-    Object.entries(weeklyAssignments).forEach(([date, assignments]) => {
-      Object.values(assignments).forEach(visits => {
-        visits.forEach(visit => {
-          allocatedSet.add(`${date}-${visit.clientName}-${visit.startTime}`);
-        });
-      });
-    });
-    
-    return allWeekVisits.filter(visit => 
-      !allocatedSet.has(`${visit.date}-${visit.clientName}-${visit.startTime}`)
+  const isLoadingVisits = visitQueries.some(q => q.isLoading);
+  const allWeekVisits = visitQueries.flatMap(q => q.data || []);
+
+  // Get all unique employees for the week
+  const allEmployees = Object.values(data?.employeesByDate || {})
+    .flat()
+    .filter((emp, index, self) => 
+      self.findIndex(e => e.employeeName === emp.employeeName) === index
     );
-  }, [allWeekVisits, weeklyAssignments]);
 
-  // Auto-generate schedule using same algorithm as Scheduling tab
-  const generateScheduleMutation = useMutation({
+  // Filter employees by search term
+  const filteredEmployees = allEmployees.filter(emp =>
+    emp.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Generate weekly schedule mutation
+  const generateMutation = useMutation({
     mutationFn: async () => {
-      console.log('🚀 Starting weekly schedule generation...');
-      console.log('  Data available:', !!data);
-      console.log('  Weekly visits data available:', !!weeklyVisitsData);
-      console.log('  Total visits:', allWeekVisits.length);
+      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
       
-      if (!data) throw new Error('No data available');
-      if (!weeklyVisitsData) throw new Error('No visits data available');
-      
-      const newAssignments: WeeklyAssignments = {};
-      let totalTravelTime = 0;
-      let totalVisitsAssigned = 0;
-      
-      weekDates.forEach(date => {
-        newAssignments[date] = {};
-        
-        const employeesOnDate = data.employeesByDate?.[date]?.filter(emp =>
-          ['Available', 'Partial Availability'].includes(emp.status)
-        ) || [];
-        
-        const visitsOnDate = weeklyVisitsData[date] || [];
-        const remainingVisits = [...visitsOnDate];
-        
-        // Create employee runs
-        employeesOnDate.forEach(emp => {
-          const empLocation = data.employeeLocations?.find(e => e.employeeName === emp.employeeName);
-          const timeWindows = parseTimeWindows(emp.timeWindows);
-          
-          newAssignments[date][emp.employeeName] = [];
-          
-          const employeeRun: EmployeeRun = {
+      // Prepare employee data with locations
+      const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
+        empList.map(emp => {
+          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+          return {
             employeeName: emp.employeeName,
-            homeLat: empLocation?.homeLat ?? 55.9533,
-            homeLng: empLocation?.homeLng ?? -3.1883,
-            mode: empLocation?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking',
-            timeWindows,
-            visits: [],
+            date,
+            timeWindows: emp.timeWindows,
+            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
+            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
+            transportMode: location?.transportMode || undefined,
           };
-          
-          // Assign visits one by one using scoring algorithm
-          const currentVisits: AssignedVisit[] = [];
-          
-          for (const visit of [...remainingVisits]) {
-            const [startHour, startMin] = visit.startTime.split(':').map(Number);
-            const [endHour, endMin] = visit.endTime.split(':').map(Number);
-            
-            const visitData: AssignedVisit = {
-              clientName: visit.clientName,
-              start: startHour * 60 + startMin,
-              end: endHour * 60 + endMin,
-              lat: visit.lat ?? 55.9533,
-              lng: visit.lng ?? -3.1883,
-            };
-            
-            const scoreResult = scoreVisitMatch(visitData, employeeRun, timeWindows);
-            
-            if (scoreResult && scoreResult.score > 0.3) { // Threshold for assignment
-              currentVisits.push(visitData);
-              
-              newAssignments[date][emp.employeeName].push({
-                clientName: visit.clientName,
-                startTime: visit.startTime,
-                endTime: visit.endTime,
-                travelTimeBefore: scoreResult.travelFromPrev || 0,
-                score: scoreResult.score,
-                lat: visit.lat,
-                lng: visit.lng,
-              });
-              
-              totalTravelTime += scoreResult.travelFromPrev || 0;
-              totalVisitsAssigned++;
-              
-              // Remove from remaining visits
-              const idx = remainingVisits.findIndex(v => 
-                v.clientName === visit.clientName && v.startTime === visit.startTime
-              );
-              if (idx !== -1) remainingVisits.splice(idx, 1);
-            }
-          }
-        });
+        })
+      );
+
+      // Add location data to visits
+      const visitsWithLocations: ClientVisit[] = allWeekVisits.map((visit, index) => {
+        const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
+        return {
+          id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
+          clientName: visit.clientName,
+          startTime: visit.startTime,
+          endTime: visit.endTime,
+          durationMinutes: visit.durationMinutes,
+          date: visit.date,
+          lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
+          lng: clientLocation?.lng ? Number(clientLocation.lng) : undefined,
+          serviceType: visit.serviceType,
+          priority: visit.priority,
+        };
       });
+
+      console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
       
-      // Calculate metrics
-      const employeesUtilized = new Set<string>();
-      Object.values(newAssignments).forEach(dayAssignments => {
-        Object.entries(dayAssignments).forEach(([empName, visits]) => {
-          if (visits.length > 0) employeesUtilized.add(empName);
-        });
-      });
+      const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
       
-      return {
-        assignments: newAssignments,
-        metrics: {
-          totalVisitsAssigned,
-          totalVisitsUnallocated: allWeekVisits.length - totalVisitsAssigned,
-          averageTravelTimePerVisit: totalVisitsAssigned > 0 ? Math.round(totalTravelTime / totalVisitsAssigned) : 0,
-          employeesUtilized: employeesUtilized.size,
-        },
-      };
+      console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
+      
+      return result;
     },
     onSuccess: async (result) => {
-      setWeeklyAssignments(result.assignments);
-      
-      // Convert assignments to schema format
-      const scheduleData = {
-        employees: availableEmployees.map(empName => ({
-          employeeName: empName,
-          ...weekDates.reduce((acc, date) => ({
-            ...acc,
-            [date]: result.assignments[date]?.[empName] || []
-          }), {})
-        })),
-        weekDates,
-      };
+      setWeeklySchedule(result);
       
       // Save to database
       try {
-        await apiRequest('POST', '/api/weekly-schedule/save', {
-          weekStartDate: weekBoundaries.weekStart,
-          weekEndDate: weekBoundaries.weekEnd,
-          scheduleData,
-          unallocatedVisits: unallocatedVisits.map(v => ({
-            clientName: v.clientName,
-            startTime: v.startTime,
-            endTime: v.endTime,
-          })),
+        await apiRequest('/api/weekly-schedule/save', 'POST', {
+          weekStartDate: weekStart,
+          weekEndDate: weekEnd,
+          scheduleData: result.assignments,
+          unallocatedVisits: result.unallocated,
           metrics: result.metrics,
         });
         
@@ -306,29 +173,26 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   });
 
   // Load latest schedule on mount
-  const { data: savedSchedule } = useQuery<WeeklySchedule>({
+  const { data: savedSchedule } = useQuery<any>({
     queryKey: ['/api/weekly-schedule/latest'],
     enabled: !!data,
   });
 
   useEffect(() => {
     if (savedSchedule?.scheduleData) {
-      // Reconstruct weeklyAssignments from saved data
-      const assignments: WeeklyAssignments = {};
-      const data = savedSchedule.scheduleData as any;
-      
-      weekDates.forEach(date => {
-        assignments[date] = {};
-        data.employees?.forEach((emp: any) => {
-          if (emp[date]) {
-            assignments[date][emp.employeeName] = emp[date];
-          }
-        });
+      // Reconstruct weekly schedule from saved data
+      setWeeklySchedule({
+        assignments: savedSchedule.scheduleData as Record<string, Record<string, AssignedVisit[]>>,
+        unallocated: savedSchedule.unallocatedVisits || [],
+        metrics: savedSchedule.metrics || {
+          totalVisitsAssigned: 0,
+          totalVisitsUnallocated: 0,
+          averageTravelTimePerVisit: 0,
+          employeesUtilized: 0,
+        },
       });
-      
-      setWeeklyAssignments(assignments);
     }
-  }, [savedSchedule, weekDates]);
+  }, [savedSchedule]);
 
   if (!data) {
     return (
@@ -355,106 +219,165 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     );
   }
 
+  // Get employee weekly run (all dates combined)
+  const employeeWeeklyRun = selectedEmployee && weeklySchedule 
+    ? weekDates.map(date => ({
+        date,
+        visits: weeklySchedule.assignments[date]?.[selectedEmployee] || []
+      }))
+    : [];
+
   return (
-    <div className="space-y-4" data-testid="weekly-plan-tab">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                <span className="bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
-                  Automatic Weekly Schedule
-                </span>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Week of {weekBoundaries.weekStart} to {weekBoundaries.weekEnd}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {allWeekVisits.length} real client visits loaded
-              </p>
+    <div className="space-y-6">
+      {/* Header with Generate Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Weekly Schedule Generator</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Automatically assign visits to employees for the entire week using VRPTW optimization
+          </p>
+        </div>
+        <Button
+          onClick={() => generateMutation.mutate()}
+          disabled={generateMutation.isPending || allWeekVisits.length === 0}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          data-testid="button-generate-weekly"
+        >
+          {generateMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4 mr-2" />
+              Generate Weekly Schedule
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Metrics Card */}
+      {weeklySchedule && (
+        <Card className="glass-card border-blue-200 dark:border-blue-800">
+          <CardHeader>
+            <CardTitle className="text-lg">Schedule Metrics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Visits Assigned</p>
+                <p className="text-2xl font-bold text-green-600">{weeklySchedule.metrics.totalVisitsAssigned}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Unallocated</p>
+                <p className="text-2xl font-bold text-red-600">{weeklySchedule.metrics.totalVisitsUnallocated}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Avg Travel Time</p>
+                <p className="text-2xl font-bold text-blue-600">{weeklySchedule.metrics.averageTravelTimePerVisit} min</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Employees Used</p>
+                <p className="text-2xl font-bold text-purple-600">{weeklySchedule.metrics.employeesUtilized}</p>
+              </div>
             </div>
-            
-            <Button
-              onClick={() => generateScheduleMutation.mutate()}
-              disabled={generateScheduleMutation.isPending || allWeekVisits.length === 0}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-              data-testid="button-generate-schedule"
-            >
-              <Zap className="h-4 w-4" />
-              {generateScheduleMutation.isPending ? 'Generating...' : 'Generate Weekly Schedule'}
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Employee Picker */}
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="text-lg">Select Employee</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Select Employee
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={selectedEmployee || undefined} onValueChange={setSelectedEmployee}>
-            <SelectTrigger data-testid="select-employee">
-              <SelectValue placeholder="Choose an employee to view their weekly schedule" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableEmployees.map(empName => {
-                const empSummary = data.employeeSummaryByDate?.[weekDates[0]]?.find(e => e.employeeName === empName);
-                const genderClass = getGenderColorClass(empSummary?.gender);
-                
-                return (
-                  <SelectItem key={empName} value={empName} data-testid={`employee-option-${empName}`}>
-                    <span className={genderClass}>{empName}</span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search employees..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-employee"
+              />
+            </div>
+            <Select value={selectedEmployee || ''} onValueChange={setSelectedEmployee}>
+              <SelectTrigger data-testid="select-employee">
+                <SelectValue placeholder="Choose an employee to view their weekly run" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredEmployees.map(emp => {
+                  const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+                  const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
+                    ? <Car className="h-3 w-3" /> 
+                    : null;
+                  
+                  return (
+                    <SelectItem key={emp.employeeName} value={emp.employeeName} data-testid={`select-employee-${emp.employeeName}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={getGenderColorClass(emp.employeeName)}>{emp.employeeName}</span>
+                        {transportIcon}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Employee Weekly Schedule */}
-      {selectedEmployee && (
-        <Card>
+      {/* Weekly Run View */}
+      {selectedEmployee && weeklySchedule && (
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="text-lg">
-              Weekly Schedule for {selectedEmployee}
-            </CardTitle>
+            <CardTitle>Weekly Run: {selectedEmployee}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 gap-2">
-              {weekDates.map((date, idx) => {
-                const assignments = weeklyAssignments[date]?.[selectedEmployee] || [];
+              {weekDates.map((date, index) => {
+                const dayVisits = employeeWeeklyRun[index]?.visits || [];
+                const dayName = dayNames[index];
                 
                 return (
-                  <div key={date} className="border rounded-lg p-2">
-                    <div className="text-center mb-2">
-                      <div className="font-semibold text-sm">{dayNames[idx]}</div>
-                      <div className="text-xs text-muted-foreground">{date.split('-')[2]}/{date.split('-')[1]}</div>
+                  <div key={date} className="space-y-2">
+                    <div className="text-center">
+                      <p className="font-semibold text-sm">{dayName}</p>
+                      <p className="text-xs text-muted-foreground">{date.split('-').slice(1).join('/')}</p>
+                      <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="mt-1">
+                        {dayVisits.length} visits
+                      </Badge>
                     </div>
-                    <Separator className="mb-2" />
-                    <ScrollArea className="h-40">
-                      {assignments.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center">No visits</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {assignments.map((visit, vidx) => (
-                            <div key={vidx} className="text-xs p-1 bg-blue-50 dark:bg-blue-900/20 rounded">
-                              <div className="font-medium truncate">{visit.clientName}</div>
-                              <div className="text-muted-foreground">
+                    <ScrollArea className="h-96">
+                      <div className="space-y-2">
+                        {dayVisits.map((visit, vIndex) => (
+                          <Card 
+                            key={vIndex} 
+                            className="p-2 bg-white dark:bg-gray-800 border-l-4 border-l-blue-500"
+                            data-testid={`card-visit-${date}-${vIndex}`}
+                          >
+                            <div className="space-y-1">
+                              <p className="font-medium text-sm">{visit.clientName}</p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
                                 {visit.startTime} - {visit.endTime}
                               </div>
-                              {visit.travelTimeBefore > 0 && (
-                                <div className="text-xs text-blue-600">
-                                  🚗 {visit.travelTimeBefore}min travel
-                                </div>
-                              )}
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                Travel: {visit.travelTimeBefore}min
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                Score: {(visit.score * 100).toFixed(0)}%
+                              </Badge>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </Card>
+                        ))}
+                      </div>
                     </ScrollArea>
                   </div>
                 );
@@ -465,40 +388,34 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       )}
 
       {/* Unallocated Visits */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Unallocated Visits</span>
-            <Badge variant={unallocatedVisits.length > 0 ? "destructive" : "secondary"}>
-              {unallocatedVisits.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-60">
-            {unallocatedVisits.length === 0 ? (
-              <p className="text-center text-muted-foreground">
-                {allWeekVisits.length === 0 
-                  ? 'No visits available for this week'
-                  : 'All visits have been allocated'}
-              </p>
-            ) : (
+      {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
+        <Card className="glass-card border-red-200 dark:border-red-800">
+          <CardHeader>
+            <CardTitle className="text-red-600">Unallocated Visits ({weeklySchedule.unallocated.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-64">
               <div className="space-y-2">
-                {unallocatedVisits.map((visit, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-medium">{visit.clientName}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {visit.date} • {visit.startTime} - {visit.endTime}
+                {weeklySchedule.unallocated.map((visit, index) => (
+                  <Card key={index} className="p-3 bg-red-50 dark:bg-red-950/20" data-testid={`card-unallocated-${index}`}>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">{visit.clientName}</p>
+                        <Badge variant="destructive" className="text-xs">{visit.date}</Badge>
                       </div>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {visit.startTime} - {visit.endTime} ({visit.durationMinutes} min)
+                      </div>
+                      <p className="text-xs text-red-600 dark:text-red-400">Reason: {visit.reason}</p>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

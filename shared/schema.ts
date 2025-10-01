@@ -196,6 +196,20 @@ export interface ScheduledVisit {
   lng?: number;
 }
 
+// Client visit for VRPTW optimization - combines visit data with location
+export interface ClientVisit {
+  id: string;
+  clientName: string;
+  startTime: string; // HH:MM format
+  endTime: string;   // HH:MM format
+  durationMinutes: number;
+  date: string;
+  lat?: number;
+  lng?: number;
+  serviceType?: string;
+  priority?: number;
+}
+
 export interface EmployeeWeeklySchedule {
   employeeName: string;
   [date: string]: ScheduledVisit[] | string; // date as key -> visits array
