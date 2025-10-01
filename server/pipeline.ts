@@ -607,9 +607,13 @@ function buildDisplayNameMap(guaranteed: any[]): Map<string, string> {
 }
 
 // Robust secondary filter (case/spacing tolerant)
-function isSecondaryMultipleCare(value: any): boolean {
-  const s = (value ?? "").toString().trim().toLowerCase();
-  return s.includes("multiple care") && s.includes("secondary");
+function isSecondaryMultipleCare(serviceType: string): boolean {
+  if (!serviceType) return false;
+  const lower = serviceType.toLowerCase();
+  return lower.includes("multiple care (secondary)") ||
+         lower.includes("secondary") ||
+         lower.includes("multiple care - secondary") ||
+         lower.includes("(secondary)");
 }
 
 // Treat common "blank" tokens as blank
@@ -2301,9 +2305,9 @@ export async function processCapacityData(
   try {
     const employeeLocations = await storage.getAllEmployeeLocations();
     const clientLocations = await storage.getAllClientLocations();
-    
+
     const resultWithLocations = result as ProcessingResult;
-    
+
     resultWithLocations.employeeLocations = employeeLocations.map(emp => ({
       employeeName: emp.employeeName,
       homePostcode: emp.homePostcode,
@@ -2311,7 +2315,7 @@ export async function processCapacityData(
       homeLng: emp.homeLng ? Number(emp.homeLng) : undefined,
       transportMode: emp.transportMode || undefined,
     }));
-    
+
     resultWithLocations.clientLocations = clientLocations.map(cli => ({
       clientName: cli.clientName,
       addressLine: cli.addressLine,
@@ -2319,7 +2323,7 @@ export async function processCapacityData(
       lat: cli.lat ? Number(cli.lat) : undefined,
       lng: cli.lng ? Number(cli.lng) : undefined,
     }));
-    
+
     console.log(`📍 Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result`);
   } catch (error) {
     console.error('❌ Error retrieving geographical data:', error);
@@ -2408,17 +2412,17 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       if (serviceLocationAddress && typeof serviceLocationAddress === 'string') {
         const addressStr = serviceLocationAddress.trim();
         console.log(`🔍 DEBUG: Processing address for ${clientName}: "${addressStr}"`);
-        
+
         // Enhanced UK postcode pattern matching - more comprehensive patterns
         const postcodePatterns = [
           /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i,  // Standard UK postcode
           /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})\b/i,        // Alternative pattern
-          /([A-Z]{1,2}\d{1,2}\s*\d[A-Z]{2})$/i,                 // End of string pattern
+          /([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})$/i,                 // End of string pattern
           /\b([A-Z]{2}\d\s*\d[A-Z]{2})\b/i,                     // ML6 6LE style
           /\b([A-Z]\d{1,2}\s*\d[A-Z]{2})\b/i,                   // G65 0JN style
           /\b([A-Z]{2}\d{1,2}\s*\d[A-Z]{2})\b/i,                // FK6 5NA style
         ];
-        
+
         let postcodeMatch = null;
         for (const pattern of postcodePatterns) {
           postcodeMatch = addressStr.match(pattern);
@@ -2427,7 +2431,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             break;
           }
         }
-        
+
         if (postcodeMatch) {
           postcode = normalisePostcode(postcodeMatch[1]);
           // Remove postcode from address line and clean up
@@ -2439,7 +2443,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           if (parts.length >= 2) {
             const lastPart = parts[parts.length - 1];
             const secondLastPart = parts[parts.length - 2];
-            
+
             // Check if last part looks like a postcode
             const simplePostcodeCheck = /^[A-Z]{1,2}\d{1,2}\s*\d[A-Z]{2}$/i;
             if (simplePostcodeCheck.test(lastPart)) {
@@ -2520,22 +2524,22 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     const clientByPostcode = new Map<string, string[]>();
     const clientByAddress = new Map<string, string>();
     const clientKeyMap = new Map<string, string>();
-    
+
     for (const v of Array.from(clientLocationsMap.values())) {
       const pc = normalisePostcode(v.postcode || "");
       const addr = (v.addressLine || "").trim().toUpperCase();
-      
+
       // Build postcode-based lookup
       if (pc) {
         if (!clientByPostcode.has(pc)) clientByPostcode.set(pc, []);
         clientByPostcode.get(pc)!.push(v.clientName);
       }
-      
+
       // Build address-based lookup
       if (addr) {
         clientByAddress.set(addr, v.clientName);
       }
-      
+
       // Original key-based lookup
       clientKeyMap.set(`${addr}|${pc}`, v.clientName);
     }
@@ -2596,15 +2600,15 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       clientAddresses.slice(0, 10).forEach((addr, i) => {
         console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
       });
-      
+
       try {
         const requestBody = {
           postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
           addresses: clientAddresses.map(a => a.address).filter(Boolean),
         };
-        
-        console.log(`📤 Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
-        
+
+        console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
+
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2617,19 +2621,19 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           const results = payload?.results ?? [];
           let saved = 0;
           let failed = 0;
-          
+
           for (const r of results) {
             console.log(`🔍 GEOCODING RESULT: ${JSON.stringify(r)}`);
-            
+
             if (!r?.lat || !r?.lng || !Number.isFinite(Number(r.lat)) || !Number.isFinite(Number(r.lng))) {
               console.log(`❌ Invalid coordinates for query: ${r?.query || 'unknown'}`);
               failed++;
               continue;
             }
-            
+
             const pc = normalisePostcode(r.query || r.postcode || r.input || "");
             const addr = (r.address || "").trim().toUpperCase();
-            
+
             // Find client by postcode first (most reliable)
             let clientName = null;
             if (pc) {
@@ -2678,7 +2682,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             });
             saved++;
           }
-          
+
           console.log(`📊 Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results`);
           if (saved > 0) {
             console.log(`✅ Client geocoding saved for ${saved} new records`);

@@ -16,6 +16,9 @@ import {
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = ['east nl', 'glasgow', 'training seawared'];
 
+// Secondary multiple care keywords to exclude
+const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];
+
 // Minimum bookable window duration (minutes)
 // Reduced from 60 to 45 to allow more flexibility
 const MIN_WINDOW_DURATION = 45;
@@ -63,6 +66,13 @@ interface WeeklyScheduleResult {
 function isOfficeVisit(clientName: string): boolean {
   const lowerName = clientName.toLowerCase();
   return OFFICE_VISIT_KEYWORDS.some(keyword => lowerName.includes(keyword));
+}
+
+// Filter out secondary multiple care visits
+function isSecondaryMultipleCare(serviceType: string): boolean {
+  if (!serviceType) return false;
+  const lowerType = serviceType.toLowerCase();
+  return SECONDARY_CARE_KEYWORDS.some(keyword => lowerType.includes(keyword));
 }
 
 // Calculate total capacity from time windows (excluding windows < 60 min)
@@ -156,6 +166,11 @@ function assignVisitToBestEmployee(
   // Skip office visits
   if (isOfficeVisit(originalVisit.clientName)) {
     return { success: false, reason: 'Office visit excluded' };
+  }
+
+  // Skip secondary multiple care visits
+  if (isSecondaryMultipleCare(originalVisit.serviceType || '')) {
+    return { success: false, reason: 'Secondary multiple care visit excluded' };
   }
 
   // Skip if no location data
