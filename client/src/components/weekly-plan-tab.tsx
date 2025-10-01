@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search } from "lucide-react";
+import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
@@ -239,6 +239,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       }))
     : [];
 
+  // Get total visit count for selected employee
+  const totalVisitCount = employeeWeeklyRun.reduce((sum, day) => sum + day.visits.length, 0);
+
   return (
     <div className="space-y-6">
       {/* Header with Generate Button */}
@@ -298,171 +301,221 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </Card>
       )}
 
-      {/* Employee Picker */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Select Employee
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search employees..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-employee"
-              />
-            </div>
-            <Select value={selectedEmployee || ''} onValueChange={setSelectedEmployee} key={filteredEmployees.join(',')}>
-              <SelectTrigger data-testid="select-employee">
-                <SelectValue placeholder="Choose an employee to view their weekly run" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredEmployees.length > 0 ? (
-                  filteredEmployees.map(empName => {
-                    const location = locationsData?.employees.find(loc => loc.employeeName === empName);
-                    const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
-                      ? <Car className="h-3 w-3" /> 
-                      : null;
-                    
-                    // Get visit count across all days
-                    const visitCount = weeklySchedule 
-                      ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
-                          sum + (dateAssignments[empName]?.length || 0), 0)
-                      : 0;
-                    
-                    return (
-                      <SelectItem key={empName} value={empName} data-testid={`select-employee-${empName}`}>
-                        <div className="flex items-center gap-2 justify-between w-full">
-                          <div className="flex items-center gap-2">
-                            <span className={getGenderColorClass(empName)}>{empName}</span>
-                            {transportIcon}
-                          </div>
-                          {visitCount > 0 && (
-                            <Badge variant="secondary" className="text-xs">{visitCount} visits</Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    );
-                  })
-                ) : (
-                  <SelectItem value="no-employees-found" disabled>
-                    No employees found matching "{searchTerm}"
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weekly Run View - Days as Rows */}
-      {selectedEmployee && weeklySchedule && (
+      {/* Main Layout: Employee Picker (Left) + Weekly Run (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Employee Picker */}
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Weekly Run: {selectedEmployee}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Employee Picker
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {weekDates.map((date, index) => {
-                const dayVisits = employeeWeeklyRun[index]?.visits || [];
-                const dayName = dayNames[index];
-                
-                // Get employee availability windows for this day
-                const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
-                const timeWindows = employeeForDate?.timeWindows || '';
-                
-                // Only show days with availability (has time windows)
-                if (!timeWindows || timeWindows.trim() === '') {
-                  return null;
-                }
-                
-                return (
-                  <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    {/* Day Header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold">{dayName}</h3>
-                        <span className="text-sm text-muted-foreground">{date.split('-').slice(1).join('/')}</span>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {timeWindows}
-                        </div>
-                      </div>
-                      <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
-                        {dayVisits.length} visits
-                      </Badge>
-                    </div>
-                    
-                    {/* Visits Row */}
-                    {dayVisits.length > 0 ? (
-                      <div className="flex gap-2 overflow-x-auto pb-2">
-                        {dayVisits.map((visit, vIndex) => (
-                          <div 
-                            key={vIndex} 
-                            className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 min-w-[200px] hover:shadow-md transition-shadow"
-                            data-testid={`card-visit-${date}-${vIndex}`}
-                          >
-                            <div className="space-y-1">
-                              <p className="font-medium text-sm truncate" title={visit.clientName}>
-                                {visit.clientName}
-                              </p>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                {visit.startTime} - {visit.endTime}
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <MapPin className="h-3 w-3" />
-                                Travel: {visit.travelTimeBefore}min
-                              </div>
-                              <Badge variant="secondary" className="text-xs">
-                                Score: {(visit.score * 100).toFixed(0)}%
-                              </Badge>
-                            </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search employees..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-employee"
+                />
+              </div>
+              <ScrollArea className="h-96">
+                <div className="space-y-2">
+                  {filteredEmployees.length > 0 ? (
+                    filteredEmployees.map(empName => {
+                      const location = locationsData?.employees.find(loc => loc.employeeName === empName);
+                      const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
+                        ? <Car className="h-3 w-3" /> 
+                        : null;
+                      
+                      // Get visit count across all days
+                      const visitCount = weeklySchedule 
+                        ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
+                            sum + (dateAssignments[empName]?.length || 0), 0)
+                        : 0;
+                      
+                      const isSelected = selectedEmployee === empName;
+                      
+                      return (
+                        <div
+                          key={empName}
+                          onClick={() => setSelectedEmployee(empName)}
+                          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'bg-blue-100 dark:bg-blue-900/20 border-2 border-blue-500' 
+                              : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
+                          }`}
+                          data-testid={`select-employee-${empName}`}
+                        >
+                          <div className="flex items-center gap-2 flex-1">
+                            <User className="h-4 w-4" />
+                            <span className={`${getGenderColorClass(empName)} font-medium`}>{empName}</span>
+                            {transportIcon}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                        No visits assigned for this day
-                      </div>
-                    )}
-                  </div>
-                );
-              }).filter(Boolean)}
+                          {visitCount > 0 && (
+                            <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
+                              {visitCount}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No employees found matching "{searchTerm}"
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Unallocated Visits */}
+        {/* Weekly Run View */}
+        <div className="lg:col-span-2">
+          {selectedEmployee && weeklySchedule ? (
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>{selectedEmployee} - Weekly Run</span>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    Total: {totalVisitCount} visits
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-96">
+                  <div className="space-y-3">
+                    {weekDates.map((date, index) => {
+                      const dayVisits = employeeWeeklyRun[index]?.visits || [];
+                      const dayName = dayNames[index];
+                      
+                      // Get employee availability windows for this day
+                      const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
+                      const timeWindows = employeeForDate?.timeWindows || '';
+                      
+                      // Only show days with availability (has time windows)
+                      if (!timeWindows || timeWindows.trim() === '') {
+                        return null;
+                      }
+                      
+                      return (
+                        <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                          {/* Day Header */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-lg font-semibold">{dayName}</h3>
+                              <span className="text-sm text-muted-foreground">{date.split('-').slice(1).join('/')}</span>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {timeWindows}
+                              </div>
+                            </div>
+                            <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
+                              {dayVisits.length} visits
+                            </Badge>
+                          </div>
+                          
+                          {/* Visits Row */}
+                          {dayVisits.length > 0 ? (
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                              {dayVisits.map((visit, vIndex) => (
+                                <div 
+                                  key={vIndex} 
+                                  className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 min-w-[200px] hover:shadow-md transition-shadow"
+                                  data-testid={`card-visit-${date}-${vIndex}`}
+                                >
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-sm truncate" title={visit.clientName}>
+                                      {visit.clientName}
+                                    </p>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      {visit.startTime} - {visit.endTime}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <MapPin className="h-3 w-3" />
+                                      Travel: {visit.travelTimeBefore}min
+                                    </div>
+                                    <Badge variant="secondary" className="text-xs">
+                                      Score: {(visit.score * 100).toFixed(0)}%
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                              No visits assigned for this day
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }).filter(Boolean)}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="glass-card">
+              <CardContent className="flex items-center justify-center h-96">
+                <div className="text-center">
+                  <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500 font-medium">Select an employee to view their weekly run</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Choose from the employee list on the left
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Unallocated Visits - Horizontal Layout at Bottom */}
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
         <Card className="glass-card border-red-200 dark:border-red-800">
           <CardHeader>
-            <CardTitle className="text-red-600">Unallocated Visits ({weeklySchedule.unallocated.length})</CardTitle>
+            <CardTitle className="text-red-600 flex items-center justify-between">
+              <span>Unallocated Visits ({weeklySchedule.unallocated.length})</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-64">
-              <div className="space-y-2">
+            <ScrollArea className="w-full">
+              <div className="flex gap-3 pb-2">
                 {weeklySchedule.unallocated.map((visit, index) => (
-                  <Card key={index} className="p-3 bg-red-50 dark:bg-red-950/20" data-testid={`card-unallocated-${index}`}>
-                    <div className="space-y-1">
+                  <div 
+                    key={index} 
+                    className="flex-shrink-0 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3 min-w-[250px]"
+                    data-testid={`card-unallocated-${index}`}
+                  >
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium">{visit.clientName}</p>
+                        <p className="font-medium text-sm">{visit.clientName}</p>
                         <Badge variant="destructive" className="text-xs">{visit.date}</Badge>
                       </div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {visit.startTime} - {visit.endTime} ({visit.durationMinutes} min)
                       </div>
-                      <p className="text-xs text-red-600 dark:text-red-400">Reason: {visit.reason}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        Reason: {visit.reason}
+                      </p>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="w-full h-8 text-xs border-blue-200 hover:bg-blue-50"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Assign
+                      </Button>
                     </div>
-                  </Card>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
