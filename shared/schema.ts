@@ -185,6 +185,34 @@ export interface ProcessingResult {
   }>;
 }
 
+// Weekly schedule data structures
+export interface ScheduledVisit {
+  clientName: string;
+  startTime: string; // HH:MM format
+  endTime: string;   // HH:MM format
+  travelTimeBefore: number; // minutes
+  score: number;
+  lat?: number;
+  lng?: number;
+}
+
+export interface EmployeeWeeklySchedule {
+  employeeName: string;
+  [date: string]: ScheduledVisit[] | string; // date as key -> visits array
+}
+
+export interface WeeklyScheduleData {
+  employees: EmployeeWeeklySchedule[];
+  weekDates: string[]; // Array of dates in the week
+}
+
+export interface WeeklyScheduleMetrics {
+  totalVisitsAssigned: number;
+  totalVisitsUnallocated: number;
+  averageTravelTimePerVisit: number;
+  employeesUtilized: number;
+}
+
 // Validation schemas
 export const availabilitySchema = z.object({
   "CAREGiver Name": z.string().min(1, "CAREGiver Name is required"),
@@ -297,6 +325,21 @@ export const geocodeCache = pgTable("geocode_cache", {
   keyIdx: index("geocode_key_idx").on(table.key),
 }));
 
+// Weekly schedules - stores generated employee schedules
+export const weeklySchedules = pgTable("weekly_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekStartDate: text("week_start_date").notNull(),
+  weekEndDate: text("week_end_date").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  scheduleData: jsonb("schedule_data").notNull(), // Full weekly schedule with employee assignments
+  unallocatedVisits: jsonb("unallocated_visits").default([]), // Visits that couldn't be assigned
+  metrics: jsonb("metrics").notNull(), // Week-level metrics
+}, (table) => ({
+  uniqueWeek: unique("unique_weekly_schedule").on(table.weekStartDate, table.weekEndDate),
+  weekStartIdx: index("weekly_schedule_start_idx").on(table.weekStartDate),
+  generatedAtIdx: index("weekly_schedule_generated_idx").on(table.generatedAt),
+}));
+
 // Insert schemas for geographical data
 export const insertEmployeeLocationSchema = createInsertSchema(employeeLocations).omit({
   id: true,
@@ -328,6 +371,11 @@ export const insertGeocodeSchema = createInsertSchema(geocodeCache).omit({
   cachedAt: true,
 });
 
+export const insertWeeklyScheduleSchema = createInsertSchema(weeklySchedules).omit({
+  id: true,
+  generatedAt: true,
+});
+
 // Types for geographical data
 export type InsertEmployeeLocation = z.infer<typeof insertEmployeeLocationSchema>;
 export type EmployeeLocation = typeof employeeLocations.$inferSelect;
@@ -346,3 +394,6 @@ export type RouteStop = typeof routeStops.$inferSelect;
 
 export type InsertGeocode = z.infer<typeof insertGeocodeSchema>;
 export type GeocodeCache = typeof geocodeCache.$inferSelect;
+
+export type InsertWeeklySchedule = z.infer<typeof insertWeeklyScheduleSchema>;
+export type WeeklySchedule = typeof weeklySchedules.$inferSelect;

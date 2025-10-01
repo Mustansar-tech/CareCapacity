@@ -14,7 +14,9 @@ import {
   type RouteStop,
   type InsertRouteStop,
   type GeocodeCache,
-  type InsertGeocode
+  type InsertGeocode,
+  type WeeklySchedule,
+  type InsertWeeklySchedule
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -65,6 +67,12 @@ export interface IStorage {
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
 
   clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
+
+  // Weekly schedule methods
+  saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule>;
+  getLatestWeeklySchedule(): Promise<WeeklySchedule | undefined>;
+  getWeeklyScheduleByWeek(weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined>;
+  getAllWeeklySchedules(): Promise<WeeklySchedule[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -76,6 +84,7 @@ export class MemStorage implements IStorage {
   private routePlans: Map<string, RoutePlan>;
   private routeStops: Map<string, RouteStop>;
   private geocodeCache: Map<string, GeocodeCache>;
+  private weeklySchedules: Map<string, WeeklySchedule>;
 
   constructor() {
     this.users = new Map();
@@ -86,6 +95,7 @@ export class MemStorage implements IStorage {
     this.routePlans = new Map();
     this.routeStops = new Map();
     this.geocodeCache = new Map();
+    this.weeklySchedules = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -478,6 +488,47 @@ export class MemStorage implements IStorage {
 
     return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
+
+  // Weekly schedule methods
+  async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
+    // Remove existing entry with same week dates for deduplication
+    const existingEntry = Array.from(this.weeklySchedules.values()).find(
+      schedule => schedule.weekStartDate === insertSchedule.weekStartDate && 
+                  schedule.weekEndDate === insertSchedule.weekEndDate
+    );
+    if (existingEntry) {
+      this.weeklySchedules.delete(existingEntry.id);
+    }
+
+    const id = randomUUID();
+    const schedule: WeeklySchedule = {
+      ...insertSchedule,
+      id,
+      generatedAt: new Date(),
+      unallocatedVisits: insertSchedule.unallocatedVisits || [],
+    };
+    this.weeklySchedules.set(id, schedule);
+    return schedule;
+  }
+
+  async getLatestWeeklySchedule(): Promise<WeeklySchedule | undefined> {
+    const schedules = Array.from(this.weeklySchedules.values()).sort(
+      (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
+    );
+    return schedules[0];
+  }
+
+  async getWeeklyScheduleByWeek(weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
+    return Array.from(this.weeklySchedules.values()).find(
+      schedule => schedule.weekStartDate === weekStartDate && schedule.weekEndDate === weekEndDate
+    );
+  }
+
+  async getAllWeeklySchedules(): Promise<WeeklySchedule[]> {
+    return Array.from(this.weeklySchedules.values()).sort(
+      (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
+    );
+  }
 }
 
 // Switch to database storage in production
@@ -490,7 +541,8 @@ import {
   visits, 
   routePlans, 
   routeStops, 
-  geocodeCache 
+  geocodeCache,
+  weeklySchedules
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
@@ -923,6 +975,55 @@ export class DatabaseStorage implements IStorage {
     await db.delete(visits);
 
     return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
+  }
+
+  // Weekly schedule methods
+  async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
+    const [schedule] = await db
+      .insert(weeklySchedules)
+      .values({
+        ...insertSchedule,
+        unallocatedVisits: insertSchedule.unallocatedVisits || [],
+      })
+      .onConflictDoUpdate({
+        target: [weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
+        set: {
+          scheduleData: insertSchedule.scheduleData,
+          unallocatedVisits: insertSchedule.unallocatedVisits || [],
+          metrics: insertSchedule.metrics,
+          generatedAt: sql`now()`,
+        },
+      })
+      .returning();
+
+    return schedule;
+  }
+
+  async getLatestWeeklySchedule(): Promise<WeeklySchedule | undefined> {
+    const [schedule] = await db
+      .select()
+      .from(weeklySchedules)
+      .orderBy(desc(weeklySchedules.generatedAt))
+      .limit(1);
+    return schedule || undefined;
+  }
+
+  async getWeeklyScheduleByWeek(weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
+    const [schedule] = await db
+      .select()
+      .from(weeklySchedules)
+      .where(and(
+        eq(weeklySchedules.weekStartDate, weekStartDate),
+        eq(weeklySchedules.weekEndDate, weekEndDate)
+      ));
+    return schedule || undefined;
+  }
+
+  async getAllWeeklySchedules(): Promise<WeeklySchedule[]> {
+    return await db
+      .select()
+      .from(weeklySchedules)
+      .orderBy(desc(weeklySchedules.generatedAt));
   }
 }
 
