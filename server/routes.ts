@@ -269,13 +269,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (storedVisits.length > 0) {
         console.log(`✅ Found ${storedVisits.length} stored visits for ${date}`);
         // Convert stored visits to the format expected by the scheduling tab
-        const formattedVisits = storedVisits.map(visit => ({
-          clientName: visit.clientId, // Now stores client name directly
-          startTime: visit.preferredStartTime || '09:00',
-          endTime: visit.preferredEndTime || '10:00',
-          durationMinutes: visit.durationMinutes,
-          date: visit.date,
-          serviceType: visit.serviceType || 'Personal Care'
+        const formattedVisits = await Promise.all(storedVisits.map(async visit => {
+          // Look up client name by ID since we now store proper foreign keys
+          const clientLocation = await storage.getClientLocationById(visit.clientId);
+          return {
+            clientName: clientLocation?.clientName || `Unknown Client (${visit.clientId})`,
+            startTime: visit.preferredStartTime || '09:00',
+            endTime: visit.preferredEndTime || '10:00',
+            durationMinutes: visit.durationMinutes,
+            date: visit.date,
+            serviceType: visit.serviceType || 'Personal Care'
+          };
         }));
         return res.json(formattedVisits);
       }
@@ -309,7 +313,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📋 Getting visits from ${start} to ${end}`);
       const visits = await storage.listVisitsBetween(start as string, end as string);
 
-      res.json(visits);
+      // Convert visits to include client names properly
+      const formattedVisits = await Promise.all(visits.map(async visit => {
+        const clientLocation = await storage.getClientLocationById(visit.clientId);
+        return {
+          ...visit,
+          clientName: clientLocation?.clientName || `Unknown Client (${visit.clientId})`
+        };
+      }));
+
+      res.json(formattedVisits);
     } catch (error) {
       console.error('Error getting visits range:', error);
       res.status(500).json({ 
@@ -986,24 +999,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function getUnassignedVisitsForDate(date: string) {
     try {
       const visits = await storage.listVisitsBetween(date, date);
-      const results = await getProcessingResults();
-      const clientLocations = results?.clientLocations || [];
 
-      return visits.map(visit => {
-        const client = clientLocations.find(c => c.clientName === visit.clientName);
+      return await Promise.all(visits.map(async visit => {
+        // Look up client location by ID since visits now store proper foreign keys
+        const clientLocation = await storage.getClientLocationById(visit.clientId);
+        const clientName = clientLocation?.clientName || `Unknown Client (${visit.clientId})`;
 
         return {
-          id: visit.id || `${visit.clientName}-${date}`,
-          clientName: visit.clientName,
+          id: visit.id || `${clientName}-${date}`,
+          clientName: clientName,
           startTime: timeStringToMinutes(visit.preferredStartTime || '09:00'),
           endTime: timeStringToMinutes(visit.preferredEndTime || '10:00'),
           durationMinutes: visit.durationMinutes || 60,
           priority: visit.priority || 2,
           serviceType: visit.serviceType || 'Personal Care',
-          lat: client?.lat ? Number(client.lat) : undefined,
-          lng: client?.lng ? Number(client.lng) : undefined,
+          lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
+          lng: clientLocation?.lng ? Number(clientLocation.lng) : undefined,
         };
-      });
+      }));
     } catch (error) {
       console.error('Error getting unassigned visits:', error);
       return [];

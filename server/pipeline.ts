@@ -237,37 +237,44 @@ async function generateVisitsFromDemand(
 
       for (const timeWindow of timeWindows) {
         // Get or create client location for geographical data
-        let existingClient = await storage.getClientLocationByName(row.serviceType); // Use serviceType as a placeholder for client name if no specific client name is available
+        // Use serviceType as a placeholder for client name for initial lookup.
+        // The actual client name is needed for upserting the client location.
+        let existingClient = await storage.getClientLocationByName(row.serviceType); 
         if (!existingClient) {
           // Create client location entry if it doesn't exist
           const geoData = await geocodeWithFallback(row.postcode || 'EH1 1AA', storage); // Use provided postcode or default to Edinburgh
           existingClient = await storage.upsertClientLocation({
-            clientName: row.serviceType, // Use serviceType as clientName
+            clientName: row.serviceType, // Use serviceType as clientName for creation
             addressLine: row.address || `Service Location for ${row.serviceType}`,
             postcode: row.postcode || 'EH1 1AA', // Default postcode
             lat: geoData?.lat || null,
             lng: geoData?.lng || null
           });
-          console.log(`📍 Created client location for: ${row.serviceType}`);
+          console.log(`📍 Created client location for: ${row.serviceType} with ID: ${existingClient.id}`);
         }
 
-        // Create a visit using client name for easier retrieval
-        const visit = {
-          clientId: existingClient.clientName, // Store client name directly for scheduling compatibility
+        // Create a visit using client location ID for foreign key relationship
+        const visitStart = `${dateStr} ${timeWindow.start}`;
+        const visitEnd = `${dateStr} ${timeWindow.end}`;
+        const duration = Math.max(30, Math.round((row.duration || 1) * 60)); // Convert hours to minutes, minimum 30min
+
+        const visitData = {
+          clientId: existingClient.id, // Use the proper database ID as foreign key
           date: dateStr,
-          durationMinutes: Math.max(30, Math.round((row.duration || 1) * 60)), // Convert hours to minutes, minimum 30min
-          preferredStartTime: `${dateStr} ${timeWindow.start}`, // Include date for precise scheduling
-          preferredEndTime: `${dateStr} ${timeWindow.end}`,
+          durationMinutes: duration,
+          preferredStartTime: visitStart,
+          preferredEndTime: visitEnd,
           priority: row.serviceType.toLowerCase().includes('medication') ? 1 : 
                    row.serviceType.toLowerCase().includes('personal care') ? 2 : 3,
-          serviceType: row.serviceType
+          serviceType: row.serviceType,
+          clientName: existingClient.clientName // Include client name for clarity if needed elsewhere
         };
 
         // Save the visit
-        await storage.saveVisit(visit);
+        await storage.saveVisit(visitData);
         totalVisitsCreated++;
 
-        console.log(`📋 Created visit: ${visit.clientId} on ${dateStr} (${timeWindow.start}-${timeWindow.end}) for ${visit.durationMinutes}min`);
+        console.log(`📋 Created visit for client ID ${visitData.clientId} (${existingClient.clientName}) on ${dateStr} (${timeWindow.start}-${timeWindow.end}) for ${visitData.durationMinutes}min`);
       }
     }
   }
@@ -2697,17 +2704,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
 
-    // Extract visit data for route optimization using Planned Start/End Date And Time
+    // Visit data extraction for route optimization (Planned Start/End Date And Time)
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
-
-    // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
-    const CLIENT_COLS = [
-      'Service Location Name', // Prioritized as per the user request
-      'Client Name',
-      'Service User Name',
-      'Customer Name'
-    ];
 
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
@@ -2759,7 +2758,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
 
               const visitData = {
-                clientId: clientName, // Use clientName directly
+                clientId: clientLocation.id, // Use the proper database ID as foreign key
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
                 preferredStartTime: visitStart,
@@ -2784,7 +2783,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               }
               visitsByDate.get(visitDate)!.push(visitData);
 
-              console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
+              console.log(`🔍 DEBUG: Added visit ${clientName} (ID: ${clientLocation.id}) on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
             } else if (!clientLocation) {
               console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
             }
