@@ -422,35 +422,33 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             </Badge>
                           </div>
                           
-                          {/* Visits Row - Horizontal Scroll */}
+                          {/* Visits Grid - Wrapped Layout */}
                           {dayVisits.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <div className="flex gap-2 pb-2 min-w-max">
-                                {dayVisits.map((visit, vIndex) => (
-                                  <div 
-                                    key={vIndex} 
-                                    className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 w-[220px] hover:shadow-md transition-shadow"
-                                    data-testid={`card-visit-${date}-${vIndex}`}
-                                  >
-                                    <div className="space-y-1">
-                                      <p className="font-medium text-sm truncate" title={visit.clientName}>
-                                        {visit.clientName}
-                                      </p>
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                        <Clock className="h-3 w-3" />
-                                        {visit.startTime} - {visit.endTime}
-                                      </div>
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                        <MapPin className="h-3 w-3" />
-                                        Travel: {visit.travelTimeBefore}min
-                                      </div>
-                                      <Badge variant="secondary" className="text-xs">
-                                        Score: {(visit.score * 100).toFixed(0)}%
-                                      </Badge>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                              {dayVisits.map((visit, vIndex) => (
+                                <div 
+                                  key={vIndex} 
+                                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow"
+                                  data-testid={`card-visit-${date}-${vIndex}`}
+                                >
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-sm truncate" title={visit.clientName}>
+                                      {visit.clientName}
+                                    </p>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      {visit.startTime} - {visit.endTime}
                                     </div>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <MapPin className="h-3 w-3" />
+                                      Travel: {visit.travelTimeBefore}min
+                                    </div>
+                                    <Badge variant="secondary" className="text-xs">
+                                      Score: {(visit.score * 100).toFixed(0)}%
+                                    </Badge>
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              ))}
                             </div>
                           ) : (
                             <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
