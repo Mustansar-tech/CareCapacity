@@ -302,8 +302,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       )}
 
       {/* Main Layout: Employee Picker (Left) + Weekly Run (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Employee Picker */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Employee Picker - Narrower width, increased height */}
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -323,7 +323,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   data-testid="input-search-employee"
                 />
               </div>
-              <ScrollArea className="h-96">
+              <ScrollArea className="h-[600px]">
                 <div className="space-y-2">
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map(empName => {
@@ -353,7 +353,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         >
                           <div className="flex items-center gap-2 flex-1">
                             <User className="h-4 w-4" />
-                            <span className={`${getGenderColorClass(empName)} font-medium`}>{empName}</span>
+                            <span className={`${getGenderColorClass(empName)} font-medium text-sm`}>{empName}</span>
                             {transportIcon}
                           </div>
                           {visitCount > 0 && (
@@ -375,8 +375,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </CardContent>
         </Card>
 
-        {/* Weekly Run View */}
-        <div className="lg:col-span-2">
+        {/* Weekly Run View - Increased width */}
+        <div className="lg:col-span-3">
           {selectedEmployee && weeklySchedule ? (
             <Card className="glass-card">
               <CardHeader>
@@ -389,7 +389,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-96">
+                <ScrollArea className="h-[600px]">
                   <div className="space-y-3">
                     {weekDates.map((date, index) => {
                       const dayVisits = employeeWeeklyRun[index]?.visits || [];
@@ -463,7 +463,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             </Card>
           ) : (
             <Card className="glass-card">
-              <CardContent className="flex items-center justify-center h-96">
+              <CardContent className="flex items-center justify-center h-[600px]">
                 <div className="text-center">
                   <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500 font-medium">Select an employee to view their weekly run</p>
@@ -477,7 +477,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
       </div>
 
-      {/* Unallocated Visits - Horizontal Layout at Bottom */}
+      {/* Unallocated Visits - Vertical Grid Layout at Bottom */}
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
         <Card className="glass-card border-red-200 dark:border-red-800">
           <CardHeader>
@@ -486,24 +486,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="w-full">
-              <div className="flex gap-3 pb-2">
+            <ScrollArea className="h-[400px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {weeklySchedule.unallocated.map((visit, index) => (
                   <div 
                     key={index} 
-                    className="flex-shrink-0 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3 min-w-[250px]"
+                    className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3"
                     data-testid={`card-unallocated-${index}`}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm">{visit.clientName}</p>
+                        <p className="font-medium text-sm truncate" title={visit.clientName}>{visit.clientName}</p>
                         <Badge variant="destructive" className="text-xs">{visit.date}</Badge>
                       </div>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {visit.startTime} - {visit.endTime} ({visit.durationMinutes} min)
                       </div>
-                      <p className="text-xs text-red-600 dark:text-red-400">
+                      <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2" title={visit.reason}>
                         Reason: {visit.reason}
                       </p>
                       <Button 
