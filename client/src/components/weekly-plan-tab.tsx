@@ -85,9 +85,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const isLoadingVisits = visitQueries.some(q => q.isLoading);
   const allWeekVisits = visitQueries.flatMap(q => q.data || []);
 
-  // Get all unique employees for the week
-  const allEmployees = Object.values(data?.employeesByDate || {})
+  // Get employees who actually have availability in the week (have time windows)
+  const availableEmployees = Object.values(data?.employeesByDate || {})
     .flat()
+    .filter(emp => emp.timeWindows && emp.timeWindows.trim() !== '') // Only employees with time windows
     .filter((emp, index, self) => 
       self.findIndex(e => e.employeeName === emp.employeeName) === index
     );
@@ -100,10 +101,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       )).sort()
     : [];
 
-  // Filter employees by search term - show only those with assignments if schedule exists
+  // Filter employees by search term - prioritize those with assignments, but also show available employees
   const employeeNames = weeklySchedule 
-    ? employeesWithAssignments 
-    : allEmployees.map(e => e.employeeName);
+    ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
+    : availableEmployees.map(e => e.employeeName);
   
   const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -421,33 +422,35 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             </Badge>
                           </div>
                           
-                          {/* Visits Row */}
+                          {/* Visits Row - Horizontal Scroll */}
                           {dayVisits.length > 0 ? (
-                            <div className="flex gap-2 overflow-x-auto pb-2">
-                              {dayVisits.map((visit, vIndex) => (
-                                <div 
-                                  key={vIndex} 
-                                  className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 min-w-[200px] hover:shadow-md transition-shadow"
-                                  data-testid={`card-visit-${date}-${vIndex}`}
-                                >
-                                  <div className="space-y-1">
-                                    <p className="font-medium text-sm truncate" title={visit.clientName}>
-                                      {visit.clientName}
-                                    </p>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Clock className="h-3 w-3" />
-                                      {visit.startTime} - {visit.endTime}
+                            <div className="overflow-x-auto">
+                              <div className="flex gap-2 pb-2 min-w-max">
+                                {dayVisits.map((visit, vIndex) => (
+                                  <div 
+                                    key={vIndex} 
+                                    className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 w-[220px] hover:shadow-md transition-shadow"
+                                    data-testid={`card-visit-${date}-${vIndex}`}
+                                  >
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-sm truncate" title={visit.clientName}>
+                                        {visit.clientName}
+                                      </p>
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <Clock className="h-3 w-3" />
+                                        {visit.startTime} - {visit.endTime}
+                                      </div>
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <MapPin className="h-3 w-3" />
+                                        Travel: {visit.travelTimeBefore}min
+                                      </div>
+                                      <Badge variant="secondary" className="text-xs">
+                                        Score: {(visit.score * 100).toFixed(0)}%
+                                      </Badge>
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <MapPin className="h-3 w-3" />
-                                      Travel: {visit.travelTimeBefore}min
-                                    </div>
-                                    <Badge variant="secondary" className="text-xs">
-                                      Score: {(visit.score * 100).toFixed(0)}%
-                                    </Badge>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
                           ) : (
                             <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
@@ -477,39 +480,42 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
       </div>
 
-      {/* Unallocated Visits - Vertical Grid Layout at Bottom */}
+      {/* Unallocated Visits - Compact Grid Layout at Bottom */}
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
         <Card className="glass-card border-red-200 dark:border-red-800">
-          <CardHeader>
-            <CardTitle className="text-red-600 flex items-center justify-between">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-600 flex items-center justify-between text-lg">
               <span>Unallocated Visits ({weeklySchedule.unallocated.length})</span>
+              <Badge variant="destructive" className="text-sm">
+                {((weeklySchedule.unallocated.length / (weeklySchedule.metrics.totalVisitsAssigned + weeklySchedule.unallocated.length)) * 100).toFixed(1)}% unallocated
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[400px]">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            <ScrollArea className="h-[300px]">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
                 {weeklySchedule.unallocated.map((visit, index) => (
                   <div 
                     key={index} 
-                    className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3"
+                    className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-2"
                     data-testid={`card-unallocated-${index}`}
                   >
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-sm truncate" title={visit.clientName}>{visit.clientName}</p>
-                        <Badge variant="destructive" className="text-xs">{visit.date}</Badge>
+                        <p className="font-medium text-xs truncate" title={visit.clientName}>{visit.clientName}</p>
+                        <Badge variant="destructive" className="text-xs">{visit.date.split('-').slice(1).join('/')}</Badge>
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {visit.startTime} - {visit.endTime} ({visit.durationMinutes} min)
+                        {visit.startTime}-{visit.endTime}
                       </div>
-                      <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2" title={visit.reason}>
-                        Reason: {visit.reason}
+                      <p className="text-xs text-red-600 dark:text-red-400 line-clamp-1" title={visit.reason}>
+                        {visit.reason}
                       </p>
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        className="w-full h-8 text-xs border-blue-200 hover:bg-blue-50"
+                        className="w-full h-6 text-xs border-blue-200 hover:bg-blue-50"
                       >
                         <Plus className="h-3 w-3 mr-1" />
                         Assign
