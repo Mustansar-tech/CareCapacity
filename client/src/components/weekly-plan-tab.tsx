@@ -351,7 +351,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     );
                   })
                 ) : (
-                  <SelectItem value="" disabled>
+                  <SelectItem value="no-employees-found" disabled>
                     No employees found matching "{searchTerm}"
                   </SelectItem>
                 )}
