@@ -171,6 +171,8 @@ interface CleanRow {
   weekday: string;
   duration: number;
   cancellation: string | null;
+  address?: string; // Added for geocoding
+  postcode?: string; // Added for geocoding
 }
 
 // Generate client visits from demand data (Hours by Service Type)
@@ -234,25 +236,27 @@ async function generateVisitsFromDemand(
       const timeWindows = getDefaultTimeWindows(row.serviceType);
 
       for (const timeWindow of timeWindows) {
-        // Create or get client location
-        const clientName = `${row.serviceType} Client`; // This will be replaced by Service Location Name
-        let existingClient = await storage.getClientLocationByName?.(clientName);
+        // Get or create client location for geographical data
+        let existingClient = await storage.getClientLocationByName(row.serviceType); // Use serviceType as a placeholder for client name if no specific client name is available
         if (!existingClient) {
+          // Create client location entry if it doesn't exist
+          const geoData = await geocodeWithFallback(row.postcode || 'EH1 1AA', storage); // Use provided postcode or default to Edinburgh
           existingClient = await storage.upsertClientLocation({
-            clientName: clientName, // This will be replaced by Service Location Name
-            addressLine: `Service Location for ${row.serviceType}`,
-            postcode: 'EH1 1AA', // Default Edinburgh postcode for geocoding
-            lat: null,
-            lng: null
+            clientName: row.serviceType, // Use serviceType as clientName
+            addressLine: row.address || `Service Location for ${row.serviceType}`,
+            postcode: row.postcode || 'EH1 1AA', // Default postcode
+            lat: geoData?.lat || null,
+            lng: geoData?.lng || null
           });
+          console.log(`📍 Created client location for: ${row.serviceType}`);
         }
 
-        // Create a visit for this service demand
+        // Create a visit using client name for easier retrieval
         const visit = {
-          clientId: existingClient.id,
+          clientId: existingClient.clientName, // Store client name directly for scheduling compatibility
           date: dateStr,
           durationMinutes: Math.max(30, Math.round((row.duration || 1) * 60)), // Convert hours to minutes, minimum 30min
-          preferredStartTime: `${dateStr} ${timeWindow.start}`,
+          preferredStartTime: `${dateStr} ${timeWindow.start}`, // Include date for precise scheduling
           preferredEndTime: `${dateStr} ${timeWindow.end}`,
           priority: row.serviceType.toLowerCase().includes('medication') ? 1 : 
                    row.serviceType.toLowerCase().includes('personal care') ? 2 : 3,
@@ -296,7 +300,6 @@ const STATUS_PRIORITY: Record<string, number> = {
   "Other Unavailable": 5,
   "Pre-Agreed Appointment": 6,
   "Partial Availability": 6, // ← NEW (not in LEAVE_TYPES)
-  Available: 7,
   "Ad-hoc": 7, // NEW
 };
 
@@ -864,7 +867,7 @@ function getCloseMatches(
       ...Array.from(targetTokens),
       ...Array.from(choiceTokens),
     ]);
-    const tokenSimilarity = intersection.size / union.size;
+    const tokenSimilarity = union.size === 0 ? 1 : intersection.size / union.size;
 
     // Method 2: Edit distance similarity
     const maxLen = Math.max(target.length, choice.length);
@@ -927,15 +930,18 @@ function parseDate(dateStr: any): Date {
     "dd-MM-yyyy",
     "dd.MM.yyyy",
     "yyyy/MM/dd",
+    "dd MMM yyyy", // Added for '10 Sep 2024' style dates
+    "MMM dd yyyy", // Added for 'Sep 10 2024' style dates
   ];
 
   for (const format of formats) {
     try {
       const parsed = parse(str, format, new Date());
-      if (!isNaN(parsed.getTime())) {
+      // Check if the parsed date is valid and close to the input string's year
+      if (!isNaN(parsed.getTime()) && parsed.getFullYear().toString().startsWith(str.slice(-4))) {
         return parsed;
       }
-    } catch {
+    } catch (e) {
       // Continue to next format
     }
   }
@@ -2063,7 +2069,7 @@ export async function processCapacityData(
         empData.scheduledHours = emp.scheduledHours || 0;
       }
 
-      // Track all status types separately, then consolidate at the end
+      // Track status types separately, then consolidate at the end
       if (emp.status === "Available") {
         empData.hasAvailableStatus = true;
       } else if (emp.status === "Partial Availability") {
@@ -2220,7 +2226,7 @@ export async function processCapacityData(
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
           unavailability: finalUnavailabilityHours,
-          scheduledHours: empData.scheduledHours, // Already correctly calculated from cleanedRecords
+          scheduledHours: empData.scheduledHours,
           difference:
             empData.contractedDailyHours -
             finalUnavailabilityHours -
@@ -2240,9 +2246,9 @@ export async function processCapacityData(
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
   const CLIENT_COLS = [
-    'Service Location Name', 
-    'Client Name', 
-    'Service User Name', 
+    'Service Location Name',
+    'Client Name',
+    'Service User Name',
     'Customer Name'
   ];
 
@@ -2301,9 +2307,9 @@ export async function processCapacityData(
   try {
     const employeeLocations = await storage.getAllEmployeeLocations();
     const clientLocations = await storage.getAllClientLocations();
-    
+
     const resultWithLocations = result as ProcessingResult;
-    
+
     resultWithLocations.employeeLocations = employeeLocations.map(emp => ({
       employeeName: emp.employeeName,
       homePostcode: emp.homePostcode,
@@ -2311,7 +2317,7 @@ export async function processCapacityData(
       homeLng: emp.homeLng ? Number(emp.homeLng) : undefined,
       transportMode: emp.transportMode || undefined,
     }));
-    
+
     resultWithLocations.clientLocations = clientLocations.map(cli => ({
       clientName: cli.clientName,
       addressLine: cli.addressLine,
@@ -2319,7 +2325,7 @@ export async function processCapacityData(
       lat: cli.lat ? Number(cli.lat) : undefined,
       lng: cli.lng ? Number(cli.lng) : undefined,
     }));
-    
+
     console.log(`📍 Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result`);
   } catch (error) {
     console.error('❌ Error retrieving geographical data:', error);
@@ -2342,7 +2348,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       const transportMode = row["TransportModeDescription"]?.toLowerCase();
 
       if (employeeName && postcode) {
-        const normalizedTransport = transportMode?.includes("car") ? "car" : 
+        const normalizedTransport = transportMode?.includes("car") ? "car" :
                                   transportMode?.includes("walk") ? "walking" : "car";
 
         employeeLocationsMap.set(employeeName, {
@@ -2408,7 +2414,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       if (serviceLocationAddress && typeof serviceLocationAddress === 'string') {
         const addressStr = serviceLocationAddress.trim();
         console.log(`🔍 DEBUG: Processing address for ${clientName}: "${addressStr}"`);
-        
+
         // Enhanced UK postcode pattern matching - more comprehensive patterns
         const postcodePatterns = [
           /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i,  // Standard UK postcode
@@ -2418,7 +2424,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           /\b([A-Z]\d{1,2}\s*\d[A-Z]{2})\b/i,                   // G65 0JN style
           /\b([A-Z]{2}\d{1,2}\s*\d[A-Z]{2})\b/i,                // FK6 5NA style
         ];
-        
+
         let postcodeMatch = null;
         for (const pattern of postcodePatterns) {
           postcodeMatch = addressStr.match(pattern);
@@ -2427,7 +2433,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             break;
           }
         }
-        
+
         if (postcodeMatch) {
           postcode = normalisePostcode(postcodeMatch[1]);
           // Remove postcode from address line and clean up
@@ -2439,7 +2445,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           if (parts.length >= 2) {
             const lastPart = parts[parts.length - 1];
             const secondLastPart = parts[parts.length - 2];
-            
+
             // Check if last part looks like a postcode
             const simplePostcodeCheck = /^[A-Z]{1,2}\d{1,2}\s*\d[A-Z]{2}$/i;
             if (simplePostcodeCheck.test(lastPart)) {
@@ -2520,22 +2526,22 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     const clientByPostcode = new Map<string, string[]>();
     const clientByAddress = new Map<string, string>();
     const clientKeyMap = new Map<string, string>();
-    
+
     for (const v of Array.from(clientLocationsMap.values())) {
       const pc = normalisePostcode(v.postcode || "");
       const addr = (v.addressLine || "").trim().toUpperCase();
-      
+
       // Build postcode-based lookup
       if (pc) {
         if (!clientByPostcode.has(pc)) clientByPostcode.set(pc, []);
         clientByPostcode.get(pc)!.push(v.clientName);
       }
-      
+
       // Build address-based lookup
       if (addr) {
         clientByAddress.set(addr, v.clientName);
       }
-      
+
       // Original key-based lookup
       clientKeyMap.set(`${addr}|${pc}`, v.clientName);
     }
@@ -2596,15 +2602,15 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       clientAddresses.slice(0, 10).forEach((addr, i) => {
         console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
       });
-      
+
       try {
         const requestBody = {
           postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
           addresses: clientAddresses.map(a => a.address).filter(Boolean),
         };
-        
-        console.log(`📤 Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
-        
+
+        console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
+
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2617,19 +2623,19 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           const results = payload?.results ?? [];
           let saved = 0;
           let failed = 0;
-          
+
           for (const r of results) {
             console.log(`🔍 GEOCODING RESULT: ${JSON.stringify(r)}`);
-            
+
             if (!r?.lat || !r?.lng || !Number.isFinite(Number(r.lat)) || !Number.isFinite(Number(r.lng))) {
               console.log(`❌ Invalid coordinates for query: ${r?.query || 'unknown'}`);
               failed++;
               continue;
             }
-            
+
             const pc = normalisePostcode(r.query || r.postcode || r.input || "");
             const addr = (r.address || "").trim().toUpperCase();
-            
+
             // Find client by postcode first (most reliable)
             let clientName = null;
             if (pc) {
@@ -2678,7 +2684,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             });
             saved++;
           }
-          
+
           console.log(`📊 Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results`);
           if (saved > 0) {
             console.log(`✅ Client geocoding saved for ${saved} new records`);
@@ -2698,8 +2704,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
     const CLIENT_COLS = [
       'Service Location Name', // Prioritized as per the user request
-      'Client Name', 
-      'Service User Name', 
+      'Client Name',
+      'Service User Name',
       'Customer Name'
     ];
 
@@ -2732,9 +2738,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           try {
             const visitDate = format(parseDate(visitStart), "yyyy-MM-dd");
             // Calculate duration, default to 60 minutes if end time is missing
-            const duration = visitEnd ? 
-              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) : 
-              60; 
+            const duration = visitEnd ?
+              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) :
+              60;
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
 
@@ -2745,7 +2751,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               // Extract time windows for VRPTW optimizer
               const startDate = parseDate(visitStart);
               // Ensure end date is valid, default to start date + duration if missing
-              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + 
+              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() +
                 duration * 60000);
 
               // Convert to minutes since midnight for optimizer
@@ -2753,7 +2759,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
 
               const visitData = {
-                clientId: clientLocation.id,
+                clientId: clientName, // Use clientName directly
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
                 preferredStartTime: visitStart,

@@ -262,16 +262,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/visits/:date", async (req, res) => {
     try {
       const { date } = req.params;
-      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
+      console.log(`📋 Getting visits for ${date}`);
 
-      // Dynamically import the function to avoid circular dependencies or unnecessary loads
+      // First try to get visits from database (generated during processing)
+      const storedVisits = await storage.getVisitsByDate(date);
+      if (storedVisits.length > 0) {
+        console.log(`✅ Found ${storedVisits.length} stored visits for ${date}`);
+        // Convert stored visits to the format expected by the scheduling tab
+        const formattedVisits = storedVisits.map(visit => ({
+          clientName: visit.clientId, // Now stores client name directly
+          startTime: visit.preferredStartTime || '09:00',
+          endTime: visit.preferredEndTime || '10:00',
+          durationMinutes: visit.durationMinutes,
+          date: visit.date,
+          serviceType: visit.serviceType || 'Personal Care'
+        }));
+        return res.json(formattedVisits);
+      }
+
+      // Fallback to Excel extraction if no stored visits and Excel buffer is available
+      if (!latestGuaranteedBuffer) {
+        console.log(`⚠️ No Excel file available and no stored visits for ${date}`);
+        return res.json([]); // Return empty array instead of error
+      }
+
+      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
-      const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
+      const parsedDate = new Date(date + 'T00:00:00.000Z');
       const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
       res.json(visits);
     } catch (error) {
-      console.error("Error extracting visits:", error);
-      res.status(500).json({ error: "Failed to extract visits" });
+      console.error("Error getting visits:", error);
+      res.status(500).json({ error: "Failed to get visits" });
     }
   });
 
