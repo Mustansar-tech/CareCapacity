@@ -37,12 +37,13 @@ export interface MatchScore {
   gap: number;
 }
 
-// Scoring weights (can be tuned)
+// Scoring weights (adjusted to be more flexible and prioritize allocation)
+// Reduced tightness and travel weights, increased window slack tolerance
 const WEIGHTS = {
-  tightness: 0.40,
-  travelAdded: 0.35,
-  windowSlack: 0.15,
-  homeProximity: 0.10,
+  tightness: 0.30,      // Reduced from 0.40 - be more flexible with gaps
+  travelAdded: 0.30,    // Reduced from 0.35 - accept more travel
+  windowSlack: 0.25,    // Increased from 0.15 - prioritize window fit
+  homeProximity: 0.15,  // Increased from 0.10 - prefer routes near home
 };
 
 // Calculate score for a candidate visit insertion

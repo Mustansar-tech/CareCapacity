@@ -16,7 +16,8 @@ import {
 const OFFICE_VISIT_KEYWORDS = ['east nl', 'glasgow', 'training seawared'];
 
 // Minimum bookable window duration (minutes)
-const MIN_WINDOW_DURATION = 60;
+// Reduced from 60 to 45 to allow more flexibility
+const MIN_WINDOW_DURATION = 45;
 
 // Employee's daily schedule
 interface EmployeeDaySchedule {
@@ -253,7 +254,7 @@ export function generateWeeklySchedule(
     return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
   });
 
-  // Assign each visit
+  // First pass: Assign each visit using standard constraints
   for (const visit of sortedVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
     
@@ -268,6 +269,30 @@ export function generateWeeklySchedule(
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
     }
   }
+
+  // Second pass: Try to allocate remaining visits by sorting them differently
+  // Sort by visit duration (shorter visits first - easier to fit)
+  const remainingUnallocated: Array<ClientVisit & { reason: string }> = [];
+  const secondPassVisits = [...unallocated].sort((a, b) => a.durationMinutes - b.durationMinutes);
+  
+  for (const visit of secondPassVisits) {
+    const employeeSchedules = schedulesByDate[visit.date] || [];
+    
+    if (employeeSchedules.length === 0) {
+      remainingUnallocated.push(visit);
+      continue;
+    }
+
+    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+    
+    if (!result.success) {
+      remainingUnallocated.push(visit);
+    }
+  }
+  
+  // Update unallocated with only the visits that couldn't be assigned in either pass
+  unallocated.length = 0;
+  unallocated.push(...remainingUnallocated);
 
   // Build final assignments structure
   const assignments: Record<string, Record<string, AssignedVisit[]>> = {};

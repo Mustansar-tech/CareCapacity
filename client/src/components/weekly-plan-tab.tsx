@@ -101,8 +101,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     : [];
 
   // Filter employees by search term - show only those with assignments if schedule exists
-  const employeesToShow = weeklySchedule ? employeesWithAssignments : allEmployees;
-  const filteredEmployees = employeesToShow.filter(empName =>
+  const employeeNames = weeklySchedule 
+    ? employeesWithAssignments 
+    : allEmployees.map(e => e.employeeName);
+  
+  const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
