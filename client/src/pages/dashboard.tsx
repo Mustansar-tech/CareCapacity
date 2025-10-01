@@ -24,6 +24,8 @@ import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
+// Import the new WeeklySchedulingTab component
+import { WeeklySchedulingTab } from "@/components/weekly-scheduling-tab";
 
 
 
@@ -120,7 +122,7 @@ export default function Dashboard() {
       setSelectedWeekId(null);
       return;
     }
-    
+
     try {
       setSelectedWeekId(value);
       const analysis = allHistoryData?.find((item: any) => item.id === value);
@@ -165,7 +167,7 @@ export default function Dashboard() {
     }
 
     setIsProcessing(true);
-    
+
     const formData = new FormData();
     formData.append('availability', files.availability);
     formData.append('guaranteed', files.guaranteed);
@@ -216,10 +218,10 @@ export default function Dashboard() {
 
     } catch (error) {
       console.error('Processing error:', error);
-      
+
       let errorTitle = "Processing Failed";
       let errorDescription = "Unknown error occurred";
-      
+
       if (error instanceof Error) {
         if (error.message.includes('fetch')) {
           errorTitle = "Connection Error";
@@ -228,7 +230,7 @@ export default function Dashboard() {
           errorDescription = error.message;
         }
       }
-      
+
       toast({
         variant: "destructive",
         title: errorTitle, 
@@ -243,7 +245,7 @@ export default function Dashboard() {
   const handleExport = useCallback(async () => {
     try {
       const response = await fetch('/api/export');
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Export failed');
@@ -358,7 +360,7 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
             {/* Availability Export */}
             <div className="space-y-1.5">
@@ -575,6 +577,14 @@ export default function Dashboard() {
               Scheduling
             </TabsTrigger>
             <TabsTrigger 
+              value="weekly" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-weekly-scheduling"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Weekly Plan
+            </TabsTrigger>
+            <TabsTrigger 
               value="ai-suggestions" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-suggestions"
@@ -776,7 +786,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* Smart Alerts Tab - Only Alerts */}
+          {/* AI Suggestions Tab */}
           <TabsContent value="ai-suggestions" data-testid="content-ai-suggestions">
             <AISuggestions 
               data={filteredData || processedData} 
@@ -798,8 +808,7 @@ export default function Dashboard() {
             </div>
           </TabsContent>
 
-          
-
+          {/* BD Matrix Tab */}
           <TabsContent value="bd-matrix" data-testid="content-bd-matrix">
             <BDMatrix 
               data={filteredData || processedData}
@@ -1209,7 +1218,7 @@ export default function Dashboard() {
               const data = filteredData || processedData;
               const currentDate = selectedDate || (data?.dailySummary?.[0]?.date) || new Date().toISOString().split('T')[0];
               const summaryData = data?.employeeSummaryByDate?.[currentDate] || [];
-              
+
               return (
                 <EmployeeSummaryTab 
                   data={summaryData} 
@@ -1224,6 +1233,11 @@ export default function Dashboard() {
           {/* Scheduling Tab */}
           <TabsContent value="scheduling" className="space-y-6 animate-fade-in" data-testid="content-scheduling">
             <SimpleSchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
+          </TabsContent>
+
+          {/* Weekly Scheduling Tab */}
+          <TabsContent value="weekly" className="space-y-6 animate-fade-in" data-testid="content-weekly-scheduling">
+            <WeeklySchedulingTab data={filteredData || processedData} />
           </TabsContent>
 
           {/* Export Tab */}

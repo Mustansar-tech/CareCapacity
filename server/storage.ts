@@ -30,6 +30,7 @@ export interface IStorage {
   saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis>;
   getCapacityAnalysesByDateRange(startDate: string, endDate: string): Promise<CapacityAnalysis[]>;
   getAllCapacityAnalyses(): Promise<CapacityAnalysis[]>;
+  getCapacityAnalyses(): Promise<CapacityAnalysis[]>; // Alias for getAllCapacityAnalyses
   getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(limit?: number): Promise<CapacityAnalysis[]>;
   enforceRetentionLatestWeeks(limit?: number): Promise<number>;
@@ -141,6 +142,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.capacityAnalyses.values()).sort(
       (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     );
+  }
+
+  async getCapacityAnalyses(): Promise<CapacityAnalysis[]> {
+    return this.getAllCapacityAnalyses();
   }
 
   async getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined> {
@@ -564,6 +569,10 @@ export class DatabaseStorage implements IStorage {
       FROM capacity_analyses
       ORDER BY week_start_date DESC, week_end_date DESC, uploaded_at DESC
     `).then(result => result.rows as CapacityAnalysis[]);
+  }
+
+  async getCapacityAnalyses(): Promise<CapacityAnalysis[]> {
+    return this.getAllCapacityAnalyses();
   }
 
   async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
