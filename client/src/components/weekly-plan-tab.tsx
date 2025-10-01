@@ -10,7 +10,7 @@ import { Calendar, Zap, Loader2 } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime, getTravelMinutes, parseTimeWindows } from "@/utils/scheduling-utils";
 import { scoreVisitMatch } from "@/utils/scheduling-scoring";
-import type { ProcessingResult, ScheduledVisit } from "@shared/schema";
+import type { ProcessingResult, ScheduledVisit, WeeklySchedule } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
@@ -26,6 +26,7 @@ interface EmployeeRun {
   homeLng: number;
   mode: 'car' | 'walking';
   timeWindows: Array<{ start: number; end: number }>;
+  visits: AssignedVisit[];
 }
 
 interface AssignedVisit {
@@ -102,16 +103,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (response.ok) {
               const visits = await response.json();
               visitsPerDay[date] = visits;
+              console.log(`✅ Fetched ${visits.length} visits for ${date}`);
             } else {
+              console.error(`❌ Failed to fetch visits for ${date}:`, response.statusText);
               visitsPerDay[date] = [];
             }
           } catch (error) {
-            console.error(`Error fetching visits for ${date}:`, error);
+            console.error(`❌ Error fetching visits for ${date}:`, error);
             visitsPerDay[date] = [];
           }
         })
       );
       
+      console.log(`📊 Total visits per day:`, visitsPerDay);
       return visitsPerDay;
     },
     enabled: !!data && weekDates.length > 0,
@@ -119,7 +123,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Flatten all week visits with date information
   const allWeekVisits = useMemo(() => {
-    if (!weeklyVisitsData) return [];
+    if (!weeklyVisitsData) {
+      console.log('⚠️ weeklyVisitsData is undefined');
+      return [];
+    }
     
     const visits: Array<ClientVisit & { date: string }> = [];
     
@@ -129,6 +136,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
     });
     
+    console.log(`📋 Total flattened visits for the week: ${visits.length}`);
     return visits;
   }, [weeklyVisitsData]);
 
@@ -152,6 +160,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Auto-generate schedule using same algorithm as Scheduling tab
   const generateScheduleMutation = useMutation({
     mutationFn: async () => {
+      console.log('🚀 Starting weekly schedule generation...');
+      console.log('  Data available:', !!data);
+      console.log('  Weekly visits data available:', !!weeklyVisitsData);
+      console.log('  Total visits:', allWeekVisits.length);
+      
       if (!data) throw new Error('No data available');
       if (!weeklyVisitsData) throw new Error('No visits data available');
       
@@ -182,6 +195,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             homeLng: empLocation?.homeLng ?? -3.1883,
             mode: empLocation?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking',
             timeWindows,
+            visits: [],
           };
           
           // Assign visits one by one using scoring algorithm
@@ -262,19 +276,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       
       // Save to database
       try {
-        await apiRequest('/api/weekly-schedule/save', {
-          method: 'POST',
-          body: JSON.stringify({
-            weekStartDate: weekBoundaries.weekStart,
-            weekEndDate: weekBoundaries.weekEnd,
-            scheduleData,
-            unallocatedVisits: unallocatedVisits.map(v => ({
-              clientName: v.clientName,
-              startTime: v.startTime,
-              endTime: v.endTime,
-            })),
-            metrics: result.metrics,
-          }),
+        await apiRequest('POST', '/api/weekly-schedule/save', {
+          weekStartDate: weekBoundaries.weekStart,
+          weekEndDate: weekBoundaries.weekEnd,
+          scheduleData,
+          unallocatedVisits: unallocatedVisits.map(v => ({
+            clientName: v.clientName,
+            startTime: v.startTime,
+            endTime: v.endTime,
+          })),
+          metrics: result.metrics,
         });
         
         queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
@@ -295,7 +306,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   });
 
   // Load latest schedule on mount
-  const { data: savedSchedule } = useQuery({
+  const { data: savedSchedule } = useQuery<WeeklySchedule>({
     queryKey: ['/api/weekly-schedule/latest'],
     enabled: !!data,
   });
@@ -304,10 +315,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     if (savedSchedule?.scheduleData) {
       // Reconstruct weeklyAssignments from saved data
       const assignments: WeeklyAssignments = {};
+      const data = savedSchedule.scheduleData as any;
       
       weekDates.forEach(date => {
         assignments[date] = {};
-        savedSchedule.scheduleData.employees?.forEach((emp: any) => {
+        data.employees?.forEach((emp: any) => {
           if (emp[date]) {
             assignments[date][emp.employeeName] = emp[date];
           }
