@@ -147,7 +147,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       
       // Save to database
       try {
-        await apiRequest('/api/weekly-schedule/save', 'POST', {
+        await apiRequest('POST', '/api/weekly-schedule/save', {
           weekStartDate: weekStart,
           weekEndDate: weekEnd,
           scheduleData: result.assignments,
