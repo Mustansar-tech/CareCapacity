@@ -2,6 +2,7 @@
 import type { ClientVisit, EmployeeLocation } from "@shared/schema";
 import { 
   timeToMinutes, 
+  minutesToTime,
   parseTimeWindows, 
   type TimeWindow,
   isInsertionFeasible,
@@ -18,6 +19,9 @@ const OFFICE_VISIT_KEYWORDS = ['east nl', 'glasgow', 'training seawared'];
 // Minimum bookable window duration (minutes)
 // Reduced from 60 to 45 to allow more flexibility
 const MIN_WINDOW_DURATION = 45;
+
+// Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
+const TIME_FLEXIBILITY_MINUTES = 5;
 
 // Employee's daily schedule
 interface EmployeeDaySchedule {
@@ -76,6 +80,57 @@ function wouldExceedCapacity(
   return (schedule.usedCapacityMinutes + visitDurationMinutes) > schedule.totalCapacityMinutes;
 }
 
+// Flexibly adjust visit times to fit available windows if close enough
+function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
+  const visitStart = timeToMinutes(visit.startTime);
+  const visitEnd = timeToMinutes(visit.endTime);
+  const visitDuration = visitEnd - visitStart;
+
+  // First try exact fit
+  for (const window of windows) {
+    if (visitStart >= window.start && visitEnd <= window.end) {
+      return visit; // Perfect fit, no adjustment needed
+    }
+  }
+
+  // Try flexible fit with adjustment
+  for (const window of windows) {
+    const windowDuration = window.end - window.start;
+    
+    // Skip windows too small for this visit
+    if (windowDuration < visitDuration) continue;
+
+    // Check if visit can be adjusted to fit in this window
+    let adjustedStart = visitStart;
+    let adjustedEnd = visitEnd;
+
+    // If visit starts slightly before window, move it to window start
+    if (visitStart >= window.start - TIME_FLEXIBILITY_MINUTES && visitStart < window.start) {
+      adjustedStart = window.start;
+      adjustedEnd = adjustedStart + visitDuration;
+    }
+    
+    // If visit ends slightly after window, move it to end at window end
+    if (visitEnd <= window.end + TIME_FLEXIBILITY_MINUTES && visitEnd > window.end) {
+      adjustedEnd = window.end;
+      adjustedStart = adjustedEnd - visitDuration;
+    }
+
+    // Check if adjusted visit fits in window
+    if (adjustedStart >= window.start && adjustedEnd <= window.end) {
+      console.log(`🔧 Adjusted visit ${visit.clientName} from ${visit.startTime}-${visit.endTime} to ${minutesToTime(adjustedStart)}-${minutesToTime(adjustedEnd)} to fit window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
+      
+      return {
+        ...visit,
+        startTime: minutesToTime(adjustedStart),
+        endTime: minutesToTime(adjustedEnd),
+      };
+    }
+  }
+
+  return null; // Could not adjust to fit any window
+}
+
 // Convert ClientVisit to ScoringVisit format
 function toScoringVisit(visit: ClientVisit): ScoringVisit {
   return {
@@ -89,47 +144,55 @@ function toScoringVisit(visit: ClientVisit): ScoringVisit {
 
 // Try to assign a visit to the best employee
 function assignVisitToBestEmployee(
-  visit: ClientVisit,
+  originalVisit: ClientVisit,
   employeeSchedules: EmployeeDaySchedule[],
   assignedVisitIds: Set<string>
 ): { success: boolean; employeeName?: string; reason?: string } {
   // Skip if already assigned
-  if (assignedVisitIds.has(visit.id)) {
+  if (assignedVisitIds.has(originalVisit.id)) {
     return { success: false, reason: 'Already assigned' };
   }
 
   // Skip office visits
-  if (isOfficeVisit(visit.clientName)) {
+  if (isOfficeVisit(originalVisit.clientName)) {
     return { success: false, reason: 'Office visit excluded' };
   }
 
   // Skip if no location data
-  if (!visit.lat || !visit.lng) {
+  if (!originalVisit.lat || !originalVisit.lng) {
     return { success: false, reason: 'Missing location data' };
   }
 
-  const scoringVisit = toScoringVisit(visit);
   const candidates: Array<{
     employeeName: string;
     score: number;
     insertionIndex: number;
     travelFromPrev: number;
     travelToNext: number;
+    adjustedVisit: ClientVisit;
   }> = [];
 
   // Score visit for each employee
   for (const schedule of employeeSchedules) {
     // Check capacity constraint
-    if (wouldExceedCapacity(schedule, visit.durationMinutes)) {
+    if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
       continue; // Skip - would exceed capacity
     }
 
-    // Filter windows to only include those >= 60 minutes for feasibility
+    // Filter windows to only include those >= minimum duration for feasibility
     const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
     
     if (validWindows.length === 0) {
       continue; // No valid windows available
     }
+
+    // Try to adjust visit to fit in employee's windows
+    const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows);
+    if (!adjustedVisit) {
+      continue; // Could not adjust visit to fit any window
+    }
+
+    const scoringVisit = toScoringVisit(adjustedVisit);
 
     // Convert assigned visits to scoring format
     const employeeRun: EmployeeRun = {
@@ -154,6 +217,7 @@ function assignVisitToBestEmployee(
         insertionIndex: matchScore.insertionIndex,
         travelFromPrev: matchScore.travelFromPrev,
         travelToNext: matchScore.travelToNext,
+        adjustedVisit,
       });
     }
   }
@@ -170,15 +234,15 @@ function assignVisitToBestEmployee(
   // Find the employee schedule
   const schedule = employeeSchedules.find(s => s.employeeName === best.employeeName)!;
 
-  // Create assigned visit
+  // Create assigned visit using adjusted times
   const assignedVisit: AssignedVisit = {
-    id: visit.id,
-    clientName: visit.clientName,
-    startTime: visit.startTime,
-    endTime: visit.endTime,
-    durationMinutes: visit.durationMinutes,
-    lat: visit.lat,
-    lng: visit.lng,
+    id: best.adjustedVisit.id,
+    clientName: best.adjustedVisit.clientName,
+    startTime: best.adjustedVisit.startTime,
+    endTime: best.adjustedVisit.endTime,
+    durationMinutes: best.adjustedVisit.durationMinutes,
+    lat: best.adjustedVisit.lat,
+    lng: best.adjustedVisit.lng,
     travelTimeBefore: best.travelFromPrev,
     score: best.score,
   };
@@ -187,10 +251,10 @@ function assignVisitToBestEmployee(
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
   
   // Update capacity usage
-  schedule.usedCapacityMinutes += visit.durationMinutes;
+  schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
   
   // Mark as assigned
-  assignedVisitIds.add(visit.id);
+  assignedVisitIds.add(originalVisit.id);
 
   return { success: true, employeeName: best.employeeName };
 }

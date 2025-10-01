@@ -355,14 +355,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </CardContent>
       </Card>
 
-      {/* Weekly Run View - Vertical Days */}
+      {/* Weekly Run View - Days as Rows */}
       {selectedEmployee && weeklySchedule && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle>Weekly Run: {selectedEmployee}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {weekDates.map((date, index) => {
                 const dayVisits = employeeWeeklyRun[index]?.visits || [];
                 const dayName = dayNames[index];
@@ -377,56 +377,56 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 }
                 
                 return (
-                  <Card key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-lg">{dayName} {date.split('-').slice(1).join('/')}</CardTitle>
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Time Windows: {timeWindows}
-                          </p>
+                  <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    {/* Day Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold">{dayName}</h3>
+                        <span className="text-sm text-muted-foreground">{date.split('-').slice(1).join('/')}</span>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {timeWindows}
                         </div>
-                        <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
-                          {dayVisits.length} visits
-                        </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      {dayVisits.length > 0 ? (
-                        <div className="space-y-2">
-                          {dayVisits.map((visit, vIndex) => (
-                            <Card 
-                              key={vIndex} 
-                              className="p-3 bg-white dark:bg-gray-800 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow"
-                              data-testid={`card-visit-${date}-${vIndex}`}
-                            >
-                              <div className="space-y-1">
-                                <p className="font-medium">{visit.clientName}</p>
-                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {visit.startTime} - {visit.endTime}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    Travel: {visit.travelTimeBefore}min
-                                  </div>
-                                  <Badge variant="secondary" className="text-xs">
-                                    Score: {(visit.score * 100).toFixed(0)}%
-                                  </Badge>
-                                </div>
+                      <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
+                        {dayVisits.length} visits
+                      </Badge>
+                    </div>
+                    
+                    {/* Visits Row */}
+                    {dayVisits.length > 0 ? (
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {dayVisits.map((visit, vIndex) => (
+                          <div 
+                            key={vIndex} 
+                            className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 min-w-[200px] hover:shadow-md transition-shadow"
+                            data-testid={`card-visit-${date}-${vIndex}`}
+                          >
+                            <div className="space-y-1">
+                              <p className="font-medium text-sm truncate" title={visit.clientName}>
+                                {visit.clientName}
+                              </p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {visit.startTime} - {visit.endTime}
                               </div>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No visits assigned for this day
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3" />
+                                Travel: {visit.travelTimeBefore}min
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                Score: {(visit.score * 100).toFixed(0)}%
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                        No visits assigned for this day
+                      </div>
+                    )}
+                  </div>
                 );
               }).filter(Boolean)}
             </div>
