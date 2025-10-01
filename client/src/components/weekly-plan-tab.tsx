@@ -318,37 +318,43 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 data-testid="input-search-employee"
               />
             </div>
-            <Select value={selectedEmployee || ''} onValueChange={setSelectedEmployee}>
+            <Select value={selectedEmployee || ''} onValueChange={setSelectedEmployee} key={filteredEmployees.join(',')}>
               <SelectTrigger data-testid="select-employee">
                 <SelectValue placeholder="Choose an employee to view their weekly run" />
               </SelectTrigger>
               <SelectContent>
-                {filteredEmployees.map(empName => {
-                  const location = locationsData?.employees.find(loc => loc.employeeName === empName);
-                  const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
-                    ? <Car className="h-3 w-3" /> 
-                    : null;
-                  
-                  // Get visit count across all days
-                  const visitCount = weeklySchedule 
-                    ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
-                        sum + (dateAssignments[empName]?.length || 0), 0)
-                    : 0;
-                  
-                  return (
-                    <SelectItem key={empName} value={empName} data-testid={`select-employee-${empName}`}>
-                      <div className="flex items-center gap-2 justify-between w-full">
-                        <div className="flex items-center gap-2">
-                          <span className={getGenderColorClass(empName)}>{empName}</span>
-                          {transportIcon}
+                {filteredEmployees.length > 0 ? (
+                  filteredEmployees.map(empName => {
+                    const location = locationsData?.employees.find(loc => loc.employeeName === empName);
+                    const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
+                      ? <Car className="h-3 w-3" /> 
+                      : null;
+                    
+                    // Get visit count across all days
+                    const visitCount = weeklySchedule 
+                      ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
+                          sum + (dateAssignments[empName]?.length || 0), 0)
+                      : 0;
+                    
+                    return (
+                      <SelectItem key={empName} value={empName} data-testid={`select-employee-${empName}`}>
+                        <div className="flex items-center gap-2 justify-between w-full">
+                          <div className="flex items-center gap-2">
+                            <span className={getGenderColorClass(empName)}>{empName}</span>
+                            {transportIcon}
+                          </div>
+                          {visitCount > 0 && (
+                            <Badge variant="secondary" className="text-xs">{visitCount} visits</Badge>
+                          )}
                         </div>
-                        {visitCount > 0 && (
-                          <Badge variant="secondary" className="text-xs">{visitCount} visits</Badge>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
+                      </SelectItem>
+                    );
+                  })
+                ) : (
+                  <SelectItem value="" disabled>
+                    No employees found matching "{searchTerm}"
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
