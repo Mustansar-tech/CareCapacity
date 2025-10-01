@@ -92,9 +92,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       self.findIndex(e => e.employeeName === emp.employeeName) === index
     );
 
-  // Filter employees by search term
-  const filteredEmployees = allEmployees.filter(emp =>
-    emp.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+  // Get employees with assignments from the weekly schedule
+  const employeesWithAssignments = weeklySchedule 
+    ? Array.from(new Set(
+        Object.values(weeklySchedule.assignments)
+          .flatMap(dateAssignments => Object.keys(dateAssignments))
+      )).sort()
+    : [];
+
+  // Filter employees by search term - show only those with assignments if schedule exists
+  const employeesToShow = weeklySchedule ? employeesWithAssignments : allEmployees;
+  const filteredEmployees = employeesToShow.filter(empName =>
+    empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Generate weekly schedule mutation
@@ -311,17 +320,28 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 <SelectValue placeholder="Choose an employee to view their weekly run" />
               </SelectTrigger>
               <SelectContent>
-                {filteredEmployees.map(emp => {
-                  const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+                {filteredEmployees.map(empName => {
+                  const location = locationsData?.employees.find(loc => loc.employeeName === empName);
                   const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
                     ? <Car className="h-3 w-3" /> 
                     : null;
                   
+                  // Get visit count across all days
+                  const visitCount = weeklySchedule 
+                    ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
+                        sum + (dateAssignments[empName]?.length || 0), 0)
+                    : 0;
+                  
                   return (
-                    <SelectItem key={emp.employeeName} value={emp.employeeName} data-testid={`select-employee-${emp.employeeName}`}>
-                      <div className="flex items-center gap-2">
-                        <span className={getGenderColorClass(emp.employeeName)}>{emp.employeeName}</span>
-                        {transportIcon}
+                    <SelectItem key={empName} value={empName} data-testid={`select-employee-${empName}`}>
+                      <div className="flex items-center gap-2 justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <span className={getGenderColorClass(empName)}>{empName}</span>
+                          {transportIcon}
+                        </div>
+                        {visitCount > 0 && (
+                          <Badge variant="secondary" className="text-xs">{visitCount} visits</Badge>
+                        )}
                       </div>
                     </SelectItem>
                   );
@@ -332,56 +352,80 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </CardContent>
       </Card>
 
-      {/* Weekly Run View */}
+      {/* Weekly Run View - Vertical Days */}
       {selectedEmployee && weeklySchedule && (
         <Card className="glass-card">
           <CardHeader>
             <CardTitle>Weekly Run: {selectedEmployee}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-7 gap-2">
+            <div className="space-y-4">
               {weekDates.map((date, index) => {
                 const dayVisits = employeeWeeklyRun[index]?.visits || [];
                 const dayName = dayNames[index];
                 
+                // Get employee availability windows for this day
+                const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
+                const timeWindows = employeeForDate?.timeWindows || '';
+                
+                // Only show days with availability (has time windows)
+                if (!timeWindows || timeWindows.trim() === '') {
+                  return null;
+                }
+                
                 return (
-                  <div key={date} className="space-y-2">
-                    <div className="text-center">
-                      <p className="font-semibold text-sm">{dayName}</p>
-                      <p className="text-xs text-muted-foreground">{date.split('-').slice(1).join('/')}</p>
-                      <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="mt-1">
-                        {dayVisits.length} visits
-                      </Badge>
-                    </div>
-                    <ScrollArea className="h-96">
-                      <div className="space-y-2">
-                        {dayVisits.map((visit, vIndex) => (
-                          <Card 
-                            key={vIndex} 
-                            className="p-2 bg-white dark:bg-gray-800 border-l-4 border-l-blue-500"
-                            data-testid={`card-visit-${date}-${vIndex}`}
-                          >
-                            <div className="space-y-1">
-                              <p className="font-medium text-sm">{visit.clientName}</p>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                {visit.startTime} - {visit.endTime}
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <MapPin className="h-3 w-3" />
-                                Travel: {visit.travelTimeBefore}min
-                              </div>
-                              <Badge variant="secondary" className="text-xs">
-                                Score: {(visit.score * 100).toFixed(0)}%
-                              </Badge>
-                            </div>
-                          </Card>
-                        ))}
+                  <Card key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{dayName} {date.split('-').slice(1).join('/')}</CardTitle>
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Time Windows: {timeWindows}
+                          </p>
+                        </div>
+                        <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
+                          {dayVisits.length} visits
+                        </Badge>
                       </div>
-                    </ScrollArea>
-                  </div>
+                    </CardHeader>
+                    <CardContent>
+                      {dayVisits.length > 0 ? (
+                        <div className="space-y-2">
+                          {dayVisits.map((visit, vIndex) => (
+                            <Card 
+                              key={vIndex} 
+                              className="p-3 bg-white dark:bg-gray-800 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow"
+                              data-testid={`card-visit-${date}-${vIndex}`}
+                            >
+                              <div className="space-y-1">
+                                <p className="font-medium">{visit.clientName}</p>
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {visit.startTime} - {visit.endTime}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    Travel: {visit.travelTimeBefore}min
+                                  </div>
+                                  <Badge variant="secondary" className="text-xs">
+                                    Score: {(visit.score * 100).toFixed(0)}%
+                                  </Badge>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No visits assigned for this day
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
                 );
-              })}
+              }).filter(Boolean)}
             </div>
           </CardContent>
         </Card>
