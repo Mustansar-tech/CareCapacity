@@ -262,42 +262,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/visits/:date", async (req, res) => {
     try {
       const { date } = req.params;
-      console.log(`📋 Getting visits for ${date}`);
-
-      // First try to get visits from database (generated during processing)
-      const storedVisits = await storage.getVisitsByDate(date);
-      if (storedVisits.length > 0) {
-        console.log(`✅ Found ${storedVisits.length} stored visits for ${date}`);
-        // Convert stored visits to the format expected by the scheduling tab
-        const formattedVisits = await Promise.all(storedVisits.map(async visit => {
-          // Look up client name by ID since we now store proper foreign keys
-          const clientLocation = await storage.getClientLocationById(visit.clientId);
-          return {
-            clientName: clientLocation?.clientName || `Unknown Client (${visit.clientId})`,
-            startTime: visit.preferredStartTime || '09:00',
-            endTime: visit.preferredEndTime || '10:00',
-            durationMinutes: visit.durationMinutes,
-            date: visit.date,
-            serviceType: visit.serviceType || 'Personal Care'
-          };
-        }));
-        return res.json(formattedVisits);
-      }
-
-      // Fallback to Excel extraction if no stored visits and Excel buffer is available
-      if (!latestGuaranteedBuffer) {
-        console.log(`⚠️ No Excel file available and no stored visits for ${date}`);
-        return res.json([]); // Return empty array instead of error
-      }
-
       console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
+
+      // Dynamically import the function to avoid circular dependencies or unnecessary loads
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
-      const parsedDate = new Date(date + 'T00:00:00.000Z');
+      const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
       const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
       res.json(visits);
     } catch (error) {
-      console.error("Error getting visits:", error);
-      res.status(500).json({ error: "Failed to get visits" });
+      console.error("Error extracting visits:", error);
+      res.status(500).json({ error: "Failed to extract visits" });
     }
   });
 
@@ -313,16 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📋 Getting visits from ${start} to ${end}`);
       const visits = await storage.listVisitsBetween(start as string, end as string);
 
-      // Convert visits to include client names properly
-      const formattedVisits = await Promise.all(visits.map(async visit => {
-        const clientLocation = await storage.getClientLocationById(visit.clientId);
-        return {
-          ...visit,
-          clientName: clientLocation?.clientName || `Unknown Client (${visit.clientId})`
-        };
-      }));
-
-      res.json(formattedVisits);
+      res.json(visits);
     } catch (error) {
       console.error('Error getting visits range:', error);
       res.status(500).json({ 
@@ -999,24 +964,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function getUnassignedVisitsForDate(date: string) {
     try {
       const visits = await storage.listVisitsBetween(date, date);
+      const results = await getProcessingResults();
+      const clientLocations = results?.clientLocations || [];
 
-      return await Promise.all(visits.map(async visit => {
-        // Look up client location by ID since visits now store proper foreign keys
-        const clientLocation = await storage.getClientLocationById(visit.clientId);
-        const clientName = clientLocation?.clientName || `Unknown Client (${visit.clientId})`;
+      return visits.map(visit => {
+        const client = clientLocations.find(c => c.clientName === visit.clientName);
 
         return {
-          id: visit.id || `${clientName}-${date}`,
-          clientName: clientName,
+          id: visit.id || `${visit.clientName}-${date}`,
+          clientName: visit.clientName,
           startTime: timeStringToMinutes(visit.preferredStartTime || '09:00'),
           endTime: timeStringToMinutes(visit.preferredEndTime || '10:00'),
           durationMinutes: visit.durationMinutes || 60,
           priority: visit.priority || 2,
           serviceType: visit.serviceType || 'Personal Care',
-          lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
-          lng: clientLocation?.lng ? Number(clientLocation.lng) : undefined,
+          lat: client?.lat ? Number(client.lat) : undefined,
+          lng: client?.lng ? Number(client.lng) : undefined,
         };
-      }));
+      });
     } catch (error) {
       console.error('Error getting unassigned visits:', error);
       return [];

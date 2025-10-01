@@ -242,7 +242,7 @@ export const clientLocations = pgTable("client_locations", {
 // Visit requirements
 export const visits = pgTable("visits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: text("client_id").notNull(), // Store client name directly for scheduling compatibility
+  clientId: varchar("client_id").notNull().references(() => clientLocations.id),
   date: text("date").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
   preferredStartTime: text("preferred_start_time"),
