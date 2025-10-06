@@ -281,51 +281,7 @@ export const clientLocations = pgTable("client_locations", {
   postcodeIdx: index("client_postcode_idx").on(table.postcode),
 }));
 
-// Visit requirements
-export const visits = pgTable("visits", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: varchar("client_id").notNull().references(() => clientLocations.id),
-  date: text("date").notNull(),
-  durationMinutes: integer("duration_minutes").notNull(),
-  preferredStartTime: text("preferred_start_time"),
-  preferredEndTime: text("preferred_end_time"),
-  priority: integer("priority").default(1),
-  serviceType: text("service_type"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  dateIdx: index("visit_date_idx").on(table.date),
-  clientDateIdx: index("visit_client_date_idx").on(table.clientId, table.date),
-}));
 
-// Route plans
-export const routePlans = pgTable("route_plans", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  date: text("date").notNull(),
-  employeeId: varchar("employee_id").notNull().references(() => employeeLocations.id),
-  totalDistanceKm: text("total_distance_km"),
-  totalTravelMinutes: integer("total_travel_minutes"),
-  status: text("status", { enum: ["optimized", "manual", "infeasible"] }).default("optimized"),
-  warnings: jsonb("warnings").default([]),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  employeeDateIdx: index("route_employee_date_idx").on(table.employeeId, table.date),
-  dateIdx: index("route_date_idx").on(table.date),
-}));
-
-// Route stops
-export const routeStops = pgTable("route_stops", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  routePlanId: varchar("route_plan_id").notNull().references(() => routePlans.id, { onDelete: "cascade" }),
-  visitId: varchar("visit_id").notNull().references(() => visits.id),
-  sequence: integer("sequence").notNull(),
-  scheduledStart: text("scheduled_start"),
-  scheduledEnd: text("scheduled_end"),
-  travelMinutesFromPrev: integer("travel_minutes_from_prev"),
-  distanceKmFromPrev: text("distance_km_from_prev"),
-}, (table) => ({
-  routePlanSeqIdx: index("route_stop_plan_seq_idx").on(table.routePlanId, table.sequence),
-}));
 
 // Geocoding cache
 export const geocodeCache = pgTable("geocode_cache", {
@@ -365,20 +321,7 @@ export const insertClientLocationSchema = createInsertSchema(clientLocations).om
   geocodedAt: true,
 });
 
-export const insertVisitSchema = createInsertSchema(visits).omit({
-  id: true,
-  createdAt: true,
-});
 
-export const insertRoutePlanSchema = createInsertSchema(routePlans).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertRouteStopSchema = createInsertSchema(routeStops).omit({
-  id: true,
-});
 
 export const insertGeocodeSchema = createInsertSchema(geocodeCache).omit({
   id: true,
@@ -397,14 +340,7 @@ export type EmployeeLocation = typeof employeeLocations.$inferSelect;
 export type InsertClientLocation = z.infer<typeof insertClientLocationSchema>;
 export type ClientLocation = typeof clientLocations.$inferSelect;
 
-export type InsertVisit = z.infer<typeof insertVisitSchema>;
-export type Visit = typeof visits.$inferSelect;
 
-export type InsertRoutePlan = z.infer<typeof insertRoutePlanSchema>;
-export type RoutePlan = typeof routePlans.$inferSelect;
-
-export type InsertRouteStop = z.infer<typeof insertRouteStopSchema>;
-export type RouteStop = typeof routeStops.$inferSelect;
 
 export type InsertGeocode = z.infer<typeof insertGeocodeSchema>;
 export type GeocodeCache = typeof geocodeCache.$inferSelect;
