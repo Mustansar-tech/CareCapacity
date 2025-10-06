@@ -534,69 +534,69 @@ export default function Dashboard() {
           <div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
-          <TabsList className="flex h-12 items-center justify-between rounded-xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm gap-1 w-full overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-overview"
             >
-              <BarChart3 className="w-4 h-4 mr-1.5" />
+              <BarChart3 className="w-4 h-4 mr-2" />
               Overview
             </TabsTrigger>
             <TabsTrigger 
               value="daily-capacity" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-daily-capacity"
             >
-              <Calendar className="w-4 h-4 mr-1.5" />
+              <Calendar className="w-4 h-4 mr-2" />
               Daily View
             </TabsTrigger>
             <TabsTrigger 
               value="employee-summary" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-employee-summary"
             >
-              <Users className="w-4 h-4 mr-1.5" />
+              <Users className="w-4 h-4 mr-2" />
               Summary
             </TabsTrigger>
             <TabsTrigger 
               value="bd-matrix" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-bd-matrix"
             >
-              <Users className="w-4 h-4 mr-1.5" />
+              <Users className="w-4 h-4 mr-2" />
               BD Matrix
             </TabsTrigger>
             <TabsTrigger 
               value="weekly" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-weekly-scheduling"
             >
-              <Calendar className="w-4 h-4 mr-1.5" />
+              <Calendar className="w-4 h-4 mr-2" />
               Scheduling
             </TabsTrigger>
             <TabsTrigger 
               value="ai-suggestions" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-suggestions"
             >
-              <LightBulbIcon className="w-4 h-4 mr-1.5" />
+              <LightBulbIcon className="w-4 h-4 mr-2" />
               AI Insights
             </TabsTrigger>
             <TabsTrigger 
               value="charts" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-charts"
             >
-              <TrendingUp className="w-4 h-4 mr-1.5" />
+              <TrendingUp className="w-4 h-4 mr-2" />
               Analytics
             </TabsTrigger>
             <TabsTrigger 
               value="export" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium text-sm px-3 py-2 whitespace-nowrap flex-shrink-0"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-export"
             >
-              <Download className="w-4 h-4 mr-1.5" />
+              <Download className="w-4 h-4 mr-2" />
               Export
             </TabsTrigger>
           </TabsList>
@@ -635,6 +635,7 @@ export default function Dashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead></TableHead>
                         <TableHead data-testid="header-date">Date</TableHead>
                         {/* Hidden column - Available */}
                         {false && <TableHead data-testid="header-available">Available</TableHead>}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
 
-  // Get week dates array (Mon-Sun)
+  // Generate week dates array (Mon-Sun)
   const weekDates = (() => {
     const dates: string[] = [];
     const start = new Date(weekStart + 'T00:00:00.000Z');
@@ -114,7 +115,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeNames = weeklySchedule 
     ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
     : availableEmployees.map(e => e.employeeName);
-
+  
   const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -123,7 +124,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const generateMutation = useMutation({
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
-
+      
       // Prepare employee data with locations
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
@@ -157,16 +158,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
-
+      
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
-
+      
       console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
-
+      
       return result;
     },
     onSuccess: async (result) => {
       setWeeklySchedule(result);
-
+      
       // Save to database
       try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
@@ -176,9 +177,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           unallocatedVisits: result.unallocated,
           metrics: result.metrics,
         });
-
-        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
-
+        
+        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
+        
         toast({
           title: "Schedule Generated & Saved",
           description: `Assigned ${result.metrics.totalVisitsAssigned} visits across ${result.metrics.employeesUtilized} employees`,
@@ -194,8 +195,27 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     },
   });
 
-  // Don't auto-load schedule - user must generate it fresh each time
-  // This prevents SQL errors and ensures we're always working with current data
+  // Load latest schedule on mount
+  const { data: savedSchedule } = useQuery<any>({
+    queryKey: ['/api/weekly-schedule/latest'],
+    enabled: !!data,
+  });
+
+  useEffect(() => {
+    if (savedSchedule?.scheduleData) {
+      // Reconstruct weekly schedule from saved data
+      setWeeklySchedule({
+        assignments: savedSchedule.scheduleData as Record<string, Record<string, AssignedVisit[]>>,
+        unallocated: savedSchedule.unallocatedVisits || [],
+        metrics: savedSchedule.metrics || {
+          totalVisitsAssigned: 0,
+          totalVisitsUnallocated: 0,
+          averageTravelTimePerVisit: 0,
+          employeesUtilized: 0,
+        },
+      });
+    }
+  }, [savedSchedule]);
 
   if (!data) {
     return (
@@ -322,16 +342,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
                         ? <Car className="h-3 w-3" /> 
                         : null;
-
+                      
                       // Get visit count across all days
                       const visitCount = weeklySchedule 
                         ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
                             sum + (dateAssignments[empName]?.length || 0), 0)
                         : 0;
-
+                      
                       const weeklyHours = employeeWeeklyHours.get(empName) || 0;
                       const isSelected = selectedEmployee === empName;
-
+                      
                       return (
                         <div
                           key={empName}
@@ -346,7 +366,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           <div className="flex items-center gap-2 flex-1">
                             <User className="h-4 w-4" />
                             <span className={`${getGenderColorClass(
-                              data?.employeesByDate[weekDates[0]]?.find(e => e.employeeName === empName)?.gender
+                              employeesByDate[weekDates[0]]?.find(e => e.employeeName === empName)?.gender
                             )} font-medium text-sm`}>
                               {empName}
                             </span>
@@ -393,16 +413,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     {weekDates.map((date, index) => {
                       const dayVisits = employeeWeeklyRun[index]?.visits || [];
                       const dayName = dayNames[index];
-
+                      
                       // Get employee availability windows for this day
                       const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
                       const timeWindows = employeeForDate?.timeWindows || '';
-
+                      
                       // Only show days with availability (has time windows)
                       if (!timeWindows || timeWindows.trim() === '') {
                         return null;
                       }
-
+                      
                       return (
                         <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
                           {/* Day Header */}
@@ -419,7 +439,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               {dayVisits.length} visits
                             </Badge>
                           </div>
-
+                          
                           {/* Visits Grid - Wrapped Layout */}
                           {dayVisits.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
@@ -493,11 +513,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 {weekDates.map((date, dayIndex) => {
                   // Filter unallocated visits for this specific day
                   const dayUnallocated = weeklySchedule.unallocated.filter(v => v.date === date);
-
+                  
                   if (dayUnallocated.length === 0) return null;
-
+                  
                   const dayName = dayNames[dayIndex];
-
+                  
                   return (
                     <div key={date} className="border border-red-200 dark:border-red-700 rounded-lg p-3 bg-red-50/50 dark:bg-red-950/10">
                       {/* Day Header */}
@@ -512,7 +532,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           {dayUnallocated.length} unallocated
                         </Badge>
                       </div>
-
+                      
                       {/* Day's Unallocated Visits Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
                         {dayUnallocated.map((visit, index) => (
