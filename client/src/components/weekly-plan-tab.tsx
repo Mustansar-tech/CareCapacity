@@ -93,6 +93,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       self.findIndex(e => e.employeeName === emp.employeeName) === index
     );
 
+  // Calculate weekly hours for each employee (sum of daily desired hours across the week)
+  const employeeWeeklyHours = new Map<string, number>();
+  Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
+    dayEmployees.forEach(emp => {
+      const currentHours = employeeWeeklyHours.get(emp.employeeName) || 0;
+      const dailyHours = emp.contractedDailyHours || 0;
+      employeeWeeklyHours.set(emp.employeeName, currentHours + dailyHours);
+    });
+  });
+
   // Get employees with assignments from the weekly schedule
   const employeesWithAssignments = weeklySchedule 
     ? Array.from(new Set(
@@ -339,13 +349,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             sum + (dateAssignments[empName]?.length || 0), 0)
                         : 0;
                       
+                      const weeklyHours = employeeWeeklyHours.get(empName) || 0;
                       const isSelected = selectedEmployee === empName;
                       
                       return (
                         <div
                           key={empName}
                           onClick={() => setSelectedEmployee(empName)}
-                          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
+                          className={`flex flex-col gap-2 p-3 rounded-lg cursor-pointer transition-all ${
                             isSelected 
                               ? 'bg-blue-100 dark:bg-blue-900/20 border-2 border-blue-500' 
                               : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
@@ -357,11 +368,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             <span className={`${getGenderColorClass(empName)} font-medium text-sm`}>{empName}</span>
                             {transportIcon}
                           </div>
-                          {visitCount > 0 && (
-                            <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
-                              {visitCount}
-                            </Badge>
-                          )}
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-muted-foreground">Weekly: {weeklyHours.toFixed(1)}h</span>
+                            {visitCount > 0 && (
+                              <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
+                                {visitCount} visits
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       );
                     })
