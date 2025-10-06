@@ -9,10 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import type { ProcessingResult } from "@shared/schema";
+import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
+import { generateWeeklySchedule } from "@/utils/scheduling-engine";
 
 interface WeeklyPlanTabProps {
   data: ProcessingResult | null;

@@ -808,6 +808,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save weekly schedule
+  app.post('/api/weekly-schedule/save', async (req, res) => {
+    try {
+      const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
+
+      const savedSchedule = await storage.saveWeeklySchedule({
+        weekStartDate,
+        weekEndDate,
+        scheduleData,
+        unallocatedVisits,
+        metrics,
+      });
+
+      res.json(savedSchedule);
+    } catch (error) {
+      console.error('Error saving weekly schedule:', error);
+      res.status(500).json({ 
+        message: 'Failed to save weekly schedule',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Get latest weekly schedule
   app.get('/api/weekly-schedule/latest', async (req, res) => {
     try {

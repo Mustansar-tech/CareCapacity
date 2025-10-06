@@ -298,8 +298,9 @@ export class AutoScheduler {
   }
 
   private async getUnassignedVisits(date: string): Promise<SchedulingVisit[]> {
-    // Visits are no longer stored in database - this functionality has been removed
-    console.warn('⚠️ getUnassignedVisits called but visits are no longer stored in database');
+    // Visits are no longer stored in database - return empty array
+    // Visit data should be extracted from capacity analysis during processing
+    console.warn('⚠️ Auto-scheduler visits functionality has been removed - use weekly-plan-tab instead');
     return [];
   }
 
