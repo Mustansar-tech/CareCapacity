@@ -68,9 +68,9 @@ export async function buildHeatmapMatrixLite(
       storage.getAllEmployeeLocations?.() ?? [],
     ]);
 
-  // Get all visits for analysis
-  const visits = await storage.listVisitsBetween(null, null);
-  
+  // Visits are no longer stored - this functionality has been removed
+  const visits: Visit[] = [];
+
   const clientById = new Map(clients.map(c=>[c.id,c]));
   const empLocByName = new Map(employeesLoc.map(e => [e.employeeName, e]));
   const visitsByDate = new Map<string, Visit[]>();
@@ -113,17 +113,17 @@ export async function buildHeatmapMatrixLite(
           row.push(""); 
           continue; 
         }
-        
+
         // Use TravelTimeService for travel time calculation
         const c = clientById.get(v.clientId)!;
         const eLoc = empLocByName.get(empName) || {};
         let t = 10; // fallback
-        
+
         const empLat = eLoc.homeLat ? Number(eLoc.homeLat) : null;
         const empLng = eLoc.homeLng ? Number(eLoc.homeLng) : null;
         const clientLat = c.lat ? Number(c.lat) : null;
         const clientLng = c.lng ? Number(c.lng) : null;
-        
+
         if (Number.isFinite(empLat) && Number.isFinite(empLng) && Number.isFinite(clientLat) && Number.isFinite(clientLng)) {
           try {
             const travelMatrix = travelService.calculateTravelTime(
@@ -136,7 +136,7 @@ export async function buildHeatmapMatrixLite(
             console.log(`⚠️ Travel time calculation failed for ${empName} -> ${c.clientName}, using fallback`);
           }
         }
-        
+
         row.push(score(t, remainingMin, v.priority ?? 1));
       }
       matrix.push(row);
