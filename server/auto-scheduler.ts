@@ -298,43 +298,9 @@ export class AutoScheduler {
   }
 
   private async getUnassignedVisits(date: string): Promise<SchedulingVisit[]> {
-    try {
-      const [visits, clientLocations] = await Promise.all([
-        storage.listVisitsBetween(date, date),
-        storage.getAllClientLocations()
-      ]);
-
-      const clientLocationMap = new Map(clientLocations.map(c => [c.clientName, c]));
-
-      return visits
-        .filter(visit => visit.date === date && visit.clientName) // Filter out visits without client names
-        .map(visit => {
-          const client = clientLocationMap.get(visit.clientName);
-          
-          if (!client || !client.lat || !client.lng) {
-            console.warn(`⚠️ Missing location data for client ${visit.clientName}`);
-            return null;
-          }
-
-          return {
-            id: visit.id || `${visit.clientName}-${visit.date}`,
-            clientName: visit.clientName,
-            clientLat: parseFloat(client.lat),
-            clientLng: parseFloat(client.lng),
-            startTime: this.timeStringToMinutes(visit.preferredStartTime || '09:00'),
-            endTime: this.timeStringToMinutes(visit.preferredEndTime || '10:00'),
-            durationMinutes: visit.durationMinutes || 60,
-            priority: visit.priority || 2,
-            serviceType: visit.serviceType || '',
-            preferredStartTime: this.timeStringToMinutes(visit.preferredStartTime || ''),
-            preferredEndTime: this.timeStringToMinutes(visit.preferredEndTime || ''),
-          };
-        })
-        .filter((visit): visit is SchedulingVisit => visit !== null);
-    } catch (error) {
-      console.error('Error getting unassigned visits:', error);
-      return [];
-    }
+    // Visits are no longer stored in database - this functionality has been removed
+    console.warn('⚠️ getUnassignedVisits called but visits are no longer stored in database');
+    return [];
   }
 
   private prioritizeVisits(visits: SchedulingVisit[]): SchedulingVisit[] {
