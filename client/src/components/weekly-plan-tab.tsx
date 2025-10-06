@@ -114,10 +114,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
       
+      if (!locationsData) {
+        throw new Error('Location data not loaded yet');
+      }
+      
       // Prepare employee data with locations
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
-          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+          const location = locationsData.employees.find(loc => loc.employeeName === emp.employeeName);
           return {
             employeeName: emp.employeeName,
             date,
@@ -131,7 +135,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       // Add location data to visits
       const visitsWithLocations: ClientVisit[] = allWeekVisits.map((visit, index) => {
-        const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
+        const clientLocation = locationsData.clients.find(loc => loc.clientName === visit.clientName);
         return {
           id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
           clientName: visit.clientName,
@@ -181,6 +185,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           variant: "destructive",
         });
       }
+    },
+    onError: (error) => {
+      console.error('Schedule generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
     },
   });
 
@@ -259,7 +271,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
         <Button
           onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending || allWeekVisits.length === 0}
+          disabled={generateMutation.isPending || isLoadingVisits || !locationsData || allWeekVisits.length === 0}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           data-testid="button-generate-weekly"
         >
