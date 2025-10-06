@@ -173,104 +173,6 @@ interface CleanRow {
   cancellation: string | null;
 }
 
-// Generate client visits from demand data (Hours by Service Type)
-async function generateVisitsFromDemand(
-  filteredRows: CleanRow[],
-  startDate: Date,
-  numDays: number = 7
-): Promise<void> {
-  console.log(`📅 Generating client visits from ${filteredRows.length} demand rows for ${numDays} days starting ${format(startDate, 'yyyy-MM-dd')}`);
-
-  // Default time windows based on service type
-  const getDefaultTimeWindows = (serviceType: string): { start: string; end: string }[] => {
-    const type = serviceType.toLowerCase();
-
-    // Morning slots for basic care services
-    if (type.includes('personal care') || type.includes('medication') || type.includes('breakfast')) {
-      return [{ start: '07:00', end: '11:00' }];
-    }
-
-    // Lunch time slots
-    if (type.includes('lunch') || type.includes('meal')) {
-      return [{ start: '11:30', end: '14:30' }];
-    }
-
-    // Evening slots for dinner and bedtime care
-    if (type.includes('dinner') || type.includes('bedtime') || type.includes('evening')) {
-      return [{ start: '17:00', end: '21:00' }];
-    }
-
-    // Day time slots for general activities
-    if (type.includes('domestic') || type.includes('shopping') || type.includes('companionship')) {
-      return [{ start: '09:00', end: '17:00' }];
-    }
-
-    // Default to flexible daytime windows
-    return [
-      { start: '09:00', end: '12:00' },
-      { start: '14:00', end: '17:00' }
-    ];
-  };
-
-  // Weekday name mapping
-  const weekdayMap: Record<string, number> = {
-    'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
-    'thursday': 4, 'friday': 5, 'saturday': 6
-  };
-
-  let totalVisitsCreated = 0;
-
-  // Generate visits for each demand row across the date range
-  for (const row of filteredRows) {
-    const weekdayNum = weekdayMap[row.weekday.toLowerCase()];
-    if (weekdayNum === undefined) continue;
-
-    // Find matching dates for this weekday
-    for (let dayOffset = 0; dayOffset < numDays; dayOffset++) {
-      const currentDate = addDays(startDate, dayOffset);
-      if (currentDate.getDay() !== weekdayNum) continue;
-
-      const dateStr = format(currentDate, 'yyyy-MM-dd');
-      const timeWindows = getDefaultTimeWindows(row.serviceType);
-
-      for (const timeWindow of timeWindows) {
-        // Create or get client location
-        const clientName = `${row.serviceType} Client`; // This will be replaced by Service Location Name
-        let existingClient = await storage.getClientLocationByName?.(clientName);
-        if (!existingClient) {
-          existingClient = await storage.upsertClientLocation({
-            clientName: clientName, // This will be replaced by Service Location Name
-            addressLine: `Service Location for ${row.serviceType}`,
-            postcode: 'EH1 1AA', // Default Edinburgh postcode for geocoding
-            lat: null,
-            lng: null
-          });
-        }
-
-        // Create a visit for this service demand
-        const visit = {
-          clientId: existingClient.id,
-          date: dateStr,
-          durationMinutes: Math.max(30, Math.round((row.duration || 1) * 60)), // Convert hours to minutes, minimum 30min
-          preferredStartTime: `${dateStr} ${timeWindow.start}`,
-          preferredEndTime: `${dateStr} ${timeWindow.end}`,
-          priority: row.serviceType.toLowerCase().includes('medication') ? 1 : 
-                   row.serviceType.toLowerCase().includes('personal care') ? 2 : 3,
-          serviceType: row.serviceType
-        };
-
-        // Save the visit
-        await storage.saveVisit(visit);
-        totalVisitsCreated++;
-
-        console.log(`📋 Created visit: ${visit.clientId} on ${dateStr} (${timeWindow.start}-${timeWindow.end}) for ${visit.durationMinutes}min`);
-      }
-    }
-  }
-
-  console.log(`✅ Generated ${totalVisitsCreated} client visits from demand data`);
-}
-
 // Postcode normalization helper function
 function normalisePostcode(pc: string) {
   if (!pc) return "";
@@ -1036,13 +938,7 @@ export async function parseExcelFiles(
   console.log(`📊 Weekday totals:`, hoursByWeekday);
   console.log(`📊 Filtered demand rows for visit generation: ${filteredRows.length}`);
 
-  // Clear old visits data before generating new visits to prevent accumulation
-  console.log(`🧹 Clearing old visits data before generating new visits...`);
-  await storage.clearAllVisits();
-
-  // Generate client visits from demand data (Hours by Service Type)
-  const analysisStartDate = new Date(); // Use current date as start
-  await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
+  // Note: Visit generation removed - no longer storing visits in database
 
   // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
@@ -2238,20 +2134,7 @@ export async function processCapacityData(
     );
   });
 
-  // === ALL VISIT DATA EXTRACTION NOW MOVED TO extractAndStoreGeographicalData ===
-  // The original loop that created visits from 'guaranteed' data has been removed
-  // and replaced with a comment indicating that the new extraction is handled elsewhere.
-  const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
-  const visitsByDate = new Map<string, any[]>(); // Placeholder
-  const CLIENT_COLS = [
-    'Service Location Name', 
-    'Client Name', 
-    'Service User Name', 
-    'Customer Name'
-  ];
-
-  // Note: Visit extraction is now handled above using the excel-visit-extractor
-  // This ensures we get exact client names and times from the Excel file
+  // Note: Visit extraction removed - no longer storing visits in database
 
 
   // Re-sort after injection
@@ -2695,111 +2578,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
 
-    // Extract visit data for route optimization using Planned Start/End Date And Time
-    const visitsMap = new Map<string, any>();
-    const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
-
-    // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
-    const CLIENT_COLS = [
-      'Service Location Name', // Prioritized as per the user request
-      'Client Name', 
-      'Service User Name', 
-      'Customer Name'
-    ];
-
-    console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
-
-    for (const row of guaranteed) {
-      // Skip cancelled or secondary multiple care entries
-      if (!isCancellationBlank(row["Cancellation Description"])) continue;
-      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
-
-      // Use the prioritized client name column
-      const clientName = pickCol(row, CLIENT_COLS);
-      const serviceLocationAddress = row["Service Location Address"];
-
-      // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
-      const plannedStartTime = row["Planned Start Date And Time"];
-      const plannedEndTime = row["Planned End Date And Time"];
-      const actualStartTime = row["Actual Start Date And Time"];
-      const actualEndTime = row["Actual End Date And Time"];
-      const startTime = row["Service Requirement Start Date And Time"];
-      const endTime = row["Service Requirement End Date And Time"];
-      const serviceType = row["Actual Service Type Description"];
-
-      if (clientName && (plannedStartTime || actualStartTime || startTime)) {
-        // Use planned times first as requested, then fall back to others
-        const visitStart = plannedStartTime || actualStartTime || startTime;
-        const visitEnd = plannedEndTime || actualEndTime || endTime;
-
-        if (visitStart) {
-          try {
-            const visitDate = format(parseDate(visitStart), "yyyy-MM-dd");
-            // Calculate duration, default to 60 minutes if end time is missing
-            const duration = visitEnd ? 
-              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) : 
-              60; 
-
-            const visitKey = `${clientName}-${visitDate}-${visitStart}`;
-
-            // Get client location for this visit
-            const clientLocation = await storage.getClientLocationByName(clientName);
-
-            if (clientLocation && !visitsMap.has(visitKey)) {
-              // Extract time windows for VRPTW optimizer
-              const startDate = parseDate(visitStart);
-              // Ensure end date is valid, default to start date + duration if missing
-              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + 
-                duration * 60000);
-
-              // Convert to minutes since midnight for optimizer
-              const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
-              const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
-
-              const visitData = {
-                clientId: clientLocation.id,
-                date: visitDate,
-                durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
-                preferredStartTime: visitStart,
-                preferredEndTime: visitEnd || format(endDate, "yyyy-MM-dd HH:mm:ss"), // Use formatted end date if original was missing
-                serviceType: serviceType,
-                priority: 1, // Default priority
-                // Additional fields for VRPTW optimizer
-                startMinutes: startMinutes,
-                endMinutes: endMinutes,
-                clientName: clientName,
-                location: clientLocation.lat && clientLocation.lng ? {
-                  lat: parseFloat(clientLocation.lat),
-                  lng: parseFloat(clientLocation.lng)
-                } : null
-              };
-
-              visitsMap.set(visitKey, visitData);
-
-              // Group by date for optimization
-              if (!visitsByDate.has(visitDate)) {
-                visitsByDate.set(visitDate, []);
-              }
-              visitsByDate.get(visitDate)!.push(visitData);
-
-              console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
-            } else if (!clientLocation) {
-              console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
-            }
-          } catch (dateError) {
-            // Skip visits with invalid dates
-            console.warn(`Skipping visit with invalid date: ${visitStart}`);
-          }
-        }
-      }
-    }
-
-    console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
-
-    // Store visit data
-    for (const visitData of Array.from(visitsMap.values())) {
-      await storage.saveVisit(visitData);
-    }
+    // Note: Visit extraction removed - no longer storing visits in database
 
     // Log final geocoding statistics
     const empLocs = await storage.getAllEmployeeLocations?.() ?? [];
