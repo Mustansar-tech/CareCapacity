@@ -1218,20 +1218,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/weekly-schedule/generate', async (req, res) => {
     try {
       const { weekStartDate } = req.body;
-      
+
       if (!weekStartDate) {
         return res.status(400).json({ message: 'weekStartDate is required' });
       }
-      
+
       // Get the week boundaries
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
-      
+
       // Get latest processed data
       const latestData = await storage.getLatestCapacityAnalysis();
       if (!latestData) {
         return res.status(404).json({ message: 'No processed data available. Please process files first.' });
       }
-      
+
       // Convert to ProcessingResult format
       const processingResult = {
         kpis: latestData.kpis as any,
@@ -1254,21 +1254,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lng: loc.lng ? Number(loc.lng) : undefined,
         }))),
       };
-      
+
       // Generate weekly schedule using the same algorithm as manual scheduling
       // For now, return empty schedule structure that the frontend will populate
       const scheduleData = {
         employees: [],
         weekDates: [],
       };
-      
+
       const metrics = {
         totalVisitsAssigned: 0,
         totalVisitsUnallocated: 0,
         averageTravelTimePerVisit: 0,
         employeesUtilized: 0,
       };
-      
+
       // Save to database
       const savedSchedule = await storage.saveWeeklySchedule({
         weekStartDate: weekStart,
@@ -1277,7 +1277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: [],
         metrics,
       });
-      
+
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error generating weekly schedule:', error);
@@ -1295,7 +1295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllEmployeeLocations(),
         storage.getAllClientLocations()
       ]);
-      
+
       res.json({
         employees,
         clients
@@ -1313,11 +1313,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/weekly-schedule/latest', async (req, res) => {
     try {
       const latestSchedule = await storage.getLatestWeeklySchedule();
-      
+
       if (!latestSchedule) {
         return res.status(404).json({ message: 'No weekly schedules found' });
       }
-      
+
       res.json(latestSchedule);
     } catch (error) {
       console.error('Error fetching latest weekly schedule:', error);
@@ -1333,13 +1333,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { weekStartDate } = req.params;
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
-      
+
       const schedule = await storage.getWeeklyScheduleByWeek(weekStart, weekEnd);
-      
+
       if (!schedule) {
         return res.status(404).json({ message: 'Schedule not found for this week' });
       }
-      
+
       res.json(schedule);
     } catch (error) {
       console.error('Error fetching weekly schedule:', error);
@@ -1354,11 +1354,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/weekly-schedule/save', async (req, res) => {
     try {
       const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
-      
+
       if (!weekStartDate || !weekEndDate || !scheduleData || !metrics) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
-      
+
       const savedSchedule = await storage.saveWeeklySchedule({
         weekStartDate,
         weekEndDate,
@@ -1366,7 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: unallocatedVisits || [],
         metrics,
       });
-      
+
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error saving weekly schedule:', error);
@@ -1376,6 +1376,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Auto-scheduler endpoint for weekly scheduling
+  app.post('/api/auto-schedule/week', async (req, res) => {
+    try {
+      const { weekStartDate } = req.body;
+
+      if (!weekStartDate) {
+        return res.status(400).json({ error: 'weekStartDate is required' });
+      }
+
+      console.log(`🤖 Auto-scheduling week starting ${weekStartDate}`);
+
+      // Use the AutoScheduler to generate the week schedule
+      const { autoScheduler } = await import("./auto-scheduler");
+      const weekSchedule = await autoScheduler.scheduleWeek(weekStartDate);
+
+      res.json(weekSchedule);
+    } catch (error) {
+      console.error('Error auto-scheduling week:', error);
+      res.status(500).json({ error: 'Failed to auto-schedule week' });
+    }
+  });
+
+  // Weekly schedule endpoints
+  app.get('/api/weekly-schedule/latest', async (req, res) => {
+    try {
+      const latestSchedule = await storage.getLatestWeeklySchedule();
+
+      if (!latestSchedule) {
+        return res.status(404).json({ message: 'No weekly schedules found' });
+      }
+
+      res.json(latestSchedule);
+    } catch (error) {
+      console.error('Error fetching latest weekly schedule:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch weekly schedule',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
 
   const httpServer = createServer(app);
 

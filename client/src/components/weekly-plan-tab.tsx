@@ -123,45 +123,89 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
-      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
+      console.log(`🤖 Calling backend auto-scheduler for week ${weekStart}`);
       
-      // Prepare employee data with locations
-      const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
-        empList.map(emp => {
-          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-          return {
-            employeeName: emp.employeeName,
-            date,
-            timeWindows: emp.timeWindows,
-            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
-            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
-            transportMode: location?.transportMode || undefined,
-          };
-        })
-      );
-
-      // Add location data to visits
-      const visitsWithLocations: ClientVisit[] = allWeekVisits.map((visit, index) => {
-        const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
-        return {
-          id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
-          clientName: visit.clientName,
-          startTime: visit.startTime,
-          endTime: visit.endTime,
-          durationMinutes: visit.durationMinutes,
-          date: visit.date,
-          lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
-          lng: clientLocation?.lng ? Number(clientLocation.lng) : undefined,
-          serviceType: visit.serviceType,
-          priority: visit.priority,
-        };
+      // Call the backend auto-scheduler API
+      const response = await apiRequest<any>('POST', '/api/auto-schedule/week', {
+        weekStartDate: weekStart,
       });
-
-      console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
       
-      const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
+      console.log(`✅ Auto-scheduler response:`, response);
       
-      console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
+      // Transform backend response to match frontend format
+      const assignments: Record<string, Record<string, AssignedVisit[]>> = {};
+      const unallocated: Array<ClientVisit & { reason: string }> = [];
+      
+      // Process each day in the response
+      Object.entries(response).forEach(([date, daySchedule]: [string, any]) => {
+        assignments[date] = {};
+        
+        // Process each employee's visits for this day
+        daySchedule.employees.forEach((emp: any) => {
+          if (emp.visits.length > 0) {
+            assignments[date][emp.employeeName] = emp.visits.map((visit: any) => ({
+              id: visit.id,
+              clientName: visit.clientName,
+              startTime: minutesToTime(visit.actualStartTime),
+              endTime: minutesToTime(visit.actualEndTime),
+              durationMinutes: visit.durationMinutes,
+              lat: visit.clientLat,
+              lng: visit.clientLng,
+              travelTimeBefore: visit.travelTimeBefore,
+              score: visit.assignmentScore || 0,
+            }));
+          }
+        });
+        
+        // Collect unassigned visits
+        daySchedule.unassignedVisits.forEach((visit: any) => {
+          unallocated.push({
+            id: visit.id,
+            clientName: visit.clientName,
+            startTime: minutesToTime(visit.startTime),
+            endTime: minutesToTime(visit.endTime),
+            durationMinutes: visit.durationMinutes,
+            date: date,
+            serviceType: visit.serviceType,
+            priority: visit.priority,
+            reason: 'No suitable employee found',
+          });
+        });
+      });
+      
+      // Calculate metrics
+      const totalVisitsAssigned = Object.values(assignments).reduce(
+        (sum, dateAssignments) => sum + Object.values(dateAssignments).reduce(
+          (daySum, visits) => daySum + visits.length, 0
+        ), 0
+      );
+      
+      const employeesUtilized = new Set(
+        Object.values(assignments).flatMap(dateAssignments => Object.keys(dateAssignments))
+      ).size;
+      
+      const totalTravelTime = Object.values(assignments).reduce(
+        (sum, dateAssignments) => sum + Object.values(dateAssignments).reduce(
+          (daySum, visits) => daySum + visits.reduce((vSum, v) => vSum + v.travelTimeBefore, 0), 0
+        ), 0
+      );
+      
+      const averageTravelTimePerVisit = totalVisitsAssigned > 0 
+        ? Math.round(totalTravelTime / totalVisitsAssigned) 
+        : 0;
+      
+      const result = {
+        assignments,
+        unallocated,
+        metrics: {
+          totalVisitsAssigned,
+          totalVisitsUnallocated: unallocated.length,
+          averageTravelTimePerVisit,
+          employeesUtilized,
+        },
+      };
+      
+      console.log(`✅ Transformed schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
       
       return result;
     },
