@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Lightbulb as LightBulbIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
@@ -23,7 +23,6 @@ import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
-import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
 // Import the new WeeklyPlanTab component
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 
@@ -535,7 +534,7 @@ export default function Dashboard() {
           <div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
@@ -567,14 +566,6 @@ export default function Dashboard() {
             >
               <Users className="w-4 h-4 mr-2" />
               BD Matrix
-            </TabsTrigger>
-            <TabsTrigger 
-              value="scheduling" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-scheduling"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Scheduling
             </TabsTrigger>
             <TabsTrigger 
               value="weekly" 
@@ -1228,11 +1219,6 @@ export default function Dashboard() {
                 />
               );
             })()}
-          </TabsContent>
-
-          {/* Scheduling Tab */}
-          <TabsContent value="scheduling" className="space-y-6 animate-fade-in" data-testid="content-scheduling">
-            <SimpleSchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
           {/* Weekly Plan Tab */}
