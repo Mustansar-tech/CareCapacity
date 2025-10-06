@@ -573,7 +573,7 @@ export default function Dashboard() {
               data-testid="tab-weekly-scheduling"
             >
               <Calendar className="w-4 h-4 mr-2" />
-              Weekly Plan
+              Scheduling
             </TabsTrigger>
             <TabsTrigger 
               value="ai-suggestions" 
@@ -1221,7 +1221,7 @@ export default function Dashboard() {
             })()}
           </TabsContent>
 
-          {/* Weekly Plan Tab */}
+          {/* Scheduling Tab */}
           <TabsContent value="weekly" className="space-y-6 animate-fade-in" data-testid="content-weekly-plan">
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
@@ -1236,13 +1236,13 @@ export default function Dashboard() {
                       <Download className="w-5 h-5 text-white" />
                     </div>
                     <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-                      Export Data
+                      Export Capacity Analysis
                     </span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
                     {(() => {
                       const data = filteredData || processedData;
-                      if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
+                      if (!data?.dailySummary || data.dailySummary.length === 0) return 'No data';
                       const startDate = new Date(data.dailySummary[0].date);
                       const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date);
                       return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
@@ -1251,50 +1251,59 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                <p className="text-gray-600 dark:text-gray-300 mb-6" data-testid="export-description">
-                  Download the processed capacity data as a comprehensive Excel file with detailed analysis sheets:
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-blue-900 dark:text-blue-100">Cleaned Data</div>
-                      <div className="text-sm text-blue-700 dark:text-blue-300">All processed employee records with capacity calculations</div>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Comprehensive Capacity Report</h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4" data-testid="export-description">
+                      Export your complete capacity analysis as a multi-sheet Excel workbook with detailed metrics, employee data, and daily summaries.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-medium text-blue-900 dark:text-blue-100 mb-1">Cleaned Data</div>
+                        <div className="text-sm text-blue-700 dark:text-blue-300">Processed employee records with capacity calculations and time windows</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-medium text-emerald-900 dark:text-emerald-100 mb-1">Daily Summary</div>
+                        <div className="text-sm text-emerald-700 dark:text-emerald-300">Aggregated daily capacity metrics, gaps, and utilization KPIs</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-medium text-purple-900 dark:text-purple-100 mb-1">Employee Details</div>
+                        <div className="text-sm text-purple-700 dark:text-purple-300">Comprehensive employee breakdown with assignments and availability</div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-emerald-900 dark:text-emerald-100">Daily Summary</div>
-                      <div className="text-sm text-emerald-700 dark:text-emerald-300">Daily aggregated capacity metrics and KPIs</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-purple-900 dark:text-purple-100">Employee Details</div>
-                      <div className="text-sm text-purple-700 dark:text-purple-300">Detailed employee breakdown by date and assignments</div>
-                    </div>
+
+                  <div className="flex items-center justify-center pt-4">
+                    <Button 
+                      onClick={handleExport}
+                      className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-6 text-base"
+                      disabled={isProcessing}
+                      data-testid="button-export"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                          Generating Excel file...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-5 h-5 mr-2" />
+                          Download capacity_dashboard.xlsx
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
-                <Button 
-                  onClick={handleExport}
-                  className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
-                  disabled={isProcessing}
-                  data-testid="button-export"
-                >
-                  {isProcessing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Excel file...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Download capacity_dashboard.xlsx
-                    </>
-                  )}
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>
