@@ -666,13 +666,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const employeeId of employeeIds) {
         const employeeLocation = await storage.getEmployeeLocationByName(employeeId);
         if (employeeLocation) {
-          const routePlan = await storage.saveRoutePlan({
+          // Route plan storage removed - return placeholder
+          optimizedRoutes.push({
             date,
             employeeId: employeeLocation.id,
             status: 'infeasible',
             warnings: ['Route optimization algorithm not yet implemented']
           });
-          optimizedRoutes.push(routePlan);
         }
       }
 
@@ -705,8 +705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get client locations error:', error);
       res.status(500).json({ message: 'Failed to get client locations' });
     }
-  
-
+  });
 
 
 
