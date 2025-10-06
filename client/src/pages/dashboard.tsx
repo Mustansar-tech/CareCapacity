@@ -352,7 +352,7 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
                 </div>
                 <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-orange-600" />
                   <h3 className="font-semibold mb-2">CG Data Export</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
                 </div>
@@ -449,7 +449,7 @@ export default function Dashboard() {
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                  <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
+                  <FileSpreadsheet className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
                 </div>
                 <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
                   CG Data
@@ -922,7 +922,7 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                        <Target className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                        <FileSpreadsheet className="w-3 h-3 text-orange-600 dark:text-orange-400" />
                       </div>
                       <Label htmlFor="cgdata-file-overview" className="text-sm font-medium">
                         CG Data Export.xlsx
