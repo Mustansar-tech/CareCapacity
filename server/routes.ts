@@ -258,7 +258,171 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get visits for a specific date for scheduling
+  app.get("/api/visits/:date", async (req, res) => {
+    try {
+      const { date } = req.params;
+      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
 
+      if (!latestGuaranteedBuffer) {
+        return res.status(404).json({ error: "No processed data available. Please process files first." });
+      }
+
+      // Dynamically import the function to avoid circular dependencies or unnecessary loads
+      const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
+      const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
+      const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
+      res.json(visits);
+    } catch (error) {
+      console.error("Error extracting visits:", error);
+      res.status(500).json({ error: "Failed to extract visits" });
+    }
+  });
+
+  // Get visits for a date range
+  app.get('/api/visits', async (req, res) => {
+    try {
+      const { start, end } = req.query;
+
+      if (!start || !end) {
+        return res.status(400).json({ error: 'Start and end dates are required' });
+      }
+
+      console.log(`📋 Getting visits from ${start} to ${end}`);
+      const visits = await storage.listVisitsBetween(start as string, end as string);
+
+      res.json(visits);
+    } catch (error) {
+      console.error('Error getting visits range:', error);
+      res.status(500).json({ 
+        error: 'Failed to get visits',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Auto-schedule a single day
+  app.post("/api/schedule/auto-day", async (req, res) => {
+    try {
+      const { date } = req.body;
+
+      if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+      }
+
+      const { autoScheduler } = await import("./auto-scheduler");
+      const schedule = await autoScheduler.scheduleDay(date);
+
+      res.json(schedule);
+    } catch (error) {
+      console.error("Error auto-scheduling day:", error);
+      res.status(500).json({ error: "Failed to auto-schedule day" });
+    }
+  });
+
+  // Auto-schedule entire week
+  app.post("/api/schedule/auto-week", async (req, res) => {
+    try {
+      const { startDate } = req.body;
+
+      if (!startDate) {
+        return res.status(400).json({ error: "Start date is required" });
+      }
+
+      const { autoScheduler } = await import("./auto-scheduler");
+      const weekSchedule = await autoScheduler.scheduleWeek(startDate);
+
+      res.json(weekSchedule);
+    } catch (error) {
+      console.error("Error auto-scheduling week:", error);
+      res.status(500).json({ error: "Failed to auto-schedule week" });
+    }
+  });
+
+  // Get weekly schedule
+  app.get("/api/schedule/week/:startDate", async (req, res) => {
+    try {
+      const { startDate } = req.params;
+
+      const { autoScheduler } = await import("./auto-scheduler");
+      const weekSchedule = await autoScheduler.scheduleWeek(startDate);
+
+      res.json(weekSchedule);
+    } catch (error) {
+      console.error("Error getting weekly schedule:", error);
+      res.status(500).json({ error: "Failed to get weekly schedule" });
+    }
+  });
+
+  // Auto-scheduler endpoints
+  app.post('/api/run-optimization/optimize', async (req, res) => {
+    try {
+      const { date, maxCareMinutes, bufferMinutes, maxTravelBetweenVisits } = req.body;
+
+      if (!date) {
+        return res.status(400).json({ error: 'Date is required' });
+      }
+
+      console.log(`🤖 Starting run optimization for ${date}`);
+      const { autoScheduler } = await import("./auto-scheduler");
+      const result = await autoScheduler.scheduleDay(date);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Run optimization error:', error);
+      res.status(500).json({ 
+        error: 'Run optimization failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Weekly route-optimized scheduling endpoint
+  app.post('/api/auto-schedule', async (req, res) => {
+    try {
+      const { date, settings } = req.body;
+
+      if (!date) {
+        return res.status(400).json({ error: 'Date is required' });
+      }
+
+      console.log(`🚗 Starting route optimization for ${date}`);
+
+      // Get available employees for the date
+      const employees = await getAvailableEmployeesForDate(date);
+      console.log(`👥 Found ${employees.length} available employees`);
+
+      // Get unassigned visits for the date  
+      const visits = await getUnassignedVisitsForDate(date);
+      console.log(`📋 Found ${visits.length} visits to schedule`);
+
+      if (employees.length === 0 || visits.length === 0) {
+        return res.json({
+          date,
+          employees: [],
+          unassignedVisits: visits,
+          metrics: {
+            totalAssignedVisits: 0,
+            totalUnassignedVisits: visits.length,
+            averageUtilization: 0,
+            totalTravelTime: 0,
+            routeEfficiency: 0,
+          }
+        });
+      }
+
+      // Apply route optimization algorithm
+      const optimizedSchedule = await optimizeRoutesForDay(date, employees, visits, settings);
+
+      res.json(optimizedSchedule);
+    } catch (error) {
+      console.error('Auto-scheduling error:', error);
+      res.status(500).json({ 
+        error: 'Auto-scheduling failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 
   // GET /api/history - Get all historical analyses (latest 8 weeks only)
   app.get('/api/history', async (_req, res) => {
@@ -666,13 +830,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const employeeId of employeeIds) {
         const employeeLocation = await storage.getEmployeeLocationByName(employeeId);
         if (employeeLocation) {
-          // Route plan storage removed - return placeholder
-          optimizedRoutes.push({
+          const routePlan = await storage.saveRoutePlan({
             date,
             employeeId: employeeLocation.id,
             status: 'infeasible',
             warnings: ['Route optimization algorithm not yet implemented']
           });
+          optimizedRoutes.push(routePlan);
         }
       }
 
@@ -683,7 +847,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route optimization removed - visits and route plans are no longer stored in database
+  // GET /api/routing/plans?date=YYYY-MM-DD - Get route plans for a date
+  app.get('/api/routing/plans', async (req, res) => {
+    try {
+      const date = req.query.date as string;
+      if (!date) {
+        return res.status(400).json({ message: 'Date parameter is required' });
+      }
+
+      const plans = await storage.getRoutePlansByDate(date);
+
+      // Fetch route stops for each plan
+      const plansWithStops = await Promise.all(
+        plans.map(async (plan) => {
+          const stops = await storage.getRouteStopsByPlan(plan.id);
+          return { ...plan, stops };
+        })
+      );
+
+      res.json(plansWithStops);
+    } catch (error) {
+      console.error('Get route plans error:', error);
+      res.status(500).json({ message: 'Failed to get route plans' });
+    }
+  });
 
   // GET /api/geographical/employees - Get all employee locations
   app.get('/api/geographical/employees', async (req, res) => {
@@ -709,28 +896,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // POST /api/cleanup/routes-visits - Clean up routes and visits data
+  app.post('/api/cleanup/routes-visits', async (req, res) => {
+    try {
+      console.log('🧹 Starting cleanup of routes and visits data...');
 
+      const result = await storage.clearRoutesAndVisits();
 
+      console.log(`✅ Cleanup complete: ${result.routePlansDeleted} route plans, ${result.routeStopsDeleted} route stops, ${result.visitsDeleted} visits deleted`);
+
+      res.json({
+        message: 'Routes and visits data cleaned successfully',
+        deletedCounts: result
+      });
+
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      res.status(500).json({ 
+        message: 'Failed to cleanup routes and visits data', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
+  // Helper function to get full processing results
+  async function getProcessingResults(): Promise<ProcessingResult | null> {
+    try {
+      const analyses = await storage.getCapacityAnalyses();
+      if (analyses.length === 0) return null;
+
+      return analyses[0] as ProcessingResult;
+    } catch (error) {
+      console.error('Error getting processing results:', error);
+      return null;
+    }
+  }
+
+  // Helper functions for route optimization
+  async function getAvailableEmployeesForDate(date: string) {
+    try {
+      const results = await getProcessingResults();
+      if (!results) return [];
+
+      const employeesForDate = results.employeesByDate?.[date] || [];
+      const employeeLocations = results.employeeLocations || [];
+
+      return employeesForDate
+        .filter((emp: any) => ['Available', 'Partial Availability'].includes(emp.status))
+        .map((emp: any) => {
+          const location = employeeLocations.find((loc: any) => loc.employeeName === emp.employeeName);
+          const timeWindows = parseTimeWindowsForRouting(emp.timeWindows);
+
+          return {
+            employeeName: emp.employeeName,
+            homeLat: location?.homeLat ? Number(location.homeLat) : 55.9533,
+            homeLng: location?.homeLng ? Number(location.homeLng) : -3.1883,
+            transportMode: location?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking',
+            timeWindows,
+            contractedDailyHours: emp.contractedDailyHours,
+            visits: [],
+            totalTravelTime: 0,
+            totalWorkTime: 0,
+            utilizationPercent: 0,
+          };
+        });
+    } catch (error) {
+      console.error('Error getting available employees:', error);
+      return [];
+    }
+  }
+
+  async function getUnassignedVisitsForDate(date: string) {
+    try {
+      const visits = await storage.listVisitsBetween(date, date);
+      const results = await getProcessingResults();
+      const clientLocations = results?.clientLocations || [];
+
+      return visits.map((visit: any) => {
+        const clientName = visit.clientId || visit.clientName || 'Unknown Client';
+        const client = clientLocations.find((c: any) => c.clientName === clientName);
+
+        return {
+          id: visit.id || `${clientName}-${date}`,
+          clientName,
+          startTime: timeStringToMinutes(visit.preferredStartTime || '09:00'),
+          endTime: timeStringToMinutes(visit.preferredEndTime || '10:00'),
+          durationMinutes: visit.durationMinutes || 60,
+          priority: visit.priority || 2,
+          serviceType: visit.serviceType || 'Personal Care',
+          lat: client?.lat ? Number(client.lat) : undefined,
+          lng: client?.lng ? Number(client.lng) : undefined,
+        };
+      });
+    } catch (error) {
+      console.error('Error getting unassigned visits:', error);
+      return [];
+    }
+  }
+
+  async function optimizeRoutesForDay(date: string, employees: any[], visits: any[], settings: any) {
+    console.log(`🔄 Optimizing routes for ${date} with ${employees.length} employees and ${visits.length} visits`);
+
+    // Simple greedy algorithm - assign visits to minimize total travel time
+    const employeeSchedules = employees.map(emp => ({ ...emp, visits: [] }));
+    const unassignedVisits = [...visits];
+
+    // Sort visits by priority (1 = highest)
+    unassignedVisits.sort((a, b) => a.priority - b.priority);
+
+    for (const visit of visits) {
+      if (!visit.lat || !visit.lng) {
+        continue; // Skip visits without coordinates
+      }
+
+      let bestEmployee = null;
+      let bestScore = -1;
+      let bestInsertionIndex = 0;
+
+      for (const employee of employeeSchedules) {
+        // Check if employee can handle this visit within time windows
+        const canFit = employee.timeWindows.some((window: any) => 
+          visit.startTime >= window.start && visit.endTime <= window.end
+        );
+
+        if (!canFit) continue;
+
+        // Try inserting at different positions
+        for (let insertionIndex = 0; insertionIndex <= employee.visits.length; insertionIndex++) {
+          const score = calculateInsertionScore(visit, employee, insertionIndex, settings);
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestEmployee = employee;
+            bestInsertionIndex = insertionIndex;
+          }
+        }
+      }
+
+      if (bestEmployee && bestScore > 0) {
+        // Calculate travel times
+        const travelTimeBefore = calculateTravelTimeBefore(visit, bestEmployee, bestInsertionIndex);
+        const travelTimeAfter = calculateTravelTimeAfter(visit, bestEmployee, bestInsertionIndex);
+
+        const assignedVisit = {
+          ...visit,
+          employeeName: bestEmployee.employeeName,
+          actualStartTime: visit.startTime,
+          actualEndTime: visit.endTime,
+          travelTimeBefore,
+          travelTimeAfter,
+          score: bestScore,
+        };
+
+        bestEmployee.visits.splice(bestInsertionIndex, 0, assignedVisit);
+        bestEmployee.totalTravelTime += travelTimeBefore + travelTimeAfter;
+        bestEmployee.totalWorkTime += visit.durationMinutes;
+        bestEmployee.utilizationPercent = bestEmployee.contractedDailyHours > 0 
+          ? Math.round((bestEmployee.totalWorkTime / 60) / bestEmployee.contractedDailyHours * 100)
+          : 0;
+
+        // Remove from unassigned
+        const index = unassignedVisits.findIndex(v => v.id === visit.id);
+        if (index > -1) {
+          unassignedVisits.splice(index, 1);
+        }
+      }
+    }
+
+    const totalAssigned = employeeSchedules.reduce((sum, emp) => sum + emp.visits.length, 0);
+    const totalTravelTime = employeeSchedules.reduce((sum, emp) => sum + emp.totalTravelTime, 0);
+    const avgUtilization = employeeSchedules.length > 0 
+      ? Math.round(employeeSchedules.reduce((sum, emp) => sum + emp.utilizationPercent, 0) / employeeSchedules.length)
+      : 0;
+
+    // Calculate route efficiency (assigned visits / total possible visits)
+    const routeEfficiency = visits.length > 0 ? Math.round((totalAssigned / visits.length) * 100) : 0;
+
+    return {
+      date,
+      employees: employeeSchedules,
+      unassignedVisits,
+      metrics: {
+        totalAssignedVisits: totalAssigned,
+        totalUnassignedVisits: unassignedVisits.length,
+        averageUtilization: avgUtilization,
+        totalTravelTime,
+        routeEfficiency,
+      }
+    };
+  }
+
+  function parseTimeWindowsForRouting(windows: string): Array<{ start: number; end: number }> {
+    if (!windows) return [];
+
+    const timeRanges = windows.split(',').map(w => w.trim()).filter(w => w);
+    return timeRanges.map(range => {
+      const match = range.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+      if (!match) return null;
+
+      const startHour = parseInt(match[1]);
+      const startMin = parseInt(match[2]);
+      const endHour = parseInt(match[3]);
+      const endMin = parseInt(match[4]);
+
+      return {
+        start: startHour * 60 + startMin,
+        end: endHour * 60 + endMin,
+      };
+    }).filter((w): w is { start: number; end: number } => w !== null);
+  }
+
+  function timeStringToMinutes(timeStr: string): number {
+    if (!timeStr) return 0;
+
+    // Handle both "HH:MM" and ISO datetime formats
+    let time = timeStr;
+    if (timeStr.includes('T')) {
+      time = timeStr.split('T')[1].split(':').slice(0, 2).join(':');
+    }
+
+    const [hours, minutes] = time.split(':').map(Number);
+    return (hours || 0) * 60 + (minutes || 0);
+  }
+
+  function calculateInsertionScore(visit: any, employee: any, insertionIndex: number, settings: any): number {
+    // Calculate travel time if inserted at this position
+    const travelBefore = calculateTravelTimeBefore(visit, employee, insertionIndex);
+    const travelAfter = calculateTravelTimeAfter(visit, employee, insertionIndex);
+    const totalTravel = travelBefore + travelAfter;
+
+    // Reject if travel exceeds maximum
+    if (totalTravel > settings.maxTravelPerVisit) {
+      return 0;
+    }
+
+    let score = 1.0;
+
+    // Travel time factor (40% weight)
+    score *= (1 - totalTravel / (settings.maxTravelPerVisit * 2)) * 0.4;
+
+    // Time window fit factor (30% weight)
+    const timeWindowFit = employee.timeWindows.some((window: any) => 
+      visit.startTime >= window.start && visit.endTime <= window.end
+    ) ? 1 : 0;
+    score += timeWindowFit * 0.3;
+
+    // Employee utilization factor (20% weight)
+    const currentUtilization = employee.contractedDailyHours > 0 
+      ? (employee.totalWorkTime / 60) / employee.contractedDailyHours 
+      : 0;
+    const utilizationScore = currentUtilization < 0.8 ? 1 : Math.max(0, 1 - (currentUtilization - 0.8) / 0.2);
+    score += utilizationScore * 0.2;
+
+    // Priority factor (10% weight)
+    score += (4 - visit.priority) / 3 * 0.1;
+
+    return Math.max(0, score);
+  }
+
+  function calculateTravelTimeBefore(visit: any, employee: any, insertionIndex: number): number {
+    if (insertionIndex === 0) {
+      // Travel from home
+      return calculateTravelMinutes(
+        { lat: employee.homeLat, lng: employee.homeLng },
+        { lat: visit.lat, lng: visit.lng },
+        employee.transportMode
+      );
+    } else {
+      // Travel from previous visit
+      const prevVisit = employee.visits[insertionIndex - 1];
+      return calculateTravelMinutes(
+        { lat: prevVisit.lat, lng: prevVisit.lng },
+        { lat: visit.lat, lng: visit.lng },
+        employee.transportMode
+      );
+    }
+  }
+
+  function calculateTravelTimeAfter(visit: any, employee: any, insertionIndex: number): number {
+    if (insertionIndex >= employee.visits.length) {
+      // Last visit, travel to home
+      return calculateTravelMinutes(
+        { lat: visit.lat, lng: visit.lng },
+        { lat: employee.homeLat, lng: employee.homeLng },
+        employee.transportMode
+      );
+    } else {
+      // Travel to next visit
+      const nextVisit = employee.visits[insertionIndex];
+      return calculateTravelMinutes(
+        { lat: visit.lat, lng: visit.lng },
+        { lat: nextVisit.lat, lng: nextVisit.lng },
+        employee.transportMode
+      );
+    }
+  }
+
+  function calculateTravelMinutes(from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string): number {
+    // Haversine distance calculation
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (to.lat - from.lat) * Math.PI / 180;
+    const dLon = (to.lng - from.lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+
+    // Convert to travel time based on mode
+    const speeds = {
+      car: 40,      // km/h
+      walking: 4.5, // km/h
+    };
+
+    const speed = speeds[mode as keyof typeof speeds] || speeds.car;
+    return Math.max(1, Math.round((distance / speed) * 60));
+  }
 
 
   // Weekly schedule generation endpoint
   app.post('/api/weekly-schedule/generate', async (req, res) => {
     try {
       const { weekStartDate } = req.body;
-
+      
       if (!weekStartDate) {
         return res.status(400).json({ message: 'weekStartDate is required' });
       }
-
+      
       // Get the week boundaries
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
-
+      
       // Get latest processed data
       const latestData = await storage.getLatestCapacityAnalysis();
       if (!latestData) {
         return res.status(404).json({ message: 'No processed data available. Please process files first.' });
       }
-
+      
       // Convert to ProcessingResult format
       const processingResult = {
         kpis: latestData.kpis as any,
@@ -753,21 +1254,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lng: loc.lng ? Number(loc.lng) : undefined,
         }))),
       };
-
+      
       // Generate weekly schedule using the same algorithm as manual scheduling
       // For now, return empty schedule structure that the frontend will populate
       const scheduleData = {
         employees: [],
         weekDates: [],
       };
-
+      
       const metrics = {
         totalVisitsAssigned: 0,
         totalVisitsUnallocated: 0,
         averageTravelTimePerVisit: 0,
         employeesUtilized: 0,
       };
-
+      
       // Save to database
       const savedSchedule = await storage.saveWeeklySchedule({
         weekStartDate: weekStart,
@@ -776,7 +1277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: [],
         metrics,
       });
-
+      
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error generating weekly schedule:', error);
@@ -794,7 +1295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllEmployeeLocations(),
         storage.getAllClientLocations()
       ]);
-
+      
       res.json({
         employees,
         clients
@@ -808,38 +1309,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save weekly schedule
-  app.post('/api/weekly-schedule/save', async (req, res) => {
-    try {
-      const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
-
-      const savedSchedule = await storage.saveWeeklySchedule({
-        weekStartDate,
-        weekEndDate,
-        scheduleData,
-        unallocatedVisits,
-        metrics,
-      });
-
-      res.json(savedSchedule);
-    } catch (error) {
-      console.error('Error saving weekly schedule:', error);
-      res.status(500).json({ 
-        message: 'Failed to save weekly schedule',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
   // Get latest weekly schedule
   app.get('/api/weekly-schedule/latest', async (req, res) => {
     try {
       const latestSchedule = await storage.getLatestWeeklySchedule();
-
+      
       if (!latestSchedule) {
         return res.status(404).json({ message: 'No weekly schedules found' });
       }
-
+      
       res.json(latestSchedule);
     } catch (error) {
       console.error('Error fetching latest weekly schedule:', error);
@@ -855,13 +1333,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { weekStartDate } = req.params;
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
-
+      
       const schedule = await storage.getWeeklyScheduleByWeek(weekStart, weekEnd);
-
+      
       if (!schedule) {
         return res.status(404).json({ message: 'Schedule not found for this week' });
       }
-
+      
       res.json(schedule);
     } catch (error) {
       console.error('Error fetching weekly schedule:', error);
@@ -876,11 +1354,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/weekly-schedule/save', async (req, res) => {
     try {
       const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
-
+      
       if (!weekStartDate || !weekEndDate || !scheduleData || !metrics) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
-
+      
       const savedSchedule = await storage.saveWeeklySchedule({
         weekStartDate,
         weekEndDate,
@@ -888,7 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: unallocatedVisits || [],
         metrics,
       });
-
+      
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error saving weekly schedule:', error);
@@ -902,4 +1380,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   return httpServer;
+}
+
+// Haversine distance formula
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }

@@ -1,12 +1,18 @@
-import {
-  type User,
-  type InsertUser,
-  type CapacityAnalysis,
+import { 
+  type User, 
+  type InsertUser, 
+  type CapacityAnalysis, 
   type InsertCapacityAnalysis,
   type EmployeeLocation,
   type InsertEmployeeLocation,
   type ClientLocation,
   type InsertClientLocation,
+  type Visit,
+  type InsertVisit,
+  type RoutePlan,
+  type InsertRoutePlan,
+  type RouteStop,
+  type InsertRouteStop,
   type GeocodeCache,
   type InsertGeocode,
   type WeeklySchedule,
@@ -43,10 +49,24 @@ export interface IStorage {
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(): Promise<ClientLocation[]>;
 
+  saveVisit(visit: InsertVisit): Promise<Visit>;
+  getVisitById(id: string): Promise<Visit | undefined>;
+  getVisitsByDate(date: string): Promise<Visit[]>;
+  getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
+  listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]>;
+  clearAllVisits(): Promise<any>;
 
+  saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
+  getRoutePlansByDate(date: string): Promise<RoutePlan[]>;
+  getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined>;
+
+  saveRouteStop(stop: InsertRouteStop): Promise<RouteStop>;
+  getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]>;
 
   getGeocode(key: string): Promise<GeocodeCache | undefined>;
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
+
+  clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
 
   // Weekly schedule methods
   saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule>;
@@ -60,6 +80,9 @@ export class MemStorage implements IStorage {
   private capacityAnalyses: Map<string, CapacityAnalysis>;
   private employeeLocations: Map<string, EmployeeLocation>;
   private clientLocations: Map<string, ClientLocation>;
+  private visits: Map<string, Visit>;
+  private routePlans: Map<string, RoutePlan>;
+  private routeStops: Map<string, RouteStop>;
   private geocodeCache: Map<string, GeocodeCache>;
   private weeklySchedules: Map<string, WeeklySchedule>;
 
@@ -68,6 +91,9 @@ export class MemStorage implements IStorage {
     this.capacityAnalyses = new Map();
     this.employeeLocations = new Map();
     this.clientLocations = new Map();
+    this.visits = new Map();
+    this.routePlans = new Map();
+    this.routeStops = new Map();
     this.geocodeCache = new Map();
     this.weeklySchedules = new Map();
   }
@@ -92,7 +118,7 @@ export class MemStorage implements IStorage {
   async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
     // Remove existing entry with same week dates for deduplication
     const existingEntry = Array.from(this.capacityAnalyses.values()).find(
-      analysis => analysis.weekStartDate === insertAnalysis.weekStartDate &&
+      analysis => analysis.weekStartDate === insertAnalysis.weekStartDate && 
                   analysis.weekEndDate === insertAnalysis.weekEndDate
     );
     if (existingEntry) {
@@ -170,7 +196,7 @@ export class MemStorage implements IStorage {
     const sortedWeeks = Array.from(weekMap.entries())
       .sort(([, analysesA], [, analysesB]) => {
         const dateA = new Date(analysesA[0].weekStartDate); // Use actual weekStartDate field
-        const dateB = new Date(analysesB[0].weekStartDate);
+        const dateB = new Date(analysesB[0].weekStartDate); 
         return dateB.getTime() - dateA.getTime();
       });
 
@@ -187,7 +213,7 @@ export class MemStorage implements IStorage {
     // For remaining weeks, keep only the latest analysis per week
     sortedWeeks.slice(0, limit).forEach(([_weekKey, analyses]) => {
       if (analyses.length > 1) {
-        const sortedAnalyses = analyses.sort((a, b) =>
+        const sortedAnalyses = analyses.sort((a, b) => 
           new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
         );
         // Delete all but the latest
@@ -337,7 +363,99 @@ export class MemStorage implements IStorage {
     return Array.from(this.clientLocations.values());
   }
 
+  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
+    const id = randomUUID();
+    const visit: Visit = {
+      ...insertVisit,
+      id,
+      preferredStartTime: insertVisit.preferredStartTime || null,
+      preferredEndTime: insertVisit.preferredEndTime || null,
+      priority: insertVisit.priority || null,
+      serviceType: insertVisit.serviceType || null,
+      createdAt: new Date(),
+    };
+    this.visits.set(id, visit);
+    return visit;
+  }
 
+  async getVisitById(id: string): Promise<Visit | undefined> {
+    return this.visits.get(id);
+  }
+
+  async getVisitsByDate(date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(visit => visit.date === date);
+  }
+
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(
+      visit => visit.clientId === clientId && visit.date === date
+    );
+  }
+
+  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    const allVisits = Array.from(this.visits.values());
+    if (!startDate && !endDate) {
+      return allVisits;
+    }
+    return allVisits.filter(visit => {
+      if (startDate && visit.date < startDate) return false;
+      if (endDate && visit.date > endDate) return false;
+      return true;
+    });
+  }
+
+  async clearAllVisits(): Promise<any> {
+    console.log(`🧹 Clearing all visits data...`);
+    this.visits.clear();
+    console.log(`✅ Cleared visits data`);
+    return { visitsDeleted: this.visits.size };
+  }
+
+  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
+    const id = randomUUID();
+    const plan: RoutePlan = {
+      ...insertPlan,
+      id,
+      status: insertPlan.status || null,
+      warnings: insertPlan.warnings || [],
+      totalDistanceKm: insertPlan.totalDistanceKm || null,
+      totalTravelMinutes: insertPlan.totalTravelMinutes || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.routePlans.set(id, plan);
+    return plan;
+  }
+
+  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+    return Array.from(this.routePlans.values()).filter(plan => plan.date === date);
+  }
+
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
+    return Array.from(this.routePlans.values()).find(
+      plan => plan.employeeId === employeeId && plan.date === date
+    );
+  }
+
+  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
+    const id = randomUUID();
+    const stop: RouteStop = {
+      ...insertStop,
+      id,
+      scheduledStart: insertStop.scheduledStart || null,
+      scheduledEnd: insertStop.scheduledEnd || null,
+      travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
+      distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
+    };
+    this.routeStops.set(id, stop);
+    return stop;
+  }
+
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
+    return Array.from(this.routeStops.values())
+      .filter(stop => stop.routePlanId === routePlanId)
+      .sort((a, b) => a.sequence - b.sequence);
+  }
 
   async getGeocode(key: string): Promise<GeocodeCache | undefined> {
     return this.geocodeCache.get(key);
@@ -359,13 +477,23 @@ export class MemStorage implements IStorage {
     return geocode;
   }
 
+  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    const routePlansDeleted = this.routePlans.size;
+    const routeStopsDeleted = this.routeStops.size;
+    const visitsDeleted = this.visits.size;
 
+    this.routePlans.clear();
+    this.routeStops.clear();
+    this.visits.clear();
+
+    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
+  }
 
   // Weekly schedule methods
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     // Remove existing entry with same week dates for deduplication
     const existingEntry = Array.from(this.weeklySchedules.values()).find(
-      schedule => schedule.weekStartDate === insertSchedule.weekStartDate &&
+      schedule => schedule.weekStartDate === insertSchedule.weekStartDate && 
                   schedule.weekEndDate === insertSchedule.weekEndDate
     );
     if (existingEntry) {
@@ -405,11 +533,14 @@ export class MemStorage implements IStorage {
 
 // Switch to database storage in production
 import { db } from "./db";
-import {
-  users,
-  capacityAnalyses,
-  employeeLocations,
-  clientLocations,
+import { 
+  users, 
+  capacityAnalyses, 
+  employeeLocations, 
+  clientLocations, 
+  visits, 
+  routePlans, 
+  routeStops, 
   geocodeCache,
   weeklySchedules
 } from "@shared/schema";
@@ -477,10 +608,10 @@ export class DatabaseStorage implements IStorage {
   async getAllCapacityAnalyses(): Promise<CapacityAnalysis[]> {
     // Return deduplicated results using window function with proper column aliasing
     return await db.execute(sql`
-      SELECT DISTINCT ON (week_start_date, week_end_date)
+      SELECT DISTINCT ON (week_start_date, week_end_date) 
              id,
              week_start_date AS "weekStartDate",
-             week_end_date AS "weekEndDate",
+             week_end_date AS "weekEndDate", 
              uploaded_at AS "uploadedAt",
              kpis,
              daily_summary AS "dailySummary",
@@ -502,7 +633,7 @@ export class DatabaseStorage implements IStorage {
       WITH latest_per_week AS (
         SELECT *,
                ROW_NUMBER() OVER (
-                 PARTITION BY week_start_date, week_end_date
+                 PARTITION BY week_start_date, week_end_date 
                  ORDER BY uploaded_at DESC
                ) as rn
         FROM capacity_analyses
@@ -510,19 +641,19 @@ export class DatabaseStorage implements IStorage {
       week_ranking AS (
         SELECT *,
                ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
-        FROM latest_per_week
+        FROM latest_per_week 
         WHERE rn = 1
       )
       SELECT id,
              week_start_date AS "weekStartDate",
-             week_end_date AS "weekEndDate",
+             week_end_date AS "weekEndDate", 
              uploaded_at AS "uploadedAt",
              kpis,
              daily_summary AS "dailySummary",
              employees_by_date AS "employeesByDate",
              employee_summary_by_date AS "employeeSummaryByDate",
              warnings
-      FROM week_ranking
+      FROM week_ranking 
       WHERE week_rank <= ${limit}
       ORDER BY week_start_date DESC
     `).then(result => result.rows as CapacityAnalysis[]);
@@ -539,21 +670,21 @@ export class DatabaseStorage implements IStorage {
       records_to_keep AS (
         SELECT ca.id
         FROM capacity_analyses ca
-        INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date
+        INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date 
                                  AND ca.week_end_date = wr.week_end_date
         WHERE wr.week_rank <= ${limit}
           AND ca.id IN (
             SELECT id FROM (
-              SELECT id,
+              SELECT id, 
                      ROW_NUMBER() OVER (
-                       PARTITION BY week_start_date, week_end_date
+                       PARTITION BY week_start_date, week_end_date 
                        ORDER BY uploaded_at DESC
                      ) as rn
               FROM capacity_analyses
             ) ranked WHERE rn = 1
           )
       )
-      DELETE FROM capacity_analyses
+      DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
     `);
 
@@ -571,18 +702,18 @@ export class DatabaseStorage implements IStorage {
         -- Keep only the latest entry for each week
         SELECT *,
                ROW_NUMBER() OVER (
-                 PARTITION BY week_start_date, week_end_date
+                 PARTITION BY week_start_date, week_end_date 
                  ORDER BY uploaded_at DESC
                ) as rn
         FROM capacity_analyses
         WHERE week_start_date >= ${cutoffString}  -- Only keep weeks from last 3 months
       ),
       records_to_keep AS (
-        SELECT id
+        SELECT id 
         FROM latest_per_week
         WHERE rn = 1  -- Keep only latest per week
       )
-      DELETE FROM capacity_analyses
+      DELETE FROM capacity_analyses 
       WHERE id NOT IN (SELECT id FROM records_to_keep)
     `);
 
@@ -699,7 +830,111 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clientLocations);
   }
 
+  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
+    const [visit] = await db
+      .insert(visits)
+      .values({
+        ...insertVisit,
+        preferredStartTime: insertVisit.preferredStartTime || null,
+        preferredEndTime: insertVisit.preferredEndTime || null,
+        priority: insertVisit.priority || 1,
+        serviceType: insertVisit.serviceType || null,
+      })
+      .returning();
+    return visit;
+  }
 
+  async getVisitById(id: string): Promise<Visit | undefined> {
+    const [visit] = await db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, id));
+    return visit || undefined;
+  }
+
+  async getVisitsByDate(date: string): Promise<Visit[]> {
+    return await db
+      .select()
+      .from(visits)
+      .where(eq(visits.date, date));
+  }
+
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
+    return await db
+      .select()
+      .from(visits)
+      .where(and(eq(visits.clientId, clientId), eq(visits.date, date)));
+  }
+
+  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    if (startDate && endDate) {
+      return await db.select().from(visits).where(and(gte(visits.date, startDate), lte(visits.date, endDate)));
+    } else if (startDate) {
+      return await db.select().from(visits).where(gte(visits.date, startDate));
+    } else if (endDate) {
+      return await db.select().from(visits).where(lte(visits.date, endDate));
+    }
+
+    return await db.select().from(visits);
+  }
+
+  async clearAllVisits(): Promise<any> {
+    console.log(`🧹 Clearing all visits data...`);
+    const result = await db.delete(visits);
+    console.log(`✅ Cleared visits data`);
+    return result;
+  }
+
+  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
+    const [plan] = await db
+      .insert(routePlans)
+      .values({
+        ...insertPlan,
+        totalDistanceKm: insertPlan.totalDistanceKm || null,
+        totalTravelMinutes: insertPlan.totalTravelMinutes || null,
+        status: insertPlan.status || "optimized",
+        warnings: insertPlan.warnings || [],
+      })
+      .returning();
+    return plan;
+  }
+
+  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+    return await db
+      .select()
+      .from(routePlans)
+      .where(eq(routePlans.date, date));
+  }
+
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(routePlans)
+      .where(and(eq(routePlans.employeeId, employeeId), eq(routePlans.date, date)));
+    return plan || undefined;
+  }
+
+  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
+    const [stop] = await db
+      .insert(routeStops)
+      .values({
+        ...insertStop,
+        scheduledStart: insertStop.scheduledStart || null,
+        scheduledEnd: insertStop.scheduledEnd || null,
+        travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
+        distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
+      })
+      .returning();
+    return stop;
+  }
+
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
+    return await db
+      .select()
+      .from(routeStops)
+      .where(eq(routeStops.routePlanId, routePlanId))
+      .orderBy(routeStops.sequence);
+  }
 
   async getGeocode(key: string): Promise<GeocodeCache | undefined> {
     const [geocode] = await db
@@ -724,7 +959,23 @@ export class DatabaseStorage implements IStorage {
     return geocode;
   }
 
+  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    // Count existing records
+    const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans`);
+    const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops`);
+    const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits`);
 
+    const routePlansDeleted = Number(routePlansCount.rows[0]?.count || 0);
+    const routeStopsDeleted = Number(routeStopsCount.rows[0]?.count || 0);
+    const visitsDeleted = Number(visitsCount.rows[0]?.count || 0);
+
+    // Delete in correct order (route_stops first due to foreign key)
+    await db.delete(routeStops);
+    await db.delete(routePlans);
+    await db.delete(visits);
+
+    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
+  }
 
   // Weekly schedule methods
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {

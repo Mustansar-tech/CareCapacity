@@ -71,8 +71,8 @@ export async function buildEmployeeFitRows(
       storage.getAllEmployeeLocations?.() ?? [],
     ]);
 
-  // Visits are no longer stored - this functionality has been removed
-  const visits: Visit[] = [];
+  // Get all visits for analysis
+  const visits = await storage.listVisitsBetween(null, null);
 
   const clientById = new Map(clients.map(c => [c.id, c]));
   const empLocByName = new Map(employeesLoc.map(e => [e.employeeName, e]));
