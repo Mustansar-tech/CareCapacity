@@ -366,7 +366,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           <div className="flex items-center gap-2 flex-1">
                             <User className="h-4 w-4" />
                             <span className={`${getGenderColorClass(
-                              employeesByDate[weekDates[0]]?.find(e => e.employeeName === empName)?.gender
+                              data?.employeesByDate[weekDates[0]]?.find(e => e.employeeName === empName)?.gender
                             )} font-medium text-sm`}>
                               {empName}
                             </span>
