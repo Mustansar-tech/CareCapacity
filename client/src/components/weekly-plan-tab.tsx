@@ -177,7 +177,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           metrics: result.metrics,
         });
 
-        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
 
         toast({
           title: "Schedule Generated & Saved",
@@ -194,15 +194,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     },
   });
 
-  // Load latest schedule on mount
-  const { data: savedSchedule } = useQuery<any>({
-    queryKey: ['/api/weekly-schedule/latest'],
-    enabled: !!data,
+  // Load schedule for the current week being viewed
+  const { data: savedSchedule, isLoading: isLoadingSchedule } = useQuery<any>({
+    queryKey: ['/api/weekly-schedule', weekStart],
+    enabled: !!data && !!weekStart,
   });
 
   useEffect(() => {
     if (savedSchedule?.scheduleData) {
       // Reconstruct weekly schedule from saved data
+      console.log(`📅 Loading saved schedule for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule({
         assignments: savedSchedule.scheduleData as Record<string, Record<string, AssignedVisit[]>>,
         unallocated: savedSchedule.unallocatedVisits || [],
@@ -213,8 +214,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           employeesUtilized: 0,
         },
       });
+    } else if (savedSchedule === undefined && !isLoadingSchedule) {
+      // No saved schedule for this week - clear the state
+      console.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
+      setWeeklySchedule(null);
     }
-  }, [savedSchedule]);
+  }, [savedSchedule, isLoadingSchedule, weekStart, weekEnd]);
 
   if (!data) {
     return (
