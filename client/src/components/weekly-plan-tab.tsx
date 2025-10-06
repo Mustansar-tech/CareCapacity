@@ -534,14 +534,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2" title={visit.reason}>
                                 {visit.reason}
                               </p>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="w-full h-6 text-xs border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Assign
-                              </Button>
                             </div>
                           </div>
                         ))}
