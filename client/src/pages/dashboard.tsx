@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Lightbulb as LightBulbIcon
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
@@ -23,6 +23,7 @@ import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
+import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
 // Import the new WeeklyPlanTab component
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 
@@ -352,7 +353,7 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
                 </div>
                 <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
                   <h3 className="font-semibold mb-2">CG Data Export</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
                 </div>
@@ -449,7 +450,7 @@ export default function Dashboard() {
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                  <FileSpreadsheet className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
+                  <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
                 </div>
                 <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
                   CG Data
@@ -534,7 +535,7 @@ export default function Dashboard() {
           <div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger 
               value="overview" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
@@ -568,12 +569,20 @@ export default function Dashboard() {
               BD Matrix
             </TabsTrigger>
             <TabsTrigger 
+              value="scheduling" 
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-scheduling"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Scheduling
+            </TabsTrigger>
+            <TabsTrigger 
               value="weekly" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-weekly-scheduling"
             >
               <Calendar className="w-4 h-4 mr-2" />
-              Scheduling
+              Weekly Plan
             </TabsTrigger>
             <TabsTrigger 
               value="ai-suggestions" 
@@ -922,7 +931,7 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                        <FileSpreadsheet className="w-3 h-3 text-orange-600 dark:text-orange-400" />
+                        <Target className="w-3 h-3 text-orange-600 dark:text-orange-400" />
                       </div>
                       <Label htmlFor="cgdata-file-overview" className="text-sm font-medium">
                         CG Data Export.xlsx
@@ -1222,6 +1231,11 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Scheduling Tab */}
+          <TabsContent value="scheduling" className="space-y-6 animate-fade-in" data-testid="content-scheduling">
+            <SimpleSchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
+          </TabsContent>
+
+          {/* Weekly Plan Tab */}
           <TabsContent value="weekly" className="space-y-6 animate-fade-in" data-testid="content-weekly-plan">
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
@@ -1236,13 +1250,13 @@ export default function Dashboard() {
                       <Download className="w-5 h-5 text-white" />
                     </div>
                     <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-                      Export Capacity Analysis
+                      Export Data
                     </span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
                     {(() => {
                       const data = filteredData || processedData;
-                      if (!data?.dailySummary || data.dailySummary.length === 0) return 'No data';
+                      if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
                       const startDate = new Date(data.dailySummary[0].date);
                       const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date);
                       return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
@@ -1251,59 +1265,50 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">Comprehensive Capacity Report</h3>
-                    <p className="text-gray-600 dark:text-gray-300 mb-4" data-testid="export-description">
-                      Export your complete capacity analysis as a multi-sheet Excel workbook with detailed metrics, employee data, and daily summaries.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-blue-900 dark:text-blue-100 mb-1">Cleaned Data</div>
-                        <div className="text-sm text-blue-700 dark:text-blue-300">Processed employee records with capacity calculations and time windows</div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                      <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-emerald-900 dark:text-emerald-100 mb-1">Daily Summary</div>
-                        <div className="text-sm text-emerald-700 dark:text-emerald-300">Aggregated daily capacity metrics, gaps, and utilization KPIs</div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                      <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-purple-900 dark:text-purple-100 mb-1">Employee Details</div>
-                        <div className="text-sm text-purple-700 dark:text-purple-300">Comprehensive employee breakdown with assignments and availability</div>
-                      </div>
+                <p className="text-gray-600 dark:text-gray-300 mb-6" data-testid="export-description">
+                  Download the processed capacity data as a comprehensive Excel file with detailed analysis sheets:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-blue-900 dark:text-blue-100">Cleaned Data</div>
+                      <div className="text-sm text-blue-700 dark:text-blue-300">All processed employee records with capacity calculations</div>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-center pt-4">
-                    <Button 
-                      onClick={handleExport}
-                      className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-6 text-base"
-                      disabled={isProcessing}
-                      data-testid="button-export"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-                          Generating Excel file...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-5 h-5 mr-2" />
-                          Download capacity_dashboard.xlsx
-                        </>
-                      )}
-                    </Button>
+                  <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-emerald-900 dark:text-emerald-100">Daily Summary</div>
+                      <div className="text-sm text-emerald-700 dark:text-emerald-300">Daily aggregated capacity metrics and KPIs</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-purple-900 dark:text-purple-100">Employee Details</div>
+                      <div className="text-sm text-purple-700 dark:text-purple-300">Detailed employee breakdown by date and assignments</div>
+                    </div>
                   </div>
                 </div>
+                <Button 
+                  onClick={handleExport}
+                  className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
+                  disabled={isProcessing}
+                  data-testid="button-export"
+                >
+                  {isProcessing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Generating Excel file...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download capacity_dashboard.xlsx
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
