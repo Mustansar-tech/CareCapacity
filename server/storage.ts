@@ -49,6 +49,8 @@ export interface IStorage {
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
 
   clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
+  
+  clearAllVisits(): Promise<number>;
 
   // Weekly schedule methods
   saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule>;
@@ -402,6 +404,11 @@ export class MemStorage implements IStorage {
     return Array.from(this.weeklySchedules.values()).sort(
       (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
     );
+  }
+
+  async clearAllVisits(): Promise<number> {
+    // Clear all visits from memory - since visits aren't stored in MemStorage yet, return 0
+    return 0;
   }
 }
 
@@ -775,6 +782,11 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(weeklySchedules)
       .orderBy(desc(weeklySchedules.generatedAt));
+  }
+
+  async clearAllVisits(): Promise<number> {
+    // Clear all visits from database - visits table doesn't exist anymore, return 0
+    return 0;
   }
 }
 
