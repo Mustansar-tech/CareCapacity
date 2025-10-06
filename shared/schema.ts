@@ -185,41 +185,7 @@ export interface ProcessingResult {
   }>;
 }
 
-// Weekly schedule data structures
-export interface ScheduledVisit {
-  clientName: string;
-  startTime: string; // HH:MM format
-  endTime: string;   // HH:MM format
-  travelTimeBefore: number; // minutes
-  score: number;
-  lat?: number;
-  lng?: number;
-}
-
-// Client visit for VRPTW optimization - combines visit data with location
-export interface ClientVisit {
-  id: string;
-  clientName: string;
-  startTime: string; // HH:MM format
-  endTime: string;   // HH:MM format
-  durationMinutes: number;
-  date: string;
-  lat?: number;
-  lng?: number;
-  serviceType?: string;
-  priority?: number;
-}
-
-export interface EmployeeWeeklySchedule {
-  employeeName: string;
-  [date: string]: ScheduledVisit[] | string; // date as key -> visits array
-}
-
-export interface WeeklyScheduleData {
-  employees: EmployeeWeeklySchedule[];
-  weekDates: string[]; // Array of dates in the week
-}
-
+// Weekly schedule data structures (simplified - used by WeeklyPlanTab)
 export interface WeeklyScheduleMetrics {
   totalVisitsAssigned: number;
   totalVisitsUnallocated: number;
