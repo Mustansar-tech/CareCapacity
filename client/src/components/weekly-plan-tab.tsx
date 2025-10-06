@@ -478,7 +478,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
       </div>
 
-      {/* Unallocated Visits - Compact Grid Layout at Bottom */}
+      {/* Unallocated Visits - Organized by Day */}
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
         <Card className="glass-card border-red-200 dark:border-red-800">
           <CardHeader className="pb-3">
@@ -490,37 +490,65 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[300px]">
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
-                {weeklySchedule.unallocated.map((visit, index) => (
-                  <div 
-                    key={index} 
-                    className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-2"
-                    data-testid={`card-unallocated-${index}`}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-xs truncate" title={visit.clientName}>{visit.clientName}</p>
-                        <Badge variant="destructive" className="text-xs">{visit.date.split('-').slice(1).join('/')}</Badge>
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-4">
+                {weekDates.map((date, dayIndex) => {
+                  // Filter unallocated visits for this specific day
+                  const dayUnallocated = weeklySchedule.unallocated.filter(v => v.date === date);
+                  
+                  if (dayUnallocated.length === 0) return null;
+                  
+                  const dayName = dayNames[dayIndex];
+                  
+                  return (
+                    <div key={date} className="border border-red-200 dark:border-red-700 rounded-lg p-3 bg-red-50/50 dark:bg-red-950/10">
+                      {/* Day Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-4 w-4 text-red-600" />
+                          <h3 className="font-semibold text-red-700 dark:text-red-400">
+                            {dayName} - {date.split('-').slice(1).join('/')}
+                          </h3>
+                        </div>
+                        <Badge variant="destructive" className="text-xs">
+                          {dayUnallocated.length} unallocated
+                        </Badge>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {visit.startTime}-{visit.endTime}
+                      
+                      {/* Day's Unallocated Visits Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
+                        {dayUnallocated.map((visit, index) => (
+                          <div 
+                            key={index} 
+                            className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 hover:shadow-md transition-shadow"
+                            data-testid={`card-unallocated-${date}-${index}`}
+                          >
+                            <div className="space-y-1">
+                              <p className="font-medium text-xs truncate" title={visit.clientName}>
+                                {visit.clientName}
+                              </p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {visit.startTime}-{visit.endTime}
+                              </div>
+                              <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2" title={visit.reason}>
+                                {visit.reason}
+                              </p>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="w-full h-6 text-xs border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Assign
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <p className="text-xs text-red-600 dark:text-red-400 line-clamp-1" title={visit.reason}>
-                        {visit.reason}
-                      </p>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="w-full h-6 text-xs border-blue-200 hover:bg-blue-50"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Assign
-                      </Button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
           </CardContent>
