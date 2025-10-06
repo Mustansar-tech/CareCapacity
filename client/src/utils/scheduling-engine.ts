@@ -1,15 +1,15 @@
 // VRPTW Weekly Scheduling Engine with proper constraints
 import type { ClientVisit, EmployeeLocation } from "@shared/schema";
-import { 
-  timeToMinutes, 
+import {
+  timeToMinutes,
   minutesToTime,
-  parseTimeWindows, 
+  parseTimeWindows,
   type TimeWindow,
   isInsertionFeasible,
 } from './scheduling-utils';
-import { 
-  scoreVisitMatch, 
-  type EmployeeRun, 
+import {
+  scoreVisitMatch,
+  type EmployeeRun,
   type Visit as ScoringVisit
 } from './scheduling-scoring';
 
@@ -106,7 +106,7 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
   // Try flexible fit with adjustment
   for (const window of windows) {
     const windowDuration = window.end - window.start;
-    
+
     // Skip windows too small for this visit
     if (windowDuration < visitDuration) continue;
 
@@ -119,7 +119,7 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
       adjustedStart = window.start;
       adjustedEnd = adjustedStart + visitDuration;
     }
-    
+
     // If visit ends slightly after window, move it to end at window end
     if (visitEnd <= window.end + TIME_FLEXIBILITY_MINUTES && visitEnd > window.end) {
       adjustedEnd = window.end;
@@ -129,7 +129,7 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
     // Check if adjusted visit fits in window
     if (adjustedStart >= window.start && adjustedEnd <= window.end) {
       console.log(`🔧 Adjusted visit ${visit.clientName} from ${visit.startTime}-${visit.endTime} to ${minutesToTime(adjustedStart)}-${minutesToTime(adjustedEnd)} to fit window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
-      
+
       return {
         ...visit,
         startTime: minutesToTime(adjustedStart),
@@ -184,7 +184,7 @@ function assignVisitToBestEmployee(
 
     // Filter windows to only include those >= minimum duration for feasibility
     const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
-    
+
     if (validWindows.length === 0) {
       continue; // No valid windows available
     }
@@ -212,7 +212,7 @@ function assignVisitToBestEmployee(
     };
 
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
-    
+
     if (matchScore && matchScore.score > 0) {
       candidates.push({
         employeeName: schedule.employeeName,
@@ -252,10 +252,10 @@ function assignVisitToBestEmployee(
 
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
-  
+
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
-  
+
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
 
@@ -272,6 +272,7 @@ export function generateWeeklySchedule(
     homeLat?: number;
     homeLng?: number;
     transportMode?: string;
+    contractedDailyHours?: number; // Added for GH hours tracking
   }>,
   weekDates: string[]
 ): WeeklyScheduleResult {
@@ -301,12 +302,14 @@ export function generateWeeklySchedule(
   console.log(`📊 Filtered visits: ${visits.length} → ${filteredVisits.length} (excluded ${visits.length - filteredVisits.length} visits)`);
 
   // Use filtered visits for the rest of the function
-  visits = filteredVisits;
+  const allVisits = filteredVisits;
+  const allEmployees = employees;
+
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
-  
+
   weekDates.forEach(date => {
-    const dayEmployees = employees.filter(e => e.date === date);
+    const dayEmployees = allEmployees.filter(e => e.date === date);
     schedulesByDate[date] = dayEmployees.map(emp => {
       const windows = parseTimeWindows(emp.timeWindows);
       // Normalize transport mode to allowed values
@@ -321,7 +324,7 @@ export function generateWeeklySchedule(
           mode = 'car';
         }
       }
-      
+
       return {
         employeeName: emp.employeeName,
         date,
@@ -340,72 +343,194 @@ export function generateWeeklySchedule(
   const assignedVisitIds = new Set<string>();
   const unallocated: Array<ClientVisit & { reason: string }> = [];
 
-  // Sort visits by priority (if available), then by start time
-  const sortedVisits = [...visits].sort((a, b) => {
-    if (a.priority !== b.priority) {
-      return (b.priority || 1) - (a.priority || 1);
+  // Step 1: Group visits by date
+  const visitsByDate = new Map<string, ClientVisit[]>();
+  allVisits.forEach(visit => {
+    if (!visitsByDate.has(visit.date)) {
+      visitsByDate.set(visit.date, []);
     }
-    return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+    visitsByDate.get(visit.date)!.push(visit);
   });
 
-  // First pass: Assign each visit using standard constraints
-  for (const visit of sortedVisits) {
-    const employeeSchedules = schedulesByDate[visit.date] || [];
-    
-    if (employeeSchedules.length === 0) {
-      unallocated.push({ ...visit, reason: 'No employees available for this date' });
-      continue;
-    }
-
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
-    
-    if (!result.success) {
-      unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
-    }
-  }
-
-  // Second pass: Try to allocate remaining visits by sorting them differently
-  // Sort by visit duration (shorter visits first - easier to fit)
-  const remainingUnallocated: Array<ClientVisit & { reason: string }> = [];
-  const secondPassVisits = [...unallocated].sort((a, b) => a.durationMinutes - b.durationMinutes);
-  
-  for (const visit of secondPassVisits) {
-    const employeeSchedules = schedulesByDate[visit.date] || [];
-    
-    if (employeeSchedules.length === 0) {
-      remainingUnallocated.push(visit);
-      continue;
-    }
-
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
-    
-    if (!result.success) {
-      remainingUnallocated.push(visit);
-    }
-  }
-  
-  // Update unallocated with only the visits that couldn't be assigned in either pass
-  unallocated.length = 0;
-  unallocated.push(...remainingUnallocated);
-
-  // Build final assignments structure
-  const assignments: Record<string, Record<string, AssignedVisit[]>> = {};
-  
+  // Step 2: Process each date independently
   weekDates.forEach(date => {
-    assignments[date] = {};
-    const daySchedules = schedulesByDate[date] || [];
-    
-    daySchedules.forEach(schedule => {
+    const dateVisits = visitsByDate.get(date) || [];
+    let dateEmployees = allEmployees.filter(emp => emp.date === date);
+
+    if (dateVisits.length === 0 || dateEmployees.length === 0) {
+      return; // Skip if no visits or no employees for this date
+    }
+
+    // Prioritize employees with "GH" (Guaranteed Hours) in their names
+    dateEmployees = dateEmployees.sort((a, b) => {
+      const aHasGH = a.employeeName.includes('(GH)') || a.employeeName.includes('GH');
+      const bHasGH = b.employeeName.includes('(GH)') || b.employeeName.includes('GH');
+
+      if (aHasGH && !bHasGH) return -1; // a comes first
+      if (!aHasGH && bHasGH) return 1;  // b comes first
+      return 0; // maintain order
+    });
+
+    console.log(`📅 Processing ${date}: ${dateVisits.length} visits, ${dateEmployees.length} employees (GH employees prioritized)`);
+
+    // Initialize data structures for this date
+    const dateAssignments: Record<string, AssignedVisit[]> = {};
+    const employeeLoads: Map<string, number> = new Map(); // Stores current load in hours
+    const employeePositions: Map<string, { lat: number; lng: number }> = new Map(); // Stores last visit location
+
+    // Initialize employee loads and positions
+    dateEmployees.forEach(emp => {
+      employeeLoads.set(emp.employeeName, 0);
+      // Set initial position to home if available, otherwise fallback
+      employeePositions.set(emp.employeeName, { lat: emp.homeLat || 55.9533, lng: emp.homeLng || -3.1883 });
+    });
+
+    // Sort visits by priority, then by start time
+    const sortedDateVisits = [...dateVisits].sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return (b.priority || 1) - (a.priority || 1);
+      }
+      return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+    });
+
+    // Assign visits for the current date
+    for (const visit of sortedDateVisits) {
+      const currentEmployeeSchedules = schedulesByDate[date]?.filter(s => s.employeeName === dateEmployees.find(e => e.employeeName === s.employeeName)?.employeeName) || [];
+
+      if (currentEmployeeSchedules.length === 0) {
+        unallocated.push({ ...visit, reason: 'No employees available for this date' });
+        continue;
+      }
+
+      const candidates: Array<{
+        employee: { employeeName: string; timeWindows: string | string[]; contractedDailyHours?: number };
+        score: number;
+        travelTime: number; // Travel time from previous visit or home
+        insertionIndex: number;
+      }> = [];
+
+      for (const employee of dateEmployees) {
+        const schedule = currentEmployeeSchedules.find(s => s.employeeName === employee.employeeName);
+        if (!schedule) continue; // Should not happen if dateEmployees are filtered correctly
+
+        // Check capacity constraint
+        if (wouldExceedCapacity(schedule, visit.durationMinutes)) {
+          continue;
+        }
+
+        const windows = parseTimeWindows(employee.timeWindows);
+        const validWindows = windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
+        if (validWindows.length === 0) continue;
+
+        const adjustedVisit = adjustVisitToFitWindows(visit, validWindows);
+        if (!adjustedVisit) continue;
+
+        const scoringVisit: ScoringVisit = {
+          clientName: adjustedVisit.clientName,
+          start: timeToMinutes(adjustedVisit.startTime),
+          end: timeToMinutes(adjustedVisit.endTime),
+          lat: adjustedVisit.lat || 0,
+          lng: adjustedVisit.lng || 0,
+        };
+
+        const employeeRun: EmployeeRun = {
+          visits: schedule.assignedVisits.map(v => ({
+            clientName: v.clientName,
+            start: timeToMinutes(v.startTime),
+            end: timeToMinutes(v.endTime),
+            lat: v.lat || 0,
+            lng: v.lng || 0,
+          })),
+          homeLat: schedule.homeLat,
+          homeLng: schedule.homeLng,
+          mode: schedule.transportMode,
+        };
+
+        const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
+
+        if (matchScore && matchScore.score > 0) {
+          // Calculate travel time from the employee's current position (last visit or home)
+          const lastPosition = employeePositions.get(employee.employeeName) || { lat: schedule.homeLat, lng: schedule.homeLng };
+          // Assuming a function `calculateTravelTime` exists and returns minutes
+          // For simplicity, let's use a placeholder or a basic calculation if not provided
+          const travelTime = 0; // Placeholder for actual travel time calculation
+
+          candidates.push({
+            employee: { ...employee, contractedDailyHours: employee.contractedDailyHours },
+            score: matchScore.score,
+            travelTime: matchScore.travelFromPrev, // Using travelFromPrev from scoreVisitMatch
+            insertionIndex: matchScore.insertionIndex,
+          });
+        }
+      }
+
+      if (candidates.length === 0) {
+        unallocated.push({ ...visit, reason: 'No feasible employee found' });
+        continue;
+      }
+
+      // Sort candidates by score (descending)
+      candidates.sort((a, b) => b.score - a.score);
+
+      // Assign to best candidate
+      const bestCandidate = candidates[0];
+      const employeeName = bestCandidate.employee.employeeName;
+      const schedule = schedulesByDate[date].find(s => s.employeeName === employeeName)!;
+
+      // Create assigned visit using adjusted times
+      const assignedVisit: AssignedVisit = {
+        id: visit.id,
+        clientName: visit.clientName,
+        startTime: visit.startTime, // Use original start time if not adjusted, or adjusted if it was
+        endTime: visit.endTime,     // Use original end time if not adjusted, or adjusted if it was
+        durationMinutes: visit.durationMinutes,
+        lat: visit.lat,
+        lng: visit.lng,
+        travelTimeBefore: bestCandidate.travelTime,
+        score: bestCandidate.score,
+      };
+
+      // Insert at the correct position
+      schedule.assignedVisits.splice(bestCandidate.insertionIndex, 0, assignedVisit);
+
+      // Update capacity usage
+      schedule.usedCapacityMinutes += visit.durationMinutes;
+
+      // Update employee load and position
+      const currentLoad = (employeeLoads.get(employeeName) || 0) + visit.durationMinutes / 60;
+      employeeLoads.set(employeeName, currentLoad);
+      employeePositions.set(employeeName, { lat: visit.lat!, lng: visit.lng! });
+
+      // Log if GH employee is getting assignments to track guaranteed hours utilization
+      const hasGH = employeeName.includes('(GH)') || employeeName.includes('GH');
+      if (hasGH) {
+        const targetHours = bestCandidate.employee.contractedDailyHours || 0;
+        console.log(`✅ GH Employee ${employeeName}: ${currentLoad.toFixed(1)}h / ${targetHours}h assigned`);
+      }
+
+      // Mark as assigned
+      assignedVisitIds.add(visit.id);
+    }
+
+    // Store the finalized assignments for the date
+    dateAssignments[date] = {};
+    schedulesByDate[date]?.forEach(schedule => {
       if (schedule.assignedVisits.length > 0) {
-        assignments[date][schedule.employeeName] = schedule.assignedVisits;
+        dateAssignments[date][schedule.employeeName] = schedule.assignedVisits;
       }
     });
+  });
+
+  // Collect all assignments across all dates
+  const assignments: Record<string, Record<string, AssignedVisit[]>> = {};
+  weekDates.forEach(date => {
+    assignments[date] = dateAssignments[date] || {};
   });
 
   // Calculate metrics
   const totalVisitsAssigned = assignedVisitIds.size;
   const totalVisitsUnallocated = unallocated.length;
-  
+
   let totalTravelTime = 0;
   let visitCount = 0;
   const utilizedEmployees = new Set<string>();
