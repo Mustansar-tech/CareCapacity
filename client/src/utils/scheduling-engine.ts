@@ -531,18 +531,34 @@ export function generateWeeklySchedule(
   const ghEmployeesUtilized = Array.from(utilizedEmployees).filter(name => isGHEmployee(name));
   const nonGhEmployeesUtilized = Array.from(utilizedEmployees).filter(name => !isGHEmployee(name));
   
-  // Calculate GH utilization statistics
-  let ghTotalCapacity = 0;
-  let ghTotalUsed = 0;
+  // Calculate GH utilization statistics with weekly limits
+  let ghTotalGuaranteed = 0;
+  let ghTotalAssigned = 0;
   let ghVisitsAssigned = 0;
   let nonGhVisitsAssigned = 0;
+  let ghEmployeesAtCap = 0;
+  let ghEmployeesUnderUtilized = 0;
   
+  weeklyTrackers.forEach(tracker => {
+    if (tracker.isGH && tracker.weeklyGuaranteedMinutes !== null) {
+      ghTotalGuaranteed += tracker.weeklyGuaranteedMinutes;
+      ghTotalAssigned += tracker.weeklyAssignedMinutes;
+      
+      // Check if employee hit their cap
+      if (tracker.weeklyAssignedMinutes >= tracker.weeklyGuaranteedMinutes) {
+        ghEmployeesAtCap++;
+      } else if (tracker.weeklyAssignedMinutes > 0 && tracker.weeklyAssignedMinutes < tracker.weeklyGuaranteedMinutes * 0.8) {
+        // Under-utilized: assigned less than 80% of guaranteed hours
+        ghEmployeesUnderUtilized++;
+      }
+    }
+  });
+  
+  // Count visits by employee type
   weekDates.forEach(date => {
     const daySchedules = schedulesByDate[date] || [];
     daySchedules.forEach(schedule => {
       if (isGHEmployee(schedule.employeeName)) {
-        ghTotalCapacity += schedule.totalCapacityMinutes;
-        ghTotalUsed += schedule.usedCapacityMinutes;
         ghVisitsAssigned += schedule.assignedVisits.length;
       } else {
         nonGhVisitsAssigned += schedule.assignedVisits.length;
@@ -550,11 +566,13 @@ export function generateWeeklySchedule(
     });
   });
   
-  const ghUtilizationPercent = ghTotalCapacity > 0 ? Math.round((ghTotalUsed / ghTotalCapacity) * 100) : 0;
+  const ghUtilizationPercent = ghTotalGuaranteed > 0 ? Math.round((ghTotalAssigned / ghTotalGuaranteed) * 100) : 0;
   
-  console.log(`✅ GH Prioritization Results:`);
+  console.log(`✅ GH Weekly Limit Enforcement Results:`);
   console.log(`   • GH Employees: ${ghEmployeesUtilized.length} utilized, ${ghVisitsAssigned} visits assigned`);
-  console.log(`   • GH Utilization: ${(ghTotalUsed / 60).toFixed(1)}h used / ${(ghTotalCapacity / 60).toFixed(1)}h available (${ghUtilizationPercent}%)`);
+  console.log(`   • GH Weekly Hours: ${(ghTotalAssigned / 60).toFixed(1)}h assigned / ${(ghTotalGuaranteed / 60).toFixed(1)}h guaranteed (${ghUtilizationPercent}%)`);
+  console.log(`   • GH at Weekly Cap: ${ghEmployeesAtCap} employees reached their guaranteed hours limit`);
+  console.log(`   • GH Under-utilized: ${ghEmployeesUnderUtilized} employees below 80% of guaranteed hours`);
   console.log(`   • Non-GH Employees: ${nonGhEmployeesUtilized.length} utilized, ${nonGhVisitsAssigned} visits assigned`);
 
   return {
