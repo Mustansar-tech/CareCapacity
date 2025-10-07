@@ -85,13 +85,20 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const isLoadingVisits = visitQueries.some(q => q.isLoading);
   const allWeekVisits = visitQueries.flatMap(q => q.data || []);
 
-  // Get employees who actually have availability in the week (have time windows)
-  const availableEmployees = Object.values(data?.employeesByDate || {})
-    .flat()
-    .filter(emp => emp.timeWindows && emp.timeWindows.trim() !== '') // Only employees with time windows
-    .filter((emp, index, self) => 
-      self.findIndex(e => e.employeeName === emp.employeeName) === index
-    );
+  // Get all unique employees who have availability in the week (have time windows)
+  // Use a Map to deduplicate by employee name and prefer records with more data
+  const employeeMap = new Map<string, any>();
+  Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
+    if (emp.timeWindows && emp.timeWindows.trim() !== '') {
+      const existing = employeeMap.get(emp.employeeName);
+      // Keep the entry with more contracted hours (prefer non-ad-hoc entries)
+      if (!existing || emp.contractedDailyHours > (existing.contractedDailyHours || 0)) {
+        employeeMap.set(emp.employeeName, emp);
+      }
+    }
+  });
+  
+  const availableEmployees = Array.from(employeeMap.values());
 
   // Get employees with assignments from the weekly schedule
   const employeesWithAssignments = weeklySchedule 
@@ -101,10 +108,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       )).sort()
     : [];
 
-  // Filter employees by search term - prioritize those with assignments, but also show available employees
+  // Combine and deduplicate employee names
   const employeeNames = weeklySchedule 
     ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
-    : availableEmployees.map(e => e.employeeName);
+    : availableEmployees.map(e => e.employeeName).sort();
   
   const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -351,6 +358,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     filteredEmployees.map(empName => {
                       const location = locationsData?.employees.find(loc => loc.employeeName === empName);
                       const employeeSummary = employeeSummaryMap.get(empName);
+                      const employeeData = employeeMap.get(empName);
                       
                       // Determine transport mode icon
                       const transportMode = location?.transportMode?.toLowerCase() || '';
