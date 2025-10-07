@@ -154,19 +154,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
       
-      // Prepare employee data with locations
+      // Prepare employee data with locations - EXCLUDE ad-hoc employees (they have no real availability)
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
-        empList.map(emp => {
-          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-          return {
-            employeeName: emp.employeeName,
-            date,
-            timeWindows: emp.timeWindows,
-            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
-            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
-            transportMode: location?.transportMode || undefined,
-          };
-        })
+        empList
+          .filter(emp => emp.status !== 'Ad-hoc') // Filter out ad-hoc employees
+          .map(emp => {
+            const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+            return {
+              employeeName: emp.employeeName,
+              date,
+              timeWindows: emp.timeWindows,
+              homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
+              homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
+              transportMode: location?.transportMode || undefined,
+            };
+          })
       );
 
       // Add location data to visits
