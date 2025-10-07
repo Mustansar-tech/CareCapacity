@@ -137,8 +137,8 @@ export function scoreVisitMatch(
   }
 
   const travelAdded = newTravel - currentTravel;
-  // Max travel added considered is 30 minutes
-  const travelAddedScore = Math.max(0, 1 - (travelAdded / 30));
+  // Max travel added considered is 45 minutes (relaxed travel constraints)
+  const travelAddedScore = Math.max(0, 1 - (travelAdded / 45));
 
   // 3. Window slack score (prefer visits that use window time efficiently)
   // Find the tightest window that contains this visit
