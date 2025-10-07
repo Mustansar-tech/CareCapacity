@@ -228,7 +228,9 @@ function calculateTravelFromPrevious(
 function assignVisitToBestEmployee(
   originalVisit: ClientVisit,
   employeeSchedules: EmployeeDaySchedule[],
-  assignedVisitIds: Set<string>
+  assignedVisitIds: Set<string>,
+  weeklyUsedMap: Map<string, number>,
+  allSchedulesByDate: Record<string, EmployeeDaySchedule[]>
 ): { success: boolean; employeeName?: string; reason?: string } {
   // Skip if already assigned
   if (assignedVisitIds.has(originalVisit.id)) {
@@ -357,9 +359,9 @@ function assignVisitToBestEmployee(
   // Update the shared weekly tracking map for all schedules of this employee
   weeklyUsedMap.set(best.employeeName, schedule.weeklyUsedMinutes);
   
-  // Update weekly used minutes for all other schedules of this employee
-  weekDates.forEach(d => {
-    schedulesByDate[d]?.forEach(s => {
+  // Update weekly used minutes for all other schedules of this employee across all dates
+  Object.values(allSchedulesByDate).forEach(daySchedules => {
+    daySchedules.forEach(s => {
       if (s.employeeName === best.employeeName) {
         s.weeklyUsedMinutes = schedule.weeklyUsedMinutes;
       }
@@ -497,12 +499,12 @@ export function generateWeeklySchedule(
 
     // Phase 1: Try to assign to GH employees first (if any available)
     let result = ghEmployees.length > 0
-      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds)
+      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate)
       : { success: false, reason: 'No GH employees available' };
 
     // Phase 2: If not assigned to GH employee, try all employees
     if (!result.success) {
-      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
     }
 
     if (!result.success) {
@@ -523,7 +525,7 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
 
     if (!result.success) {
       remainingUnallocated.push(visit);
