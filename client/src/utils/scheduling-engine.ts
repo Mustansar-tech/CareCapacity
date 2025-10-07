@@ -315,6 +315,13 @@ export function generateWeeklySchedule(
 
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
+  
+  // Count GH employees for tracking
+  const ghEmployeeCount = new Set(
+    employees.filter(e => isGHEmployee(e.employeeName)).map(e => e.employeeName)
+  ).size;
+  const totalEmployeeCount = new Set(employees.map(e => e.employeeName)).size;
+  console.log(`👥 Employee breakdown: ${ghEmployeeCount} GH employees, ${totalEmployeeCount - ghEmployeeCount} non-GH employees (${totalEmployeeCount} total)`);
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
   
@@ -448,6 +455,12 @@ export function generateWeeklySchedule(
   });
 
   const averageTravelTimePerVisit = visitCount > 0 ? Math.round(totalTravelTime / visitCount) : 0;
+
+  // Track GH vs non-GH utilization
+  const ghEmployeesUtilized = Array.from(utilizedEmployees).filter(name => isGHEmployee(name));
+  const nonGhEmployeesUtilized = Array.from(utilizedEmployees).filter(name => !isGHEmployee(name));
+  
+  console.log(`✅ GH Prioritization Results: ${ghEmployeesUtilized.length} GH employees utilized, ${nonGhEmployeesUtilized.length} non-GH employees utilized`);
 
   return {
     assignments,
