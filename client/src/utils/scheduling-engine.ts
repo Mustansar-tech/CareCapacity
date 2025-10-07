@@ -476,11 +476,35 @@ export function generateWeeklySchedule(
 
   const averageTravelTimePerVisit = visitCount > 0 ? Math.round(totalTravelTime / visitCount) : 0;
 
-  // Track GH vs non-GH utilization
+  // Track GH vs non-GH utilization with detailed metrics
   const ghEmployeesUtilized = Array.from(utilizedEmployees).filter(name => isGHEmployee(name));
   const nonGhEmployeesUtilized = Array.from(utilizedEmployees).filter(name => !isGHEmployee(name));
   
-  console.log(`✅ GH Prioritization Results: ${ghEmployeesUtilized.length} GH employees utilized, ${nonGhEmployeesUtilized.length} non-GH employees utilized`);
+  // Calculate GH utilization statistics
+  let ghTotalCapacity = 0;
+  let ghTotalUsed = 0;
+  let ghVisitsAssigned = 0;
+  let nonGhVisitsAssigned = 0;
+  
+  weekDates.forEach(date => {
+    const daySchedules = schedulesByDate[date] || [];
+    daySchedules.forEach(schedule => {
+      if (isGHEmployee(schedule.employeeName)) {
+        ghTotalCapacity += schedule.totalCapacityMinutes;
+        ghTotalUsed += schedule.usedCapacityMinutes;
+        ghVisitsAssigned += schedule.assignedVisits.length;
+      } else {
+        nonGhVisitsAssigned += schedule.assignedVisits.length;
+      }
+    });
+  });
+  
+  const ghUtilizationPercent = ghTotalCapacity > 0 ? Math.round((ghTotalUsed / ghTotalCapacity) * 100) : 0;
+  
+  console.log(`✅ GH Prioritization Results:`);
+  console.log(`   • GH Employees: ${ghEmployeesUtilized.length} utilized, ${ghVisitsAssigned} visits assigned`);
+  console.log(`   • GH Utilization: ${(ghTotalUsed / 60).toFixed(1)}h used / ${(ghTotalCapacity / 60).toFixed(1)}h available (${ghUtilizationPercent}%)`);
+  console.log(`   • Non-GH Employees: ${nonGhEmployeesUtilized.length} utilized, ${nonGhVisitsAssigned} visits assigned`);
 
   return {
     assignments,
