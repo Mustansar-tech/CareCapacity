@@ -93,7 +93,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Get all unique employees who have real availability in the week (exclude ad-hoc)
   // Use a Map to deduplicate by employee name and prefer records with more data
   const employeeMap = new Map<string, any>();
+  const adHocEmployees = new Set<string>();
+  
   Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
+    // Track ad-hoc employees to exclude them from picker
+    if (emp.status === 'Ad-hoc') {
+      adHocEmployees.add(emp.employeeName);
+    }
+    
     // Only include employees with real availability (not ad-hoc) and time windows
     if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc') {
       const existing = employeeMap.get(emp.employeeName);
@@ -106,15 +113,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   
   const availableEmployees = Array.from(employeeMap.values());
 
-  // Get employees with assignments from the weekly schedule
+  // Get employees with assignments from the weekly schedule (exclude ad-hoc)
   const employeesWithAssignments = weeklySchedule 
     ? Array.from(new Set(
         Object.values(weeklySchedule.assignments)
           .flatMap(dateAssignments => Object.keys(dateAssignments))
-      )).sort()
+      ))
+      .filter(empName => !adHocEmployees.has(empName))
+      .sort()
     : [];
 
-  // Combine and deduplicate employee names
+  // Combine and deduplicate employee names (already filtered for non-ad-hoc)
   const employeeNames = weeklySchedule 
     ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
     : availableEmployees.map(e => e.employeeName).sort();
