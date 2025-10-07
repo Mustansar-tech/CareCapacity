@@ -418,6 +418,25 @@ export function generateWeeklySchedule(
 
   console.log(`📊 Filtered visits: ${visits.length} → ${filteredVisits.length} (excluded ${visits.length - filteredVisits.length} visits)`);
 
+  // Identify multiple care visits (same client, date, time = needs 2 CPs)
+  const multipleCareGroups = new Map<string, ClientVisit[]>();
+  filteredVisits.forEach(visit => {
+    const key = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+    if (!multipleCareGroups.has(key)) {
+      multipleCareGroups.set(key, []);
+    }
+    multipleCareGroups.get(key)!.push(visit);
+  });
+
+  // Log multiple care visits
+  const multipleCareKeys = Array.from(multipleCareGroups.entries()).filter(([_, visits]) => visits.length > 1);
+  if (multipleCareKeys.length > 0) {
+    console.log(`👥 Found ${multipleCareKeys.length} multiple care visits (need 2 CPs):`);
+    multipleCareKeys.forEach(([key, visits]) => {
+      console.log(`   ${visits[0].clientName} @ ${visits[0].startTime}-${visits[0].endTime} (${visits.length} CPs needed)`);
+    });
+  }
+
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
   
@@ -477,8 +496,11 @@ export function generateWeeklySchedule(
   const assignedVisitIds = new Set<string>();
   const unallocated: Array<ClientVisit & { reason: string }> = [];
 
+  // Track which employees are assigned to each time slot (for multiple care)
+  const visitEmployeeAssignments = new Map<string, Set<string>>(); // key -> Set of employee names
+
   // Sort visits by priority (if available), then by start time
-  const sortedVisits = [...visits].sort((a, b) => {
+  const sortedVisits = [...filteredVisits].sort((a, b) => {
     if (a.priority !== b.priority) {
       return (b.priority || 1) - (a.priority || 1);
     }
@@ -494,8 +516,20 @@ export function generateWeeklySchedule(
       continue;
     }
 
+    // Check if this is a multiple care visit (needs to avoid already assigned employee)
+    const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+    const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+    
+    // Filter out employees already assigned to this exact time slot
+    const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
+
+    if (availableSchedules.length === 0) {
+      unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot (multiple care)' });
+      continue;
+    }
+
     // Separate GH and non-GH employees for two-phase allocation
-    const ghEmployees = employeeSchedules.filter(s => isGHEmployee(s.employeeName));
+    const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
 
     // Phase 1: Try to assign to GH employees first (if any available)
     let result = ghEmployees.length > 0
@@ -504,10 +538,21 @@ export function generateWeeklySchedule(
 
     // Phase 2: If not assigned to GH employee, try all employees
     if (!result.success) {
-      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
     }
 
-    if (!result.success) {
+    if (result.success && result.employeeName) {
+      // Track this employee assignment for multiple care visits
+      if (!visitEmployeeAssignments.has(visitKey)) {
+        visitEmployeeAssignments.set(visitKey, new Set());
+      }
+      visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+      
+      // Log multiple care assignments
+      if (alreadyAssignedEmployees.size > 0) {
+        console.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
+      }
+    } else {
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
     }
   }
@@ -525,9 +570,27 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+    // Check multiple care constraints again
+    const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+    const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+    
+    // Filter out employees already assigned to this exact time slot
+    const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
 
-    if (!result.success) {
+    if (availableSchedules.length === 0) {
+      remainingUnallocated.push(visit);
+      continue;
+    }
+
+    const result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+
+    if (result.success && result.employeeName) {
+      // Track this employee assignment for multiple care visits
+      if (!visitEmployeeAssignments.has(visitKey)) {
+        visitEmployeeAssignments.set(visitKey, new Set());
+      }
+      visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+    } else {
       remainingUnallocated.push(visit);
     }
   }
