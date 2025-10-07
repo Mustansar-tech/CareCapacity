@@ -170,6 +170,32 @@ function toScoringVisit(visit: ClientVisit): ScoringVisit {
   };
 }
 
+// Calculate travel time from previous location (or home if first visit)
+function calculateTravelFromPrevious(
+  visit: ClientVisit,
+  schedule: EmployeeDaySchedule,
+  insertionIndex: number
+): number {
+  if (insertionIndex === 0) {
+    // First visit - calculate from home
+    const travelService = new (require('./scheduling-utils').TravelTimeService)();
+    return travelService.calculateTravelTime(
+      { lat: schedule.homeLat, lng: schedule.homeLng },
+      { lat: visit.lat || 0, lng: visit.lng || 0 },
+      schedule.transportMode
+    ).travelTimeMinutes;
+  } else {
+    // Calculate from previous visit
+    const prevVisit = schedule.assignedVisits[insertionIndex - 1];
+    const travelService = new (require('./scheduling-utils').TravelTimeService)();
+    return travelService.calculateTravelTime(
+      { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
+      { lat: visit.lat || 0, lng: visit.lng || 0 },
+      schedule.transportMode
+    ).travelTimeMinutes;
+  }
+}
+
 // Try to assign a visit to the best employee
 function assignVisitToBestEmployee(
   originalVisit: ClientVisit,
@@ -273,9 +299,12 @@ function assignVisitToBestEmployee(
     score: best.score,
   };
 
-  // Debug logging for first visit of the day
+  // Debug logging for travel time
   if (best.insertionIndex === 0) {
-    console.log(`✅ Assigned FIRST visit for ${best.employeeName}: ${assignedVisit.clientName} with ${assignedVisit.travelTimeBefore}min travel from home`);
+    console.log(`✅ FIRST visit ${best.employeeName} → ${assignedVisit.clientName}: ${assignedVisit.travelTimeBefore}min from home (${schedule.homeLat}, ${schedule.homeLng})`);
+  } else {
+    const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
+    console.log(`✅ Visit ${best.employeeName} → ${assignedVisit.clientName}: ${assignedVisit.travelTimeBefore}min from ${prevVisit.clientName}`);
   }
 
   // Insert at the correct position
