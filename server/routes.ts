@@ -272,7 +272,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
       const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
-      res.json(visits);
+      
+      // Geocode visits before returning
+      const geocodedVisits = [];
+      for (const visit of visits) {
+        let lat, lng;
+        
+        if (visit.postcode) {
+          const geocodeResult = await geocodeWithFallback(visit.postcode, storage);
+          if (geocodeResult) {
+            lat = geocodeResult.lat;
+            lng = geocodeResult.lng;
+          }
+        }
+        
+        geocodedVisits.push({
+          ...visit,
+          lat,
+          lng
+        });
+      }
+      
+      console.log(`📋 Extracted ${geocodedVisits.length} client visits from Guaranteed Hours Excel for ${date}`);
+      res.json(geocodedVisits);
     } catch (error) {
       console.error("Error extracting visits:", error);
       res.status(500).json({ error: "Failed to extract visits" });
