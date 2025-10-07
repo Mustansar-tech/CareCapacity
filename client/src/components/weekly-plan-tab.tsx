@@ -74,6 +74,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     enabled: !!data,
   });
 
+  // Create a map of employee locations for quick lookup
+  const employeeLocationMap = new Map(
+    (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
+  );
+
   // Fetch visits for each day of the week
   const visitQueries = weekDates.map(date => 
     useQuery<ClientVisit[]>({
@@ -118,18 +123,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Get employee summary data for weekly hours
-  const employeeSummaryMap = new Map(
-    (data?.employeeSummaryByDate?.[weekDates[0]] || []).map(emp => [emp.employeeName, emp])
-  );
-
   // Calculate weekly hours from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
+  const employeeGenderMap = new Map<string, string>();
+  
   Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
     dayEmployees.forEach(emp => {
       if (emp.contractedDailyHours > 0) {
         const current = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
         employeeWeeklyHoursMap.set(emp.employeeName, current + emp.contractedDailyHours);
+      }
+      // Store gender info
+      if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
+        employeeGenderMap.set(emp.employeeName, emp.gender);
       }
     });
   });
@@ -357,17 +363,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 <div className="space-y-2">
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map(empName => {
-                      const location = locationsData?.employees.find(loc => loc.employeeName === empName);
-                      const employeeSummary = employeeSummaryMap.get(empName);
-                      const employeeData = employeeMap.get(empName);
+                      const location = employeeLocationMap.get(empName);
                       
                       // Determine transport mode icon
                       const transportMode = location?.transportMode?.toLowerCase() || '';
                       const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
                       
-                      // Get gender from employee summary or location
-                      const gender = employeeSummary?.gender || location?.gender || '';
+                      // Get gender from employee gender map or location
+                      const gender = employeeGenderMap.get(empName) || location?.gender || '';
                       
                       // Get visit count across all days
                       const visitCount = weeklySchedule 
