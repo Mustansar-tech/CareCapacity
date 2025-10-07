@@ -60,6 +60,8 @@ interface EmployeeDaySchedule {
   homeLat: number;
   homeLng: number;
   transportMode: 'car' | 'walking' | 'public';
+  weeklyContractedMinutes: number; // Total weekly contracted minutes
+  weeklyUsedMinutes: number; // Total weekly care minutes assigned so far
 }
 
 interface AssignedVisit {
@@ -105,19 +107,27 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
-// Check if adding a visit would exceed capacity or daily care limit
+// Check if adding a visit would exceed capacity, daily limit, or weekly hours
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
   visitDurationMinutes: number
 ): boolean {
   const newTotalCareTime = schedule.usedCapacityMinutes + visitDurationMinutes;
+  const newWeeklyTotal = schedule.weeklyUsedMinutes + visitDurationMinutes;
   
-  // Check against both available capacity AND 9-hour daily limit
+  // Check against weekly contracted hours first
+  if (newWeeklyTotal > schedule.weeklyContractedMinutes) {
+    console.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h)`);
+    return true;
+  }
+  
+  // Check against 9-hour daily limit
   if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed 9-hour daily limit (${newTotalCareTime}min > ${MAX_DAILY_CARE_MINUTES}min)`);
     return true;
   }
   
+  // Check against available daily capacity
   if (newTotalCareTime > schedule.totalCapacityMinutes) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
     return true;
@@ -342,9 +352,24 @@ function assignVisitToBestEmployee(
 
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
+  schedule.weeklyUsedMinutes += best.adjustedVisit.durationMinutes;
+  
+  // Update the shared weekly tracking map for all schedules of this employee
+  weeklyUsedMap.set(best.employeeName, schedule.weeklyUsedMinutes);
+  
+  // Update weekly used minutes for all other schedules of this employee
+  weekDates.forEach(d => {
+    schedulesByDate[d]?.forEach(s => {
+      if (s.employeeName === best.employeeName) {
+        s.weeklyUsedMinutes = schedule.weeklyUsedMinutes;
+      }
+    });
+  });
   
   const careHoursUsed = (schedule.usedCapacityMinutes / 60).toFixed(1);
-  console.log(`📊 ${best.employeeName}: ${careHoursUsed}h/${MAX_DAILY_CARE_HOURS}h care time used`);
+  const weeklyHoursUsed = (schedule.weeklyUsedMinutes / 60).toFixed(1);
+  const weeklyContracted = (schedule.weeklyContractedMinutes / 60).toFixed(1);
+  console.log(`📊 ${best.employeeName}: ${careHoursUsed}h/${MAX_DAILY_CARE_HOURS}h daily | ${weeklyHoursUsed}h/${weeklyContracted}h weekly`);
 
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
@@ -362,6 +387,7 @@ export function generateWeeklySchedule(
     homeLat?: number;
     homeLng?: number;
     transportMode?: string;
+    weeklyContractedHours?: number;
   }>,
   weekDates: string[]
 ): WeeklyScheduleResult {
@@ -392,6 +418,18 @@ export function generateWeeklySchedule(
 
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
+  
+  // Calculate weekly contracted minutes per employee
+  const weeklyContractedMap = new Map<string, number>();
+  employees.forEach(emp => {
+    const current = weeklyContractedMap.get(emp.employeeName) || 0;
+    const dailyHours = emp.weeklyContractedHours || 0;
+    weeklyContractedMap.set(emp.employeeName, Math.max(current, dailyHours * 60));
+  });
+  
+  // Track weekly used minutes per employee (shared across all days)
+  const weeklyUsedMap = new Map<string, number>();
+  
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
 
@@ -411,6 +449,11 @@ export function generateWeeklySchedule(
           mode = 'car';
         }
       }
+      
+      // Initialize weekly used minutes for this employee if not exists
+      if (!weeklyUsedMap.has(emp.employeeName)) {
+        weeklyUsedMap.set(emp.employeeName, 0);
+      }
 
       return {
         employeeName: emp.employeeName,
@@ -422,6 +465,8 @@ export function generateWeeklySchedule(
         homeLat: emp.homeLat || 55.9533, // Edinburgh fallback
         homeLng: emp.homeLng || -3.1883,
         transportMode: mode,
+        weeklyContractedMinutes: weeklyContractedMap.get(emp.employeeName) || 0,
+        weeklyUsedMinutes: weeklyUsedMap.get(emp.employeeName) || 0,
       };
     });
   });

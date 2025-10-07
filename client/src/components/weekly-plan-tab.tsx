@@ -154,10 +154,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
       
-      // Prepare employee data with locations
+      // Prepare employee data with locations and weekly hours
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
           const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+          // Get weekly contracted hours from the employee weekly hours map
+          const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
           return {
             employeeName: emp.employeeName,
             date,
@@ -165,6 +167,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
             homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
             transportMode: location?.transportMode || undefined,
+            weeklyContractedHours: weeklyHours,
           };
         })
       );
