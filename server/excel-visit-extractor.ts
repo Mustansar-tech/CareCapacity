@@ -27,6 +27,12 @@ const CLIENT_COLS = [
   'Customer Name',
 ];
 
+const TEMPLATE_EMPLOYEE_COLS = [
+  'Template Employee Name',
+  'Planned Employee Name',
+  'Preferred Employee Name',
+];
+
 const ADDRESS_COLS = [
   'Service Location Address',
   'Service Requirement Location',
@@ -65,6 +71,7 @@ export interface ExcelClientVisit {
   date: string;
   address?: string;
   postcode?: string;
+  templateEmployee?: string; // Pre-assigned employee from Excel
 }
 
 // Office visit keywords to exclude
@@ -162,6 +169,10 @@ export function extractClientVisitsFromGHExcel(
       postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
     }
 
+    // Get template employee name (pre-assigned employee)
+    const templateEmployeeRaw = TEMPLATE_EMPLOYEE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    const templateEmployee = templateEmployeeRaw ? String(templateEmployeeRaw).trim() : undefined;
+
     visits.push({
       clientName,
       startTime: fmt(startDate, 'HH:mm'),
@@ -170,6 +181,7 @@ export function extractClientVisitsFromGHExcel(
       date: dateStr,
       address,
       postcode,
+      templateEmployee,
     });
   }
 

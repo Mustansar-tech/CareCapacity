@@ -107,6 +107,89 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
+// Try to assign visit to a specific employee
+function tryAssignToEmployee(
+  originalVisit: ClientVisit,
+  schedule: EmployeeDaySchedule,
+  weeklyUsedMap: Map<string, number>,
+  allSchedulesByDate: Record<string, EmployeeDaySchedule[]>,
+  isTemplateMatch: boolean = false
+): { success: boolean; employeeName?: string; reason?: string } {
+  // Check capacity constraint
+  if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
+    return { success: false, reason: 'Would exceed capacity' };
+  }
+
+  const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
+  if (validWindows.length === 0) {
+    return { success: false, reason: 'No valid time windows' };
+  }
+
+  const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows);
+  if (!adjustedVisit) {
+    return { success: false, reason: 'Cannot fit in time windows' };
+  }
+
+  const scoringVisit = toScoringVisit(adjustedVisit);
+  const employeeRun: EmployeeRun = {
+    visits: schedule.assignedVisits.map(v => ({
+      clientName: v.clientName,
+      start: timeToMinutes(v.startTime),
+      end: timeToMinutes(v.endTime),
+      lat: v.lat || 0,
+      lng: v.lng || 0,
+    })),
+    homeLat: schedule.homeLat,
+    homeLng: schedule.homeLng,
+    mode: schedule.transportMode,
+  };
+
+  const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
+
+  if (!matchScore || matchScore.score <= 0) {
+    return { success: false, reason: 'Poor match score' };
+  }
+
+  // Apply template bonus
+  const finalScore = isTemplateMatch ? matchScore.score + 0.5 : matchScore.score;
+
+  const travelTimeBefore = matchScore.insertionIndex === 0
+    ? getTravelMinutes(
+        { lat: schedule.homeLat, lng: schedule.homeLng },
+        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+        schedule.transportMode
+      )
+    : matchScore.travelFromPrev;
+
+  const assignedVisit: AssignedVisit = {
+    id: adjustedVisit.id,
+    clientName: adjustedVisit.clientName,
+    startTime: adjustedVisit.startTime,
+    endTime: adjustedVisit.endTime,
+    durationMinutes: adjustedVisit.durationMinutes,
+    lat: adjustedVisit.lat,
+    lng: adjustedVisit.lng,
+    travelTimeBefore,
+    score: finalScore,
+  };
+
+  schedule.assignedVisits.splice(matchScore.insertionIndex, 0, assignedVisit);
+  schedule.usedCapacityMinutes += adjustedVisit.durationMinutes;
+  schedule.weeklyUsedMinutes += adjustedVisit.durationMinutes;
+  
+  weeklyUsedMap.set(schedule.employeeName, schedule.weeklyUsedMinutes);
+  
+  Object.values(allSchedulesByDate).forEach(daySchedules => {
+    daySchedules.forEach(s => {
+      if (s.employeeName === schedule.employeeName) {
+        s.weeklyUsedMinutes = schedule.weeklyUsedMinutes;
+      }
+    });
+  });
+
+  return { success: true, employeeName: schedule.employeeName };
+}
+
 // Check if adding a visit would exceed capacity, daily limit, or weekly hours
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
@@ -239,6 +322,33 @@ function assignVisitToBestEmployee(
 
   // Note: Office visits, secondary multiple care, and visits without location data
   // are already filtered out in generateWeeklySchedule, so no need to check again here
+
+  // TEMPLATE PRIORITY: Try to assign to template employee first if specified
+  if (originalVisit.templateEmployee) {
+    const templateSchedule = employeeSchedules.find(
+      s => s.employeeName.toLowerCase().includes(originalVisit.templateEmployee!.toLowerCase()) ||
+           originalVisit.templateEmployee!.toLowerCase().includes(s.employeeName.toLowerCase())
+    );
+
+    if (templateSchedule) {
+      // Try template employee with relaxed constraints
+      const templateResult = tryAssignToEmployee(
+        originalVisit, 
+        templateSchedule, 
+        weeklyUsedMap, 
+        allSchedulesByDate,
+        true // isTemplateMatch - give bonus score
+      );
+
+      if (templateResult.success) {
+        assignedVisitIds.add(originalVisit.id);
+        console.log(`✨ Template match: ${originalVisit.clientName} → ${templateResult.employeeName} (preferred)`);
+        return templateResult;
+      } else {
+        console.log(`⚠️ Template ${originalVisit.templateEmployee} unavailable for ${originalVisit.clientName}: ${templateResult.reason}`);
+      }
+    }
+  }
 
   const candidates: Array<{
     employeeName: string;
