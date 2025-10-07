@@ -634,16 +634,31 @@ export function generateWeeklySchedule(
     let result: { success: boolean; employeeName?: string; reason?: string } = { success: false, reason: '' };
 
     // PHASE 1: Try template employee first (if specified)
-    if (visit.templateEmployee) {
+    if (visit.templateEmployee && visit.templateEmployee.trim() !== '') {
       console.log(`🎯 [PHASE 1 - TEMPLATE] Client: "${visit.clientName}" | Template: "${visit.templateEmployee}" | ${visit.date} ${visit.startTime}-${visit.endTime}`);
 
-      const templateSchedule = availableSchedules.find(s => {
-        const isMatch = namesMatch(s.employeeName, visit.templateEmployee);
-        if (isMatch) {
-          console.log(`  ✅ Template employee found: "${s.employeeName}" matches template "${visit.templateEmployee}"`);
+      // Try to find template employee using namesMatch
+      let templateSchedule = availableSchedules.find(s => 
+        namesMatch(s.employeeName, visit.templateEmployee)
+      );
+
+      // Debug: show all available employees if not found
+      if (!templateSchedule) {
+        console.log(`  ❌ Template "${visit.templateEmployee}" NOT FOUND in ${availableSchedules.length} available schedules`);
+        console.log(`     Searching in: ${availableSchedules.map(s => s.employeeName).join(', ')}`);
+        
+        // Try exact substring match as fallback
+        templateSchedule = availableSchedules.find(s => 
+          s.employeeName.toLowerCase().includes(visit.templateEmployee.toLowerCase()) ||
+          visit.templateEmployee.toLowerCase().includes(s.employeeName.toLowerCase())
+        );
+        
+        if (templateSchedule) {
+          console.log(`  ⚠️ Found via substring match: "${templateSchedule.employeeName}" for template "${visit.templateEmployee}"`);
         }
-        return isMatch;
-      });
+      } else {
+        console.log(`  ✅ Template employee found: "${templateSchedule.employeeName}" matches "${visit.templateEmployee}"`);
+      }
 
       if (templateSchedule) {
         console.log(`  🔄 Attempting to assign template employee "${templateSchedule.employeeName}" to client "${visit.clientName}"...`);
@@ -664,8 +679,7 @@ export function generateWeeklySchedule(
           console.log(`  ❌ [PHASE 1 FAILED] Template "${visit.templateEmployee}" cannot serve "${visit.clientName}" - ${result.reason}`);
         }
       } else {
-        console.log(`  ❌ Template employee "${visit.templateEmployee}" NOT FOUND in available schedules`);
-        console.log(`     Available employees for ${visit.date}: ${availableSchedules.slice(0, 5).map(s => s.employeeName).join(', ')}${availableSchedules.length > 5 ? ` (+${availableSchedules.length - 5} more)` : ''}`);
+        console.log(`  ❌ Template employee "${visit.templateEmployee}" COMPLETELY NOT FOUND`);
       }
     }
 
