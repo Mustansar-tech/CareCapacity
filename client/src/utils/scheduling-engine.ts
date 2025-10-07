@@ -13,6 +13,7 @@ import {
   type EmployeeRun,
   type Visit as ScoringVisit
 } from './scheduling-scoring';
+import { namesMatch } from '@shared/name-utils';
 
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = [
@@ -617,8 +618,7 @@ export function generateWeeklySchedule(
     // PHASE 1: Try template employee first (if specified)
     if (visit.templateEmployee) {
       const templateSchedule = availableSchedules.find(
-        s => s.employeeName.toLowerCase().includes(visit.templateEmployee!.toLowerCase()) ||
-             visit.templateEmployee!.toLowerCase().includes(s.employeeName.toLowerCase())
+        s => namesMatch(s.employeeName, visit.templateEmployee!)
       );
 
       if (templateSchedule) {
@@ -636,6 +636,8 @@ export function generateWeeklySchedule(
         } else {
           console.log(`⚠️ Template ${visit.templateEmployee} unavailable for ${visit.clientName}: ${result.reason}`);
         }
+      } else {
+        console.log(`⚠️ Template employee "${visit.templateEmployee}" not found for ${visit.clientName}`);
       }
     }
 
