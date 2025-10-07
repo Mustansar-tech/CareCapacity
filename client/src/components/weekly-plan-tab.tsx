@@ -404,24 +404,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           }`}
                           data-testid={`select-employee-${empName}`}
                         >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <TransportIcon className="h-4 w-4 flex-shrink-0" />
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={empName}>
-                                {empName}
-                              </span>
+                          <TransportIcon className="h-4 w-4 flex-shrink-0" />
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={empName}>
+                              {empName}
+                            </span>
+                            <div className="flex items-center gap-2">
                               {weeklyHours > 0 && (
                                 <span className="text-xs text-muted-foreground">
                                   {weeklyHours.toFixed(1)}h/week
                                 </span>
                               )}
+                              {visitCount > 0 && (
+                                <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
+                                  {visitCount}
+                                </Badge>
+                              )}
                             </div>
                           </div>
-                          {visitCount > 0 && (
-                            <Badge variant={isSelected ? "default" : "secondary"} className="text-xs flex-shrink-0">
-                              {visitCount}
-                            </Badge>
-                          )}
                         </div>
                       );
                     })
