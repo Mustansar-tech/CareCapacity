@@ -273,6 +273,11 @@ function assignVisitToBestEmployee(
     score: best.score,
   };
 
+  // Debug logging for first visit of the day
+  if (best.insertionIndex === 0) {
+    console.log(`✅ Assigned FIRST visit for ${best.employeeName}: ${assignedVisit.clientName} with ${assignedVisit.travelTimeBefore}min travel from home`);
+  }
+
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
   
