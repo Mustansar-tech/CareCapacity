@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,13 +93,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Use a Map to deduplicate by employee name and prefer records with more data
   const employeeMap = new Map<string, any>();
   const adHocEmployees = new Set<string>();
-  
+
   Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
     // Track ad-hoc employees to exclude them from picker
     if (emp.status === 'Ad-hoc') {
       adHocEmployees.add(emp.employeeName);
     }
-    
+
     // Only include employees with real availability (not ad-hoc) and time windows
     if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc') {
       const existing = employeeMap.get(emp.employeeName);
@@ -110,7 +109,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       }
     }
   });
-  
+
   const availableEmployees = Array.from(employeeMap.values());
 
   // Get employees with assignments from the weekly schedule (exclude ad-hoc)
@@ -127,7 +126,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeNames = weeklySchedule 
     ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
     : availableEmployees.map(e => e.employeeName).sort();
-  
+
   const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -135,7 +134,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Calculate weekly hours from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
-  
+
   Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
     dayEmployees.forEach(emp => {
       if (emp.contractedDailyHours > 0) {
@@ -153,7 +152,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const generateMutation = useMutation({
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
-      
+
       // Prepare employee data with locations
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
@@ -187,16 +186,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
-      
+
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
-      
+
       console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
-      
+
       return result;
     },
     onSuccess: async (result) => {
       setWeeklySchedule(result);
-      
+
       // Save to database
       try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
@@ -206,9 +205,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           unallocatedVisits: result.unallocated,
           metrics: result.metrics,
         });
-        
+
         queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
-        
+
         toast({
           title: "Schedule Generated & Saved",
           description: `Assigned ${result.metrics.totalVisitsAssigned} visits across ${result.metrics.employeesUtilized} employees`,
@@ -347,97 +346,98 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       )}
 
       {/* Main Layout: Employee Picker (Left) + Weekly Run (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Employee Picker - Narrower width, increased height */}
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Employee Picker
-            </CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Employee Picker - Narrower width for better layout */}
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Employees</CardTitle>
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 text-sm"
+                data-testid="input-search-employee"
+              />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search employees..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-search-employee"
-                />
-              </div>
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-2">
-                  {filteredEmployees.length > 0 ? (
-                    filteredEmployees.map(empName => {
-                      const location = employeeLocationMap.get(empName);
-                      
-                      // Determine transport mode icon
-                      const transportMode = location?.transportMode?.toLowerCase() || '';
-                      const isWalker = !transportMode.includes('car');
-                      const TransportIcon = isWalker ? User : Car;
-                      
-                      // Get gender from employee gender map
-                      const gender = employeeGenderMap.get(empName) || '';
-                      
-                      // Get visit count across all days
-                      const visitCount = weeklySchedule 
-                        ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
-                            sum + (dateAssignments[empName]?.length || 0), 0)
-                        : 0;
-                      
-                      // Calculate total weekly hours from the weekly hours map
-                      const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
-                      
-                      const isSelected = selectedEmployee === empName;
-                      
-                      return (
-                        <div
-                          key={empName}
-                          onClick={() => setSelectedEmployee(empName)}
-                          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'bg-blue-100 dark:bg-blue-900/20 border-2 border-blue-500' 
-                              : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
-                          }`}
-                          data-testid={`select-employee-${empName}`}
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <TransportIcon className="h-4 w-4 flex-shrink-0" />
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={empName}>
-                                {empName}
-                              </span>
-                              {weeklyHours > 0 && (
-                                <span className="text-xs text-muted-foreground">
-                                  {weeklyHours.toFixed(1)}h/week
-                                </span>
+          <CardContent className="pt-0">
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-1.5">
+                {filteredEmployees.length > 0 ? (
+                  filteredEmployees.map(empName => {
+                    const location = employeeLocationMap.get(empName);
+
+                    // Determine transport mode icon
+                    const transportMode = location?.transportMode?.toLowerCase() || '';
+                    const isWalker = !transportMode.includes('car');
+                    const TransportIcon = isWalker ? User : Car;
+
+                    // Get gender from employee gender map
+                    const gender = employeeGenderMap.get(empName) || '';
+
+                    // Get visit count across all days
+                    const visitCount = weeklySchedule 
+                      ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
+                          sum + (dateAssignments[empName]?.length || 0), 0)
+                      : 0;
+
+                    // Calculate total weekly hours from the weekly hours map
+                    const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
+
+                    const isSelected = selectedEmployee === empName;
+
+                    return (
+                      <Card
+                        key={empName}
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          isSelected 
+                            ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950' 
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                        }`}
+                        onClick={() => setSelectedEmployee(empName)}
+                      >
+                        <CardContent className="p-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-shrink-0">
+                              {isWalker ? (
+                                <User className="h-3.5 w-3.5 text-gray-600" />
+                              ) : (
+                                <Car className="h-3.5 w-3.5 text-blue-600" />
                               )}
                             </div>
-                          </div>
-                          {visitCount > 0 && (
-                            <Badge variant={isSelected ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                            <div className="flex-1 min-w-0">
+                              <div className={`font-medium text-xs ${getGenderColorClass(gender)} truncate`}>
+                                {empName}
+                              </div>
+                              <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                                {weeklyHours}h/wk
+                              </div>
+                            </div>
+                            <Badge 
+                              variant={visitCount > 0 ? "default" : "outline"} 
+                              className="text-[10px] px-1.5 py-0 shrink-0"
+                            >
                               {visitCount}
                             </Badge>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-4 text-sm text-muted-foreground">
-                      No employees found matching "{searchTerm}"
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    No employees found matching "{searchTerm}"
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
 
         {/* Weekly Run View - Increased width */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-4">
           {selectedEmployee && weeklySchedule ? (
             <Card className="glass-card">
               <CardHeader>
@@ -455,17 +455,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     {weekDates.map((date, index) => {
                       const dayVisits = employeeWeeklyRun[index]?.visits || [];
                       const dayName = dayNames[index];
-                      
+
                       // Get employee availability windows for this day
                       const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
                       const timeWindows = employeeForDate?.timeWindows || '';
                       const status = employeeForDate?.status || '';
-                      
+
                       // Only show days with real availability (has time windows and not ad-hoc)
                       if (!timeWindows || timeWindows.trim() === '' || status === 'Ad-hoc') {
                         return null;
                       }
-                      
+
                       return (
                         <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
                           {/* Day Header */}
@@ -482,7 +482,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               {dayVisits.length} visits
                             </Badge>
                           </div>
-                          
+
                           {/* Visits Grid - Wrapped Layout */}
                           {dayVisits.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
@@ -556,11 +556,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 {weekDates.map((date, dayIndex) => {
                   // Filter unallocated visits for this specific day
                   const dayUnallocated = weeklySchedule.unallocated.filter(v => v.date === date);
-                  
+
                   if (dayUnallocated.length === 0) return null;
-                  
+
                   const dayName = dayNames[dayIndex];
-                  
+
                   return (
                     <div key={date} className="border border-red-200 dark:border-red-700 rounded-lg p-3 bg-red-50/50 dark:bg-red-950/10">
                       {/* Day Header */}
@@ -575,7 +575,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           {dayUnallocated.length} unallocated
                         </Badge>
                       </div>
-                      
+
                       {/* Day's Unallocated Visits Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
                         {dayUnallocated.map((visit, index) => (
