@@ -40,29 +40,39 @@ const MIN_WINDOW_DURATION = 45;
 // Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
 const TIME_FLEXIBILITY_MINUTES = 5;
 
-// GH (Guaranteed Hours) bonus for prioritization
-const GH_SCORE_BONUS = 0.15; // Increased from 0.1 to 0.15 for stronger prioritization
+// Priority bonus for underutilized employees (encourages filling contracted hours)
+const UNDERUTILIZED_BONUS = 0.20;
 
 // Check if employee has Guaranteed Hours (GH in name)
 function isGHEmployee(employeeName: string): boolean {
   return employeeName.toUpperCase().includes('(GH)');
 }
 
-// Extract GH weekly hours from employee name (e.g., "John (GH 30)" → 30 hours)
-function extractGHWeeklyHours(employeeName: string): number | null {
-  const ghMatch = employeeName.match(/\(GH\s*(\d+)\)/i);
+// Extract weekly hours from employee name - works for all formats
+// Supports: "(GH 30)", "16.0h/week", "20h/week", etc.
+function extractWeeklyHours(employeeName: string): number | null {
+  // Try GH format first: "(GH 30)" or "(GH30)"
+  const ghMatch = employeeName.match(/\(GH\s*(\d+(?:\.\d+)?)\)/i);
   if (ghMatch && ghMatch[1]) {
-    return parseInt(ghMatch[1], 10) * 60; // Convert hours to minutes
+    return parseFloat(ghMatch[1]) * 60; // Convert hours to minutes
   }
+  
+  // Try "h/week" format: "16.0h/week" or "20h/week"
+  const weeklyMatch = employeeName.match(/(\d+(?:\.\d+)?)\s*h\/week/i);
+  if (weeklyMatch && weeklyMatch[1]) {
+    return parseFloat(weeklyMatch[1]) * 60; // Convert hours to minutes
+  }
+  
+  // No weekly hours found
   return null;
 }
 
-// Weekly employee tracker for GH limits
+// Universal weekly employee tracker (for ALL employees with contracted hours)
 interface WeeklyEmployeeTracker {
   employeeName: string;
-  weeklyGuaranteedMinutes: number | null; // null for non-GH employees
+  weeklyContractedMinutes: number | null; // Contracted hours per week (null if unknown)
   weeklyAssignedMinutes: number;
-  isGH: boolean;
+  utilizationPercent: number; // How much of contracted hours are filled (0-100+)
 }
 
 // Employee's daily schedule
@@ -228,12 +238,12 @@ function assignVisitToBestEmployee(
       continue; // Skip - would exceed daily capacity
     }
     
-    // Check weekly GH limit for GH employees
+    // Check weekly contracted hours limit for employees with contracted hours
     const tracker = weeklyTrackers.get(schedule.employeeName);
-    if (tracker && tracker.isGH && tracker.weeklyGuaranteedMinutes !== null) {
-      const wouldExceedWeekly = (tracker.weeklyAssignedMinutes + originalVisit.durationMinutes) > tracker.weeklyGuaranteedMinutes;
+    if (tracker && tracker.weeklyContractedMinutes !== null) {
+      const wouldExceedWeekly = (tracker.weeklyAssignedMinutes + originalVisit.durationMinutes) > tracker.weeklyContractedMinutes;
       if (wouldExceedWeekly) {
-        continue; // Skip - would exceed GH weekly limit
+        continue; // Skip - would exceed weekly contracted hours
       }
     }
 
@@ -269,10 +279,20 @@ function assignVisitToBestEmployee(
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     
     if (matchScore && matchScore.score > 0) {
-      // Add GH bonus to prioritize guaranteed hours employees
-      const finalScore = isGHEmployee(schedule.employeeName) 
-        ? matchScore.score + GH_SCORE_BONUS 
-        : matchScore.score;
+      // Prioritize underutilized employees (those below their contracted hours)
+      const tracker = weeklyTrackers.get(schedule.employeeName);
+      let finalScore = matchScore.score;
+      
+      if (tracker && tracker.weeklyContractedMinutes !== null) {
+        const utilizationPercent = (tracker.weeklyAssignedMinutes / tracker.weeklyContractedMinutes) * 100;
+        
+        // Bonus for underutilized employees (below 100% of contracted hours)
+        if (utilizationPercent < 100) {
+          // Higher bonus for lower utilization (encourages filling contracted hours first)
+          const underutilizationFactor = (100 - utilizationPercent) / 100;
+          finalScore += UNDERUTILIZED_BONUS * underutilizationFactor;
+        }
+      }
       
       candidates.push({
         employeeName: schedule.employeeName,
@@ -409,23 +429,23 @@ export function generateWeeklySchedule(
     });
   });
 
-  // Initialize weekly employee trackers for GH limit enforcement
+  // Initialize weekly employee trackers for ALL employees (universal hour tracking)
   const weeklyTrackers = new Map<string, WeeklyEmployeeTracker>();
   const uniqueEmployees = new Set(employees.map(e => e.employeeName));
   
   uniqueEmployees.forEach(employeeName => {
-    const isGH = isGHEmployee(employeeName);
-    const weeklyGuaranteedMinutes = isGH ? extractGHWeeklyHours(employeeName) : null;
+    const weeklyContractedMinutes = extractWeeklyHours(employeeName);
     
     weeklyTrackers.set(employeeName, {
       employeeName,
-      weeklyGuaranteedMinutes,
+      weeklyContractedMinutes,
       weeklyAssignedMinutes: 0,
-      isGH,
+      utilizationPercent: 0,
     });
   });
   
-  console.log(`📊 Weekly GH tracking initialized for ${weeklyTrackers.size} employees`);
+  const employeesWithHours = Array.from(weeklyTrackers.values()).filter(t => t.weeklyContractedMinutes !== null).length;
+  console.log(`📊 Universal weekly tracking initialized for ${weeklyTrackers.size} employees (${employeesWithHours} with contracted hours)`);
 
   // Track assigned visit IDs globally to ensure uniqueness
   const assignedVisitIds = new Set<string>();
@@ -527,53 +547,44 @@ export function generateWeeklySchedule(
 
   const averageTravelTimePerVisit = visitCount > 0 ? Math.round(totalTravelTime / visitCount) : 0;
 
-  // Track GH vs non-GH utilization with detailed metrics
-  const ghEmployeesUtilized = Array.from(utilizedEmployees).filter(name => isGHEmployee(name));
-  const nonGhEmployeesUtilized = Array.from(utilizedEmployees).filter(name => !isGHEmployee(name));
+  // Calculate universal employee utilization statistics
+  let totalContractedHours = 0;
+  let totalAssignedHours = 0;
+  let employeesWithContracts = 0;
+  let employeesAtOrAboveContract = 0;
+  let employeesUnderUtilized = 0;
+  let employeesWithoutContracts = 0;
   
-  // Calculate GH utilization statistics with weekly limits
-  let ghTotalGuaranteed = 0;
-  let ghTotalAssigned = 0;
-  let ghVisitsAssigned = 0;
-  let nonGhVisitsAssigned = 0;
-  let ghEmployeesAtCap = 0;
-  let ghEmployeesUnderUtilized = 0;
-  
+  // Update utilization percentages and calculate stats
   weeklyTrackers.forEach(tracker => {
-    if (tracker.isGH && tracker.weeklyGuaranteedMinutes !== null) {
-      ghTotalGuaranteed += tracker.weeklyGuaranteedMinutes;
-      ghTotalAssigned += tracker.weeklyAssignedMinutes;
+    if (tracker.weeklyContractedMinutes !== null) {
+      employeesWithContracts++;
+      totalContractedHours += tracker.weeklyContractedMinutes;
+      totalAssignedHours += tracker.weeklyAssignedMinutes;
       
-      // Check if employee hit their cap
-      if (tracker.weeklyAssignedMinutes >= tracker.weeklyGuaranteedMinutes) {
-        ghEmployeesAtCap++;
-      } else if (tracker.weeklyAssignedMinutes > 0 && tracker.weeklyAssignedMinutes < tracker.weeklyGuaranteedMinutes * 0.8) {
-        // Under-utilized: assigned less than 80% of guaranteed hours
-        ghEmployeesUnderUtilized++;
+      // Update utilization percentage
+      tracker.utilizationPercent = (tracker.weeklyAssignedMinutes / tracker.weeklyContractedMinutes) * 100;
+      
+      // Check if employee met or exceeded their contracted hours
+      if (tracker.weeklyAssignedMinutes >= tracker.weeklyContractedMinutes) {
+        employeesAtOrAboveContract++;
+      } else if (tracker.weeklyAssignedMinutes > 0 && tracker.utilizationPercent < 80) {
+        // Under-utilized: assigned less than 80% of contracted hours
+        employeesUnderUtilized++;
       }
+    } else {
+      employeesWithoutContracts++;
     }
   });
   
-  // Count visits by employee type
-  weekDates.forEach(date => {
-    const daySchedules = schedulesByDate[date] || [];
-    daySchedules.forEach(schedule => {
-      if (isGHEmployee(schedule.employeeName)) {
-        ghVisitsAssigned += schedule.assignedVisits.length;
-      } else {
-        nonGhVisitsAssigned += schedule.assignedVisits.length;
-      }
-    });
-  });
+  const overallUtilizationPercent = totalContractedHours > 0 ? Math.round((totalAssignedHours / totalContractedHours) * 100) : 0;
   
-  const ghUtilizationPercent = ghTotalGuaranteed > 0 ? Math.round((ghTotalAssigned / ghTotalGuaranteed) * 100) : 0;
-  
-  console.log(`✅ GH Weekly Limit Enforcement Results:`);
-  console.log(`   • GH Employees: ${ghEmployeesUtilized.length} utilized, ${ghVisitsAssigned} visits assigned`);
-  console.log(`   • GH Weekly Hours: ${(ghTotalAssigned / 60).toFixed(1)}h assigned / ${(ghTotalGuaranteed / 60).toFixed(1)}h guaranteed (${ghUtilizationPercent}%)`);
-  console.log(`   • GH at Weekly Cap: ${ghEmployeesAtCap} employees reached their guaranteed hours limit`);
-  console.log(`   • GH Under-utilized: ${ghEmployeesUnderUtilized} employees below 80% of guaranteed hours`);
-  console.log(`   • Non-GH Employees: ${nonGhEmployeesUtilized.length} utilized, ${nonGhVisitsAssigned} visits assigned`);
+  console.log(`✅ Universal Weekly Hour Utilization Results:`);
+  console.log(`   • Total Employees: ${weeklyTrackers.size} (${employeesWithContracts} with contracted hours, ${employeesWithoutContracts} flexible)`);
+  console.log(`   • Contracted Hours: ${(totalAssignedHours / 60).toFixed(1)}h assigned / ${(totalContractedHours / 60).toFixed(1)}h contracted (${overallUtilizationPercent}%)`);
+  console.log(`   • At/Above 100% Contract: ${employeesAtOrAboveContract} employees fully utilized or in overtime`);
+  console.log(`   • Under-utilized (<80%): ${employeesUnderUtilized} employees below 80% of contracted hours`);
+  console.log(`   • Total Visits Assigned: ${totalVisitsAssigned}, Unallocated: ${totalVisitsUnallocated}`);
 
   return {
     assignments,
