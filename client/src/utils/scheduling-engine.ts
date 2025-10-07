@@ -26,6 +26,14 @@ const MIN_WINDOW_DURATION = 45;
 // Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
 const TIME_FLEXIBILITY_MINUTES = 5;
 
+// GH (Guaranteed Hours) bonus for prioritization
+const GH_SCORE_BONUS = 0.1;
+
+// Check if employee has Guaranteed Hours (GH in name)
+function isGHEmployee(employeeName: string): boolean {
+  return employeeName.toUpperCase().includes('(GH)');
+}
+
 // Employee's daily schedule
 interface EmployeeDaySchedule {
   employeeName: string;
@@ -214,9 +222,14 @@ function assignVisitToBestEmployee(
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     
     if (matchScore && matchScore.score > 0) {
+      // Add GH bonus to prioritize guaranteed hours employees
+      const finalScore = isGHEmployee(schedule.employeeName) 
+        ? matchScore.score + GH_SCORE_BONUS 
+        : matchScore.score;
+      
       candidates.push({
         employeeName: schedule.employeeName,
-        score: matchScore.score,
+        score: finalScore,
         insertionIndex: matchScore.insertionIndex,
         travelFromPrev: matchScore.travelFromPrev,
         travelToNext: matchScore.travelToNext,
@@ -348,7 +361,7 @@ export function generateWeeklySchedule(
     return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
   });
 
-  // First pass: Assign each visit using standard constraints
+  // First pass: Assign each visit prioritizing GH employees
   for (const visit of sortedVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
     
@@ -357,7 +370,18 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+    // Separate GH and non-GH employees for two-phase allocation
+    const ghEmployees = employeeSchedules.filter(s => isGHEmployee(s.employeeName));
+    
+    // Phase 1: Try to assign to GH employees first (if any available)
+    let result = ghEmployees.length > 0
+      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds)
+      : { success: false, reason: 'No GH employees available' };
+    
+    // Phase 2: If not assigned to GH employee, try all employees
+    if (!result.success) {
+      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+    }
     
     if (!result.success) {
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
