@@ -459,7 +459,8 @@ export function generateWeeklySchedule(
     return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
   });
 
-  // First pass: Assign each visit prioritizing GH employees
+  // First pass: Assign each visit to best available employee
+  // Underutilization bonuses automatically prioritize filling contracted hours first
   for (const visit of sortedVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
     
@@ -468,18 +469,7 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    // Separate GH and non-GH employees for two-phase allocation
-    const ghEmployees = employeeSchedules.filter(s => isGHEmployee(s.employeeName));
-    
-    // Phase 1: Try to assign to GH employees first (if any available)
-    let result = ghEmployees.length > 0
-      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyTrackers)
-      : { success: false, reason: 'No GH employees available' };
-    
-    // Phase 2: If not assigned to GH employee, try all employees
-    if (!result.success) {
-      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyTrackers);
-    }
+    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyTrackers);
     
     if (!result.success) {
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
