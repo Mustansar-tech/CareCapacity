@@ -14,7 +14,17 @@ import {
 } from './scheduling-scoring';
 
 // Office visit keywords to exclude
-const OFFICE_VISIT_KEYWORDS = ['east nl', 'glasgow', 'training seawared'];
+const OFFICE_VISIT_KEYWORDS = [
+  'east nl', 
+  'glasgow', 
+  'training seawared',
+  'training (nl)',
+  'seaward place',
+  'office',
+  'training',
+  'admin',
+  'meeting'
+];
 
 // Secondary multiple care keywords to exclude
 const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];

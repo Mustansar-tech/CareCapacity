@@ -67,6 +67,19 @@ export interface ExcelClientVisit {
   postcode?: string;
 }
 
+// Office visit keywords to exclude
+const OFFICE_VISIT_KEYWORDS = [
+  'east nl', 
+  'glasgow', 
+  'training seawared',
+  'training (nl)',
+  'seaward place',
+  'office',
+  'training',
+  'admin',
+  'meeting'
+];
+
 export function extractClientVisitsFromGHExcel(
   ghWorkbookBuffer: Buffer,
   specificDate: Date
@@ -108,6 +121,12 @@ export function extractClientVisitsFromGHExcel(
     const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
+    
+    // Skip office visits
+    const clientNameLower = clientName.toLowerCase();
+    if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
+      continue;
+    }
 
     // Get start time
     const startRaw = START_COLS.map(c => row[c]).find(v => v != null && v !== '');
