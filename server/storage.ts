@@ -7,6 +7,12 @@ import {
   type InsertEmployeeLocation,
   type ClientLocation,
   type InsertClientLocation,
+  type Visit,
+  type InsertVisit,
+  type RoutePlan,
+  type InsertRoutePlan,
+  type RouteStop,
+  type InsertRouteStop,
   type GeocodeCache,
   type InsertGeocode,
   type WeeklySchedule,
@@ -43,7 +49,19 @@ export interface IStorage {
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(): Promise<ClientLocation[]>;
 
-  
+  saveVisit(visit: InsertVisit): Promise<Visit>;
+  getVisitById(id: string): Promise<Visit | undefined>;
+  getVisitsByDate(date: string): Promise<Visit[]>;
+  getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
+  listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]>;
+  clearAllVisits(): Promise<any>;
+
+  saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
+  getRoutePlansByDate(date: string): Promise<RoutePlan[]>;
+  getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined>;
+
+  saveRouteStop(stop: InsertRouteStop): Promise<RouteStop>;
+  getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]>;
 
   getGeocode(key: string): Promise<GeocodeCache | undefined>;
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
@@ -62,6 +80,9 @@ export class MemStorage implements IStorage {
   private capacityAnalyses: Map<string, CapacityAnalysis>;
   private employeeLocations: Map<string, EmployeeLocation>;
   private clientLocations: Map<string, ClientLocation>;
+  private visits: Map<string, Visit>;
+  private routePlans: Map<string, RoutePlan>;
+  private routeStops: Map<string, RouteStop>;
   private geocodeCache: Map<string, GeocodeCache>;
   private weeklySchedules: Map<string, WeeklySchedule>;
 
@@ -70,6 +91,9 @@ export class MemStorage implements IStorage {
     this.capacityAnalyses = new Map();
     this.employeeLocations = new Map();
     this.clientLocations = new Map();
+    this.visits = new Map();
+    this.routePlans = new Map();
+    this.routeStops = new Map();
     this.geocodeCache = new Map();
     this.weeklySchedules = new Map();
   }
@@ -339,7 +363,99 @@ export class MemStorage implements IStorage {
     return Array.from(this.clientLocations.values());
   }
 
-  
+  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
+    const id = randomUUID();
+    const visit: Visit = {
+      ...insertVisit,
+      id,
+      preferredStartTime: insertVisit.preferredStartTime || null,
+      preferredEndTime: insertVisit.preferredEndTime || null,
+      priority: insertVisit.priority || null,
+      serviceType: insertVisit.serviceType || null,
+      createdAt: new Date(),
+    };
+    this.visits.set(id, visit);
+    return visit;
+  }
+
+  async getVisitById(id: string): Promise<Visit | undefined> {
+    return this.visits.get(id);
+  }
+
+  async getVisitsByDate(date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(visit => visit.date === date);
+  }
+
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(
+      visit => visit.clientId === clientId && visit.date === date
+    );
+  }
+
+  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    const allVisits = Array.from(this.visits.values());
+    if (!startDate && !endDate) {
+      return allVisits;
+    }
+    return allVisits.filter(visit => {
+      if (startDate && visit.date < startDate) return false;
+      if (endDate && visit.date > endDate) return false;
+      return true;
+    });
+  }
+
+  async clearAllVisits(): Promise<any> {
+    console.log(`🧹 Clearing all visits data...`);
+    this.visits.clear();
+    console.log(`✅ Cleared visits data`);
+    return { visitsDeleted: this.visits.size };
+  }
+
+  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
+    const id = randomUUID();
+    const plan: RoutePlan = {
+      ...insertPlan,
+      id,
+      status: insertPlan.status || null,
+      warnings: insertPlan.warnings || [],
+      totalDistanceKm: insertPlan.totalDistanceKm || null,
+      totalTravelMinutes: insertPlan.totalTravelMinutes || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.routePlans.set(id, plan);
+    return plan;
+  }
+
+  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+    return Array.from(this.routePlans.values()).filter(plan => plan.date === date);
+  }
+
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
+    return Array.from(this.routePlans.values()).find(
+      plan => plan.employeeId === employeeId && plan.date === date
+    );
+  }
+
+  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
+    const id = randomUUID();
+    const stop: RouteStop = {
+      ...insertStop,
+      id,
+      scheduledStart: insertStop.scheduledStart || null,
+      scheduledEnd: insertStop.scheduledEnd || null,
+      travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
+      distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
+    };
+    this.routeStops.set(id, stop);
+    return stop;
+  }
+
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
+    return Array.from(this.routeStops.values())
+      .filter(stop => stop.routePlanId === routePlanId)
+      .sort((a, b) => a.sequence - b.sequence);
+  }
 
   async getGeocode(key: string): Promise<GeocodeCache | undefined> {
     return this.geocodeCache.get(key);
@@ -361,7 +477,17 @@ export class MemStorage implements IStorage {
     return geocode;
   }
 
-  
+  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    const routePlansDeleted = this.routePlans.size;
+    const routeStopsDeleted = this.routeStops.size;
+    const visitsDeleted = this.visits.size;
+
+    this.routePlans.clear();
+    this.routeStops.clear();
+    this.visits.clear();
+
+    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
+  }
 
   // Weekly schedule methods
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
@@ -412,6 +538,9 @@ import {
   capacityAnalyses, 
   employeeLocations, 
   clientLocations, 
+  visits, 
+  routePlans, 
+  routeStops, 
   geocodeCache,
   weeklySchedules
 } from "@shared/schema";
@@ -701,7 +830,111 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(clientLocations);
   }
 
-  
+  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
+    const [visit] = await db
+      .insert(visits)
+      .values({
+        ...insertVisit,
+        preferredStartTime: insertVisit.preferredStartTime || null,
+        preferredEndTime: insertVisit.preferredEndTime || null,
+        priority: insertVisit.priority || 1,
+        serviceType: insertVisit.serviceType || null,
+      })
+      .returning();
+    return visit;
+  }
+
+  async getVisitById(id: string): Promise<Visit | undefined> {
+    const [visit] = await db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, id));
+    return visit || undefined;
+  }
+
+  async getVisitsByDate(date: string): Promise<Visit[]> {
+    return await db
+      .select()
+      .from(visits)
+      .where(eq(visits.date, date));
+  }
+
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
+    return await db
+      .select()
+      .from(visits)
+      .where(and(eq(visits.clientId, clientId), eq(visits.date, date)));
+  }
+
+  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    if (startDate && endDate) {
+      return await db.select().from(visits).where(and(gte(visits.date, startDate), lte(visits.date, endDate)));
+    } else if (startDate) {
+      return await db.select().from(visits).where(gte(visits.date, startDate));
+    } else if (endDate) {
+      return await db.select().from(visits).where(lte(visits.date, endDate));
+    }
+
+    return await db.select().from(visits);
+  }
+
+  async clearAllVisits(): Promise<any> {
+    console.log(`🧹 Clearing all visits data...`);
+    const result = await db.delete(visits);
+    console.log(`✅ Cleared visits data`);
+    return result;
+  }
+
+  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
+    const [plan] = await db
+      .insert(routePlans)
+      .values({
+        ...insertPlan,
+        totalDistanceKm: insertPlan.totalDistanceKm || null,
+        totalTravelMinutes: insertPlan.totalTravelMinutes || null,
+        status: insertPlan.status || "optimized",
+        warnings: insertPlan.warnings || [],
+      })
+      .returning();
+    return plan;
+  }
+
+  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+    return await db
+      .select()
+      .from(routePlans)
+      .where(eq(routePlans.date, date));
+  }
+
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(routePlans)
+      .where(and(eq(routePlans.employeeId, employeeId), eq(routePlans.date, date)));
+    return plan || undefined;
+  }
+
+  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
+    const [stop] = await db
+      .insert(routeStops)
+      .values({
+        ...insertStop,
+        scheduledStart: insertStop.scheduledStart || null,
+        scheduledEnd: insertStop.scheduledEnd || null,
+        travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
+        distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
+      })
+      .returning();
+    return stop;
+  }
+
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
+    return await db
+      .select()
+      .from(routeStops)
+      .where(eq(routeStops.routePlanId, routePlanId))
+      .orderBy(routeStops.sequence);
+  }
 
   async getGeocode(key: string): Promise<GeocodeCache | undefined> {
     const [geocode] = await db
@@ -726,7 +959,23 @@ export class DatabaseStorage implements IStorage {
     return geocode;
   }
 
-  
+  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    // Count existing records
+    const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans`);
+    const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops`);
+    const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits`);
+
+    const routePlansDeleted = Number(routePlansCount.rows[0]?.count || 0);
+    const routeStopsDeleted = Number(routeStopsCount.rows[0]?.count || 0);
+    const visitsDeleted = Number(visitsCount.rows[0]?.count || 0);
+
+    // Delete in correct order (route_stops first due to foreign key)
+    await db.delete(routeStops);
+    await db.delete(routePlans);
+    await db.delete(visits);
+
+    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
+  }
 
   // Weekly schedule methods
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
