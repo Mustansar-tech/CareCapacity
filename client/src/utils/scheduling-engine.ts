@@ -605,6 +605,12 @@ export function generateWeeklySchedule(
   });
 
   // First pass: Assign each visit using three-phase allocation
+  console.log(`\n📋 STARTING THREE-PHASE ALLOCATION FOR ${sortedVisits.length} VISITS\n`);
+  
+  let templateSuccessCount = 0;
+  let ghSuccessCount = 0;
+  let generalSuccessCount = 0;
+
   for (const visit of sortedVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
 
@@ -629,7 +635,7 @@ export function generateWeeklySchedule(
 
     // PHASE 1: Try template employee first (if specified)
     if (visit.templateEmployee) {
-      console.log(`🎯 [TEMPLATE] Client: "${visit.clientName}" | Template Employee: "${visit.templateEmployee}" | Date: ${visit.date} | Time: ${visit.startTime}-${visit.endTime}`);
+      console.log(`🎯 [PHASE 1 - TEMPLATE] Client: "${visit.clientName}" | Template: "${visit.templateEmployee}" | ${visit.date} ${visit.startTime}-${visit.endTime}`);
 
       const templateSchedule = availableSchedules.find(s => {
         const isMatch = namesMatch(s.employeeName, visit.templateEmployee);
@@ -652,9 +658,10 @@ export function generateWeeklySchedule(
 
         if (result.success) {
           assignedVisitIds.add(visit.id);
-          console.log(`  ✨ SUCCESS: Template "${visit.templateEmployee}" → Client "${visit.clientName}" ✓`);
+          templateSuccessCount++;
+          console.log(`  ✨ [PHASE 1 SUCCESS] Template "${visit.templateEmployee}" → Client "${visit.clientName}" ✓`);
         } else {
-          console.log(`  ❌ FAILED: Template "${visit.templateEmployee}" cannot serve "${visit.clientName}" - ${result.reason}`);
+          console.log(`  ❌ [PHASE 1 FAILED] Template "${visit.templateEmployee}" cannot serve "${visit.clientName}" - ${result.reason}`);
         }
       } else {
         console.log(`  ❌ Template employee "${visit.templateEmployee}" NOT FOUND in available schedules`);
@@ -667,20 +674,24 @@ export function generateWeeklySchedule(
       const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
 
       if (ghEmployees.length > 0) {
+        console.log(`🔄 [PHASE 2 - GH] Trying ${ghEmployees.length} GH employees for ${visit.clientName}`);
         result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
 
         if (result.success) {
-          console.log(`✅ GH employee assigned: ${visit.clientName} → ${result.employeeName}`);
+          ghSuccessCount++;
+          console.log(`✅ [PHASE 2 SUCCESS] GH employee assigned: ${visit.clientName} → ${result.employeeName}`);
         }
       }
     }
 
     // PHASE 3: If GH failed, try all employees
     if (!result.success) {
+      console.log(`🔄 [PHASE 3 - ALL] Trying all ${availableSchedules.length} employees for ${visit.clientName}`);
       result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
 
       if (result.success) {
-        console.log(`✅ General assignment: ${visit.clientName} → ${result.employeeName}`);
+        generalSuccessCount++;
+        console.log(`✅ [PHASE 3 SUCCESS] General assignment: ${visit.clientName} → ${result.employeeName}`);
       }
     }
 
@@ -699,6 +710,12 @@ export function generateWeeklySchedule(
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
     }
   }
+
+  console.log(`\n📊 THREE-PHASE ALLOCATION SUMMARY:`);
+  console.log(`  🎯 Phase 1 (Template): ${templateSuccessCount} visits assigned`);
+  console.log(`  🔄 Phase 2 (GH): ${ghSuccessCount} visits assigned`);
+  console.log(`  ✅ Phase 3 (All): ${generalSuccessCount} visits assigned`);
+  console.log(`  ❌ Unallocated: ${unallocated.length} visits\n`);
 
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)

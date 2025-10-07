@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,13 +93,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Use a Map to deduplicate by employee name and prefer records with more data
   const employeeMap = new Map<string, any>();
   const adHocEmployees = new Set<string>();
-  
+
   Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
     // Track ad-hoc employees to exclude them from picker
     if (emp.status === 'Ad-hoc') {
       adHocEmployees.add(emp.employeeName);
     }
-    
+
     // Only include employees with real availability (not ad-hoc) and time windows
     if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc') {
       const existing = employeeMap.get(emp.employeeName);
@@ -110,7 +109,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       }
     }
   });
-  
+
   const availableEmployees = Array.from(employeeMap.values());
 
   // Get employees with assignments from the weekly schedule (exclude ad-hoc)
@@ -127,7 +126,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeNames = weeklySchedule 
     ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
     : availableEmployees.map(e => e.employeeName).sort();
-  
+
   const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -135,7 +134,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Calculate weekly hours from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
-  
+
   Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
     dayEmployees.forEach(emp => {
       if (emp.contractedDailyHours > 0) {
@@ -149,81 +148,74 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     });
   });
 
-  // Generate weekly schedule mutation
+  // Generate weekly schedule mutation using three-phase allocation
   const generateMutation = useMutation({
     mutationFn: async () => {
-      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
-      
-      // Prepare employee data with locations and weekly hours
-      const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
-        empList.map(emp => {
-          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-          // Get weekly contracted hours from the employee weekly hours map
-          const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
-          return {
-            employeeName: emp.employeeName,
-            date,
-            timeWindows: emp.timeWindows,
-            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
-            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
-            transportMode: location?.transportMode || undefined,
-            weeklyContractedHours: weeklyHours,
-          };
-        })
-      );
+      // Import scheduling engine
+      const { generateWeeklySchedule } = await import('@/utils/scheduling-engine');
 
-      // Add location data to visits
-      const visitsWithLocations: ClientVisit[] = allWeekVisits.map((visit, index) => {
-        const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
-        return {
-          id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
-          clientName: visit.clientName,
-          startTime: visit.startTime,
-          endTime: visit.endTime,
-          durationMinutes: visit.durationMinutes,
-          date: visit.date,
-          lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
-          lng: clientLocation?.lng ? Number(clientLocation.lng) : undefined,
-          serviceType: visit.serviceType,
-          priority: visit.priority,
-        };
+      // Get all employees for the week from data
+      const employees = weekDates.flatMap(date => {
+        const dayEmployees = data?.employeesByDate?.[date] || [];
+        return dayEmployees.map(emp => ({
+          employeeName: emp.employeeName,
+          date: date,
+          timeWindows: emp.timeWindows || '',
+          homeLat: locationsData?.employees.find(e => e.employeeName === emp.employeeName)?.homeLat 
+            ? parseFloat(locationsData.employees.find(e => e.employeeName === emp.employeeName)!.homeLat!) 
+            : undefined,
+          homeLng: locationsData?.employees.find(e => e.employeeName === emp.employeeName)?.homeLng 
+            ? parseFloat(locationsData.employees.find(e => e.employeeName === emp.employeeName)!.homeLng!) 
+            : undefined,
+          transportMode: locationsData?.employees.find(e => e.employeeName === emp.employeeName)?.transportMode || 'car',
+          weeklyContractedHours: employeeWeeklyHoursMap.get(emp.employeeName) || emp.contractedDailyHours || 8,
+        }));
       });
 
-      console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
-      
-      const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
-      
-      console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
-      
-      return result;
-    },
-    onSuccess: async (result) => {
-      setWeeklySchedule(result);
-      
-      // Save to database
-      try {
-        await apiRequest('POST', '/api/weekly-schedule/save', {
-          weekStartDate: weekStart,
-          weekEndDate: weekEnd,
-          scheduleData: result.assignments,
+      console.log(`🚀 Starting three-phase allocation for ${allWeekVisits.length} visits with ${employees.length} employee slots`);
+
+      // Run the scheduling engine with three-phase allocation (Template → GH → All)
+      const result = generateWeeklySchedule(allWeekVisits, employees, weekDates);
+
+      console.log(`✅ Schedule generated: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
+
+      // Save the schedule to the backend
+      const saveResponse = await fetch('/api/weekly-schedule/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weekStart: weekDates[0],
+          weekEnd: weekDates[6],
+          scheduleData: result.assignments, // Corrected key name
           unallocatedVisits: result.unallocated,
           metrics: result.metrics,
-        });
-        
-        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
-        
-        toast({
-          title: "Schedule Generated & Saved",
-          description: `Assigned ${result.metrics.totalVisitsAssigned} visits across ${result.metrics.employeesUtilized} employees`,
-        });
-      } catch (error) {
-        console.error('Failed to save schedule:', error);
-        toast({
-          title: "Schedule Generated",
-          description: `Assigned ${result.metrics.totalVisitsAssigned} visits (save failed)`,
-          variant: "destructive",
-        });
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        console.warn('Failed to save schedule to backend');
       }
+
+      return result;
+    },
+    onSuccess: (result) => {
+      setWeeklySchedule(result); // Use the correct state setter
+
+      toast({
+        title: "Schedule Generated ✨",
+        description: `Three-phase allocation: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`,
+      });
+
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['/api/visits'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] }); // Invalidate to refetch saved schedule
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Schedule Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -376,15 +368,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map(empName => {
                       const location = employeeLocationMap.get(empName);
-                      
+
                       // Determine transport mode icon
                       const transportMode = location?.transportMode?.toLowerCase() || '';
                       const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
-                      
+
                       // Get gender from employee gender map
                       const gender = employeeGenderMap.get(empName) || '';
-                      
+
                       // Calculate total visit hours across all days
                       const totalVisitHours = weeklySchedule 
                         ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => {
@@ -394,12 +386,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             return sum + dayHours;
                           }, 0)
                         : 0;
-                      
+
                       // Calculate total weekly hours from the weekly hours map
                       const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
-                      
+
                       const isSelected = selectedEmployee === empName;
-                      
+
                       return (
                         <div
                           key={empName}
@@ -462,17 +454,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     {weekDates.map((date, index) => {
                       const dayVisits = employeeWeeklyRun[index]?.visits || [];
                       const dayName = dayNames[index];
-                      
+
                       // Get employee availability windows for this day
                       const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
                       const timeWindows = employeeForDate?.timeWindows || '';
                       const status = employeeForDate?.status || '';
-                      
+
                       // Only show days with real availability (has time windows and not ad-hoc)
                       if (!timeWindows || timeWindows.trim() === '' || status === 'Ad-hoc') {
                         return null;
                       }
-                      
+
                       return (
                         <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
                           {/* Day Header */}
@@ -489,7 +481,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               {dayVisits.length} visits
                             </Badge>
                           </div>
-                          
+
                           {/* Visits Grid - Wrapped Layout */}
                           {dayVisits.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
@@ -563,11 +555,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 {weekDates.map((date, dayIndex) => {
                   // Filter unallocated visits for this specific day
                   const dayUnallocated = weeklySchedule.unallocated.filter(v => v.date === date);
-                  
+
                   if (dayUnallocated.length === 0) return null;
-                  
+
                   const dayName = dayNames[dayIndex];
-                  
+
                   return (
                     <div key={date} className="border border-red-200 dark:border-red-700 rounded-lg p-3 bg-red-50/50 dark:bg-red-950/10">
                       {/* Day Header */}
@@ -582,7 +574,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           {dayUnallocated.length} unallocated
                         </Badge>
                       </div>
-                      
+
                       {/* Day's Unallocated Visits Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
                         {dayUnallocated.map((visit, index) => (
