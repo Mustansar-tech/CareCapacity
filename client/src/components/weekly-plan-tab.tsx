@@ -110,6 +110,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Get employee summary data for weekly hours
+  const employeeSummaryMap = new Map(
+    (data?.employeeSummaryByDate?.[weekDates[0]] || []).map(emp => [emp.employeeName, emp])
+  );
+
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -334,15 +339,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map(empName => {
                       const location = locationsData?.employees.find(loc => loc.employeeName === empName);
-                      const transportIcon = location?.transportMode?.toLowerCase().includes('car') 
-                        ? <Car className="h-3 w-3" /> 
-                        : null;
+                      const employeeSummary = employeeSummaryMap.get(empName);
+                      
+                      // Determine transport mode icon
+                      const transportMode = location?.transportMode?.toLowerCase() || '';
+                      const isWalker = !transportMode.includes('car');
+                      const TransportIcon = isWalker ? User : Car;
+                      
+                      // Get gender from employee summary or location
+                      const gender = employeeSummary?.gender || location?.gender || '';
                       
                       // Get visit count across all days
                       const visitCount = weeklySchedule 
                         ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
                             sum + (dateAssignments[empName]?.length || 0), 0)
                         : 0;
+                      
+                      // Calculate total weekly hours (availability)
+                      const weeklyHours = employeeSummary?.availability || 0;
                       
                       const isSelected = selectedEmployee === empName;
                       
@@ -357,13 +371,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           }`}
                           data-testid={`select-employee-${empName}`}
                         >
-                          <div className="flex items-center gap-2 flex-1">
-                            <User className="h-4 w-4" />
-                            <span className={`${getGenderColorClass(empName)} font-medium text-sm`}>{empName}</span>
-                            {transportIcon}
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <TransportIcon className="h-4 w-4 flex-shrink-0" />
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={empName}>
+                                {empName}
+                              </span>
+                              {weeklyHours > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  {weeklyHours.toFixed(1)}h/week
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {visitCount > 0 && (
-                            <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
+                            <Badge variant={isSelected ? "default" : "secondary"} className="text-xs flex-shrink-0">
                               {visitCount}
                             </Badge>
                           )}
