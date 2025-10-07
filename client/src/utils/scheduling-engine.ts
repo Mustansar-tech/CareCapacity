@@ -45,6 +45,10 @@ function isGHEmployee(employeeName: string): boolean {
   return employeeName.toUpperCase().includes('(GH)');
 }
 
+// Maximum daily care hours per CP (excluding travel/waiting)
+const MAX_DAILY_CARE_HOURS = 9;
+const MAX_DAILY_CARE_MINUTES = MAX_DAILY_CARE_HOURS * 60;
+
 // Employee's daily schedule
 interface EmployeeDaySchedule {
   employeeName: string;
@@ -101,12 +105,25 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
-// Check if adding a visit would exceed capacity
+// Check if adding a visit would exceed capacity or daily care limit
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
   visitDurationMinutes: number
 ): boolean {
-  return (schedule.usedCapacityMinutes + visitDurationMinutes) > schedule.totalCapacityMinutes;
+  const newTotalCareTime = schedule.usedCapacityMinutes + visitDurationMinutes;
+  
+  // Check against both available capacity AND 9-hour daily limit
+  if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
+    console.log(`⚠️ ${schedule.employeeName}: Would exceed 9-hour daily limit (${newTotalCareTime}min > ${MAX_DAILY_CARE_MINUTES}min)`);
+    return true;
+  }
+  
+  if (newTotalCareTime > schedule.totalCapacityMinutes) {
+    console.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
+    return true;
+  }
+  
+  return false;
 }
 
 // Flexibly adjust visit times to fit available windows if close enough
@@ -325,6 +342,9 @@ function assignVisitToBestEmployee(
 
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
+  
+  const careHoursUsed = (schedule.usedCapacityMinutes / 60).toFixed(1);
+  console.log(`📊 ${best.employeeName}: ${careHoursUsed}h/${MAX_DAILY_CARE_HOURS}h care time used`);
 
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
