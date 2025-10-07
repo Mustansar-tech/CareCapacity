@@ -379,8 +379,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
                       
-                      // Get gender from employee gender map or location
-                      const gender = employeeGenderMap.get(empName) || location?.gender || '';
+                      // Get gender from employee gender map
+                      const gender = employeeGenderMap.get(empName) || '';
                       
                       // Get visit count across all days
                       const visitCount = weeklySchedule 

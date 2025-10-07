@@ -23,8 +23,6 @@ import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
-import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
-// Import the new WeeklyPlanTab component
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 
 
@@ -569,12 +567,12 @@ export default function Dashboard() {
               BD Matrix
             </TabsTrigger>
             <TabsTrigger 
-              value="weekly" 
+              value="schedules" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-weekly-scheduling"
+              data-testid="tab-schedules"
             >
               <Calendar className="w-4 h-4 mr-2" />
-              Weekly Plan
+              Schedules
             </TabsTrigger>
             <TabsTrigger 
               value="ai-suggestions" 
@@ -1222,8 +1220,8 @@ export default function Dashboard() {
             })()}
           </TabsContent>
 
-          {/* Weekly Plan Tab */}
-          <TabsContent value="weekly" className="space-y-6 animate-fade-in" data-testid="content-weekly-plan">
+          {/* Schedules Tab */}
+          <TabsContent value="schedules" className="space-y-6 animate-fade-in" data-testid="content-schedules">
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
