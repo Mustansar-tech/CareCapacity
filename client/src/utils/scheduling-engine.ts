@@ -159,9 +159,11 @@ function tryAssignToEmployee(
 
   const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
 
-  if (!matchScore || matchScore.score <= 0) {
-    return { success: false, reason: 'Poor match score' };
+  if (!matchScore) {
+    return { success: false, reason: 'No feasible insertion point found' };
   }
+  
+  // Accept any feasible assignment (score check removed to maximize allocation)
 
   // Apply template bonus
   const finalScore = isTemplateMatch ? matchScore.score + 0.5 : matchScore.score;
@@ -384,7 +386,8 @@ function assignVisitToBestEmployee(
 
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
 
-    if (matchScore && matchScore.score > 0) {
+    if (matchScore) {
+      // Accept any feasible assignment to maximize allocation
       // Add GH bonus to prioritize guaranteed hours employees
       const finalScore = isGHEmployee(schedule.employeeName)
         ? matchScore.score + GH_SCORE_BONUS
