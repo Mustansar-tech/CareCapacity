@@ -40,6 +40,9 @@ const TIME_FLEXIBILITY_MINUTES = 5;
 // GH (Guaranteed Hours) bonus for prioritization
 const GH_SCORE_BONUS = 0.1;
 
+// Maximum daily care hours (9 hours = 540 minutes) - exclusive of travel
+const MAX_DAILY_CARE_MINUTES = 540;
+
 // Check if employee has Guaranteed Hours (GH in name)
 function isGHEmployee(employeeName: string): boolean {
   return employeeName.toUpperCase().includes('(GH)');
@@ -56,6 +59,8 @@ interface EmployeeDaySchedule {
   homeLat: number;
   homeLng: number;
   transportMode: 'car' | 'walking' | 'public';
+  contractedWeeklyHours: number; // Weekly contracted hours
+  weeklyUsedMinutes: number; // Total care minutes used this week
 }
 
 interface AssignedVisit {
@@ -101,12 +106,29 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
-// Check if adding a visit would exceed capacity
+// Check if adding a visit would exceed capacity (daily or weekly limits)
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
   visitDurationMinutes: number
 ): boolean {
-  return (schedule.usedCapacityMinutes + visitDurationMinutes) > schedule.totalCapacityMinutes;
+  // Check daily limit (9 hours max care time per day)
+  const wouldExceedDaily = (schedule.usedCapacityMinutes + visitDurationMinutes) > MAX_DAILY_CARE_MINUTES;
+  
+  // Check available window capacity
+  const wouldExceedWindows = (schedule.usedCapacityMinutes + visitDurationMinutes) > schedule.totalCapacityMinutes;
+  
+  // Check weekly contracted hours limit
+  const weeklyLimitMinutes = schedule.contractedWeeklyHours * 60;
+  const wouldExceedWeekly = (schedule.weeklyUsedMinutes + visitDurationMinutes) > weeklyLimitMinutes;
+  
+  if (wouldExceedDaily) {
+    console.log(`⚠️ Would exceed daily limit for ${schedule.employeeName}: ${Math.round((schedule.usedCapacityMinutes + visitDurationMinutes) / 60)}h > 9h`);
+  }
+  if (wouldExceedWeekly) {
+    console.log(`⚠️ Would exceed weekly limit for ${schedule.employeeName}: ${Math.round((schedule.weeklyUsedMinutes + visitDurationMinutes) / 60)}h > ${schedule.contractedWeeklyHours}h`);
+  }
+  
+  return wouldExceedDaily || wouldExceedWindows || wouldExceedWeekly;
 }
 
 // Flexibly adjust visit times to fit available windows if close enough
@@ -323,8 +345,12 @@ function assignVisitToBestEmployee(
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
 
-  // Update capacity usage
+  // Update capacity usage (daily)
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
+  
+  // Update weekly usage
+  schedule.weeklyUsedMinutes += best.adjustedVisit.durationMinutes;
+  weeklyUsageByEmployee[schedule.employeeName] = schedule.weeklyUsedMinutes;
 
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
@@ -342,6 +368,7 @@ export function generateWeeklySchedule(
     homeLat?: number;
     homeLng?: number;
     transportMode?: string;
+    contractedWeeklyHours?: number;
   }>,
   weekDates: string[]
 ): WeeklyScheduleResult {
@@ -372,6 +399,10 @@ export function generateWeeklySchedule(
 
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
+  
+  // Build weekly usage tracker for each employee
+  const weeklyUsageByEmployee: Record<string, number> = {};
+  
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
 
@@ -391,6 +422,11 @@ export function generateWeeklySchedule(
           mode = 'car';
         }
       }
+      
+      // Initialize weekly usage tracker if not exists
+      if (!(emp.employeeName in weeklyUsageByEmployee)) {
+        weeklyUsageByEmployee[emp.employeeName] = 0;
+      }
 
       return {
         employeeName: emp.employeeName,
@@ -402,6 +438,8 @@ export function generateWeeklySchedule(
         homeLat: emp.homeLat || 55.9533, // Edinburgh fallback
         homeLng: emp.homeLng || -3.1883,
         transportMode: mode,
+        contractedWeeklyHours: emp.contractedWeeklyHours || 37.5, // Default to full-time
+        weeklyUsedMinutes: weeklyUsageByEmployee[emp.employeeName] || 0,
       };
     });
   });
