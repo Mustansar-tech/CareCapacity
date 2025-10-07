@@ -154,21 +154,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
       
-      // Prepare employee data with locations - EXCLUDE ad-hoc employees (they have no real availability)
+      // Prepare employee data with locations
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
-        empList
-          .filter(emp => emp.status !== 'Ad-hoc') // Filter out ad-hoc employees
-          .map(emp => {
-            const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-            return {
-              employeeName: emp.employeeName,
-              date,
-              timeWindows: emp.timeWindows,
-              homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
-              homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
-              transportMode: location?.transportMode || undefined,
-            };
-          })
+        empList.map(emp => {
+          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+          return {
+            employeeName: emp.employeeName,
+            date,
+            timeWindows: emp.timeWindows,
+            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
+            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
+            transportMode: location?.transportMode || undefined,
+          };
+        })
       );
 
       // Add location data to visits
@@ -384,14 +382,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       // Get gender from employee gender map
                       const gender = employeeGenderMap.get(empName) || '';
                       
-                      // Calculate total visit hours across all days
-                      const totalVisitHours = weeklySchedule 
-                        ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => {
-                            const empVisits = dateAssignments[empName] || [];
-                            const dayHours = empVisits.reduce((daySum, visit) => 
-                              daySum + (visit.durationMinutes / 60), 0);
-                            return sum + dayHours;
-                          }, 0)
+                      // Get visit count across all days
+                      const visitCount = weeklySchedule 
+                        ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => 
+                            sum + (dateAssignments[empName]?.length || 0), 0)
                         : 0;
                       
                       // Calculate total weekly hours from the weekly hours map
@@ -421,9 +415,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {weeklyHours.toFixed(1)}h/week
                                 </span>
                               )}
-                              {totalVisitHours > 0 && (
+                              {visitCount > 0 && (
                                 <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
-                                  {totalVisitHours.toFixed(1)}h visits
+                                  {visitCount}
                                 </Badge>
                               )}
                             </div>

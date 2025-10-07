@@ -13,25 +13,11 @@ import {
   type Visit as ScoringVisit
 } from './scheduling-scoring';
 
-// Office visit keywords to exclude (non-client locations)
-const OFFICE_VISIT_KEYWORDS = [
-  'east nl', 
-  'glasgow', 
-  'training seawared',
-  'training (nl)',
-  'seaward place',
-  'seaward',
-  'office',
-  'training',
-  'admin',
-  'meeting'
-];
+// Office visit keywords to exclude
+const OFFICE_VISIT_KEYWORDS = ['east nl', 'glasgow', 'training seawared'];
 
 // Secondary multiple care keywords to exclude
 const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];
-
-// Maximum care hours per day per employee (9 hours = 540 minutes, excluding travel)
-const MAX_CARE_HOURS_PER_DAY = 540;
 
 // Minimum bookable window duration (minutes)
 // Reduced from 60 to 45 to allow more flexibility
@@ -41,28 +27,11 @@ const MIN_WINDOW_DURATION = 45;
 const TIME_FLEXIBILITY_MINUTES = 5;
 
 // GH (Guaranteed Hours) bonus for prioritization
-const GH_SCORE_BONUS = 0.15; // Increased from 0.1 to 0.15 for stronger prioritization
+const GH_SCORE_BONUS = 0.1;
 
 // Check if employee has Guaranteed Hours (GH in name)
 function isGHEmployee(employeeName: string): boolean {
   return employeeName.toUpperCase().includes('(GH)');
-}
-
-// Extract GH weekly hours from employee name (e.g., "John (GH 30)" → 30 hours)
-function extractGHWeeklyHours(employeeName: string): number | null {
-  const ghMatch = employeeName.match(/\(GH\s*(\d+)\)/i);
-  if (ghMatch && ghMatch[1]) {
-    return parseInt(ghMatch[1], 10) * 60; // Convert hours to minutes
-  }
-  return null;
-}
-
-// Weekly employee tracker for GH limits
-interface WeeklyEmployeeTracker {
-  employeeName: string;
-  weeklyGuaranteedMinutes: number | null; // null for non-GH employees
-  weeklyAssignedMinutes: number;
-  isGH: boolean;
 }
 
 // Employee's daily schedule
@@ -121,18 +90,12 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
-// Check if adding a visit would exceed capacity or daily care time limit
+// Check if adding a visit would exceed capacity
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
   visitDurationMinutes: number
 ): boolean {
-  const newUsedMinutes = schedule.usedCapacityMinutes + visitDurationMinutes;
-  
-  // Check both window capacity AND 9-hour daily limit
-  const exceedsWindowCapacity = newUsedMinutes > schedule.totalCapacityMinutes;
-  const exceedsDailyLimit = newUsedMinutes > MAX_CARE_HOURS_PER_DAY;
-  
-  return exceedsWindowCapacity || exceedsDailyLimit;
+  return (schedule.usedCapacityMinutes + visitDurationMinutes) > schedule.totalCapacityMinutes;
 }
 
 // Flexibly adjust visit times to fit available windows if close enough
@@ -197,12 +160,11 @@ function toScoringVisit(visit: ClientVisit): ScoringVisit {
   };
 }
 
-// Try to assign a visit to the best employee with weekly GH tracking
+// Try to assign a visit to the best employee
 function assignVisitToBestEmployee(
   originalVisit: ClientVisit,
   employeeSchedules: EmployeeDaySchedule[],
-  assignedVisitIds: Set<string>,
-  weeklyTrackers: Map<string, WeeklyEmployeeTracker>
+  assignedVisitIds: Set<string>
 ): { success: boolean; employeeName?: string; reason?: string } {
   // Skip if already assigned
   if (assignedVisitIds.has(originalVisit.id)) {
@@ -223,18 +185,9 @@ function assignVisitToBestEmployee(
 
   // Score visit for each employee
   for (const schedule of employeeSchedules) {
-    // Check daily capacity constraint
+    // Check capacity constraint
     if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
-      continue; // Skip - would exceed daily capacity
-    }
-    
-    // Check weekly GH limit for GH employees
-    const tracker = weeklyTrackers.get(schedule.employeeName);
-    if (tracker && tracker.isGH && tracker.weeklyGuaranteedMinutes !== null) {
-      const wouldExceedWeekly = (tracker.weeklyAssignedMinutes + originalVisit.durationMinutes) > tracker.weeklyGuaranteedMinutes;
-      if (wouldExceedWeekly) {
-        continue; // Skip - would exceed GH weekly limit
-      }
+      continue; // Skip - would exceed capacity
     }
 
     // Filter windows to only include those >= minimum duration for feasibility
@@ -316,12 +269,6 @@ function assignVisitToBestEmployee(
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
   
-  // Update weekly tracker
-  const tracker = weeklyTrackers.get(best.employeeName);
-  if (tracker) {
-    tracker.weeklyAssignedMinutes += best.adjustedVisit.durationMinutes;
-  }
-  
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
 
@@ -368,13 +315,6 @@ export function generateWeeklySchedule(
 
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
-  
-  // Count GH employees for tracking
-  const ghEmployeeCount = new Set(
-    employees.filter(e => isGHEmployee(e.employeeName)).map(e => e.employeeName)
-  ).size;
-  const totalEmployeeCount = new Set(employees.map(e => e.employeeName)).size;
-  console.log(`👥 Employee breakdown: ${ghEmployeeCount} GH employees, ${totalEmployeeCount - ghEmployeeCount} non-GH employees (${totalEmployeeCount} total)`);
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
   
@@ -409,24 +349,6 @@ export function generateWeeklySchedule(
     });
   });
 
-  // Initialize weekly employee trackers for GH limit enforcement
-  const weeklyTrackers = new Map<string, WeeklyEmployeeTracker>();
-  const uniqueEmployees = new Set(employees.map(e => e.employeeName));
-  
-  uniqueEmployees.forEach(employeeName => {
-    const isGH = isGHEmployee(employeeName);
-    const weeklyGuaranteedMinutes = isGH ? extractGHWeeklyHours(employeeName) : null;
-    
-    weeklyTrackers.set(employeeName, {
-      employeeName,
-      weeklyGuaranteedMinutes,
-      weeklyAssignedMinutes: 0,
-      isGH,
-    });
-  });
-  
-  console.log(`📊 Weekly GH tracking initialized for ${weeklyTrackers.size} employees`);
-
   // Track assigned visit IDs globally to ensure uniqueness
   const assignedVisitIds = new Set<string>();
   const unallocated: Array<ClientVisit & { reason: string }> = [];
@@ -453,12 +375,12 @@ export function generateWeeklySchedule(
     
     // Phase 1: Try to assign to GH employees first (if any available)
     let result = ghEmployees.length > 0
-      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyTrackers)
+      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds)
       : { success: false, reason: 'No GH employees available' };
     
     // Phase 2: If not assigned to GH employee, try all employees
     if (!result.success) {
-      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyTrackers);
+      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
     }
     
     if (!result.success) {
@@ -479,7 +401,7 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyTrackers);
+    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
     
     if (!result.success) {
       remainingUnallocated.push(visit);
@@ -526,54 +448,6 @@ export function generateWeeklySchedule(
   });
 
   const averageTravelTimePerVisit = visitCount > 0 ? Math.round(totalTravelTime / visitCount) : 0;
-
-  // Track GH vs non-GH utilization with detailed metrics
-  const ghEmployeesUtilized = Array.from(utilizedEmployees).filter(name => isGHEmployee(name));
-  const nonGhEmployeesUtilized = Array.from(utilizedEmployees).filter(name => !isGHEmployee(name));
-  
-  // Calculate GH utilization statistics with weekly limits
-  let ghTotalGuaranteed = 0;
-  let ghTotalAssigned = 0;
-  let ghVisitsAssigned = 0;
-  let nonGhVisitsAssigned = 0;
-  let ghEmployeesAtCap = 0;
-  let ghEmployeesUnderUtilized = 0;
-  
-  weeklyTrackers.forEach(tracker => {
-    if (tracker.isGH && tracker.weeklyGuaranteedMinutes !== null) {
-      ghTotalGuaranteed += tracker.weeklyGuaranteedMinutes;
-      ghTotalAssigned += tracker.weeklyAssignedMinutes;
-      
-      // Check if employee hit their cap
-      if (tracker.weeklyAssignedMinutes >= tracker.weeklyGuaranteedMinutes) {
-        ghEmployeesAtCap++;
-      } else if (tracker.weeklyAssignedMinutes > 0 && tracker.weeklyAssignedMinutes < tracker.weeklyGuaranteedMinutes * 0.8) {
-        // Under-utilized: assigned less than 80% of guaranteed hours
-        ghEmployeesUnderUtilized++;
-      }
-    }
-  });
-  
-  // Count visits by employee type
-  weekDates.forEach(date => {
-    const daySchedules = schedulesByDate[date] || [];
-    daySchedules.forEach(schedule => {
-      if (isGHEmployee(schedule.employeeName)) {
-        ghVisitsAssigned += schedule.assignedVisits.length;
-      } else {
-        nonGhVisitsAssigned += schedule.assignedVisits.length;
-      }
-    });
-  });
-  
-  const ghUtilizationPercent = ghTotalGuaranteed > 0 ? Math.round((ghTotalAssigned / ghTotalGuaranteed) * 100) : 0;
-  
-  console.log(`✅ GH Weekly Limit Enforcement Results:`);
-  console.log(`   • GH Employees: ${ghEmployeesUtilized.length} utilized, ${ghVisitsAssigned} visits assigned`);
-  console.log(`   • GH Weekly Hours: ${(ghTotalAssigned / 60).toFixed(1)}h assigned / ${(ghTotalGuaranteed / 60).toFixed(1)}h guaranteed (${ghUtilizationPercent}%)`);
-  console.log(`   • GH at Weekly Cap: ${ghEmployeesAtCap} employees reached their guaranteed hours limit`);
-  console.log(`   • GH Under-utilized: ${ghEmployeesUnderUtilized} employees below 80% of guaranteed hours`);
-  console.log(`   • Non-GH Employees: ${nonGhEmployeesUtilized.length} utilized, ${nonGhVisitsAssigned} visits assigned`);
 
   return {
     assignments,
