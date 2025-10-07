@@ -238,14 +238,8 @@ function assignVisitToBestEmployee(
       continue; // Skip - would exceed daily capacity
     }
     
-    // Check weekly contracted hours limit for employees with contracted hours
-    const tracker = weeklyTrackers.get(schedule.employeeName);
-    if (tracker && tracker.weeklyContractedMinutes !== null) {
-      const wouldExceedWeekly = (tracker.weeklyAssignedMinutes + originalVisit.durationMinutes) > tracker.weeklyContractedMinutes;
-      if (wouldExceedWeekly) {
-        continue; // Skip - would exceed weekly contracted hours
-      }
-    }
+    // Note: No hard weekly cap check - instead we use scoring penalties for overtime
+    // This allows controlled overtime as a fallback when all employees are at capacity
 
     // Filter windows to only include those >= minimum duration for feasibility
     const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
@@ -279,18 +273,27 @@ function assignVisitToBestEmployee(
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     
     if (matchScore && matchScore.score > 0) {
-      // Prioritize underutilized employees (those below their contracted hours)
+      // Apply utilization-based scoring adjustments
       const tracker = weeklyTrackers.get(schedule.employeeName);
       let finalScore = matchScore.score;
       
       if (tracker && tracker.weeklyContractedMinutes !== null) {
-        const utilizationPercent = (tracker.weeklyAssignedMinutes / tracker.weeklyContractedMinutes) * 100;
+        const currentUtilization = (tracker.weeklyAssignedMinutes / tracker.weeklyContractedMinutes) * 100;
+        const afterUtilization = ((tracker.weeklyAssignedMinutes + originalVisit.durationMinutes) / tracker.weeklyContractedMinutes) * 100;
         
-        // Bonus for underutilized employees (below 100% of contracted hours)
-        if (utilizationPercent < 100) {
-          // Higher bonus for lower utilization (encourages filling contracted hours first)
-          const underutilizationFactor = (100 - utilizationPercent) / 100;
+        if (afterUtilization <= 100) {
+          // Bonus for staying within contracted hours (prioritize filling contracts)
+          const underutilizationFactor = (100 - currentUtilization) / 100;
           finalScore += UNDERUTILIZED_BONUS * underutilizationFactor;
+        } else if (currentUtilization >= 100) {
+          // Penalty for overtime assignments (deprioritize but still allow as fallback)
+          const overtimeFactor = Math.min((currentUtilization - 100) / 100, 1); // Cap at 100% penalty
+          finalScore -= UNDERUTILIZED_BONUS * 0.5 * overtimeFactor; // Smaller penalty than bonus
+        } else {
+          // Partial overtime: starts below 100%, ends above 100%
+          // Give partial bonus for the portion within contracted hours
+          const portionWithinContract = (100 - currentUtilization) / ((afterUtilization - currentUtilization) || 1);
+          finalScore += UNDERUTILIZED_BONUS * 0.5 * portionWithinContract;
         }
       }
       
