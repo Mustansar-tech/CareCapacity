@@ -65,9 +65,31 @@ export function scoreVisitMatch(
     const prevVisit = i > 0 ? visits[i - 1] : null;
     const nextVisit = i < visits.length ? visits[i] : null;
 
-    const travelFrom = prevVisit
-      ? getTravelMinutes({ lat: prevVisit.lat, lng: prevVisit.lng }, { lat: visit.lat, lng: visit.lng }, mode)
-      : 0;
+    // Calculate travel time from previous visit or home
+    const fromLat = i === 0 ? homeLat : prevVisit.lat;
+    const fromLng = i === 0 ? homeLng : prevVisit.lng;
+
+    // Quick distance check before calculating travel time (haversine distance)
+    const R = 6371; // Earth's radius in km
+    const dLat = (visit.lat - fromLat) * Math.PI / 180;
+    const dLng = (visit.lng - fromLng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(fromLat * Math.PI / 180) * Math.cos(visit.lat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const straightLineDistKm = R * c;
+
+    // If straight-line distance is over 50km for walking or 100km for car, skip this insertion (too far)
+    const maxDistKm = mode === 'walking' ? 25 : 100;
+    if (straightLineDistKm > maxDistKm) {
+      continue; // Skip to the next potential insertion index
+    }
+
+    const travelFrom = getTravelMinutes(
+      { lat: fromLat, lng: fromLng },
+      { lat: visit.lat, lng: visit.lng },
+      mode
+    );
 
     const travelTo = nextVisit
       ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode)

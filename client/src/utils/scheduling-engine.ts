@@ -177,9 +177,9 @@ function tryAssignToEmployee(
   schedule.assignedVisits.splice(matchScore.insertionIndex, 0, assignedVisit);
   schedule.usedCapacityMinutes += adjustedVisit.durationMinutes;
   schedule.weeklyUsedMinutes += adjustedVisit.durationMinutes;
-  
+
   weeklyUsedMap.set(schedule.employeeName, schedule.weeklyUsedMinutes);
-  
+
   Object.values(allSchedulesByDate).forEach(daySchedules => {
     daySchedules.forEach(s => {
       if (s.employeeName === schedule.employeeName) {
@@ -198,25 +198,25 @@ function wouldExceedCapacity(
 ): boolean {
   const newTotalCareTime = schedule.usedCapacityMinutes + visitDurationMinutes;
   const newWeeklyTotal = schedule.weeklyUsedMinutes + visitDurationMinutes;
-  
+
   // Check against weekly contracted hours first
   if (newWeeklyTotal > schedule.weeklyContractedMinutes) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h)`);
     return true;
   }
-  
+
   // Check against 9-hour daily limit
   if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed 9-hour daily limit (${newTotalCareTime}min > ${MAX_DAILY_CARE_MINUTES}min)`);
     return true;
   }
-  
+
   // Check against available daily capacity
   if (newTotalCareTime > schedule.totalCapacityMinutes) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
     return true;
   }
-  
+
   return false;
 }
 
@@ -440,10 +440,10 @@ function assignVisitToBestEmployee(
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
   schedule.weeklyUsedMinutes += best.adjustedVisit.durationMinutes;
-  
+
   // Update the shared weekly tracking map for all schedules of this employee
   weeklyUsedMap.set(best.employeeName, schedule.weeklyUsedMinutes);
-  
+
   // Update weekly used minutes for all other schedules of this employee across all dates
   Object.values(allSchedulesByDate).forEach(daySchedules => {
     daySchedules.forEach(s => {
@@ -452,7 +452,7 @@ function assignVisitToBestEmployee(
       }
     });
   });
-  
+
   const careHoursUsed = (schedule.usedCapacityMinutes / 60).toFixed(1);
   const weeklyHoursUsed = (schedule.weeklyUsedMinutes / 60).toFixed(1);
   const weeklyContracted = (schedule.weeklyContractedMinutes / 60).toFixed(1);
@@ -524,7 +524,7 @@ export function generateWeeklySchedule(
 
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
-  
+
   // Calculate weekly contracted minutes per employee
   const weeklyContractedMap = new Map<string, number>();
   employees.forEach(emp => {
@@ -532,10 +532,10 @@ export function generateWeeklySchedule(
     const dailyHours = emp.weeklyContractedHours || 0;
     weeklyContractedMap.set(emp.employeeName, Math.max(current, dailyHours * 60));
   });
-  
+
   // Track weekly used minutes per employee (shared across all days)
   const weeklyUsedMap = new Map<string, number>();
-  
+
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
 
@@ -555,7 +555,7 @@ export function generateWeeklySchedule(
           mode = 'car';
         }
       }
-      
+
       // Initialize weekly used minutes for this employee if not exists
       if (!weeklyUsedMap.has(emp.employeeName)) {
         weeklyUsedMap.set(emp.employeeName, 0);
@@ -604,7 +604,7 @@ export function generateWeeklySchedule(
     // Check if this is a multiple care visit (needs to avoid already assigned employee)
     const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
     const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
-    
+
     // Filter out employees already assigned to this exact time slot
     const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
 
@@ -617,9 +617,51 @@ export function generateWeeklySchedule(
 
     // PHASE 1: Try template employee first (if specified)
     if (visit.templateEmployee) {
-      const templateSchedule = availableSchedules.find(
-        s => namesMatch(s.employeeName, visit.templateEmployee!)
-      );
+      console.log(`🎯 Looking for template employee "${visit.templateEmployee}" for ${visit.clientName}`);
+
+      // Normalize the template employee name for better matching
+      const templateNameNorm = visit.templateEmployee.trim().toLowerCase();
+
+      const templateSchedule = availableSchedules.find(s => {
+        const empNameNorm = s.employeeName.trim().toLowerCase();
+
+        // Exact match
+        if (empNameNorm === templateNameNorm) {
+          console.log(`  ✓ Exact match: ${s.employeeName}`);
+          return true;
+        }
+
+        // Remove parentheses content (e.g., "(GH)") for matching
+        const empClean = empNameNorm.replace(/\([^)]*\)/g, '').trim();
+        const templateClean = templateNameNorm.replace(/\([^)]*\)/g, '').trim();
+
+        if (empClean === templateClean) {
+          console.log(`  ✓ Clean match (after removing parentheses): ${s.employeeName}`);
+          return true;
+        }
+
+        // Contains match (both directions)
+        if (empClean.includes(templateClean) || templateClean.includes(empClean)) {
+          console.log(`  ✓ Contains match: ${s.employeeName}`);
+          return true;
+        }
+
+        // Word-based matching for names like "Smith, John" vs "John Smith"
+        const empWords = empClean.split(/[\s,]+/).filter(w => w.length > 1);
+        const templateWords = templateClean.split(/[\s,]+/).filter(w => w.length > 1);
+
+        const matchingWords = empWords.filter(word => 
+          templateWords.some(tWord => tWord.includes(word) || word.includes(tWord))
+        );
+
+        const minWordsNeeded = Math.min(2, Math.min(empWords.length, templateWords.length));
+        if (matchingWords.length >= minWordsNeeded) {
+          console.log(`  ✓ Word-based match (${matchingWords.length}/${minWordsNeeded} words): ${s.employeeName}`);
+          return true;
+        }
+
+        return false;
+      });
 
       if (templateSchedule) {
         result = tryAssignToEmployee(
@@ -638,16 +680,17 @@ export function generateWeeklySchedule(
         }
       } else {
         console.log(`⚠️ Template employee "${visit.templateEmployee}" not found for ${visit.clientName}`);
+        console.log(`  Available employees: ${availableSchedules.slice(0, 5).map(s => s.employeeName).join(', ')}${availableSchedules.length > 5 ? ` (+${availableSchedules.length - 5} more)` : ''}`);
       }
     }
 
     // PHASE 2: If template failed, try GH employees
     if (!result.success) {
       const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
-      
+
       if (ghEmployees.length > 0) {
         result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-        
+
         if (result.success) {
           console.log(`✅ GH employee assigned: ${visit.clientName} → ${result.employeeName}`);
         }
@@ -657,7 +700,7 @@ export function generateWeeklySchedule(
     // PHASE 3: If GH failed, try all employees
     if (!result.success) {
       result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-      
+
       if (result.success) {
         console.log(`✅ General assignment: ${visit.clientName} → ${result.employeeName}`);
       }
@@ -669,7 +712,7 @@ export function generateWeeklySchedule(
         visitEmployeeAssignments.set(visitKey, new Set());
       }
       visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
-      
+
       // Log multiple care assignments
       if (alreadyAssignedEmployees.size > 0) {
         console.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
@@ -695,7 +738,7 @@ export function generateWeeklySchedule(
     // Check multiple care constraints again
     const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
     const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
-    
+
     // Filter out employees already assigned to this exact time slot
     const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
 
