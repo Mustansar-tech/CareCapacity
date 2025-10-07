@@ -117,18 +117,29 @@ function tryAssignToEmployee(
   allSchedulesByDate: Record<string, EmployeeDaySchedule[]>,
   isTemplateMatch: boolean = false
 ): { success: boolean; employeeName?: string; reason?: string } {
+  const logPrefix = isTemplateMatch ? '    [TEMPLATE]' : '    ';
+  
   // Check capacity constraint
   if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
+    if (isTemplateMatch) {
+      console.log(`${logPrefix} ❌ Capacity exceeded for ${schedule.employeeName} (used: ${(schedule.usedCapacityMinutes/60).toFixed(1)}h, weekly: ${(schedule.weeklyUsedMinutes/60).toFixed(1)}h/${(schedule.weeklyContractedMinutes/60).toFixed(1)}h)`);
+    }
     return { success: false, reason: 'Would exceed capacity' };
   }
 
   const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
   if (validWindows.length === 0) {
+    if (isTemplateMatch) {
+      console.log(`${logPrefix} ❌ No valid time windows for ${schedule.employeeName} on ${schedule.date}`);
+    }
     return { success: false, reason: 'No valid time windows' };
   }
 
   const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows);
   if (!adjustedVisit) {
+    if (isTemplateMatch) {
+      console.log(`${logPrefix} ❌ Visit ${originalVisit.startTime}-${originalVisit.endTime} cannot fit in windows: ${validWindows.map(w => `${minutesToTime(w.start)}-${minutesToTime(w.end)}`).join(', ')}`);
+    }
     return { success: false, reason: 'Cannot fit in time windows' };
   }
 
@@ -618,17 +629,19 @@ export function generateWeeklySchedule(
 
     // PHASE 1: Try template employee first (if specified)
     if (visit.templateEmployee) {
-      console.log(`🎯 Template employee "${visit.templateEmployee}" specified for client ${visit.clientName}`);
+      console.log(`🎯 [TEMPLATE] Client: "${visit.clientName}" | Template Employee: "${visit.templateEmployee}" | Date: ${visit.date} | Time: ${visit.startTime}-${visit.endTime}`);
 
       const templateSchedule = availableSchedules.find(s => {
         const isMatch = namesMatch(s.employeeName, visit.templateEmployee);
         if (isMatch) {
-          console.log(`  ✓ Template match found: ${s.employeeName} matches ${visit.templateEmployee}`);
+          console.log(`  ✅ Template employee found: "${s.employeeName}" matches template "${visit.templateEmployee}"`);
         }
         return isMatch;
       });
 
       if (templateSchedule) {
+        console.log(`  🔄 Attempting to assign template employee "${templateSchedule.employeeName}" to client "${visit.clientName}"...`);
+        
         result = tryAssignToEmployee(
           visit, 
           templateSchedule, 
@@ -639,13 +652,13 @@ export function generateWeeklySchedule(
 
         if (result.success) {
           assignedVisitIds.add(visit.id);
-          console.log(`✨ TEMPLATE ASSIGNED: Client "${visit.clientName}" → Employee "${result.employeeName}" (templated as "${visit.templateEmployee}")`);
+          console.log(`  ✨ SUCCESS: Template "${visit.templateEmployee}" → Client "${visit.clientName}" ✓`);
         } else {
-          console.log(`⚠️ Template employee "${visit.templateEmployee}" unavailable for client "${visit.clientName}": ${result.reason}`);
+          console.log(`  ❌ FAILED: Template "${visit.templateEmployee}" cannot serve "${visit.clientName}" - ${result.reason}`);
         }
       } else {
-        console.log(`⚠️ Template employee "${visit.templateEmployee}" NOT FOUND in available schedules for client "${visit.clientName}"`);
-        console.log(`  Available: ${availableSchedules.slice(0, 5).map(s => s.employeeName).join(', ')}${availableSchedules.length > 5 ? ` (+${availableSchedules.length - 5} more)` : ''}`);
+        console.log(`  ❌ Template employee "${visit.templateEmployee}" NOT FOUND in available schedules`);
+        console.log(`     Available employees for ${visit.date}: ${availableSchedules.slice(0, 5).map(s => s.employeeName).join(', ')}${availableSchedules.length > 5 ? ` (+${availableSchedules.length - 5} more)` : ''}`);
       }
     }
 
