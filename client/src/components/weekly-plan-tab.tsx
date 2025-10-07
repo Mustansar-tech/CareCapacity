@@ -115,6 +115,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     (data?.employeeSummaryByDate?.[weekDates[0]] || []).map(emp => [emp.employeeName, emp])
   );
 
+  // Calculate weekly hours from daily availability across all days employee appears
+  const employeeWeeklyHoursMap = new Map<string, number>();
+  Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
+    dayEmployees.forEach(emp => {
+      if (emp.contractedDailyHours > 0) {
+        const current = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+        employeeWeeklyHoursMap.set(emp.employeeName, current + emp.contractedDailyHours);
+      }
+    });
+  });
+
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -355,8 +366,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             sum + (dateAssignments[empName]?.length || 0), 0)
                         : 0;
                       
-                      // Calculate total weekly hours (availability)
-                      const weeklyHours = employeeSummary?.availability || 0;
+                      // Calculate total weekly hours from the weekly hours map
+                      const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
                       
                       const isSelected = selectedEmployee === empName;
                       
