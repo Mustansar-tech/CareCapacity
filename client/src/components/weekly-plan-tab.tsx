@@ -85,11 +85,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const isLoadingVisits = visitQueries.some(q => q.isLoading);
   const allWeekVisits = visitQueries.flatMap(q => q.data || []);
 
-  // Get all unique employees who have availability in the week (have time windows)
+  // Get all unique employees who have real availability in the week (exclude ad-hoc)
   // Use a Map to deduplicate by employee name and prefer records with more data
   const employeeMap = new Map<string, any>();
   Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
-    if (emp.timeWindows && emp.timeWindows.trim() !== '') {
+    // Only include employees with real availability (not ad-hoc) and time windows
+    if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc') {
       const existing = employeeMap.get(emp.employeeName);
       // Keep the entry with more contracted hours (prefer non-ad-hoc entries)
       if (!existing || emp.contractedDailyHours > (existing.contractedDailyHours || 0)) {
@@ -445,9 +446,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       // Get employee availability windows for this day
                       const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
                       const timeWindows = employeeForDate?.timeWindows || '';
+                      const status = employeeForDate?.status || '';
                       
-                      // Only show days with availability (has time windows)
-                      if (!timeWindows || timeWindows.trim() === '') {
+                      // Only show days with real availability (has time windows and not ad-hoc)
+                      if (!timeWindows || timeWindows.trim() === '' || status === 'Ad-hoc') {
                         return null;
                       }
                       
