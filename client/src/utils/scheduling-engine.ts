@@ -14,6 +14,7 @@ import {
   type Visit as ScoringVisit
 } from './scheduling-scoring';
 import { namesMatch } from '@shared/name-utils';
+import { namesMatch } from '@shared/name-utils';
 
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = [
@@ -617,50 +618,14 @@ export function generateWeeklySchedule(
 
     // PHASE 1: Try template employee first (if specified)
     if (visit.templateEmployee) {
-      console.log(`🎯 Looking for template employee "${visit.templateEmployee}" for ${visit.clientName}`);
-
-      // Normalize the template employee name for better matching
-      const templateNameNorm = visit.templateEmployee.trim().toLowerCase();
+      console.log(`🎯 Template employee "${visit.templateEmployee}" specified for client ${visit.clientName}`);
 
       const templateSchedule = availableSchedules.find(s => {
-        const empNameNorm = s.employeeName.trim().toLowerCase();
-
-        // Exact match
-        if (empNameNorm === templateNameNorm) {
-          console.log(`  ✓ Exact match: ${s.employeeName}`);
-          return true;
+        const isMatch = namesMatch(s.employeeName, visit.templateEmployee);
+        if (isMatch) {
+          console.log(`  ✓ Template match found: ${s.employeeName} matches ${visit.templateEmployee}`);
         }
-
-        // Remove parentheses content (e.g., "(GH)") for matching
-        const empClean = empNameNorm.replace(/\([^)]*\)/g, '').trim();
-        const templateClean = templateNameNorm.replace(/\([^)]*\)/g, '').trim();
-
-        if (empClean === templateClean) {
-          console.log(`  ✓ Clean match (after removing parentheses): ${s.employeeName}`);
-          return true;
-        }
-
-        // Contains match (both directions)
-        if (empClean.includes(templateClean) || templateClean.includes(empClean)) {
-          console.log(`  ✓ Contains match: ${s.employeeName}`);
-          return true;
-        }
-
-        // Word-based matching for names like "Smith, John" vs "John Smith"
-        const empWords = empClean.split(/[\s,]+/).filter(w => w.length > 1);
-        const templateWords = templateClean.split(/[\s,]+/).filter(w => w.length > 1);
-
-        const matchingWords = empWords.filter(word => 
-          templateWords.some(tWord => tWord.includes(word) || word.includes(tWord))
-        );
-
-        const minWordsNeeded = Math.min(2, Math.min(empWords.length, templateWords.length));
-        if (matchingWords.length >= minWordsNeeded) {
-          console.log(`  ✓ Word-based match (${matchingWords.length}/${minWordsNeeded} words): ${s.employeeName}`);
-          return true;
-        }
-
-        return false;
+        return isMatch;
       });
 
       if (templateSchedule) {
@@ -674,13 +639,13 @@ export function generateWeeklySchedule(
 
         if (result.success) {
           assignedVisitIds.add(visit.id);
-          console.log(`✨ Template match: ${visit.clientName} → ${result.employeeName} (preferred employee)`);
+          console.log(`✨ TEMPLATE ASSIGNED: Client "${visit.clientName}" → Employee "${result.employeeName}" (templated as "${visit.templateEmployee}")`);
         } else {
-          console.log(`⚠️ Template ${visit.templateEmployee} unavailable for ${visit.clientName}: ${result.reason}`);
+          console.log(`⚠️ Template employee "${visit.templateEmployee}" unavailable for client "${visit.clientName}": ${result.reason}`);
         }
       } else {
-        console.log(`⚠️ Template employee "${visit.templateEmployee}" not found for ${visit.clientName}`);
-        console.log(`  Available employees: ${availableSchedules.slice(0, 5).map(s => s.employeeName).join(', ')}${availableSchedules.length > 5 ? ` (+${availableSchedules.length - 5} more)` : ''}`);
+        console.log(`⚠️ Template employee "${visit.templateEmployee}" NOT FOUND in available schedules for client "${visit.clientName}"`);
+        console.log(`  Available: ${availableSchedules.slice(0, 5).map(s => s.employeeName).join(', ')}${availableSchedules.length > 5 ? ` (+${availableSchedules.length - 5} more)` : ''}`);
       }
     }
 
