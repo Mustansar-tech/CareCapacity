@@ -48,6 +48,23 @@ function isGHEmployee(employeeName: string): boolean {
   return employeeName.toUpperCase().includes('(GH)');
 }
 
+// Extract GH weekly hours from employee name (e.g., "John (GH 30)" → 30 hours)
+function extractGHWeeklyHours(employeeName: string): number | null {
+  const ghMatch = employeeName.match(/\(GH\s*(\d+)\)/i);
+  if (ghMatch && ghMatch[1]) {
+    return parseInt(ghMatch[1], 10) * 60; // Convert hours to minutes
+  }
+  return null;
+}
+
+// Weekly employee tracker for GH limits
+interface WeeklyEmployeeTracker {
+  employeeName: string;
+  weeklyGuaranteedMinutes: number | null; // null for non-GH employees
+  weeklyAssignedMinutes: number;
+  isGH: boolean;
+}
+
 // Employee's daily schedule
 interface EmployeeDaySchedule {
   employeeName: string;
@@ -180,11 +197,12 @@ function toScoringVisit(visit: ClientVisit): ScoringVisit {
   };
 }
 
-// Try to assign a visit to the best employee
+// Try to assign a visit to the best employee with weekly GH tracking
 function assignVisitToBestEmployee(
   originalVisit: ClientVisit,
   employeeSchedules: EmployeeDaySchedule[],
-  assignedVisitIds: Set<string>
+  assignedVisitIds: Set<string>,
+  weeklyTrackers: Map<string, WeeklyEmployeeTracker>
 ): { success: boolean; employeeName?: string; reason?: string } {
   // Skip if already assigned
   if (assignedVisitIds.has(originalVisit.id)) {
@@ -205,9 +223,18 @@ function assignVisitToBestEmployee(
 
   // Score visit for each employee
   for (const schedule of employeeSchedules) {
-    // Check capacity constraint
+    // Check daily capacity constraint
     if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
-      continue; // Skip - would exceed capacity
+      continue; // Skip - would exceed daily capacity
+    }
+    
+    // Check weekly GH limit for GH employees
+    const tracker = weeklyTrackers.get(schedule.employeeName);
+    if (tracker && tracker.isGH && tracker.weeklyGuaranteedMinutes !== null) {
+      const wouldExceedWeekly = (tracker.weeklyAssignedMinutes + originalVisit.durationMinutes) > tracker.weeklyGuaranteedMinutes;
+      if (wouldExceedWeekly) {
+        continue; // Skip - would exceed GH weekly limit
+      }
     }
 
     // Filter windows to only include those >= minimum duration for feasibility
@@ -288,6 +315,12 @@ function assignVisitToBestEmployee(
   
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
+  
+  // Update weekly tracker
+  const tracker = weeklyTrackers.get(best.employeeName);
+  if (tracker) {
+    tracker.weeklyAssignedMinutes += best.adjustedVisit.durationMinutes;
+  }
   
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
@@ -376,6 +409,24 @@ export function generateWeeklySchedule(
     });
   });
 
+  // Initialize weekly employee trackers for GH limit enforcement
+  const weeklyTrackers = new Map<string, WeeklyEmployeeTracker>();
+  const uniqueEmployees = new Set(employees.map(e => e.employeeName));
+  
+  uniqueEmployees.forEach(employeeName => {
+    const isGH = isGHEmployee(employeeName);
+    const weeklyGuaranteedMinutes = isGH ? extractGHWeeklyHours(employeeName) : null;
+    
+    weeklyTrackers.set(employeeName, {
+      employeeName,
+      weeklyGuaranteedMinutes,
+      weeklyAssignedMinutes: 0,
+      isGH,
+    });
+  });
+  
+  console.log(`📊 Weekly GH tracking initialized for ${weeklyTrackers.size} employees`);
+
   // Track assigned visit IDs globally to ensure uniqueness
   const assignedVisitIds = new Set<string>();
   const unallocated: Array<ClientVisit & { reason: string }> = [];
@@ -402,12 +453,12 @@ export function generateWeeklySchedule(
     
     // Phase 1: Try to assign to GH employees first (if any available)
     let result = ghEmployees.length > 0
-      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds)
+      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyTrackers)
       : { success: false, reason: 'No GH employees available' };
     
     // Phase 2: If not assigned to GH employee, try all employees
     if (!result.success) {
-      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+      result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyTrackers);
     }
     
     if (!result.success) {
@@ -428,7 +479,7 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds);
+    const result = assignVisitToBestEmployee(visit, employeeSchedules, assignedVisitIds, weeklyTrackers);
     
     if (!result.success) {
       remainingUnallocated.push(visit);
