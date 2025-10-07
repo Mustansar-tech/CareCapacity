@@ -322,33 +322,7 @@ function assignVisitToBestEmployee(
 
   // Note: Office visits, secondary multiple care, and visits without location data
   // are already filtered out in generateWeeklySchedule, so no need to check again here
-
-  // TEMPLATE PRIORITY: Try to assign to template employee first if specified
-  if (originalVisit.templateEmployee) {
-    const templateSchedule = employeeSchedules.find(
-      s => s.employeeName.toLowerCase().includes(originalVisit.templateEmployee!.toLowerCase()) ||
-           originalVisit.templateEmployee!.toLowerCase().includes(s.employeeName.toLowerCase())
-    );
-
-    if (templateSchedule) {
-      // Try template employee with relaxed constraints
-      const templateResult = tryAssignToEmployee(
-        originalVisit, 
-        templateSchedule, 
-        weeklyUsedMap, 
-        allSchedulesByDate,
-        true // isTemplateMatch - give bonus score
-      );
-
-      if (templateResult.success) {
-        assignedVisitIds.add(originalVisit.id);
-        console.log(`✨ Template match: ${originalVisit.clientName} → ${templateResult.employeeName} (preferred)`);
-        return templateResult;
-      } else {
-        console.log(`⚠️ Template ${originalVisit.templateEmployee} unavailable for ${originalVisit.clientName}: ${templateResult.reason}`);
-      }
-    }
-  }
+  // Note: Template matching is now handled in the main loop's three-phase allocation
 
   const candidates: Array<{
     employeeName: string;
@@ -617,7 +591,7 @@ export function generateWeeklySchedule(
     return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
   });
 
-  // First pass: Assign each visit prioritizing GH employees
+  // First pass: Assign each visit using three-phase allocation
   for (const visit of sortedVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
 
@@ -638,17 +612,53 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    // Separate GH and non-GH employees for two-phase allocation
-    const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
+    let result: { success: boolean; employeeName?: string; reason?: string } = { success: false, reason: '' };
 
-    // Phase 1: Try to assign to GH employees first (if any available)
-    let result = ghEmployees.length > 0
-      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate)
-      : { success: false, reason: 'No GH employees available' };
+    // PHASE 1: Try template employee first (if specified)
+    if (visit.templateEmployee) {
+      const templateSchedule = availableSchedules.find(
+        s => s.employeeName.toLowerCase().includes(visit.templateEmployee!.toLowerCase()) ||
+             visit.templateEmployee!.toLowerCase().includes(s.employeeName.toLowerCase())
+      );
 
-    // Phase 2: If not assigned to GH employee, try all employees
+      if (templateSchedule) {
+        result = tryAssignToEmployee(
+          visit, 
+          templateSchedule, 
+          weeklyUsedMap, 
+          schedulesByDate,
+          true // isTemplateMatch - give bonus score
+        );
+
+        if (result.success) {
+          assignedVisitIds.add(visit.id);
+          console.log(`✨ Template match: ${visit.clientName} → ${result.employeeName} (preferred employee)`);
+        } else {
+          console.log(`⚠️ Template ${visit.templateEmployee} unavailable for ${visit.clientName}: ${result.reason}`);
+        }
+      }
+    }
+
+    // PHASE 2: If template failed, try GH employees
+    if (!result.success) {
+      const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
+      
+      if (ghEmployees.length > 0) {
+        result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+        
+        if (result.success) {
+          console.log(`✅ GH employee assigned: ${visit.clientName} → ${result.employeeName}`);
+        }
+      }
+    }
+
+    // PHASE 3: If GH failed, try all employees
     if (!result.success) {
       result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      if (result.success) {
+        console.log(`✅ General assignment: ${visit.clientName} → ${result.employeeName}`);
+      }
     }
 
     if (result.success && result.employeeName) {
