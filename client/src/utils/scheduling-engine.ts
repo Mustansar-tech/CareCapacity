@@ -13,11 +13,25 @@ import {
   type Visit as ScoringVisit
 } from './scheduling-scoring';
 
-// Office visit keywords to exclude
-const OFFICE_VISIT_KEYWORDS = ['east nl', 'glasgow', 'training seawared'];
+// Office visit keywords to exclude (non-client locations)
+const OFFICE_VISIT_KEYWORDS = [
+  'east nl', 
+  'glasgow', 
+  'training seawared',
+  'training (nl)',
+  'seaward place',
+  'seaward',
+  'office',
+  'training',
+  'admin',
+  'meeting'
+];
 
 // Secondary multiple care keywords to exclude
 const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];
+
+// Maximum care hours per day per employee (9 hours = 540 minutes, excluding travel)
+const MAX_CARE_HOURS_PER_DAY = 540;
 
 // Minimum bookable window duration (minutes)
 // Reduced from 60 to 45 to allow more flexibility
@@ -27,7 +41,7 @@ const MIN_WINDOW_DURATION = 45;
 const TIME_FLEXIBILITY_MINUTES = 5;
 
 // GH (Guaranteed Hours) bonus for prioritization
-const GH_SCORE_BONUS = 0.1;
+const GH_SCORE_BONUS = 0.15; // Increased from 0.1 to 0.15 for stronger prioritization
 
 // Check if employee has Guaranteed Hours (GH in name)
 function isGHEmployee(employeeName: string): boolean {
@@ -90,12 +104,18 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
-// Check if adding a visit would exceed capacity
+// Check if adding a visit would exceed capacity or daily care time limit
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
   visitDurationMinutes: number
 ): boolean {
-  return (schedule.usedCapacityMinutes + visitDurationMinutes) > schedule.totalCapacityMinutes;
+  const newUsedMinutes = schedule.usedCapacityMinutes + visitDurationMinutes;
+  
+  // Check both window capacity AND 9-hour daily limit
+  const exceedsWindowCapacity = newUsedMinutes > schedule.totalCapacityMinutes;
+  const exceedsDailyLimit = newUsedMinutes > MAX_CARE_HOURS_PER_DAY;
+  
+  return exceedsWindowCapacity || exceedsDailyLimit;
 }
 
 // Flexibly adjust visit times to fit available windows if close enough
