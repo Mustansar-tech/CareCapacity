@@ -701,7 +701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { postcodes = [], addresses = [] } = req.body;
       
       // OPTIMIZATION: Process unique postcodes in parallel for 70-80% faster geocoding
-      const uniquePostcodes = [...new Set(postcodes)];
+      const uniquePostcodes = Array.from(new Set(postcodes as string[]));
       console.log(`🚀 Parallel geocoding ${uniquePostcodes.length} unique postcodes (from ${postcodes.length} total)...`);
 
       // Process all postcodes in parallel using Promise.all

@@ -1190,7 +1190,7 @@ export async function parseExcelFiles(
       // Robust cancellation/secondary checks (match Hours by Service Type.xlsx)
       const isCancelOk = isCancellationBlank(row["Cancellation Description"]);
       const isSecondary = isSecondaryMultipleCare(
-        row["Actual Service Type Description"],
+        row["Actual Service Type Description"] || "",
       );
 
       if (!isCancelOk || isSecondary) {
@@ -2728,8 +2728,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               clientName,
               addressLine: clientLocationsMap.get(clientName)?.addressLine || "",
               postcode: pc,
-              lat: Number(r.lat),
-              lng: Number(r.lng),
+              lat: String(r.lat),
+              lng: String(r.lng),
             });
             saved++;
           }
