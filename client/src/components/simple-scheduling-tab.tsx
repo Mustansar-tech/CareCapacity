@@ -321,7 +321,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                     <div className="space-y-2">
                       {topMatches.map((match, idx) => {
                         const visit = match.visit; // Alias for clarity
-                        
+
                         // Get employee coordinates from employeeLocations data
                         let empLat = 0;
                         let empLng = 0;
@@ -367,11 +367,11 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         if (!Number.isFinite(empLat) || !Number.isFinite(empLng) || 
                             !Number.isFinite(clientLat) || !Number.isFinite(clientLng) ||
                             (empLat === 0 && empLng === 0) || (clientLat === 0 && clientLng === 0)) {
-                          
+
                           console.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
                           console.warn(`  Employee coords: ${empLat}, ${empLng} (from ${empLocationData ? 'employeeLocations' : 'employeeSummary'})`);
                           console.warn(`  Client coords: ${clientLat}, ${clientLng} (from ${clientLocationData ? 'clientLocations' : 'not found'})`);
-                          
+
                           // Show placeholder with "No location data" message
                           return (
                             <Card key={idx}>

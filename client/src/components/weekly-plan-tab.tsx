@@ -479,7 +479,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
                               <h3 className="text-lg font-semibold">{dayName}</h3>
-                              <span className="text-sm text-muted-foreground">{date.split('-').slice(1).join('/')}</span>
+                              <span className="text-sm text-muted-foreground">{date.split('-').slice(1).reverse().join('/')}</span>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="h-3 w-3" />
                                 {timeWindows}
