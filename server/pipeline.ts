@@ -2354,8 +2354,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         const existing = await storage.getEmployeeLocationByName(employeeName);
 
         if (existing && existing.homeLat && existing.homeLng) {
-          // Already geocoded - use cached coordinates
-          console.log(`✅ Using cached coordinates for ${employeeName}`);
+          // Already geocoded - use cached coordinates (SKIP GEOCODING)
+          console.log(`✅ Cache hit for ${employeeName} - using existing coordinates`);
           employeeLocationsMap.set(employeeName, {
             employeeName,
             homePostcode: postcode,
@@ -2365,6 +2365,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           });
         } else {
           // Need to geocode
+          console.log(`📍 Cache miss for ${employeeName} - needs geocoding`);
           const locationData = {
             employeeName,
             homePostcode: postcode,
@@ -2376,7 +2377,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
 
-    console.log(`👥 Found ${employeeLocationsMap.size} employee locations (${employeesToGeocode.length} need geocoding)`);
+    console.log(`👥 Employee locations: ${employeeLocationsMap.size} total (${employeesToGeocode.length} need geocoding, ${employeeLocationsMap.size - employeesToGeocode.length} cached)`);
 
     // Geocode only new employee locations
     if (employeesToGeocode.length > 0) {
@@ -2396,6 +2397,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
         }
       }
+    } else {
+      console.log(`⚡ All employee locations already cached - skipping geocoding API calls`);
     }
 
     // Store all employee locations (cached + newly geocoded)
@@ -2405,21 +2408,20 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
     // Extract client locations from Care Pro Guaranteed Hours
     const clientLocationsMap = new Map<string, any>();
-    console.log(`🔍 DEBUG: Processing ${guaranteed.length} guaranteed hours rows for client locations`);
+    const clientsToGeocode: any[] = [];
+    console.log(`🔍 Processing ${guaranteed.length} guaranteed hours rows for client locations`);
 
     // Debug: Check what columns are available
     if (guaranteed.length > 0) {
-      console.log(`🔍 DEBUG: Available columns in first row:`, Object.keys(guaranteed[0]));
+      console.log(`🔍 Available columns in first row:`, Object.keys(guaranteed[0]));
     }
 
     for (const row of guaranteed) {
       // Skip cancelled or secondary multiple care entries
       if (!isCancellationBlank(row["Cancellation Description"])) {
-        console.log(`🔍 DEBUG: Skipping cancelled entry for client: ${row["Service Location Name"] || row["Actual Client Name"]}`);
         continue;
       }
       if (isSecondaryMultipleCare(row["Actual Service Type Description"])) {
-        console.log(`🔍 DEBUG: Skipping secondary multiple care for client: ${row["Service Location Name"] || row["Actual Client Name"]}`);
         continue;
       }
 
@@ -2500,31 +2502,42 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
       if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
+        
+        // Check if client already has geocoded coordinates
+        const existingClient = await storage.getClientLocationByName(clientKey);
+        
         if (!clientLocationsMap.has(clientKey)) {
-          console.log(`🔍 DEBUG: Adding client - Name: "${clientKey}", Address: "${addressLine}", Postcode: "${postcode}"`);
-          clientLocationsMap.set(clientKey, {
+          const clientData = {
             clientName: clientKey,
             addressLine: addressLine || "",
             postcode: postcode || "",
-          });
+            lat: existingClient?.lat || null,
+            lng: existingClient?.lng || null,
+          };
+          
+          clientLocationsMap.set(clientKey, clientData);
+          
+          // Only add to geocoding queue if not already geocoded
+          if (!existingClient?.lat || !existingClient?.lng) {
+            console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
+            clientsToGeocode.push(clientData);
+          } else {
+            console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+          }
         } else {
           // Update existing entry if we have better data
           const existing = clientLocationsMap.get(clientKey)!;
           if (!existing.postcode && postcode) {
             existing.postcode = postcode;
-            console.log(`🔍 DEBUG: Updated postcode for existing client "${clientKey}": "${postcode}"`);
           }
           if (!existing.addressLine && addressLine) {
             existing.addressLine = addressLine;
-            console.log(`🔍 DEBUG: Updated address for existing client "${clientKey}": "${addressLine}"`);
           }
         }
-      } else {
-        console.log(`🔍 DEBUG: Skipping client - Name: "${clientName}", Address: "${serviceLocationAddress}", Raw Address: "${addressLine}", Postcode: "${postcode}" - missing critical data`);
       }
     }
 
-    console.log(`🏠 Found ${clientLocationsMap.size} client locations from Guaranteed Hours`);
+    console.log(`🏠 Client locations: ${clientLocationsMap.size} total (${clientsToGeocode.length} need geocoding, ${clientLocationsMap.size - clientsToGeocode.length} cached)`);
 
     // Store client locations
     for (const locationData of Array.from(clientLocationsMap.values())) {
@@ -2613,12 +2626,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     }
 
     // ----------------- CLIENT GEOCODING (SAVE RESULTS) -----------------
-    const clientAddresses = Array.from(clientLocationsMap.values())
+    // Only geocode clients that don't have coordinates (from clientsToGeocode list)
+    const clientAddresses = clientsToGeocode
       .map(v => ({ address: (v.addressLine || "").trim(), postcode: normalisePostcode(v.postcode || "") }))
       .filter(v => v.address || v.postcode);
 
     if (clientAddresses.length > 0) {
-      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} client addresses:`);
+      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached):`);
       clientAddresses.slice(0, 10).forEach((addr, i) => {
         console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
       });
@@ -2715,6 +2729,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       } catch (err) {
         console.log("⚠️ Client geocoding error:", err);
       }
+    } else {
+      console.log(`⚡ All client locations already cached - skipping geocoding API calls`);
     }
 
     // Extract visit data for route optimization using Planned Start/End Date And Time
