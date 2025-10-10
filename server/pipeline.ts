@@ -3020,26 +3020,8 @@ export async function generateExcelExport(
     console.log("EmployeeFit generation skipped:", e);
   }
 
-  // === Heatmap tabs (one per date with data) ===
-  try {
-    const { buildHeatmapMatrixLite } = await import("./heatmap-lite");
-    const heatmaps = await buildHeatmapMatrixLite(
-      result.employeesByDate,
-      result.employeeSummaryByDate
-    );
-
-    for (const hm of heatmaps) {
-      const aoa: any[][] = [];
-      aoa.push(["Employee \\ Client", ...hm.columns]);
-      hm.employees.forEach((emp, i) => {
-        aoa.push([emp, ...hm.matrix[i]]);
-      });
-      const sh = XLSX.utils.aoa_to_sheet(aoa);
-      XLSX.utils.book_append_sheet(workbook, sh, `Heatmap-${hm.date}`);
-    }
-  } catch (e) {
-    console.log("Heatmap generation skipped:", e);
-  }
+  // Heatmap tabs excluded from export as per user request
+  console.log("Heatmap sheets excluded from Excel export");
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }
