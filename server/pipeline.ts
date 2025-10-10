@@ -1210,7 +1210,7 @@ export async function parseExcelFiles(
     `🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`,
   );
 
-  // === Clean demand row conversion using the modular service rules ===
+  // === Use modular service delivery rules processing ===
   const validatedDemand: ClientDemandRow[] = [];
 
   // Extract actual dates from availability and guaranteed hours data
@@ -2258,9 +2258,9 @@ export async function processCapacityData(
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
   const CLIENT_COLS = [
-    'Service Location Name', 
-    'Client Name', 
-    'Service User Name', 
+    'Service Location Name',
+    'Client Name',
+    'Service User Name',
     'Customer Name'
   ];
 
@@ -2362,7 +2362,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       const transportMode = row["TransportModeDescription"]?.toLowerCase();
 
       if (employeeName && postcode) {
-        const normalizedTransport = transportMode?.includes("car") ? "car" : 
+        const normalizedTransport = transportMode?.includes("car") ? "car" :
                                     transportMode?.includes("walk") ? "walking" : "car";
 
         // Check if already geocoded in database
@@ -2517,10 +2517,10 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
       if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
-        
+
         // Check if client already has geocoded coordinates
         const existingClient = await storage.getClientLocationByName(clientKey);
-        
+
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {
             clientName: clientKey,
@@ -2529,9 +2529,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             lat: existingClient?.lat || null,
             lng: existingClient?.lng || null,
           };
-          
+
           clientLocationsMap.set(clientKey, clientData);
-          
+
           // Only add to geocoding queue if not already geocoded
           if (!existingClient?.lat || !existingClient?.lng) {
             console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
@@ -2755,8 +2755,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
     const CLIENT_COLS = [
       'Service Location Name', // Prioritized as per the user request
-      'Client Name', 
-      'Service User Name', 
+      'Client Name',
+      'Service User Name',
       'Customer Name'
     ];
 
@@ -2789,9 +2789,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           try {
             const visitDate = format(parseDate(visitStart), "yyyy-MM-dd");
             // Calculate duration, default to 60 minutes if end time is missing
-            const duration = visitEnd ? 
-              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) : 
-              60; 
+            const duration = visitEnd ?
+              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) :
+              60;
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
 
@@ -2802,7 +2802,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               // Extract time windows for VRPTW optimizer
               const startDate = parseDate(visitStart);
               // Ensure end date is valid, default to start date + duration if missing
-              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() + 
+              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() +
                 duration * 60000);
 
               // Convert to minutes since midnight for optimizer
@@ -3038,7 +3038,10 @@ export async function generateExcelExport(
       XLSX.utils.book_append_sheet(workbook, sh, `Heatmap-${hm.date}`);
     }
   } catch (e) {
-    console.log("Heatmap (lite) generation skipped:", e);
+    console.log("Heatmap generation skipped:", e);
+  }
+  } catch (e) {
+    console.log("Heatmap generation skipped:", e);
   }
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
