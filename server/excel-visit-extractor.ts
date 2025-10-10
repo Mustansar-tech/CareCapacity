@@ -27,12 +27,6 @@ const CLIENT_COLS = [
   'Customer Name',
 ];
 
-const TEMPLATE_EMPLOYEE_COLS = [
-  'Template Employee Name',
-  'Planned Employee Name',
-  'Preferred Employee Name',
-];
-
 const ADDRESS_COLS = [
   'Service Location Address',
   'Service Requirement Location',
@@ -71,13 +65,12 @@ export interface ExcelClientVisit {
   date: string;
   address?: string;
   postcode?: string;
-  templateEmployee?: string; // Pre-assigned employee from Excel
 }
 
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = [
-  'east nl',
-  'glasgow',
+  'east nl', 
+  'glasgow', 
   'training seawared',
   'training (nl)',
   'seaward place',
@@ -94,12 +87,12 @@ export function extractClientVisitsFromGHExcel(
   const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
 
-  const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
-    header: 1,
-    raw: true,
-    blankrows: false
+  const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], { 
+    header: 1, 
+    raw: true, 
+    blankrows: false 
   }) as any[][];
-
+  
   let headerIdx = rows2d.findIndex(r => {
     const low = r.map(v => String(v ?? '').toLowerCase());
     return low.some(s => s.includes('start date')) || low.some(s => s.includes('client'));
@@ -128,7 +121,7 @@ export function extractClientVisitsFromGHExcel(
     const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
-
+    
     // Skip office visits
     const clientNameLower = clientName.toLowerCase();
     if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
@@ -158,7 +151,7 @@ export function extractClientVisitsFromGHExcel(
     // Get address
     const addressRaw = ADDRESS_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     const address = addressRaw ? String(addressRaw).trim() : undefined;
-
+    
     // Get postcode (check dedicated columns first, then extract from address)
     let postcode: string | undefined;
     const postcodeRaw = POSTCODE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
@@ -169,14 +162,6 @@ export function extractClientVisitsFromGHExcel(
       postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
     }
 
-    // Get template employee name (pre-assigned employee)
-    const templateEmployeeRaw = TEMPLATE_EMPLOYEE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
-    const templateEmployee = templateEmployeeRaw ? String(templateEmployeeRaw).trim() : undefined;
-
-    if (templateEmployee) {
-      console.log(`📋 Template extracted for ${clientName}: "${templateEmployee}"`);
-    }
-
     visits.push({
       clientName,
       startTime: fmt(startDate, 'HH:mm'),
@@ -185,7 +170,6 @@ export function extractClientVisitsFromGHExcel(
       date: dateStr,
       address,
       postcode,
-      templateEmployee,
     });
   }
 

@@ -19,7 +19,6 @@ import {
   InsertCapacityAnalysis,
 } from "@shared/schema";
 import { storage } from "./storage";
-import { normalizeName as sharedNormalizeName } from "@shared/name-utils";
 
 // Enhanced geocoding with fallback hierarchy
 async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
@@ -373,9 +372,14 @@ function getCGSheetName(wb: any): string {
 }
 
 // Normalize name exactly like working implementation
-// Use shared normalizeName function for consistency
 function normalizeName(name: string): string {
-  return sharedNormalizeName(name);
+  if (!name || name === "undefined" || name === "null") return "";
+  let s = String(name).toLowerCase();
+  s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
+  s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
+  s = s.replace(/\s+/g, " ").trim();
+  return s.split(" ").filter(Boolean).sort().join(" ");
 }
 
 function canonicalStatus(raw: any): string {

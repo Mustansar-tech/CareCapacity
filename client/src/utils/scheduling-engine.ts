@@ -13,8 +13,6 @@ import {
   type EmployeeRun,
   type Visit as ScoringVisit
 } from './scheduling-scoring';
-import { namesMatch } from '@shared/name-utils';
-import { namesMatch } from '@shared/name-utils';
 
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = [
@@ -109,102 +107,6 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
     .reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
-// Try to assign visit to a specific employee
-function tryAssignToEmployee(
-  originalVisit: ClientVisit,
-  schedule: EmployeeDaySchedule,
-  weeklyUsedMap: Map<string, number>,
-  allSchedulesByDate: Record<string, EmployeeDaySchedule[]>,
-  isTemplateMatch: boolean = false
-): { success: boolean; employeeName?: string; reason?: string } {
-  const logPrefix = isTemplateMatch ? '    [TEMPLATE]' : '    ';
-  
-  // Check capacity constraint
-  if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
-    if (isTemplateMatch) {
-      console.log(`${logPrefix} ❌ Capacity exceeded for ${schedule.employeeName} (used: ${(schedule.usedCapacityMinutes/60).toFixed(1)}h, weekly: ${(schedule.weeklyUsedMinutes/60).toFixed(1)}h/${(schedule.weeklyContractedMinutes/60).toFixed(1)}h)`);
-    }
-    return { success: false, reason: 'Would exceed capacity' };
-  }
-
-  const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
-  if (validWindows.length === 0) {
-    if (isTemplateMatch) {
-      console.log(`${logPrefix} ❌ No valid time windows for ${schedule.employeeName} on ${schedule.date}`);
-    }
-    return { success: false, reason: 'No valid time windows' };
-  }
-
-  const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows);
-  if (!adjustedVisit) {
-    if (isTemplateMatch) {
-      console.log(`${logPrefix} ❌ Visit ${originalVisit.startTime}-${originalVisit.endTime} cannot fit in windows: ${validWindows.map(w => `${minutesToTime(w.start)}-${minutesToTime(w.end)}`).join(', ')}`);
-    }
-    return { success: false, reason: 'Cannot fit in time windows' };
-  }
-
-  const scoringVisit = toScoringVisit(adjustedVisit);
-  const employeeRun: EmployeeRun = {
-    visits: schedule.assignedVisits.map(v => ({
-      clientName: v.clientName,
-      start: timeToMinutes(v.startTime),
-      end: timeToMinutes(v.endTime),
-      lat: v.lat || 0,
-      lng: v.lng || 0,
-    })),
-    homeLat: schedule.homeLat,
-    homeLng: schedule.homeLng,
-    mode: schedule.transportMode,
-  };
-
-  const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
-
-  if (!matchScore) {
-    return { success: false, reason: 'No feasible insertion point found' };
-  }
-  
-  // Accept any feasible assignment (score check removed to maximize allocation)
-
-  // Apply template bonus
-  const finalScore = isTemplateMatch ? matchScore.score + 0.5 : matchScore.score;
-
-  const travelTimeBefore = matchScore.insertionIndex === 0
-    ? getTravelMinutes(
-        { lat: schedule.homeLat, lng: schedule.homeLng },
-        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
-        schedule.transportMode
-      )
-    : matchScore.travelFromPrev;
-
-  const assignedVisit: AssignedVisit = {
-    id: adjustedVisit.id,
-    clientName: adjustedVisit.clientName,
-    startTime: adjustedVisit.startTime,
-    endTime: adjustedVisit.endTime,
-    durationMinutes: adjustedVisit.durationMinutes,
-    lat: adjustedVisit.lat,
-    lng: adjustedVisit.lng,
-    travelTimeBefore,
-    score: finalScore,
-  };
-
-  schedule.assignedVisits.splice(matchScore.insertionIndex, 0, assignedVisit);
-  schedule.usedCapacityMinutes += adjustedVisit.durationMinutes;
-  schedule.weeklyUsedMinutes += adjustedVisit.durationMinutes;
-
-  weeklyUsedMap.set(schedule.employeeName, schedule.weeklyUsedMinutes);
-
-  Object.values(allSchedulesByDate).forEach(daySchedules => {
-    daySchedules.forEach(s => {
-      if (s.employeeName === schedule.employeeName) {
-        s.weeklyUsedMinutes = schedule.weeklyUsedMinutes;
-      }
-    });
-  });
-
-  return { success: true, employeeName: schedule.employeeName };
-}
-
 // Check if adding a visit would exceed capacity, daily limit, or weekly hours
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
@@ -212,25 +114,25 @@ function wouldExceedCapacity(
 ): boolean {
   const newTotalCareTime = schedule.usedCapacityMinutes + visitDurationMinutes;
   const newWeeklyTotal = schedule.weeklyUsedMinutes + visitDurationMinutes;
-
+  
   // Check against weekly contracted hours first
   if (newWeeklyTotal > schedule.weeklyContractedMinutes) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h)`);
     return true;
   }
-
+  
   // Check against 9-hour daily limit
   if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed 9-hour daily limit (${newTotalCareTime}min > ${MAX_DAILY_CARE_MINUTES}min)`);
     return true;
   }
-
+  
   // Check against available daily capacity
   if (newTotalCareTime > schedule.totalCapacityMinutes) {
     console.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
     return true;
   }
-
+  
   return false;
 }
 
@@ -337,7 +239,6 @@ function assignVisitToBestEmployee(
 
   // Note: Office visits, secondary multiple care, and visits without location data
   // are already filtered out in generateWeeklySchedule, so no need to check again here
-  // Note: Template matching is now handled in the main loop's three-phase allocation
 
   const candidates: Array<{
     employeeName: string;
@@ -386,8 +287,7 @@ function assignVisitToBestEmployee(
 
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
 
-    if (matchScore) {
-      // Accept any feasible assignment to maximize allocation
+    if (matchScore && matchScore.score > 0) {
       // Add GH bonus to prioritize guaranteed hours employees
       const finalScore = isGHEmployee(schedule.employeeName)
         ? matchScore.score + GH_SCORE_BONUS
@@ -455,10 +355,10 @@ function assignVisitToBestEmployee(
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
   schedule.weeklyUsedMinutes += best.adjustedVisit.durationMinutes;
-
+  
   // Update the shared weekly tracking map for all schedules of this employee
   weeklyUsedMap.set(best.employeeName, schedule.weeklyUsedMinutes);
-
+  
   // Update weekly used minutes for all other schedules of this employee across all dates
   Object.values(allSchedulesByDate).forEach(daySchedules => {
     daySchedules.forEach(s => {
@@ -467,7 +367,7 @@ function assignVisitToBestEmployee(
       }
     });
   });
-
+  
   const careHoursUsed = (schedule.usedCapacityMinutes / 60).toFixed(1);
   const weeklyHoursUsed = (schedule.weeklyUsedMinutes / 60).toFixed(1);
   const weeklyContracted = (schedule.weeklyContractedMinutes / 60).toFixed(1);
@@ -539,7 +439,7 @@ export function generateWeeklySchedule(
 
   // Use filtered visits for the rest of the function
   visits = filteredVisits;
-
+  
   // Calculate weekly contracted minutes per employee
   const weeklyContractedMap = new Map<string, number>();
   employees.forEach(emp => {
@@ -547,10 +447,10 @@ export function generateWeeklySchedule(
     const dailyHours = emp.weeklyContractedHours || 0;
     weeklyContractedMap.set(emp.employeeName, Math.max(current, dailyHours * 60));
   });
-
+  
   // Track weekly used minutes per employee (shared across all days)
   const weeklyUsedMap = new Map<string, number>();
-
+  
   // Initialize employee schedules by date and name
   const schedulesByDate: Record<string, EmployeeDaySchedule[]> = {};
 
@@ -570,7 +470,7 @@ export function generateWeeklySchedule(
           mode = 'car';
         }
       }
-
+      
       // Initialize weekly used minutes for this employee if not exists
       if (!weeklyUsedMap.has(emp.employeeName)) {
         weeklyUsedMap.set(emp.employeeName, 0);
@@ -607,13 +507,7 @@ export function generateWeeklySchedule(
     return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
   });
 
-  // First pass: Assign each visit using three-phase allocation
-  console.log(`\n📋 STARTING THREE-PHASE ALLOCATION FOR ${sortedVisits.length} VISITS\n`);
-  
-  let templateSuccessCount = 0;
-  let ghSuccessCount = 0;
-  let generalSuccessCount = 0;
-
+  // First pass: Assign each visit prioritizing GH employees
   for (const visit of sortedVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
 
@@ -625,7 +519,7 @@ export function generateWeeklySchedule(
     // Check if this is a multiple care visit (needs to avoid already assigned employee)
     const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
     const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
-
+    
     // Filter out employees already assigned to this exact time slot
     const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
 
@@ -634,82 +528,17 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    let result: { success: boolean; employeeName?: string; reason?: string } = { success: false, reason: '' };
+    // Separate GH and non-GH employees for two-phase allocation
+    const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
 
-    // PHASE 1: Try template employee first (if specified)
-    if (visit.templateEmployee && visit.templateEmployee.trim() !== '') {
-      console.log(`🎯 [PHASE 1 - TEMPLATE] Client: "${visit.clientName}" | Template: "${visit.templateEmployee}" | ${visit.date} ${visit.startTime}-${visit.endTime}`);
+    // Phase 1: Try to assign to GH employees first (if any available)
+    let result = ghEmployees.length > 0
+      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+      : { success: false, reason: 'No GH employees available' };
 
-      // Try to find template employee using namesMatch
-      let templateSchedule = availableSchedules.find(s => 
-        namesMatch(s.employeeName, visit.templateEmployee)
-      );
-
-      // Debug: show all available employees if not found
-      if (!templateSchedule) {
-        console.log(`  ❌ Template "${visit.templateEmployee}" NOT FOUND in ${availableSchedules.length} available schedules`);
-        console.log(`     Searching in: ${availableSchedules.map(s => s.employeeName).join(', ')}`);
-        
-        // Try exact substring match as fallback
-        templateSchedule = availableSchedules.find(s => 
-          s.employeeName.toLowerCase().includes(visit.templateEmployee.toLowerCase()) ||
-          visit.templateEmployee.toLowerCase().includes(s.employeeName.toLowerCase())
-        );
-        
-        if (templateSchedule) {
-          console.log(`  ⚠️ Found via substring match: "${templateSchedule.employeeName}" for template "${visit.templateEmployee}"`);
-        }
-      } else {
-        console.log(`  ✅ Template employee found: "${templateSchedule.employeeName}" matches "${visit.templateEmployee}"`);
-      }
-
-      if (templateSchedule) {
-        console.log(`  🔄 Attempting to assign template employee "${templateSchedule.employeeName}" to client "${visit.clientName}"...`);
-        
-        result = tryAssignToEmployee(
-          visit, 
-          templateSchedule, 
-          weeklyUsedMap, 
-          schedulesByDate,
-          true // isTemplateMatch - give bonus score
-        );
-
-        if (result.success) {
-          assignedVisitIds.add(visit.id);
-          templateSuccessCount++;
-          console.log(`  ✨ [PHASE 1 SUCCESS] Template "${visit.templateEmployee}" → Client "${visit.clientName}" ✓`);
-        } else {
-          console.log(`  ❌ [PHASE 1 FAILED] Template "${visit.templateEmployee}" cannot serve "${visit.clientName}" - ${result.reason}`);
-        }
-      } else {
-        console.log(`  ❌ Template employee "${visit.templateEmployee}" COMPLETELY NOT FOUND`);
-      }
-    }
-
-    // PHASE 2: If template failed, try GH employees
+    // Phase 2: If not assigned to GH employee, try all employees
     if (!result.success) {
-      const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
-
-      if (ghEmployees.length > 0) {
-        console.log(`🔄 [PHASE 2 - GH] Trying ${ghEmployees.length} GH employees for ${visit.clientName}`);
-        result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-
-        if (result.success) {
-          ghSuccessCount++;
-          console.log(`✅ [PHASE 2 SUCCESS] GH employee assigned: ${visit.clientName} → ${result.employeeName}`);
-        }
-      }
-    }
-
-    // PHASE 3: If GH failed, try all employees
-    if (!result.success) {
-      console.log(`🔄 [PHASE 3 - ALL] Trying all ${availableSchedules.length} employees for ${visit.clientName}`);
       result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-
-      if (result.success) {
-        generalSuccessCount++;
-        console.log(`✅ [PHASE 3 SUCCESS] General assignment: ${visit.clientName} → ${result.employeeName}`);
-      }
     }
 
     if (result.success && result.employeeName) {
@@ -718,7 +547,7 @@ export function generateWeeklySchedule(
         visitEmployeeAssignments.set(visitKey, new Set());
       }
       visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
-
+      
       // Log multiple care assignments
       if (alreadyAssignedEmployees.size > 0) {
         console.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
@@ -727,12 +556,6 @@ export function generateWeeklySchedule(
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
     }
   }
-
-  console.log(`\n📊 THREE-PHASE ALLOCATION SUMMARY:`);
-  console.log(`  🎯 Phase 1 (Template): ${templateSuccessCount} visits assigned`);
-  console.log(`  🔄 Phase 2 (GH): ${ghSuccessCount} visits assigned`);
-  console.log(`  ✅ Phase 3 (All): ${generalSuccessCount} visits assigned`);
-  console.log(`  ❌ Unallocated: ${unallocated.length} visits\n`);
 
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)
@@ -750,7 +573,7 @@ export function generateWeeklySchedule(
     // Check multiple care constraints again
     const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
     const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
-
+    
     // Filter out employees already assigned to this exact time slot
     const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
 

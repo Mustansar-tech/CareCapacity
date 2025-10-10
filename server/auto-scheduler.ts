@@ -87,7 +87,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
   
   constructor() {
-    this.travelService = new TravelTimeService(45, 45); // 45min max, 45min soft limit (relaxed travel constraints)
+    this.travelService = new TravelTimeService(45, 30); // 45min max, 30min soft limit
   }
 
   /**

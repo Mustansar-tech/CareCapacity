@@ -208,7 +208,6 @@ export interface ClientVisit {
   lng?: number;
   serviceType?: string;
   priority?: number;
-  templateEmployee?: string; // Pre-assigned employee from Excel template
 }
 
 export interface EmployeeWeeklySchedule {
