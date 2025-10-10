@@ -294,7 +294,6 @@ const STATUS_PRIORITY: Record<string, number> = {
   Holiday: 3,
   "Compassionate Leave": 4,
   "Other Unavailable": 5,
-  "Pre-Agreed Appointment": 6,
   "Partial Availability": 6, // ← NEW (not in LEAVE_TYPES)
   Available: 7,
   "Ad-hoc": 7, // NEW
@@ -2224,7 +2223,7 @@ export async function processCapacityData(
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
           unavailability: finalUnavailabilityHours,
-          scheduledHours: empData.scheduledHours, // Already correctly calculated from cleanedRecords
+          scheduledHours: empData.scheduledHours,
           difference:
             empData.contractedDailyHours -
             finalUnavailabilityHours -
@@ -2250,8 +2249,8 @@ export async function processCapacityData(
     'Customer Name'
   ];
 
-  // Note: Visit extraction is now handled above using the excel-visit-extractor
-  // This ensures we get exact client names and times from the Excel file
+  // Note: Visit extraction is now handled by excel-visit-extractor module
+  // which is called separately when needed. No need to extract visits here.
 
 
   // Re-sort after injection
@@ -2340,6 +2339,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
   try {
     // Extract employee locations from CG Data Export
     const employeeLocationsMap = new Map<string, any>();
+    const employeesToGeocode: any[] = [];
+
     for (const row of cgData) {
       const employeeName = row["CAREGiver Name"];
       const postcode = row["PostCode"];
@@ -2347,37 +2348,58 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
       if (employeeName && postcode) {
         const normalizedTransport = transportMode?.includes("car") ? "car" : 
-                                  transportMode?.includes("walk") ? "walking" : "car";
+                                    transportMode?.includes("walk") ? "walking" : "car";
 
-        employeeLocationsMap.set(employeeName, {
-          employeeName,
-          homePostcode: postcode,
-          transportMode: normalizedTransport,
-        });
+        // Check if already geocoded in database
+        const existing = await storage.getEmployeeLocationByName(employeeName);
+
+        if (existing && existing.homeLat && existing.homeLng) {
+          // Already geocoded - use cached coordinates
+          console.log(`✅ Using cached coordinates for ${employeeName}`);
+          employeeLocationsMap.set(employeeName, {
+            employeeName,
+            homePostcode: postcode,
+            transportMode: normalizedTransport,
+            homeLat: existing.homeLat,
+            homeLng: existing.homeLng,
+          });
+        } else {
+          // Need to geocode
+          const locationData = {
+            employeeName,
+            homePostcode: postcode,
+            transportMode: normalizedTransport,
+          };
+          employeeLocationsMap.set(employeeName, locationData);
+          employeesToGeocode.push(locationData);
+        }
       }
     }
 
-    console.log(`👥 Found ${employeeLocationsMap.size} employee locations from CG Data`);
+    console.log(`👥 Found ${employeeLocationsMap.size} employee locations (${employeesToGeocode.length} need geocoding)`);
 
-    // Geocode all employee locations during data upload
-    console.log(`🔍 Geocoding all employee postcodes...`);
-    for (const locationData of Array.from(employeeLocationsMap.values())) {
-      try {
-        console.log(`🔄 Geocoding ${locationData.employeeName} at ${locationData.homePostcode}...`);
-        const geocoded = await geocodeWithFallback(locationData.homePostcode, storage);
+    // Geocode only new employee locations
+    if (employeesToGeocode.length > 0) {
+      console.log(`🔍 Geocoding ${employeesToGeocode.length} new employee postcodes...`);
+      for (const locationData of employeesToGeocode) {
+        try {
+          const geocoded = await geocodeWithFallback(locationData.homePostcode, storage);
 
-        if (geocoded && geocoded.lat && geocoded.lng) {
-          locationData.homeLat = geocoded.lat;
-          locationData.homeLng = geocoded.lng;
-          console.log(`✅ Successfully geocoded ${locationData.employeeName}`);
-        } else {
-          console.log(`❌ Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
+          if (geocoded && geocoded.lat && geocoded.lng) {
+            locationData.homeLat = geocoded.lat;
+            locationData.homeLng = geocoded.lng;
+            console.log(`✅ Successfully geocoded ${locationData.employeeName}`);
+          } else {
+            console.log(`❌ Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
+          }
+        } catch (err) {
+          console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
         }
-      } catch (err) {
-        console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
       }
+    }
 
-      // Store employee location (with or without geocoding)
+    // Store all employee locations (cached + newly geocoded)
+    for (const locationData of Array.from(employeeLocationsMap.values())) {
       await storage.upsertEmployeeLocation(locationData);
     }
 
@@ -2467,7 +2489,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
       // Also check if there's a separate postcode column
       if (!postcode && row["Postcode"]) {
-        postcode = String(row["Postcode"]).trim().toUpperCase();
+        postcode = String(row["PostCode"]).trim().toUpperCase();
       }
       if (!postcode && row["Post Code"]) {
         postcode = String(row["Post Code"]).trim().toUpperCase();
