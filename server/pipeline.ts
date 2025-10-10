@@ -23,6 +23,7 @@ import { storage } from "./storage";
 // Enhanced geocoding with fallback hierarchy
 async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
+  const prefix = normalizedPostcode.substring(0, 2);
 
   // Step 1: Try exact postcode from cache
   const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
@@ -34,6 +35,19 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
       lng: cached.lng,
       source: 'cache',
       approximate: false
+    };
+  }
+
+  // Step 1.5: Try fallback cache for this prefix (OPTIMIZATION: avoid repeated API calls for same area)
+  const fallbackCached = await storage.getGeocode(`fallback:${prefix}`);
+  if (fallbackCached) {
+    return {
+      query: normalizedPostcode,
+      type: 'postcode',
+      lat: fallbackCached.lat,
+      lng: fallbackCached.lng,
+      source: 'cache-fallback',
+      approximate: true
     };
   }
 
@@ -119,7 +133,6 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
   }
 
   // Step 4: Default to approximate city center based on postcode prefix
-  const prefix = normalizedPostcode.substring(0, 2);
   const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
     'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },  // Edinburgh
     'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },      // Glasgow  
@@ -1039,9 +1052,11 @@ export async function parseExcelFiles(
   console.log(`🧹 Clearing old visits data before generating new visits...`);
   await storage.clearAllVisits();
 
-  // Generate client visits from demand data (Hours by Service Type)
-  const analysisStartDate = new Date(); // Use current date as start
-  await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
+  // OPTIMIZATION: Skip synthetic visit generation - we use real visit times from GH Excel
+  // This saves 3-4 minutes of unnecessary geocoding and database operations
+  // const analysisStartDate = new Date(); 
+  // await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
+  console.log(`⚡ Skipping synthetic visit generation - using real Excel visit times for performance`);
 
   // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
