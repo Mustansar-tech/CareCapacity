@@ -3040,9 +3040,6 @@ export async function generateExcelExport(
   } catch (e) {
     console.log("Heatmap generation skipped:", e);
   }
-  } catch (e) {
-    console.log("Heatmap generation skipped:", e);
-  }
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }
