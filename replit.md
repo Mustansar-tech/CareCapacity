@@ -119,6 +119,7 @@ The Care Capacity Dashboard is a full-stack TypeScript application that processe
 - **Minimum Window Requirements**: 60-minute minimum for bookable time slots
 - **Smart Status Canonicalization**: Handles variations like "Avail" → "Available" automatically
 - **Touch/Overlap Merging**: Precise time window consolidation without artificial gaps
+- **20-Minute Travel Constraint**: Hard constraint enforcing maximum 20-minute travel time for all journey types (client-to-client, home-to-client, client-to-home), preventing any assignment that exceeds this limit
 
 **Operational Intelligence**
 - AI-powered scheduling optimization recommendations with impact analysis
