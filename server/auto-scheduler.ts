@@ -364,8 +364,8 @@ export class AutoScheduler {
         employee.transportMode
       );
 
-      if (travelTime.travelTimeMinutes > employee.maxTravelPerVisit) {
-        continue; // Too far to travel
+      if (travelTime.travelTimeMinutes > 20) {
+        continue; // Too far to travel - strict 20-minute limit
       }
 
       // Find best insertion point and calculate score
@@ -412,6 +412,11 @@ export class AutoScheduler {
         ).travelTimeMinutes
         : 0;
 
+      // STRICT 20-MINUTE TRAVEL LIMIT CHECK
+      if (travelToPrev > 20 || travelToNext > 20) {
+        continue; // Skip this position if either travel segment exceeds 20 minutes
+      }
+
       // Check if insertion is feasible
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime;
@@ -437,12 +442,17 @@ export class AutoScheduler {
     insertionIndex: number,
     totalVisits: number
   ): number {
+    // Reject immediately if either travel segment exceeds 20 minutes
+    if (travelToPrev > 20 || travelToNext > 20) {
+      return 0;
+    }
+
     let score = 0;
 
-    // Factor 1: Minimize travel time (40% weight)
-    const maxTravelTime = 45; // minutes
+    // Factor 1: Minimize travel time (40% weight) - using 20-minute strict limit
+    const maxTravelTime = 20; // Strict 20-minute limit
     const totalTravel = travelToPrev + travelToNext;
-    const travelScore = Math.max(0, 1 - totalTravel / maxTravelTime);
+    const travelScore = Math.max(0, 1 - totalTravel / (maxTravelTime * 2));
     score += travelScore * 0.4;
 
     // Factor 2: Time window preference (30% weight)
