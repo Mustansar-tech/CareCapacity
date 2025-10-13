@@ -143,7 +143,7 @@ export function fitsInWindow(
 }
 
 // Maximum travel time constraint (minutes)
-const MAX_TRAVEL_TIME_MINUTES = 20;
+export const MAX_TRAVEL_TIME_MINUTES = 20;
 
 // Check if inserting a visit between two existing visits is feasible
 export function isInsertionFeasible(
