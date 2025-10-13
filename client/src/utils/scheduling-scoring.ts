@@ -137,8 +137,8 @@ export function scoreVisitMatch(
   }
 
   const travelAdded = newTravel - currentTravel;
-  // Max travel added considered is 30 minutes
-  const travelAddedScore = Math.max(0, 1 - (travelAdded / 30));
+  // Max travel added considered is 20 minutes (strict limit)
+  const travelAddedScore = Math.max(0, 1 - (travelAdded / 20));
 
   // 3. Window slack score (prefer visits that use window time efficiently)
   // Find the tightest window that contains this visit
@@ -168,8 +168,8 @@ export function scoreVisitMatch(
       { lat: visit.lat, lng: visit.lng },
       mode
     );
-    // Max distance considered is 45 minutes
-    homeProximityScore = Math.max(0, 1 - (distFromHome / 45));
+    // Max distance considered is 20 minutes (strict limit)
+    homeProximityScore = Math.max(0, 1 - (distFromHome / 20));
   } else if (bestIndex === visits.length) {
     // Last visit - prefer close to home
     const distToHome = getTravelMinutes(
@@ -177,8 +177,8 @@ export function scoreVisitMatch(
       { lat: homeLat, lng: homeLng },
       mode
     );
-    // Max distance considered is 45 minutes
-    homeProximityScore = Math.max(0, 1 - (distToHome / 45));
+    // Max distance considered is 20 minutes (strict limit)
+    homeProximityScore = Math.max(0, 1 - (distToHome / 20));
   }
 
   // Calculate weighted total score

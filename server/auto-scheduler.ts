@@ -87,7 +87,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
   
   constructor() {
-    this.travelService = new TravelTimeService(45, 30); // 45min max, 30min soft limit
+    this.travelService = new TravelTimeService(20, 15); // 20min max, 15min soft limit
   }
 
   /**
@@ -249,7 +249,7 @@ export class AutoScheduler {
           availabilityWindows: availabilityWindows.map(w => ({ start: w.start, end: w.end })),
           contractedDailyHours: availability.contractedDailyHours || 8,
           scheduledHours: availability.scheduledHours || 0,
-          maxTravelPerVisit: emp.transportMode?.toLowerCase().includes('car') ? 30 : 15, // minutes
+          maxTravelPerVisit: 20, // Strict 20-minute limit for all transport modes
         });
       }
 

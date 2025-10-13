@@ -112,9 +112,9 @@ export class TravelTimeService {
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
 
-  constructor(maxTravelMinutes: number = 30, softLimitMinutes?: number) {
+  constructor(maxTravelMinutes: number = 20, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
-    this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.6); // 60% of max as soft limit
+    this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75); // 75% of max as soft limit (15min)
   }
 
   /**
