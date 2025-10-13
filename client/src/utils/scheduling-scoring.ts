@@ -168,6 +168,12 @@ export function scoreVisitMatch(
       { lat: visit.lat, lng: visit.lng },
       mode
     );
+    
+    // HARD CONSTRAINT: Home-to-first-visit travel must not exceed 20 minutes
+    if (distFromHome > 20) {
+      return null; // Reject - exceeds 20-minute travel limit from home
+    }
+    
     // Max distance considered is 20 minutes (strict limit)
     homeProximityScore = Math.max(0, 1 - (distFromHome / 20));
   } else if (bestIndex === visits.length) {
@@ -177,6 +183,12 @@ export function scoreVisitMatch(
       { lat: homeLat, lng: homeLng },
       mode
     );
+    
+    // HARD CONSTRAINT: Last-visit-to-home travel must not exceed 20 minutes
+    if (distToHome > 20) {
+      return null; // Reject - exceeds 20-minute travel limit to home
+    }
+    
     // Max distance considered is 20 minutes (strict limit)
     homeProximityScore = Math.max(0, 1 - (distToHome / 20));
   }
