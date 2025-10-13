@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus } from "lucide-react";
+import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
@@ -490,33 +490,104 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             </Badge>
                           </div>
                           
-                          {/* Visits Grid - Wrapped Layout */}
+                          {/* Visits Flow - Linear Layout with Arrows */}
                           {dayVisits.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Home Start Icon (Blue) */}
+                              <div className="flex flex-col items-center gap-1">
+                                <Home className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Start</span>
+                              </div>
+                              
+                              {/* First Arrow with Travel Time */}
+                              {dayVisits.length > 0 && (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    {dayVisits[0].travelTimeBefore}min
+                                  </span>
+                                  <ArrowRight className="h-5 w-5 text-gray-400" />
+                                </div>
+                              )}
+                              
+                              {/* Visits with Arrows */}
                               {dayVisits.map((visit, vIndex) => (
-                                <div 
-                                  key={vIndex} 
-                                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:shadow-md transition-shadow"
-                                  data-testid={`card-visit-${date}-${vIndex}`}
-                                >
-                                  <div className="space-y-1">
-                                    <p className="font-medium text-sm truncate" title={visit.clientName}>
-                                      {visit.clientName}
-                                    </p>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Clock className="h-3 w-3" />
-                                      {visit.startTime} - {visit.endTime}
+                                <div key={vIndex} className="flex items-center gap-2">
+                                  {/* Visit Card - Compact Size */}
+                                  <div 
+                                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
+                                    data-testid={`card-visit-${date}-${vIndex}`}
+                                  >
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-xs truncate max-w-[120px]" title={visit.clientName}>
+                                        {visit.clientName}
+                                      </p>
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <Clock className="h-3 w-3" />
+                                        {visit.startTime} - {visit.endTime}
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <MapPin className="h-3 w-3" />
-                                      Travel: {visit.travelTimeBefore}min
-                                    </div>
-                                    <Badge variant="secondary" className="text-xs">
-                                      Score: {(visit.score * 100).toFixed(0)}%
-                                    </Badge>
                                   </div>
+                                  
+                                  {/* Arrow with Travel Time (if not last visit) */}
+                                  {vIndex < dayVisits.length - 1 && (
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                        {dayVisits[vIndex + 1].travelTimeBefore}min
+                                      </span>
+                                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                  )}
                                 </div>
                               ))}
+                              
+                              {/* Last Arrow with Travel Time to Home */}
+                              {dayVisits.length > 0 && (() => {
+                                const lastVisit = dayVisits[dayVisits.length - 1];
+                                const empLocation = employeeLocationMap.get(selectedEmployee);
+                                
+                                // Calculate travel time from last visit to home
+                                let travelToHome = 0;
+                                if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
+                                  const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
+                                    const R = 6371; // Earth's radius in km
+                                    const dLat = (to.lat - from.lat) * Math.PI / 180;
+                                    const dLng = (to.lng - from.lng) * Math.PI / 180;
+                                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                      Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
+                                      Math.sin(dLng/2) * Math.sin(dLng/2);
+                                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                    const distKm = R * c;
+                                    const speedKmh = mode === 'walking' ? 5 : 40;
+                                    return Math.round((distKm / speedKmh) * 60);
+                                  };
+                                  
+                                  const transportMode = empLocation.transportMode?.toLowerCase() || '';
+                                  const mode = transportMode.includes('walk') ? 'walking' : 'car';
+                                  
+                                  travelToHome = getTravelMinutes(
+                                    { lat: lastVisit.lat, lng: lastVisit.lng },
+                                    { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
+                                    mode
+                                  );
+                                }
+                                
+                                return (
+                                  <>
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                        {travelToHome}min
+                                      </span>
+                                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    
+                                    {/* Home End Icon (Green) */}
+                                    <div className="flex flex-col items-center gap-1">
+                                      <Home className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">End</span>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                           ) : (
                             <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
