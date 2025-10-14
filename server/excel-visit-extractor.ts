@@ -80,17 +80,6 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
-// Round time to nearest 15-minute interval
-function roundToNearest15Minutes(date: Date): Date {
-  const minutes = date.getMinutes();
-  const roundedMinutes = Math.round(minutes / 15) * 15;
-  const result = new Date(date);
-  result.setMinutes(roundedMinutes);
-  result.setSeconds(0);
-  result.setMilliseconds(0);
-  return result;
-}
-
 export function extractClientVisitsFromGHExcel(
   ghWorkbookBuffer: Buffer,
   specificDate: Date
@@ -141,11 +130,8 @@ export function extractClientVisitsFromGHExcel(
 
     // Get start time
     const startRaw = START_COLS.map(c => row[c]).find(v => v != null && v !== '');
-    let startDate = toDate(startRaw);
+    const startDate = toDate(startRaw);
     if (!startDate || startDate < dayStart || startDate > dayEnd) continue;
-    
-    // Round start time to nearest 15 minutes
-    startDate = roundToNearest15Minutes(startDate);
 
     // Get duration
     let durationMinutes = NaN;
@@ -159,11 +145,8 @@ export function extractClientVisitsFromGHExcel(
 
     // Calculate end time (prefer explicit end column, fallback to start + duration)
     const endRaw = END_COLS.map(c => row[c]).find(v => v != null && v !== '');
-    let endDate = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
+    const endDate = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
     if (!endDate) continue;
-    
-    // Round end time to nearest 15 minutes
-    endDate = roundToNearest15Minutes(endDate);
 
     // Get address
     const addressRaw = ADDRESS_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');

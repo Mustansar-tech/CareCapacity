@@ -138,9 +138,9 @@ export class AutoScheduler {
       });
     });
 
-    let unassignedVisits: SchedulingVisit[] = [];
+    const unassignedVisits: SchedulingVisit[] = [];
 
-    // First pass: Assign visits using standard constraints
+    // Assign visits using greedy algorithm with optimization
     for (const visit of prioritizedVisits) {
       const bestAssignment = this.findBestEmployeeForVisit(visit, employeeSchedules);
       
@@ -158,41 +158,6 @@ export class AutoScheduler {
         unassignedVisits.push(visit);
         console.log(`❌ Could not assign ${visit.clientName} - no suitable employee found`);
       }
-    }
-
-    // Second pass: Try to assign remaining visits with relaxed travel constraints (+5 minutes)
-    if (unassignedVisits.length > 0) {
-      console.log(`🔄 Second pass: attempting to allocate ${unassignedVisits.length} unassigned visits with relaxed constraints`);
-      
-      const secondPassUnassigned: SchedulingVisit[] = [];
-      
-      for (const visit of unassignedVisits) {
-        // Temporarily increase travel limits by 5 minutes for second pass
-        Array.from(employeeSchedules.values()).forEach(schedule => {
-          schedule.employee.maxTravelPerVisit += 5;
-        });
-        
-        const bestAssignment = this.findBestEmployeeForVisit(visit, employeeSchedules);
-        
-        // Restore original limits
-        Array.from(employeeSchedules.values()).forEach(schedule => {
-          schedule.employee.maxTravelPerVisit -= 5;
-        });
-        
-        if (bestAssignment) {
-          const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
-          const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
-          schedule.visits.push(scheduledVisit);
-          schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
-          schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
-          console.log(`✅ [Second pass] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
-        } else {
-          secondPassUnassigned.push(visit);
-        }
-      }
-      
-      unassignedVisits = secondPassUnassigned;
-      console.log(`📊 Second pass results: ${unassignedVisits.length} still unassigned`);
     }
 
     // Build final schedule
@@ -275,21 +240,16 @@ export class AutoScheduler {
 
         const availabilityWindows = parseTimeWindows(availability.timeWindows || "");
         
-        const transportMode = (emp.transportMode?.toLowerCase().includes('car') ? 'car' : 
-                              emp.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'car') as any;
-        
-        // Set travel limits based on transport mode for better allocation
-        const maxTravel = transportMode === 'car' ? 25 : 20; // 25min for car, 20min for others
-        
         employees.push({
           employeeName: emp.employeeName,
           homeLat: parseFloat(emp.homeLat),
           homeLng: parseFloat(emp.homeLng),
-          transportMode: transportMode,
+          transportMode: (emp.transportMode?.toLowerCase().includes('car') ? 'car' : 
+                        emp.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'car') as any,
           availabilityWindows: availabilityWindows.map(w => ({ start: w.start, end: w.end })),
           contractedDailyHours: availability.contractedDailyHours || 8,
           scheduledHours: availability.scheduledHours || 0,
-          maxTravelPerVisit: maxTravel,
+          maxTravelPerVisit: 20, // Strict 20-minute limit for all transport modes
         });
       }
 
@@ -404,8 +364,8 @@ export class AutoScheduler {
         employee.transportMode
       );
 
-      if (travelTime.travelTimeMinutes > employee.maxTravelPerVisit) {
-        continue; // Too far to travel based on transport mode
+      if (travelTime.travelTimeMinutes > 20) {
+        continue; // Too far to travel - strict 20-minute limit
       }
 
       // Find best insertion point and calculate score
@@ -452,9 +412,9 @@ export class AutoScheduler {
         ).travelTimeMinutes
         : 0;
 
-      // Check travel limits based on employee's transport mode
-      if (travelToPrev > employee.maxTravelPerVisit || travelToNext > employee.maxTravelPerVisit) {
-        continue; // Skip this position if either travel segment exceeds limit
+      // STRICT 20-MINUTE TRAVEL LIMIT CHECK
+      if (travelToPrev > 20 || travelToNext > 20) {
+        continue; // Skip this position if either travel segment exceeds 20 minutes
       }
 
       // Check if insertion is feasible
@@ -482,15 +442,15 @@ export class AutoScheduler {
     insertionIndex: number,
     totalVisits: number
   ): number {
-    // Reject immediately if either travel segment exceeds employee's limit
-    if (travelToPrev > employee.maxTravelPerVisit || travelToNext > employee.maxTravelPerVisit) {
+    // Reject immediately if either travel segment exceeds 20 minutes
+    if (travelToPrev > 20 || travelToNext > 20) {
       return 0;
     }
 
     let score = 0;
 
-    // Factor 1: Minimize travel time (40% weight) - using employee-specific limit
-    const maxTravelTime = employee.maxTravelPerVisit;
+    // Factor 1: Minimize travel time (40% weight) - using 20-minute strict limit
+    const maxTravelTime = 20; // Strict 20-minute limit
     const totalTravel = travelToPrev + travelToNext;
     const travelScore = Math.max(0, 1 - totalTravel / (maxTravelTime * 2));
     score += travelScore * 0.4;
@@ -501,16 +461,10 @@ export class AutoScheduler {
       : 0.5;
     score += timePreferenceScore * 0.3;
 
-    // Factor 3: Employee utilization (30% weight) - prioritize those with more weekly capacity remaining
-    const weeklyContracted = employee.contractedDailyHours * 5; // Assume 5-day week
-    const weeklyRemaining = Math.max(0, weeklyContracted - employee.scheduledHours);
-    const dailyRemaining = Math.max(0, employee.contractedDailyHours - (employee.scheduledHours % employee.contractedDailyHours));
-    
-    // Score based on available capacity (both daily and weekly)
-    const capacityScore = weeklyRemaining > 0 && dailyRemaining > 0 ? 
-      Math.min(weeklyRemaining / weeklyContracted, dailyRemaining / employee.contractedDailyHours) : 0;
-    
-    score += capacityScore * 0.3;
+    // Factor 3: Employee utilization (20% weight)
+    const currentUtilization = employee.scheduledHours / employee.contractedDailyHours;
+    const utilizationScore = currentUtilization < 0.8 ? 1 : Math.max(0, 1 - (currentUtilization - 0.8) / 0.2);
+    score += utilizationScore * 0.2;
 
     // Factor 4: Route efficiency - prefer middle insertions over start/end (10% weight)
     const routeEfficiencyScore = totalVisits > 0 

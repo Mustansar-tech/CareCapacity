@@ -137,7 +137,7 @@ export function scoreVisitMatch(
   }
 
   const travelAdded = newTravel - currentTravel;
-  // Max travel added considered is 25 minutes (updated limit)
+  // Max travel added considered is 20 minutes (strict limit)
   const travelAddedScore = Math.max(0, 1 - (travelAdded / MAX_TRAVEL_TIME_MINUTES));
 
   // 3. Window slack score (prefer visits that use window time efficiently)
@@ -168,13 +168,13 @@ export function scoreVisitMatch(
       { lat: visit.lat, lng: visit.lng },
       mode
     );
-
-    // HARD CONSTRAINT: Home-to-first-visit travel must not exceed 25 minutes
+    
+    // HARD CONSTRAINT: Home-to-first-visit travel must not exceed 20 minutes
     if (distFromHome > MAX_TRAVEL_TIME_MINUTES) {
-      return null; // Reject - exceeds 25-minute travel limit from home
+      return null; // Reject - exceeds 20-minute travel limit from home
     }
-
-    // Max distance considered is 25 minutes (updated limit)
+    
+    // Max distance considered is 20 minutes (strict limit)
     homeProximityScore = Math.max(0, 1 - (distFromHome / MAX_TRAVEL_TIME_MINUTES));
   } else if (bestIndex === visits.length) {
     // Last visit - prefer close to home
@@ -183,13 +183,13 @@ export function scoreVisitMatch(
       { lat: homeLat, lng: homeLng },
       mode
     );
-
-    // HARD CONSTRAINT: Last-visit-to-home travel must not exceed 25 minutes
+    
+    // HARD CONSTRAINT: Last-visit-to-home travel must not exceed 20 minutes
     if (distToHome > MAX_TRAVEL_TIME_MINUTES) {
-      return null; // Reject - exceeds 25-minute travel limit to home
+      return null; // Reject - exceeds 20-minute travel limit to home
     }
-
-    // Max distance considered is 25 minutes (updated limit)
+    
+    // Max distance considered is 20 minutes (strict limit)
     homeProximityScore = Math.max(0, 1 - (distToHome / MAX_TRAVEL_TIME_MINUTES));
   }
 
