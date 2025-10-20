@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,13 +94,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Use a Map to deduplicate by employee name and prefer records with more data
   const employeeMap = new Map<string, any>();
   const adHocEmployees = new Set<string>();
-
+  
   Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
     // Track ad-hoc employees to exclude them from picker
     if (emp.status === 'Ad-hoc') {
       adHocEmployees.add(emp.employeeName);
     }
-
+    
     // Only include employees with real availability (not ad-hoc) and time windows
     if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc') {
       const existing = employeeMap.get(emp.employeeName);
@@ -109,7 +110,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       }
     }
   });
-
+  
   const availableEmployees = Array.from(employeeMap.values());
 
   // Get employees with assignments from the weekly schedule (exclude ad-hoc)
@@ -126,48 +127,39 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeNames = weeklySchedule 
     ? Array.from(new Set([...employeesWithAssignments, ...availableEmployees.map(e => e.employeeName)])).sort()
     : availableEmployees.map(e => e.employeeName).sort();
-
+  
   const filteredEmployees = employeeNames.filter(empName =>
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Build employee weekly net capacity map from employee data
-  const employeeWeeklyNetCapacityMap = useMemo(() => {
-    const map = new Map<string, number>();
-
-    if (!data?.employeesByDate) return map;
-
-    // For each employee, sum up their net capacity across all days in the week
-    Object.entries(data.employeesByDate).forEach(([date, empList]) => {
-      empList.forEach(emp => {
-        const currentCapacity = map.get(emp.employeeName) || 0;
-        const dailyNetCapacity = emp.netCapacity || 0;
-        map.set(emp.employeeName, currentCapacity + dailyNetCapacity);
-      });
-    });
-
-    return map;
-  }, [data]);
-
-  // Store gender information
+  // Calculate weekly hours from daily availability across all days employee appears
+  const employeeWeeklyHoursMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
-  Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
-    if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
-      employeeGenderMap.set(emp.employeeName, emp.gender);
-    }
+  
+  Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
+    dayEmployees.forEach(emp => {
+      if (emp.contractedDailyHours > 0) {
+        const current = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+        employeeWeeklyHoursMap.set(emp.employeeName, current + emp.contractedDailyHours);
+      }
+      // Store gender info
+      if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
+        employeeGenderMap.set(emp.employeeName, emp.gender);
+      }
+    });
   });
 
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
-
+      
       // Prepare employee data with locations and weekly hours
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
           const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-          // Get weekly net capacity from the employee weekly net capacity map
-          const weeklyNetCapacity = employeeWeeklyNetCapacityMap.get(emp.employeeName) || 0;
+          // Get weekly contracted hours from the employee weekly hours map
+          const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
           return {
             employeeName: emp.employeeName,
             date,
@@ -175,7 +167,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
             homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
             transportMode: location?.transportMode || undefined,
-            weeklyNetCapacity: weeklyNetCapacity, // Use weeklyNetCapacity here
+            weeklyContractedHours: weeklyHours,
           };
         })
       );
@@ -198,16 +190,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
-
+      
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
-
+      
       console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
-
+      
       return result;
     },
     onSuccess: async (result) => {
       setWeeklySchedule(result);
-
+      
       // Save to database
       try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
@@ -217,9 +209,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           unallocatedVisits: result.unallocated,
           metrics: result.metrics,
         });
-
+        
         queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
-
+        
         toast({
           title: "Schedule Generated & Saved",
           description: `Assigned ${result.metrics.totalVisitsAssigned} visits across ${result.metrics.employeesUtilized} employees`,
@@ -384,15 +376,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map(empName => {
                       const location = employeeLocationMap.get(empName);
-
+                      
                       // Determine transport mode icon
                       const transportMode = location?.transportMode?.toLowerCase() || '';
                       const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
-
+                      
                       // Get gender from employee gender map
                       const gender = employeeGenderMap.get(empName) || '';
-
+                      
                       // Calculate total visit hours across all days
                       const totalVisitHours = weeklySchedule 
                         ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => {
@@ -402,12 +394,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             return sum + dayHours;
                           }, 0)
                         : 0;
-
-                      // Get weekly net capacity from the map
-                      const weeklyNetCapacity = employeeWeeklyNetCapacityMap.get(empName) || 0;
-
+                      
+                      // Calculate total weekly hours from the weekly hours map
+                      const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
+                      
                       const isSelected = selectedEmployee === empName;
-
+                      
                       return (
                         <div
                           key={empName}
@@ -425,9 +417,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               {empName}
                             </span>
                             <div className="flex items-center gap-2">
-                              {weeklyNetCapacity > 0 && (
+                              {weeklyHours > 0 && (
                                 <span className="text-xs text-muted-foreground">
-                                  {weeklyNetCapacity.toFixed(1)}h net
+                                  {weeklyHours.toFixed(1)}h/week
                                 </span>
                               )}
                               {totalVisitHours > 0 && (
@@ -470,17 +462,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     {weekDates.map((date, index) => {
                       const dayVisits = employeeWeeklyRun[index]?.visits || [];
                       const dayName = dayNames[index];
-
+                      
                       // Get employee availability windows for this day
                       const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
                       const timeWindows = employeeForDate?.timeWindows || '';
                       const status = employeeForDate?.status || '';
-
+                      
                       // Only show days with real availability (has time windows and not ad-hoc)
                       if (!timeWindows || timeWindows.trim() === '' || status === 'Ad-hoc') {
                         return null;
                       }
-
+                      
                       return (
                         <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
                           {/* Day Header */}
@@ -497,7 +489,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               {dayVisits.length} visits
                             </Badge>
                           </div>
-
+                          
                           {/* Visits Flow - Linear Layout with Arrows */}
                           {dayVisits.length > 0 ? (
                             <div className="flex flex-wrap items-center gap-2">
@@ -506,7 +498,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 <Home className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                                 <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Start</span>
                               </div>
-
+                              
                               {/* First Arrow with Travel Time */}
                               {dayVisits.length > 0 && (
                                 <div className="flex flex-col items-center">
@@ -516,7 +508,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   <ArrowRight className="h-5 w-5 text-gray-400" />
                                 </div>
                               )}
-
+                              
                               {/* Visits with Arrows */}
                               {dayVisits.map((visit, vIndex) => (
                                 <div key={vIndex} className="flex items-center gap-2">
@@ -535,7 +527,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       </div>
                                     </div>
                                   </div>
-
+                                  
                                   {/* Arrow with Travel Time (if not last visit) */}
                                   {vIndex < dayVisits.length - 1 && (
                                     <div className="flex flex-col items-center">
@@ -547,12 +539,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   )}
                                 </div>
                               ))}
-
+                              
                               {/* Last Arrow with Travel Time to Home */}
                               {dayVisits.length > 0 && (() => {
                                 const lastVisit = dayVisits[dayVisits.length - 1];
                                 const empLocation = employeeLocationMap.get(selectedEmployee);
-
+                                
                                 // Calculate travel time from last visit to home
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
@@ -568,17 +560,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                     const speedKmh = mode === 'walking' ? 5 : 40;
                                     return Math.round((distKm / speedKmh) * 60);
                                   };
-
+                                  
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                   const mode = transportMode.includes('walk') ? 'walking' : 'car';
-
+                                  
                                   travelToHome = getTravelMinutes(
                                     { lat: lastVisit.lat, lng: lastVisit.lng },
                                     { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                     mode
                                   );
                                 }
-
+                                
                                 return (
                                   <>
                                     <div className="flex flex-col items-center">
@@ -587,7 +579,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       </span>
                                       <ArrowRight className="h-5 w-5 text-gray-400" />
                                     </div>
-
+                                    
                                     {/* Home End Icon (Green) */}
                                     <div className="flex flex-col items-center gap-1">
                                       <Home className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -642,11 +634,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 {weekDates.map((date, dayIndex) => {
                   // Filter unallocated visits for this specific day
                   const dayUnallocated = weeklySchedule.unallocated.filter(v => v.date === date);
-
+                  
                   if (dayUnallocated.length === 0) return null;
-
+                  
                   const dayName = dayNames[dayIndex];
-
+                  
                   return (
                     <div key={date} className="border border-red-200 dark:border-red-700 rounded-lg p-3 bg-red-50/50 dark:bg-red-950/10">
                       {/* Day Header */}
@@ -661,7 +653,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           {dayUnallocated.length} unallocated
                         </Badge>
                       </div>
-
+                      
                       {/* Day's Unallocated Visits Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
                         {dayUnallocated.map((visit, index) => (
