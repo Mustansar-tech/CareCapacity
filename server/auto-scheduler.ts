@@ -55,6 +55,7 @@ interface SchedulingEmployee {
   contractedDailyHours: number;
   scheduledHours: number;
   maxTravelPerVisit: number; // max minutes willing to travel
+  gender?: string; // Gender for matching client preferences
 }
 
 interface SchedulingVisit {
@@ -306,6 +307,7 @@ export class AutoScheduler {
           contractedDailyHours: availability.contractedDailyHours || 8,
           scheduledHours: availability.scheduledHours || 0,
           maxTravelPerVisit: maxTravel,
+          gender: availability.gender || undefined, // Add gender from availability data
         });
       }
 
@@ -322,6 +324,7 @@ export class AutoScheduler {
     timeWindows: string;
     contractedDailyHours: number;
     scheduledHours: number;
+    gender?: string;
   }>> {
     try {
       // Get the latest capacity analysis from storage
@@ -345,6 +348,7 @@ export class AutoScheduler {
           timeWindows: emp.timeWindows || '',
           contractedDailyHours: emp.contractedDailyHours || 8,
           scheduledHours: summary?.scheduledHours || emp.scheduledHours || 0,
+          gender: emp.gender || summary?.gender, // Include gender from employee data
         };
       });
     } catch (error) {
@@ -393,6 +397,32 @@ export class AutoScheduler {
     }
   }
 
+  // Check if client requires specific gender (e.g., "Mullen, Eileen (F)" requires female)
+  private getClientGenderPreference(clientName: string): string | null {
+    const upperName = clientName.toUpperCase();
+    if (upperName.includes('(F)') || upperName.endsWith(' F')) {
+      return 'female';
+    }
+    if (upperName.includes('(M)') || upperName.endsWith(' M')) {
+      return 'male';
+    }
+    return null; // No preference
+  }
+
+  // Check if employee gender matches client preference
+  private isGenderMatch(employeeGender: string | undefined, clientName: string): boolean {
+    const preference = this.getClientGenderPreference(clientName);
+    if (!preference) return true; // No preference, any gender is OK
+    
+    if (!employeeGender) {
+      console.warn(`⚠️ Employee has no gender data, cannot match client preference: ${clientName}`);
+      return false; // If client has preference but employee gender unknown, skip
+    }
+    
+    const empGenderLower = employeeGender.toLowerCase();
+    return empGenderLower.includes(preference);
+  }
+
   private prioritizeVisits(visits: SchedulingVisit[]): SchedulingVisit[] {
     return visits.sort((a, b) => {
       // Sort by priority first (1=highest), then by preferred start time
@@ -412,6 +442,12 @@ export class AutoScheduler {
 
     for (const [empName, schedule] of employeeSchedules) {
       const employee = schedule.employee;
+      
+      // Check gender preference match
+      if (!this.isGenderMatch(employee.gender, visit.clientName)) {
+        console.log(`⚠️ Gender mismatch: ${empName} (${employee.gender || 'unknown'}) cannot serve ${visit.clientName}`);
+        continue; // Skip this employee - gender doesn't match client preference
+      }
       
       // Calculate travel time for scoring (no hard limit)
       const travelTime = this.travelService.calculateTravelTime(

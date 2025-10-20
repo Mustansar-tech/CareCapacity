@@ -62,6 +62,7 @@ interface EmployeeDaySchedule {
   transportMode: 'car' | 'walking' | 'public';
   weeklyContractedMinutes: number; // Total weekly contracted minutes
   weeklyUsedMinutes: number; // Total weekly care minutes assigned so far
+  gender?: string; // Gender for matching client preferences
 }
 
 interface AssignedVisit {
@@ -191,6 +192,32 @@ function calculateTravelFromPrevious(
   }
 }
 
+// Check if client requires specific gender (e.g., "Mullen, Eileen (F)" requires female)
+function getClientGenderPreference(clientName: string): string | null {
+  const upperName = clientName.toUpperCase();
+  if (upperName.includes('(F)') || upperName.endsWith(' F')) {
+    return 'female';
+  }
+  if (upperName.includes('(M)') || upperName.endsWith(' M')) {
+    return 'male';
+  }
+  return null; // No preference
+}
+
+// Check if employee gender matches client preference
+function isGenderMatch(employeeGender: string | undefined, clientName: string): boolean {
+  const preference = getClientGenderPreference(clientName);
+  if (!preference) return true; // No preference, any gender is OK
+  
+  if (!employeeGender) {
+    console.warn(`⚠️ Employee has no gender data, cannot match client preference: ${clientName}`);
+    return false; // If client has preference but employee gender unknown, skip
+  }
+  
+  const empGenderLower = employeeGender.toLowerCase();
+  return empGenderLower.includes(preference);
+}
+
 // Try to assign a visit to the best employee
 function assignVisitToBestEmployee(
   originalVisit: ClientVisit,
@@ -218,6 +245,11 @@ function assignVisitToBestEmployee(
 
   // Score visit for each employee
   for (const schedule of employeeSchedules) {
+    // Check gender preference match
+    if (!isGenderMatch(schedule.gender, originalVisit.clientName)) {
+      console.log(`⚠️ Gender mismatch: ${schedule.employeeName} (${schedule.gender || 'unknown'}) cannot serve ${originalVisit.clientName}`);
+      continue; // Skip this employee - gender doesn't match client preference
+    }
     // Check capacity constraint
     if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
       continue; // Skip - would exceed capacity
@@ -456,6 +488,7 @@ export function generateWeeklySchedule(
         transportMode: mode,
         weeklyContractedMinutes: weeklyContractedMap.get(emp.employeeName) || 0,
         weeklyUsedMinutes: weeklyUsedMap.get(emp.employeeName) || 0,
+        gender: (emp as any).gender, // Add gender from employee data
       };
     });
   });
