@@ -136,7 +136,8 @@ function wouldExceedCapacity(
   return false;
 }
 
-// Flexibly adjust visit times to fit available windows if close enough
+// Check if visit fits in available windows WITHOUT adjusting times
+// Client visit times are FIXED and cannot be shifted
 function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
   const visitEnd = timeToMinutes(visit.endTime);
@@ -147,63 +148,17 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
     console.log(`   Window ${i+1}: ${minutesToTime(w.start)}-${minutesToTime(w.end)} (${w.end - w.start}min)`);
   });
 
-  // First try exact fit in any window
+  // Check if visit fits EXACTLY within any availability window
+  // NO TIME SHIFTING ALLOWED - visit times are fixed from Excel
   for (const window of windows) {
     if (visitStart >= window.start && visitEnd <= window.end) {
-      console.log(`✅ Exact fit in window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
-      return visit; // Perfect fit, no adjustment needed
+      console.log(`✅ Visit fits in window ${minutesToTime(window.start)}-${minutesToTime(window.end)} - NO ADJUSTMENT NEEDED`);
+      return visit; // Return original visit with unchanged times
     }
   }
 
-  // Try flexible fit with adjustment in each window
-  for (const window of windows) {
-    const windowDuration = window.end - window.start;
-
-    // Skip windows too small for this visit
-    if (windowDuration < visitDuration) {
-      console.log(`⏭️ Skipping window ${minutesToTime(window.start)}-${minutesToTime(window.end)} - too small (${windowDuration}min < ${visitDuration}min)`);
-      continue;
-    }
-
-    // Check if visit can be adjusted to fit in this window
-    let adjustedStart = visitStart;
-    let adjustedEnd = visitEnd;
-
-    // If visit starts slightly before window, move it to window start
-    if (visitStart >= window.start - TIME_FLEXIBILITY_MINUTES && visitStart < window.start) {
-      adjustedStart = window.start;
-      adjustedEnd = adjustedStart + visitDuration;
-    }
-
-    // If visit ends slightly after window, move it to end at window end
-    if (visitEnd <= window.end + TIME_FLEXIBILITY_MINUTES && visitEnd > window.end) {
-      adjustedEnd = window.end;
-      adjustedStart = adjustedEnd - visitDuration;
-    }
-
-    // NEW: If visit is completely outside window but could fit, try to place it at window start
-    if (adjustedStart < window.start || adjustedEnd > window.end) {
-      // Try placing at start of window
-      adjustedStart = window.start;
-      adjustedEnd = adjustedStart + visitDuration;
-    }
-
-    // Check if adjusted visit fits in window
-    if (adjustedStart >= window.start && adjustedEnd <= window.end) {
-      console.log(`🔧 Adjusted visit ${visit.clientName} from ${visit.startTime}-${visit.endTime} to ${minutesToTime(adjustedStart)}-${minutesToTime(adjustedEnd)} to fit window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
-
-      return {
-        ...visit,
-        startTime: minutesToTime(adjustedStart),
-        endTime: minutesToTime(adjustedEnd),
-      };
-    } else {
-      console.log(`❌ Could not fit in window ${minutesToTime(window.start)}-${minutesToTime(window.end)} even with adjustment`);
-    }
-  }
-
-  console.log(`❌ Visit ${visit.clientName} could not fit in any of the ${windows.length} windows`);
-  return null; // Could not adjust to fit any window
+  console.log(`❌ Visit ${visit.clientName} does not fit in any available window (times are FIXED and cannot be adjusted)`);
+  return null; // Cannot assign - visit time is fixed and doesn't match any window
 }
 
 // Convert ClientVisit to ScoringVisit format

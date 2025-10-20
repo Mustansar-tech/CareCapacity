@@ -69,8 +69,8 @@ export interface ExcelClientVisit {
 
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = [
-  'east nl', 
-  'glasgow', 
+  'east nl',
+  'glasgow',
   'training seawared',
   'training (nl)',
   'seaward place',
@@ -98,12 +98,12 @@ export function extractClientVisitsFromGHExcel(
   const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
 
-  const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], { 
-    header: 1, 
-    raw: true, 
-    blankrows: false 
+  const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
+    header: 1,
+    raw: true,
+    blankrows: false
   }) as any[][];
-  
+
   let headerIdx = rows2d.findIndex(r => {
     const low = r.map(v => String(v ?? '').toLowerCase());
     return low.some(s => s.includes('start date')) || low.some(s => s.includes('client'));
@@ -132,7 +132,7 @@ export function extractClientVisitsFromGHExcel(
     const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
-    
+
     // Skip office visits
     const clientNameLower = clientName.toLowerCase();
     if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
@@ -143,7 +143,7 @@ export function extractClientVisitsFromGHExcel(
     const startRaw = START_COLS.map(c => row[c]).find(v => v != null && v !== '');
     let startDate = toDate(startRaw);
     if (!startDate || startDate < dayStart || startDate > dayEnd) continue;
-    
+
     // Round start time to nearest 15 minutes
     startDate = roundToNearest15Minutes(startDate);
 
@@ -161,14 +161,14 @@ export function extractClientVisitsFromGHExcel(
     const endRaw = END_COLS.map(c => row[c]).find(v => v != null && v !== '');
     let endDate = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
     if (!endDate) continue;
-    
+
     // Round end time to nearest 15 minutes
     endDate = roundToNearest15Minutes(endDate);
 
     // Get address
     const addressRaw = ADDRESS_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     const address = addressRaw ? String(addressRaw).trim() : undefined;
-    
+
     // Get postcode (check dedicated columns first, then extract from address)
     let postcode: string | undefined;
     const postcodeRaw = POSTCODE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
