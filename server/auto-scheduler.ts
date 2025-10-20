@@ -439,6 +439,9 @@ export class AutoScheduler {
   private findBestInsertionPoint(visit: SchedulingVisit, schedule: any): { index: number; score: number } | null {
     const employee = schedule.employee;
     const visits = schedule.visits;
+    
+    let bestInsertion: { index: number; score: number } | null = null;
+    let bestScore = -1;
 
     // Try inserting at each possible position
     for (let i = 0; i <= visits.length; i++) {
@@ -464,23 +467,23 @@ export class AutoScheduler {
         ).travelTimeMinutes
         : 0;
 
-      // Travel times calculated for scoring (no hard limits)
-
-      // Check if insertion is feasible
+      // Check if insertion is feasible with scheduling buffer
+      const BUFFER = 10;
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
-      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime;
+      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime + BUFFER;
 
       if (earliestStart + visit.durationMinutes <= latestEnd) {
         // Calculate score based on multiple factors
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
         
-        if (score > 0) {
-          return { index: i, score };
+        if (score > bestScore) {
+          bestScore = score;
+          bestInsertion = { index: i, score };
         }
       }
     }
 
-    return null;
+    return bestInsertion;
   }
 
   private calculateInsertionScore(
