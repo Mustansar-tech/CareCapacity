@@ -132,15 +132,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate weekly hours from daily availability across all days employee appears
-  const employeeWeeklyHoursMap = new Map<string, number>();
+  // Calculate weekly net capacity from daily net capacity across all days employee appears
+  const employeeWeeklyNetCapacityMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
   
   Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
     dayEmployees.forEach(emp => {
-      if (emp.contractedDailyHours > 0) {
-        const current = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
-        employeeWeeklyHoursMap.set(emp.employeeName, current + emp.contractedDailyHours);
+      // Calculate net capacity for this day (contracted - unavailable hours)
+      const dailyNetCapacity = emp.contractedDailyHours - (emp.unavailableHours || 0);
+      if (dailyNetCapacity > 0) {
+        const current = employeeWeeklyNetCapacityMap.get(emp.employeeName) || 0;
+        employeeWeeklyNetCapacityMap.set(emp.employeeName, current + dailyNetCapacity);
       }
       // Store gender info
       if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
@@ -154,12 +156,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     mutationFn: async () => {
       console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
       
-      // Prepare employee data with locations and weekly hours
+      // Prepare employee data with locations and weekly contracted hours for backend
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
           const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-          // Get weekly contracted hours from the employee weekly hours map
-          const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+          // Calculate weekly contracted hours (sum of contracted daily hours across all days)
+          const weeklyContractedHours = Object.values(data?.employeesByDate || {})
+            .flatMap(dayEmps => dayEmps)
+            .filter(e => e.employeeName === emp.employeeName)
+            .reduce((sum, e) => sum + (e.contractedDailyHours || 0), 0);
+          
           return {
             employeeName: emp.employeeName,
             date,
@@ -167,7 +173,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
             homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
             transportMode: location?.transportMode || undefined,
-            weeklyContractedHours: weeklyHours,
+            weeklyContractedHours: weeklyContractedHours,
           };
         })
       );
@@ -395,8 +401,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           }, 0)
                         : 0;
                       
-                      // Calculate total weekly hours from the weekly hours map
-                      const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
+                      // Calculate total weekly net capacity from the weekly net capacity map
+                      const weeklyNetCapacity = employeeWeeklyNetCapacityMap.get(empName) || 0;
                       
                       const isSelected = selectedEmployee === empName;
                       
@@ -417,9 +423,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               {empName}
                             </span>
                             <div className="flex items-center gap-2">
-                              {weeklyHours > 0 && (
+                              {weeklyNetCapacity > 0 && (
                                 <span className="text-xs text-muted-foreground">
-                                  {weeklyHours.toFixed(1)}h/week
+                                  {weeklyNetCapacity.toFixed(1)}h net
                                 </span>
                               )}
                               {totalVisitHours > 0 && (
