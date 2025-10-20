@@ -210,12 +210,18 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
   if (!preference) return true; // No preference, any gender is OK
   
   if (!employeeGender) {
-    console.warn(`⚠️ Employee has no gender data, cannot match client preference: ${clientName}`);
-    return false; // If client has preference but employee gender unknown, skip
+    console.log(`ℹ️ Employee has no gender data for client ${clientName} - allowing assignment (gender data may be missing)`);
+    return true; // Allow assignment when employee gender is unknown - data may be incomplete
   }
   
   const empGenderLower = employeeGender.toLowerCase();
-  return empGenderLower.includes(preference);
+  const matches = empGenderLower.includes(preference);
+  
+  if (!matches) {
+    console.log(`⚠️ Gender mismatch: Employee (${employeeGender}) cannot serve ${clientName} (requires ${preference})`);
+  }
+  
+  return matches;
 }
 
 // Try to assign a visit to the best employee
@@ -488,7 +494,7 @@ export function generateWeeklySchedule(
         transportMode: mode,
         weeklyContractedMinutes: weeklyContractedMap.get(emp.employeeName) || 0,
         weeklyUsedMinutes: weeklyUsedMap.get(emp.employeeName) || 0,
-        gender: (emp as any).gender, // Add gender from employee data
+        gender: (emp as any).gender, // Gender already processed from CG Data in pipeline.ts
       };
     });
   });

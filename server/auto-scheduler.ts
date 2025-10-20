@@ -342,13 +342,17 @@ export class AutoScheduler {
         const summary = dateSummary.find(s => s.employeeName === emp.employeeName);
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
 
+        // Gender is already processed in pipeline.ts from CG Data (Title field)
+        // Priority: employee record > summary record
+        const gender = (emp as any).gender || summary?.gender;
+
         return {
           employeeName: emp.employeeName,
           isAvailable,
           timeWindows: emp.timeWindows || '',
           contractedDailyHours: emp.contractedDailyHours || 8,
           scheduledHours: summary?.scheduledHours || emp.scheduledHours || 0,
-          gender: emp.gender || summary?.gender, // Include gender from employee data
+          gender: gender, // Use processed gender from CG Data
         };
       });
     } catch (error) {
@@ -415,12 +419,18 @@ export class AutoScheduler {
     if (!preference) return true; // No preference, any gender is OK
     
     if (!employeeGender) {
-      console.warn(`⚠️ Employee has no gender data, cannot match client preference: ${clientName}`);
-      return false; // If client has preference but employee gender unknown, skip
+      console.log(`ℹ️ Employee has no gender data for client ${clientName} - allowing assignment (gender data may be missing)`);
+      return true; // Allow assignment when employee gender is unknown - data may be incomplete
     }
     
     const empGenderLower = employeeGender.toLowerCase();
-    return empGenderLower.includes(preference);
+    const matches = empGenderLower.includes(preference);
+    
+    if (!matches) {
+      console.log(`⚠️ Gender mismatch: Employee (${employeeGender}) cannot serve ${clientName} (requires ${preference})`);
+    }
+    
+    return matches;
   }
 
   private prioritizeVisits(visits: SchedulingVisit[]): SchedulingVisit[] {
