@@ -1129,6 +1129,22 @@ export async function parseExcelFiles(
   );
   if (cgData.length > 0) {
     console.log(`🔍 First processed CG Data row:`, cgData[0]);
+    
+    // Show gender extraction stats for debugging
+    const genderStats = cgData.reduce((acc, emp) => {
+      const g = emp.Gender || "unknown";
+      acc[g] = (acc[g] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log(`👥 Gender distribution:`, genderStats);
+    
+    // Show sample employees with their Title and Gender
+    const samplesWithGender = cgData.slice(0, 5).map(emp => ({
+      name: emp["CAREGiver Name"],
+      title: emp.Title,
+      gender: emp.Gender || "unknown"
+    }));
+    console.log(`👤 Sample employees (Title → Gender):`, samplesWithGender);
   } else {
     console.log(`❌ No valid CG Data rows found - check column names and data`);
   }
