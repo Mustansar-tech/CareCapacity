@@ -175,9 +175,11 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                     <Badge 
                       variant="secondary" 
                       className={
-                        employee.difference >= 0 
+                        employee.difference === 0
+                          ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
+                          : employee.difference > 0 
                           ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
+                          : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
                       }
                     >
                       {employee.difference > 0 ? '+' : ''}{employee.difference.toFixed(1)}h
