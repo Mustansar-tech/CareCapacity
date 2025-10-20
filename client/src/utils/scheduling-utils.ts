@@ -142,9 +142,6 @@ export function fitsInWindow(
   return windows.some(w => visitStart >= w.start && visitEnd <= w.end);
 }
 
-// Maximum travel time constraint (minutes)
-export const MAX_TRAVEL_TIME_MINUTES = 25; // Maximum allowed travel time (increased for better allocation)
-
 // Check if inserting a visit between two existing visits is feasible
 export function isInsertionFeasible(
   visit: { start: number; end: number },
@@ -159,7 +156,7 @@ export function isInsertionFeasible(
     return false;
   }
 
-  // Check travel constraint with previous visit
+  // Check time constraint with previous visit (only check if there's enough time to travel)
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
       { lat: prevVisit.lat, lng: prevVisit.lng },
@@ -167,28 +164,18 @@ export function isInsertionFeasible(
       mode
     );
 
-    // HARD CONSTRAINT: Travel time must not exceed 20 minutes
-    if (travelFromPrev > MAX_TRAVEL_TIME_MINUTES) {
-      return false; // Travel time exceeds 20-minute limit
-    }
-
     if (prevVisit.end + travelFromPrev > visit.start) {
       return false; // Not enough time to travel from previous visit
     }
   }
 
-  // Check travel constraint with next visit
+  // Check time constraint with next visit (only check if there's enough time to travel)
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
       visitLocation,
       { lat: nextVisit.lat, lng: nextVisit.lng },
       mode
     );
-
-    // HARD CONSTRAINT: Travel time must not exceed 20 minutes
-    if (travelToNext > MAX_TRAVEL_TIME_MINUTES) {
-      return false; // Travel time exceeds 20-minute limit
-    }
 
     if (visit.end + travelToNext > nextVisit.start) {
       return false; // Not enough time to travel to next visit

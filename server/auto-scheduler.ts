@@ -397,16 +397,12 @@ export class AutoScheduler {
     for (const [empName, schedule] of employeeSchedules) {
       const employee = schedule.employee;
       
-      // Check if employee can reach this client within travel limits
+      // Calculate travel time for scoring (no hard limit)
       const travelTime = this.travelService.calculateTravelTime(
         { lat: employee.homeLat, lng: employee.homeLng },
         { lat: visit.clientLat, lng: visit.clientLng },
         employee.transportMode
       );
-
-      if (travelTime.travelTimeMinutes > employee.maxTravelPerVisit) {
-        continue; // Too far to travel based on transport mode
-      }
 
       // Find best insertion point and calculate score
       const insertion = this.findBestInsertionPoint(visit, schedule);
@@ -452,10 +448,7 @@ export class AutoScheduler {
         ).travelTimeMinutes
         : 0;
 
-      // Check travel limits based on employee's transport mode
-      if (travelToPrev > employee.maxTravelPerVisit || travelToNext > employee.maxTravelPerVisit) {
-        continue; // Skip this position if either travel segment exceeds limit
-      }
+      // Travel times calculated for scoring (no hard limits)
 
       // Check if insertion is feasible
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
@@ -482,18 +475,13 @@ export class AutoScheduler {
     insertionIndex: number,
     totalVisits: number
   ): number {
-    // Reject immediately if either travel segment exceeds employee's limit
-    if (travelToPrev > employee.maxTravelPerVisit || travelToNext > employee.maxTravelPerVisit) {
-      return 0;
-    }
-
     let score = 0;
 
-    // Factor 1: Minimize travel time (40% weight) - using employee-specific limit
-    const maxTravelTime = employee.maxTravelPerVisit;
+    // Factor 1: Minimize travel time (35% weight) - score based, not constraint
+    // Use 40 minutes as reference for total travel (20 min each direction)
     const totalTravel = travelToPrev + travelToNext;
-    const travelScore = Math.max(0, 1 - totalTravel / (maxTravelTime * 2));
-    score += travelScore * 0.4;
+    const travelScore = Math.max(0, 1 - totalTravel / 40);
+    score += travelScore * 0.35;
 
     // Factor 2: Time window preference (30% weight)
     const timePreferenceScore = visit.preferredStartTime 
