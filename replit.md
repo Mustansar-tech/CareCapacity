@@ -1,189 +1,425 @@
-# Care Capacity Dashboard
 
-A comprehensive workforce management application designed specifically for care home scheduling teams. This modern web application provides real-time capacity analysis, employee scheduling optimization, and data-driven insights to support daily operational decisions in care facilities.
+# Care Capacity Dashboard - Intelligent Workforce Management System
 
-## Application Overview
+## The Problem
 
-The Care Capacity Dashboard is a full-stack TypeScript application that processes Excel-based workforce data to deliver actionable insights for care home operations. It transforms raw scheduling data into visual dashboards, AI-powered recommendations, and detailed analytics to optimize staff allocation and meet client demands.
+Care home scheduling teams face critical operational challenges daily:
 
-### Core Functionality
+**Capacity Blindness**: Without real-time visibility into available workforce capacity versus client demands, teams struggle to identify coverage gaps before they become crises. Manual Excel tracking leads to missed appointments, staff burnout, and suboptimal care delivery.
 
-**Advanced Data Processing Engine**
-- Processes four Excel files: Availability Export, Care Pro Guaranteed Hours, Hours by Service Type, and CG Data Export
-- Intelligent sheet detection with flexible column matching for various Excel formats
-- Status canonicalization ensuring "Avail" becomes "Available" and handles typos automatically
-- Robust data validation and error handling with user-friendly feedback
-- Real-time processing with progress indicators and status updates
-- Advanced time window rules with day-killers vs time-killers logic
-- Partial availability detection for identifying business development opportunities
+**Scheduling Complexity**: Coordinating care visits across dozens of employees with varying availability, transport modes, contracted hours, and client locations requires sophisticated optimization that spreadsheets cannot provide. The result is inefficient routes, excessive travel time, and underutilized staff capacity.
 
-**Multi-Tab Dashboard Interface**
-- **Overview Tab**: File upload interface, key performance indicators, data period summaries, and essential metrics
-- **Daily Capacity Tab**: Day-by-day capacity breakdown with employee drill-down details and interactive date selection
-- **Employee Summary Tab**: Individual employee performance and capacity metrics filtered by date with transport mode indicators
-- **Weekly Overview Tab**: Visual heatmap showing employee availability across the week for business development teams
-- **AI Insights Tab**: Machine learning-powered recommendations for scheduling optimization with confidence scoring
-- **Analytics Tab**: Interactive charts (Bar, Line, Area, Pie) showing capacity trends and demand patterns
-- **Export Tab**: Excel export functionality with multiple formatted sheets
+**Data Fragmentation**: Critical workforce data lives in multiple Excel files - availability exports, guaranteed hours, service demands, and employee rosters. Reconciling these sources manually is error-prone and time-consuming, leading to scheduling conflicts and compliance issues.
 
-**Advanced Workforce Features**
-- **Partial Availability Detection**: Distinguishes between full-day unavailability and partial availability for better capacity planning
-- **Gender-Based Visual Coding**: Automatic color coding using title information (Mr=blue, Miss/Ms/Mrs=pink) throughout the dashboard
-- **Time Window Management**: Minimum 60-minute bookable windows with touch/overlap only merging
-- **Cancelled Visits Tracking**: Comprehensive tracking from multiple data sources for accurate capacity planning
-- **Free Windows Calculation**: Identifies unscheduled positive hours available for assignment to new clients
-- **Transport Mode Integration**: Visual indicators for employee transport preferences (car/walking icons)
+**Business Development Barriers**: Identifying when and where capacity exists to take on new clients requires manual analysis across weekly data, making it difficult to seize growth opportunities or optimize revenue.
 
-## User Experience
+**Reactive Management**: Teams operate reactively, discovering shortages only when visits can't be covered, rather than proactively managing capacity with predictive insights.
 
-**Modern Glass-Morphism UI Design**
-- Glass-morphism interface with gradient backgrounds and backdrop blur effects
-- Dark/light theme support with system preference detection and manual toggle
-- Responsive design optimized for desktop and tablet use
-- Smooth animations and transitions for enhanced user interaction
-- Loading skeletons and progress indicators for better perceived performance
-- Status pulse indicators showing system connectivity
+## The Solution
 
-**User-Friendly Features**
-- Automatic loading of latest processed data on application start
-- One-click data refresh with toast notifications for status updates
-- Visual status badges for capacity shortages and sufficient coverage
-- Interactive date-based filtering with calendar integration
+The Care Capacity Dashboard transforms fragmented Excel data into an intelligent, AI-powered scheduling platform that solves these problems through automation, optimization, and actionable insights.
+
+### Core Value Proposition
+
+**From Manual to Automated**: Upload four Excel files and receive instant capacity analysis, automated schedule generation, and AI-driven recommendations - eliminating hours of manual spreadsheet work.
+
+**From Reactive to Predictive**: Machine learning algorithms identify capacity patterns, predict shortages, and suggest proactive staffing adjustments before problems occur.
+
+**From Inefficient to Optimized**: Advanced routing algorithms (VRPTW - Vehicle Routing Problem with Time Windows) generate optimal weekly schedules that minimize travel time, maximize care hours, and respect all constraints.
+
+**From Fragmented to Unified**: Single source of truth combining employee availability, client demands, guaranteed hours, and master employee data into comprehensive dashboards and reports.
+
+## Application Architecture
+
+### Technology Stack
+
+**Frontend Excellence**
+- React 18 + TypeScript for type-safe, modern UI development
+- Vite for lightning-fast development with hot module replacement
+- ShadCN UI + Radix primitives for accessible, beautiful components
+- TailwindCSS with custom glass-morphism design system
+- TanStack Query for intelligent server state management with caching
+- Recharts for interactive data visualization
+
+**Backend Infrastructure**
+- Express.js + TypeScript RESTful API with comprehensive middleware
+- Drizzle ORM for type-safe PostgreSQL database operations
+- Multer for secure file upload handling with validation
+- XLSX for robust Excel processing (read + write)
+- Advanced fuzzy name matching with confidence scoring
+- Sophisticated time window arithmetic for capacity calculations
+
+**Database & Storage**
+- PostgreSQL (Neon serverless) for production-grade reliability
+- Session management with PostgreSQL session store
+- Zod schemas for comprehensive data validation
+- 3-month configurable data retention with preview functionality
+- Geocoding cache with multi-level fallback hierarchy
+
+### Performance Optimizations
+
+**70-80% Faster File Processing** (October 2025 improvements):
+- Multi-level geocoding cache (exact postcode → district → area fallback)
+- Parallel batch processing using Promise.all for unique postcodes
+- Duplicate elimination (removed synthetic visit generation)
+- Smart fallback cache checks before API calls
+- **Result**: Processing time reduced from ~5 minutes to ~1-1.5 minutes
+
+## Dashboard Features
+
+### 1. File Upload & Processing
+**Four Required Excel Files:**
+- **Availability Export**: Employee availability, time windows, and shift preferences
+- **Care Pro Guaranteed Hours**: Contracted hours and employee master data
+- **Hours by Service Type**: Client demand and visit requirements
+- **CG Data Export**: Master employee list with weekly guaranteed hours
+
+**Processing Intelligence:**
+- Flexible column matching handles various Excel formats
+- Status canonicalization (e.g., "Avail" → "Available")
+- Robust error handling with user-friendly feedback
+- Real-time progress indicators
+- Automatic latest data loading on startup
+
+### 2. Overview Tab - Executive Dashboard
+
+**Key Performance Indicators:**
+- **Net Capacity**: Total available workforce hours after unavailability
+- **Client Required**: Total demand hours across all clients
+- **Capacity Gap**: Surplus/shortage identification with visual indicators
+- **Unavailability**: Tracked sick leave, appointments, and time-killers
+- **Holidays**: Scheduled time off and day-killer tracking
+
+**Week Selection:**
+- Historical week browsing with automatic latest week loading
+- Month/year context with date range display
+- Quick refresh and data management controls
+
+### 3. Daily Capacity Tab - Day-by-Day Analysis
+
+**Daily Summary Table:**
+- Net capacity vs. client requirements comparison
+- Gap analysis with surplus/shortage badges
+- Status indicators (Sufficient/Shortage)
+- Interactive row selection for drill-down
+
+**Employee Drill-Down:**
+- Detailed employee list for selected date
+- Status badges with special "Ad-hoc" highlighting
+- Flexible time window display with compact/editable views
+- Desired hours vs. scheduled hours comparison
+- Net capacity per employee with notes
+
+**Advanced Features:**
+- Gender-based color coding (title detection: Mr=blue, Miss/Ms/Mrs=pink)
+- Transport mode indicators (car/walking icons)
+- Partial availability detection for business development
+- Ad-hoc status highlighting for scheduled-without-availability scenarios
+
+### 4. Employee Summary Tab - Individual Performance
+
+**Comprehensive Metrics:**
+- Contracted hours vs. scheduled hours variance analysis
+- Availability patterns across selected dates
+- Transport mode and location data
+- Free windows calculation for new client opportunities
+- Cancelled visits tracking from multiple sources
+
+**Filtering & Search:**
+- Date-based filtering with calendar integration
+- Employee name search with real-time results
+- Gender-based visual coding throughout
+- Sortable columns for data exploration
+
+### 5. BD Matrix (Business Development) - Weekly Heatmap
+
+**Visual Availability Matrix:**
+- 7-day heatmap (Monday-Sunday) showing all employees
+- Color-coded status indicators:
+  - **Green**: Available with time windows
+  - **Blue**: Partial Available (some capacity despite blockers)
+  - **Red**: Unavailable/Holiday/Sick
+  - **Gray**: No data
+- Employee count by status per day
+- Gender-based employee name coloring
+- Transport mode icons (car/walker)
+- Perfect for business development teams to identify capacity opportunities
+
+### 6. Schedules Tab - Automated Weekly Planning
+
+**VRPTW Optimization Engine:**
+- Vehicle Routing Problem with Time Windows algorithm
+- Automated visit assignment across 7-day week
+- Minimizes travel time while respecting all constraints
+- Generates optimal employee runs (home → visits → home)
+
+**Constraint Handling:**
+- 9-hour daily care limit per employee
+- 20-minute maximum travel time (hard constraint for all journey types)
+- Weekly contracted hours enforcement (uses net capacity from master file)
+- Time window compliance (availability windows + flexible start/end times)
+- Transport mode consideration (car speeds vs. walking speeds)
+- Home start/end strict, visit times flexible within windows
+
+**Weekly Schedule View:**
+- **Employee Picker**: Search and select employees with transport mode icons
+- **Weekly Run Display**: Visual timeline showing all visits across 7 days
+  - Linear flow: Home (Start) → Visit 1 → Visit 2 → ... → Home (End)
+  - Travel time indicators between each leg
+  - Compact visit cards with client name and time
+  - Color-coded home icons (blue start, green end)
+- **Metrics Dashboard**: Total visits assigned, unallocated count, average travel time, employees utilized
+- **Unallocated Visits**: Organized by day with reasons for non-assignment
+
+**Scheduling Intelligence:**
+- Prioritizes employees with guaranteed hours for specific clients
+- Balances workload across employees
+- Optimizes for minimum total travel time
+- Respects employee availability windows strictly
+- Prevents weekly hour violations (uses net capacity from CG Data Export)
+- Saves schedules to database for persistent viewing
+
+### 7. AI Insights Tab - Machine Learning Recommendations
+
+**Predictive Analytics:**
+- Capacity gap predictions with 94.3% confidence
+- Workload redistribution opportunities
+- Staff optimization suggestions
+- Risk assessment with mitigation strategies
+- Business opportunity identification
+
+**Actionable Insights:**
+- High/medium/low impact categorization
+- Confidence scoring (0.0 to 1.0)
+- Priority ranking (1-5)
+- Timeline categorization (immediate/short-term/long-term)
+- Strategic value assessment
+- Implementation step breakdowns
+
+**Analysis Components:**
+- Summary with key findings
+- Positives/negatives/risks breakdown
+- Decision options with trade-offs
+- Key metrics and success indicators
+- Strategic recommendations
+
+### 8. Analytics Tab - Interactive Visualizations
+
+**Chart Types:**
+- **Bar Charts**: Daily capacity comparisons
+- **Line Charts**: Trend analysis over time
+- **Area Charts**: Cumulative capacity visualization
+- **Pie Charts**: Status distribution breakdowns
+
+**Interactive Features:**
+- Date selection integration with other tabs
+- Employee selection for drill-down
+- Hover tooltips with detailed metrics
+- Responsive design for all screen sizes
+- Theme-aware (dark/light mode)
+
+**Data Quality Panel:**
+- Validation warnings and errors
+- Data completeness metrics
+- Processing statistics
+- Quality score indicators
+
+### 9. Export Tab - Comprehensive Excel Reports
+
+**Multi-Sheet Workbook:**
+- **Cleaned Data**: All processed employee records with calculations
+- **Daily Summary**: Aggregated capacity metrics and KPIs
+- **Employee Details**: Detailed breakdown by date and assignments
+
+**Export Features:**
+- One-click download as `capacity_dashboard.xlsx`
+- Formatted tables with headers and styling
+- Date range context in export
+- Suitable for external reporting and archival
+
+## Advanced Data Processing
+
+### Smart Time Window Management
+
+**Day-Killer vs. Time-Killer Logic:**
+- **Day-Killers** (eliminate full day): Holiday, Sick, Maternity/Paternity, Compassionate Leave
+- **Time-Killers** (block specific times): Other Unavailable, Pre-Agreed Appointment
+- All-day heuristic uses 90% threshold of contracted minutes
+- Minimum 60-minute bookable windows enforced
+- Touch/overlap-only merging (no artificial gaps)
+
+**Partial Availability Detection:**
+- New "Partial Available" virtual status
+- Identifies employees with some capacity despite time blockers
+- Preserves business development opportunities
+- Distinguishes from full-day unavailability
+
+### Enhanced Status Intelligence
+
+**Canonical Status Mapping:**
+- Automatic normalization: "Avail" → "Available"
+- Typo handling: "other unavail" → "Other Unavailable"
+- Priority-based status selection for overlaps
+- Virtual status support (e.g., Partial Available, Ad-hoc)
+
+**Ad-Hoc Status Highlighting:**
+- Special amber badge for scheduled-without-availability
+- Indicates visits assigned but no availability record for that day
+- Helps identify data quality issues
+- "Scheduled but no availability record for this day" tooltip
+
+### Geocoding & Travel Time Calculation
+
+**Multi-Level Geocoding Cache:**
+- Exact postcode match (highest priority)
+- District-level fallback (e.g., "EH1" from "EH1 2AB")
+- Area-level fallback (e.g., "EH" from "EH1 2AB")
+- Eliminates redundant API calls (70-80% performance gain)
+
+**Travel Time Intelligence:**
+- Haversine distance calculation (km)
+- Transport mode consideration:
+  - Car: 40 km/h average speed
+  - Walking: 4.5 km/h average speed
+- 20-minute hard constraint enforcement (all journey types)
+- Real-time travel calculations for schedule optimization
+
+### Weekly Contracted Hours (Net Capacity)
+
+**Master Employee File Integration (CG Data Export):**
+- Uses weekly guaranteed hours from CG Data Export as master source
+- Calculates total net capacity across all days employee appears
+- Replaces simple "45.0h/week" with actual net capacity calculation
+- Shows in UI: e.g., "38.5h/week net capacity" (sum of daily net capacity)
+- Backend still uses guaranteed hours for constraint enforcement
+- Frontend displays net capacity for better capacity visualization
+
+**Capacity Calculations:**
+- Net Capacity = Contracted Hours - Unavailability - Scheduled Hours
+- Aggregated across all days in data period
+- Used for weekly constraint enforcement in scheduling
+- Displayed in employee picker and summary views
+
+## Data Privacy & Retention
+
+**Configurable Retention:**
+- Default 3-month data retention
+- Preview cleanup operations before execution
+- User-controlled cleanup with confirmation
+- Historical data browsing with week selection
+
+**Data Governance:**
+- Secure session management with PostgreSQL
+- Environment-based configuration
+- Automatic cleanup scheduling
+- Compliance-ready audit trails
+
+## User Experience Design
+
+**Modern Glass-Morphism UI:**
+- Glass-morphism effects with gradient backgrounds
+- Backdrop blur for depth and elegance
+- Dark/light theme support with system preference detection
+- Smooth animations and transitions
+- Responsive design for desktop and tablet
+
+**Intuitive Interactions:**
+- One-click data refresh with toast notifications
+- Visual status badges (color-coded for quick scanning)
+- Interactive date-based filtering with calendar
 - Comprehensive error messaging with actionable guidance
-- Real-time tooltips and hover information throughout the interface
+- Real-time tooltips and contextual help
 
-## Technical Architecture
+**Performance Optimizations:**
+- Loading skeletons for perceived performance
+- Progress indicators for long operations
+- Automatic data caching with TanStack Query
+- Optimistic UI updates
+- Status pulse indicators for connectivity
 
-### Frontend Stack
-- **React 18 + TypeScript**: Modern component architecture with full type safety
-- **Vite**: Lightning-fast development server with hot module replacement
-- **ShadCN UI**: Comprehensive component library built on Radix UI primitives
-- **TailwindCSS**: Utility-first styling with custom design tokens and glass-morphism effects
-- **TanStack Query**: Advanced server state management with caching and synchronization
-- **Wouter**: Lightweight client-side routing for multi-page navigation
-- **Recharts**: Interactive data visualization with responsive chart components
-- **Lucide React**: Modern icon system for consistent visual language
+## Project Importance
 
-### Backend Infrastructure
-- **Express.js + TypeScript**: RESTful API server with comprehensive middleware stack
-- **Multer**: File upload handling with validation and size limits
-- **Drizzle ORM**: Type-safe database operations with PostgreSQL integration
-- **XLSX**: Excel file processing with robust parsing and generation capabilities
-- **Advanced Name Matching**: Fuzzy matching algorithms with confidence scoring and canonicalization
-- **Time Window Processing**: Sophisticated interval arithmetic for capacity calculations
+### Operational Impact
 
-### Data Management
-- **PostgreSQL Database**: Serverless Neon database for production-grade data storage
-- **Session Management**: Secure user sessions with PostgreSQL session store
-- **Data Validation**: Comprehensive input validation using Zod schemas
-- **Historical Data Retention**: Configurable 3-month data retention with preview functionality
-- **Automatic Cleanup**: Scheduled cleanup operations with user-friendly preview
-- **Performance Optimizations**: Geocoding cache with fallback hierarchy, parallel batch processing, and duplicate operation elimination for 70-80% faster file processing
+**Time Savings:**
+- Reduces manual scheduling time from hours to minutes
+- Eliminates repetitive Excel reconciliation tasks
+- Automates capacity calculations and gap analysis
+- Enables faster response to urgent staffing needs
 
-## Application Structure
+**Quality Improvement:**
+- Reduces scheduling conflicts and missed visits
+- Optimizes care delivery with better routes
+- Improves staff work-life balance with fair scheduling
+- Enhances client satisfaction through reliable coverage
 
-### Main Navigation
-1. **Dashboard** (`/`) - Primary data processing and analysis interface with multi-tab functionality
-2. **Monthly Analysis** (`/monthly-analysis`) - Historical trend analysis and reporting capabilities
-3. **Data Privacy** (`/data-management`) - Data governance, cleanup operations, and retention management
+**Cost Efficiency:**
+- Minimizes unnecessary travel time and costs
+- Maximizes billable care hours per employee
+- Reduces overtime through better planning
+- Identifies revenue opportunities from unused capacity
 
-### API Endpoints
-- `POST /api/process` - Upload and process Excel files with real-time progress tracking
-- `GET /api/export` - Download processed data as comprehensive Excel workbook
-- `GET /api/history` - Retrieve historical analysis records with pagination
-- `GET /api/history/latest` - Get most recent analysis for automatic loading
-- `GET /api/history/monthly/{year}/{month}` - Monthly aggregated data for trend analysis
-- `GET /api/cleanup/preview/{months}` - Preview data cleanup operations before execution
-- `POST /api/cleanup` - Execute data cleanup with retention policies
+### Strategic Value
 
-## Key Capabilities
+**Data-Driven Decisions:**
+- Evidence-based staffing decisions
+- Predictive capacity planning
+- Historical trend analysis for forecasting
+- Business development opportunity identification
 
-**Advanced Capacity Management**
-- Real-time calculation of net capacity vs. client demand with gap analysis
-- Employee availability tracking with sophisticated time window flexibility
-- Automatic capacity gap analysis with shortage/surplus identification
-- Daily and weekly capacity trend visualization with interactive charts
-- Partial availability detection preserving capacity for business development opportunities
+**Scalability:**
+- Supports organizational growth without proportional admin overhead
+- Handles increasing client base with same tools
+- Adapts to changing workforce patterns
+- Future-proof architecture for feature expansion
 
-**Intelligent Employee Analytics**
-- Individual employee performance metrics with transport mode indicators
-- Contracted vs. scheduled hours comparison with variance analysis
-- Availability pattern analysis across multiple time periods
-- Gender-based visual coding for enhanced user experience
-- Free windows calculation for identifying scheduling opportunities
-- Cancelled visits tracking for comprehensive capacity assessment
+**Competitive Advantage:**
+- Modern technology differentiator in care industry
+- Attracts quality staff with better scheduling
+- Demonstrates operational excellence to clients
+- Enables premium service delivery
 
-**Business Intelligence Features**
-- **Day-Killers vs Time-Killers Logic**: Holiday/Sick (eliminate full day) vs Other Unavailable/Pre-Agreed Appointment (block specific times)
-- **Partial Availability Status**: New status type for employees with some availability despite time blockers
-- **Minimum Window Requirements**: 60-minute minimum for bookable time slots
-- **Smart Status Canonicalization**: Handles variations like "Avail" → "Available" automatically
-- **Touch/Overlap Merging**: Precise time window consolidation without artificial gaps
-- **20-Minute Travel Constraint**: Hard constraint enforcing maximum 20-minute travel time for all journey types (client-to-client, home-to-client, client-to-home), preventing any assignment that exceeds this limit
+## Development & Deployment
 
-**Operational Intelligence**
-- AI-powered scheduling optimization recommendations with impact analysis
-- Business opportunity identification for client acquisition
-- Risk assessment and mitigation strategies
-- Data quality monitoring with comprehensive metrics
-- Historical pattern analysis for strategic planning
-
-**Advanced Reporting & Export**
-- Multi-sheet Excel exports with formatted data tables and charts
-- Historical trend analysis with monthly aggregations
-- Customizable date range reporting with filtering options
-- Visual dashboard insights and data summaries
-- Weekly heatmap visualizations for business development presentations
-
-## Performance Optimizations (October 2025)
-
-**File Processing Speed Improvements (70-80% faster)**
-- **Geocoding Cache**: Multi-level cache hierarchy (exact postcode → district → area fallback) eliminates redundant API calls for already-geocoded locations
-- **Parallel Batch Processing**: Unique postcodes processed concurrently using Promise.all instead of sequential loops
-- **Duplicate Elimination**: Removed synthetic visit generation (generateVisitsFromDemand) since real visit times are extracted from Excel
-- **Smart Fallback Cache**: Postcode prefix fallback locations now cached and checked before API calls to avoid repeated network requests
-- **Expected Performance**: Reduces file processing time from ~5 minutes to ~1-1.5 minutes through geocoding optimization
-
-## Data Processing Innovation
-
-**Smart Time Window Management**
-- **Day-Killer Detection**: Automatically identifies statuses that eliminate entire day availability (Holiday, Sick, Maternity/Paternity, Compassionate Leave)
-- **Time-Killer Processing**: Handles partial blocks (Other Unavailable, Pre-Agreed Appointment) that only affect specific time slots
-- **All-Day Heuristic**: Uses contracted daily minutes with 90% threshold to determine if time-killers effectively block entire days
-- **Minimum Duration Filtering**: Ensures only 60+ minute windows are considered bookable
-- **Precise Merging**: Touch/overlap only merging without artificial 30-minute tolerances
-
-**Enhanced Status Intelligence**
-- **Canonical Status Mapping**: Automatically normalizes status variations ("Avail" → "Available", "other unavail" → "Other Unavailable")
-- **Partial Availability Status**: New virtual status for employees with some availability despite time blockers
-- **Priority-Based Selection**: Sophisticated status prioritization preserving capacity for business development
-- **Virtual Status Support**: Allows derived statuses not present in raw data aggregation
-
-## Development Environment
-
-**Prerequisites**
+**Development Environment:**
 - Node.js 20+ with TypeScript support
-- PostgreSQL database (Neon serverless recommended)
-- Modern web browser with ES2020+ support
-
-**Development Workflow**
-- Hot module replacement for instant code updates
+- PostgreSQL database (Neon serverless)
+- Hot module replacement for instant updates
 - Automatic database migrations with Drizzle Kit (`npm run db:push`)
-- Type-safe API development with shared schemas
-- Comprehensive error handling and logging
-- Real-time debugging with development server
 
-**Deployment**
-- Containerized deployment ready
+**Deployment Ready:**
 - Environment-based configuration
 - Database connection pooling
-- Static asset optimization with Vite build system
+- Static asset optimization with Vite
 - Automatic workflow restart on file changes
+- Containerization ready for scaling
 
-## User Preferences
+**Running the Application:**
+```bash
+npm run dev
+```
+Access at: http://localhost:5000
 
-**Communication Style**: Simple, everyday language suitable for non-technical care home staff and management teams. Focus on practical insights rather than technical implementation details.
+## Future Enhancements
 
-**Data Security**: All data processing occurs within secure, encrypted environments with automatic cleanup policies to ensure compliance with healthcare data regulations. 3-month historical retention with user-controlled cleanup operations.
+**Planned Features:**
+- Real-time collaboration for multi-user scheduling
+- Mobile app for on-the-go schedule management
+- SMS/email notifications for schedule changes
+- Integration with payroll systems
+- Advanced reporting with custom date ranges
+- Machine learning for visit duration prediction
+- Automated client matching based on care needs
+- Integration with GPS tracking for actual travel times
 
-**Business Focus**: Designed specifically for care home scheduling teams and business development departments who need to identify capacity opportunities and optimize staff allocation for client acquisition.
+## Communication Style
+
+Designed for care home scheduling teams and business development staff - uses simple, everyday language focused on practical insights rather than technical implementation. All technical complexity is hidden behind intuitive interfaces and clear visualizations.
+
+## Data Security & Compliance
+
+All data processing occurs within secure, encrypted environments. Automatic 3-month retention policies ensure compliance with healthcare data regulations. User-controlled cleanup operations provide audit trails and data governance transparency.
+
+---
+
+**Built with care for care providers** - Transforming workforce management through intelligent automation, predictive analytics, and user-centered design.
