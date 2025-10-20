@@ -40,9 +40,9 @@ export interface MatchScore {
 // Scoring weights (optimized for best overall schedule quality)
 // Travel time is now a scoring factor only, not a hard constraint
 const WEIGHTS = {
-  tightness: 0.25,      // Tight schedules preferred but not critical
-  travelAdded: 0.35,    // Higher weight - minimize travel but don't reject
-  windowSlack: 0.25,    // Prioritize window fit
+  tightness: 0.10,      // LOW weight - gaps are OK, prioritize capacity utilization
+  travelAdded: 0.40,    // Higher weight - minimize travel but don't reject
+  windowSlack: 0.35,    // HIGH weight - prioritize fitting visits in windows
   homeProximity: 0.15,  // Prefer routes near home
 };
 

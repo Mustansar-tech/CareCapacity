@@ -31,8 +31,8 @@ const OFFICE_VISIT_KEYWORDS = [
 const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];
 
 // Minimum bookable window duration (minutes)
-// Reduced from 60 to 45 to allow more flexibility
-const MIN_WINDOW_DURATION = 45;
+// Set to 0 to allow scheduling in ANY available time slot
+const MIN_WINDOW_DURATION = 0;
 
 // Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
 const TIME_FLEXIBILITY_MINUTES = 5;
@@ -100,11 +100,9 @@ function isSecondaryMultipleCare(serviceType: string): boolean {
   return SECONDARY_CARE_KEYWORDS.some(keyword => lowerType.includes(keyword));
 }
 
-// Calculate total capacity from time windows (excluding windows < 60 min)
+// Calculate total capacity from ALL time windows
 function calculateTotalCapacity(windows: TimeWindow[]): number {
-  return windows
-    .filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION)
-    .reduce((sum, w) => sum + (w.end - w.start), 0);
+  return windows.reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
 // Check if adding a visit would exceed capacity, daily limit, or weekly hours
@@ -138,26 +136,21 @@ function wouldExceedCapacity(
 
 // Check if visit fits in available windows WITHOUT adjusting times
 // Client visit times are FIXED and cannot be shifted
+// ALLOWS GAPS - employee can have free time between visits
 function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
   const visitEnd = timeToMinutes(visit.endTime);
   const visitDuration = visitEnd - visitStart;
 
-  console.log(`🔍 Checking if visit ${visit.clientName} (${visit.startTime}-${visit.endTime}, ${visitDuration}min) fits in ${windows.length} windows`);
-  windows.forEach((w, i) => {
-    console.log(`   Window ${i+1}: ${minutesToTime(w.start)}-${minutesToTime(w.end)} (${w.end - w.start}min)`);
-  });
-
   // Check if visit fits EXACTLY within any availability window
   // NO TIME SHIFTING ALLOWED - visit times are fixed from Excel
+  // GAPS ARE ALLOWED - visits don't need to be back-to-back
   for (const window of windows) {
     if (visitStart >= window.start && visitEnd <= window.end) {
-      console.log(`✅ Visit fits in window ${minutesToTime(window.start)}-${minutesToTime(window.end)} - NO ADJUSTMENT NEEDED`);
       return visit; // Return original visit with unchanged times
     }
   }
 
-  console.log(`❌ Visit ${visit.clientName} does not fit in any available window (times are FIXED and cannot be adjusted)`);
   return null; // Cannot assign - visit time is fixed and doesn't match any window
 }
 
@@ -230,8 +223,9 @@ function assignVisitToBestEmployee(
       continue; // Skip - would exceed capacity
     }
 
-    // Filter windows to only include those >= minimum duration for feasibility
-    const validWindows = schedule.windows.filter(w => (w.end - w.start) >= MIN_WINDOW_DURATION);
+    // ALL windows are valid - don't filter by minimum duration
+    // This allows scheduling in smaller gaps and utilizing all available time
+    const validWindows = schedule.windows;
 
     if (validWindows.length === 0) {
       continue; // No valid windows available
