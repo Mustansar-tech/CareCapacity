@@ -108,13 +108,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     });
   });
 
-  // Calculate net capacity from employee summary data
-  Object.entries(data?.employeeSummaryByDate || {}).forEach(([date, summaries]) => {
-    summaries.forEach(summary => {
-      // Net capacity for the day = availability - unavailability - scheduledHours
-      const dayNetCapacity = summary.availability - summary.unavailability - summary.scheduledHours;
-      const current = employeeWeeklyNetCapacityMap.get(summary.employeeName) || 0;
-      employeeWeeklyNetCapacityMap.set(summary.employeeName, current + dayNetCapacity);
+  // Calculate net capacity from employee details data (netCapacity column)
+  Object.entries(data?.employeesByDate || {}).forEach(([date, employees]) => {
+    employees.forEach(emp => {
+      // Use the netCapacity field directly from Employee Details
+      const dayNetCapacity = emp.netCapacity || 0;
+      const current = employeeWeeklyNetCapacityMap.get(emp.employeeName) || 0;
+      employeeWeeklyNetCapacityMap.set(emp.employeeName, current + dayNetCapacity);
     });
   });
 
