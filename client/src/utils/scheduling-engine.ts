@@ -142,19 +142,28 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
   const visitEnd = timeToMinutes(visit.endTime);
   const visitDuration = visitEnd - visitStart;
 
-  // First try exact fit
+  console.log(`🔍 Checking if visit ${visit.clientName} (${visit.startTime}-${visit.endTime}, ${visitDuration}min) fits in ${windows.length} windows`);
+  windows.forEach((w, i) => {
+    console.log(`   Window ${i+1}: ${minutesToTime(w.start)}-${minutesToTime(w.end)} (${w.end - w.start}min)`);
+  });
+
+  // First try exact fit in any window
   for (const window of windows) {
     if (visitStart >= window.start && visitEnd <= window.end) {
+      console.log(`✅ Exact fit in window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
       return visit; // Perfect fit, no adjustment needed
     }
   }
 
-  // Try flexible fit with adjustment
+  // Try flexible fit with adjustment in each window
   for (const window of windows) {
     const windowDuration = window.end - window.start;
 
     // Skip windows too small for this visit
-    if (windowDuration < visitDuration) continue;
+    if (windowDuration < visitDuration) {
+      console.log(`⏭️ Skipping window ${minutesToTime(window.start)}-${minutesToTime(window.end)} - too small (${windowDuration}min < ${visitDuration}min)`);
+      continue;
+    }
 
     // Check if visit can be adjusted to fit in this window
     let adjustedStart = visitStart;
@@ -172,6 +181,13 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
       adjustedStart = adjustedEnd - visitDuration;
     }
 
+    // NEW: If visit is completely outside window but could fit, try to place it at window start
+    if (adjustedStart < window.start || adjustedEnd > window.end) {
+      // Try placing at start of window
+      adjustedStart = window.start;
+      adjustedEnd = adjustedStart + visitDuration;
+    }
+
     // Check if adjusted visit fits in window
     if (adjustedStart >= window.start && adjustedEnd <= window.end) {
       console.log(`🔧 Adjusted visit ${visit.clientName} from ${visit.startTime}-${visit.endTime} to ${minutesToTime(adjustedStart)}-${minutesToTime(adjustedEnd)} to fit window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
@@ -181,9 +197,12 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
         startTime: minutesToTime(adjustedStart),
         endTime: minutesToTime(adjustedEnd),
       };
+    } else {
+      console.log(`❌ Could not fit in window ${minutesToTime(window.start)}-${minutesToTime(window.end)} even with adjustment`);
     }
   }
 
+  console.log(`❌ Visit ${visit.clientName} could not fit in any of the ${windows.length} windows`);
   return null; // Could not adjust to fit any window
 }
 

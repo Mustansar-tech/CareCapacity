@@ -3,24 +3,34 @@ import { storage } from "./storage";
 import { TravelTimeService } from "./travel-time-service";
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
+// Handles formats like "09:15-10:30; 12:30-16:15" or ["09:15-10:30", "12:30-16:15"]
 interface TimeWindow {
   start: number; // minutes since midnight
   end: number;   // minutes since midnight
 }
 
 function parseTimeWindows(windows: string | string[]): TimeWindow[] {
-  const windowArray = Array.isArray(windows) ? windows : [windows];
+  let windowArray: string[];
+  
+  if (Array.isArray(windows)) {
+    windowArray = windows;
+  } else if (typeof windows === 'string') {
+    // Split by semicolon or comma to handle multiple windows in one string
+    windowArray = windows.split(/[;,]/).map(w => w.trim()).filter(w => w);
+  } else {
+    return [];
+  }
 
-  return windowArray
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const parsed = windowArray
     .filter(w => w && typeof w === 'string')
     .map(w => {
       const match = w.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/);
       if (!match) return null;
-      
-      const timeToMinutes = (time: string): number => {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
-      };
 
       return {
         start: timeToMinutes(match[1]),
@@ -28,6 +38,12 @@ function parseTimeWindows(windows: string | string[]): TimeWindow[] {
       };
     })
     .filter((w): w is TimeWindow => w !== null);
+
+  if (parsed.length > 0) {
+    console.log(`📋 Parsed "${windows}" into ${parsed.length} time windows`);
+  }
+  
+  return parsed;
 }
 
 interface SchedulingEmployee {
