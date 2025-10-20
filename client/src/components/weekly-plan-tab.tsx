@@ -132,21 +132,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     empName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate weekly net capacity from daily net capacity across all days employee appears
+  // Calculate weekly net capacity from employee summary data (Net Capacity column)
   const employeeWeeklyNetCapacityMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
   
-  Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
-    dayEmployees.forEach(emp => {
-      // Calculate net capacity for this day (contracted - unavailable hours)
-      const dailyNetCapacity = emp.contractedDailyHours - (emp.unavailableHours || 0);
-      if (dailyNetCapacity > 0) {
-        const current = employeeWeeklyNetCapacityMap.get(emp.employeeName) || 0;
-        employeeWeeklyNetCapacityMap.set(emp.employeeName, current + dailyNetCapacity);
+  // Sum up net capacity across all days from employeeSummaryByDate
+  Object.entries(data?.employeeSummaryByDate || {}).forEach(([date, summaries]) => {
+    summaries.forEach(summary => {
+      // Get net capacity from the summary (this comes from the "Net Capacity" column)
+      const netCapacity = summary.netCapacity || 0;
+      if (netCapacity > 0) {
+        const current = employeeWeeklyNetCapacityMap.get(summary.employeeName) || 0;
+        employeeWeeklyNetCapacityMap.set(summary.employeeName, current + netCapacity);
       }
       // Store gender info
-      if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
-        employeeGenderMap.set(emp.employeeName, emp.gender);
+      if (summary.gender && !employeeGenderMap.has(summary.employeeName)) {
+        employeeGenderMap.set(summary.employeeName, summary.gender);
       }
     });
   });
