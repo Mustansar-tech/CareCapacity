@@ -81,6 +81,7 @@ export default function Dashboard() {
   const [warnings] = useState<string[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const { toast } = useToast();
 
@@ -275,7 +276,17 @@ export default function Dashboard() {
   }, [toast]);
 
   // Get selected day details - use filtered data if available, otherwise processed data
-  const selectedDayDetails = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
+  const selectedDayDetailsRaw = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
+  
+  // Apply status filter if any statuses are selected
+  const selectedDayDetails = statusFilter.length > 0
+    ? selectedDayDetailsRaw.filter(emp => statusFilter.includes(emp.status))
+    : selectedDayDetailsRaw;
+  
+  // Get unique statuses from the current day's employees for the filter dropdown
+  const availableStatuses = selectedDate 
+    ? Array.from(new Set(selectedDayDetailsRaw.map(emp => emp.status))).sort()
+    : [];
 
   return (
     <div className="min-h-screen bg-background scroll-modern" data-testid="dashboard-container">
@@ -704,23 +715,63 @@ export default function Dashboard() {
                 {/* Drilldown Table */}
                 {selectedDate && (
                   <div className="mt-6" data-testid="drilldown-section">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" data-testid="drilldown-title">
-                      <Calendar className="h-5 w-5" />
-                      Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                      <Badge variant="outline" className="ml-2">
-                        {selectedDayDetails.length} employees
-                      </Badge>
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2" data-testid="drilldown-title">
+                        <Calendar className="h-5 w-5" />
+                        Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                        <Badge variant="outline" className="ml-2">
+                          {selectedDayDetails.length} of {selectedDayDetailsRaw.length} employees
+                        </Badge>
+                      </h3>
+                      {statusFilter.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setStatusFilter([])}
+                          className="text-xs"
+                        >
+                          Clear Status Filter
+                        </Button>
+                      )}
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead data-testid="drilldown-header-employee">Employee</TableHead>
-                          <TableHead data-testid="drilldown-header-status">Status</TableHead>
+                          <TableHead data-testid="drilldown-header-status">
+                            <Select
+                              value={statusFilter.length === 1 ? statusFilter[0] : "all"}
+                              onValueChange={(value) => {
+                                if (value === "all") {
+                                  setStatusFilter([]);
+                                } else {
+                                  setStatusFilter([value]);
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-8 w-[180px] border-dashed">
+                                <SelectValue placeholder="Status (Filter)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">
+                                  All Statuses ({selectedDayDetailsRaw.length})
+                                </SelectItem>
+                                {availableStatuses.map(status => {
+                                  const count = selectedDayDetailsRaw.filter(emp => emp.status === status).length;
+                                  return (
+                                    <SelectItem key={status} value={status}>
+                                      {status} ({count})
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </TableHead>
                           <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
                           <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
                           <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
