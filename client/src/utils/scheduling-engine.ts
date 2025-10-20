@@ -210,8 +210,8 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
   if (!preference) return true; // No preference, any gender is OK
   
   if (!employeeGender) {
-    console.log(`ℹ️ Employee has no gender data for client ${clientName} - allowing assignment (gender data may be missing)`);
-    return true; // Allow assignment when employee gender is unknown - data may be incomplete
+    console.log(`⚠️ STRICT: Employee has no gender data - cannot serve ${clientName} (requires ${preference})`);
+    return false; // STRICT: Reject when employee gender is unknown but client has preference
   }
   
   const empGenderLower = employeeGender.toLowerCase();
