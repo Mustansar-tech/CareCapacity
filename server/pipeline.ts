@@ -2387,12 +2387,14 @@ export async function processCapacityData(
 // Extract and store geographical data for route optimization
 async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[]) {
   console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
+  console.log(`📊 CG Data rows to process: ${cgData.length}`);
 
   try {
     // Extract employee locations from CG Data Export
     const employeeLocationsMap = new Map<string, any>();
     const employeesToGeocode: any[] = [];
 
+    console.log(`🔄 Starting to iterate through ${cgData.length} CG Data rows...`);
     for (const row of cgData) {
       const employeeName = row["CAREGiver Name"];
       const postcode = row["PostCode"];
