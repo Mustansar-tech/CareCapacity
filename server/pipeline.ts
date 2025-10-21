@@ -2406,15 +2406,31 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         // First, check if there's a direct Gender column
         if (genderDirect) {
           const genderLower = genderDirect.toLowerCase().trim();
-          if (genderLower === "male" || genderLower === "m") return "male";
-          if (genderLower === "female" || genderLower === "f") return "female";
+          console.log(`  👤 ${employeeName}: Gender column="${genderDirect}" -> checking...`);
+          if (genderLower === "male" || genderLower === "m") {
+            console.log(`    ✅ Extracted: male`);
+            return "male";
+          }
+          if (genderLower === "female" || genderLower === "f") {
+            console.log(`    ✅ Extracted: female`);
+            return "female";
+          }
+          console.log(`    ⚠️ Gender column value "${genderDirect}" not recognized, trying Title...`);
         }
         
         // Fallback: Derive from title
         const titleLower = title.toLowerCase().trim();
-        if (titleLower === "mr") return "male";
-        if (["miss", "ms", "mrs"].includes(titleLower)) return "female";
+        console.log(`  👤 ${employeeName}: Title column="${title}" -> checking...`);
+        if (titleLower === "mr") {
+          console.log(`    ✅ Extracted: male (from Title)`);
+          return "male";
+        }
+        if (["miss", "ms", "mrs"].includes(titleLower)) {
+          console.log(`    ✅ Extracted: female (from Title)`);
+          return "female";
+        }
         
+        console.log(`    ❌ Could not determine gender from Gender="${genderDirect}" or Title="${title}"`);
         return undefined; // Unknown/not specified
       })();
 
