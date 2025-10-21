@@ -337,13 +337,37 @@ export class AutoScheduler {
       const dateEmployees = employeesByDate[date] || [];
       const dateSummary = employeeSummaryByDate[date] || [];
 
+      console.log(`\n🔍 AUTO-SCHEDULER GENDER DEBUG for ${date}:`);
+      console.log(`  Total employees on date: ${dateEmployees.length}`);
+      
+      // Check if gender field exists in the raw data
+      if (dateEmployees.length > 0) {
+        const sampleEmp = dateEmployees[0] as any;
+        console.log(`  Sample employee data keys:`, Object.keys(sampleEmp));
+        console.log(`  Sample employee gender field: "${sampleEmp.gender || 'undefined'}"`);
+      }
+      
       return dateEmployees.map(emp => {
+        const empAny = emp as any; // Type assertion to access gender property
         const summary = dateSummary.find(s => s.employeeName === emp.employeeName);
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
 
         // Gender is stored directly in the employeesByDate structure (added in pipeline.ts during file processing)
         // This comes from CG Data Title field (Mr -> male, Miss/Ms/Mrs -> female)
-        const gender = emp.gender || summary?.gender || undefined;
+        // Priority: emp.gender (from employeesByDate) > summary.gender (from employeeSummaryByDate)
+        const gender = empAny.gender || (summary as any)?.gender || undefined;
+        
+        // Debug logging for each employee
+        if (isAvailable) {
+          console.log(`  👤 ${emp.employeeName}:`);
+          console.log(`    - gender from employeesByDate: "${empAny.gender || 'none'}"`);
+          console.log(`    - gender from summary: "${(summary as any)?.gender || 'none'}"`);
+          console.log(`    - final gender: "${gender || 'unknown'}"`);
+          
+          if (!gender) {
+            console.log(`    ⚠️ WARNING: No gender data found for auto-scheduling`);
+          }
+        }
 
         return {
           employeeName: emp.employeeName,
@@ -351,7 +375,7 @@ export class AutoScheduler {
           timeWindows: emp.timeWindows || '',
           contractedDailyHours: emp.contractedDailyHours || 8,
           scheduledHours: summary?.scheduledHours || emp.scheduledHours || 0,
-          gender: gender, // Use processed gender from CG Data
+          gender: gender, // Gender from employeesByDate or employeeSummaryByDate
         };
       });
     } catch (error) {

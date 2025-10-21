@@ -1054,7 +1054,7 @@ export async function parseExcelFiles(
 
   // OPTIMIZATION: Skip synthetic visit generation - we use real visit times from GH Excel
   // This saves 3-4 minutes of unnecessary geocoding and database operations
-  // const analysisStartDate = new Date(); 
+  // const analysisStartDate = new Date();
   // await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
   console.log(`⚡ Skipping synthetic visit generation - using real Excel visit times for performance`);
 
@@ -1970,9 +1970,11 @@ export async function processCapacityData(
     );
     const gender = masterEmployee?.gender || "";
 
-    // Debug: Log gender assignment for verification
-    if (!gender) {
-      console.log(`⚠️ No gender found for ${record.employeeName} (normalized: ${empNormalizedName})`);
+    // Debug: Log gender assignment for first few employees
+    if (employeesByDate[record.date].length < 3) {
+      console.log(`📝 Storing employee in employeesByDate: ${record.employeeName} on ${record.date}`);
+      console.log(`  - masterEmployee found: ${masterEmployee ? 'yes' : 'no'}`);
+      console.log(`  - gender value: "${gender || 'empty'}"`);
     }
 
     employeesByDate[record.date].push({
@@ -1987,6 +1989,17 @@ export async function processCapacityData(
       gender: gender, // Gender from master employee list (derived from Title)
     });
   });
+
+  // Debug: Verify gender is stored in employeesByDate
+  console.log(`\n🔍 VERIFYING GENDER IN employeesByDate:`);
+  const sampleDate = Object.keys(employeesByDate)[0];
+  if (sampleDate && employeesByDate[sampleDate]) {
+    const sampleEmployees = employeesByDate[sampleDate].slice(0, 3);
+    sampleEmployees.forEach((emp: any) => {
+      console.log(`  ${emp.employeeName}: gender="${emp.gender || 'missing'}"`);
+    });
+  }
+  console.log(`=========================================\n`);
 
   // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
   // Build adhoc windows map once for reuse in employee summary calculation
