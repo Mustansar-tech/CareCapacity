@@ -1104,11 +1104,21 @@ export async function parseExcelFiles(
       const postCode =
         pickCol(row, ["Post Code", "PostCode", "Postal Code", "ZIP Code", "Zip Code"]) || "";
 
-      // Determine gender from title
+      // Determine gender - PRIORITY: 1) Direct Gender column, 2) Derive from Title
       const gender = (() => {
+        // First, check if there's a direct Gender column
+        const genderDirect = pickCol(row, ["Gender", "Sex"]);
+        if (genderDirect) {
+          const genderLower = genderDirect.toLowerCase().trim();
+          if (genderLower === "male" || genderLower === "m") return "male";
+          if (genderLower === "female" || genderLower === "f") return "female";
+        }
+        
+        // Fallback: Derive from title
         const titleLower = title.toLowerCase().trim();
         if (titleLower === "mr") return "male";
         if (["miss", "ms", "mrs"].includes(titleLower)) return "female";
+        
         return ""; // Unknown/not specified
       })();
 
