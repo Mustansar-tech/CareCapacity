@@ -2227,17 +2227,6 @@ export async function processCapacityData(
         // Calculate free windows using our capacity windows utility
         let freeWindows = "";
         try {
-          // DEBUG: Log the input data for free windows calculation
-          console.log(
-            `\n🔍 FREE WINDOWS DEBUG for ${employeeName} on ${dateStr}:`,
-          );
-          console.log(`  - availabilityWindows: "${availabilityWindows}"`);
-          console.log(`  - unavailabilityWindows: "${unavailabilityWindows}"`);
-          console.log(`  - scheduledWindows: "${scheduledWindows}"`);
-          console.log(
-            `  - contractedDailyHours: ${empData.contractedDailyHours}`,
-          );
-
           if (availabilityWindows) {
             const capacityResult = computeCapacityWindows(
               {
@@ -2254,23 +2243,7 @@ export async function processCapacityData(
                 bufferMinutes: 0,
               },
             );
-
-            console.log(
-              `  - 🎯 RESULT: freeWindows = "${capacityResult.freeWindows}"`,
-            );
-            console.log(
-              `  - workableMinutes: ${capacityResult.workableMinutes}`,
-            );
-            console.log(
-              `  - scheduledMinutes: ${capacityResult.scheduledMinutes}`,
-            );
-            console.log(
-              `  - freeWindowsMinutes: ${capacityResult.freeWindowsMinutes}`,
-            );
-
             freeWindows = capacityResult.freeWindows;
-          } else {
-            console.log(`  - ❌ SKIPPED: No availability windows found`);
           }
         } catch (error) {
           console.warn(
@@ -2292,6 +2265,11 @@ export async function processCapacityData(
         const transportMode = masterEmployee?.transportMode || "";
         const gender = masterEmployee?.gender || "";
 
+        // CRITICAL: Log gender assignment for debugging
+        if (!gender) {
+          console.log(`⚠️ SUMMARY: ${employeeName} on ${dateStr} - NO GENDER (normalized: ${empNormalized})`);
+        }
+
         return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
@@ -2304,7 +2282,7 @@ export async function processCapacityData(
           freeWindows, // New field: time slots available for new clients
           cancelledVisits, // New field: cancelled visit time windows
           transportMode, // Transport mode from CG Data (e.g., "Car", "Walker")
-          gender, // Gender derived from title (e.g., "male", "female")
+          gender, // CRITICAL: Gender derived from title in CG Data (e.g., "male", "female") - MUST be populated for auto-scheduler
         };
       },
     );

@@ -345,27 +345,29 @@ export class AutoScheduler {
 
       // Debug: Show actual gender data in employeesByDate
       if (dateEmployees.length > 0) {
-        console.log(`\n  📊 SAMPLE EMPLOYEE DATA FROM DATABASE:`);
-        const sample = dateEmployees[0];
-        console.log(`    Name: ${sample.employeeName}`);
-        console.log(`    Gender field: "${sample.gender || 'MISSING'}"`);
-        console.log(`    Status: ${sample.status}`);
-        console.log(`    All keys: ${Object.keys(sample).join(', ')}`);
-        console.log(`    Raw object:`, JSON.stringify(sample, null, 2));
+        console.log(`\n  📊 FIRST 5 EMPLOYEE DATA FROM DATABASE:`);
+        dateEmployees.slice(0, 5).forEach((sample, idx) => {
+          console.log(`    ${idx + 1}. Name: ${sample.employeeName}`);
+          console.log(`       Gender field: "${sample.gender || 'MISSING'}"`);
+          console.log(`       Status: ${sample.status}`);
+        });
       }
       if (dateSummary.length > 0) {
-        console.log(`\n  📊 SAMPLE SUMMARY DATA FROM DATABASE:`);
-        const sample = dateSummary[0];
-        console.log(`    Name: ${sample.employeeName}`);
-        console.log(`    Gender field: "${sample.gender || 'MISSING'}"`);
-        console.log(`    All keys: ${Object.keys(sample).join(', ')}`);
+        console.log(`\n  📊 FIRST 5 SUMMARY DATA FROM DATABASE:`);
+        dateSummary.slice(0, 5).forEach((sample, idx) => {
+          console.log(`    ${idx + 1}. Name: ${sample.employeeName}`);
+          console.log(`       Gender field: "${sample.gender || 'MISSING'}"`);
+        });
       }
 
       // Count how many have gender before processing
-      const employeesWithGender = dateEmployees.filter((e: any) => e.gender).length;
-      console.log(`\n  📊 GENDER DATA AVAILABILITY: ${employeesWithGender}/${dateEmployees.length} employees have gender`);
+      const employeesWithGender = dateEmployees.filter((e: any) => e.gender && e.gender.trim() !== '').length;
+      const summaryWithGender = dateSummary.filter((e: any) => e.gender && e.gender.trim() !== '').length;
+      console.log(`\n  📊 GENDER DATA AVAILABILITY:`);
+      console.log(`     employeesByDate: ${employeesWithGender}/${dateEmployees.length} employees have gender`);
+      console.log(`     employeeSummaryByDate: ${summaryWithGender}/${dateSummary.length} employees have gender`);
 
-      return dateEmployees.map(emp => {
+      const result = dateEmployees.map(emp => {
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
         const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
 
@@ -376,12 +378,11 @@ export class AutoScheduler {
         // Primary source: Direct gender field from employeesByDate JSONB
         if (emp.gender && typeof emp.gender === 'string' && emp.gender.trim() !== '') {
           gender = emp.gender.trim().toLowerCase();
-          console.log(`✅ ${emp.employeeName}: Found gender in emp.gender = "${gender}"`);
         }
         // Fallback 1: Summary data
         else if (summary?.gender && typeof summary.gender === 'string' && summary.gender.trim() !== '') {
           gender = summary.gender.trim().toLowerCase();
-          console.log(`✅ ${emp.employeeName}: Found gender in summary.gender = "${gender}"`);
+          console.log(`🔄 ${emp.employeeName}: Using gender from summary.gender = "${gender}"`);
         }
         // Fallback 2: Parse title from name
         else {
@@ -389,12 +390,12 @@ export class AutoScheduler {
           
           if (empNameLower.includes('mr ') || empNameLower.includes('mr. ')) {
             gender = 'male';
-            console.log(`✅ ${emp.employeeName}: Parsed gender from name (Mr) = "male"`);
+            console.log(`🔄 ${emp.employeeName}: Parsed gender from name (Mr) = "male"`);
           } else if (empNameLower.includes('mrs ') || empNameLower.includes('mrs. ') || 
                      empNameLower.includes('miss ') || empNameLower.includes('ms ') || 
                      empNameLower.includes('ms. ')) {
             gender = 'female';
-            console.log(`✅ ${emp.employeeName}: Parsed gender from name (Mrs/Miss/Ms) = "female"`);
+            console.log(`🔄 ${emp.employeeName}: Parsed gender from name (Mrs/Miss/Ms) = "female"`);
           } else {
             console.log(`❌ ${emp.employeeName}: NO GENDER FOUND (emp.gender='${emp.gender}', summary?.gender='${summary?.gender}', name parsing failed)`);
           }
@@ -409,6 +410,12 @@ export class AutoScheduler {
           gender: gender,
         };
       });
+
+      // Final stats on returned data
+      const resultWithGender = result.filter(r => r.gender && r.gender.trim() !== '').length;
+      console.log(`\n  ✅ FINAL RESULT: ${resultWithGender}/${result.length} employees will have gender data for scheduling\n`);
+
+      return result;
     } catch (error) {
       console.error('Error getting employee availability:', error);
       return [];
@@ -506,13 +513,26 @@ export class AutoScheduler {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
 
+    // Log client gender requirement
+    const clientGenderPref = this.getClientGenderPreference(visit.clientName);
+    if (clientGenderPref) {
+      console.log(`\n👤 Client "${visit.clientName}" requires gender: ${clientGenderPref}`);
+      console.log(`   Checking ${employeeSchedules.size} employees...`);
+    }
+
     for (const [empName, schedule] of employeeSchedules) {
       const employee = schedule.employee;
 
       // Check gender preference match
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
-        console.log(`⚠️ Gender mismatch: ${empName} (${employee.gender || 'unknown'}) cannot serve ${visit.clientName}`);
+        if (clientGenderPref) {
+          console.log(`   ❌ ${empName}: gender="${employee.gender || 'UNDEFINED'}" does not match required "${clientGenderPref}"`);
+        }
         continue; // Skip this employee - gender doesn't match client preference
+      }
+
+      if (clientGenderPref) {
+        console.log(`   ✅ ${empName}: gender="${employee.gender}" MATCHES required "${clientGenderPref}" - checking availability...`);
       }
 
       // Calculate travel time for scoring (no hard limit)
