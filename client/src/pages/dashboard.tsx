@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,13 +88,18 @@ export default function Dashboard() {
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
     queryKey: ['/api/history'],
+    enabled: false, // Disable automatic fetching
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 
   // Query to load latest data automatically
-  const { data: latestData, isLoading: isLoadingLatest, error: latestDataError } = useQuery<ProcessingResult>({
+  const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
-    enabled: !processedData && !selectedWeekId, // Only load if we don't have current data and no week selected
+    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
+    refetchOnWindowFocus: false, // Prevent refetch when window regains focus
+    refetchOnMount: false, // Prevent refetch on component mount
   });
 
   // Auto-load latest data when component mounts or when we don't have data
@@ -154,6 +159,53 @@ export default function Dashboard() {
     }, []
   );
 
+  // Mutation for processing files
+  const processMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to process files');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data: ProcessingResult) => {
+      setProcessedData(data);
+      setIsProcessing(false);
+      // Don't invalidate queries to prevent auto-refresh
+      // queryClient.invalidateQueries({ queryKey: ['/api/history'] });
+      toast({
+        title: "Processing Complete",
+        description: "Your capacity data has been analyzed successfully."
+      });
+    },
+    onError: (error: any) => {
+      console.error('Processing error:', error);
+      let errorTitle = "Processing Failed";
+      let errorDescription = "An unknown error occurred.";
+
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorTitle = "Connection Error";
+          errorDescription = "Unable to connect to the server. Please check your connection and try again.";
+        } else {
+          errorDescription = error.message;
+        }
+      }
+      toast({
+        variant: "destructive",
+        title: errorTitle,
+        description: errorDescription
+      });
+      setIsProcessing(false); // Ensure processing state is reset on error
+    }
+  });
+
   // Process files
   const handleProcessFiles = useCallback(async () => {
     if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
@@ -173,72 +225,9 @@ export default function Dashboard() {
     formData.append('demand', files.demand);
     formData.append('cgData', files.cgData);
 
-    try {
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          // Don't set Content-Type for FormData, let browser set it with boundary
-        }
-      });
+    processMutation.mutate(formData);
 
-      if (!response.ok) {
-        let errorMessage = 'Processing failed';
-        try {
-          const result = await response.json();
-          errorMessage = result.message || errorMessage;
-        } catch {
-          // If we can't parse JSON, use status text
-          errorMessage = response.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-
-      setProcessedData(result);
-      setSelectedDate(result.dailySummary[0]?.date || null);
-
-      // Invalidate visits queries to ensure scheduling tab shows fresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/visits'] });
-
-      toast({
-        title: "Processing Successful",
-        description: `Processed ${result.dailySummary.length} days of data successfully.`,
-      });
-
-      if (result.warnings && result.warnings.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Warnings",
-          description: result.warnings.slice(0, 3).join("; ") + (result.warnings.length > 3 ? "..." : ""),
-        });
-      }
-
-    } catch (error) {
-      console.error('Processing error:', error);
-
-      let errorTitle = "Processing Failed";
-      let errorDescription = "Unknown error occurred";
-
-      if (error instanceof Error) {
-        if (error.message.includes('fetch')) {
-          errorTitle = "Connection Error";
-          errorDescription = "Unable to connect to server. Please check your connection and try again.";
-        } else {
-          errorDescription = error.message;
-        }
-      }
-
-      toast({
-        variant: "destructive",
-        title: errorTitle, 
-        description: errorDescription
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [files, toast]);
+  }, [files, toast, processMutation]);
 
   // Download export
   const handleExport = useCallback(async () => {
@@ -277,12 +266,12 @@ export default function Dashboard() {
 
   // Get selected day details - use filtered data if available, otherwise processed data
   const selectedDayDetailsRaw = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
-  
+
   // Apply status filter if any statuses are selected
   const selectedDayDetails = statusFilter.length > 0
     ? selectedDayDetailsRaw.filter(emp => statusFilter.includes(emp.status))
     : selectedDayDetailsRaw;
-  
+
   // Get unique statuses from the current day's employees for the filter dropdown
   const availableStatuses = selectedDate 
     ? Array.from(new Set(selectedDayDetailsRaw.map(emp => emp.status))).sort()
@@ -490,11 +479,11 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing}
+              disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
-              {isProcessing ? (
+              {isProcessing || processMutation.isPending ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   Processing...
@@ -1001,11 +990,11 @@ export default function Dashboard() {
                 <div className="flex justify-center gap-4">
                   <Button 
                     onClick={handleProcessFiles}
-                    disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing}
+                    disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
                     data-testid="button-process-overview"
                   >
-                    {isProcessing ? (
+                    {isProcessing || processMutation.isPending ? (
                       <>
                         <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                         Processing Files...
@@ -1143,7 +1132,7 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-            {isProcessing ? (
+            {isProcessing || processMutation.isPending ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <MetricCardSkeleton key={i} />
