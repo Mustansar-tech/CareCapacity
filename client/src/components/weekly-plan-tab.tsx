@@ -179,6 +179,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
             transportMode: location?.transportMode || undefined,
             weeklyContractedHours: weeklyHours,
+            // Include gender for client matching
+            gender: emp.gender || (location ? location.gender : undefined), // Use gender from emp (preferred) or location (fallback)
           };
         })
       );
@@ -201,6 +203,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
+      
+      // Log gender data for debugging purposes
+      employeesWithLocations.forEach(emp => {
+        if (!emp.gender) {
+          console.warn(`⚠️ Missing gender for ${emp.employeeName} on ${emp.date} - Check employee data and location data.`);
+        }
+      });
 
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
 

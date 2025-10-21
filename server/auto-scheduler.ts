@@ -302,7 +302,7 @@ export class AutoScheduler {
         
         console.log(`👤 ${emp.employeeName}: Location gender="${emp.gender || 'NONE'}", Availability gender="${availability.gender || 'NONE'}", Using="${employeeGender || 'NONE'}"`);
         
-        employees.push({
+        const finalEmployee = {
           employeeName: emp.employeeName,
           homeLat: parseFloat(emp.homeLat),
           homeLng: parseFloat(emp.homeLng),
@@ -312,7 +312,10 @@ export class AutoScheduler {
           scheduledHours: availability.scheduledHours || 0,
           maxTravelPerVisit: maxTravel,
           gender: employeeGender, // Use gender from employee location (Title) or availability
-        });
+        };
+        
+        console.log(`✅ Adding employee to scheduler: ${emp.employeeName}, gender="${finalEmployee.gender || 'MISSING'}"`);
+        employees.push(finalEmployee);
       }
 
       return employees;
