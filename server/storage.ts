@@ -302,6 +302,7 @@ export class MemStorage implements IStorage {
         homeLat: insertLocation.homeLat || null,
         homeLng: insertLocation.homeLng || null,
         transportMode: insertLocation.transportMode || null,
+        gender: insertLocation.gender || null, // Convert undefined to null
         geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
       };
       this.employeeLocations.set(id, location);

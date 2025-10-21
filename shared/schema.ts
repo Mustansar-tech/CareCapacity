@@ -175,6 +175,7 @@ export interface ProcessingResult {
     homeLat?: number;
     homeLng?: number;
     transportMode?: string;
+    gender?: string; // Employee gender for client matching
   }>;
   clientLocations?: Array<{
     clientName: string;
@@ -261,6 +262,7 @@ export const employeeLocations = pgTable("employee_locations", {
   homeLat: text("home_lat"),
   homeLng: text("home_lng"),
   transportMode: text("transport_mode", { enum: ["car", "walking", "public"] }).default("car"),
+  gender: text("gender", { enum: ["male", "female"] }), // Employee gender for client matching
   geocodedAt: timestamp("geocoded_at"),
 }, (table) => ({
   employeeNameIdx: index("employee_name_idx").on(table.employeeName),

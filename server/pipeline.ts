@@ -2364,6 +2364,7 @@ export async function processCapacityData(
       homeLat: emp.homeLat ? Number(emp.homeLat) : undefined,
       homeLng: emp.homeLng ? Number(emp.homeLng) : undefined,
       transportMode: emp.transportMode || undefined,
+      gender: emp.gender || undefined, // Include gender for schedule matching
     }));
 
     resultWithLocations.clientLocations = clientLocations.map(cli => ({
@@ -2397,6 +2398,26 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       const postcode = row["PostCode"];
       const transportMode = row["TransportModeDescription"]?.toLowerCase();
 
+      // Extract gender - same logic as in main processing
+      const genderDirect = pickCol(row, ["Gender", "Sex"]);
+      const title = pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
+      
+      const gender = (() => {
+        // First, check if there's a direct Gender column
+        if (genderDirect) {
+          const genderLower = genderDirect.toLowerCase().trim();
+          if (genderLower === "male" || genderLower === "m") return "male";
+          if (genderLower === "female" || genderLower === "f") return "female";
+        }
+        
+        // Fallback: Derive from title
+        const titleLower = title.toLowerCase().trim();
+        if (titleLower === "mr") return "male";
+        if (["miss", "ms", "mrs"].includes(titleLower)) return "female";
+        
+        return undefined; // Unknown/not specified
+      })();
+
       if (employeeName && postcode) {
         const normalizedTransport = transportMode?.includes("car") ? "car" :
                                     transportMode?.includes("walk") ? "walking" : "car";
@@ -2411,6 +2432,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
+            gender: gender, // Include gender for schedule matching
             homeLat: existing.homeLat,
             homeLng: existing.homeLng,
           });
@@ -2421,6 +2443,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
+            gender: gender, // Include gender for schedule matching
           };
           employeeLocationsMap.set(employeeName, locationData);
           employeesToGeocode.push(locationData);
@@ -2661,6 +2684,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
                 homeLat: r.lat.toString(),
                 homeLng: r.lng.toString(),
                 transportMode: base.transportMode || "car",
+                gender: base.gender, // Include gender from base data
               });
               saved++;
             }
