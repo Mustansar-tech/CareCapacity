@@ -2400,41 +2400,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       const postcode = row["PostCode"];
       const transportMode = row["TransportModeDescription"]?.toLowerCase();
 
-      // Extract gender - same logic as in main processing
-      const genderDirect = pickCol(row, ["Gender", "Sex"]);
+      // Extract gender from Title column (Mr = male, Mrs/Miss/Ms = female)
       const title = pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
+      const titleLower = title.toLowerCase().trim();
       
-      const gender = (() => {
-        // First, check if there's a direct Gender column
-        if (genderDirect) {
-          const genderLower = genderDirect.toLowerCase().trim();
-          console.log(`  👤 ${employeeName}: Gender column="${genderDirect}" -> checking...`);
-          if (genderLower === "male" || genderLower === "m") {
-            console.log(`    ✅ Extracted: male`);
-            return "male";
-          }
-          if (genderLower === "female" || genderLower === "f") {
-            console.log(`    ✅ Extracted: female`);
-            return "female";
-          }
-          console.log(`    ⚠️ Gender column value "${genderDirect}" not recognized, trying Title...`);
-        }
-        
-        // Fallback: Derive from title
-        const titleLower = title.toLowerCase().trim();
-        console.log(`  👤 ${employeeName}: Title column="${title}" -> checking...`);
-        if (titleLower === "mr") {
-          console.log(`    ✅ Extracted: male (from Title)`);
-          return "male";
-        }
-        if (["miss", "ms", "mrs"].includes(titleLower)) {
-          console.log(`    ✅ Extracted: female (from Title)`);
-          return "female";
-        }
-        
-        console.log(`    ❌ Could not determine gender from Gender="${genderDirect}" or Title="${title}"`);
-        return undefined; // Unknown/not specified
-      })();
+      let gender: "male" | "female" | undefined = undefined;
+      if (titleLower === "mr") {
+        gender = "male";
+      } else if (["miss", "ms", "mrs"].includes(titleLower)) {
+        gender = "female";
+      }
+      
+      console.log(`  👤 ${employeeName}: Title="${title}" -> Gender="${gender || "unknown"}"`);
 
       if (employeeName && postcode) {
         const normalizedTransport = transportMode?.includes("car") ? "car" :
@@ -2444,16 +2421,23 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         const existing = await storage.getEmployeeLocationByName(employeeName);
 
         if (existing && existing.homeLat && existing.homeLng) {
-          // Already geocoded - use cached coordinates (SKIP GEOCODING)
+          // Already geocoded - update with gender if missing
           console.log(`✅ Cache hit for ${employeeName} - using existing coordinates`);
-          employeeLocationsMap.set(employeeName, {
+          const locationData = {
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
-            gender: gender, // Include gender for schedule matching
+            gender: gender, // Include gender from Title
             homeLat: existing.homeLat,
             homeLng: existing.homeLng,
-          });
+          };
+          employeeLocationsMap.set(employeeName, locationData);
+          
+          // Update database if gender is missing
+          if (gender && !existing.gender) {
+            console.log(`  🔄 Updating gender for ${employeeName}: ${gender}`);
+            await storage.upsertEmployeeLocation(locationData);
+          }
         } else {
           // Need to geocode
           console.log(`📍 Cache miss for ${employeeName} - needs geocoding`);
@@ -2461,7 +2445,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
-            gender: gender, // Include gender for schedule matching
+            gender: gender, // Include gender from Title
           };
           employeeLocationsMap.set(employeeName, locationData);
           employeesToGeocode.push(locationData);

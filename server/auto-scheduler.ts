@@ -297,6 +297,11 @@ export class AutoScheduler {
         // Set travel limits based on transport mode for better allocation
         const maxTravel = transportMode === 'car' ? 25 : 20; // 25min for car, 20min for others
 
+        // Get gender from employee location (from Title in CG Data)
+        const employeeGender = emp.gender || availability.gender || undefined;
+        
+        console.log(`👤 ${emp.employeeName}: Location gender="${emp.gender || 'NONE'}", Availability gender="${availability.gender || 'NONE'}", Using="${employeeGender || 'NONE'}"`);
+        
         employees.push({
           employeeName: emp.employeeName,
           homeLat: parseFloat(emp.homeLat),
@@ -306,7 +311,7 @@ export class AutoScheduler {
           contractedDailyHours: availability.contractedDailyHours || 8,
           scheduledHours: availability.scheduledHours || 0,
           maxTravelPerVisit: maxTravel,
-          gender: availability.gender || undefined, // Add gender from availability data
+          gender: employeeGender, // Use gender from employee location (Title) or availability
         });
       }
 
