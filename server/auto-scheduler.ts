@@ -331,42 +331,38 @@ export class AutoScheduler {
       if (analyses.length === 0) return [];
 
       const latestAnalysis = analyses[0]; // Most recent analysis
-      const employeesByDate = latestAnalysis.employeesByDate || {};
-      const employeeSummaryByDate = latestAnalysis.employeeSummaryByDate || {};
+      
+      // CRITICAL: The JSONB fields need to be accessed correctly
+      const employeesByDate = (latestAnalysis.employeesByDate as any) || {};
+      const employeeSummaryByDate = (latestAnalysis.employeeSummaryByDate as any) || {};
 
-      const dateEmployees = employeesByDate[date] || [];
-      const dateSummary = employeeSummaryByDate[date] || [];
+      const dateEmployees: any[] = employeesByDate[date] || [];
+      const dateSummary: any[] = employeeSummaryByDate[date] || [];
 
       console.log(`\n🔍 AUTO-SCHEDULER GENDER DEBUG for ${date}:`);
       console.log(`  Total employees on date: ${dateEmployees.length}`);
       
-      // Check if gender field exists in the raw data
+      // Check actual data structure
       if (dateEmployees.length > 0) {
-        const sampleEmp = dateEmployees[0] as any;
-        console.log(`  Sample employee data keys:`, Object.keys(sampleEmp));
-        console.log(`  Sample employee gender field: "${sampleEmp.gender || 'undefined'}"`);
+        console.log(`  First employee raw:`, JSON.stringify(dateEmployees[0], null, 2));
+      }
+      if (dateSummary.length > 0) {
+        console.log(`  First summary raw:`, JSON.stringify(dateSummary[0], null, 2));
       }
       
       return dateEmployees.map(emp => {
-        const empAny = emp as any; // Type assertion to access gender property
-        const summary = dateSummary.find(s => s.employeeName === emp.employeeName);
+        const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
 
-        // Gender is stored directly in the employeesByDate structure (added in pipeline.ts during file processing)
-        // This comes from CG Data Title field (Mr -> male, Miss/Ms/Mrs -> female)
-        // Priority: emp.gender (from employeesByDate) > summary.gender (from employeeSummaryByDate)
-        const gender = empAny.gender || (summary as any)?.gender || undefined;
+        // CRITICAL: Gender comes from the JSONB field - access it directly
+        // Priority: emp.gender (from employeesByDate JSONB) > summary.gender (from employeeSummaryByDate JSONB)
+        const gender = emp.gender || summary?.gender || undefined;
         
-        // Debug logging for each employee
-        if (isAvailable) {
-          console.log(`  👤 ${emp.employeeName}:`);
-          console.log(`    - gender from employeesByDate: "${empAny.gender || 'none'}"`);
-          console.log(`    - gender from summary: "${(summary as any)?.gender || 'none'}"`);
-          console.log(`    - final gender: "${gender || 'unknown'}"`);
-          
-          if (!gender) {
-            console.log(`    ⚠️ WARNING: No gender data found for auto-scheduling`);
-          }
+        // Debug logging
+        console.log(`  👤 ${emp.employeeName}: gender="${gender || 'MISSING'}", status=${emp.status}`);
+        
+        if (isAvailable && !gender) {
+          console.log(`    ⚠️ CRITICAL: Available employee ${emp.employeeName} has NO gender data!`);
         }
 
         return {
@@ -375,7 +371,7 @@ export class AutoScheduler {
           timeWindows: emp.timeWindows || '',
           contractedDailyHours: emp.contractedDailyHours || 8,
           scheduledHours: summary?.scheduledHours || emp.scheduledHours || 0,
-          gender: gender, // Gender from employeesByDate or employeeSummaryByDate
+          gender: gender || undefined, // Ensure it's string or undefined, never null
         };
       });
     } catch (error) {

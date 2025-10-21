@@ -1990,14 +1990,22 @@ export async function processCapacityData(
     });
   });
 
-  // Debug: Verify gender is stored in employeesByDate
-  console.log(`\n🔍 VERIFYING GENDER IN employeesByDate:`);
+  // Debug: Verify gender is stored in employeesByDate (CRITICAL for auto-scheduler)
+  console.log(`\n🔍 VERIFYING GENDER IN employeesByDate (for auto-scheduler):`);
   const sampleDate = Object.keys(employeesByDate)[0];
   if (sampleDate && employeesByDate[sampleDate]) {
-    const sampleEmployees = employeesByDate[sampleDate].slice(0, 3);
+    const sampleEmployees = employeesByDate[sampleDate].slice(0, 10);
+    console.log(`  Checking ${sampleEmployees.length} employees on ${sampleDate}:`);
     sampleEmployees.forEach((emp: any) => {
-      console.log(`  ${emp.employeeName}: gender="${emp.gender || 'missing'}"`);
+      console.log(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
     });
+    
+    // Count how many have gender data
+    const withGender = sampleEmployees.filter((e: any) => e.gender).length;
+    console.log(`  ✅ ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
+    
+    // Verify this will be saved to JSONB correctly
+    console.log(`  📦 This employeesByDate object will be saved to database as JSONB`);
   }
   console.log(`=========================================\n`);
 
