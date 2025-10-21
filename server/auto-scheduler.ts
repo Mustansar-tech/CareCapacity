@@ -345,19 +345,25 @@ export class AutoScheduler {
 
       // Debug: Show actual gender data in employeesByDate
       if (dateEmployees.length > 0) {
-        console.log(`  Sample employee from employeesByDate:`, {
-          name: dateEmployees[0].employeeName,
-          gender: dateEmployees[0].gender,
-          allKeys: Object.keys(dateEmployees[0])
-        });
+        console.log(`\n  📊 SAMPLE EMPLOYEE DATA FROM DATABASE:`);
+        const sample = dateEmployees[0];
+        console.log(`    Name: ${sample.employeeName}`);
+        console.log(`    Gender field: "${sample.gender || 'MISSING'}"`);
+        console.log(`    Status: ${sample.status}`);
+        console.log(`    All keys: ${Object.keys(sample).join(', ')}`);
+        console.log(`    Raw object:`, JSON.stringify(sample, null, 2));
       }
       if (dateSummary.length > 0) {
-        console.log(`  Sample employee from employeeSummaryByDate:`, {
-          name: dateSummary[0].employeeName,
-          gender: dateSummary[0].gender,
-          allKeys: Object.keys(dateSummary[0])
-        });
+        console.log(`\n  📊 SAMPLE SUMMARY DATA FROM DATABASE:`);
+        const sample = dateSummary[0];
+        console.log(`    Name: ${sample.employeeName}`);
+        console.log(`    Gender field: "${sample.gender || 'MISSING'}"`);
+        console.log(`    All keys: ${Object.keys(sample).join(', ')}`);
       }
+
+      // Count how many have gender before processing
+      const employeesWithGender = dateEmployees.filter((e: any) => e.gender).length;
+      console.log(`\n  📊 GENDER DATA AVAILABILITY: ${employeesWithGender}/${dateEmployees.length} employees have gender`);
 
       return dateEmployees.map(emp => {
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
@@ -380,7 +386,9 @@ export class AutoScheduler {
           }
         }
 
-        console.log(`${gender ? '✅' : '⚠️'} ${emp.employeeName}: gender=${gender || 'MISSING'} (from ${emp.gender ? 'employeesByDate' : summary?.gender ? 'summary' : 'title parsing'})`);
+        if (!gender) {
+          console.log(`❌ ${emp.employeeName}: NO GENDER (emp.gender='${emp.gender}', summary?.gender='${summary?.gender}')`);
+        }
 
         return {
           employeeName: emp.employeeName,

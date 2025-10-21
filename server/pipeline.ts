@@ -1970,12 +1970,14 @@ export async function processCapacityData(
     );
     const gender = masterEmployee?.gender || "";
 
-    // Debug: Log gender assignment for first few employees
-    if (employeesByDate[record.date].length < 3) {
-      console.log(`📝 Storing employee in employeesByDate: ${record.employeeName} on ${record.date}`);
-      console.log(`  - masterEmployee found: ${masterEmployee ? 'yes' : 'no'}`);
-      console.log(`  - gender value: "${gender || 'empty'}"`);
+    // Debug: Always log for debugging
+    console.log(`📝 Adding to employeesByDate[${record.date}]: ${record.employeeName}`);
+    console.log(`  - Normalized name: "${empNormalizedName}"`);
+    console.log(`  - Master employee found: ${masterEmployee ? 'YES' : 'NO'}`);
+    if (masterEmployee) {
+      console.log(`  - Master employee gender: "${masterEmployee.gender}"`);
     }
+    console.log(`  - Final gender value: "${gender || 'EMPTY'}"`);
 
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
