@@ -371,20 +371,20 @@ export class AutoScheduler {
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
         const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
 
-        // CRITICAL FIX: Gender is stored directly in emp.gender field from database
-        // The database stores it in the JSONB employeesByDate field which is already parsed by PostgreSQL
+        // CRITICAL FIX: Extract gender from multiple sources with priority
         let gender: string | undefined = undefined;
 
-        // Primary source: Direct gender field from employeesByDate JSONB
+        // Priority 1: Direct gender field from employeesByDate JSONB
         if (emp.gender && typeof emp.gender === 'string' && emp.gender.trim() !== '') {
           gender = emp.gender.trim().toLowerCase();
+          console.log(`✅ ${emp.employeeName}: Found gender in employeesByDate = "${gender}"`);
         }
-        // Fallback 1: Summary data
+        // Priority 2: Summary data (employeeSummaryByDate)
         else if (summary?.gender && typeof summary.gender === 'string' && summary.gender.trim() !== '') {
           gender = summary.gender.trim().toLowerCase();
-          console.log(`🔄 ${emp.employeeName}: Using gender from summary.gender = "${gender}"`);
+          console.log(`🔄 ${emp.employeeName}: Using gender from employeeSummaryByDate = "${gender}"`);
         }
-        // Fallback 2: Parse title from name
+        // Priority 3: Parse title from employee name
         else {
           const empNameLower = emp.employeeName.toLowerCase();
           
