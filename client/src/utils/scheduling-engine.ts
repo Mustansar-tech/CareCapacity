@@ -208,19 +208,19 @@ function getClientGenderPreference(clientName: string): string | null {
 function isGenderMatch(employeeGender: string | undefined, clientName: string): boolean {
   const preference = getClientGenderPreference(clientName);
   if (!preference) return true; // No preference, any gender is OK
-  
+
   if (!employeeGender) {
     console.log(`⚠️ STRICT: Employee has no gender data - cannot serve ${clientName} (requires ${preference})`);
     return false; // STRICT: Reject when employee gender is unknown but client has preference
   }
-  
+
   const empGenderLower = employeeGender.toLowerCase();
   const matches = empGenderLower.includes(preference);
-  
+
   if (!matches) {
     console.log(`⚠️ Gender mismatch: Employee (${employeeGender}) cannot serve ${clientName} (requires ${preference})`);
   }
-  
+
   return matches;
 }
 
@@ -484,7 +484,7 @@ export function generateWeeklySchedule(
 
       // Extract gender from employee data (processed in pipeline.ts from CG Data)
       const gender = (emp as any).gender || undefined;
-      
+
       return {
         employeeName: emp.employeeName,
         date,

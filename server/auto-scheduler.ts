@@ -331,7 +331,7 @@ export class AutoScheduler {
       if (analyses.length === 0) return [];
 
       const latestAnalysis = analyses[0]; // Most recent analysis
-      
+
       // CRITICAL: The JSONB fields need to be accessed correctly
       const employeesByDate = (latestAnalysis.employeesByDate as any) || {};
       const employeeSummaryByDate = (latestAnalysis.employeeSummaryByDate as any) || {};
@@ -341,7 +341,7 @@ export class AutoScheduler {
 
       console.log(`\n🔍 AUTO-SCHEDULER GENDER DEBUG for ${date}:`);
       console.log(`  Total employees on date: ${dateEmployees.length}`);
-      
+
       // Check actual data structure
       if (dateEmployees.length > 0) {
         console.log(`  First employee raw:`, JSON.stringify(dateEmployees[0], null, 2));
@@ -349,20 +349,32 @@ export class AutoScheduler {
       if (dateSummary.length > 0) {
         console.log(`  First summary raw:`, JSON.stringify(dateSummary[0], null, 2));
       }
-      
-      return dateEmployees.map(emp => {
-        const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
-        const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
 
-        // CRITICAL: Gender comes from the JSONB field - access it directly
-        // Priority: emp.gender (from employeesByDate JSONB) > summary.gender (from employeeSummaryByDate JSONB)
-        const gender = emp.gender || summary?.gender || undefined;
-        
-        // Debug logging
-        console.log(`  👤 ${emp.employeeName}: gender="${gender || 'MISSING'}", status=${emp.status}`);
-        
-        if (isAvailable && !gender) {
-          console.log(`    ⚠️ CRITICAL: Available employee ${emp.employeeName} has NO gender data!`);
+      return dateEmployees.map(emp => {
+        const availability = dateEmployees.find(a => a.employeeName === emp.employeeName);
+        const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
+        const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
+
+        // Extract gender from employee name using title detection
+        const empNameLower = emp.employeeName.toLowerCase();
+        let gender: string | undefined = undefined;
+
+        // Check for common titles to determine gender
+        if (empNameLower.includes('mr ') || empNameLower.includes('mr. ')) {
+          gender = 'male';
+        } else if (empNameLower.includes('mrs ') || empNameLower.includes('mrs. ') || 
+                   empNameLower.includes('miss ') || empNameLower.includes('ms ') || 
+                   empNameLower.includes('ms. ')) {
+          gender = 'female';
+        } else {
+          // Fallback: check employee summary for gender field
+          gender = summary?.gender || undefined;
+        }
+
+        if (!gender) {
+          console.log(`⚠️ Employee ${emp.employeeName} has NO gender data - cannot determine from name or summary`);
+        } else {
+          console.log(`✅ Employee ${emp.employeeName} identified as ${gender}`);
         }
 
         return {
@@ -371,7 +383,7 @@ export class AutoScheduler {
           timeWindows: emp.timeWindows || '',
           contractedDailyHours: emp.contractedDailyHours || 8,
           scheduledHours: summary?.scheduledHours || emp.scheduledHours || 0,
-          gender: gender || undefined, // Ensure it's string or undefined, never null
+          gender: gender,
         };
       });
     } catch (error) {
