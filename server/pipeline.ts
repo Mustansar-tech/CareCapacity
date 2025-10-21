@@ -1129,7 +1129,7 @@ export async function parseExcelFiles(
   );
   if (cgData.length > 0) {
     console.log(`🔍 First processed CG Data row:`, cgData[0]);
-    
+
     // Show gender extraction stats for debugging
     const genderStats = cgData.reduce((acc, emp) => {
       const g = emp.Gender || "unknown";
@@ -1137,7 +1137,7 @@ export async function parseExcelFiles(
       return acc;
     }, {} as Record<string, number>);
     console.log(`👥 Gender distribution:`, genderStats);
-    
+
     // Show sample employees with their Title and Gender
     const samplesWithGender = cgData.slice(0, 5).map(emp => ({
       name: emp["CAREGiver Name"],
@@ -1970,6 +1970,11 @@ export async function processCapacityData(
     );
     const gender = masterEmployee?.gender || "";
 
+    // Debug: Log gender assignment for verification
+    if (!gender) {
+      console.log(`⚠️ No gender found for ${record.employeeName} (normalized: ${empNormalizedName})`);
+    }
+
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
       status: record.status,
@@ -1979,7 +1984,7 @@ export async function processCapacityData(
       hours: record.hours,
       netCapacity: record.netCapacity,
       notes: record.notes,
-      gender: gender,
+      gender: gender, // Gender from master employee list (derived from Title)
     });
   });
 
@@ -2006,7 +2011,7 @@ export async function processCapacityData(
 
       const display = displayNameMap.get(normName) || normName;
       const windows = (adhocWindowsMap.get(key) || [])
-        .map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`)
+        .map(([s, e]: [number, number]) => `${fromMin(s)}-${fromMin(e)}`)
         .join("; ");
 
       // Get gender from master employee list for this ad-hoc employee
@@ -2038,6 +2043,7 @@ export async function processCapacityData(
   Object.values(employeesByDate).forEach((employees) => {
     employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   });
+
 
   // Step 8: Cancelled visits will be extracted per date in employee summary generation
 

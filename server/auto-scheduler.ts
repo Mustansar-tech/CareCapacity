@@ -1,4 +1,3 @@
-
 import { storage } from "./storage";
 import { TravelTimeService } from "./travel-time-service";
 
@@ -11,7 +10,7 @@ interface TimeWindow {
 
 function parseTimeWindows(windows: string | string[]): TimeWindow[] {
   let windowArray: string[];
-  
+
   if (Array.isArray(windows)) {
     windowArray = windows;
   } else if (typeof windows === 'string') {
@@ -42,7 +41,7 @@ function parseTimeWindows(windows: string | string[]): TimeWindow[] {
   if (parsed.length > 0) {
     console.log(`📋 Parsed "${windows}" into ${parsed.length} time windows`);
   }
-  
+
   return parsed;
 }
 
@@ -102,7 +101,7 @@ interface WeeklySchedule {
 
 export class AutoScheduler {
   private travelService: TravelTimeService;
-  
+
   constructor() {
     this.travelService = new TravelTimeService(20, 15); // 20min max, 15min soft limit
   }
@@ -160,16 +159,16 @@ export class AutoScheduler {
     // First pass: Assign visits using standard constraints
     for (const visit of prioritizedVisits) {
       const bestAssignment = this.findBestEmployeeForVisit(visit, employeeSchedules);
-      
+
       if (bestAssignment) {
         const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
         const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
         schedule.visits.push(scheduledVisit);
-        
+
         // Update employee's current location and time
         schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
         schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
-        
+
         console.log(`✅ Assigned ${visit.clientName} to ${bestAssignment.employeeName} (score: ${bestAssignment.score.toFixed(2)})`);
       } else {
         unassignedVisits.push(visit);
@@ -180,22 +179,22 @@ export class AutoScheduler {
     // Second pass: Try to assign remaining visits with relaxed travel constraints (+5 minutes)
     if (unassignedVisits.length > 0) {
       console.log(`🔄 Second pass: attempting to allocate ${unassignedVisits.length} unassigned visits with relaxed constraints`);
-      
+
       const secondPassUnassigned: SchedulingVisit[] = [];
-      
+
       for (const visit of unassignedVisits) {
         // Temporarily increase travel limits by 5 minutes for second pass
         Array.from(employeeSchedules.values()).forEach(schedule => {
           schedule.employee.maxTravelPerVisit += 5;
         });
-        
+
         const bestAssignment = this.findBestEmployeeForVisit(visit, employeeSchedules);
-        
+
         // Restore original limits
         Array.from(employeeSchedules.values()).forEach(schedule => {
           schedule.employee.maxTravelPerVisit -= 5;
         });
-        
+
         if (bestAssignment) {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
           const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
@@ -207,7 +206,7 @@ export class AutoScheduler {
           secondPassUnassigned.push(visit);
         }
       }
-      
+
       unassignedVisits = secondPassUnassigned;
       console.log(`📊 Second pass results: ${unassignedVisits.length} still unassigned`);
     }
@@ -256,13 +255,13 @@ export class AutoScheduler {
    */
   async scheduleWeek(startDate: string): Promise<Record<string, WeeklySchedule>> {
     const weekSchedule: Record<string, WeeklySchedule> = {};
-    
+
     // Schedule each day of the week
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(date.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
-      
+
       weekSchedule[dateStr] = await this.scheduleDay(dateStr);
     }
 
@@ -282,22 +281,22 @@ export class AutoScheduler {
 
       for (const emp of employeeLocations) {
         const availability = availabilityData.find(a => a.employeeName === emp.employeeName);
-        
+
         if (!availability || !availability.isAvailable) continue;
-        
+
         if (!emp.homeLat || !emp.homeLng) {
           console.warn(`⚠️ Missing location data for ${emp.employeeName}`);
           continue;
         }
 
         const availabilityWindows = parseTimeWindows(availability.timeWindows || "");
-        
+
         const transportMode = (emp.transportMode?.toLowerCase().includes('car') ? 'car' : 
                               emp.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'car') as any;
-        
+
         // Set travel limits based on transport mode for better allocation
         const maxTravel = transportMode === 'car' ? 25 : 20; // 25min for car, 20min for others
-        
+
         employees.push({
           employeeName: emp.employeeName,
           homeLat: parseFloat(emp.homeLat),
@@ -342,13 +341,9 @@ export class AutoScheduler {
         const summary = dateSummary.find(s => s.employeeName === emp.employeeName);
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
 
-        // Extract gender from employee record (already processed in pipeline.ts)
+        // Gender is stored directly in the employeesByDate structure (added in pipeline.ts during file processing)
+        // This comes from CG Data Title field (Mr -> male, Miss/Ms/Mrs -> female)
         const gender = emp.gender || summary?.gender || undefined;
-        
-        // Log gender for debugging
-        if (isAvailable && !gender) {
-          console.log(`⚠️ Missing gender data for ${emp.employeeName}`);
-        }
 
         return {
           employeeName: emp.employeeName,
@@ -378,7 +373,7 @@ export class AutoScheduler {
         .filter(visit => visit.date === date && visit.clientName) // Filter out visits without client names
         .map(visit => {
           const client = clientLocationMap.get(visit.clientName);
-          
+
           if (!client || !client.lat || !client.lng) {
             console.warn(`⚠️ Missing location data for client ${visit.clientName}`);
             return null;
@@ -421,19 +416,19 @@ export class AutoScheduler {
   private isGenderMatch(employeeGender: string | undefined, clientName: string): boolean {
     const preference = this.getClientGenderPreference(clientName);
     if (!preference) return true; // No preference, any gender is OK
-    
+
     if (!employeeGender) {
       console.log(`⚠️ STRICT: Employee has no gender data - cannot serve ${clientName} (requires ${preference})`);
       return false; // STRICT: Reject when employee gender is unknown but client has preference
     }
-    
+
     const empGenderLower = employeeGender.toLowerCase();
     const matches = empGenderLower.includes(preference);
-    
+
     if (!matches) {
       console.log(`⚠️ Gender mismatch: Employee (${employeeGender}) cannot serve ${clientName} (requires ${preference})`);
     }
-    
+
     return matches;
   }
 
@@ -456,13 +451,13 @@ export class AutoScheduler {
 
     for (const [empName, schedule] of employeeSchedules) {
       const employee = schedule.employee;
-      
+
       // Check gender preference match
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
         console.log(`⚠️ Gender mismatch: ${empName} (${employee.gender || 'unknown'}) cannot serve ${visit.clientName}`);
         continue; // Skip this employee - gender doesn't match client preference
       }
-      
+
       // Calculate travel time for scoring (no hard limit)
       const travelTime = this.travelService.calculateTravelTime(
         { lat: employee.homeLat, lng: employee.homeLng },
@@ -472,7 +467,7 @@ export class AutoScheduler {
 
       // Find best insertion point and calculate score
       const insertion = this.findBestInsertionPoint(visit, schedule);
-      
+
       if (insertion && insertion.score > bestScore) {
         bestScore = insertion.score;
         bestMatch = {
@@ -489,7 +484,7 @@ export class AutoScheduler {
   private findBestInsertionPoint(visit: SchedulingVisit, schedule: any): { index: number; score: number } | null {
     const employee = schedule.employee;
     const visits = schedule.visits;
-    
+
     let bestInsertion: { index: number; score: number } | null = null;
     let bestScore = -1;
 
@@ -525,7 +520,7 @@ export class AutoScheduler {
       if (earliestStart + visit.durationMinutes <= latestEnd) {
         // Calculate score based on multiple factors
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
-        
+
         if (score > bestScore) {
           bestScore = score;
           bestInsertion = { index: i, score };
@@ -562,11 +557,11 @@ export class AutoScheduler {
     const weeklyContracted = employee.contractedDailyHours * 5; // Assume 5-day week
     const weeklyRemaining = Math.max(0, weeklyContracted - employee.scheduledHours);
     const dailyRemaining = Math.max(0, employee.contractedDailyHours - (employee.scheduledHours % employee.contractedDailyHours));
-    
+
     // Score based on available capacity (both daily and weekly)
     const capacityScore = weeklyRemaining > 0 && dailyRemaining > 0 ? 
       Math.min(weeklyRemaining / weeklyContracted, dailyRemaining / employee.contractedDailyHours) : 0;
-    
+
     score += capacityScore * 0.3;
 
     // Factor 4: Route efficiency - prefer middle insertions over start/end (10% weight)
@@ -584,7 +579,7 @@ export class AutoScheduler {
     schedule: any
   ): ScheduledVisit {
     const prevVisit = assignment.insertionIndex > 0 ? schedule.visits[assignment.insertionIndex - 1] : null;
-    
+
     const travelTimeBefore = prevVisit 
       ? this.travelService.calculateTravelTime(
           { lat: prevVisit.clientLat, lng: prevVisit.clientLng },
@@ -636,13 +631,13 @@ export class AutoScheduler {
 
   private timeStringToMinutes(timeStr: string): number {
     if (!timeStr) return 0;
-    
+
     // Handle both "HH:MM" and ISO datetime formats
     let time = timeStr;
     if (timeStr.includes('T')) {
       time = timeStr.split('T')[1].split(':').slice(0, 2).join(':');
     }
-    
+
     const [hours, minutes] = time.split(':').map(Number);
     return (hours || 0) * 60 + (minutes || 0);
   }
