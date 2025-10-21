@@ -483,7 +483,13 @@ export function generateWeeklySchedule(
       }
 
       // Extract gender from employee data (processed in pipeline.ts from CG Data)
+      // Check multiple sources for gender data
       const gender = (emp as any).gender || undefined;
+
+      // Log gender data for debugging
+      if (!gender) {
+        console.log(`⚠️ CLIENT SCHEDULER: No gender data for ${emp.employeeName}`);
+      }
 
       return {
         employeeName: emp.employeeName,

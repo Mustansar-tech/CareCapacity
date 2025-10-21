@@ -341,6 +341,7 @@ export class AutoScheduler {
 
       console.log(`\n🔍 AUTO-SCHEDULER GENDER DEBUG for ${date}:`);
       console.log(`  Total employees on date: ${dateEmployees.length}`);
+      console.log(`  Total employees in summary: ${dateSummary.length}`);
 
       // Check actual data structure
       if (dateEmployees.length > 0) {
@@ -351,28 +352,29 @@ export class AutoScheduler {
       }
 
       return dateEmployees.map(emp => {
-        const availability = dateEmployees.find(a => a.employeeName === emp.employeeName);
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
         const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
 
-        // Extract gender from employee name using title detection
-        const empNameLower = emp.employeeName.toLowerCase();
-        let gender: string | undefined = undefined;
+        // CRITICAL FIX: Gender is stored in BOTH employeesByDate AND employeeSummaryByDate
+        // Priority: 1) employeesByDate.gender (most direct), 2) employeeSummaryByDate.gender, 3) title parsing
+        let gender: string | undefined = emp.gender || summary?.gender || undefined;
 
-        // Check for common titles to determine gender
-        if (empNameLower.includes('mr ') || empNameLower.includes('mr. ')) {
-          gender = 'male';
-        } else if (empNameLower.includes('mrs ') || empNameLower.includes('mrs. ') || 
-                   empNameLower.includes('miss ') || empNameLower.includes('ms ') || 
-                   empNameLower.includes('ms. ')) {
-          gender = 'female';
-        } else {
-          // Fallback: check employee summary for gender field
-          gender = summary?.gender || undefined;
+        // Fallback: Extract gender from employee name using title detection
+        if (!gender) {
+          const empNameLower = emp.employeeName.toLowerCase();
+          
+          // Check for common titles to determine gender
+          if (empNameLower.includes('mr ') || empNameLower.includes('mr. ')) {
+            gender = 'male';
+          } else if (empNameLower.includes('mrs ') || empNameLower.includes('mrs. ') || 
+                     empNameLower.includes('miss ') || empNameLower.includes('ms ') || 
+                     empNameLower.includes('ms. ')) {
+            gender = 'female';
+          }
         }
 
         if (!gender) {
-          console.log(`⚠️ Employee ${emp.employeeName} has NO gender data - cannot determine from name or summary`);
+          console.log(`⚠️ Employee ${emp.employeeName} has NO gender data - checked employeesByDate, employeeSummaryByDate, and name titles`);
         } else {
           console.log(`✅ Employee ${emp.employeeName} identified as ${gender}`);
         }
