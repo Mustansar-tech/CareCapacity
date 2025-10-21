@@ -342,9 +342,13 @@ export class AutoScheduler {
         const summary = dateSummary.find(s => s.employeeName === emp.employeeName);
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
 
-        // Gender is already processed in pipeline.ts from CG Data (Title field)
-        // Priority: employee record > summary record
-        const gender = (emp as any).gender || summary?.gender;
+        // Extract gender from employee record (already processed in pipeline.ts)
+        const gender = emp.gender || summary?.gender || undefined;
+        
+        // Log gender for debugging
+        if (isAvailable && !gender) {
+          console.log(`⚠️ Missing gender data for ${emp.employeeName}`);
+        }
 
         return {
           employeeName: emp.employeeName,

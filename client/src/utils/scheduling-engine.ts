@@ -482,6 +482,9 @@ export function generateWeeklySchedule(
         weeklyUsedMap.set(emp.employeeName, 0);
       }
 
+      // Extract gender from employee data (processed in pipeline.ts from CG Data)
+      const gender = (emp as any).gender || undefined;
+      
       return {
         employeeName: emp.employeeName,
         date,
@@ -494,7 +497,7 @@ export function generateWeeklySchedule(
         transportMode: mode,
         weeklyContractedMinutes: weeklyContractedMap.get(emp.employeeName) || 0,
         weeklyUsedMinutes: weeklyUsedMap.get(emp.employeeName) || 0,
-        gender: (emp as any).gender, // Gender already processed from CG Data in pipeline.ts
+        gender: gender, // Gender already processed from CG Data in pipeline.ts
       };
     });
   });
