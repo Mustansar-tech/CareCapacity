@@ -2004,9 +2004,22 @@ export async function processCapacityData(
     const withGender = sampleEmployees.filter((e: any) => e.gender).length;
     console.log(`  ✅ ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
     
-    // Verify this will be saved to JSONB correctly
-    console.log(`  📦 This employeesByDate object will be saved to database as JSONB`);
+    // Show the actual object structure that will be saved
+    if (sampleEmployees.length > 0) {
+      console.log(`  📦 Sample object structure:`, JSON.stringify(sampleEmployees[0], null, 2));
+    }
   }
+  
+  // CRITICAL VERIFICATION: Check all dates for gender data completeness
+  let totalEmployees = 0;
+  let employeesWithGender = 0;
+  Object.entries(employeesByDate).forEach(([date, employees]) => {
+    (employees as any[]).forEach(emp => {
+      totalEmployees++;
+      if (emp.gender) employeesWithGender++;
+    });
+  });
+  console.log(`  📊 TOTAL GENDER COVERAGE: ${employeesWithGender}/${totalEmployees} employees (${Math.round(employeesWithGender/totalEmployees*100)}%)`);
   console.log(`=========================================\n`);
 
   // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===

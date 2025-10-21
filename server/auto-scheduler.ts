@@ -332,7 +332,7 @@ export class AutoScheduler {
 
       const latestAnalysis = analyses[0]; // Most recent analysis
 
-      // CRITICAL: The JSONB fields need to be accessed correctly
+      // Access JSONB fields - these are already parsed objects from PostgreSQL
       const employeesByDate = (latestAnalysis.employeesByDate as any) || {};
       const employeeSummaryByDate = (latestAnalysis.employeeSummaryByDate as any) || {};
 
@@ -343,27 +343,34 @@ export class AutoScheduler {
       console.log(`  Total employees on date: ${dateEmployees.length}`);
       console.log(`  Total employees in summary: ${dateSummary.length}`);
 
-      // Check actual data structure
+      // Debug: Show actual gender data in employeesByDate
       if (dateEmployees.length > 0) {
-        console.log(`  First employee raw:`, JSON.stringify(dateEmployees[0], null, 2));
+        console.log(`  Sample employee from employeesByDate:`, {
+          name: dateEmployees[0].employeeName,
+          gender: dateEmployees[0].gender,
+          allKeys: Object.keys(dateEmployees[0])
+        });
       }
       if (dateSummary.length > 0) {
-        console.log(`  First summary raw:`, JSON.stringify(dateSummary[0], null, 2));
+        console.log(`  Sample employee from employeeSummaryByDate:`, {
+          name: dateSummary[0].employeeName,
+          gender: dateSummary[0].gender,
+          allKeys: Object.keys(dateSummary[0])
+        });
       }
 
       return dateEmployees.map(emp => {
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
         const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
 
-        // CRITICAL FIX: Gender is stored in BOTH employeesByDate AND employeeSummaryByDate
-        // Priority: 1) employeesByDate.gender (most direct), 2) employeeSummaryByDate.gender, 3) title parsing
+        // CRITICAL: Gender is stored in employeesByDate.gender field (added by pipeline.ts)
+        // This field comes directly from CG Data Master List where Title → Gender mapping occurs
         let gender: string | undefined = emp.gender || summary?.gender || undefined;
 
-        // Fallback: Extract gender from employee name using title detection
+        // Additional fallback: Parse title from name if gender is still missing
         if (!gender) {
           const empNameLower = emp.employeeName.toLowerCase();
           
-          // Check for common titles to determine gender
           if (empNameLower.includes('mr ') || empNameLower.includes('mr. ')) {
             gender = 'male';
           } else if (empNameLower.includes('mrs ') || empNameLower.includes('mrs. ') || 
@@ -373,11 +380,7 @@ export class AutoScheduler {
           }
         }
 
-        if (!gender) {
-          console.log(`⚠️ Employee ${emp.employeeName} has NO gender data - checked employeesByDate, employeeSummaryByDate, and name titles`);
-        } else {
-          console.log(`✅ Employee ${emp.employeeName} identified as ${gender}`);
-        }
+        console.log(`${gender ? '✅' : '⚠️'} ${emp.employeeName}: gender=${gender || 'MISSING'} (from ${emp.gender ? 'employeesByDate' : summary?.gender ? 'summary' : 'title parsing'})`);
 
         return {
           employeeName: emp.employeeName,
