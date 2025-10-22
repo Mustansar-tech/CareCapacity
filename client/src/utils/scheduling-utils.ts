@@ -170,11 +170,17 @@ export function isInsertionFeasible(
   // LENIENT window check - allow if visit has ANY overlap with windows
   const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
   
-  // If no overlap at all, check if within working hours (6am-10pm)
-  const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320;
+  // If no overlap at all, check if within working hours (6am-10pm / 22:00)
+  const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320; // 6am to 10pm
   
   if (!hasWindowOverlap && !isWithinWorkingHours) {
     return false; // Visit completely outside reasonable time
+  }
+
+  // Special allowance for evening visits (5pm-10pm) - critical for GH capacity
+  const isEveningVisit = visit.start >= 1020 && visit.end <= 1320; // 5pm to 10pm
+  if (isEveningVisit) {
+    return true; // Evening visits are always feasible for capacity filling
   }
 
   // Check time constraint with previous visit (only check if there's enough time to travel)

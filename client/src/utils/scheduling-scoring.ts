@@ -39,10 +39,11 @@ export interface MatchScore {
 
 // Scoring weights (optimized for MAXIMUM CAPACITY UTILIZATION)
 // GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
+// EVENING VISITS ARE GOOD - helps fill GH employee contracted hours
 const WEIGHTS = {
-  tightness: 0.05,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
-  travelAdded: 0.30,    // Moderate weight - travel matters but not critical
-  windowSlack: 0.50,    // HIGHEST weight - if it fits in window, assign it
+  tightness: 0.02,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
+  travelAdded: 0.25,    // Moderate weight - travel matters but not critical
+  windowSlack: 0.58,    // HIGHEST weight - if it fits in window, assign it
   homeProximity: 0.15,  // Prefer routes near home
 };
 

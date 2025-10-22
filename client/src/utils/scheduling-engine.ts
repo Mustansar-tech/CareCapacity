@@ -321,10 +321,17 @@ function assignVisitToBestEmployee(
 
     if (matchScore && matchScore.score > 0) {
       // Add GH bonus to prioritize guaranteed hours employees
-      const finalScore = isGHEmployee(schedule.employeeName)
+      let finalScore = isGHEmployee(schedule.employeeName)
         ? matchScore.score + GH_SCORE_BONUS
         : matchScore.score;
 
+      // Add evening visit bonus for GH employees (helps fill their hours)
+      const visitStartMin = timeToMinutes(adjustedVisit.startTime);
+      const isEveningVisit = visitStartMin >= 1020; // After 5pm
+      if (isGHEmployee(schedule.employeeName) && isEveningVisit) {
+        finalScore += 0.2; // Extra bonus for evening visits to GH employees
+        console.log(`🌙 EVENING BONUS: ${schedule.employeeName} gets +0.2 for evening visit ${adjustedVisit.clientName}`);
+      }
       candidates.push({
         employeeName: schedule.employeeName,
         score: finalScore,

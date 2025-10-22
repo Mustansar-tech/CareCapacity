@@ -633,9 +633,11 @@ export class AutoScheduler {
     score += travelScore * 0.35;
 
     // Factor 2: Time window preference (30% weight)
+    // Remove time-of-day penalties - evening visits are just as valid
+    // This ensures GH employees can be scheduled for evening visits
     const timePreferenceScore = visit.preferredStartTime 
-      ? Math.max(0, 1 - Math.abs(visit.startTime - visit.preferredStartTime) / 120) // 2-hour tolerance
-      : 0.5;
+      ? Math.max(0, 1 - Math.abs(visit.startTime - visit.preferredStartTime) / 180) // 3-hour tolerance for flexibility
+      : 0.7; // Default higher score - all times are acceptable
     score += timePreferenceScore * 0.3;
 
     // Factor 3: Employee utilization (30% weight) - prioritize those with more weekly capacity remaining
