@@ -555,14 +555,111 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   </div>
 
                                   {/* Arrow with Travel Time (if not last visit) */}
-                                  {vIndex < dayVisits.length - 1 && (
-                                    <div className="flex flex-col items-center">
-                                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                        {dayVisits[vIndex + 1].travelTimeBefore}min
-                                      </span>
-                                      <ArrowRight className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                  )}
+                                  {vIndex < dayVisits.length - 1 && (() => {
+                                    const currentVisit = dayVisits[vIndex];
+                                    const nextVisit = dayVisits[vIndex + 1];
+                                    
+                                    // Calculate gap between visits
+                                    const timeToMinutes = (timeStr: string) => {
+                                      const [hours, minutes] = timeStr.split(':').map(Number);
+                                      return hours * 60 + minutes;
+                                    };
+                                    
+                                    const currentEndMin = timeToMinutes(currentVisit.endTime);
+                                    const nextStartMin = timeToMinutes(nextVisit.startTime);
+                                    const gapMinutes = nextStartMin - currentEndMin;
+                                    
+                                    // If gap is 90 minutes or more, show home break
+                                    if (gapMinutes >= 90) {
+                                      const empLocation = employeeLocationMap.get(
+                                        Object.keys(weekSchedule.assignments[activeDay] || {}).find(emp => 
+                                          (weekSchedule.assignments[activeDay]?.[emp] || []).some(v => v.id === currentVisit.id)
+                                        ) || ''
+                                      );
+                                      
+                                      let travelToHome = 0;
+                                      let travelFromHome = 0;
+                                      
+                                      if (empLocation?.homeLat && empLocation?.homeLng) {
+                                        const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
+                                          const R = 6371;
+                                          const dLat = (to.lat - from.lat) * Math.PI / 180;
+                                          const dLng = (to.lng - from.lng) * Math.PI / 180;
+                                          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                            Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
+                                            Math.sin(dLng/2) * Math.sin(dLng/2);
+                                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                          const distKm = R * c;
+                                          const speedKmh = mode === 'walking' ? 5 : 40;
+                                          return Math.round((distKm / speedKmh) * 60);
+                                        };
+                                        
+                                        const transportMode = empLocation.transportMode?.toLowerCase() || '';
+                                        const mode = transportMode.includes('walk') ? 'walking' : 'car';
+                                        
+                                        // Travel from current visit to home
+                                        if (currentVisit.lat && currentVisit.lng) {
+                                          travelToHome = getTravelMinutes(
+                                            { lat: currentVisit.lat, lng: currentVisit.lng },
+                                            { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
+                                            mode
+                                          );
+                                        }
+                                        
+                                        // Travel from home to next visit
+                                        if (nextVisit.lat && nextVisit.lng) {
+                                          travelFromHome = getTravelMinutes(
+                                            { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
+                                            { lat: nextVisit.lat, lng: nextVisit.lng },
+                                            mode
+                                          );
+                                        }
+                                      }
+                                      
+                                      const breakTime = gapMinutes - travelToHome - travelFromHome;
+                                      
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          {/* Travel to home */}
+                                          <div className="flex flex-col items-center">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                              {travelToHome}min
+                                            </span>
+                                            <ArrowRight className="h-5 w-5 text-gray-400" />
+                                          </div>
+                                          
+                                          {/* Home break */}
+                                          <div className="flex flex-col items-center px-3 py-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-700">
+                                            <Home className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-1" />
+                                            <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                                              Break
+                                            </span>
+                                            <span className="text-xs text-orange-600 dark:text-orange-400">
+                                              {breakTime}min
+                                            </span>
+                                          </div>
+                                          
+                                          {/* Travel from home */}
+                                          <div className="flex flex-col items-center">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                              {travelFromHome}min
+                                            </span>
+                                            <ArrowRight className="h-5 w-5 text-gray-400" />
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                    
+                                    // Normal travel between visits (gap < 90 minutes)
+                                    return (
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                          {nextVisit.travelTimeBefore}min
+                                        </span>
+                                        <ArrowRight className="h-5 w-5 text-gray-400" />
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               ))}
 

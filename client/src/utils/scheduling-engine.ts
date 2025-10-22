@@ -399,6 +399,29 @@ function assignVisitToBestEmployee(
       schedule.transportMode
     );
     console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
+  } else {
+    // Check if there's a large gap (90+ minutes) suggesting a home break
+    const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
+    const prevEndMin = timeToMinutes(prevVisit.endTime);
+    const currentStartMin = timeToMinutes(best.adjustedVisit.startTime);
+    const gapMinutes = currentStartMin - prevEndMin;
+    
+    if (gapMinutes >= 90) {
+      // Large gap - employee goes home and returns
+      const travelToHome = getTravelMinutes(
+        { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
+        { lat: schedule.homeLat, lng: schedule.homeLng },
+        schedule.transportMode
+      );
+      const travelFromHome = getTravelMinutes(
+        { lat: schedule.homeLat, lng: schedule.homeLng },
+        { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
+        schedule.transportMode
+      );
+      
+      actualTravelTimeBefore = travelFromHome;
+      console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
+    }
   }
 
   // Create assigned visit using adjusted times
