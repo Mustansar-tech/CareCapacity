@@ -440,7 +440,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             <div className="flex items-center gap-2 flex-wrap">
                               {weeklyHours > 0 && (
                                 <span className="text-xs text-muted-foreground">
-                                  {weeklyHours.toFixed(1)}h GH
+                                  {weeklyHours.toFixed(1)}h / week
                                 </span>
                               )}
                               {weeklyNetCapacity !== 0 && (
