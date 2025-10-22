@@ -571,11 +571,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                     
                                     // If gap is 90 minutes or more, show home break
                                     if (gapMinutes >= 90) {
-                                      const empLocation = employeeLocationMap.get(
-                                        Object.keys(weekSchedule.assignments[activeDay] || {}).find(emp => 
-                                          (weekSchedule.assignments[activeDay]?.[emp] || []).some(v => v.id === currentVisit.id)
-                                        ) || ''
-                                      );
+                                      const empLocation = employeeLocationMap.get(selectedEmployee || '');
                                       
                                       let travelToHome = 0;
                                       let travelFromHome = 0;
