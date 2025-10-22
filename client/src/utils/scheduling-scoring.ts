@@ -37,12 +37,12 @@ export interface MatchScore {
   gap: number;
 }
 
-// Scoring weights (optimized for best overall schedule quality)
-// Travel time is now a scoring factor only, not a hard constraint
+// Scoring weights (optimized for MAXIMUM CAPACITY UTILIZATION)
+// GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
 const WEIGHTS = {
-  tightness: 0.10,      // LOW weight - gaps are OK, prioritize capacity utilization
-  travelAdded: 0.40,    // Higher weight - minimize travel but don't reject
-  windowSlack: 0.35,    // HIGH weight - prioritize fitting visits in windows
+  tightness: 0.05,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
+  travelAdded: 0.30,    // Moderate weight - travel matters but not critical
+  windowSlack: 0.50,    // HIGHEST weight - if it fits in window, assign it
   homeProximity: 0.15,  // Prefer routes near home
 };
 
@@ -108,9 +108,9 @@ export function scoreVisitMatch(
 
   // Calculate breakdown scores
 
-  // 1. Tightness score (prefer smaller gaps, normalized to 0-1)
-  // Max gap considered is 120 minutes
-  const tightnessScore = Math.max(0, 1 - (bestGap / 120));
+  // 1. Tightness score (gaps are acceptable, very light penalty)
+  // Max gap considered is 240 minutes (4 hours) - large gaps are fine
+  const tightnessScore = Math.max(0, 1 - (bestGap / 240));
 
   // 2. Travel added score (prefer minimal travel)
   // Calculate current route travel
@@ -137,8 +137,9 @@ export function scoreVisitMatch(
   }
 
   const travelAdded = newTravel - currentTravel;
-  // Score based on travel added - no hard limit, use 40 minutes as reference
-  const travelAddedScore = Math.max(0, 1 - (travelAdded / 40));
+  // Score based on travel added - use 60 minutes as reference (more lenient)
+  // Longer travel is acceptable if it helps utilize capacity
+  const travelAddedScore = Math.max(0, 1 - (travelAdded / 60));
 
   // 3. Window slack score (prefer visits that use window time efficiently)
   // Find the tightest window that contains this visit
@@ -154,8 +155,9 @@ export function scoreVisitMatch(
       return startSlack + endSlack;
     });
     const minSlack = Math.min(...slacks);
-    // Max slack considered is 240 minutes (4 hours)
-    windowSlackScore = Math.max(0, 1 - (minSlack / 240));
+    // Max slack considered is 480 minutes (8 hours) - very lenient
+    // If visit fits in window, give it a high score regardless of slack
+    windowSlackScore = Math.max(0.7, 1 - (minSlack / 480)); // Minimum 0.7 for any window fit
   }
 
   // 4. Home proximity score (prefer visits closer to home for first/last)

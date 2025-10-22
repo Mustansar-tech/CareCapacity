@@ -6,7 +6,8 @@ import {
   parseTimeWindows,
   type TimeWindow,
   isInsertionFeasible,
-  getTravelMinutes // Import getTravelMinutes
+  getTravelMinutes, // Import getTravelMinutes
+  fitsInWindow // Import fitsInWindow
 } from './scheduling-utils';
 import {
   scoreVisitMatch,
@@ -39,6 +40,15 @@ const TIME_FLEXIBILITY_MINUTES = 5;
 
 // GH (Guaranteed Hours) bonus for prioritization
 const GH_SCORE_BONUS = 0.1;
+
+// Scoring weights (optimized for MAXIMUM CAPACITY UTILIZATION)
+// GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
+const WEIGHTS = {
+  tightness: 0.05,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
+  travelAdded: 0.30,    // Moderate weight - travel matters but not critical
+  windowSlack: 0.50,    // HIGHEST weight - if it fits in window, assign it
+  homeProximity: 0.15,  // Prefer routes near home
+};
 
 // Check if employee has Guaranteed Hours (GH in name)
 function isGHEmployee(employeeName: string): boolean {
