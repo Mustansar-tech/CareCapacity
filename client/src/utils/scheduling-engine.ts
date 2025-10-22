@@ -148,21 +148,37 @@ function wouldExceedCapacity(
 // Check if visit fits in available windows WITHOUT adjusting times
 // Client visit times are FIXED and cannot be shifted
 // ALLOWS GAPS - employee can have free time between visits
+// VERY LENIENT - if visit overlaps with window at all, allow it
 function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
   const visitEnd = timeToMinutes(visit.endTime);
-  const visitDuration = visitEnd - visitStart;
 
-  // Check if visit fits EXACTLY within any availability window
-  // NO TIME SHIFTING ALLOWED - visit times are fixed from Excel
-  // GAPS ARE ALLOWED - visits don't need to be back-to-back
+  // Strategy 1: Check if visit fits EXACTLY within any availability window (ideal case)
   for (const window of windows) {
     if (visitStart >= window.start && visitEnd <= window.end) {
-      return visit; // Return original visit with unchanged times
+      return visit; // Perfect fit - return original visit
     }
   }
 
-  return null; // Cannot assign - visit time is fixed and doesn't match any window
+  // Strategy 2: LENIENT - Check if visit has ANY overlap with windows
+  // This allows visits with large gaps before/after to still be assigned
+  for (const window of windows) {
+    // Allow if visit overlaps with window at all (even partially)
+    if (visitStart < window.end && visitEnd > window.start) {
+      console.log(`✅ LENIENT FIT: ${visit.clientName} ${visit.startTime}-${visit.endTime} overlaps with window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
+      return visit; // Return original visit - gaps are OK
+    }
+  }
+
+  // Strategy 3: ULTRA LENIENT - If visit is on the same day (within working hours 6am-10pm)
+  // and employee has ANY availability window, allow it (maximize capacity utilization)
+  const isWithinWorkingHours = visitStart >= 360 && visitEnd <= 1320; // 6am to 10pm
+  if (isWithinWorkingHours && windows.length > 0) {
+    console.log(`✅ ULTRA LENIENT: ${visit.clientName} ${visit.startTime}-${visit.endTime} within working hours, employee has availability - ALLOW with gap`);
+    return visit; // Allow visit even with large gaps
+  }
+
+  return null; // Cannot assign - visit completely outside any reasonable time
 }
 
 // Convert ClientVisit to ScoringVisit format

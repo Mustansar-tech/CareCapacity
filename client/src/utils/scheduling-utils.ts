@@ -158,6 +158,7 @@ export function fitsInWindow(
 }
 
 // Check if inserting a visit between two existing visits is feasible
+// VERY LENIENT - allows large gaps, focuses on physical feasibility
 export function isInsertionFeasible(
   visit: { start: number; end: number },
   prevVisit: { end: number; lat: number; lng: number } | null,
@@ -166,12 +167,18 @@ export function isInsertionFeasible(
   windows: TimeWindow[],
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
-  // Check if visit fits in at least one availability window
-  if (!fitsInWindow(visit.start, visit.end, windows)) {
-    return false;
+  // LENIENT window check - allow if visit has ANY overlap with windows
+  const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
+  
+  // If no overlap at all, check if within working hours (6am-10pm)
+  const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320;
+  
+  if (!hasWindowOverlap && !isWithinWorkingHours) {
+    return false; // Visit completely outside reasonable time
   }
 
   // Check time constraint with previous visit (only check if there's enough time to travel)
+  // ALLOW LARGE GAPS - employee can have free time
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
       { lat: prevVisit.lat, lng: prevVisit.lng },
@@ -182,9 +189,12 @@ export function isInsertionFeasible(
     if (prevVisit.end + travelFromPrev > visit.start) {
       return false; // Not enough time to travel from previous visit
     }
+    
+    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
   // Check time constraint with next visit (only check if there's enough time to travel)
+  // ALLOW LARGE GAPS - employee can have free time
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
       visitLocation,
@@ -195,9 +205,11 @@ export function isInsertionFeasible(
     if (visit.end + travelToNext > nextVisit.start) {
       return false; // Not enough time to travel to next visit
     }
+    
+    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
-  return true;
+  return true; // Visit is feasible - gaps are OK
 }
 
 // Calculate the gap/slack when inserting a visit

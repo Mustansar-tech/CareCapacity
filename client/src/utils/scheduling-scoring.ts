@@ -108,9 +108,10 @@ export function scoreVisitMatch(
 
   // Calculate breakdown scores
 
-  // 1. Tightness score (gaps are acceptable, very light penalty)
-  // Max gap considered is 240 minutes (4 hours) - large gaps are fine
-  const tightnessScore = Math.max(0, 1 - (bestGap / 240));
+  // 1. Tightness score (gaps are acceptable, MINIMAL penalty)
+  // Max gap considered is 480 minutes (8 hours) - even very large gaps are fine
+  // We want to fill capacity, not create tight schedules
+  const tightnessScore = Math.max(0.3, 1 - (bestGap / 480)); // Minimum 0.3 score for any feasible gap
 
   // 2. Travel added score (prefer minimal travel)
   // Calculate current route travel
