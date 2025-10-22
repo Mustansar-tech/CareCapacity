@@ -42,9 +42,9 @@ export interface MatchScore {
 // EVENING VISITS ARE GOOD - helps fill GH employee contracted hours
 const WEIGHTS = {
   tightness: 0.02,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
-  travelAdded: 0.25,    // Moderate weight - travel matters but not critical
-  windowSlack: 0.58,    // HIGHEST weight - if it fits in window, assign it
-  homeProximity: 0.15,  // Prefer routes near home
+  travelAdded: 0.20,    // Moderate weight - travel matters but not critical
+  windowSlack: 0.53,    // HIGHEST weight - if it fits in window, assign it
+  homeProximity: 0.25,  // INCREASED - prefer routes that start near home
 };
 
 // Calculate score for a candidate visit insertion

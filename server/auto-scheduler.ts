@@ -539,6 +539,17 @@ export class AutoScheduler {
         continue; // Skip this employee - gender doesn't match client preference
       }
 
+      // CRITICAL: Check if employee already has a visit at this exact time
+      const hasTimeConflict = schedule.visits.some((v: any) => {
+        // Check for any time overlap
+        return (visit.startTime < v.actualEndTime && visit.endTime > v.actualStartTime);
+      });
+
+      if (hasTimeConflict) {
+        console.log(`   ❌ ${empName}: TIME CONFLICT - already has visit at ${visit.startTime}-${visit.endTime}`);
+        continue; // Skip - employee already busy at this time
+      }
+
       if (clientGenderPref) {
         console.log(`   ✅ ${empName}: gender="${employee.gender}" MATCHES required "${clientGenderPref}" - checking availability...`);
       }

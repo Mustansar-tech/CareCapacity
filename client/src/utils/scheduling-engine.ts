@@ -325,8 +325,42 @@ function assignVisitToBestEmployee(
         ? matchScore.score + GH_SCORE_BONUS
         : matchScore.score;
 
-      // Add evening visit bonus for GH employees (helps fill their hours)
+      // CRITICAL: Penalize if employee already has a visit at this exact time
+      // This prevents same-time assignments unless it's multiple care
+      const hasConflictingVisit = schedule.assignedVisits.some(v => {
+        const vStart = timeToMinutes(v.startTime);
+        const vEnd = timeToMinutes(v.endTime);
+        const visitStart = timeToMinutes(adjustedVisit.startTime);
+        const visitEnd = timeToMinutes(adjustedVisit.endTime);
+        
+        // Check for any overlap in time
+        return (visitStart < vEnd && visitEnd > vStart);
+      });
+      
+      if (hasConflictingVisit) {
+        finalScore *= 0.1; // Massive penalty - nearly eliminate this option
+        console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
+      }
+
+      // Add early visit bonus for first visits (prioritize starting early and near home)
       const visitStartMin = timeToMinutes(adjustedVisit.startTime);
+      if (schedule.assignedVisits.length === 0) {
+        // First visit - bonus for early morning (before 10am)
+        if (visitStartMin < 600) { // Before 10am
+          finalScore += 0.3; // Strong bonus for early starts
+        }
+        // Also bonus for proximity to home (already in matchScore but emphasize it)
+        const distFromHome = getTravelMinutes(
+          { lat: schedule.homeLat, lng: schedule.homeLng },
+          { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+          schedule.transportMode
+        );
+        if (distFromHome < 15) { // Within 15 minutes of home
+          finalScore += 0.2; // Bonus for starting near home
+        }
+      }
+
+      // Add evening visit bonus for GH employees (helps fill their hours)
       const isEveningVisit = visitStartMin >= 1020; // After 5pm
       if (isGHEmployee(schedule.employeeName) && isEveningVisit) {
         finalScore += 0.2; // Extra bonus for evening visits to GH employees
@@ -587,6 +621,14 @@ export function generateWeeklySchedule(
   });
   
   console.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
+  
+  // Log first 5 visits to verify chronological order
+  if (sortedVisits.length > 0) {
+    console.log('📋 First 5 visits in chronological order:');
+    sortedVisits.slice(0, 5).forEach((v, i) => {
+      console.log(`  ${i + 1}. ${v.clientName} @ ${v.startTime}-${v.endTime}`);
+    });
+  }
 
   // First pass: Assign each visit prioritizing GH employees
   for (const visit of sortedVisits) {
