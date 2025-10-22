@@ -55,16 +55,27 @@ export function scoreVisitMatch(
 ): MatchScore | null {
   const { visits, homeLat, homeLng, mode } = employeeRun;
 
-  // Find best insertion point
+  // Find best insertion point that maintains CHRONOLOGICAL ORDER
   let bestIndex = 0;
   let bestGap = Infinity;
   let travelFromPrev = 0;
   let travelToNext = 0;
 
-  // Try each position
+  // Try each position, but ONLY if it maintains chronological order
   for (let i = 0; i <= visits.length; i++) {
     const prevVisit = i > 0 ? visits[i - 1] : null;
     const nextVisit = i < visits.length ? visits[i] : null;
+
+    // CRITICAL: Check chronological order FIRST
+    // If previous visit starts after this one, skip this position
+    if (prevVisit && prevVisit.start > visit.start) {
+      continue; // Cannot insert here - would break chronology
+    }
+    
+    // If next visit starts before this one, skip this position
+    if (nextVisit && nextVisit.start < visit.start) {
+      continue; // Cannot insert here - would break chronology
+    }
 
     const travelFrom = prevVisit
       ? getTravelMinutes({ lat: prevVisit.lat, lng: prevVisit.lng }, { lat: visit.lat, lng: visit.lng }, mode)

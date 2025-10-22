@@ -380,12 +380,35 @@ function assignVisitToBestEmployee(
     score: best.score,
   };
 
+  // CRITICAL: Verify chronological order before insertion
+  const visitStartMin = timeToMinutes(assignedVisit.startTime);
+  
+  // Check previous visit doesn't start after this one
+  if (best.insertionIndex > 0) {
+    const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
+    const prevStartMin = timeToMinutes(prevVisit.startTime);
+    if (prevStartMin > visitStartMin) {
+      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) after ${prevVisit.clientName} (${prevVisit.startTime})`);
+      return { success: false, reason: 'Would break chronological order (previous visit starts later)' };
+    }
+  }
+  
+  // Check next visit doesn't start before this one
+  if (best.insertionIndex < schedule.assignedVisits.length) {
+    const nextVisit = schedule.assignedVisits[best.insertionIndex];
+    const nextStartMin = timeToMinutes(nextVisit.startTime);
+    if (nextStartMin < visitStartMin) {
+      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) before ${nextVisit.clientName} (${nextVisit.startTime})`);
+      return { success: false, reason: 'Would break chronological order (next visit starts earlier)' };
+    }
+  }
+
   // Debug logging for travel time
   if (best.insertionIndex === 0) {
-    console.log(`✅ FIRST visit ${best.employeeName} → ${assignedVisit.clientName}: ${assignedVisit.travelTimeBefore}min from home (${schedule.homeLat}, ${schedule.homeLng})`);
+    console.log(`✅ FIRST visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from home`);
   } else {
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
-    console.log(`✅ Visit ${best.employeeName} → ${assignedVisit.clientName}: ${assignedVisit.travelTimeBefore}min from ${prevVisit.clientName}`);
+    console.log(`✅ Visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from ${prevVisit.clientName}`);
   }
 
   // Insert at the correct position
@@ -548,13 +571,22 @@ export function generateWeeklySchedule(
   // Track which employees are assigned to each time slot (for multiple care)
   const visitEmployeeAssignments = new Map<string, Set<string>>(); // key -> Set of employee names
 
-  // Sort visits by priority (if available), then by start time
+  // CRITICAL: Sort visits STRICTLY by start time (chronological order)
+  // This ensures we assign visits in the order they occur during the day
   const sortedVisits = [...filteredVisits].sort((a, b) => {
-    if (a.priority !== b.priority) {
-      return (b.priority || 1) - (a.priority || 1);
+    const aStart = timeToMinutes(a.startTime);
+    const bStart = timeToMinutes(b.startTime);
+    
+    // Primary sort: by start time (earlier visits first)
+    if (aStart !== bStart) {
+      return aStart - bStart;
     }
-    return timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
+    
+    // Secondary sort: by priority if start times are equal
+    return (b.priority || 1) - (a.priority || 1);
   });
+  
+  console.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
 
   // First pass: Assign each visit prioritizing GH employees
   for (const visit of sortedVisits) {
