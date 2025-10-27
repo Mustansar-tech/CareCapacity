@@ -46,8 +46,7 @@ export async function setupVite(app: Express, server: Server) {
 
     try {
       const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
+        process.cwd(),
         "client",
         "index.html",
       );
@@ -62,6 +61,7 @@ export async function setupVite(app: Express, server: Server) {
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
+      console.error("Error serving index.html:", e);
       next(e);
     }
   });
