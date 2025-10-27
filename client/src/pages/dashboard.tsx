@@ -88,7 +88,7 @@ export default function Dashboard() {
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
     queryKey: ['/api/history'],
-    enabled: false, // Disable automatic fetching
+    enabled: true, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
