@@ -11,13 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
 import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
 import { InteractiveCharts } from "@/components/interactive-charts";
-import { AISuggestions } from "@/components/ai-suggestions";
 import { DataQualityPanel } from "@/components/data-quality-panel";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
@@ -574,14 +573,7 @@ export default function Dashboard() {
               <Calendar className="w-4 h-4 mr-2" />
               Schedules
             </TabsTrigger>
-            <TabsTrigger 
-              value="ai-suggestions" 
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-ai-suggestions"
-            >
-              <LightBulbIcon className="w-4 h-4 mr-2" />
-              AI Insights
-            </TabsTrigger>
+            
             <TabsTrigger 
               value="charts" 
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
@@ -816,12 +808,7 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* AI Suggestions Tab */}
-          <TabsContent value="ai-suggestions" data-testid="content-ai-suggestions">
-            <AISuggestions 
-              data={filteredData || processedData} 
-            />
-          </TabsContent>
+          
 
           {/* Interactive Charts Tab with Data Quality */}
           <TabsContent value="charts" data-testid="content-charts">
