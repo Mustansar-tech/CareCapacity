@@ -148,38 +148,20 @@ function wouldExceedCapacity(
 
 // Check if visit fits in available windows WITHOUT adjusting times
 // Client visit times are FIXED and cannot be shifted
-// ALLOWS GAPS - employee can have free time between visits
-// VERY LENIENT - if visit overlaps with window at all, allow it
+// STRICT: Visit must fit COMPLETELY within an availability window
 function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
   const visitEnd = timeToMinutes(visit.endTime);
 
-  // Strategy 1: Check if visit fits EXACTLY within any availability window (ideal case)
+  // STRICT: Check if visit fits COMPLETELY within any availability window
   for (const window of windows) {
     if (visitStart >= window.start && visitEnd <= window.end) {
       return visit; // Perfect fit - return original visit
     }
   }
 
-  // Strategy 2: LENIENT - Check if visit has ANY overlap with windows
-  // This allows visits with large gaps before/after to still be assigned
-  for (const window of windows) {
-    // Allow if visit overlaps with window at all (even partially)
-    if (visitStart < window.end && visitEnd > window.start) {
-      console.log(`✅ LENIENT FIT: ${visit.clientName} ${visit.startTime}-${visit.endTime} overlaps with window ${minutesToTime(window.start)}-${minutesToTime(window.end)}`);
-      return visit; // Return original visit - gaps are OK
-    }
-  }
-
-  // Strategy 3: ULTRA LENIENT - If visit is on the same day (within working hours 6am-10pm)
-  // and employee has ANY availability window, allow it (maximize capacity utilization)
-  const isWithinWorkingHours = visitStart >= 360 && visitEnd <= 1320; // 6am to 10pm
-  if (isWithinWorkingHours && windows.length > 0) {
-    console.log(`✅ ULTRA LENIENT: ${visit.clientName} ${visit.startTime}-${visit.endTime} within working hours, employee has availability - ALLOW with gap`);
-    return visit; // Allow visit even with large gaps
-  }
-
-  return null; // Cannot assign - visit completely outside any reasonable time
+  // No fit found - visit is outside all availability windows
+  return null;
 }
 
 // Convert ClientVisit to ScoringVisit format
@@ -288,8 +270,7 @@ function assignVisitToBestEmployee(
       continue; // Skip - would exceed capacity
     }
 
-    // ALL windows are valid - don't filter by minimum duration
-    // This allows scheduling in smaller gaps and utilizing all available time
+    // Use all availability windows without filtering
     const validWindows = schedule.windows;
 
     if (validWindows.length === 0) {
@@ -299,6 +280,7 @@ function assignVisitToBestEmployee(
     // Try to adjust visit to fit in employee's windows
     const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows);
     if (!adjustedVisit) {
+      console.log(`⚠️ ${schedule.employeeName}: Visit ${originalVisit.clientName} ${originalVisit.startTime}-${originalVisit.endTime} does not fit in any availability window`);
       continue; // Could not adjust visit to fit any window
     }
 
