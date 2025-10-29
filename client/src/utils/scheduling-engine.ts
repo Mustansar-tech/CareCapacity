@@ -124,9 +124,10 @@ function wouldExceedCapacity(
   const newTotalCareTime = schedule.usedCapacityMinutes + visitDurationMinutes;
   const newWeeklyTotal = schedule.weeklyUsedMinutes + visitDurationMinutes;
 
-  // Check against weekly contracted hours first
-  if (newWeeklyTotal > schedule.weeklyContractedMinutes) {
-    console.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h)`);
+  // Check against weekly contracted hours first (with 30-minute tolerance to reduce wastage)
+  const WEEKLY_TOLERANCE_MINUTES = 30; // Allow 0.5h over contracted hours
+  if (newWeeklyTotal > schedule.weeklyContractedMinutes + WEEKLY_TOLERANCE_MINUTES) {
+    console.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h + 0.5h buffer)`);
     return true;
   }
 
@@ -470,6 +471,10 @@ function assignVisitToBestEmployee(
 
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
+  
+  // CRITICAL: Re-sort visits by start time to ensure chronological order is maintained
+  // This prevents the chronological error bug
+  schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;
