@@ -704,8 +704,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const uniquePostcodes = Array.from(new Set(postcodes as string[]));
       console.log(`🚀 Parallel geocoding ${uniquePostcodes.length} unique postcodes (from ${postcodes.length} total)...`);
 
-      // Process all postcodes in parallel using Promise.all
-      const postcodePromises = uniquePostcodes.map(async (postcode) => {
+      // CACHE VERIFICATION: Check which postcodes are already cached
+      const cacheChecks = await Promise.all(
+        uniquePostcodes.map(async (postcode) => {
+          const normalizedPostcode = postcode.trim().toUpperCase();
+          const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
+          return { postcode, normalizedPostcode, cached };
+        })
+      );
+
+      const cachedResults = cacheChecks.filter(c => c.cached).map(c => ({
+        query: c.normalizedPostcode,
+        input: c.postcode,
+        postcode: c.postcode,
+        type: 'postcode',
+        lat: Number(c.cached.lat),
+        lng: Number(c.cached.lng),
+        source: 'cache',
+        success: true,
+        approximate: false
+      }));
+
+      const uncachedPostcodes = cacheChecks.filter(c => !c.cached).map(c => c.postcode);
+      
+      console.log(`📊 Cache stats: ${cachedResults.length} cached, ${uncachedPostcodes.length} need geocoding`);
+
+      // Process all uncached postcodes in parallel using Promise.all
+      const postcodePromises = uncachedPostcodes.map(async (postcode) => {
         try {
           console.log(`🔍 Geocoding postcode: "${postcode}"`);
           const geocodeResult = await geocodeWithFallback(postcode, storage);
@@ -745,7 +770,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      const results = await Promise.all(postcodePromises);
+      const newResults = await Promise.all(postcodePromises);
+      
+      // Merge cached and newly geocoded results
+      const results = [...cachedResults, ...newResults];
 
       // TODO: Process full addresses using Mapbox/Google Maps when needed
       for (const address of addresses) {

@@ -517,6 +517,50 @@ export function generateWeeklySchedule(
   }>,
   weekDates: string[]
 ): WeeklyScheduleResult {
+  // Input validation
+  if (!visits || !Array.isArray(visits)) {
+    console.error('❌ Invalid visits input - expected array');
+    return {
+      assignments: {},
+      unallocated: [],
+      metrics: {
+        totalVisitsAssigned: 0,
+        totalVisitsUnallocated: 0,
+        averageTravelTimePerVisit: 0,
+        employeesUtilized: 0,
+      }
+    };
+  }
+
+  if (!employees || !Array.isArray(employees)) {
+    console.error('❌ Invalid employees input - expected array');
+    return {
+      assignments: {},
+      unallocated: visits.map(v => ({ ...v, reason: 'No employees available' })),
+      metrics: {
+        totalVisitsAssigned: 0,
+        totalVisitsUnallocated: visits.length,
+        averageTravelTimePerVisit: 0,
+        employeesUtilized: 0,
+      }
+    };
+  }
+
+  if (!weekDates || !Array.isArray(weekDates) || weekDates.length === 0) {
+    console.error('❌ Invalid weekDates input - expected non-empty array');
+    return {
+      assignments: {},
+      unallocated: visits.map(v => ({ ...v, reason: 'No valid dates provided' })),
+      metrics: {
+        totalVisitsAssigned: 0,
+        totalVisitsUnallocated: visits.length,
+        averageTravelTimePerVisit: 0,
+        employeesUtilized: 0,
+      }
+    };
+  }
+
+  try {
   // Filter out excluded visits at the beginning
   const filteredVisits = visits.filter(visit => {
     // Skip office visits
@@ -797,4 +841,20 @@ export function generateWeeklySchedule(
       employeesUtilized: utilizedEmployees.size,
     },
   };
+  } catch (error) {
+    console.error('❌ Fatal error in generateWeeklySchedule:', error);
+    return {
+      assignments: {},
+      unallocated: visits.map(v => ({ 
+        ...v, 
+        reason: `Scheduling error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      })),
+      metrics: {
+        totalVisitsAssigned: 0,
+        totalVisitsUnallocated: visits.length,
+        averageTravelTimePerVisit: 0,
+        employeesUtilized: 0,
+      }
+    };
+  }
 }
