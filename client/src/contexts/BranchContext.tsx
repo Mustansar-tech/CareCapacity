@@ -41,20 +41,18 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   }, [selectedBranchId, branches]);
 
   const setSelectedBranchId = (branchId: string) => {
-    console.log(`🔄 Branch changed from ${selectedBranchId} to ${branchId} - invalidating all cached data`);
+    console.log(`🔄 Branch changed from ${selectedBranchId} to ${branchId} - clearing all cached data`);
     
     setSelectedBranchIdState(branchId);
     localStorage.setItem('selectedBranchId', branchId);
     
-    // Remove ALL queries except the branches list to force fresh data from new branch
-    queryClient.removeQueries({
-      predicate: (query) => {
-        const queryKey = query.queryKey[0] as string;
-        return queryKey !== '/api/branches'; // Keep branches cached, remove everything else
-      }
-    });
+    // Clear ALL queries immediately to prevent any stale data from previous branch
+    // We'll keep only the branches list
+    const branchesQuery = queryClient.getQueryData(['/api/branches']);
+    queryClient.clear();
+    queryClient.setQueryData(['/api/branches'], branchesQuery);
     
-    console.log(`✅ All queries removed - components will now fetch fresh data for branch: ${branchId}`);
+    console.log(`✅ Query cache cleared - components will now fetch fresh data for branch: ${branchId}`);
   };
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId) || null;

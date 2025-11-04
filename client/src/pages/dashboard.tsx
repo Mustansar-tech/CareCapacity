@@ -113,12 +113,24 @@ export default function Dashboard() {
     setFilteredData(null);
     setSelectedWeekId(null);
     setSelectedDate(null);
+    setFiles({
+      availability: null,
+      guaranteed: null,
+      demand: null,
+      cgData: null
+    });
+    // Clear file inputs
+    const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
+    inputs.forEach(input => { input.value = ''; });
   }, [selectedBranchId]);
 
   // Auto-load latest data when component mounts or when we don't have data
   // Only load if we're sure it's for the current branch
   useEffect(() => {
-    if (latestData && !processedData && !selectedWeekId && selectedBranchId) {
+    // Verify the latestData is actually for the current branch by checking if it loaded successfully
+    // and we have a branch selected
+    if (latestData && !processedData && !selectedWeekId && selectedBranchId && !isLoadingLatest && !latestDataError) {
+      console.log(`📊 Auto-loading latest data for branch: ${selectedBranchId}`);
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -132,7 +144,7 @@ export default function Dashboard() {
         description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, selectedWeekId, selectedBranchId, toast]);
+  }, [latestData, processedData, selectedWeekId, selectedBranchId, isLoadingLatest, latestDataError, toast]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
