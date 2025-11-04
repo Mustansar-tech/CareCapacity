@@ -24,6 +24,7 @@ import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
+import { useBranch } from "@/contexts/BranchContext";
 
 
 
@@ -60,6 +61,9 @@ const renderStatusBadge = (status: string) => {
 };
 
 export default function Dashboard() {
+  // Get selected branch ID
+  const { selectedBranchId } = useBranch();
+  
   // File upload state - Adding CG Data Export as 4th file
   const [files, setFiles] = useState<{
     availability: File | null;
@@ -224,10 +228,15 @@ export default function Dashboard() {
     formData.append('guaranteed', files.guaranteed);
     formData.append('demand', files.demand);
     formData.append('cgData', files.cgData);
+    
+    // Include branch ID in the form data
+    if (selectedBranchId) {
+      formData.append('branchId', selectedBranchId);
+    }
 
     processMutation.mutate(formData);
 
-  }, [files, toast, processMutation]);
+  }, [files, toast, processMutation, selectedBranchId]);
 
   // Download export
   const handleExport = useCallback(async () => {
