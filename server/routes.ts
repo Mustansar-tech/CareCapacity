@@ -1366,6 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Weekly schedule generation endpoint
   app.post('/api/weekly-schedule/generate', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { weekStartDate } = req.body;
 
       if (!weekStartDate) {
@@ -1375,10 +1376,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the week boundaries
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
 
-      // Get latest processed data
-      const latestData = await storage.getLatestCapacityAnalysis();
+      // Get latest processed data for this branch
+      const latestData = await storage.getLatestCapacityAnalysis(branchId);
       if (!latestData) {
-        return res.status(404).json({ message: 'No processed data available. Please process files first.' });
+        return res.status(404).json({ message: 'No processed data available for this branch. Please process files first.' });
       }
 
       // Convert to ProcessingResult format
@@ -1418,8 +1419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         employeesUtilized: 0,
       };
 
-      // Save to database
+      // Save to database with branchId
       const savedSchedule = await storage.saveWeeklySchedule({
+        branchId,
         weekStartDate: weekStart,
         weekEndDate: weekEnd,
         scheduleData,
