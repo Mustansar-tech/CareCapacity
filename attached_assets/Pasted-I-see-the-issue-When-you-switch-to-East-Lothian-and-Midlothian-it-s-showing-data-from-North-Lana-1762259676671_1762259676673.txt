@@ -1,0 +1,59 @@
+I see the issue! When you switch to "East Lothian and Midlothian", it's showing data from North Lanarkshire instead of being empty. Let me check what's happening in the logs and fix this.
+
+Checked console and system logs
+
+Decided on caching issue diagnosis (5 seconds)
+I can see the issue! The logs show the API is correctly returning empty data [] when you switch to East Lothian, but the UI is still showing the old data. This is a frontend caching issue - the dashboard component is holding onto stale data. Let me check the dashboard code:
+
+
+Opened client/src/pages/dashboard.tsx
+
+Decided on data processing logic (5 seconds)
+Found it! The issue is on line 111 - the dashboard has a check !processedData that prevents it from updating when you switch branches. Once data is loaded, it stays loaded even when the branch changes. Let me fix this:
+
+
+Edited client/src/pages/dashboard.tsx
+
+Decided on data clearing logic
+Perfect! I've fixed the issue. The problem was that the dashboard was holding onto old processedData in component state even when you switched branches. I added a cleanup effect that clears all data when the branch changes.
+
+Let me restart the app so you can test it:
+
+
+Restarted Start application
+
+Planned data fetching and state reset
+✅ Fixed!
+The issue was that the dashboard component was caching old data in its local state. When you switched branches, the React Query cache was invalidated correctly, but the component wasn't clearing its own processedData state.
+
+What I Changed:
+Added a cleanup effect that runs whenever the branch changes:
+
+Clears processedData (the KPIs and metrics you were seeing)
+Clears filteredData
+Resets selectedWeekId and selectedDate
+This forces the component to reload fresh data for the new branch
+🧪 Test It Now:
+Select "North Lanarkshire & Glasgow East"
+
+You should see your existing data (399.43h capacity, etc.)
+Switch to "East Lothian and Midlothian"
+
+Watch the browser console - you'll see: 🧹 Branch changed - clearing all processed data
+Dashboard should now show "No previous data found" instead of stale data ✅
+Switch back to "North Lanarkshire"
+
+Your original data should reload correctly ✅
+Upload files to a different branch (e.g., Glasgow North)
+
+Upload 4 Excel files while "Glasgow North" is selected
+Data should appear for Glasgow North
+Switch back to North Lanarkshire
+You should see North Lanarkshire data (not Glasgow data) ✅
+The console will now show debug messages when switching:
+
+🔄 Branch changed from X to Y - invalidating all cached data
+🧹 Branch changed - clearing all processed data
+✅ All queries invalidated - components will now refetch
+
+Try switching branches now - the stale data issue should be completely fixed! 🎉
