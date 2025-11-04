@@ -1,8 +1,8 @@
-import { 
-  type User, 
+import {
+  type User,
   type InsertUser,
   type Branch,
-  type CapacityAnalysis, 
+  type CapacityAnalysis,
   type InsertCapacityAnalysis,
   type EmployeeLocation,
   type InsertEmployeeLocation,
@@ -124,7 +124,7 @@ export class MemStorage implements IStorage {
   async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
     // Remove existing entry with same week dates for deduplication
     const existingEntry = Array.from(this.capacityAnalyses.values()).find(
-      analysis => analysis.weekStartDate === insertAnalysis.weekStartDate && 
+      analysis => analysis.weekStartDate === insertAnalysis.weekStartDate &&
                   analysis.weekEndDate === insertAnalysis.weekEndDate
     );
     if (existingEntry) {
@@ -208,7 +208,7 @@ export class MemStorage implements IStorage {
     const sortedWeeks = Array.from(weekMap.entries())
       .sort(([, analysesA], [, analysesB]) => {
         const dateA = new Date(analysesA[0].weekStartDate); // Use actual weekStartDate field
-        const dateB = new Date(analysesB[0].weekStartDate); 
+        const dateB = new Date(analysesB[0].weekStartDate);
         return dateB.getTime() - dateA.getTime();
       });
 
@@ -225,7 +225,7 @@ export class MemStorage implements IStorage {
     // For remaining weeks, keep only the latest analysis per week
     sortedWeeks.slice(0, limit).forEach(([_weekKey, analyses]) => {
       if (analyses.length > 1) {
-        const sortedAnalyses = analyses.sort((a, b) => 
+        const sortedAnalyses = analyses.sort((a, b) =>
           new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
         );
         // Delete all but the latest
@@ -562,10 +562,10 @@ export class MemStorage implements IStorage {
 
   // Weekly schedule methods
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
-    // Remove existing entry with same week dates for deduplication
+    // Remove existing entry with same week dates FOR THIS BRANCH ONLY
     const existingEntry = Array.from(this.weeklySchedules.values()).find(
       schedule => schedule.branchId === insertSchedule.branchId &&
-                  schedule.weekStartDate === insertSchedule.weekStartDate && 
+                  schedule.weekStartDate === insertSchedule.weekStartDate &&
                   schedule.weekEndDate === insertSchedule.weekEndDate
     );
     if (existingEntry) {
@@ -609,19 +609,19 @@ export class MemStorage implements IStorage {
 
 // Switch to database storage in production
 import { db } from "./db";
-import { 
+import {
   users,
   branches,
-  capacityAnalyses, 
-  employeeLocations, 
-  clientLocations, 
-  visits, 
-  routePlans, 
-  routeStops, 
+  capacityAnalyses,
+  employeeLocations,
+  clientLocations,
+  visits,
+  routePlans,
+  routeStops,
   geocodeCache,
   weeklySchedules
 } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -703,11 +703,11 @@ export class DatabaseStorage implements IStorage {
   async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
     // Return deduplicated results using window function with proper column aliasing (filtered by branch)
     return await db.execute(sql`
-      SELECT DISTINCT ON (week_start_date, week_end_date) 
+      SELECT DISTINCT ON (week_start_date, week_end_date)
              id,
              branch_id AS "branchId",
              week_start_date AS "weekStartDate",
-             week_end_date AS "weekEndDate", 
+             week_end_date AS "weekEndDate",
              uploaded_at AS "uploadedAt",
              kpis,
              daily_summary AS "dailySummary",
@@ -730,7 +730,7 @@ export class DatabaseStorage implements IStorage {
       WITH latest_per_week AS (
         SELECT *,
                ROW_NUMBER() OVER (
-                 PARTITION BY week_start_date, week_end_date 
+                 PARTITION BY week_start_date, week_end_date
                  ORDER BY uploaded_at DESC
                ) as rn
         FROM capacity_analyses
@@ -739,20 +739,20 @@ export class DatabaseStorage implements IStorage {
       week_ranking AS (
         SELECT *,
                ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
-        FROM latest_per_week 
+        FROM latest_per_week
         WHERE rn = 1
       )
       SELECT id,
              branch_id AS "branchId",
              week_start_date AS "weekStartDate",
-             week_end_date AS "weekEndDate", 
+             week_end_date AS "weekEndDate",
              uploaded_at AS "uploadedAt",
              kpis,
              daily_summary AS "dailySummary",
              employees_by_date AS "employeesByDate",
              employee_summary_by_date AS "employeeSummaryByDate",
              warnings
-      FROM week_ranking 
+      FROM week_ranking
       WHERE week_rank <= ${limit}
       ORDER BY week_start_date DESC
     `).then(result => result.rows as CapacityAnalysis[]);
@@ -770,15 +770,15 @@ export class DatabaseStorage implements IStorage {
       records_to_keep AS (
         SELECT ca.id
         FROM capacity_analyses ca
-        INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date 
+        INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date
                                  AND ca.week_end_date = wr.week_end_date
         WHERE ca.branch_id = ${branchId}
           AND wr.week_rank <= ${limit}
           AND ca.id IN (
             SELECT id FROM (
-              SELECT id, 
+              SELECT id,
                      ROW_NUMBER() OVER (
-                       PARTITION BY week_start_date, week_end_date 
+                       PARTITION BY week_start_date, week_end_date
                        ORDER BY uploaded_at DESC
                      ) as rn
               FROM capacity_analyses
@@ -786,7 +786,7 @@ export class DatabaseStorage implements IStorage {
             ) ranked WHERE rn = 1
           )
       )
-      DELETE FROM capacity_analyses 
+      DELETE FROM capacity_analyses
       WHERE branch_id = ${branchId} AND id NOT IN (SELECT id FROM records_to_keep)
     `);
 
@@ -804,18 +804,18 @@ export class DatabaseStorage implements IStorage {
         -- Keep only the latest entry for each week
         SELECT *,
                ROW_NUMBER() OVER (
-                 PARTITION BY week_start_date, week_end_date 
+                 PARTITION BY week_start_date, week_end_date
                  ORDER BY uploaded_at DESC
                ) as rn
         FROM capacity_analyses
         WHERE branch_id = ${branchId} AND week_start_date >= ${cutoffString}
       ),
       records_to_keep AS (
-        SELECT id 
+        SELECT id
         FROM latest_per_week
         WHERE rn = 1  -- Keep only latest per week
       )
-      DELETE FROM capacity_analyses 
+      DELETE FROM capacity_analyses
       WHERE branch_id = ${branchId} AND id NOT IN (SELECT id FROM records_to_keep)
     `);
 
