@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 
 interface Branch {
   id: string;
@@ -40,10 +41,21 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   }, [selectedBranchId, branches]);
 
   const setSelectedBranchId = (branchId: string) => {
+    console.log(`🔄 Branch changed from ${selectedBranchId} to ${branchId} - invalidating all cached data`);
+    
     setSelectedBranchIdState(branchId);
     localStorage.setItem('selectedBranchId', branchId);
-    // Invalidate all queries to force refetch with new branch
-    window.location.reload();
+    
+    // Invalidate ALL queries except the branches list to force fresh data from new branch
+    // This is more elegant than window.location.reload() and preserves UI state
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey[0] as string;
+        return queryKey !== '/api/branches'; // Keep branches cached, invalidate everything else
+      }
+    });
+    
+    console.log(`✅ All queries invalidated - components will now refetch data for branch: ${branchId}`);
   };
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId) || null;

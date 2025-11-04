@@ -36,7 +36,7 @@ export type Branch = typeof branches.$inferSelect;
 // Historical data storage tables
 export const capacityAnalyses = pgTable("capacity_analyses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   weekStartDate: text("week_start_date").notNull(),
   weekEndDate: text("week_end_date").notNull(),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
@@ -275,7 +275,7 @@ export const clientDemandSchema = z.object({
 // Employee location data
 export const employeeLocations = pgTable("employee_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   employeeName: text("employee_name").notNull(),
   homePostcode: text("home_postcode").notNull(),
   homeLat: text("home_lat"),
@@ -294,7 +294,7 @@ export const employeeLocations = pgTable("employee_locations", {
 // Client location data
 export const clientLocations = pgTable("client_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   clientName: text("client_name").notNull(),
   addressLine: text("address_line").notNull(),
   postcode: text("postcode").notNull(),
@@ -312,7 +312,7 @@ export const clientLocations = pgTable("client_locations", {
 // Visit requirements
 export const visits = pgTable("visits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   clientId: varchar("client_id").notNull().references(() => clientLocations.id),
   date: text("date").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
@@ -330,7 +330,7 @@ export const visits = pgTable("visits", {
 // Route plans
 export const routePlans = pgTable("route_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   date: text("date").notNull(),
   employeeId: varchar("employee_id").notNull().references(() => employeeLocations.id),
   totalDistanceKm: text("total_distance_km"),
@@ -362,7 +362,7 @@ export const routeStops = pgTable("route_stops", {
 // Geocoding cache
 export const geocodeCache = pgTable("geocode_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   key: text("key").notNull(),
   lat: text("lat").notNull(),
   lng: text("lng").notNull(),
@@ -378,7 +378,7 @@ export const geocodeCache = pgTable("geocode_cache", {
 // Weekly schedules - stores generated employee schedules
 export const weeklySchedules = pgTable("weekly_schedules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
   weekStartDate: text("week_start_date").notNull(),
   weekEndDate: text("week_end_date").notNull(),
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
