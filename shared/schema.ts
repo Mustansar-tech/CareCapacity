@@ -17,9 +17,26 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Branches table for multi-franchise support
+export const branches = pgTable("branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBranchSchema = createInsertSchema(branches).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBranch = z.infer<typeof insertBranchSchema>;
+export type Branch = typeof branches.$inferSelect;
+
 // Historical data storage tables
 export const capacityAnalyses = pgTable("capacity_analyses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
   weekStartDate: text("week_start_date").notNull(),
   weekEndDate: text("week_end_date").notNull(),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
@@ -29,9 +46,10 @@ export const capacityAnalyses = pgTable("capacity_analyses", {
   employeeSummaryByDate: jsonb("employee_summary_by_date").notNull().default({}),
   warnings: jsonb("warnings").default([]),
 }, (table) => ({
-  // Unique constraint to prevent duplicate weeks
-  uniqueWeek: unique("unique_week").on(table.weekStartDate, table.weekEndDate),
+  // Unique constraint to prevent duplicate weeks PER BRANCH
+  uniqueWeek: unique("unique_week").on(table.branchId, table.weekStartDate, table.weekEndDate),
   // Indexes for efficient querying
+  branchIdx: index("branch_idx").on(table.branchId),
   weekStartIdx: index("week_start_idx").on(table.weekStartDate),
   uploadedAtIdx: index("uploaded_at_idx").on(table.uploadedAt),
 }));
@@ -257,7 +275,8 @@ export const clientDemandSchema = z.object({
 // Employee location data
 export const employeeLocations = pgTable("employee_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  employeeName: text("employee_name").notNull().unique(),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  employeeName: text("employee_name").notNull(),
   homePostcode: text("home_postcode").notNull(),
   homeLat: text("home_lat"),
   homeLng: text("home_lng"),
@@ -265,6 +284,9 @@ export const employeeLocations = pgTable("employee_locations", {
   gender: text("gender", { enum: ["male", "female"] }), // Employee gender for client matching
   geocodedAt: timestamp("geocoded_at"),
 }, (table) => ({
+  // Unique constraint: employee name must be unique WITHIN each branch
+  uniqueEmployeePerBranch: unique("unique_employee_per_branch").on(table.branchId, table.employeeName),
+  branchIdx: index("employee_branch_idx").on(table.branchId),
   employeeNameIdx: index("employee_name_idx").on(table.employeeName),
   postcodeIdx: index("postcode_idx").on(table.homePostcode),
 }));
@@ -272,13 +294,17 @@ export const employeeLocations = pgTable("employee_locations", {
 // Client location data
 export const clientLocations = pgTable("client_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientName: text("client_name").notNull().unique(),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  clientName: text("client_name").notNull(),
   addressLine: text("address_line").notNull(),
   postcode: text("postcode").notNull(),
   lat: text("lat"),
   lng: text("lng"),
   geocodedAt: timestamp("geocoded_at"),
 }, (table) => ({
+  // Unique constraint: client name must be unique WITHIN each branch
+  uniqueClientPerBranch: unique("unique_client_per_branch").on(table.branchId, table.clientName),
+  branchIdx: index("client_branch_idx").on(table.branchId),
   clientNameIdx: index("client_name_idx").on(table.clientName),
   postcodeIdx: index("client_postcode_idx").on(table.postcode),
 }));
@@ -286,6 +312,7 @@ export const clientLocations = pgTable("client_locations", {
 // Visit requirements
 export const visits = pgTable("visits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
   clientId: varchar("client_id").notNull().references(() => clientLocations.id),
   date: text("date").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
@@ -295,6 +322,7 @@ export const visits = pgTable("visits", {
   serviceType: text("service_type"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
+  branchIdx: index("visit_branch_idx").on(table.branchId),
   dateIdx: index("visit_date_idx").on(table.date),
   clientDateIdx: index("visit_client_date_idx").on(table.clientId, table.date),
 }));
@@ -302,6 +330,7 @@ export const visits = pgTable("visits", {
 // Route plans
 export const routePlans = pgTable("route_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
   date: text("date").notNull(),
   employeeId: varchar("employee_id").notNull().references(() => employeeLocations.id),
   totalDistanceKm: text("total_distance_km"),
@@ -311,6 +340,7 @@ export const routePlans = pgTable("route_plans", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
+  branchIdx: index("route_branch_idx").on(table.branchId),
   employeeDateIdx: index("route_employee_date_idx").on(table.employeeId, table.date),
   dateIdx: index("route_date_idx").on(table.date),
 }));
@@ -332,18 +362,23 @@ export const routeStops = pgTable("route_stops", {
 // Geocoding cache
 export const geocodeCache = pgTable("geocode_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  key: text("key").notNull().unique(),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
+  key: text("key").notNull(),
   lat: text("lat").notNull(),
   lng: text("lng").notNull(),
   source: text("source").notNull(),
   cachedAt: timestamp("cached_at").defaultNow().notNull(),
 }, (table) => ({
+  // Unique constraint: cache key must be unique WITHIN each branch
+  uniqueCachePerBranch: unique("unique_cache_per_branch").on(table.branchId, table.key),
+  branchIdx: index("geocode_branch_idx").on(table.branchId),
   keyIdx: index("geocode_key_idx").on(table.key),
 }));
 
 // Weekly schedules - stores generated employee schedules
 export const weeklySchedules = pgTable("weekly_schedules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").references(() => branches.id), // Nullable during migration
   weekStartDate: text("week_start_date").notNull(),
   weekEndDate: text("week_end_date").notNull(),
   generatedAt: timestamp("generated_at").defaultNow().notNull(),
@@ -351,7 +386,9 @@ export const weeklySchedules = pgTable("weekly_schedules", {
   unallocatedVisits: jsonb("unallocated_visits").default([]), // Visits that couldn't be assigned
   metrics: jsonb("metrics").notNull(), // Week-level metrics
 }, (table) => ({
-  uniqueWeek: unique("unique_weekly_schedule").on(table.weekStartDate, table.weekEndDate),
+  // Unique constraint: week must be unique WITHIN each branch
+  uniqueWeek: unique("unique_weekly_schedule").on(table.branchId, table.weekStartDate, table.weekEndDate),
+  branchIdx: index("weekly_schedule_branch_idx").on(table.branchId),
   weekStartIdx: index("weekly_schedule_start_idx").on(table.weekStartDate),
   generatedAtIdx: index("weekly_schedule_generated_idx").on(table.generatedAt),
 }));
