@@ -2962,8 +2962,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
 
-            // Get client location for this visit
-            const clientLocation = await storage.getClientLocationByName(clientName);
+            // Get client location for this visit - CRITICAL FIX: Pass branchId
+            const clientLocation = await storage.getClientLocationByName(branchId!, clientName);
 
             if (clientLocation && !visitsMap.has(visitKey)) {
               // Extract time windows for VRPTW optimizer
@@ -2977,6 +2977,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
               const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
 
               const visitData = {
+                branchId: branchId!, // CRITICAL FIX: Add branchId to visit
                 clientId: clientLocation.id,
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
@@ -3004,7 +3005,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
               console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
             } else if (!clientLocation) {
-              console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
+              console.log(`🔍 DEBUG: Client location not found for ${clientName} (branch: ${branchId}), skipping visit.`);
             }
           } catch (dateError) {
             // Skip visits with invalid dates
