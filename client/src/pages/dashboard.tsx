@@ -106,6 +106,15 @@ export default function Dashboard() {
     refetchOnMount: false, // Prevent refetch on component mount
   });
 
+  // Clear processed data when branch changes
+  useEffect(() => {
+    console.log('🧹 Branch changed - clearing all processed data');
+    setProcessedData(null);
+    setFilteredData(null);
+    setSelectedWeekId(null);
+    setSelectedDate(null);
+  }, [selectedBranchId]);
+
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
     if (latestData && !processedData && !selectedWeekId) {
