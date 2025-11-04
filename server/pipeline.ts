@@ -20,6 +20,54 @@ import {
 } from "@shared/schema";
 import { storage } from "./storage";
 
+// Helper function to extract branch from Excel data
+function extractBranchFromRow(row: any): string | null {
+  // Check multiple possible branch column names
+  const branchColumns = [
+    "CAREGiver Franchise",
+    "Customer Branch", 
+    "Branch",
+    "Franchise",
+    "Office"
+  ];
+  
+  for (const col of branchColumns) {
+    if (row[col]) {
+      return String(row[col]).trim();
+    }
+  }
+  
+  return null;
+}
+
+// Normalize branch name to match database values
+function normalizeBranchName(branchName: string): string {
+  const normalized = branchName.toLowerCase()
+    .replace(/home instead /gi, "")
+    .replace(/ & /g, "-")
+    .replace(/\s+/g, "-");
+  
+  // Map common variations to canonical names
+  const branchMap: Record<string, string> = {
+    "east-lothian-and-midlothian": "east-lothian",
+    "east-lothian": "east-lothian",
+    "scottish-borders": "scottish-borders",
+    "glasgow-north": "glasgow-north",
+    "north-lanarkshire-&-glasgow-east": "north-lanarkshire",
+    "north-lanarkshire-glasgow-east": "north-lanarkshire",
+    "north-lanarkshire": "north-lanarkshire",
+    "glasgow-south": "glasgow-south",
+    "aberdeen": "aberdeen",
+    "perthshire": "perthshire",
+    "south-ayrshire-kilmarnock": "south-ayrshire",
+    "south-ayrshire": "south-ayrshire",
+    "stirling-&-falkirk": "stirling-falkirk",
+    "stirling-falkirk": "stirling-falkirk"
+  };
+  
+  return branchMap[normalized] || normalized;
+}
+
 // Enhanced geocoding with fallback hierarchy
 async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
@@ -1342,12 +1390,54 @@ export async function parseExcelFiles(
   console.log(`📈 Total hours: ${totalHours} (expected: 400.33)`);
   console.log(`=======================================\n`);
 
+  // === BRANCH EXTRACTION AND VALIDATION ===
+  console.log(`\n🏢 ===== BRANCH DETECTION =====`);
+  
+  const branchesDetected = new Set<string>();
+  
+  // Extract from CG Data Export (most reliable source)
+  if (cgRowsRaw.length > 0) {
+    const sampleBranches = cgRowsRaw.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
+    sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
+    console.log(`📄 CG Data sample branches: ${sampleBranches.join(", ")}`);
+  }
+  
+  // Extract from Guaranteed Hours
+  if (guaranteedData.length > 0) {
+    const sampleBranches = guaranteedData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
+    sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
+    console.log(`📄 Guaranteed Hours sample branches: ${sampleBranches.join(", ")}`);
+  }
+  
+  // Extract from Availability
+  if (availabilityData.length > 0) {
+    const sampleBranches = availabilityData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
+    sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
+    console.log(`📄 Availability sample branches: ${sampleBranches.join(", ")}`);
+  }
+  
+  const detectedBranches = Array.from(branchesDetected);
+  console.log(`✅ Detected branches: ${detectedBranches.join(", ")}`);
+  
+  if (detectedBranches.length === 0) {
+    warnings.push("⚠️ No branch information found in Excel files. Branch column may be missing.");
+    console.log(`⚠️ WARNING: No branch detected - files may be missing branch column`);
+  } else if (detectedBranches.length > 1) {
+    warnings.push(`⚠️ Multiple branches detected: ${detectedBranches.join(", ")}. Files may be mixed.`);
+    console.log(`⚠️ WARNING: Multiple branches detected - potential data mixing!`);
+  }
+  
+  const detectedBranch = detectedBranches[0] || null;
+  console.log(`🏢 Final detected branch: ${detectedBranch || "NONE"}`);
+  console.log(`=======================================\n`);
+
   return {
     availability: validatedAvailability,
     guaranteed: validatedGuaranteed,
     demand: validatedDemand,
     cgData,
     warnings,
+    detectedBranch, // Return the detected branch
   };
 }
 
