@@ -2602,8 +2602,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         continue;
       }
 
-      // Prioritize 'Service Location Name' as the client identifier
-      const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
+      // Use the prioritized client name column
+      const clientName = pickCol(row, CLIENT_COLS);
       const serviceLocationAddress = row["Service Location Address"];
 
       // Try to extract postcode from the address if possible
