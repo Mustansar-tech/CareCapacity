@@ -1447,9 +1447,10 @@ export async function processCapacityData(
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
-  options?: { ghWorkbookBuffer?: Buffer }, // ← NEW optional param
+  options?: { ghWorkbookBuffer?: Buffer; branchId?: string }, // ← NEW optional params
 ): Promise<ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] }> {
   const warnings: string[] = [];
+  const branchId = options?.branchId;
 
   // REVOLUTIONARY CHANGE: Start with CG Data as master employee list
   console.log(`\n🚀 ===== USING CG DATA AS MASTER EMPLOYEE LIST =====`);
@@ -2439,12 +2440,12 @@ export async function processCapacityData(
   }
 
   // Extract and store geographical data for scheduling optimization
-  await extractAndStoreGeographicalData(cgData, guaranteed);
+  await extractAndStoreGeographicalData(cgData, guaranteed, branchId);
 
   // Retrieve geographical data to include in the result
   try {
-    const employeeLocations = await storage.getAllEmployeeLocations();
-    const clientLocations = await storage.getAllClientLocations();
+    const employeeLocations = branchId ? await storage.getAllEmployeeLocations(branchId) : [];
+    const clientLocations = branchId ? await storage.getAllClientLocations(branchId) : [];
 
     const resultWithLocations = result as ProcessingResult;
 
@@ -2475,9 +2476,15 @@ export async function processCapacityData(
 }
 
 // Extract and store geographical data for route optimization
-async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[]) {
+async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branchId?: string) {
   console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
   console.log(`📊 CG Data rows to process: ${cgData.length}`);
+  console.log(`🏢 Branch ID: ${branchId || 'NONE'}`);
+
+  if (!branchId) {
+    console.log(`⚠️  WARNING: No branchId provided - geographical data will not be saved to database`);
+    return;
+  }
 
   try {
     // Extract employee locations from CG Data Export
@@ -2771,6 +2778,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             for (const employeeName of names) {
               const base = employeeLocationsMap.get(employeeName) || {};
               await storage.upsertEmployeeLocation({
+                branchId: branchId!, // Required branch ID for data isolation
                 employeeName,
                 homePostcode: pc,
                 homeLat: r.lat.toString(),
@@ -2877,6 +2885,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             console.log(`✅ SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
 
             await storage.upsertClientLocation({
+              branchId: branchId!, // Required branch ID for data isolation
               clientName,
               addressLine: clientLocationsMap.get(clientName)?.addressLine || "",
               postcode: pc,
@@ -3007,8 +3016,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
     }
 
     // Log final geocoding statistics
-    const empLocs = await storage.getAllEmployeeLocations?.() ?? [];
-    const cliLocs = await storage.getAllClientLocations?.() ?? [];
+    const empLocs = branchId && storage.getAllEmployeeLocations ? await storage.getAllEmployeeLocations(branchId) : [];
+    const cliLocs = branchId && storage.getAllClientLocations ? await storage.getAllClientLocations(branchId) : [];
     console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
     console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
 

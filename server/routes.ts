@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import multer from 'multer';
 import path from 'path';
@@ -6,6 +6,37 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
+
+/**
+ * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)
+ * Validates that the branch exists in the database
+ * Provides backward compatibility via DEFAULT_BRANCH_ID env var
+ */
+async function resolveBranch(req: Request): Promise<string> {
+  // Extract branchId from query (GET) or body (POST/PUT/DELETE)
+  const branchId = req.query.branchId as string || req.body?.branchId as string;
+  
+  // Fallback to default branch if configured (for backward compatibility during transition)
+  const defaultBranchId = process.env.DEFAULT_BRANCH_ID;
+  const resolvedBranchId = branchId || defaultBranchId;
+  
+  if (!resolvedBranchId) {
+    throw new Error('branchId is required. Provide it as a query parameter (GET) or in request body (POST/PUT/DELETE)');
+  }
+  
+  // Validate branch exists
+  const branch = await storage.getBranchById(resolvedBranchId);
+  if (!branch) {
+    throw new Error(`Branch with ID '${resolvedBranchId}' not found`);
+  }
+  
+  // Log for metrics (to identify legacy callers using fallback)
+  if (!branchId && defaultBranchId) {
+    console.log(`⚠️  Request to ${req.method} ${req.path} using DEFAULT_BRANCH_ID fallback: ${defaultBranchId}`);
+  }
+  
+  return resolvedBranchId;
+}
 
 
 // Configure multer for file uploads
@@ -100,7 +131,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const requestedBranchId = req.body.branchId; // Branch ID from frontend
+      
       console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
+      console.log(`🏢 Requested branch ID:`, requestedBranchId || 'NONE');
 
       // Validate that all four files are present
       if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
@@ -108,6 +142,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: 'Missing required files. Please upload availability, guaranteed, demand, and CG Data Export files.'
         });
       }
+
+      // Validate branchId is provided
+      if (!requestedBranchId) {
+        return res.status(400).json({
+          message: 'Branch selection is required. Please select a branch before uploading files.'
+        });
+      }
+
+      // Validate branchId exists in database
+      const branch = await storage.getBranchById(requestedBranchId);
+      if (!branch) {
+        return res.status(400).json({
+          message: 'Invalid branch selected. Please refresh and try again.'
+        });
+      }
+
+      console.log(`✅ Branch validated: ${branch.displayName} (${branch.name})`);
 
       const availabilityFile = files.availability[0];
       const guaranteedFile = files.guaranteed[0];
@@ -158,13 +209,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cgDataFile.buffer
       );
 
+      // Validate detected branch matches requested branch
+      if (parsedData.detectedBranch) {
+        const detectedBranchObj = await storage.getBranchByName(parsedData.detectedBranch);
+        if (detectedBranchObj && detectedBranchObj.id !== requestedBranchId) {
+          return res.status(400).json({
+            message: `Branch mismatch: You selected "${branch.displayName}" but the Excel files contain data for "${detectedBranchObj.displayName}". Please upload the correct files or select the matching branch.`
+          });
+        }
+      } else {
+        console.log(`⚠️  No branch detected in Excel files - proceeding with selected branch: ${branch.displayName}`);
+      }
+
+      console.log(`✅ Branch validation complete - processing data for: ${branch.displayName}`);
+
       // Process the data with CG Data as master employee list
       const result = await processCapacityData(
         parsedData.availability,
         parsedData.guaranteed,     // still the filtered rows for scheduling
         parsedData.demand,
         parsedData.cgData,
-        { ghWorkbookBuffer: guaranteedFile.buffer }   // pass the raw workbook buffer ONLY for cancellations
+        { ghWorkbookBuffer: guaranteedFile.buffer, branchId: requestedBranchId }   // pass branchId and raw workbook buffer
       );
 
       // Add parsing warnings to result
@@ -195,10 +260,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const firstDate = result.dailySummary[0].date;
           const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
 
-          console.log(`💾 Persisting analysis for week: ${weekStart} to ${weekEnd}`);
+          console.log(`💾 Persisting analysis for week: ${weekStart} to ${weekEnd} (Branch: ${branch.displayName})`);
 
-          // Save to database (will upsert if week already exists)
+          // Save to database (will upsert if week already exists per branch)
           await storage.saveCapacityAnalysis({
+            branchId: requestedBranchId,
             weekStartDate: weekStart,
             weekEndDate: weekEnd,
             kpis: result.kpis,
@@ -208,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             warnings: result.warnings || [],
           });
 
-          console.log(`✅ Analysis persisted successfully for week ${weekStart}`);
+          console.log(`✅ Analysis persisted successfully for week ${weekStart} (Branch: ${branch.name})`);
         } else {
           console.log(`⚠️  No daily summary data to persist`);
         }
@@ -282,20 +348,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get visits for a date range
   app.get('/api/visits', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { start, end } = req.query;
 
       if (!start || !end) {
         return res.status(400).json({ error: 'Start and end dates are required' });
       }
 
-      console.log(`📋 Getting visits from ${start} to ${end}`);
-      const visits = await storage.listVisitsBetween(start as string, end as string);
+      console.log(`📋 Getting visits from ${start} to ${end} for branch ${branchId}`);
+      const visits = await storage.listVisitsBetween(branchId, start as string, end as string);
 
       res.json(visits);
     } catch (error) {
       console.error('Error getting visits range:', error);
-      res.status(500).json({ 
-        error: 'Failed to get visits',
+      const message = error instanceof Error ? error.message : 'Failed to get visits';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        error: message,
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -380,20 +449,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Weekly route-optimized scheduling endpoint
   app.post('/api/auto-schedule', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { date, settings } = req.body;
 
       if (!date) {
         return res.status(400).json({ error: 'Date is required' });
       }
 
-      console.log(`🚗 Starting route optimization for ${date}`);
+      console.log(`🚗 Starting route optimization for ${date} (Branch: ${branchId})`);
 
       // Get available employees for the date
-      const employees = await getAvailableEmployeesForDate(date);
+      const employees = await getAvailableEmployeesForDate(branchId, date);
       console.log(`👥 Found ${employees.length} available employees`);
 
       // Get unassigned visits for the date  
-      const visits = await getUnassignedVisitsForDate(date);
+      const visits = await getUnassignedVisitsForDate(branchId, date);
       console.log(`📋 Found ${visits.length} visits to schedule`);
 
       if (employees.length === 0 || visits.length === 0) {
@@ -425,22 +495,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/history - Get all historical analyses (latest 8 weeks only)
-  app.get('/api/history', async (_req, res) => {
+  app.get('/api/history', async (req, res) => {
     try {
-      const analyses = await storage.getLatestWeeksAnalyses(8);
+      const branchId = await resolveBranch(req);
+      const analyses = await storage.getLatestWeeksAnalyses(branchId, 8);
       res.json(analyses);
     } catch (error) {
       console.error('History fetch error:', error);
-      res.status(500).json({
-        message: 'Failed to fetch historical data'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to fetch historical data';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
   // GET /api/history/latest - Get the latest analysis
-  app.get('/api/history/latest', async (_req, res) => {
+  app.get('/api/history/latest', async (req, res) => {
     try {
-      const analysis = await storage.getLatestCapacityAnalysis();
+      const branchId = await resolveBranch(req);
+      const analysis = await storage.getLatestCapacityAnalysis(branchId);
       if (!analysis) {
         return res.status(404).json({
           message: 'No historical data found'
@@ -449,9 +521,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analysis);
     } catch (error) {
       console.error('Latest history fetch error:', error);
-      res.status(500).json({
-        message: 'Failed to fetch latest data'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to fetch latest data';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
@@ -459,6 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/history/range/:startDate/:endDate - Get analyses by date range
   app.get('/api/history/range/:startDate/:endDate', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { startDate, endDate } = req.params;
 
       // Validate date format (YYYY-MM-DD)
@@ -469,19 +542,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const analyses = await storage.getCapacityAnalysesByDateRange(startDate, endDate);
+      const analyses = await storage.getCapacityAnalysesByDateRange(branchId, startDate, endDate);
       res.json(analyses);
     } catch (error) {
       console.error('Date range fetch error:', error);
-      res.status(500).json({
-        message: 'Failed to fetch data for date range'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to fetch data for date range';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
   // POST /api/cleanup - Clean up old data
   app.post('/api/cleanup', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { months = 6 } = req.body;
 
       if (typeof months !== 'number' || months < 1 || months > 60) {
@@ -490,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const deletedCount = await storage.cleanupOldAnalyses(months);
+      const deletedCount = await storage.cleanupOldAnalyses(branchId, months);
 
       res.json({
         message: `Successfully cleaned up old data`,
@@ -499,16 +573,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Cleanup error:', error);
-      res.status(500).json({
-        message: 'Failed to cleanup old data'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to cleanup old data';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
   // GET /api/cleanup/preview/:months - Preview what would be deleted
-  app.get('/api/cleanup/preview/:months', async (_req, res) => {
+  app.get('/api/cleanup/preview/:months', async (req, res) => {
     try {
-      const months = parseInt(_req.params.months);
+      const branchId = await resolveBranch(req);
+      const months = parseInt(req.params.months);
 
       if (isNaN(months) || months < 1 || months > 60) {
         return res.status(400).json({
@@ -521,7 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cutoffString = cutoffDate.toISOString().split('T')[0];
 
       // Get all analyses to count how many would be deleted
-      const allAnalyses = await storage.getLatestWeeksAnalyses(12); // Get more for cleanup preview
+      const allAnalyses = await storage.getLatestWeeksAnalyses(branchId, 12); // Get more for cleanup preview
       const oldAnalyses = allAnalyses.filter(
         analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
       );
@@ -537,9 +612,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Cleanup preview error:', error);
-      res.status(500).json({
-        message: 'Failed to preview cleanup'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to preview cleanup';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
@@ -849,6 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/routing/optimize - Optimize routes for employees with 15-minute constraint
   app.post('/api/routing/optimize', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { date, employeeIds = [] } = req.body;
 
       if (!date) {
@@ -866,9 +942,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Placeholder implementation
       for (const employeeId of employeeIds) {
-        const employeeLocation = await storage.getEmployeeLocationByName(employeeId);
+        const employeeLocation = await storage.getEmployeeLocationByName(branchId, employeeId);
         if (employeeLocation) {
           const routePlan = await storage.saveRoutePlan({
+            branchId,
             date,
             employeeId: employeeLocation.id,
             status: 'infeasible',
@@ -881,19 +958,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ optimizedRoutes });
     } catch (error) {
       console.error('Route optimization error:', error);
-      res.status(500).json({ message: 'Route optimization failed' });
+      const message = error instanceof Error ? error.message : 'Route optimization failed';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
   // GET /api/routing/plans?date=YYYY-MM-DD - Get route plans for a date
   app.get('/api/routing/plans', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const date = req.query.date as string;
       if (!date) {
         return res.status(400).json({ message: 'Date parameter is required' });
       }
 
-      const plans = await storage.getRoutePlansByDate(date);
+      const plans = await storage.getRoutePlansByDate(branchId, date);
 
       // Fetch route stops for each plan
       const plansWithStops = await Promise.all(
@@ -906,29 +986,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(plansWithStops);
     } catch (error) {
       console.error('Get route plans error:', error);
-      res.status(500).json({ message: 'Failed to get route plans' });
+      const message = error instanceof Error ? error.message : 'Failed to get route plans';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
   // GET /api/geographical/employees - Get all employee locations
   app.get('/api/geographical/employees', async (req, res) => {
     try {
-      const locations = await storage.getAllEmployeeLocations();
+      const branchId = await resolveBranch(req);
+      const locations = await storage.getAllEmployeeLocations(branchId);
       res.json(locations);
     } catch (error) {
       console.error('Get employee locations error:', error);
-      res.status(500).json({ message: 'Failed to get employee locations' });
+      const message = error instanceof Error ? error.message : 'Failed to get employee locations';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
   // GET /api/geographical/clients - Get all client locations
   app.get('/api/geographical/clients', async (req, res) => {
     try {
-      const locations = await storage.getAllClientLocations();
+      const branchId = await resolveBranch(req);
+      const locations = await storage.getAllClientLocations(branchId);
       res.json(locations);
     } catch (error) {
       console.error('Get client locations error:', error);
-      res.status(500).json({ message: 'Failed to get client locations' });
+      const message = error instanceof Error ? error.message : 'Failed to get client locations';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
@@ -937,9 +1025,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/cleanup/routes-visits - Clean up routes and visits data
   app.post('/api/cleanup/routes-visits', async (req, res) => {
     try {
-      console.log('🧹 Starting cleanup of routes and visits data...');
+      const branchId = await resolveBranch(req);
+      console.log(`🧹 Starting cleanup of routes and visits data for branch ${branchId}...`);
 
-      const result = await storage.clearRoutesAndVisits();
+      const result = await storage.clearRoutesAndVisits(branchId);
 
       console.log(`✅ Cleanup complete: ${result.routePlansDeleted} route plans, ${result.routeStopsDeleted} route stops, ${result.visitsDeleted} visits deleted`);
 
@@ -950,17 +1039,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error('Cleanup error:', error);
-      res.status(500).json({ 
-        message: 'Failed to cleanup routes and visits data', 
+      const message = error instanceof Error ? error.message : 'Failed to cleanup routes and visits data';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        message, 
         details: error instanceof Error ? error.message : 'Unknown error' 
       });
     }
   });
 
   // Helper function to get full processing results
-  async function getProcessingResults(): Promise<ProcessingResult | null> {
+  async function getProcessingResults(branchId: string): Promise<ProcessingResult | null> {
     try {
-      const analyses = await storage.getCapacityAnalyses();
+      const analyses = await storage.getCapacityAnalyses(branchId);
       if (analyses.length === 0) return null;
 
       return analyses[0] as ProcessingResult;
@@ -971,9 +1062,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Helper functions for route optimization
-  async function getAvailableEmployeesForDate(date: string) {
+  async function getAvailableEmployeesForDate(branchId: string, date: string) {
     try {
-      const results = await getProcessingResults();
+      const results = await getProcessingResults(branchId);
       if (!results) return [];
 
       const employeesForDate = results.employeesByDate?.[date] || [];
@@ -1004,10 +1095,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  async function getUnassignedVisitsForDate(date: string) {
+  async function getUnassignedVisitsForDate(branchId: string, date: string) {
     try {
-      const visits = await storage.listVisitsBetween(date, date);
-      const results = await getProcessingResults();
+      const visits = await storage.listVisitsBetween(branchId, date, date);
+      const results = await getProcessingResults(branchId);
       const clientLocations = results?.clientLocations || [];
 
       return visits.map((visit: any) => {

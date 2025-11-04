@@ -289,9 +289,9 @@ export class MemStorage implements IStorage {
 
   // Geographical scheduling method implementations
   async upsertEmployeeLocation(insertLocation: InsertEmployeeLocation): Promise<EmployeeLocation> {
-    // Check if employee already exists
+    // Check if employee already exists in this branch
     const existing = Array.from(this.employeeLocations.values()).find(
-      loc => loc.employeeName === insertLocation.employeeName
+      loc => loc.branchId === insertLocation.branchId && loc.employeeName === insertLocation.employeeName
     );
 
     if (existing) {
@@ -326,14 +326,14 @@ export class MemStorage implements IStorage {
     return this.employeeLocations.get(id);
   }
 
-  async getAllEmployeeLocations(): Promise<EmployeeLocation[]> {
-    return Array.from(this.employeeLocations.values());
+  async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> {
+    return Array.from(this.employeeLocations.values()).filter(loc => loc.branchId === branchId);
   }
 
   async upsertClientLocation(insertLocation: InsertClientLocation): Promise<ClientLocation> {
-    // Check if client already exists
+    // Check if client already exists in this branch
     const existing = Array.from(this.clientLocations.values()).find(
-      loc => loc.clientName === insertLocation.clientName
+      loc => loc.branchId === insertLocation.branchId && loc.clientName === insertLocation.clientName
     );
 
     if (existing) {
@@ -366,8 +366,8 @@ export class MemStorage implements IStorage {
     return this.clientLocations.get(id);
   }
 
-  async getAllClientLocations(): Promise<ClientLocation[]> {
-    return Array.from(this.clientLocations.values());
+  async getAllClientLocations(branchId: string): Promise<ClientLocation[]> {
+    return Array.from(this.clientLocations.values()).filter(loc => loc.branchId === branchId);
   }
 
   async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
@@ -833,8 +833,8 @@ export class DatabaseStorage implements IStorage {
     return location || undefined;
   }
 
-  async getAllEmployeeLocations(): Promise<EmployeeLocation[]> {
-    return await db.select().from(employeeLocations);
+  async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> {
+    return await db.select().from(employeeLocations).where(eq(employeeLocations.branchId, branchId));
   }
 
   async upsertClientLocation(insertLocation: InsertClientLocation): Promise<ClientLocation> {
@@ -847,7 +847,7 @@ export class DatabaseStorage implements IStorage {
         geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
       })
       .onConflictDoUpdate({
-        target: clientLocations.clientName,
+        target: [clientLocations.branchId, clientLocations.clientName],
         set: {
           addressLine: insertLocation.addressLine,
           postcode: insertLocation.postcode,
@@ -876,8 +876,8 @@ export class DatabaseStorage implements IStorage {
     return location || undefined;
   }
 
-  async getAllClientLocations(): Promise<ClientLocation[]> {
-    return await db.select().from(clientLocations);
+  async getAllClientLocations(branchId: string): Promise<ClientLocation[]> {
+    return await db.select().from(clientLocations).where(eq(clientLocations.branchId, branchId));
   }
 
   async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
