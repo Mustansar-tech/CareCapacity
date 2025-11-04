@@ -1,7 +1,6 @@
 import { 
   type User, 
-  type InsertUser,
-  type Branch,
+  type InsertUser, 
   type CapacityAnalysis, 
   type InsertCapacityAnalysis,
   type EmployeeLocation,
@@ -29,56 +28,51 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
-  // Branch methods
-  getAllBranches(): Promise<Branch[]>;
-  getBranchById(id: string): Promise<Branch | undefined>;
-  getBranchByName(name: string): Promise<Branch | undefined>;
-
-  // Capacity analysis methods (branch-aware)
+  // Capacity analysis methods
   saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis>;
-  getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]>;
-  getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>;
-  getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>; // Alias for getAllCapacityAnalyses
-  getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined>;
-  getLatestWeeksAnalyses(branchId: string, limit?: number): Promise<CapacityAnalysis[]>;
-  enforceRetentionLatestWeeks(branchId: string, limit?: number): Promise<number>;
-  cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number>;
+  getCapacityAnalysesByDateRange(startDate: string, endDate: string): Promise<CapacityAnalysis[]>;
+  getAllCapacityAnalyses(): Promise<CapacityAnalysis[]>;
+  getCapacityAnalyses(): Promise<CapacityAnalysis[]>; // Alias for getAllCapacityAnalyses
+  getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined>;
+  getLatestWeeksAnalyses(limit?: number): Promise<CapacityAnalysis[]>;
+  enforceRetentionLatestWeeks(limit?: number): Promise<number>;
+  cleanupOldAnalyses(monthsOld: number): Promise<number>;
 
-  // Geographical scheduling methods (branch-aware)
+  // Geographical scheduling methods
   upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation>;
-  getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined>;
+  getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined>;
   getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined>;
-  getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]>;
+  getAllEmployeeLocations(): Promise<EmployeeLocation[]>;
 
   upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation>;
-  getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined>;
+  getClientLocationByName(clientName: string): Promise<ClientLocation | undefined>;
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
-  getAllClientLocations(branchId: string): Promise<ClientLocation[]>;
+  getAllClientLocations(): Promise<ClientLocation[]>;
 
   saveVisit(visit: InsertVisit): Promise<Visit>;
   getVisitById(id: string): Promise<Visit | undefined>;
-  getVisitsByDate(branchId: string, date: string): Promise<Visit[]>;
+  getVisitsByDate(date: string): Promise<Visit[]>;
   getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
-  listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]>;
-  clearAllVisits(branchId: string): Promise<any>;
+  listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]>;
+  clearAllVisits(): Promise<any>;
 
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
-  getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]>;
+  getRoutePlansByDate(date: string): Promise<RoutePlan[]>;
   getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined>;
 
   saveRouteStop(stop: InsertRouteStop): Promise<RouteStop>;
   getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]>;
 
-  getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined>;
+  getGeocode(key: string): Promise<GeocodeCache | undefined>;
   saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache>;
 
-  clearRoutesAndVisits(branchId: string): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
+  clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
 
-  // Weekly schedule methods (branch-aware)
+  // Weekly schedule methods
   saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule>;
-  getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined>;
-  getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined>;
-  getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]>;
+  getLatestWeeklySchedule(): Promise<WeeklySchedule | undefined>;
+  getWeeklyScheduleByWeek(weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined>;
+  getAllWeeklySchedules(): Promise<WeeklySchedule[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -541,8 +535,7 @@ export class MemStorage implements IStorage {
 // Switch to database storage in production
 import { db } from "./db";
 import { 
-  users,
-  branches,
+  users, 
   capacityAnalyses, 
   employeeLocations, 
   clientLocations, 
@@ -573,23 +566,8 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Branch methods
-  async getAllBranches(): Promise<Branch[]> {
-    return await db.select().from(branches).orderBy(branches.displayName);
-  }
-
-  async getBranchById(id: string): Promise<Branch | undefined> {
-    const [branch] = await db.select().from(branches).where(eq(branches.id, id));
-    return branch || undefined;
-  }
-
-  async getBranchByName(name: string): Promise<Branch | undefined> {
-    const [branch] = await db.select().from(branches).where(eq(branches.name, name));
-    return branch || undefined;
-  }
-
   async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
-    // Use upsert to replace existing week data with new data (per branch)
+    // Use upsert to replace existing week data with new data
     const [analysis] = await db
       .insert(capacityAnalyses)
       .values({
@@ -598,7 +576,7 @@ export class DatabaseStorage implements IStorage {
         warnings: insertAnalysis.warnings || [],
       })
       .onConflictDoUpdate({
-        target: [capacityAnalyses.branchId, capacityAnalyses.weekStartDate, capacityAnalyses.weekEndDate],
+        target: [capacityAnalyses.weekStartDate, capacityAnalyses.weekEndDate],
         set: {
           kpis: insertAnalysis.kpis,
           dailySummary: insertAnalysis.dailySummary,
@@ -611,19 +589,16 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
-    if (insertAnalysis.branchId) {
-      await this.enforceSimpleRetention(insertAnalysis.branchId, 3);
-    }
+    await this.enforceSimpleRetention(3);
 
     return analysis;
   }
 
-  async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
+  async getCapacityAnalysesByDateRange(startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
     return await db
       .select()
       .from(capacityAnalyses)
       .where(and(
-        eq(capacityAnalyses.branchId, branchId),
         gte(capacityAnalyses.weekStartDate, startDate),
         lte(capacityAnalyses.weekEndDate, endDate)
       ))
@@ -631,12 +606,11 @@ export class DatabaseStorage implements IStorage {
   }
 
 
-  async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
-    // Return deduplicated results using window function with proper column aliasing (filtered by branch)
+  async getAllCapacityAnalyses(): Promise<CapacityAnalysis[]> {
+    // Return deduplicated results using window function with proper column aliasing
     return await db.execute(sql`
       SELECT DISTINCT ON (week_start_date, week_end_date) 
              id,
-             branch_id AS "branchId",
              week_start_date AS "weekStartDate",
              week_end_date AS "weekEndDate", 
              uploaded_at AS "uploadedAt",
@@ -646,17 +620,16 @@ export class DatabaseStorage implements IStorage {
              employee_summary_by_date AS "employeeSummaryByDate",
              warnings
       FROM capacity_analyses
-      WHERE branch_id = ${branchId}
       ORDER BY week_start_date DESC, week_end_date DESC, uploaded_at DESC
     `).then(result => result.rows as CapacityAnalysis[]);
   }
 
-  async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
-    return this.getAllCapacityAnalyses(branchId);
+  async getCapacityAnalyses(): Promise<CapacityAnalysis[]> {
+    return this.getAllCapacityAnalyses();
   }
 
-  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
-    // Get the latest record for each of the latest N weeks with proper column aliasing (filtered by branch)
+  async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
+    // Get the latest record for each of the latest N weeks with proper column aliasing
     return await db.execute(sql`
       WITH latest_per_week AS (
         SELECT *,
@@ -665,7 +638,6 @@ export class DatabaseStorage implements IStorage {
                  ORDER BY uploaded_at DESC
                ) as rn
         FROM capacity_analyses
-        WHERE branch_id = ${branchId}
       ),
       week_ranking AS (
         SELECT *,
@@ -674,7 +646,6 @@ export class DatabaseStorage implements IStorage {
         WHERE rn = 1
       )
       SELECT id,
-             branch_id AS "branchId",
              week_start_date AS "weekStartDate",
              week_end_date AS "weekEndDate", 
              uploaded_at AS "uploadedAt",
@@ -689,22 +660,20 @@ export class DatabaseStorage implements IStorage {
     `).then(result => result.rows as CapacityAnalysis[]);
   }
 
-  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> {
-    // Delete all but the latest record for each week, and keep only latest N weeks (per branch)
+  async enforceRetentionLatestWeeks(limit: number = 4): Promise<number> {
+    // Delete all but the latest record for each week, and keep only latest N weeks
     const result = await db.execute(sql`
       WITH week_ranks AS (
         SELECT DISTINCT week_start_date, week_end_date,
                ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
         FROM capacity_analyses
-        WHERE branch_id = ${branchId}
       ),
       records_to_keep AS (
         SELECT ca.id
         FROM capacity_analyses ca
         INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date 
                                  AND ca.week_end_date = wr.week_end_date
-        WHERE ca.branch_id = ${branchId}
-          AND wr.week_rank <= ${limit}
+        WHERE wr.week_rank <= ${limit}
           AND ca.id IN (
             SELECT id FROM (
               SELECT id, 
@@ -713,19 +682,18 @@ export class DatabaseStorage implements IStorage {
                        ORDER BY uploaded_at DESC
                      ) as rn
               FROM capacity_analyses
-              WHERE branch_id = ${branchId}
             ) ranked WHERE rn = 1
           )
       )
       DELETE FROM capacity_analyses 
-      WHERE branch_id = ${branchId} AND id NOT IN (SELECT id FROM records_to_keep)
+      WHERE id NOT IN (SELECT id FROM records_to_keep)
     `);
 
     return result.rowCount || 0;
   }
 
-  async enforceSimpleRetention(branchId: string, monthsToKeep: number = 3): Promise<number> {
-    // Simple retention: keep all weeks for N months, removing duplicates (keep latest per week per branch)
+  async enforceSimpleRetention(monthsToKeep: number = 3): Promise<number> {
+    // Simple retention: keep all weeks for N months, removing duplicates (keep latest per week)
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
@@ -739,7 +707,7 @@ export class DatabaseStorage implements IStorage {
                  ORDER BY uploaded_at DESC
                ) as rn
         FROM capacity_analyses
-        WHERE branch_id = ${branchId} AND week_start_date >= ${cutoffString}
+        WHERE week_start_date >= ${cutoffString}  -- Only keep weeks from last 3 months
       ),
       records_to_keep AS (
         SELECT id 
@@ -747,33 +715,29 @@ export class DatabaseStorage implements IStorage {
         WHERE rn = 1  -- Keep only latest per week
       )
       DELETE FROM capacity_analyses 
-      WHERE branch_id = ${branchId} AND id NOT IN (SELECT id FROM records_to_keep)
+      WHERE id NOT IN (SELECT id FROM records_to_keep)
     `);
 
     return result.rowCount || 0;
   }
 
 
-  async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
+  async getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined> {
     const [analysis] = await db
       .select()
       .from(capacityAnalyses)
-      .where(eq(capacityAnalyses.branchId, branchId))
       .orderBy(desc(capacityAnalyses.uploadedAt))
       .limit(1);
     return analysis || undefined;
   }
 
-  async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> {
+  async cleanupOldAnalyses(monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
 
     const result = await db
       .delete(capacityAnalyses)
-      .where(and(
-        eq(capacityAnalyses.branchId, branchId),
-        lte(capacityAnalyses.uploadedAt, cutoffDate)
-      ))
+      .where(lte(capacityAnalyses.uploadedAt, cutoffDate))
       .returning({ id: capacityAnalyses.id });
 
     return result.length;
@@ -788,17 +752,15 @@ export class DatabaseStorage implements IStorage {
         homeLat: insertLocation.homeLat || null,
         homeLng: insertLocation.homeLng || null,
         transportMode: insertLocation.transportMode || "car",
-        gender: insertLocation.gender || null,
         geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
       })
       .onConflictDoUpdate({
-        target: [employeeLocations.branchId, employeeLocations.employeeName],
+        target: [employeeLocations.branch, employeeLocations.employeeName],
         set: {
           homePostcode: insertLocation.homePostcode,
           homeLat: insertLocation.homeLat || null,
           homeLng: insertLocation.homeLng || null,
           transportMode: insertLocation.transportMode || "car",
-          gender: insertLocation.gender || null,
           geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
         },
       })
@@ -806,18 +768,7 @@ export class DatabaseStorage implements IStorage {
     return location;
   }
 
-  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
-    const [location] = await db
-      .select()
-      .from(employeeLocations)
-      .where(and(
-        eq(employeeLocations.branchId, branchId),
-        eq(employeeLocations.employeeName, employeeName)
-      ));
-    return location || undefined;
-  }
-
-  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
+  async getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined> {
     const [location] = await db
       .select()
       .from(employeeLocations)
@@ -847,7 +798,7 @@ export class DatabaseStorage implements IStorage {
         geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
       })
       .onConflictDoUpdate({
-        target: clientLocations.clientName,
+        target: [clientLocations.branch, clientLocations.clientName],
         set: {
           addressLine: insertLocation.addressLine,
           postcode: insertLocation.postcode,

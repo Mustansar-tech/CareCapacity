@@ -20,54 +20,6 @@ import {
 } from "@shared/schema";
 import { storage } from "./storage";
 
-// Helper function to extract branch from Excel data
-function extractBranchFromRow(row: any): string | null {
-  // Check multiple possible branch column names
-  const branchColumns = [
-    "CAREGiver Franchise",
-    "Customer Branch", 
-    "Branch",
-    "Franchise",
-    "Office"
-  ];
-  
-  for (const col of branchColumns) {
-    if (row[col]) {
-      return String(row[col]).trim();
-    }
-  }
-  
-  return null;
-}
-
-// Normalize branch name to match database values
-function normalizeBranchName(branchName: string): string {
-  const normalized = branchName.toLowerCase()
-    .replace(/home instead /gi, "")
-    .replace(/ & /g, "-")
-    .replace(/\s+/g, "-");
-  
-  // Map common variations to canonical names
-  const branchMap: Record<string, string> = {
-    "east-lothian-and-midlothian": "east-lothian",
-    "east-lothian": "east-lothian",
-    "scottish-borders": "scottish-borders",
-    "glasgow-north": "glasgow-north",
-    "north-lanarkshire-&-glasgow-east": "north-lanarkshire",
-    "north-lanarkshire-glasgow-east": "north-lanarkshire",
-    "north-lanarkshire": "north-lanarkshire",
-    "glasgow-south": "glasgow-south",
-    "aberdeen": "aberdeen",
-    "perthshire": "perthshire",
-    "south-ayrshire-kilmarnock": "south-ayrshire",
-    "south-ayrshire": "south-ayrshire",
-    "stirling-&-falkirk": "stirling-falkirk",
-    "stirling-falkirk": "stirling-falkirk"
-  };
-  
-  return branchMap[normalized] || normalized;
-}
-
 // Enhanced geocoding with fallback hierarchy
 async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
@@ -300,6 +252,7 @@ async function generateVisitsFromDemand(
         let existingClient = await storage.getClientLocationByName?.(clientName);
         if (!existingClient) {
           existingClient = await storage.upsertClientLocation({
+            branch: 'default', // Assuming a default branch for now
             clientName: clientName, // This will be replaced by Service Location Name
             addressLine: `Service Location for ${row.serviceType}`,
             postcode: 'EH1 1AA', // Default Edinburgh postcode for geocoding
@@ -1034,6 +987,7 @@ export async function parseExcelFiles(
   guaranteedBuffer: Buffer,
   demandBuffer: Buffer,
   cgDataBuffer: Buffer,
+  branch: string, // Added branch parameter
 ): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
@@ -1390,54 +1344,12 @@ export async function parseExcelFiles(
   console.log(`📈 Total hours: ${totalHours} (expected: 400.33)`);
   console.log(`=======================================\n`);
 
-  // === BRANCH EXTRACTION AND VALIDATION ===
-  console.log(`\n🏢 ===== BRANCH DETECTION =====`);
-  
-  const branchesDetected = new Set<string>();
-  
-  // Extract from CG Data Export (most reliable source)
-  if (cgRowsRaw.length > 0) {
-    const sampleBranches = cgRowsRaw.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
-    sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
-    console.log(`📄 CG Data sample branches: ${sampleBranches.join(", ")}`);
-  }
-  
-  // Extract from Guaranteed Hours
-  if (guaranteedData.length > 0) {
-    const sampleBranches = guaranteedData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
-    sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
-    console.log(`📄 Guaranteed Hours sample branches: ${sampleBranches.join(", ")}`);
-  }
-  
-  // Extract from Availability
-  if (availabilityData.length > 0) {
-    const sampleBranches = availabilityData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
-    sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
-    console.log(`📄 Availability sample branches: ${sampleBranches.join(", ")}`);
-  }
-  
-  const detectedBranches = Array.from(branchesDetected);
-  console.log(`✅ Detected branches: ${detectedBranches.join(", ")}`);
-  
-  if (detectedBranches.length === 0) {
-    warnings.push("⚠️ No branch information found in Excel files. Branch column may be missing.");
-    console.log(`⚠️ WARNING: No branch detected - files may be missing branch column`);
-  } else if (detectedBranches.length > 1) {
-    warnings.push(`⚠️ Multiple branches detected: ${detectedBranches.join(", ")}. Files may be mixed.`);
-    console.log(`⚠️ WARNING: Multiple branches detected - potential data mixing!`);
-  }
-  
-  const detectedBranch = detectedBranches[0] || null;
-  console.log(`🏢 Final detected branch: ${detectedBranch || "NONE"}`);
-  console.log(`=======================================\n`);
-
   return {
     availability: validatedAvailability,
     guaranteed: validatedGuaranteed,
     demand: validatedDemand,
     cgData,
     warnings,
-    detectedBranch, // Return the detected branch
   };
 }
 
@@ -1447,6 +1359,7 @@ export async function processCapacityData(
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
+  branch: string, // Added branch parameter
   options?: { ghWorkbookBuffer?: Buffer }, // ← NEW optional param
 ): Promise<ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] }> {
   const warnings: string[] = [];
@@ -2091,17 +2004,17 @@ export async function processCapacityData(
     sampleEmployees.forEach((emp: any) => {
       console.log(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
     });
-    
+
     // Count how many have gender data
     const withGender = sampleEmployees.filter((e: any) => e.gender).length;
     console.log(`  ✅ ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
-    
+
     // Show the actual object structure that will be saved
     if (sampleEmployees.length > 0) {
       console.log(`  📦 Sample object structure:`, JSON.stringify(sampleEmployees[0], null, 2));
     }
   }
-  
+
   // CRITICAL VERIFICATION: Check all dates for gender data completeness
   let totalEmployees = 0;
   let employeesWithGender = 0;
@@ -2416,6 +2329,7 @@ export async function processCapacityData(
       result.dailySummary[result.dailySummary.length - 1]?.date || "";
 
     const analysisData: InsertCapacityAnalysis = {
+      branch: branch, // Pass branch to analysis data
       weekStartDate: weekStart,
       weekEndDate: weekEnd,
       kpis: result.kpis as any,
@@ -2439,12 +2353,12 @@ export async function processCapacityData(
   }
 
   // Extract and store geographical data for scheduling optimization
-  await extractAndStoreGeographicalData(cgData, guaranteed);
+  await extractAndStoreGeographicalData(cgData, guaranteed, branch); // Pass branch here
 
   // Retrieve geographical data to include in the result
   try {
-    const employeeLocations = await storage.getAllEmployeeLocations();
-    const clientLocations = await storage.getAllClientLocations();
+    const employeeLocations = await storage.getAllEmployeeLocations?.(branch) ?? []; // Filter by branch
+    const clientLocations = await storage.getAllClientLocations?.(branch) ?? []; // Filter by branch
 
     const resultWithLocations = result as ProcessingResult;
 
@@ -2465,7 +2379,7 @@ export async function processCapacityData(
       lng: cli.lng ? Number(cli.lng) : undefined,
     }));
 
-    console.log(`📍 Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result`);
+    console.log(`📍 Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result for branch "${branch}"`);
   } catch (error) {
     console.error('❌ Error retrieving geographical data:', error);
     // Don't throw - return result without location data
@@ -2475,8 +2389,8 @@ export async function processCapacityData(
 }
 
 // Extract and store geographical data for route optimization
-async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[]) {
-  console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
+async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branch: string) { // Added branch parameter
+  console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION (Branch: ${branch})...`);
   console.log(`📊 CG Data rows to process: ${cgData.length}`);
 
   try {
@@ -2493,27 +2407,28 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       // Extract gender from Title column (Mr = male, Mrs/Miss/Ms = female)
       const title = pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
       const titleLower = title.toLowerCase().trim();
-      
+
       let gender: "male" | "female" | undefined = undefined;
       if (titleLower === "mr") {
         gender = "male";
       } else if (["miss", "ms", "mrs"].includes(titleLower)) {
         gender = "female";
       }
-      
+
       console.log(`  👤 ${employeeName}: Title="${title}" -> Gender="${gender || "unknown"}"`);
 
       if (employeeName && postcode) {
         const normalizedTransport = transportMode?.includes("car") ? "car" :
                                     transportMode?.includes("walk") ? "walking" : "car";
 
-        // Check if already geocoded in database
-        const existing = await storage.getEmployeeLocationByName(employeeName);
+        // Check if already geocoded in database for this branch
+        const existing = await storage.getEmployeeLocationByName?.(employeeName, branch); // Pass branch
 
         if (existing && existing.homeLat && existing.homeLng) {
           // Already geocoded - update with gender if missing
-          console.log(`✅ Cache hit for ${employeeName} - using existing coordinates`);
+          console.log(`✅ Cache hit for ${employeeName} (Branch: ${branch}) - using existing coordinates`);
           const locationData = {
+            branch: branch, // Pass branch
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
@@ -2522,16 +2437,17 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             homeLng: existing.homeLng,
           };
           employeeLocationsMap.set(employeeName, locationData);
-          
+
           // Update database if gender is missing
           if (gender && !existing.gender) {
-            console.log(`  🔄 Updating gender for ${employeeName}: ${gender}`);
+            console.log(`  🔄 Updating gender for ${employeeName} (Branch: ${branch}): ${gender}`);
             await storage.upsertEmployeeLocation(locationData);
           }
         } else {
           // Need to geocode
-          console.log(`📍 Cache miss for ${employeeName} - needs geocoding`);
+          console.log(`📍 Cache miss for ${employeeName} (Branch: ${branch}) - needs geocoding`);
           const locationData = {
+            branch: branch, // Pass branch
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
@@ -2543,7 +2459,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
 
-    console.log(`👥 Employee locations: ${employeeLocationsMap.size} total (${employeesToGeocode.length} need geocoding, ${employeeLocationsMap.size - employeesToGeocode.length} cached)`);
+    console.log(`👥 Employee locations: ${employeeLocationsMap.size} total (${employeesToGeocode.length} need geocoding, ${employeeLocationsMap.size - employeesToGeocode.length} cached for branch ${branch})`);
 
     // Geocode only new employee locations
     if (employeesToGeocode.length > 0) {
@@ -2555,27 +2471,27 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
           if (geocoded && geocoded.lat && geocoded.lng) {
             locationData.homeLat = geocoded.lat;
             locationData.homeLng = geocoded.lng;
-            console.log(`✅ Successfully geocoded ${locationData.employeeName}`);
+            console.log(`✅ Successfully geocoded ${locationData.employeeName} (Branch: ${branch})`);
           } else {
-            console.log(`❌ Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
+            console.log(`❌ Failed to geocode ${locationData.employeeName} (Branch: ${branch}) at ${locationData.homePostcode}`);
           }
         } catch (err) {
-          console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
+          console.log(`❌ Error geocoding ${locationData.employeeName} (Branch: ${branch}): ${err}`);
         }
       }
     } else {
-      console.log(`⚡ All employee locations already cached - skipping geocoding API calls`);
+      console.log(`⚡ All employee locations already cached for branch ${branch} - skipping geocoding API calls`);
     }
 
     // Store all employee locations (cached + newly geocoded)
     for (const locationData of Array.from(employeeLocationsMap.values())) {
-      await storage.upsertEmployeeLocation(locationData);
+      await storage.upsertEmployeeLocation(locationData); // Branch is included in locationData
     }
 
     // Extract client locations from Care Pro Guaranteed Hours
     const clientLocationsMap = new Map<string, any>();
     const clientsToGeocode: any[] = [];
-    console.log(`🔍 Processing ${guaranteed.length} guaranteed hours rows for client locations`);
+    console.log(`🔍 Processing ${guaranteed.length} guaranteed hours rows for client locations (Branch: ${branch})`);
 
     // Debug: Check what columns are available
     if (guaranteed.length > 0) {
@@ -2669,11 +2585,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
 
-        // Check if client already has geocoded coordinates
-        const existingClient = await storage.getClientLocationByName(clientKey);
+        // Check if client already has geocoded coordinates for this branch
+        const existingClient = await storage.getClientLocationByName?.(clientKey, branch); // Pass branch
 
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {
+            branch: branch, // Pass branch
             clientName: clientKey,
             addressLine: addressLine || "",
             postcode: postcode || "",
@@ -2683,12 +2600,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
           clientLocationsMap.set(clientKey, clientData);
 
-          // Only add to geocoding queue if not already geocoded
+          // Only add to geocoding queue if not already geocoded for this branch
           if (!existingClient?.lat || !existingClient?.lng) {
-            console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
+            console.log(`📍 Cache miss for client "${clientKey}" (Branch: ${branch}) - needs geocoding`);
             clientsToGeocode.push(clientData);
           } else {
-            console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+            console.log(`✅ Cache hit for client "${clientKey}" (Branch: ${branch}) - using existing coordinates`);
           }
         } else {
           // Update existing entry if we have better data
@@ -2703,11 +2620,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
 
-    console.log(`🏠 Client locations: ${clientLocationsMap.size} total (${clientsToGeocode.length} need geocoding, ${clientLocationsMap.size - clientsToGeocode.length} cached)`);
+    console.log(`🏠 Client locations: ${clientLocationsMap.size} total (${clientsToGeocode.length} need geocoding, ${clientLocationsMap.size - clientsToGeocode.length} cached for branch ${branch})`);
 
     // Store client locations
     for (const locationData of Array.from(clientLocationsMap.values())) {
-      await storage.upsertClientLocation(locationData);
+      await storage.upsertClientLocation(locationData); // Branch is included in locationData
     }
 
     console.log(`🗺️ Starting enhanced batch geocoding for locations...`);
@@ -2756,7 +2673,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postcodes: employeePostcodes, addresses: [] }),
+          body: JSON.stringify({ postcodes: employeePostcodes, addresses: [], branch: branch }), // Pass branch
         });
         if (!res.ok) {
           console.log("⚠️ Employee geocoding failed:", await res.text());
@@ -2771,6 +2688,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             for (const employeeName of names) {
               const base = employeeLocationsMap.get(employeeName) || {};
               await storage.upsertEmployeeLocation({
+                branch: branch, // Pass branch
                 employeeName,
                 homePostcode: pc,
                 homeLat: r.lat.toString(),
@@ -2782,13 +2700,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             }
           }
           if (saved > 0) {
-            console.log(`✅ Employee geocoding saved for ${saved} new records`);
+            console.log(`✅ Employee geocoding saved for ${saved} new records (Branch: ${branch})`);
           } else {
-            console.log(`✅ Employee geocoding: All ${employeeLocationsMap.size} employees already geocoded (using cached coordinates)`);
+            console.log(`✅ Employee geocoding: All ${employeeLocationsMap.size} employees already geocoded (using cached coordinates) for branch ${branch}`);
           }
         }
       } catch (err) {
-        console.log("⚠️ Employee geocoding error:", err);
+        console.log("⚠️ Employee geocoding error (Branch: " + branch + "):", err);
       }
     }
 
@@ -2799,7 +2717,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       .filter(v => v.address || v.postcode);
 
     if (clientAddresses.length > 0) {
-      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached):`);
+      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached for branch ${branch}):`);
       clientAddresses.slice(0, 10).forEach((addr, i) => {
         console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
       });
@@ -2808,6 +2726,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
         const requestBody = {
           postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
           addresses: clientAddresses.map(a => a.address).filter(Boolean),
+          branch: branch, // Pass branch
         };
 
         console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
@@ -2874,9 +2793,10 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               continue;
             }
 
-            console.log(`✅ SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
+            console.log(`✅ SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng} (Branch: ${branch})`);
 
             await storage.upsertClientLocation({
+              branch: branch, // Pass branch
               clientName,
               addressLine: clientLocationsMap.get(clientName)?.addressLine || "",
               postcode: pc,
@@ -2886,18 +2806,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
             saved++;
           }
 
-          console.log(`📊 Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results`);
+          console.log(`📊 Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results (Branch: ${branch})`);
           if (saved > 0) {
             console.log(`✅ Client geocoding saved for ${saved} new records`);
           } else {
-            console.log(`⚠️ No client locations were successfully geocoded this time`);
+            console.log(`⚠️ No client locations were successfully geocoded this time for branch ${branch}`);
           }
         }
       } catch (err) {
-        console.log("⚠️ Client geocoding error:", err);
+        console.log("⚠️ Client geocoding error (Branch: " + branch + "):", err);
       }
     } else {
-      console.log(`⚡ All client locations already cached - skipping geocoding API calls`);
+      console.log(`⚡ All client locations already cached for branch ${branch} - skipping geocoding API calls`);
     }
 
     // Extract visit data for route optimization using Planned Start/End Date And Time
@@ -2947,8 +2867,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
 
-            // Get client location for this visit
-            const clientLocation = await storage.getClientLocationByName(clientName);
+            // Get client location for this visit from the correct branch
+            const clientLocation = await storage.getClientLocationByName?.(clientName, branch); // Pass branch
 
             if (clientLocation && !visitsMap.has(visitKey)) {
               // Extract time windows for VRPTW optimizer
@@ -2962,6 +2882,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
 
               const visitData = {
+                branch: branch, // Pass branch
                 clientId: clientLocation.id,
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
@@ -2987,9 +2908,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
               }
               visitsByDate.get(visitDate)!.push(visitData);
 
-              console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
+              console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes (Branch: ${branch})`);
             } else if (!clientLocation) {
-              console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
+              console.log(`🔍 DEBUG: Client location not found for ${clientName} (Branch: ${branch}), skipping visit.`);
             }
           } catch (dateError) {
             // Skip visits with invalid dates
@@ -2999,23 +2920,23 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[])
       }
     }
 
-    console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
+    console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization (Branch: ${branch})`);
 
-    // Store visit data
+    // Store visit data for the current branch
     for (const visitData of Array.from(visitsMap.values())) {
-      await storage.saveVisit(visitData);
+      await storage.saveVisit(visitData); // Branch is included in visitData
     }
 
     // Log final geocoding statistics
-    const empLocs = await storage.getAllEmployeeLocations?.() ?? [];
-    const cliLocs = await storage.getAllClientLocations?.() ?? [];
-    console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
-    console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
+    const empLocs = await storage.getAllEmployeeLocations?.(branch) ?? []; // Filter by branch
+    const cliLocs = await storage.getAllClientLocations?.(branch) ?? []; // Filter by branch
+    console.log(`📍 After geocode (Branch: ${branch}): employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
+    console.log(`📍 After geocode (Branch: ${branch}): clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
 
-    console.log(`✅ Geographical data extraction complete!`);
+    console.log(`✅ Geographical data extraction complete for branch ${branch}!`);
 
   } catch (error) {
-    console.error('❌ Error extracting geographical data:', error);
+    console.error(`❌ Error extracting geographical data for branch ${branch}:`, error);
   }
 }
 
@@ -3024,6 +2945,7 @@ export async function generateExcelExport(
   result: ProcessingResult,
   cleanedRecords: CleanedEmployeeRecord[],
   cgData: CGDataRow[],
+  branch: string, // Added branch parameter
 ): Promise<Buffer> {
   const workbook = XLSX.utils.book_new();
 
