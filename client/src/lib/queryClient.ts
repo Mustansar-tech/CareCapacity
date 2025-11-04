@@ -75,9 +75,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Extract URL from queryKey - only use string parts
-    const urlParts = queryKey.filter(part => typeof part === 'string');
-    const url = urlParts.join("/");
+    // Extract URL from queryKey - only use the first string part as the URL
+    // Any subsequent parts (like branchId) are query parameters, not part of the URL path
+    const url = typeof queryKey[0] === 'string' ? queryKey[0] : '';
     const finalUrl = appendBranchIdToUrl(url, queryKey);
 
     const res = await fetch(finalUrl, {
