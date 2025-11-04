@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/BranchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ interface WeeklyScheduleData {
 
 export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const { toast } = useToast();
+  const { selectedBranchId } = useBranch();
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
@@ -69,8 +71,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Fetch locations
   const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
-    queryKey: ['/api/locations'],
-    enabled: !!data,
+    queryKey: ['/api/locations', selectedBranchId],
+    enabled: !!data && !!selectedBranchId,
   });
 
   // Create a map of employee locations for quick lookup
@@ -81,8 +83,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Fetch visits for each day of the week
   const visitQueries = weekDates.map(date => 
     useQuery<ClientVisit[]>({
-      queryKey: ['/api/visits', date],
-      enabled: !!data && weekDates.length > 0,
+      queryKey: ['/api/visits', { start: date, end: date, branchId: selectedBranchId }],
+      enabled: !!data && weekDates.length > 0 && !!selectedBranchId,
     })
   );
 
@@ -249,8 +251,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Load schedule for the current week being viewed
   const { data: savedSchedule } = useQuery<any>({
-    queryKey: ['/api/weekly-schedule', weekStart],
-    enabled: !!data && !!weekStart,
+    queryKey: ['/api/weekly-schedule/' + weekStart, selectedBranchId],
+    enabled: !!data && !!weekStart && !!selectedBranchId,
   });
 
   useEffect(() => {
