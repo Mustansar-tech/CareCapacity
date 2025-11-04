@@ -1527,7 +1527,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Missing required fields' });
       }
 
-      // Save the weekly schedule
       const savedSchedule = await storage.saveWeeklySchedule({
         branchId,
         weekStartDate,
@@ -1536,44 +1535,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: unallocatedVisits || [],
         metrics,
       });
-
-      // Extract and save individual visits from the schedule data
-      console.log(`💾 Persisting ${Object.keys(scheduleData).length} days of assigned visits to database...`);
-      
-      for (const [date, employeeSchedules] of Object.entries(scheduleData)) {
-        for (const [employeeName, visits] of Object.entries(employeeSchedules as Record<string, any[]>)) {
-          for (const visit of visits) {
-            // Get or create client location
-            let clientLocation = await storage.getClientLocationByName(visit.clientName);
-            
-            if (!clientLocation) {
-              // Create client location if it doesn't exist
-              clientLocation = await storage.upsertClientLocation({
-                branchId,
-                clientName: visit.clientName,
-                addressLine: visit.clientName, // Placeholder
-                postcode: '', // Will be geocoded later
-                lat: visit.lat ? String(visit.lat) : null,
-                lng: visit.lng ? String(visit.lng) : null,
-              });
-            }
-
-            // Save the visit
-            await storage.saveVisit({
-              branchId,
-              clientId: clientLocation.id,
-              date: date,
-              durationMinutes: visit.durationMinutes || 60,
-              preferredStartTime: `${date} ${visit.startTime}`,
-              preferredEndTime: `${date} ${visit.endTime}`,
-              priority: visit.priority || 2,
-              serviceType: visit.serviceType || 'Personal Care',
-            });
-          }
-        }
-      }
-
-      console.log(`✅ Successfully persisted assigned visits to database`);
 
       res.json(savedSchedule);
     } catch (error) {
