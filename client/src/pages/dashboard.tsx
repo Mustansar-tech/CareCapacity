@@ -116,8 +116,9 @@ export default function Dashboard() {
   }, [selectedBranchId]);
 
   // Auto-load latest data when component mounts or when we don't have data
+  // Only load if we're sure it's for the current branch
   useEffect(() => {
-    if (latestData && !processedData && !selectedWeekId) {
+    if (latestData && !processedData && !selectedWeekId && selectedBranchId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -131,7 +132,7 @@ export default function Dashboard() {
         description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, selectedWeekId, toast]);
+  }, [latestData, processedData, selectedWeekId, selectedBranchId, toast]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
