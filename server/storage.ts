@@ -1036,7 +1036,7 @@ export class DatabaseStorage implements IStorage {
         unallocatedVisits: insertSchedule.unallocatedVisits || [],
       })
       .onConflictDoUpdate({
-        target: [weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
+        target: [weeklySchedules.branchId, weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
         set: {
           scheduleData: insertSchedule.scheduleData,
           unallocatedVisits: insertSchedule.unallocatedVisits || [],
