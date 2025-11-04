@@ -2043,8 +2043,9 @@ export async function processCapacityData(
         dailySummary.reduce((sum, d) => sum + d.unavailability, 0) * 100,
       ) / 100,
     holidaysSum:
-      Math.round(dailySummary.reduce((sum, d) => sum + d.holidays, 0) * 100) /
-      100,
+      Math.round(
+        dailySummary.reduce((sum, d) => sum + d.holidays, 0) * 100,
+      ) / 100,
   };
 
   // Step 10: Build employees by date for drilldown
