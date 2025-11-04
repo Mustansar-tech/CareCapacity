@@ -2521,6 +2521,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           // Already geocoded - update with gender if missing
           console.log(`✅ Cache hit for ${employeeName} - using existing coordinates`);
           const locationData = {
+            branchId, // Required for data isolation
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
@@ -2539,6 +2540,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           // Need to geocode
           console.log(`📍 Cache miss for ${employeeName} - needs geocoding`);
           const locationData = {
+            branchId, // Required for data isolation
             employeeName,
             homePostcode: postcode,
             transportMode: normalizedTransport,
@@ -2681,6 +2683,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {
+            branchId, // Required for data isolation
             clientName: clientKey,
             addressLine: addressLine || "",
             postcode: postcode || "",
