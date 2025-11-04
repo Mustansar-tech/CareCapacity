@@ -14,8 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
 import { generateWeeklySchedule } from "@/utils/scheduling-engine";
-import { format, startOfWeek } from "date-fns";
-import { useBranch } from "@/contexts/BranchContext";
 
 interface WeeklyPlanTabProps {
   data: ProcessingResult | null;
@@ -46,7 +44,6 @@ interface WeeklyScheduleData {
 }
 
 export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
-  const { selectedBranchId } = useBranch();
   const { toast } = useToast();
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,57 +67,27 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // Fetch employee and client locations
-  const { data: locations } = useQuery({
-    queryKey: ['/api/locations', selectedBranchId],
-    queryFn: async () => {
-      if (!selectedBranchId) {
-        return { employees: [], clients: [] }; // No branch selected
-      }
-      const response = await fetch(`/api/locations?branchId=${selectedBranchId}`);
-      if (!response.ok) throw new Error('Failed to fetch locations');
-      return response.json();
-    },
-    enabled: !!selectedBranchId, // Only run query when branch is selected
+  // Fetch locations
+  const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
+    queryKey: ['/api/locations'],
+    enabled: !!data,
   });
 
   // Create a map of employee locations for quick lookup
   const employeeLocationMap = new Map(
-    (locations?.employees || []).map(emp => [emp.employeeName, emp])
+    (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
 
-  // Fetch all visits for the week
-  const { data: weekVisits = [], isLoading: isLoadingVisits } = useQuery<ClientVisit[]>({
-    queryKey: ['/api/visits', weekStart, weekEnd, selectedBranchId],
-    queryFn: async () => {
-      if (!selectedBranchId) {
-        return []; // No branch selected
-      }
-      const response = await fetch(`/api/visits?start=${weekStart}&end=${weekEnd}&branchId=${selectedBranchId}`);
-      if (!response.ok) throw new Error('Failed to fetch visits');
-      return response.json();
-    },
-    enabled: !!selectedBranchId, // Only run query when branch is selected
-  });
+  // Fetch visits for each day of the week
+  const visitQueries = weekDates.map(date => 
+    useQuery<ClientVisit[]>({
+      queryKey: ['/api/visits', date],
+      enabled: !!data && weekDates.length > 0,
+    })
+  );
 
-  // Fetch saved schedule for this week
-  const { data: savedSchedule, isLoading: isLoadingSavedSchedule } = useQuery({
-    queryKey: ['/api/weekly-schedule', weekStart, selectedBranchId],
-    queryFn: async () => {
-      if (!selectedBranchId) {
-        return null; // No branch selected
-      }
-      const response = await fetch(`/api/weekly-schedule/${weekStart}?branchId=${selectedBranchId}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null; // No saved schedule for this week
-        }
-        throw new Error('Failed to fetch saved schedule');
-      }
-      return response.json();
-    },
-    enabled: !!selectedBranchId, // Only run query when branch is selected
-  });
+  const isLoadingVisits = visitQueries.some(q => q.isLoading);
+  const allWeekVisits = visitQueries.flatMap(q => q.data || []);
 
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
@@ -196,12 +163,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
-      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${weekVisits.length} visits`);
+      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
 
       // Prepare employee data with locations and weekly hours
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
         empList.map(emp => {
-          const location = locations?.employees.find(loc => loc.employeeName === emp.employeeName);
+          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
           // Get weekly contracted hours from the employee weekly hours map
           const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
           return {
@@ -219,8 +186,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       );
 
       // Add location data to visits
-      const visitsWithLocations: ClientVisit[] = weekVisits.map((visit, index) => {
-        const clientLocation = locations?.clients.find(loc => loc.clientName === visit.clientName);
+      const visitsWithLocations: ClientVisit[] = allWeekVisits.map((visit, index) => {
+        const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
         return {
           id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
           clientName: visit.clientName,
@@ -236,7 +203,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
-
+      
       // Log gender data for debugging purposes
       employeesWithLocations.forEach(emp => {
         if (!emp.gender) {
@@ -261,10 +228,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           scheduleData: result.assignments,
           unallocatedVisits: result.unallocated,
           metrics: result.metrics,
-          branchId: selectedBranchId,
         });
 
-        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart, selectedBranchId] });
+        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
 
         toast({
           title: "Schedule Generated & Saved",
@@ -282,6 +248,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   });
 
   // Load schedule for the current week being viewed
+  const { data: savedSchedule } = useQuery<any>({
+    queryKey: ['/api/weekly-schedule', weekStart],
+    enabled: !!data && !!weekStart,
+  });
+
   useEffect(() => {
     if (savedSchedule?.scheduleData) {
       // Reconstruct weekly schedule from saved data for this specific week
@@ -296,33 +267,33 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           employeesUtilized: 0,
         },
       });
-    } else if (!savedSchedule && !isLoadingVisits && !isLoadingSavedSchedule) {
+    } else if (!savedSchedule && !isLoadingVisits) {
       // No saved schedule for this week - clear the state
       console.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule(null);
     }
-  }, [savedSchedule, weekStart, weekEnd, isLoadingVisits, isLoadingSavedSchedule]);
+  }, [savedSchedule, weekStart, weekEnd, isLoadingVisits]);
 
-  if (!data || !selectedBranchId) {
+  if (!data) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Calendar className="h-8 w-8 text-orange-500 mx-auto mb-2" />
-          <p className="text-orange-600 font-medium">{!data ? "No processed data available" : "Please select a branch"}</p>
+          <p className="text-orange-600 font-medium">No processed data available</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {!data ? "Please process files first to enable weekly planning" : "Select a branch from the dropdown to view schedules"}
+            Please process files first to enable weekly planning
           </p>
         </div>
       </div>
     );
   }
 
-  if (isLoadingVisits || isLoadingSavedSchedule) {
+  if (isLoadingVisits) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Loader2 className="h-8 w-8 text-blue-500 mx-auto mb-2 animate-spin" />
-          <p className="text-blue-600 font-medium">Loading schedule data...</p>
+          <p className="text-blue-600 font-medium">Loading visit data...</p>
         </div>
       </div>
     );
@@ -351,7 +322,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
         <Button
           onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending || weekVisits.length === 0}
+          disabled={generateMutation.isPending || allWeekVisits.length === 0}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           data-testid="button-generate-weekly"
         >
@@ -587,24 +558,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {vIndex < dayVisits.length - 1 && (() => {
                                     const currentVisit = dayVisits[vIndex];
                                     const nextVisit = dayVisits[vIndex + 1];
-
+                                    
                                     // Calculate gap between visits
                                     const timeToMinutes = (timeStr: string) => {
                                       const [hours, minutes] = timeStr.split(':').map(Number);
                                       return hours * 60 + minutes;
                                     };
-
+                                    
                                     const currentEndMin = timeToMinutes(currentVisit.endTime);
                                     const nextStartMin = timeToMinutes(nextVisit.startTime);
                                     const gapMinutes = nextStartMin - currentEndMin;
-
+                                    
                                     // If gap is 90 minutes or more, show home break
                                     if (gapMinutes >= 90) {
                                       const empLocation = employeeLocationMap.get(selectedEmployee || '');
-
+                                      
                                       let travelToHome = 0;
                                       let travelFromHome = 0;
-
+                                      
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
                                         const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
                                           const R = 6371;
@@ -618,10 +589,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                           const speedKmh = mode === 'walking' ? 5 : 40;
                                           return Math.round((distKm / speedKmh) * 60);
                                         };
-
+                                        
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                         const mode = transportMode.includes('walk') ? 'walking' : 'car';
-
+                                        
                                         // Travel from current visit to home
                                         if (currentVisit.lat && currentVisit.lng) {
                                           travelToHome = getTravelMinutes(
@@ -630,7 +601,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             mode
                                           );
                                         }
-
+                                        
                                         // Travel from home to next visit
                                         if (nextVisit.lat && nextVisit.lng) {
                                           travelFromHome = getTravelMinutes(
@@ -640,9 +611,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                           );
                                         }
                                       }
-
+                                      
                                       const breakTime = gapMinutes - travelToHome - travelFromHome;
-
+                                      
                                       return (
                                         <div className="flex items-center gap-2">
                                           {/* Travel to home */}
@@ -652,7 +623,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             </span>
                                             <ArrowRight className="h-5 w-5 text-gray-400" />
                                           </div>
-
+                                          
                                           {/* Home break */}
                                           <div className="flex flex-col items-center px-3 py-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-700">
                                             <Home className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-1" />
@@ -663,7 +634,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                               {breakTime}min
                                             </span>
                                           </div>
-
+                                          
                                           {/* Travel from home */}
                                           <div className="flex flex-col items-center">
                                             <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -674,7 +645,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         </div>
                                       );
                                     }
-
+                                    
                                     // Normal travel between visits (gap < 90 minutes)
                                     return (
                                       <div className="flex flex-col items-center">
