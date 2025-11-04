@@ -91,8 +91,8 @@ export default function Dashboard() {
 
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
-    queryKey: ['/api/history', selectedBranchId],
-    enabled: !!selectedBranchId, // Enable to populate week selector
+    queryKey: ['/api/history'],
+    enabled: true, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
@@ -100,8 +100,8 @@ export default function Dashboard() {
 
   // Query to load latest data automatically
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/latest', selectedBranchId],
-    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData && !!selectedBranchId, // Only fetch if not processing and no files selected
+    queryKey: ['/api/history/latest'],
+    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
     refetchOnMount: false, // Prevent refetch on component mount
   });
@@ -113,24 +113,11 @@ export default function Dashboard() {
     setFilteredData(null);
     setSelectedWeekId(null);
     setSelectedDate(null);
-    setFiles({
-      availability: null,
-      guaranteed: null,
-      demand: null,
-      cgData: null
-    });
-    // Clear file inputs
-    const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
-    inputs.forEach(input => { input.value = ''; });
   }, [selectedBranchId]);
 
   // Auto-load latest data when component mounts or when we don't have data
-  // Only load if we're sure it's for the current branch
   useEffect(() => {
-    // Verify the latestData is actually for the current branch by checking if it loaded successfully
-    // and we have a branch selected
-    if (latestData && !processedData && !selectedWeekId && selectedBranchId && !isLoadingLatest && !latestDataError) {
-      console.log(`📊 Auto-loading latest data for branch: ${selectedBranchId}`);
+    if (latestData && !processedData && !selectedWeekId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -144,7 +131,7 @@ export default function Dashboard() {
         description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, selectedWeekId, selectedBranchId, isLoadingLatest, latestDataError, toast]);
+  }, [latestData, processedData, selectedWeekId, toast]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
