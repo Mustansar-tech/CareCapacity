@@ -7,15 +7,51 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Helper to get branchId from localStorage
+function getBranchId(): string | null {
+  return localStorage.getItem('selectedBranchId');
+}
+
+// Helper to append branchId to URL for GET requests
+function appendBranchIdToUrl(url: string): string {
+  const branchId = getBranchId();
+  if (!branchId || url.includes('/api/branches')) {
+    // Don't add branchId to the branches endpoint itself
+    return url;
+  }
+  
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}branchId=${encodeURIComponent(branchId)}`;
+}
+
+// Helper to add branchId to request body for POST/PUT requests
+function addBranchIdToBody(data?: unknown): unknown {
+  const branchId = getBranchId();
+  if (!branchId || !data) {
+    return data;
+  }
+  
+  // Add branchId to the request body
+  if (typeof data === 'object' && data !== null) {
+    return { ...data, branchId };
+  }
+  
+  return data;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Add branchId to request based on method
+  const finalUrl = method === 'GET' ? appendBranchIdToUrl(url) : url;
+  const finalData = method !== 'GET' && method !== 'DELETE' ? addBranchIdToBody(data) : data;
+  
+  const res = await fetch(finalUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers: finalData ? { "Content-Type": "application/json" } : {},
+    body: finalData ? JSON.stringify(finalData) : undefined,
     credentials: "include",
   });
 
@@ -29,7 +65,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const finalUrl = appendBranchIdToUrl(url);
+    
+    const res = await fetch(finalUrl, {
       credentials: "include",
     });
 

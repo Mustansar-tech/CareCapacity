@@ -121,6 +121,21 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // GET /api/branches - Get all available branches
+  app.get('/api/branches', async (_req, res) => {
+    try {
+      const branches = await storage.getAllBranches();
+      res.json(branches);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch branches',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // POST /api/process - Process uploaded Excel files
   app.post('/api/process', upload.fields([
     { name: 'availability', maxCount: 1 },
@@ -1368,20 +1383,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         employeesByDate: latestData.employeesByDate as any,
         employeeSummaryByDate: latestData.employeeSummaryByDate as any,
         warnings: latestData.warnings as string[] | undefined,
-        employeeLocations: await storage.getAllEmployeeLocations().then(locs => locs.map(loc => ({
+        employeeLocations: latestData.branchId ? await storage.getAllEmployeeLocations(latestData.branchId).then(locs => locs.map(loc => ({
           employeeName: loc.employeeName,
           homePostcode: loc.homePostcode,
           homeLat: loc.homeLat ? Number(loc.homeLat) : undefined,
           homeLng: loc.homeLng ? Number(loc.homeLng) : undefined,
           transportMode: loc.transportMode || undefined,
-        }))),
-        clientLocations: await storage.getAllClientLocations().then(locs => locs.map(loc => ({
+        }))) : [],
+        clientLocations: latestData.branchId ? await storage.getAllClientLocations(latestData.branchId).then(locs => locs.map(loc => ({
           clientName: loc.clientName,
           addressLine: loc.addressLine,
           postcode: loc.postcode,
           lat: loc.lat ? Number(loc.lat) : undefined,
           lng: loc.lng ? Number(loc.lng) : undefined,
-        }))),
+        }))) : [],
       };
       
       // Generate weekly schedule using the same algorithm as manual scheduling
@@ -1420,9 +1435,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all employee and client locations for scheduling
   app.get('/api/locations', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const [employees, clients] = await Promise.all([
-        storage.getAllEmployeeLocations(),
-        storage.getAllClientLocations()
+        storage.getAllEmployeeLocations(branchId),
+        storage.getAllClientLocations(branchId)
       ]);
       
       res.json({
@@ -1431,8 +1447,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error fetching locations:', error);
-      res.status(500).json({ 
-        error: 'Failed to fetch location data',
+      const message = error instanceof Error ? error.message : 'Failed to fetch location data';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        error: message,
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -1441,7 +1459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get latest weekly schedule
   app.get('/api/weekly-schedule/latest', async (req, res) => {
     try {
-      const latestSchedule = await storage.getLatestWeeklySchedule();
+      const branchId = await resolveBranch(req);
+      const latestSchedule = await storage.getLatestWeeklySchedule(branchId);
       
       if (!latestSchedule) {
         return res.status(404).json({ message: 'No weekly schedules found' });
@@ -1450,8 +1469,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(latestSchedule);
     } catch (error) {
       console.error('Error fetching latest weekly schedule:', error);
-      res.status(500).json({ 
-        message: 'Failed to fetch weekly schedule',
+      const message = error instanceof Error ? error.message : 'Failed to fetch weekly schedule';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        message,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -1460,10 +1481,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get weekly schedule by week
   app.get('/api/weekly-schedule/:weekStartDate', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { weekStartDate } = req.params;
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
       
-      const schedule = await storage.getWeeklyScheduleByWeek(weekStart, weekEnd);
+      const schedule = await storage.getWeeklyScheduleByWeek(branchId, weekStart, weekEnd);
       
       if (!schedule) {
         return res.status(404).json({ message: 'Schedule not found for this week' });
@@ -1472,8 +1494,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(schedule);
     } catch (error) {
       console.error('Error fetching weekly schedule:', error);
-      res.status(500).json({ 
-        message: 'Failed to fetch weekly schedule',
+      const message = error instanceof Error ? error.message : 'Failed to fetch weekly schedule';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        message,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -1482,6 +1506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save/update weekly schedule
   app.post('/api/weekly-schedule/save', async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
       
       if (!weekStartDate || !weekEndDate || !scheduleData || !metrics) {
@@ -1489,6 +1514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const savedSchedule = await storage.saveWeeklySchedule({
+        branchId,
         weekStartDate,
         weekEndDate,
         scheduleData,
@@ -1499,8 +1525,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error saving weekly schedule:', error);
-      res.status(500).json({ 
-        message: 'Failed to save weekly schedule',
+      const message = error instanceof Error ? error.message : 'Failed to save weekly schedule';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        message,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

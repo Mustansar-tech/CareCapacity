@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BranchProvider, useBranch } from "@/contexts/BranchContext";
+import { BranchSelector } from "@/components/BranchSelector";
 import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
 import { Component, ErrorInfo, ReactNode } from "react";
 
@@ -75,8 +77,11 @@ function Navigation() {
             </div>
           </Link>
 
-          {/* Status & Controls */}
+          {/* Branch Selector & Controls */}
           <div className="flex items-center gap-4">
+            {/* Branch Selector */}
+            <BranchSelector />
+            
             {/* Theme Toggle with Enhanced Styling */}
             <div className="p-1 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30" data-testid="theme-toggle-container">
               <ThemeToggle />
@@ -89,14 +94,27 @@ function Navigation() {
 }
 
 function Router() {
+  const { isReady, isLoadingBranches } = useBranch();
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <Navigation />
       <main className="animate-fade-in pt-20">
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route component={NotFound} />
-        </Switch>
+        {!isReady ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">
+                {isLoadingBranches ? 'Loading branches...' : 'Initializing branch selection...'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route component={NotFound} />
+          </Switch>
+        )}
       </main>
     </div>
   );
@@ -106,10 +124,12 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <BranchProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </BranchProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
