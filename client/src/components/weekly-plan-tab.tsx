@@ -122,19 +122,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     enabled: !!selectedBranchId, // Only run query when branch is selected
   });
 
-  // Generate week dates array (Mon-Sun)
-  const weekDates = (() => {
-    const dates: string[] = [];
-    const start = new Date(weekStart + 'T00:00:00.000Z');
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(start);
-      date.setUTCDate(start.getUTCDate() + i);
-      dates.push(date.toISOString().split('T')[0]);
-    }
-    return dates;
-  })();
-
-
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
   const employeeWeeklyNetCapacityMap = new Map<string, number>();
