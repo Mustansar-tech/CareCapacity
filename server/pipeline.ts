@@ -2771,7 +2771,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postcodes: employeePostcodes, addresses: [] }),
+          body: JSON.stringify({ 
+            postcodes: employeePostcodes, 
+            addresses: [],
+            branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
+          }),
         });
         if (!res.ok) {
           console.log("⚠️ Employee geocoding failed:", await res.text());
@@ -2824,6 +2828,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const requestBody = {
           postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
           addresses: clientAddresses.map(a => a.address).filter(Boolean),
+          branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
         };
 
         console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
