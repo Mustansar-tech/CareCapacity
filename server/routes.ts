@@ -99,11 +99,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ]), async (req, res) => {
     try {
       console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
-      
-      // Extract branch from request body
-      const branch = req.body.branch || 'East Lothian and Midlothian';
-      console.log(`🏢 Processing files for branch: ${branch}`);
-      
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
 
@@ -160,16 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         availabilityFile.buffer,
         guaranteedFile.buffer,
         demandFile.buffer,
-        cgDataFile.buffer,
-        branch  // Pass selected branch for validation
+        cgDataFile.buffer
       );
-      
-      // Verify branch matches
-      if (parsedData.branch !== branch) {
-        return res.status(400).json({
-          message: `Branch mismatch! Files contain data for "${parsedData.branch}" but you selected "${branch}".`
-        });
-      }
 
       // Process the data with CG Data as master employee list
       const result = await processCapacityData(
@@ -177,10 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parsedData.guaranteed,     // still the filtered rows for scheduling
         parsedData.demand,
         parsedData.cgData,
-        { 
-          ghWorkbookBuffer: guaranteedFile.buffer,   // pass the raw workbook buffer ONLY for cancellations
-          branch: branch  // Pass branch identifier
-        }
+        { ghWorkbookBuffer: guaranteedFile.buffer }   // pass the raw workbook buffer ONLY for cancellations
       );
 
       // Add parsing warnings to result
@@ -211,11 +195,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const firstDate = result.dailySummary[0].date;
           const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
 
-          console.log(`💾 Persisting analysis for branch "${branch}" - week: ${weekStart} to ${weekEnd}`);
+          console.log(`💾 Persisting analysis for week: ${weekStart} to ${weekEnd}`);
 
-          // Save to database (will upsert if week already exists FOR THIS BRANCH)
+          // Save to database (will upsert if week already exists)
           await storage.saveCapacityAnalysis({
-            branch: branch,
             weekStartDate: weekStart,
             weekEndDate: weekEnd,
             kpis: result.kpis,

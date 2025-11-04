@@ -25,8 +25,7 @@ import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 
-// Assume BRANCHES is defined somewhere, e.g., imported from a config file
-const BRANCHES = ["Branch A", "Branch B", "Branch C", "Branch D"]; // Example branches
+
 
 // Helper formatting functions
 const fmtH = (hours: number): string => `${hours}h`;
@@ -73,9 +72,6 @@ export default function Dashboard() {
     demand: null,
     cgData: null
   });
-
-  // Branch selection state
-  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -166,11 +162,6 @@ export default function Dashboard() {
   // Mutation for processing files
   const processMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      // Append selected branch to formData
-      if (selectedBranch) {
-        formData.append('branch', selectedBranch);
-      }
-
       const response = await fetch('/api/process', {
         method: 'POST',
         body: formData,
@@ -217,14 +208,6 @@ export default function Dashboard() {
 
   // Process files
   const handleProcessFiles = useCallback(async () => {
-    if (!selectedBranch) {
-      toast({
-        variant: "destructive",
-        title: "Branch Not Selected",
-        description: "Please select a branch before processing files."
-      });
-      return;
-    }
     if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
       toast({
         variant: "destructive",
@@ -244,7 +227,7 @@ export default function Dashboard() {
 
     processMutation.mutate(formData);
 
-  }, [files, toast, processMutation, selectedBranch]);
+  }, [files, toast, processMutation]);
 
   // Download export
   const handleExport = useCallback(async () => {
@@ -348,27 +331,33 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Branch Selection - First thing user selects */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-            <Label htmlFor="branch-select" className="text-sm font-semibold mb-2 block">
-              Select Branch
-            </Label>
-            <Select value={selectedBranch || ""} onValueChange={setSelectedBranch}>
-              <SelectTrigger id="branch-select" className="w-full bg-white dark:bg-gray-800">
-                <SelectValue placeholder="Select branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {BRANCHES.map(branch => (
-                  <SelectItem key={branch} value={branch}>
-                    {branch}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-2">
-              All uploaded files must belong to this branch
-            </p>
-          </div>
+          {/* Show intro cards only when no data exists */}
+          {!processedData && (
+            <div className="text-center mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
+                  <h3 className="font-semibold mb-2">Availability Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Employee availability and shift preferences</p>
+                </div>
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
+                  <h3 className="font-semibold mb-2">Care Pro Guaranteed Hours</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Contracted hours and employee data</p>
+                </div>
+                <div className="p-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-purple-600" />
+                  <h3 className="font-semibold mb-2">Client Demand</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
+                </div>
+                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <h3 className="font-semibold mb-2">CG Data Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
             {/* Availability Export */}
@@ -490,7 +479,7 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              disabled={!selectedBranch || !files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
+              disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
@@ -518,7 +507,6 @@ export default function Dashboard() {
                     demand: null,
                     cgData: null
                   });
-                  setSelectedBranch(null); // Reset selected branch
                   // Clear file inputs
                   const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
                   inputs.forEach(input => { input.value = ''; });
@@ -884,28 +872,6 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Branch Selection - First thing user selects */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                  <Label htmlFor="branch-select-overview" className="text-sm font-semibold mb-2 block">
-                    Select Branch
-                  </Label>
-                  <Select value={selectedBranch || ""} onValueChange={setSelectedBranch}>
-                    <SelectTrigger id="branch-select-overview" className="w-full bg-white dark:bg-gray-800">
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BRANCHES.map(branch => (
-                        <SelectItem key={branch} value={branch}>
-                          {branch}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    All uploaded files must belong to this branch
-                  </p>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                   {/* Availability Export */}
                   <div className="space-y-3">
@@ -1024,7 +990,7 @@ export default function Dashboard() {
                 <div className="flex justify-center gap-4">
                   <Button 
                     onClick={handleProcessFiles}
-                    disabled={!selectedBranch || !files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
+                    disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
                     data-testid="button-process-overview"
                   >
@@ -1051,7 +1017,6 @@ export default function Dashboard() {
                         demand: null,
                         cgData: null
                       });
-                      setSelectedBranch(null); // Reset selected branch
                       const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
                       inputs.forEach(input => { input.value = ''; });
                       toast({
