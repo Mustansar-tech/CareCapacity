@@ -2814,25 +2814,24 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
     // ----------------- CLIENT GEOCODING (SAVE RESULTS) -----------------
     // Only geocode clients that don't have coordinates (from clientsToGeocode list)
-    // IMPORTANT: Only use postcodes for geocoding, not full addresses
-    const clientPostcodes = clientsToGeocode
-      .map(v => normalisePostcode(v.postcode || ""))
-      .filter(Boolean); // Only postcodes that exist
+    const clientAddresses = clientsToGeocode
+      .map(v => ({ address: (v.addressLine || "").trim(), postcode: normalisePostcode(v.postcode || "") }))
+      .filter(v => v.address || v.postcode);
 
-    if (clientPostcodes.length > 0) {
-      console.log(`🌍 Starting batch geocoding for ${clientPostcodes.length} NEW client postcodes (${clientLocationsMap.size - clientPostcodes.length} already cached):`);
-      clientPostcodes.slice(0, 10).forEach((pc, i) => {
-        console.log(`  ${i + 1}. Postcode: "${pc}"`);
+    if (clientAddresses.length > 0) {
+      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached):`);
+      clientAddresses.slice(0, 10).forEach((addr, i) => {
+        console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
       });
 
       try {
         const requestBody = {
-          postcodes: clientPostcodes,
-          addresses: [], // Don't send addresses - geocoding service doesn't support them yet
+          postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
+          addresses: clientAddresses.map(a => a.address).filter(Boolean),
           branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
         };
 
-        console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes`);
+        console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
 
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
@@ -2962,8 +2961,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
 
-            // Get client location for this visit - CRITICAL FIX: Pass branchId
-            const clientLocation = await storage.getClientLocationByName(branchId!, clientName);
+            // Get client location for this visit
+            const clientLocation = await storage.getClientLocationByName(clientName);
 
             if (clientLocation && !visitsMap.has(visitKey)) {
               // Extract time windows for VRPTW optimizer
@@ -2977,7 +2976,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
               const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
 
               const visitData = {
-                branchId: branchId!, // CRITICAL FIX: Add branchId to visit
                 clientId: clientLocation.id,
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
@@ -3005,7 +3003,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
               console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
             } else if (!clientLocation) {
-              console.log(`🔍 DEBUG: Client location not found for ${clientName} (branch: ${branchId}), skipping visit.`);
+              console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
             }
           } catch (dateError) {
             // Skip visits with invalid dates

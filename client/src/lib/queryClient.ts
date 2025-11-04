@@ -13,50 +13,25 @@ function getBranchId(): string | null {
 }
 
 // Helper to append branchId to URL for GET requests
-function appendBranchIdToUrl(url: string, queryKey: unknown[]): string {
-  // Extract branchId and other params from query key
-  // queryKey can be: ['/api/path'] or ['/api/path', branchId] or ['/api/path', {branchId, ...otherParams}]
-
-  let branchId: string | null = null;
-  let additionalParams: Record<string, string> = {};
-
-  if (queryKey.length > 1) {
-    const secondElement = queryKey[1];
-
-    if (typeof secondElement === 'string') {
-      // Simple branchId as second element
-      branchId = secondElement;
-    } else if (typeof secondElement === 'object' && secondElement !== null) {
-      // Object with branchId and other parameters
-      const params = secondElement as Record<string, any>;
-      branchId = params.branchId || null;
-
-      // Extract other parameters
-      Object.keys(params).forEach(key => {
-        if (key !== 'branchId' && params[key] !== undefined && params[key] !== null) {
-          additionalParams[key] = String(params[key]);
-        }
-      });
-    }
-  }
-
-  // Build query string
-  const queryParams: string[] = [];
-
-  if (branchId) {
-    queryParams.push(`branchId=${encodeURIComponent(branchId)}`);
-  }
-
-  Object.keys(additionalParams).forEach(key => {
-    queryParams.push(`${encodeURIComponent(key)}=${encodeURIComponent(additionalParams[key])}`);
-  });
-
-  if (queryParams.length === 0) {
+function appendBranchIdToUrl(url: string, queryKey?: unknown[]): string {
+  const branchId = getBranchId();
+  
+  // Don't add branchId to the branches endpoint itself
+  if (!branchId || url.includes('/api/branches')) {
     return url;
   }
 
+  // Check if branchId is already in the query key parameters
+  if (queryKey && queryKey.length > 1) {
+    const params = queryKey[1];
+    if (params && typeof params === 'object' && 'branchId' in params) {
+      // branchId is already in query params, don't append again
+      return url;
+    }
+  }
+
   const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}${queryParams.join('&')}`;
+  return `${url}${separator}branchId=${encodeURIComponent(branchId)}`;
 }
 
 // Helper to add branchId to request body for POST/PUT requests
@@ -100,9 +75,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Extract URL from queryKey - only use the first string part as the URL
-    // Any subsequent parts (like branchId) are query parameters, not part of the URL path
-    const url = typeof queryKey[0] === 'string' ? queryKey[0] : '';
+    // Extract URL from queryKey - only use string parts
+    const urlParts = queryKey.filter(part => typeof part === 'string');
+    const url = urlParts.join("/");
     const finalUrl = appendBranchIdToUrl(url, queryKey);
 
     const res = await fetch(finalUrl, {
