@@ -46,16 +46,15 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     setSelectedBranchIdState(branchId);
     localStorage.setItem('selectedBranchId', branchId);
     
-    // Invalidate ALL queries except the branches list to force fresh data from new branch
-    // This is more elegant than window.location.reload() and preserves UI state
-    queryClient.invalidateQueries({
+    // Remove ALL queries except the branches list to force fresh data from new branch
+    queryClient.removeQueries({
       predicate: (query) => {
         const queryKey = query.queryKey[0] as string;
-        return queryKey !== '/api/branches'; // Keep branches cached, invalidate everything else
+        return queryKey !== '/api/branches'; // Keep branches cached, remove everything else
       }
     });
     
-    console.log(`✅ All queries invalidated - components will now refetch data for branch: ${branchId}`);
+    console.log(`✅ All queries removed - components will now fetch fresh data for branch: ${branchId}`);
   };
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId) || null;

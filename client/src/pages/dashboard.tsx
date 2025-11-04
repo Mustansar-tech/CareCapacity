@@ -91,8 +91,8 @@ export default function Dashboard() {
 
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
-    queryKey: ['/api/history'],
-    enabled: true, // Enable to populate week selector
+    queryKey: ['/api/history', selectedBranchId],
+    enabled: !!selectedBranchId, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
@@ -100,8 +100,8 @@ export default function Dashboard() {
 
   // Query to load latest data automatically
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/latest'],
-    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
+    queryKey: ['/api/history/latest', selectedBranchId],
+    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData && !!selectedBranchId, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
     refetchOnMount: false, // Prevent refetch on component mount
   });
