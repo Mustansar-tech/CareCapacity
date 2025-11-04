@@ -147,33 +147,37 @@ export class MemStorage implements IStorage {
     return analysis;
   }
 
-  async getCapacityAnalysesByDateRange(startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
+  async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
     return Array.from(this.capacityAnalyses.values()).filter(
-      (analysis) => analysis.weekStartDate >= startDate && analysis.weekEndDate <= endDate
+      (analysis) => analysis.branchId === branchId && analysis.weekStartDate >= startDate && analysis.weekEndDate <= endDate
     );
   }
 
 
-  async getAllCapacityAnalyses(): Promise<CapacityAnalysis[]> {
-    return Array.from(this.capacityAnalyses.values()).sort(
+  async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
+    return Array.from(this.capacityAnalyses.values())
+      .filter(analysis => analysis.branchId === branchId)
+      .sort(
       (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     );
   }
 
-  async getCapacityAnalyses(): Promise<CapacityAnalysis[]> {
-    return this.getAllCapacityAnalyses();
+  async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
+    return this.getAllCapacityAnalyses(branchId);
   }
 
-  async getLatestCapacityAnalysis(): Promise<CapacityAnalysis | undefined> {
-    const analyses = await this.getAllCapacityAnalyses();
+  async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
+    const analyses = await this.getAllCapacityAnalyses(branchId);
     return analyses[0];
   }
 
-  async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
+  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
     // Group by week, then get the latest analysis per week, then take the latest N weeks
     const weekMap = new Map<string, CapacityAnalysis>();
 
-    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+    Array.from(this.capacityAnalyses.values())
+      .filter(analysis => analysis.branchId === branchId)
+      .forEach(analysis => {
       const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
       const existing = weekMap.get(weekKey);
       if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
@@ -186,11 +190,13 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  async enforceRetentionLatestWeeks(limit: number = 4): Promise<number> {
+  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> {
     // Group by week and keep only the latest N weeks
     const weekMap = new Map<string, CapacityAnalysis[]>();
 
-    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
+    Array.from(this.capacityAnalyses.values())
+      .filter(analysis => analysis.branchId === branchId)
+      .forEach(analysis => {
       const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
       if (!weekMap.has(weekKey)) {
         weekMap.set(weekKey, []);
@@ -271,13 +277,13 @@ export class MemStorage implements IStorage {
   }
 
 
-  async cleanupOldAnalyses(monthsOld: number): Promise<number> {
+  async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
 
     const oldAnalyses = Array.from(this.capacityAnalyses.values()).filter(
-      analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
+      analysis => analysis.branchId === branchId && new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
     );
 
     oldAnalyses.forEach(analysis => {
@@ -316,9 +322,9 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined> {
+  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
     return Array.from(this.employeeLocations.values()).find(
-      loc => loc.employeeName === employeeName
+      loc => loc.branchId === branchId && loc.employeeName === employeeName
     );
   }
 
@@ -356,9 +362,9 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getClientLocationByName(clientName: string): Promise<ClientLocation | undefined> {
+  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
     return Array.from(this.clientLocations.values()).find(
-      loc => loc.clientName === clientName
+      loc => loc.branchId === branchId && loc.clientName === clientName
     );
   }
 
@@ -389,8 +395,8 @@ export class MemStorage implements IStorage {
     return this.visits.get(id);
   }
 
-  async getVisitsByDate(date: string): Promise<Visit[]> {
-    return Array.from(this.visits.values()).filter(visit => visit.date === date);
+  async getVisitsByDate(branchId: string, date: string): Promise<Visit[]> {
+    return Array.from(this.visits.values()).filter(visit => visit.branchId === branchId && visit.date === date);
   }
 
   async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
@@ -399,8 +405,8 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
-    const allVisits = Array.from(this.visits.values());
+  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    const allVisits = Array.from(this.visits.values()).filter(visit => visit.branchId === branchId);
     if (!startDate && !endDate) {
       return allVisits;
     }
@@ -411,11 +417,29 @@ export class MemStorage implements IStorage {
     });
   }
 
-  async clearAllVisits(): Promise<any> {
-    console.log(`🧹 Clearing all visits data...`);
-    this.visits.clear();
-    console.log(`✅ Cleared visits data`);
-    return { visitsDeleted: this.visits.size };
+  async clearAllVisits(branchId: string): Promise<any> {
+    console.log(`🧹 Clearing all visits data for branch ${branchId}...`);
+    // In-memory storage doesn't have a direct way to clear by branch, so we'd iterate and delete
+    // For simplicity here, we'll just clear all if no branchId is provided, or if we want to simulate branch clearing by creating a new map
+    // A more accurate simulation would involve filtering and deleting.
+    if (!branchId) {
+      this.visits.clear();
+      console.log(`✅ Cleared all visits data`);
+      return { visitsDeleted: 0 }; // Size would be 0 after clear
+    } else {
+      // Simulate branch clearing by filtering
+      const initialSize = this.visits.size;
+      const visitsToKeep = new Map<string, Visit>();
+      for (const [id, visit] of this.visits.entries()) {
+        if (visit.branchId !== branchId) {
+          visitsToKeep.set(id, visit);
+        }
+      }
+      this.visits = visitsToKeep;
+      const deletedCount = initialSize - this.visits.size;
+      console.log(`✅ Cleared ${deletedCount} visits for branch ${branchId}`);
+      return { visitsDeleted: deletedCount };
+    }
   }
 
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
@@ -434,8 +458,8 @@ export class MemStorage implements IStorage {
     return plan;
   }
 
-  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
-    return Array.from(this.routePlans.values()).filter(plan => plan.date === date);
+  async getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]> {
+    return Array.from(this.routePlans.values()).filter(plan => plan.branchId === branchId && plan.date === date);
   }
 
   async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
@@ -464,7 +488,10 @@ export class MemStorage implements IStorage {
       .sort((a, b) => a.sequence - b.sequence);
   }
 
-  async getGeocode(key: string): Promise<GeocodeCache | undefined> {
+  async getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined> {
+    // In-memory storage needs to consider branchId for geocache lookup if it's branch-specific
+    // Assuming key includes branchId or is unique across branches for simplicity here.
+    // A more robust implementation might structure the cache by branchId.
     return this.geocodeCache.get(key);
   }
 
@@ -484,14 +511,51 @@ export class MemStorage implements IStorage {
     return geocode;
   }
 
-  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
-    const routePlansDeleted = this.routePlans.size;
-    const routeStopsDeleted = this.routeStops.size;
-    const visitsDeleted = this.visits.size;
+  async clearRoutesAndVisits(branchId: string): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    let routePlansDeleted = 0;
+    let routeStopsDeleted = 0;
+    let visitsDeleted = 0;
 
-    this.routePlans.clear();
-    this.routeStops.clear();
-    this.visits.clear();
+    // Simulate branch clearing for each
+    const initialRoutePlansSize = this.routePlans.size;
+    const initialRouteStopsSize = this.routeStops.size;
+    const initialVisitsSize = this.visits.size;
+
+    const routePlansToKeep = new Map<string, RoutePlan>();
+    for (const [id, plan] of this.routePlans.entries()) {
+      if (plan.branchId !== branchId) {
+        routePlansToKeep.set(id, plan);
+      } else {
+        routePlansDeleted++;
+      }
+    }
+    this.routePlans = routePlansToKeep;
+
+    const routeStopsToKeep = new Map<string, RouteStop>();
+    for (const [id, stop] of this.routeStops.entries()) {
+      // Assuming route stops are associated with route plans which are branch-specific
+      // A direct branchId on routeStops would be better. For now, infer.
+      // This is a simplification. A real implementation would need a way to link stops to branch.
+      if (stop.routePlanId && this.routePlans.has(stop.routePlanId)) {
+        routeStopsToKeep.set(id, stop);
+      } else if (!stop.routePlanId) { // If stop doesn't have a planId, assume it might be orphaned or not branch-specific
+         routeStopsToKeep.set(id, stop); // Keep if no planId, or if plan is kept
+      } else {
+        routeStopsDeleted++; // Delete if plan associated with it was deleted
+      }
+    }
+    this.routeStops = routeStopsToKeep;
+
+
+    const visitsToKeep = new Map<string, Visit>();
+    for (const [id, visit] of this.visits.entries()) {
+      if (visit.branchId !== branchId) {
+        visitsToKeep.set(id, visit);
+      } else {
+        visitsDeleted++;
+      }
+    }
+    this.visits = visitsToKeep;
 
     return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
@@ -500,7 +564,8 @@ export class MemStorage implements IStorage {
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     // Remove existing entry with same week dates for deduplication
     const existingEntry = Array.from(this.weeklySchedules.values()).find(
-      schedule => schedule.weekStartDate === insertSchedule.weekStartDate && 
+      schedule => schedule.branchId === insertSchedule.branchId &&
+                  schedule.weekStartDate === insertSchedule.weekStartDate && 
                   schedule.weekEndDate === insertSchedule.weekEndDate
     );
     if (existingEntry) {
@@ -518,21 +583,25 @@ export class MemStorage implements IStorage {
     return schedule;
   }
 
-  async getLatestWeeklySchedule(): Promise<WeeklySchedule | undefined> {
-    const schedules = Array.from(this.weeklySchedules.values()).sort(
+  async getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined> {
+    const schedules = Array.from(this.weeklySchedules.values())
+      .filter(schedule => schedule.branchId === branchId)
+      .sort(
       (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
     );
     return schedules[0];
   }
 
-  async getWeeklyScheduleByWeek(weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
+  async getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
     return Array.from(this.weeklySchedules.values()).find(
-      schedule => schedule.weekStartDate === weekStartDate && schedule.weekEndDate === weekEndDate
+      schedule => schedule.branchId === branchId && schedule.weekStartDate === weekStartDate && schedule.weekEndDate === weekEndDate
     );
   }
 
-  async getAllWeeklySchedules(): Promise<WeeklySchedule[]> {
-    return Array.from(this.weeklySchedules.values()).sort(
+  async getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]> {
+    return Array.from(this.weeklySchedules.values())
+      .filter(schedule => schedule.branchId === branchId)
+      .sort(
       (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
     );
   }
@@ -821,14 +890,6 @@ export class DatabaseStorage implements IStorage {
     const [location] = await db
       .select()
       .from(employeeLocations)
-      .where(eq(employeeLocations.employeeName, employeeName));
-    return location || undefined;
-  }
-
-  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
-    const [location] = await db
-      .select()
-      .from(employeeLocations)
       .where(eq(employeeLocations.id, id));
     return location || undefined;
   }
@@ -860,11 +921,14 @@ export class DatabaseStorage implements IStorage {
     return location;
   }
 
-  async getClientLocationByName(clientName: string): Promise<ClientLocation | undefined> {
+  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
     const [location] = await db
       .select()
       .from(clientLocations)
-      .where(eq(clientLocations.clientName, clientName));
+      .where(and(
+        eq(clientLocations.branchId, branchId),
+        eq(clientLocations.clientName, clientName)
+      ));
     return location || undefined;
   }
 
@@ -902,11 +966,11 @@ export class DatabaseStorage implements IStorage {
     return visit || undefined;
   }
 
-  async getVisitsByDate(date: string): Promise<Visit[]> {
+  async getVisitsByDate(branchId: string, date: string): Promise<Visit[]> {
     return await db
       .select()
       .from(visits)
-      .where(eq(visits.date, date));
+      .where(and(eq(visits.branchId, branchId), eq(visits.date, date)));
   }
 
   async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
@@ -916,22 +980,22 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(visits.clientId, clientId), eq(visits.date, date)));
   }
 
-  async listVisitsBetween(startDate: string | null, endDate: string | null): Promise<Visit[]> {
+  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> {
     if (startDate && endDate) {
-      return await db.select().from(visits).where(and(gte(visits.date, startDate), lte(visits.date, endDate)));
+      return await db.select().from(visits).where(and(eq(visits.branchId, branchId), gte(visits.date, startDate), lte(visits.date, endDate)));
     } else if (startDate) {
-      return await db.select().from(visits).where(gte(visits.date, startDate));
+      return await db.select().from(visits).where(and(eq(visits.branchId, branchId), gte(visits.date, startDate)));
     } else if (endDate) {
-      return await db.select().from(visits).where(lte(visits.date, endDate));
+      return await db.select().from(visits).where(and(eq(visits.branchId, branchId), lte(visits.date, endDate)));
     }
 
-    return await db.select().from(visits);
+    return await db.select().from(visits).where(eq(visits.branchId, branchId));
   }
 
-  async clearAllVisits(): Promise<any> {
-    console.log(`🧹 Clearing all visits data...`);
-    const result = await db.delete(visits);
-    console.log(`✅ Cleared visits data`);
+  async clearAllVisits(branchId: string): Promise<any> {
+    console.log(`🧹 Clearing all visits data for branch ${branchId}...`);
+    const result = await db.delete(visits).where(eq(visits.branchId, branchId));
+    console.log(`✅ Cleared visits data for branch ${branchId}`);
     return result;
   }
 
@@ -949,11 +1013,11 @@ export class DatabaseStorage implements IStorage {
     return plan;
   }
 
-  async getRoutePlansByDate(date: string): Promise<RoutePlan[]> {
+  async getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]> {
     return await db
       .select()
       .from(routePlans)
-      .where(eq(routePlans.date, date));
+      .where(and(eq(routePlans.branchId, branchId), eq(routePlans.date, date)));
   }
 
   async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
@@ -986,11 +1050,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(routeStops.sequence);
   }
 
-  async getGeocode(key: string): Promise<GeocodeCache | undefined> {
+  async getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined> {
     const [geocode] = await db
       .select()
       .from(geocodeCache)
-      .where(eq(geocodeCache.key, key));
+      .where(and(eq(geocodeCache.branchId, branchId), eq(geocodeCache.key, key)));
     return geocode || undefined;
   }
 
@@ -1003,26 +1067,26 @@ export class DatabaseStorage implements IStorage {
 
     if (!geocode) {
       // If no insert happened due to conflict, get existing
-      return (await this.getGeocode(insertGeocode.key))!;
+      return (await this.getGeocode(insertGeocode.branchId!, insertGeocode.key))!;
     }
 
     return geocode;
   }
 
-  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+  async clearRoutesAndVisits(branchId: string): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
     // Count existing records
-    const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans`);
-    const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops`);
-    const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits`);
+    const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans WHERE branch_id = ${branchId}`);
+    const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops WHERE route_plan_id IN (SELECT id FROM route_plans WHERE branch_id = ${branchId})`);
+    const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE branch_id = ${branchId}`);
 
     const routePlansDeleted = Number(routePlansCount.rows[0]?.count || 0);
     const routeStopsDeleted = Number(routeStopsCount.rows[0]?.count || 0);
     const visitsDeleted = Number(visitsCount.rows[0]?.count || 0);
 
     // Delete in correct order (route_stops first due to foreign key)
-    await db.delete(routeStops);
-    await db.delete(routePlans);
-    await db.delete(visits);
+    await db.delete(routeStops).where(inArray(routeStops.routePlanId, db.select({id: routePlans.id}).from(routePlans).where(eq(routePlans.branchId, branchId))));
+    await db.delete(routePlans).where(eq(routePlans.branchId, branchId));
+    await db.delete(visits).where(eq(visits.branchId, branchId));
 
     return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
   }
@@ -1049,30 +1113,33 @@ export class DatabaseStorage implements IStorage {
     return schedule;
   }
 
-  async getLatestWeeklySchedule(): Promise<WeeklySchedule | undefined> {
+  async getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined> {
     const [schedule] = await db
       .select()
       .from(weeklySchedules)
+      .where(eq(weeklySchedules.branchId, branchId))
       .orderBy(desc(weeklySchedules.generatedAt))
       .limit(1);
     return schedule || undefined;
   }
 
-  async getWeeklyScheduleByWeek(weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
+  async getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
     const [schedule] = await db
       .select()
       .from(weeklySchedules)
       .where(and(
+        eq(weeklySchedules.branchId, branchId),
         eq(weeklySchedules.weekStartDate, weekStartDate),
         eq(weeklySchedules.weekEndDate, weekEndDate)
       ));
     return schedule || undefined;
   }
 
-  async getAllWeeklySchedules(): Promise<WeeklySchedule[]> {
+  async getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]> {
     return await db
       .select()
       .from(weeklySchedules)
+      .where(eq(weeklySchedules.branchId, branchId))
       .orderBy(desc(weeklySchedules.generatedAt));
   }
 }
