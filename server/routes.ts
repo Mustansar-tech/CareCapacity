@@ -64,8 +64,8 @@ const upload = multer({
 // Store the latest processed data and export file
 let latestExportBuffer: Buffer | null = null;
 
-// Store Guaranteed Hours Excel buffer for extracting real client visit times
-let latestGuaranteedBuffer: Buffer | null = null;
+// Store Guaranteed Hours Excel buffer for extracting real client visit times (branch-aware)
+const guaranteedBuffersByBranch = new Map<string, Buffer>();
 
 // Helper function to normalize file names by removing browser download numbers
 function normalizeFileName(fileName: string): string {
@@ -261,8 +261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store for export endpoint
       latestExportBuffer = exportBuffer;
 
-      // Store Guaranteed Hours buffer for real-time visit extraction
-      latestGuaranteedBuffer = guaranteedFile.buffer;
+      // Store Guaranteed Hours buffer for real-time visit extraction (per branch)
+      guaranteedBuffersByBranch.set(requestedBranchId, guaranteedFile.buffer);
 
       // Save Excel file to disk
       const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
@@ -342,21 +342,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get visits for a specific date for scheduling
   app.get("/api/visits/:date", async (req, res) => {
     try {
+      const branchId = await resolveBranch(req);
       const { date } = req.params;
-      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
+      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date} (Branch: ${branchId})`);
 
-      if (!latestGuaranteedBuffer) {
-        return res.status(404).json({ error: "No processed data available. Please process files first." });
+      const guaranteedBuffer = guaranteedBuffersByBranch.get(branchId);
+      if (!guaranteedBuffer) {
+        return res.status(404).json({ error: "No processed data available for this branch. Please process files first." });
       }
 
       // Dynamically import the function to avoid circular dependencies or unnecessary loads
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
-      const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
+      const visits = extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate);
       res.json(visits);
     } catch (error) {
       console.error("Error extracting visits:", error);
-      res.status(500).json({ error: "Failed to extract visits" });
+      const message = error instanceof Error ? error.message : 'Failed to extract visits';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ 
+        error: message,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
