@@ -19,7 +19,7 @@ function appendBranchIdToUrl(url: string): string {
     // Don't add branchId to the branches endpoint itself
     return url;
   }
-  
+
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}branchId=${encodeURIComponent(branchId)}`;
 }
@@ -30,12 +30,12 @@ function addBranchIdToBody(data?: unknown): unknown {
   if (!branchId || !data) {
     return data;
   }
-  
+
   // Add branchId to the request body
   if (typeof data === 'object' && data !== null) {
     return { ...data, branchId };
   }
-  
+
   return data;
 }
 
@@ -47,7 +47,7 @@ export async function apiRequest(
   // Add branchId to request based on method
   const finalUrl = method === 'GET' ? appendBranchIdToUrl(url) : url;
   const finalData = method !== 'GET' && method !== 'DELETE' ? addBranchIdToBody(data) : data;
-  
+
   const res = await fetch(finalUrl, {
     method,
     headers: finalData ? { "Content-Type": "application/json" } : {},
@@ -67,7 +67,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const url = queryKey.join("/") as string;
     const finalUrl = appendBranchIdToUrl(url);
-    
+
     const res = await fetch(finalUrl, {
       credentials: "include",
     });
