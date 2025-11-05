@@ -200,17 +200,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`  CG Data: "${cgDataFile.originalname}" -> "${normalizedCgDataName}"`);
       console.log(`  Expected: ${JSON.stringify(expectedNames)}`);
 
-      if (normalizedAvailabilityName !== expectedNames.availability ||
-          normalizedGuaranteedName !== expectedNames.guaranteed ||
-          normalizedDemandName !== expectedNames.demand ||
-          normalizedCgDataName !== expectedNames.cgData) {
+      // Case-insensitive comparison
+      const availabilityMatch = normalizedAvailabilityName.toLowerCase() === expectedNames.availability.toLowerCase();
+      const guaranteedMatch = normalizedGuaranteedName.toLowerCase() === expectedNames.guaranteed.toLowerCase();
+      const demandMatch = normalizedDemandName.toLowerCase() === expectedNames.demand.toLowerCase();
+      const cgDataMatch = normalizedCgDataName.toLowerCase() === expectedNames.cgData.toLowerCase();
+
+      if (!availabilityMatch || !guaranteedMatch || !demandMatch || !cgDataMatch) {
         console.log(`❌ FILE VALIDATION FAILED:`);
-        console.log(`  Availability check: ${normalizedAvailabilityName} === ${expectedNames.availability} ? ${normalizedAvailabilityName === expectedNames.availability}`);
-        console.log(`  CG Data check: ${normalizedCgDataName} === ${expectedNames.cgData} ? ${normalizedCgDataName === expectedNames.cgData}`);
-        console.log(`  Guaranteed check: ${normalizedGuaranteedName} === ${expectedNames.guaranteed} ? ${normalizedGuaranteedName === expectedNames.guaranteed}`);
-        console.log(`  Demand check: ${normalizedDemandName} === ${expectedNames.demand} ? ${normalizedDemandName === expectedNames.demand}`);
+        console.log(`  Availability check: ${normalizedAvailabilityName} === ${expectedNames.availability} ? ${availabilityMatch}`);
+        console.log(`  CG Data check: ${normalizedCgDataName} === ${expectedNames.cgData} ? ${cgDataMatch}`);
+        console.log(`  Guaranteed check: ${normalizedGuaranteedName} === ${expectedNames.guaranteed} ? ${guaranteedMatch}`);
+        console.log(`  Demand check: ${normalizedDemandName} === ${expectedNames.demand} ? ${demandMatch}`);
         return res.status(400).json({
-          message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}", "${expectedNames.cgData}" (browser download numbers like (2) are allowed)`
+          message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.demand}", "${expectedNames.cgData}" (browser download numbers like (2) are allowed, case insensitive)`
         });
       }
 
