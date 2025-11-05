@@ -1097,11 +1097,8 @@ export async function parseExcelFiles(
   console.log(`📊 Weekday totals:`, hoursByWeekday);
   console.log(`📊 Filtered demand rows for visit generation: ${filteredRows.length}`);
 
-  // Clear old visits data before generating new visits to prevent accumulation
-  console.log(`🧹 Clearing old visits data before generating new visits...`);
-  await storage.clearAllVisits();
-
   // OPTIMIZATION: Skip synthetic visit generation - we use real visit times from GH Excel
+  // NOTE: Visits are NOT saved to database - they are extracted fresh from Excel each time
   // This saves 3-4 minutes of unnecessary geocoding and database operations
   // const analysisStartDate = new Date();
   // await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
@@ -3015,10 +3012,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
     console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
 
-    // Store visit data
-    for (const visitData of Array.from(visitsMap.values())) {
-      await storage.saveVisit(visitData);
-    }
+    // NOTE: Visits are NOT saved to database - they are extracted fresh from Excel each time
+    // This prevents accumulation and ensures we always use the latest Excel data
 
     // Log final geocoding statistics
     const empLocs = branchId && storage.getAllEmployeeLocations ? await storage.getAllEmployeeLocations(branchId) : [];
