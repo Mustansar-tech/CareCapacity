@@ -315,11 +315,11 @@ function assignVisitToBestEmployee(
         const vEnd = timeToMinutes(v.endTime);
         const visitStart = timeToMinutes(adjustedVisit.startTime);
         const visitEnd = timeToMinutes(adjustedVisit.endTime);
-        
+
         // Check for any overlap in time
         return (visitStart < vEnd && visitEnd > vStart);
       });
-      
+
       if (hasConflictingVisit) {
         finalScore *= 0.1; // Massive penalty - nearly eliminate this option
         console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
@@ -388,7 +388,7 @@ function assignVisitToBestEmployee(
     const prevEndMin = timeToMinutes(prevVisit.endTime);
     const currentStartMin = timeToMinutes(best.adjustedVisit.startTime);
     const gapMinutes = currentStartMin - prevEndMin;
-    
+
     if (gapMinutes >= 90) {
       // Large gap - employee goes home and returns
       const travelToHome = getTravelMinutes(
@@ -401,7 +401,7 @@ function assignVisitToBestEmployee(
         { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
         schedule.transportMode
       );
-      
+
       actualTravelTimeBefore = travelFromHome;
       console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
     }
@@ -420,28 +420,55 @@ function assignVisitToBestEmployee(
     score: best.score,
   };
 
-  // CRITICAL: Verify chronological order before insertion
-  const visitStartMin = timeToMinutes(assignedVisit.startTime);
-  
-  // Check previous visit doesn't start after this one
-  if (best.insertionIndex > 0) {
-    const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
-    const prevStartMin = timeToMinutes(prevVisit.startTime);
-    if (prevStartMin > visitStartMin) {
-      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) after ${prevVisit.clientName} (${prevVisit.startTime})`);
-      return { success: false, reason: 'Would break chronological order (previous visit starts later)' };
-    }
-  }
-  
-  // Check next visit doesn't start before this one
-  if (best.insertionIndex < schedule.assignedVisits.length) {
-    const nextVisit = schedule.assignedVisits[best.insertionIndex];
-    const nextStartMin = timeToMinutes(nextVisit.startTime);
-    if (nextStartMin < visitStartMin) {
-      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) before ${nextVisit.clientName} (${nextVisit.startTime})`);
-      return { success: false, reason: 'Would break chronological order (next visit starts earlier)' };
-    }
-  }
+  // CRITICAL: Verify chronological order and travel time buffers before insertion
+      const visitStartMin = timeToMinutes(assignedVisit.startTime);
+      const visitEndMin = timeToMinutes(assignedVisit.endTime);
+
+      // Check previous visit doesn't overlap and has enough travel time
+      if (best.insertionIndex > 0) {
+        const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
+        const prevEndMin = timeToMinutes(prevVisit.endTime);
+
+        // Check for time overlap
+        if (prevEndMin > visitStartMin) {
+          console.error(`❌ TIME OVERLAP: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}-${assignedVisit.endTime}) - overlaps with ${prevVisit.clientName} (ends ${prevVisit.endTime})`);
+          return { success: false, reason: `Time overlap with previous visit (${prevVisit.clientName} ends at ${prevVisit.endTime})` };
+        }
+
+        // Check for sufficient travel time buffer
+        const requiredTravelTime = actualTravelTimeBefore;
+        const availableGap = visitStartMin - prevEndMin;
+
+        if (availableGap < requiredTravelTime) {
+          console.error(`❌ INSUFFICIENT TRAVEL TIME: Cannot insert ${assignedVisit.clientName} @ ${assignedVisit.startTime} - needs ${requiredTravelTime}min travel from ${prevVisit.clientName}, only ${availableGap}min available`);
+          return { success: false, reason: `Insufficient travel time (needs ${requiredTravelTime}min, has ${availableGap}min)` };
+        }
+      }
+
+      // Check next visit doesn't overlap and has enough travel time
+      if (best.insertionIndex < schedule.assignedVisits.length) {
+        const nextVisit = schedule.assignedVisits[best.insertionIndex];
+        const nextStartMin = timeToMinutes(nextVisit.startTime);
+
+        // Check for time overlap
+        if (visitEndMin > nextStartMin) {
+          console.error(`❌ TIME OVERLAP: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}-${assignedVisit.endTime}) - overlaps with ${nextVisit.clientName} (starts ${nextVisit.startTime})`);
+          return { success: false, reason: `Time overlap with next visit (${nextVisit.clientName} starts at ${nextVisit.startTime})` };
+        }
+
+        // Check for sufficient travel time to next visit
+        const travelToNext = getTravelMinutes(
+          { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
+          { lat: nextVisit.lat || 0, lng: nextVisit.lng || 0 },
+          schedule.transportMode
+        );
+        const availableGap = nextStartMin - visitEndMin;
+
+        if (availableGap < travelToNext) {
+          console.error(`❌ INSUFFICIENT TRAVEL TIME: Cannot insert ${assignedVisit.clientName} (ends ${assignedVisit.endTime}) - needs ${travelToNext}min travel to ${nextVisit.clientName} @ ${nextVisit.startTime}, only ${availableGap}min available`);
+          return { success: false, reason: `Insufficient travel time to next visit (needs ${travelToNext}min, has ${availableGap}min)` };
+        }
+      }
 
   // Debug logging for travel time
   if (best.insertionIndex === 0) {
@@ -453,7 +480,7 @@ function assignVisitToBestEmployee(
 
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
-  
+
   // CRITICAL: Re-sort visits by start time to ensure chronological order is maintained
   // This prevents the chronological error bug
   schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
@@ -664,18 +691,18 @@ export function generateWeeklySchedule(
   const sortedVisits = [...filteredVisits].sort((a, b) => {
     const aStart = timeToMinutes(a.startTime);
     const bStart = timeToMinutes(b.startTime);
-    
+
     // Primary sort: by start time (earlier visits first)
     if (aStart !== bStart) {
       return aStart - bStart;
     }
-    
+
     // Secondary sort: by priority if start times are equal
     return (b.priority || 1) - (a.priority || 1);
   });
-  
+
   console.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
-  
+
   // Log first 5 visits to verify chronological order
   if (sortedVisits.length > 0) {
     console.log('📋 First 5 visits in chronological order:');
