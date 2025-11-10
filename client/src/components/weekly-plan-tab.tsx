@@ -86,7 +86,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const visitsQueries = weekDates.map(date => 
     useQuery<ClientVisit[]>({
       queryKey: ['/api/visits', date, selectedBranchId],
-      queryFn: () => fetch(`/api/visits/${date}?branchId=${selectedBranchId}`).then(res => res.json()),
       enabled: !!data && !!weekDates.length && !!selectedBranchId,
     })
   );
