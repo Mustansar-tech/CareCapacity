@@ -1093,41 +1093,28 @@ export class DatabaseStorage implements IStorage {
 
   // Weekly schedule methods
   async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
-    // First check if a schedule already exists for this branch and week
-    const existing = await db
-      .select()
-      .from(weeklySchedules)
-      .where(and(
-        eq(weeklySchedules.branchId, insertSchedule.branchId),
-        eq(weeklySchedules.weekStartDate, insertSchedule.weekStartDate),
-        eq(weeklySchedules.weekEndDate, insertSchedule.weekEndDate)
-      ))
-      .limit(1);
+    const dataSize = JSON.stringify(insertSchedule.scheduleData).length;
+    console.log(`💾 Saving weekly schedule for ${insertSchedule.weekStartDate} (${Math.round(dataSize / 1024)}KB)`);
 
-    if (existing.length > 0) {
-      // Update existing schedule for this specific branch
-      const [updated] = await db
-        .update(weeklySchedules)
-        .set({
+    const [schedule] = await db
+      .insert(weeklySchedules)
+      .values({
+        ...insertSchedule,
+        unallocatedVisits: insertSchedule.unallocatedVisits || [],
+      })
+      .onConflictDoUpdate({
+        target: [weeklySchedules.branchId, weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
+        set: {
           scheduleData: insertSchedule.scheduleData,
           unallocatedVisits: insertSchedule.unallocatedVisits || [],
           metrics: insertSchedule.metrics,
           generatedAt: new Date(),
-        })
-        .where(eq(weeklySchedules.id, existing[0].id))
-        .returning();
-      return updated;
-    } else {
-      // Insert new schedule
-      const [schedule] = await db
-        .insert(weeklySchedules)
-        .values({
-          ...insertSchedule,
-          unallocatedVisits: insertSchedule.unallocatedVisits || [],
-        })
-        .returning();
-      return schedule;
-    }
+        }
+      })
+      .returning();
+
+    console.log(`✅ Weekly schedule saved successfully (ID: ${schedule.id}, ${insertSchedule.metrics.totalVisitsAssigned} visits)`);
+    return schedule;
   }
 
   async getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined> {
