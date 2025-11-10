@@ -1,5 +1,5 @@
 
--- Update existing branches with user-friendly display names
+-- Update existing branches with user-friendly display names (simplified)
 UPDATE branches SET display_name = 'Glasgow North' WHERE name = 'glasgow-north';
 UPDATE branches SET display_name = 'Glasgow South' WHERE name = 'glasgow-south';
 UPDATE branches SET display_name = 'North Lanarkshire' WHERE name = 'north-lanarkshire-glasgow-east';
