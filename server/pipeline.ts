@@ -2680,8 +2680,38 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
 
-        // Check if client already has geocoded coordinates
-        const existingClient = await storage.getClientLocationByName(clientKey);
+        // Check if client already has geocoded coordinates - try exact match first
+        let existingClient = branchId ? await storage.getClientLocationByName(branchId, clientKey) : null;
+
+        // If no exact match, try fuzzy matching on all clients
+        if (!existingClient && branchId) {
+          const allClients = await storage.getAllClientLocations(branchId);
+          const normalizedSearchName = normalizeName(clientKey);
+          
+          existingClient = allClients.find(client => {
+            const storedName = normalizeName(client.clientName);
+            
+            // Try exact normalized match
+            if (storedName === normalizedSearchName) return true;
+            
+            // Try substring match
+            if (storedName.includes(normalizedSearchName) || normalizedSearchName.includes(storedName)) return true;
+            
+            // Try matching individual words
+            const storedWords = storedName.split(/[\s,]+/).filter(w => w.length > 2);
+            const searchWords = normalizedSearchName.split(/[\s,]+/).filter(w => w.length > 2);
+            
+            const matchingWords = storedWords.filter(word => 
+              searchWords.some(searchWord => searchWord.includes(word) || word.includes(searchWord))
+            );
+            
+            return matchingWords.length >= Math.min(2, Math.min(storedWords.length, searchWords.length));
+          });
+          
+          if (existingClient) {
+            console.log(`🔍 Found client via fuzzy match: "${clientKey}" -> "${existingClient.clientName}"`);
+          }
+        }
 
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {
