@@ -38,17 +38,17 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       console.error(`❌ Database operation failed (attempt ${attempt}/${maxRetries}):`, error);
-      
+
       if (attempt === maxRetries) {
         throw error;
       }
-      
+
       // Exponential backoff
       const waitTime = delay * Math.pow(2, attempt - 1);
       console.log(`⏳ Retrying in ${waitTime}ms...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
-  
+
   throw new Error('Database operation failed after all retries');
 }
