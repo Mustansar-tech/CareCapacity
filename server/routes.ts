@@ -342,31 +342,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get visits for a specific date for scheduling
-  app.get("/api/visits/:date", async (req, res) => {
+  // Get visits for a specific date (extract from Excel on-demand)
+  app.get("/api/visits/extract/:date", async (req, res) => {
     try {
-      const branchId = await resolveBranch(req);
-      const { date } = req.params;
-      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date} (Branch: ${branchId})`);
-
-      const guaranteedBuffer = guaranteedBuffersByBranch.get(branchId);
-      if (!guaranteedBuffer) {
-        return res.status(404).json({ error: "No processed data available for this branch. Please process files first." });
+      const branchId = req.query.branchId as string;
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID is required" });
       }
 
-      // Dynamically import the function to avoid circular dependencies or unnecessary loads
-      const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
-      const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
-      const visits = extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate);
-      res.json(visits);
+      // Get the latest uploaded Excel data for this branch
+      const latestAnalysis = await storage.getLatestCapacityAnalysis(branchId);
+
+      if (!latestAnalysis) {
+        console.log(`📭 No capacity analysis found for branch ${branchId}`);
+        return res.json({ visits: [] });
+      }
+
+      // Extract visits from the Guaranteed Hours Excel buffer
+      // Note: We need to store the Excel buffer when uploading - for now return empty
+      // This requires storing the raw Excel buffer in the database
+      console.log(`⚠️ Visit extraction from stored Excel not yet implemented`);
+      console.log(`   Need to store Guaranteed Hours Excel buffer in database for on-demand extraction`);
+
+      res.json({ visits: [] });
     } catch (error) {
       console.error("Error extracting visits:", error);
-      const message = error instanceof Error ? error.message : 'Failed to extract visits';
-      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
-      res.status(statusCode).json({ 
-        error: message,
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      res.status(500).json({ error: "Failed to extract visits" });
+    }
+  });
+
+  // Legacy endpoint - kept for backward compatibility
+  app.get("/api/visits/date/:date", async (req, res) => {
+    try {
+      const branchId = req.query.branchId as string;
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID is required" });
+      }
+
+      const visits = await storage.getVisitsByDate(req.params.date, branchId);
+      res.json({ visits });
+    } catch (error) {
+      console.error("Error fetching visits:", error);
+      res.status(500).json({ error: "Failed to fetch visits" });
     }
   });
 

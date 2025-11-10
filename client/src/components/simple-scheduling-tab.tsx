@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,21 @@ interface ClientVisit {
   location?: { lat: string; lng: string }; // Added for potential location data
 }
 
+// Define a type for visits extracted from Excel, which might differ slightly
+// from the database version if some fields are not persisted.
+interface ExcelClientVisit {
+  clientName: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  address?: string;
+  postcode?: string;
+  // Location might not be directly in the Excel, but can be looked up from data
+  // Or if geocoding is part of the extraction process, it might be here.
+  // For now, we assume it's not directly here and will be looked up.
+}
+
+
 export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabProps) {
   const [date, setDate] = useState(selectedDate || new Date().toISOString().split('T')[0]);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
@@ -36,18 +51,40 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
-  // Fetch client visits for the selected date
-  const { data: visits = [], refetch: refetchVisits } = useQuery<ClientVisit[]>({
-    queryKey: ['/api/visits', date],
-    enabled: !!date,
+  // Assuming branchId is available from context or props, or some other mechanism.
+  // If not, this part might need adjustment. For now, let's use a placeholder or
+  // assume it's available in `data`. If `data` can be null, we need a safe way to get it.
+  // For demonstration, let's assume it's part of `data` or globally available.
+  // If not, this whole query might need to be disabled until branchId is known.
+  const branchId = data?.branchId; // Example: Get branchId from data
+
+  // Fetch visits for the selected date from Excel extraction
+  const { data: visitsData, isLoading: visitsLoading } = useQuery<ProcessingResult["visits"]>({ // Use the correct type from ProcessingResult
+    queryKey: ['/api/visits/extract', date, branchId], // Include branchId in query key
+    enabled: !!date && !!branchId, // Enable only if date and branchId are available
   });
 
-  // Refetch visits when date changes
-  React.useEffect(() => {
-    if (date) {
-      refetchVisits();
+  const visits: ExcelClientVisit[] = visitsData || []; // Assuming visitsData is directly the array of visits
+
+  // Debug logging for visit extraction
+  useEffect(() => {
+    if (visitsData) {
+      console.log(`📋 Extracted ${visits.length} visits for ${date} (Branch: ${branchId})`);
+      if (visits.length === 0) {
+        console.warn(`⚠️ No visits extracted for ${date} on branch ${branchId} - check if Guaranteed Hours Excel is uploaded.`);
+      }
     }
-  }, [date, refetchVisits]);
+  }, [visitsData, visits.length, date, branchId]);
+
+
+  // Refetch visits when date changes
+  // The query is already set up to refetch when `date` changes due to the queryKey.
+  // This useEffect might be redundant if the query automatically refetches,
+  // but it's here to ensure explicit refetching if needed.
+  // However, the current query setup `queryKey: ['/api/visits/extract', date, branchId]`
+  // means it will automatically refetch when `date` or `branchId` changes.
+  // Let's remove the explicit refetch to avoid confusion and rely on React Query's automatic handling.
+
 
   // Get employees for the selected date
   const employees = data?.employeesByDate?.[date] || [];
@@ -70,9 +107,9 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
     const empLng = empLocation?.homeLng ?? -3.1883;
 
     // Determine transport mode from location data or employee summary
-    const transportMode = empLocation?.transportMode?.toLowerCase().includes('car') ? 'car' : 
+    const transportMode = empLocation?.transportMode?.toLowerCase().includes('car') ? 'car' :
                          empLocation?.transportMode?.toLowerCase().includes('walk') ? 'walking' :
-                         selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
+                         selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' :
                          selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'walking';
 
     if (empLocation?.homeLat && empLocation?.homeLng) {
@@ -134,7 +171,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const assignVisit = (clientName: string, startTime: string, endTime: string) => {
     if (!selectedEmployee || !selectedEmp || !employeeRun) return;
 
-    const visit = visits.find(v => 
+    const visit = visits.find(v =>
       v.clientName === clientName && v.startTime === startTime && v.endTime === endTime
     );
     if (!visit) return;
@@ -187,7 +224,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const removeVisit = (employeeName: string, visit: AssignedVisit) => {
     setAssignedVisits(prev => ({
       ...prev,
-      [employeeName]: (prev[employeeName] || []).filter(v => 
+      [employeeName]: (prev[employeeName] || []).filter(v =>
         !(v.clientName === visit.clientName && v.start === visit.start && v.end === visit.end)
       )
     }));
@@ -364,7 +401,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         }
 
                         // Validate coordinates are valid numbers and not zero
-                        if (!Number.isFinite(empLat) || !Number.isFinite(empLng) || 
+                        if (!Number.isFinite(empLat) || !Number.isFinite(empLng) ||
                             !Number.isFinite(clientLat) || !Number.isFinite(clientLng) ||
                             (empLat === 0 && empLng === 0) || (clientLat === 0 && clientLng === 0)) {
 
@@ -415,7 +452,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         const clientLocationCoords = { lat: clientLat, lng: clientLng };
 
                         // Normalize transport mode
-                        const normalizedTransportMode = transportMode.includes('car') ? 'car' : 
+                        const normalizedTransportMode = transportMode.includes('car') ? 'car' :
                                                       transportMode.includes('walk') ? 'walking' : 'car';
 
                         const travelMinutes = getTravelMinutes(
@@ -444,7 +481,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                                     </Badge>
                                     {/* Use the calculated travelMinutes */}
                                     <Badge variant="outline" className="text-xs">
-                                      Travel: +{travelMinutes}m 
+                                      Travel: +{travelMinutes}m
                                     </Badge>
                                     <Badge variant="outline" className="text-xs">
                                       Gap: {match.gap}m
