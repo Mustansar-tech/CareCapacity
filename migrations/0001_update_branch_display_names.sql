@@ -9,3 +9,8 @@ UPDATE branches SET display_name = 'Ayr' WHERE name = 'south-ayrshire-kilmarnock
 UPDATE branches SET display_name = 'Aberdeen' WHERE name = 'aberdeen';
 UPDATE branches SET display_name = 'East Lothian' WHERE name = 'east-lothian-midlothian';
 UPDATE branches SET display_name = 'Scottish Borders' WHERE name = 'scottish-borders';
+
+-- Also fix any branches that might have full names in the 'name' column
+UPDATE branches SET display_name = 'East Lothian' WHERE name LIKE '%east-lothian%';
+UPDATE branches SET display_name = 'North Lanarkshire' WHERE name LIKE '%north-lanarkshire%';
+UPDATE branches SET display_name = 'Ayr' WHERE name LIKE '%ayrshire%';
