@@ -55,10 +55,7 @@ export function BranchSelector() {
               className="cursor-pointer"
               data-testid={`branch-option-${branch.id}`}
             >
-              <div className="flex flex-col">
-                <span className="font-medium">{branch.displayName}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{branch.region}</span>
-              </div>
+              <span className="font-medium">{branch.displayName}</span>
             </SelectItem>
           ))}
         </SelectContent>
