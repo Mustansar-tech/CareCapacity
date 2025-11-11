@@ -478,3 +478,29 @@ export type GeocodeCache = typeof geocodeCache.$inferSelect;
 
 export type InsertWeeklySchedule = z.infer<typeof insertWeeklyScheduleSchema>;
 export type WeeklySchedule = typeof weeklySchedules.$inferSelect;
+
+// Branch scheduling preferences - stores filter preferences per branch
+export const branchSchedulingPreferences = pgTable("branch_scheduling_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id).unique(),
+  excludedServiceTypes: text("excluded_service_types").array().notNull().default(sql`ARRAY[
+    'office hours',
+    'office',
+    'nights - sleep in',
+    'sleep in',
+    'nights - waking nights',
+    'waking nights',
+    'multiple care (secondary)',
+    'secondary',
+    '(secondary)'
+  ]`),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBranchSchedulingPreferenceSchema = createInsertSchema(branchSchedulingPreferences).omit({ 
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertBranchSchedulingPreference = z.infer<typeof insertBranchSchedulingPreferenceSchema>;
+export type BranchSchedulingPreference = typeof branchSchedulingPreferences.$inferSelect;

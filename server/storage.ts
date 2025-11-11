@@ -6,6 +6,8 @@ import {
   type InsertCapacityAnalysis,
   type BranchUpload,
   type InsertBranchUpload,
+  type BranchSchedulingPreference,
+  type InsertBranchSchedulingPreference,
   type EmployeeLocation,
   type InsertEmployeeLocation,
   type ClientLocation,
@@ -86,6 +88,10 @@ export interface IStorage {
   getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined>;
   getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined>;
   getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]>;
+
+  // Branch scheduling preferences (filter settings per branch)
+  getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference>;
+  saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference>;
 }
 
 export class MemStorage implements IStorage {
