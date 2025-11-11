@@ -104,6 +104,14 @@ function isOfficeVisit(clientName: string): boolean {
   return OFFICE_VISIT_KEYWORDS.some(keyword => lowerName.includes(keyword));
 }
 
+// Helper to check if visit is a night visit (sleep-in, waking nights, etc.)
+const isNightVisit = (clientName: string, serviceType?: string): boolean => {
+  const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
+  const nameLower = clientName.toLowerCase();
+  const typeLower = (serviceType || '').toLowerCase();
+  return nightKeywords.some(keyword => nameLower.includes(keyword) || typeLower.includes(keyword));
+};
+
 // Filter out secondary multiple care visits
 function isSecondaryMultipleCare(serviceType: string): boolean {
   if (!serviceType) return false;
@@ -315,11 +323,11 @@ function assignVisitToBestEmployee(
         const vEnd = timeToMinutes(v.endTime);
         const visitStart = timeToMinutes(adjustedVisit.startTime);
         const visitEnd = timeToMinutes(adjustedVisit.endTime);
-        
+
         // Check for any overlap in time
         return (visitStart < vEnd && visitEnd > vStart);
       });
-      
+
       if (hasConflictingVisit) {
         finalScore *= 0.1; // Massive penalty - nearly eliminate this option
         console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
@@ -388,7 +396,7 @@ function assignVisitToBestEmployee(
     const prevEndMin = timeToMinutes(prevVisit.endTime);
     const currentStartMin = timeToMinutes(best.adjustedVisit.startTime);
     const gapMinutes = currentStartMin - prevEndMin;
-    
+
     if (gapMinutes >= 90) {
       // Large gap - employee goes home and returns
       const travelToHome = getTravelMinutes(
@@ -401,7 +409,7 @@ function assignVisitToBestEmployee(
         { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
         schedule.transportMode
       );
-      
+
       actualTravelTimeBefore = travelFromHome;
       console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
     }
@@ -422,7 +430,7 @@ function assignVisitToBestEmployee(
 
   // CRITICAL: Verify chronological order before insertion
   const visitStartMin = timeToMinutes(assignedVisit.startTime);
-  
+
   // Check previous visit doesn't start after this one
   if (best.insertionIndex > 0) {
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
@@ -432,7 +440,7 @@ function assignVisitToBestEmployee(
       return { success: false, reason: 'Would break chronological order (previous visit starts later)' };
     }
   }
-  
+
   // Check next visit doesn't start before this one
   if (best.insertionIndex < schedule.assignedVisits.length) {
     const nextVisit = schedule.assignedVisits[best.insertionIndex];
@@ -453,7 +461,7 @@ function assignVisitToBestEmployee(
 
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
-  
+
   // CRITICAL: Re-sort visits by start time to ensure chronological order is maintained
   // This prevents the chronological error bug
   schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
@@ -557,6 +565,12 @@ export function generateWeeklySchedule(
       return false;
     }
 
+    // Skip night visits
+    if (isNightVisit(visit.clientName, visit.serviceType)) {
+      console.log(`🚫 Excluding night visit: ${visit.clientName} (${visit.serviceType})`);
+      return false;
+    }
+
     // Skip if no location data
     if (!visit.lat || !visit.lng) {
       console.log(`🚫 Excluding visit without location: ${visit.clientName}`);
@@ -614,7 +628,7 @@ export function generateWeeklySchedule(
           // Check if window extends past 10pm (22:00 = 1320 minutes) or starts before 6am (360 minutes)
           return w.end > 1320 || w.start < 360;
         });
-        
+
         if (hasNightAvailability) {
           console.log(`🌙 Filtering out ${emp.employeeName} - has night availability outside 6am-10pm`);
           return false;
@@ -679,18 +693,18 @@ export function generateWeeklySchedule(
   const sortedVisits = [...filteredVisits].sort((a, b) => {
     const aStart = timeToMinutes(a.startTime);
     const bStart = timeToMinutes(b.startTime);
-    
+
     // Primary sort: by start time (earlier visits first)
     if (aStart !== bStart) {
       return aStart - bStart;
     }
-    
+
     // Secondary sort: by priority if start times are equal
     return (b.priority || 1) - (a.priority || 1);
   });
-  
+
   console.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
-  
+
   // Log first 5 visits to verify chronological order
   if (sortedVisits.length > 0) {
     console.log('📋 First 5 visits in chronological order:');

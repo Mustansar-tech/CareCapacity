@@ -80,6 +80,17 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
+// Night visit keywords to exclude (sleep-in, waking nights, etc.)
+const NIGHT_VISIT_KEYWORDS = [
+  'nights',
+  'sleep in',
+  'waking night',
+  'overnight',
+  'night shift',
+  'sleep-in',
+  'sleepin'
+];
+
 // Round time to nearest 15-minute interval
 function roundToNearest15Minutes(date: Date): Date {
   const minutes = date.getMinutes();
@@ -136,6 +147,12 @@ export function extractClientVisitsFromGHExcel(
     // Skip office visits
     const clientNameLower = clientName.toLowerCase();
     if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
+      continue;
+    }
+
+    // Skip night visits (sleep-in, waking nights, etc.)
+    if (NIGHT_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
+      console.log(`🌙 Skipping night visit: ${clientName}`);
       continue;
     }
 
