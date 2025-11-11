@@ -1180,7 +1180,22 @@ export async function parseExcelFiles(
         row["Actual Service Type Description"] || "",
       );
 
-      if (!isCancelOk || isSecondary) {
+      // Check for excluded service types (office hours, nights)
+      const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
+      const isExcludedType = serviceType && (() => {
+        const lowerType = String(serviceType).toLowerCase();
+        const excludedTypes = [
+          'office hours',
+          'office',
+          'nights - sleep in',
+          'sleep in',
+          'nights - waking nights',
+          'waking nights'
+        ];
+        return excludedTypes.some(excluded => lowerType.includes(excluded));
+      })();
+
+      if (!isCancelOk || isSecondary || isExcludedType) {
         filteredSecondaryCount++;
         return;
       }

@@ -87,15 +87,17 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
-// Service types to exclude
+// Service types to exclude (office hours, night shifts, secondary care)
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
+  'office',
   'nights - sleep in',
   'sleep in',
   'nights - waking nights',
   'waking nights',
   'multiple care (secondary)',
-  'secondary'
+  'secondary',
+  '(secondary)'
 ];
 
 // Round time to nearest 15-minute interval

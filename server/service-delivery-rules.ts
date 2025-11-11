@@ -166,11 +166,24 @@ export function applyServiceRules(demandBuffer: Buffer): {
     normalized.push({ serviceType, weekday, duration, cancellation });
   }
 
-  // 5) RULES: remove cancellations and "Multiple Care (Secondary)"
+  // 5) RULES: remove cancellations and excluded service types
+  // Excluded service types (office hours, night shifts, secondary care)
+  const EXCLUDED_TYPES = [
+    'office hours',
+    'office',
+    'nights - sleep in',
+    'sleep in',
+    'nights - waking nights',
+    'waking nights',
+    'multiple care (secondary)',
+    'secondary',
+    '(secondary)'
+  ];
+
   const filtered = normalized.filter((r) => {
-    const isSecondary = r.serviceType === "Multiple Care (Secondary)";
+    const isExcludedType = EXCLUDED_TYPES.includes(norm(r.serviceType));
     const isCancelled = !!(r.cancellation && r.cancellation.length > 0);
-    return !isSecondary && !isCancelled;
+    return !isExcludedType && !isCancelled;
   });
 
   // 6) Aggregate outputs
