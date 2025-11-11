@@ -386,6 +386,14 @@ interface ParsedAvailabilityRow extends AvailabilityRow {
 const AVAIL_SHEET = "CAREGiver Availability";
 const GUAR_SHEET = "Data";
 
+// Client name column priorities for guaranteed hours data
+const CLIENT_COLS = [
+  'Service Location Name',
+  'Client Name',
+  'Service User Name',
+  'Customer Name'
+];
+
 // Helper: case/space-insensitive column picker
 function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
@@ -2391,12 +2399,6 @@ export async function processCapacityData(
   // and replaced with a comment indicating that the new extraction is handled elsewhere.
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
-  const CLIENT_COLS = [
-    'Service Location Name',
-    'Client Name',
-    'Service User Name',
-    'Customer Name'
-  ];
 
   // Note: Visit extraction is now handled by excel-visit-extractor module
   // which is called separately when needed. No need to extract visits here.
@@ -2931,14 +2933,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     // Extract visit data for route optimization using Planned Start/End Date And Time
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
-
-    // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
-    const CLIENT_COLS = [
-      'Service Location Name', // Prioritized as per the user request
-      'Client Name',
-      'Service User Name',
-      'Customer Name'
-    ];
 
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
