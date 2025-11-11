@@ -76,12 +76,31 @@ function setLatestGuaranteedBuffer(branchId: string, buffer: Buffer): void {
   console.log(`📦 Verification - can retrieve?: ${guaranteedBufferByBranch.has(branchId)}`);
 }
 
-// Getter function for guaranteedBufferByBranch
-export function getLatestGuaranteedBuffer(branchId: string): Buffer | null {
+// Getter function for guaranteedBufferByBranch (checks in-memory cache + database fallback)
+export async function getLatestGuaranteedBuffer(branchId: string): Promise<Buffer | null> {
   console.log(`📦 RETRIEVING GH buffer for branch ${branchId}`);
   console.log(`📦 Available branches in map: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
-  const buffer = guaranteedBufferByBranch.get(branchId) || null;
-  console.log(`📦 Retrieved buffer: ${buffer ? `${buffer.length} bytes` : 'NULL'}`);
+  
+  // Check in-memory cache first
+  let buffer = guaranteedBufferByBranch.get(branchId) || null;
+  
+  if (!buffer) {
+    // Fallback to database
+    console.log(`📦 Not in memory - checking database...`);
+    try {
+      const upload = await storage.getLatestBranchUpload(branchId, 'guaranteedHours');
+      if (upload) {
+        buffer = Buffer.from(upload.fileBuffer, 'base64');
+        // Hydrate the cache
+        guaranteedBufferByBranch.set(branchId, buffer);
+        console.log(`📦 Retrieved from database and cached (${buffer.length} bytes)`);
+      }
+    } catch (dbError) {
+      console.error(`❌ Failed to retrieve GH buffer from database:`, dbError);
+    }
+  }
+  
+  console.log(`📦 Final result: ${buffer ? `${buffer.length} bytes` : 'NULL'}`);
   return buffer;
 }
 
@@ -279,9 +298,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store for export endpoint
       latestExportBuffer = exportBuffer;
 
-      // Store Guaranteed Hours buffer per branch for visit extraction
+      // Store Guaranteed Hours buffer per branch for visit extraction (in-memory + database)
       setLatestGuaranteedBuffer(requestedBranchId, guaranteedFile.buffer);
-      console.log(`✅ Stored Guaranteed Hours buffer (${guaranteedFile.buffer.length} bytes) for branch ${requestedBranchId}`);
+      console.log(`✅ Stored Guaranteed Hours buffer in memory (${guaranteedFile.buffer.length} bytes) for branch ${requestedBranchId}`);
+      
+      // Persist to database for cross-restart/cross-branch reliability
+      try {
+        await storage.saveBranchUpload({
+          branchId: requestedBranchId,
+          uploadType: 'guaranteedHours',
+          fileBuffer: guaranteedFile.buffer.toString('base64'),
+          originalFileName: guaranteedFile.originalname,
+          fileSize: guaranteedFile.buffer.length,
+          sha256: null, // Could add crypto.createHash('sha256').update(buffer).digest('hex') if needed
+        });
+        console.log(`✅ Persisted Guaranteed Hours buffer to database for branch ${requestedBranchId}`);
+      } catch (dbError) {
+        console.error('⚠️  Failed to persist GH buffer to database:', dbError);
+        // Don't fail the request if database persistence fails - in-memory cache still works
+      }
 
       // Save Excel file to disk
       const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
@@ -365,9 +400,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branchId = await resolveBranch(req); // Resolve branchId for buffer lookup
       console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date} (Branch: ${branchId})`);
 
-      const guaranteedBuffer = getLatestGuaranteedBuffer(branchId);
+      const guaranteedBuffer = await getLatestGuaranteedBuffer(branchId);
       if (!guaranteedBuffer) {
-        return res.status(404).json({ error: "No processed data available for this branch. Please process files first." });
+        return res.status(404).json({ error: "No processed data available for this branch. Please upload the Excel files first to enable scheduling." });
       }
 
       // Dynamically import the function to avoid circular dependencies or unnecessary loads
@@ -394,9 +429,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📅 Fetching visits for branch ${branchId || 'default'} from ${startDate} to ${endDate}`);
 
       const visits = await storage.listVisitsBetween(
+        branchId || '',
         String(startDate),
-        String(endDate),
-        branchId
+        String(endDate)
       );
 
       console.log(`✅ Found ${visits.length} visits for the date range`);

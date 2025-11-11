@@ -450,7 +450,7 @@ export class AutoScheduler {
       }
       
       console.log(`🔍 AUTO-SCHEDULER: Calling getLatestGuaranteedBuffer('${branchId}')...`);
-      const ghBuffer = getLatestGuaranteedBuffer(branchId);
+      const ghBuffer = await getLatestGuaranteedBuffer(branchId);
       
       if (!ghBuffer) {
         console.warn(`⚠️ AUTO-SCHEDULER: No Guaranteed Hours buffer available for branch ${branchId} - please upload files first`);
