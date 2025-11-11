@@ -63,7 +63,7 @@ const renderStatusBadge = (status: string) => {
 export default function Dashboard() {
   // Get selected branch ID
   const { selectedBranchId } = useBranch();
-
+  
   // File upload state - Adding CG Data Export as 4th file
   const [files, setFiles] = useState<{
     availability: File | null;
@@ -89,35 +89,21 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Query to get all historical weeks for the dropdown - include branchId to refetch on branch change
+  // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
-    queryKey: ['/api/history', selectedBranchId],
-    queryFn: async () => {
-      const response = await fetch(`/api/history/${selectedBranchId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch history');
-      }
-      return response.json();
-    },
-    enabled: !!selectedBranchId, // Enable to populate week selector
+    queryKey: ['/api/history'],
+    enabled: true, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
 
-  // Query to load latest data automatically - include branchId in queryKey to refetch on branch change
+  // Query to load latest data automatically
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/latest', selectedBranchId],
-    queryFn: async () => {
-      const response = await fetch(`/api/history/latest/${selectedBranchId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch latest data');
-      }
-      return response.json();
-    },
-    enabled: !isProcessing && !!selectedBranchId, // Always fetch if not processing and have branch
+    queryKey: ['/api/history/latest'],
+    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
-    refetchOnMount: true, // Allow refetch on mount to load data initially
+    refetchOnMount: false, // Prevent refetch on component mount
   });
 
   // Clear processed data when branch changes
@@ -129,11 +115,9 @@ export default function Dashboard() {
     setSelectedDate(null);
   }, [selectedBranchId]);
 
-  // Auto-load latest data when component mounts or when branch changes
+  // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
-    // Only auto-load if we have latest data, no processed data, and we're not currently processing
-    if (latestData && !processedData && !isProcessing) {
-      console.log('📥 Auto-loading latest data for branch:', selectedBranchId);
+    if (latestData && !processedData && !selectedWeekId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -144,10 +128,10 @@ export default function Dashboard() {
       setSelectedDate(latestData.dailySummary?.[0]?.date || null);
       toast({
         title: "Latest Data Loaded",
-        description: `Loaded data for ${selectedBranchId ? 'selected branch' : 'default branch'}.`
+        description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, isProcessing, selectedBranchId, toast]);
+  }, [latestData, processedData, selectedWeekId, toast]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
@@ -253,7 +237,7 @@ export default function Dashboard() {
     formData.append('guaranteed', files.guaranteed);
     formData.append('demand', files.demand);
     formData.append('cgData', files.cgData);
-
+    
     // Include branch ID in the form data
     if (selectedBranchId) {
       formData.append('branchId', selectedBranchId);
