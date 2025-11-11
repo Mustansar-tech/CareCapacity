@@ -115,7 +115,7 @@ export default function Dashboard() {
       }
       return response.json();
     },
-    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData && !!selectedBranchId, // Only fetch if not processing and no files selected
+    enabled: !isProcessing && !!selectedBranchId && !processedData, // Only fetch if not processing, have branch, and no current data
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
     refetchOnMount: false, // Prevent refetch on component mount
   });
@@ -131,7 +131,8 @@ export default function Dashboard() {
 
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
-    if (latestData && !processedData && !selectedWeekId) {
+    if (latestData && !processedData) {
+      console.log('📥 Auto-loading latest data for branch:', selectedBranchId);
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -145,7 +146,7 @@ export default function Dashboard() {
         description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, selectedWeekId, toast]);
+  }, [latestData, processedData, selectedBranchId, toast]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
