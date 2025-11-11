@@ -2871,7 +2871,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       const actualEndTime = row["Actual End Date And Time"];
       const startTime = row["Service Requirement Start Date And Time"];
       const endTime = row["Service Requirement End Date And Time"];
-      const serviceType = row["Actual Service Type Description"];
 
       if (clientName && (plannedStartTime || actualStartTime || startTime)) {
         // Use planned times first as requested, then fall back to others
