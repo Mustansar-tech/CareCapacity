@@ -69,7 +69,7 @@ function normalizeBranchName(branchName: string): string {
 }
 
 // Enhanced geocoding with fallback hierarchy
-async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
+async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
   const prefix = normalizedPostcode.substring(0, 2);
 
@@ -110,6 +110,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
 
         // Cache the exact result
         await storage.saveGeocode({
+          branchId: branchId!, // Required for cache isolation
           key: `postcode:${normalizedPostcode}`,
           lat,
           lng,
@@ -159,6 +160,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
 
           // Cache the district result
           await storage.saveGeocode({
+            branchId: branchId!, // Required for cache isolation
             key: `district:${district}`,
             lat,
             lng,
@@ -198,6 +200,7 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
 
     // Cache the fallback to avoid repeated lookups
     await storage.saveGeocode({
+      branchId: branchId!, // Required for cache isolation
       key: `fallback:${prefix}`,
       lat: fallback.lat,
       lng: fallback.lng,
@@ -2420,7 +2423,12 @@ export async function processCapacityData(
     const weekEnd =
       result.dailySummary[result.dailySummary.length - 1]?.date || "";
 
+    if (!branchId) {
+      throw new Error("branchId is required to save capacity analysis");
+    }
+
     const analysisData: InsertCapacityAnalysis = {
+      branchId, // Required for data isolation
       weekStartDate: weekStart,
       weekEndDate: weekEnd,
       kpis: result.kpis as any,
@@ -2444,7 +2452,11 @@ export async function processCapacityData(
   }
 
   // Extract and store geographical data for scheduling optimization
-  await extractAndStoreGeographicalData(cgData, guaranteed, branchId);
+  if (branchId) {
+    await extractAndStoreGeographicalData(cgData, guaranteed, branchId);
+  } else {
+    console.log(`⚠️ WARNING: No branchId provided - skipping geographical data extraction`);
+  }
 
   // Retrieve geographical data to include in the result
   try {
@@ -2563,7 +2575,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       console.log(`🔍 Geocoding ${employeesToGeocode.length} new employee postcodes...`);
       for (const locationData of employeesToGeocode) {
         try {
-          const geocoded = await geocodeWithFallback(locationData.homePostcode, storage);
+          const geocoded = await geocodeWithFallback(locationData.homePostcode, storage, branchId);
 
           if (geocoded && geocoded.lat && geocoded.lng) {
             locationData.homeLat = geocoded.lat;
