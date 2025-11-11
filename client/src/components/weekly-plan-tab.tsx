@@ -203,7 +203,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
-      
+
       // Log gender data for debugging purposes
       employeesWithLocations.forEach(emp => {
         if (!emp.gender) {
@@ -558,24 +558,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {vIndex < dayVisits.length - 1 && (() => {
                                     const currentVisit = dayVisits[vIndex];
                                     const nextVisit = dayVisits[vIndex + 1];
-                                    
+
                                     // Calculate gap between visits
                                     const timeToMinutes = (timeStr: string) => {
                                       const [hours, minutes] = timeStr.split(':').map(Number);
                                       return hours * 60 + minutes;
                                     };
-                                    
+
                                     const currentEndMin = timeToMinutes(currentVisit.endTime);
                                     const nextStartMin = timeToMinutes(nextVisit.startTime);
                                     const gapMinutes = nextStartMin - currentEndMin;
-                                    
+
                                     // If gap is 90 minutes or more, show home break
                                     if (gapMinutes >= 90) {
                                       const empLocation = employeeLocationMap.get(selectedEmployee || '');
-                                      
+
                                       let travelToHome = 0;
                                       let travelFromHome = 0;
-                                      
+
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
                                         const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
                                           const R = 6371;
@@ -589,10 +589,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                           const speedKmh = mode === 'walking' ? 5 : 40;
                                           return Math.round((distKm / speedKmh) * 60);
                                         };
-                                        
+
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                         const mode = transportMode.includes('walk') ? 'walking' : 'car';
-                                        
+
                                         // Travel from current visit to home
                                         if (currentVisit.lat && currentVisit.lng) {
                                           travelToHome = getTravelMinutes(
@@ -601,7 +601,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             mode
                                           );
                                         }
-                                        
+
                                         // Travel from home to next visit
                                         if (nextVisit.lat && nextVisit.lng) {
                                           travelFromHome = getTravelMinutes(
@@ -611,9 +611,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                           );
                                         }
                                       }
-                                      
+
                                       const breakTime = gapMinutes - travelToHome - travelFromHome;
-                                      
+
                                       return (
                                         <div className="flex items-center gap-2">
                                           {/* Travel to home */}
@@ -623,7 +623,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             </span>
                                             <ArrowRight className="h-5 w-5 text-gray-400" />
                                           </div>
-                                          
+
                                           {/* Home break */}
                                           <div className="flex flex-col items-center px-3 py-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-700">
                                             <Home className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-1" />
@@ -634,7 +634,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                               {breakTime}min
                                             </span>
                                           </div>
-                                          
+
                                           {/* Travel from home */}
                                           <div className="flex flex-col items-center">
                                             <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -645,7 +645,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         </div>
                                       );
                                     }
-                                    
+
                                     // Normal travel between visits (gap < 90 minutes)
                                     return (
                                       <div className="flex flex-col items-center">

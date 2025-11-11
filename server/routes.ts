@@ -15,26 +15,26 @@ import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schem
 async function resolveBranch(req: Request): Promise<string> {
   // Extract branchId from query (GET) or body (POST/PUT/DELETE)
   const branchId = req.query.branchId as string || req.body?.branchId as string;
-  
+
   // Fallback to default branch if configured (for backward compatibility during transition)
   const defaultBranchId = process.env.DEFAULT_BRANCH_ID;
   const resolvedBranchId = branchId || defaultBranchId;
-  
+
   if (!resolvedBranchId) {
     throw new Error('branchId is required. Provide it as a query parameter (GET) or in request body (POST/PUT/DELETE)');
   }
-  
+
   // Validate branch exists
   const branch = await storage.getBranchById(resolvedBranchId);
   if (!branch) {
     throw new Error(`Branch with ID '${resolvedBranchId}' not found`);
   }
-  
+
   // Log for metrics (to identify legacy callers using fallback)
   if (!branchId && defaultBranchId) {
     console.log(`⚠️  Request to ${req.method} ${req.path} using DEFAULT_BRANCH_ID fallback: ${defaultBranchId}`);
   }
-  
+
   return resolvedBranchId;
 }
 
@@ -147,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       const requestedBranchId = req.body.branchId; // Branch ID from frontend
-      
+
       console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
       console.log(`🏢 Requested branch ID:`, requestedBranchId || 'NONE');
 
@@ -360,28 +360,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get visits for a date range
+  // Get visits between dates
   app.get('/api/visits', async (req, res) => {
+    const { startDate, endDate } = req.query;
+    const branchId = req.headers['x-branch-id'] as string | undefined;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Start date and end date are required' });
+    }
+
     try {
-      const branchId = await resolveBranch(req);
-      const { start, end } = req.query;
+      console.log(`📅 Fetching visits for branch ${branchId || 'default'} from ${startDate} to ${endDate}`);
 
-      if (!start || !end) {
-        return res.status(400).json({ error: 'Start and end dates are required' });
-      }
+      const visits = await storage.listVisitsBetween(
+        String(startDate),
+        String(endDate),
+        branchId
+      );
 
-      console.log(`📋 Getting visits from ${start} to ${end} for branch ${branchId}`);
-      const visits = await storage.listVisitsBetween(branchId, start as string, end as string);
-
+      console.log(`✅ Found ${visits.length} visits for the date range`);
       res.json(visits);
     } catch (error) {
-      console.error('Error getting visits range:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get visits';
-      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
-      res.status(statusCode).json({ 
-        error: message,
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      console.error('Error fetching visits:', error);
+      res.status(500).json({ message: 'Failed to fetch visits' });
     }
   });
 
@@ -789,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/geo/geocode-batch', async (req, res) => {
     try {
       const { postcodes = [], addresses = [] } = req.body;
-      
+
       // OPTIMIZATION: Process unique postcodes in parallel for 70-80% faster geocoding
       const uniquePostcodes = Array.from(new Set(postcodes as string[]));
       console.log(`🚀 Parallel geocoding ${uniquePostcodes.length} unique postcodes (from ${postcodes.length} total)...`);
@@ -816,7 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       const uncachedPostcodes = cacheChecks.filter(c => !c.cached).map(c => c.postcode);
-      
+
       console.log(`📊 Cache stats: ${cachedResults.length} cached, ${uncachedPostcodes.length} need geocoding`);
 
       // Process all uncached postcodes in parallel using Promise.all
@@ -861,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const newResults = await Promise.all(postcodePromises);
-      
+
       // Merge cached and newly geocoded results
       const results = [...cachedResults, ...newResults];
 
@@ -1362,20 +1363,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/weekly-schedule/generate', async (req, res) => {
     try {
       const { weekStartDate } = req.body;
-      
+
       if (!weekStartDate) {
         return res.status(400).json({ message: 'weekStartDate is required' });
       }
-      
+
       // Get the week boundaries
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
-      
+
       // Get latest processed data
       const latestData = await storage.getLatestCapacityAnalysis();
       if (!latestData) {
         return res.status(404).json({ message: 'No processed data available. Please process files first.' });
       }
-      
+
       // Convert to ProcessingResult format
       const processingResult = {
         kpis: latestData.kpis as any,
@@ -1398,21 +1399,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lng: loc.lng ? Number(loc.lng) : undefined,
         }))) : [],
       };
-      
+
       // Generate weekly schedule using the same algorithm as manual scheduling
       // For now, return empty schedule structure that the frontend will populate
       const scheduleData = {
         employees: [],
         weekDates: [],
       };
-      
+
       const metrics = {
         totalVisitsAssigned: 0,
         totalVisitsUnallocated: 0,
         averageTravelTimePerVisit: 0,
         employeesUtilized: 0,
       };
-      
+
       // Save to database
       const savedSchedule = await storage.saveWeeklySchedule({
         weekStartDate: weekStart,
@@ -1421,7 +1422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: [],
         metrics,
       });
-      
+
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error generating weekly schedule:', error);
@@ -1440,7 +1441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllEmployeeLocations(branchId),
         storage.getAllClientLocations(branchId)
       ]);
-      
+
       res.json({
         employees,
         clients
@@ -1461,11 +1462,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
       const latestSchedule = await storage.getLatestWeeklySchedule(branchId);
-      
+
       if (!latestSchedule) {
         return res.status(404).json({ message: 'No weekly schedules found' });
       }
-      
+
       res.json(latestSchedule);
     } catch (error) {
       console.error('Error fetching latest weekly schedule:', error);
@@ -1484,13 +1485,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branchId = await resolveBranch(req);
       const { weekStartDate } = req.params;
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
-      
+
       const schedule = await storage.getWeeklyScheduleByWeek(branchId, weekStart, weekEnd);
-      
+
       if (!schedule) {
         return res.status(404).json({ message: 'Schedule not found for this week' });
       }
-      
+
       res.json(schedule);
     } catch (error) {
       console.error('Error fetching weekly schedule:', error);
@@ -1508,11 +1509,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
       const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
-      
+
       if (!weekStartDate || !weekEndDate || !scheduleData || !metrics) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
-      
+
       const savedSchedule = await storage.saveWeeklySchedule({
         branchId,
         weekStartDate,
@@ -1521,7 +1522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unallocatedVisits: unallocatedVisits || [],
         metrics,
       });
-      
+
       res.json(savedSchedule);
     } catch (error) {
       console.error('Error saving weekly schedule:', error);

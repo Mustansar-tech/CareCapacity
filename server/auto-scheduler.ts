@@ -430,11 +430,11 @@ export class AutoScheduler {
     }
   }
 
-  private async getUnassignedVisits(date: string): Promise<SchedulingVisit[]> {
+  private async getUnassignedVisits(date: string, branchId?: string): Promise<SchedulingVisit[]> {
     try {
       const [visits, clientLocations] = await Promise.all([
-        storage.listVisitsBetween(date, date),
-        storage.getAllClientLocations()
+        storage.listVisitsBetween(date, date, branchId),
+        storage.getAllClientLocations(branchId)
       ]);
 
       const clientLocationMap = new Map(clientLocations.map(c => [c.clientName, c]));
