@@ -62,6 +62,31 @@ export const insertCapacityAnalysisSchema = createInsertSchema(capacityAnalyses)
 export type InsertCapacityAnalysis = z.infer<typeof insertCapacityAnalysisSchema>;
 export type CapacityAnalysis = typeof capacityAnalyses.$inferSelect;
 
+// Branch file uploads storage - stores the latest upload per (branch, type)
+export const branchUploads = pgTable("branch_uploads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  uploadType: text("upload_type", { enum: ["guaranteedHours", "availability", "demand", "cgData"] }).notNull(),
+  fileBuffer: text("file_buffer").notNull(), // Base64 encoded buffer (raw binary would use bytea in PostgreSQL)
+  originalFileName: text("original_file_name"),
+  fileSize: integer("file_size"),
+  sha256: text("sha256"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+}, (table) => ({
+  // Unique constraint: only keep the latest file per (branch, uploadType)
+  uniqueBranchUpload: unique("unique_branch_upload").on(table.branchId, table.uploadType),
+  branchIdx: index("branch_upload_branch_idx").on(table.branchId),
+  uploadedAtIdx: index("upload_uploaded_at_idx").on(table.uploadedAt),
+}));
+
+export const insertBranchUploadSchema = createInsertSchema(branchUploads).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export type InsertBranchUpload = z.infer<typeof insertBranchUploadSchema>;
+export type BranchUpload = typeof branchUploads.$inferSelect;
+
 // Week boundary helper functions
 export function getCanonicalWeekBoundaries(dateStr: string): { weekStart: string; weekEnd: string } {
   const date = new Date(dateStr + 'T00:00:00.000Z'); // Parse as UTC
