@@ -1350,6 +1350,8 @@ export async function parseExcelFiles(
   console.log(`================================\n`);
 
   // Map weekday hours to actual dates from the files
+  // CRITICAL: Night visit hours are already filtered out in service-delivery-rules.ts
+  // so these hours should NOT include night visits
   hoursByWeekday.forEach(({ weekday, hours }) => {
     const actualDatesForWeekday = weekdayToActualDates[weekday] || [];
 
@@ -1367,7 +1369,7 @@ export async function parseExcelFiles(
         : hours;
 
     actualDatesForWeekday.forEach((dateStr) => {
-      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr}`);
+      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr} (night visits already excluded)`);
       validatedDemand.push({
         Date: dateStr,
         "Required Client Hours": hoursPerDate,
