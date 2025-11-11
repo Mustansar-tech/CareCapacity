@@ -96,9 +96,14 @@ const EXCLUDED_SERVICE_TYPES = [
   'sleep in',
   'nights - waking nights',
   'waking nights',
+  'nights-sleep in',
+  'nights-waking nights',
+  'night - sleep in',
+  'night - waking nights',
   'multiple care (secondary)',
   'secondary',
-  '(secondary)'
+  '(secondary)',
+  'multiple care - secondary'
 ];
 
 // Round time to nearest 15-minute interval
@@ -164,13 +169,14 @@ export function extractClientVisitsFromGHExcel(
     const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (serviceTypeRaw) {
       const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
-      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded => serviceTypeLower.includes(excluded));
+      // Check if service type contains any of the excluded keywords
+      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded => 
+        serviceTypeLower.includes(excluded.toLowerCase())
+      );
       if (isExcluded) {
         console.log(`🚫 Excluding service type: "${serviceTypeRaw}" for ${clientName}`);
         continue;
       }
-    } else {
-      console.log(`⚠️ No service type found for ${clientName} - columns checked: ${SERVICE_TYPE_COLS.join(', ')}`);
     }
 
     // Get start time
