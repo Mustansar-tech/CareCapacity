@@ -1,0 +1,86 @@
+  where: undefined,
+  schema: 'public',
+  table: 'geocode_cache',
+  column: 'branch_id',
+  dataType: undefined,
+  constraint: undefined,
+  file: 'execMain.c',
+  line: '2021',
+  routine: 'ExecConstraints'
+}
+❌ Error geocoding "FK7 7PN": error: null value in column "branch_id" of relation "geocode_cache" violates not-null constraint
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async DatabaseStorage.saveGeocode (/home/runner/workspace/server/storage.ts:1134:23)
+    at async geocodeWithFallback (/home/runner/workspace/server/routes.ts:824:7)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:891:33)
+    at async Promise.all (index 5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:928:26) {
+  length: 323,
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (6a723f07-fff6-4570-a6cb-5c73d5bdcec9, fallback:FK, 56.1165, -3.7836, fallback, 2025-11-11 12:32:33.445068, null).',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'geocode_cache',
+  column: 'branch_id',
+  dataType: undefined,
+  constraint: undefined,
+  file: 'execMain.c',
+  line: '2021',
+  routine: 'ExecConstraints'
+}
+🔄 Exact postcode geocoding failed for FK3 8LP, trying fallback...
+🔄 Exact postcode geocoding failed for FK8 2BQ, trying fallback...
+🔄 Exact postcode geocoding failed for FK8 1RS, trying fallback...
+📍 Using fallback location for FK8 2BQ: Falkirk (very approximate)
+📍 Using fallback location for FK8 1RS: Falkirk (very approximate)
+❌ Error geocoding "FK8 1RS": error: null value in column "branch_id" of relation "geocode_cache" violates not-null constraint
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async DatabaseStorage.saveGeocode (/home/runner/workspace/server/storage.ts:1134:23)
+    at async geocodeWithFallback (/home/runner/workspace/server/routes.ts:824:7)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:891:33)
+    at async Promise.all (index 8)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:928:26) {
+  length: 323,
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (9911cbb0-2dfc-431d-b9f9-0766cb3e029e, fallback:FK, 56.1165, -3.7836, fallback, 2025-11-11 12:32:33.883681, null).',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'geocode_cache',
+  column: 'branch_id',
+  dataType: undefined,
+  constraint: undefined,
+  file: 'execMain.c',
+  line: '2021',
+  routine: 'ExecConstraints'
+}
+❌ Error geocoding "FK8 2BQ": error: null value in column "branch_id" of relation "geocode_cache" violates not-null constraint
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async DatabaseStorage.saveGeocode (/home/runner/workspace/server/storage.ts:1134:23)
+    at async geocodeWithFallback (/home/runner/workspace/server/routes.ts:824:7)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:891:33)
+    at async Promise.all (index 11)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:928:26) {
+  length: 323,
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (26d76881-e721-4c9e-b72a-7725ea7c1e03, fallback:FK, 56.1165, -3.7836, fallback, 2025-11-11 12:32:33.917404, null).',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
