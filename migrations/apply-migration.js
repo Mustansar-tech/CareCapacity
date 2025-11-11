@@ -1,8 +1,11 @@
 
-import { Pool } from 'pg';
+import { Pool, neonConfig } from '@neondatabase/serverless';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
+import ws from 'ws';
+
+neonConfig.webSocketConstructor = ws;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
