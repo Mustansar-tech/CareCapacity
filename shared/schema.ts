@@ -65,17 +65,17 @@ export type CapacityAnalysis = typeof capacityAnalyses.$inferSelect;
 // Week boundary helper functions
 export function getCanonicalWeekBoundaries(dateStr: string): { weekStart: string; weekEnd: string } {
   const date = new Date(dateStr + 'T00:00:00.000Z'); // Parse as UTC
-
+  
   // Get the Monday of the week (ISO week starts on Monday)
   const dayOfWeek = date.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
   const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday=0 to Sunday=6
-
+  
   const weekStart = new Date(date);
   weekStart.setUTCDate(date.getUTCDate() - daysToSubtract);
-
+  
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekStart.getUTCDate() + 6); // Sunday is +6 days from Monday
-
+  
   return {
     weekStart: weekStart.toISOString().split('T')[0], // YYYY-MM-DD format
     weekEnd: weekEnd.toISOString().split('T')[0]
@@ -386,8 +386,8 @@ export const weeklySchedules = pgTable("weekly_schedules", {
   unallocatedVisits: jsonb("unallocated_visits").default([]), // Visits that couldn't be assigned
   metrics: jsonb("metrics").notNull(), // Week-level metrics
 }, (table) => ({
-  // Unique constraint: one schedule per branch per week
-  branchWeekUnique: unique("unique_weekly_schedule").on(table.branchId, table.weekStartDate, table.weekEndDate),
+  // Unique constraint: week must be unique WITHIN each branch
+  uniqueWeek: unique("unique_weekly_schedule").on(table.branchId, table.weekStartDate, table.weekEndDate),
   branchIdx: index("weekly_schedule_branch_idx").on(table.branchId),
   weekStartIdx: index("weekly_schedule_start_idx").on(table.weekStartDate),
   generatedAtIdx: index("weekly_schedule_generated_idx").on(table.generatedAt),

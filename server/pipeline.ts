@@ -25,18 +25,18 @@ function extractBranchFromRow(row: any): string | null {
   // Check multiple possible branch column names
   const branchColumns = [
     "CAREGiver Franchise",
-    "Customer Branch",
+    "Customer Branch", 
     "Branch",
     "Franchise",
     "Office"
   ];
-
+  
   for (const col of branchColumns) {
     if (row[col]) {
       return String(row[col]).trim();
     }
   }
-
+  
   return null;
 }
 
@@ -46,7 +46,7 @@ function normalizeBranchName(branchName: string): string {
     .replace(/home instead /gi, "")
     .replace(/ & /g, "-")
     .replace(/\s+/g, "-");
-
+  
   // Map common variations to canonical names
   const branchMap: Record<string, string> = {
     "east-lothian-and-midlothian": "east-lothian",
@@ -64,12 +64,12 @@ function normalizeBranchName(branchName: string): string {
     "stirling-&-falkirk": "stirling-falkirk",
     "stirling-falkirk": "stirling-falkirk"
   };
-
+  
   return branchMap[normalized] || normalized;
 }
 
 // Enhanced geocoding with fallback hierarchy
-async function geocodeWithFallback(postcode: string, storage: any, branchId?: string): Promise<any> {
+async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
   const prefix = normalizedPostcode.substring(0, 2);
 
@@ -183,7 +183,7 @@ async function geocodeWithFallback(postcode: string, storage: any, branchId?: st
   // Step 4: Default to approximate city center based on postcode prefix
   const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
     'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },  // Edinburgh
-    'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },      // Glasgow
+    'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },      // Glasgow  
     'AB': { lat: '57.1497', lng: '-2.0943', name: 'Aberdeen' },    // Aberdeen
     'DD': { lat: '56.4620', lng: '-2.9707', name: 'Dundee' },      // Dundee
     'IV': { lat: '57.4778', lng: '-4.2247', name: 'Inverness' },   // Inverness
@@ -275,7 +275,7 @@ async function generateVisitsFromDemand(
 
   // Weekday name mapping
   const weekdayMap: Record<string, number> = {
-    'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
+    'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
     'thursday': 4, 'friday': 5, 'saturday': 6
   };
 
@@ -315,7 +315,7 @@ async function generateVisitsFromDemand(
           durationMinutes: Math.max(30, Math.round((row.duration || 1) * 60)), // Convert hours to minutes, minimum 30min
           preferredStartTime: `${dateStr} ${timeWindow.start}`,
           preferredEndTime: `${dateStr} ${timeWindow.end}`,
-          priority: row.serviceType.toLowerCase().includes('medication') ? 1 :
+          priority: row.serviceType.toLowerCase().includes('medication') ? 1 : 
                    row.serviceType.toLowerCase().includes('personal care') ? 2 : 3,
           serviceType: row.serviceType
         };
@@ -690,12 +690,11 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   let totalProcessed = 0;
   let filteredCancelled = 0;
   let filteredSecondary = 0;
-  let filteredNight = 0;
 
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters
+    // Apply robust filters (exactly as in Hours by Service Type.xlsx)
     const cancelOk = isCancellationBlank(g["Cancellation Description"]);
     if (!cancelOk) {
       filteredCancelled++;
@@ -709,17 +708,6 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       filteredSecondary++;
       continue;
     }
-
-    // CRITICAL FILTER 3: Skip night visits
-    const serviceType = (g["Actual Service Type Description"] || '').toLowerCase();
-    const clientName = (g["Service Location Name"] || '').toLowerCase();
-    const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
-
-    if (nightKeywords.some(keyword => serviceType.includes(keyword) || clientName.includes(keyword))) {
-      filteredNight++;
-      continue;
-    }
-
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -779,9 +767,8 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   console.log(
     `  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
   );
-  console.log(`  🌙 Filtered night visits: ${filteredNight}`);
   console.log(
-    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredNight}`,
+    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`,
   );
 
   // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
@@ -1053,7 +1040,6 @@ export async function parseExcelFiles(
   demand: ClientDemandRow[];
   cgData: CGDataRow[];
   warnings: string[];
-  detectedBranch: string | null; // Include detectedBranch in the return type
 }> {
   console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
   console.log(
@@ -1110,8 +1096,11 @@ export async function parseExcelFiles(
   console.log(`📊 Weekday totals:`, hoursByWeekday);
   console.log(`📊 Filtered demand rows for visit generation: ${filteredRows.length}`);
 
+  // Clear old visits data before generating new visits to prevent accumulation
+  console.log(`🧹 Clearing old visits data before generating new visits...`);
+  await storage.clearAllVisits();
+
   // OPTIMIZATION: Skip synthetic visit generation - we use real visit times from GH Excel
-  // NOTE: Visits are NOT saved to database - they are extracted fresh from Excel each time
   // This saves 3-4 minutes of unnecessary geocoding and database operations
   // const analysisStartDate = new Date();
   // await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
@@ -1363,8 +1352,6 @@ export async function parseExcelFiles(
   console.log(`================================\n`);
 
   // Map weekday hours to actual dates from the files
-  // CRITICAL: Night visit hours are already filtered out in service-delivery-rules.ts
-  // so these hours should NOT include night visits
   hoursByWeekday.forEach(({ weekday, hours }) => {
     const actualDatesForWeekday = weekdayToActualDates[weekday] || [];
 
@@ -1382,7 +1369,7 @@ export async function parseExcelFiles(
         : hours;
 
     actualDatesForWeekday.forEach((dateStr) => {
-      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr} (night visits already excluded)`);
+      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr}`);
       validatedDemand.push({
         Date: dateStr,
         "Required Client Hours": hoursPerDate,
@@ -1405,33 +1392,33 @@ export async function parseExcelFiles(
 
   // === BRANCH EXTRACTION AND VALIDATION ===
   console.log(`\n🏢 ===== BRANCH DETECTION =====`);
-
+  
   const branchesDetected = new Set<string>();
-
+  
   // Extract from CG Data Export (most reliable source)
   if (cgRowsRaw.length > 0) {
     const sampleBranches = cgRowsRaw.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
     sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
     console.log(`📄 CG Data sample branches: ${sampleBranches.join(", ")}`);
   }
-
+  
   // Extract from Guaranteed Hours
   if (guaranteedData.length > 0) {
     const sampleBranches = guaranteedData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
     sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
     console.log(`📄 Guaranteed Hours sample branches: ${sampleBranches.join(", ")}`);
   }
-
+  
   // Extract from Availability
   if (availabilityData.length > 0) {
     const sampleBranches = availabilityData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
     sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
     console.log(`📄 Availability sample branches: ${sampleBranches.join(", ")}`);
   }
-
+  
   const detectedBranches = Array.from(branchesDetected);
   console.log(`✅ Detected branches: ${detectedBranches.join(", ")}`);
-
+  
   if (detectedBranches.length === 0) {
     warnings.push("⚠️ No branch information found in Excel files. Branch column may be missing.");
     console.log(`⚠️ WARNING: No branch detected - files may be missing branch column`);
@@ -1439,7 +1426,7 @@ export async function parseExcelFiles(
     warnings.push(`⚠️ Multiple branches detected: ${detectedBranches.join(", ")}. Files may be mixed.`);
     console.log(`⚠️ WARNING: Multiple branches detected - potential data mixing!`);
   }
-
+  
   const detectedBranch = detectedBranches[0] || null;
   console.log(`🏢 Final detected branch: ${detectedBranch || "NONE"}`);
   console.log(`=======================================\n`);
@@ -1576,7 +1563,7 @@ export async function processCapacityData(
 
       const parsedDate = row.parsedDate; // Already parsed
       const hrs =
-        row.Hours !== undefined && row.Hours !== null
+        row.Hours != null
           ? Number(row.Hours)
           : hoursBetween(row["Start Time"], row["End Time"]);
 
@@ -2105,17 +2092,17 @@ export async function processCapacityData(
     sampleEmployees.forEach((emp: any) => {
       console.log(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
     });
-
+    
     // Count how many have gender data
     const withGender = sampleEmployees.filter((e: any) => e.gender).length;
     console.log(`  ✅ ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
-
+    
     // Show the actual object structure that will be saved
     if (sampleEmployees.length > 0) {
       console.log(`  📦 Sample object structure:`, JSON.stringify(sampleEmployees[0], null, 2));
     }
   }
-
+  
   // CRITICAL VERIFICATION: Check all dates for gender data completeness
   let totalEmployees = 0;
   let employeesWithGender = 0;
@@ -2154,12 +2141,6 @@ export async function processCapacityData(
         .map(([s, e]: [number, number]) => `${fromMin(s)}-${fromMin(e)}`)
         .join("; ");
 
-      // Check if this employee has night availability outside 6am-10pm
-      if (hasNightAvailability(windows)) {
-        console.log(`🌙 Filtering out ad-hoc ${display} from ${date} - has night availability outside 6am-10pm`);
-        return;
-      }
-
       // Get gender from master employee list for this ad-hoc employee
       const masterEmployee = masterEmployees.find(
         (emp) => emp.normalizedName === normName,
@@ -2175,12 +2156,8 @@ export async function processCapacityData(
         scheduledHours: Math.round(schedHoursRaw * 100) / 100,
         hours: 0, // not counted toward availability
         netCapacity: 0, // do not inflate capacity
-        notes: "Scheduled (no availability record for this date)",
-        transportMode: undefined,
-        weeklyContractedHours: 0,
-        homeLat: undefined,
-        homeLng: undefined,
-        gender,
+        notes: "Scheduled (no availability record for this day)",
+        gender: gender,
       });
 
       // mark as present to avoid duplicates if multiple keys flow in
@@ -2253,7 +2230,7 @@ export async function processCapacityData(
         empData.scheduledHours = emp.scheduledHours || 0;
       }
 
-      // Track status types separately, then consolidate at the end
+      // Track all status types separately, then consolidate at the end
       if (emp.status === "Available") {
         empData.hasAvailableStatus = true;
       } else if (emp.status === "Partial Availability") {
@@ -2407,6 +2384,15 @@ export async function processCapacityData(
   // and replaced with a comment indicating that the new extraction is handled elsewhere.
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
+  const CLIENT_COLS = [
+    'Service Location Name',
+    'Client Name',
+    'Service User Name',
+    'Customer Name'
+  ];
+
+  // Note: Visit extraction is now handled by excel-visit-extractor module
+  // which is called separately when needed. No need to extract visits here.
 
 
   // Re-sort after injection
@@ -2431,7 +2417,6 @@ export async function processCapacityData(
       result.dailySummary[result.dailySummary.length - 1]?.date || "";
 
     const analysisData: InsertCapacityAnalysis = {
-      branchId: branchId!, // Required for data isolation
       weekStartDate: weekStart,
       weekEndDate: weekEnd,
       kpis: result.kpis as any,
@@ -2501,14 +2486,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     return;
   }
 
-  // Define CLIENT_COLS at the start of the function
-  const CLIENT_COLS = [
-    'Service Location Name',
-    'Client Name',
-    'Service User Name',
-    'Customer Name'
-  ];
-
   try {
     // Extract employee locations from CG Data Export
     const employeeLocationsMap = new Map<string, any>();
@@ -2523,14 +2500,14 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       // Extract gender from Title column (Mr = male, Mrs/Miss/Ms = female)
       const title = pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
       const titleLower = title.toLowerCase().trim();
-
+      
       let gender: "male" | "female" | undefined = undefined;
       if (titleLower === "mr") {
         gender = "male";
       } else if (["miss", "ms", "mrs"].includes(titleLower)) {
         gender = "female";
       }
-
+      
       console.log(`  👤 ${employeeName}: Title="${title}" -> Gender="${gender || "unknown"}"`);
 
       if (employeeName && postcode) {
@@ -2553,7 +2530,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             homeLng: existing.homeLng,
           };
           employeeLocationsMap.set(employeeName, locationData);
-
+          
           // Update database if gender is missing
           if (gender && !existing.gender) {
             console.log(`  🔄 Updating gender for ${employeeName}: ${gender}`);
@@ -2582,12 +2559,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       console.log(`🔍 Geocoding ${employeesToGeocode.length} new employee postcodes...`);
       for (const locationData of employeesToGeocode) {
         try {
-          // Pass branchId to geocodeWithFallback
-          const geocodeResult = await geocodeWithFallback(locationData.homePostcode, storage, branchId);
+          const geocoded = await geocodeWithFallback(locationData.homePostcode, storage);
 
-          if (geocodeResult && geocodeResult.lat && geocodeResult.lng) {
-            locationData.homeLat = geocodeResult.lat;
-            locationData.homeLng = geocodeResult.lng;
+          if (geocoded && geocoded.lat && geocoded.lng) {
+            locationData.homeLat = geocoded.lat;
+            locationData.homeLng = geocoded.lng;
             console.log(`✅ Successfully geocoded ${locationData.employeeName}`);
           } else {
             console.log(`❌ Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
@@ -2624,8 +2600,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         continue;
       }
 
-      // Use the prioritized client name column
-      const clientName = pickCol(row, CLIENT_COLS);
+      // Prioritize 'Service Location Name' as the client identifier
+      const clientName = row["Service Location Name"] || row["Actual Client Name"] || row["Client Name"];
       const serviceLocationAddress = row["Service Location Address"];
 
       // Try to extract postcode from the address if possible
@@ -2702,38 +2678,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
 
-        // Check if client already has geocoded coordinates - try exact match first
-        let existingClient = branchId ? await storage.getClientLocationByName(branchId, clientKey) : null;
-
-        // If no exact match, try fuzzy matching on all clients
-        if (!existingClient && branchId) {
-          const allClients = await storage.getAllClientLocations(branchId);
-          const normalizedSearchName = normalizeName(clientKey);
-
-          existingClient = allClients.find(client => {
-            const storedName = normalizeName(client.clientName);
-
-            // Try exact normalized match
-            if (storedName === normalizedSearchName) return true;
-
-            // Try substring match
-            if (storedName.includes(normalizedSearchName) || normalizedSearchName.includes(storedName)) return true;
-
-            // Try matching individual words
-            const storedWords = storedName.split(/[\s,]+/).filter(w => w.length > 2);
-            const searchWords = normalizedSearchName.split(/[\s,]+/).filter(w => w.length > 2);
-
-            const matchingWords = storedWords.filter(word =>
-              searchWords.some(searchWord => searchWord.includes(word) || word.includes(searchWord))
-            );
-
-            return matchingWords.length >= Math.min(2, Math.min(storedWords.length, searchWords.length));
-          });
-
-          if (existingClient) {
-            console.log(`🔍 Found client via fuzzy match: "${clientKey}" -> "${existingClient.clientName}"`);
-          }
-        }
+        // Check if client already has geocoded coordinates
+        const existingClient = await storage.getClientLocationByName(clientKey);
 
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {
@@ -2820,11 +2766,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            postcodes: employeePostcodes,
-            addresses: [],
-            branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
-          }),
+          body: JSON.stringify({ postcodes: employeePostcodes, addresses: [] }),
         });
         if (!res.ok) {
           console.log("⚠️ Employee geocoding failed:", await res.text());
@@ -2839,7 +2781,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             for (const employeeName of names) {
               const base = employeeLocationsMap.get(employeeName) || {};
               await storage.upsertEmployeeLocation({
-                branchId: branchId!, // Required for data isolation
+                branchId: branchId!, // Required branch ID for data isolation
                 employeeName,
                 homePostcode: pc,
                 homeLat: r.lat.toString(),
@@ -2877,7 +2819,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const requestBody = {
           postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
           addresses: clientAddresses.map(a => a.address).filter(Boolean),
-          branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
         };
 
         console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
@@ -2975,35 +2916,24 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
 
+    // These CLIENT_COLS are used to determine which column represents the client's name in the guaranteed hours data.
+    const CLIENT_COLS = [
+      'Service Location Name', // Prioritized as per the user request
+      'Client Name',
+      'Service User Name',
+      'Customer Name'
+    ];
+
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
     for (const row of guaranteed) {
-      // FILTER 1: Skip cancelled visits
-      if (!isCancellationBlank(row["Cancellation Description"])) {
-        console.log(`🚫 FILTER 1 - Cancelled visit in pipeline: ${row["Service Location Name"] || 'unknown'}`);
-        continue;
-      }
-
-      // FILTER 2: Skip secondary multiple care
-      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) {
-        console.log(`🚫 FILTER 2 - Secondary multiple care in pipeline: ${row["Actual Service Type Description"]}`);
-        continue;
-      }
+      // Skip cancelled or secondary multiple care entries
+      if (!isCancellationBlank(row["Cancellation Description"])) continue;
+      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
       const serviceLocationAddress = row["Service Location Address"];
-      const serviceType = row["Actual Service Type Description"];
-
-      // FILTER 3: Skip office visits (if client name indicates office)
-      if (clientName) {
-        const clientNameLower = clientName.toLowerCase();
-        const officeKeywords = ['east nl', 'glasgow', 'training seawared', 'training (nl)', 'seaward place', 'office', 'training', 'admin', 'meeting'];
-        if (officeKeywords.some(keyword => clientNameLower.includes(keyword))) {
-          console.log(`🚫 FILTER 3 - Office visit in pipeline: ${clientName}`);
-          continue;
-        }
-      }
 
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
@@ -3012,18 +2942,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       const actualEndTime = row["Actual End Date And Time"];
       const startTime = row["Service Requirement Start Date And Time"];
       const endTime = row["Service Requirement End Date And Time"];
+      const serviceType = row["Actual Service Type Description"];
 
       if (clientName && (plannedStartTime || actualStartTime || startTime)) {
-        // FILTER 4: Skip night visits (sleep-in, waking nights, etc.)
-        const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
-        const clientNameLower = clientName.toLowerCase();
-        const serviceTypeLower = (serviceType || '').toLowerCase();
-
-        if (nightKeywords.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
-          console.log(`🌙 FILTER 4 - Night visit in pipeline: ${clientName} (${serviceType})`);
-          continue;
-        }
-
         // Use planned times first as requested, then fall back to others
         const visitStart = plannedStartTime || actualStartTime || startTime;
         const visitEnd = plannedEndTime || actualEndTime || endTime;
@@ -3092,8 +3013,10 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
     console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
 
-    // NOTE: Visits are NOT saved to database - they are extracted fresh from Excel each time
-    // This prevents accumulation and ensures we always use the latest Excel data
+    // Store visit data
+    for (const visitData of Array.from(visitsMap.values())) {
+      await storage.saveVisit(visitData);
+    }
 
     // Log final geocoding statistics
     const empLocs = branchId && storage.getAllEmployeeLocations ? await storage.getAllEmployeeLocations(branchId) : [];
@@ -3265,37 +3188,4 @@ export async function generateExcelExport(
   console.log("Heatmap sheets excluded from Excel export");
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-}
-
-// Helper function to normalize file names by removing browser download numbers
-function normalizeFileName(fileName: string): string {
-  // Remove numbers in parentheses that browsers add for duplicate downloads
-  // e.g. "Hours by Service Type (1).xlsx" -> "Hours by Service Type.xlsx"
-  return fileName.replace(/\s*\(\d+\)/g, '');
-}
-
-// Check if time windows contain night availability (outside 6am-10pm)
-function hasNightAvailability(windows: string): boolean {
-  if (!windows) return false;
-
-  const timeRanges = windows.split(';').map(w => w.trim()).filter(w => w);
-
-  for (const range of timeRanges) {
-    const match = range.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
-    if (!match) continue;
-
-    const startHour = parseInt(match[1]);
-    const endHour = parseInt(match[3]);
-
-    // Check if outside 6am-10pm range (360 minutes to 1320 minutes)
-    const startMinutes = startHour * 60 + parseInt(match[2]);
-    const endMinutes = endHour * 60 + parseInt(match[4]);
-
-    // If start is before 6am or end is after 10pm, it's night availability
-    if (startMinutes < 360 || endMinutes > 1320) {
-      return true;
-    }
-  }
-
-  return false;
 }

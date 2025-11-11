@@ -92,7 +92,7 @@ export default function Dashboard() {
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
     queryKey: ['/api/history'],
-    enabled: !!selectedBranchId, // Enable to populate week selector
+    enabled: true, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
@@ -101,7 +101,7 @@ export default function Dashboard() {
   // Query to load latest data automatically
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
     queryKey: ['/api/history/latest'],
-    enabled: !!selectedBranchId && !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
+    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
     refetchOnMount: false, // Prevent refetch on component mount
   });
@@ -132,24 +132,6 @@ export default function Dashboard() {
       });
     }
   }, [latestData, processedData, selectedWeekId, toast]);
-
-  // When branch changes and we receive new latest data, update processed data
-  useEffect(() => {
-    if (latestData && processedData && selectedBranchId) {
-      // Check if the loaded data belongs to the current branch
-      const currentBranchData = latestData as any;
-      if (currentBranchData.branchId === selectedBranchId) {
-        setProcessedData({
-          kpis: latestData.kpis,
-          dailySummary: latestData.dailySummary as any,
-          employeesByDate: latestData.employeesByDate as any,
-          employeeSummaryByDate: latestData.employeeSummaryByDate as any,
-          warnings: latestData.warnings as any,
-        });
-        setSelectedDate(latestData.dailySummary?.[0]?.date || null);
-      }
-    }
-  }, [latestData, selectedBranchId]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
