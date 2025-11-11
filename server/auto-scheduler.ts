@@ -432,15 +432,15 @@ export class AutoScheduler {
 
   private async getUnassignedVisits(date: string, branchId?: string): Promise<SchedulingVisit[]> {
     try {
-      // Import the visit extractor and routes module
+      // Import the visit extractor and buffer getter
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
-      const routesModule = await import('./routes');
+      const { getLatestGuaranteedBuffer } = await import('./routes');
       
-      // Access the buffer from the module
-      const ghBuffer = (routesModule as any).latestGuaranteedBuffer;
+      // Get the buffer
+      const ghBuffer = getLatestGuaranteedBuffer();
       
       if (!ghBuffer) {
-        console.warn(`⚠️ No Guaranteed Hours buffer available for visit extraction`);
+        console.warn(`⚠️ No Guaranteed Hours buffer available for visit extraction - please upload files first`);
         return [];
       }
 

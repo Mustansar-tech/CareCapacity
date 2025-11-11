@@ -65,7 +65,12 @@ const upload = multer({
 let latestExportBuffer: Buffer | null = null;
 
 // Store Guaranteed Hours Excel buffer for extracting real client visit times
-export let latestGuaranteedBuffer: Buffer | null = null;
+let latestGuaranteedBuffer: Buffer | null = null;
+
+// Getter function for latestGuaranteedBuffer
+export function getLatestGuaranteedBuffer(): Buffer | null {
+  return latestGuaranteedBuffer;
+}
 
 // Helper function to normalize file names by removing browser download numbers
 function normalizeFileName(fileName: string): string {
