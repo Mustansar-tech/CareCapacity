@@ -1,0 +1,66 @@
+
+🔍 SECONDARY CLIENT FILTERING: Excluded 8 rows with service descriptions from 221 total Care Pro entries
+
+📅 ACTUAL DATES FOUND IN FILES:
+  Total unique dates: 7
+  Date range: 2025-11-10 to 2025-11-16
+
+📅 WEEKDAY TO ACTUAL DATES MAPPING:
+  Monday: 2025-11-10
+  Tuesday: 2025-11-11
+  Wednesday: 2025-11-12
+  Thursday: 2025-11-13
+  Friday: 2025-11-14
+  Saturday: 2025-11-15
+  Sunday: 2025-11-16
+================================
+
+🔄 Mapping: Friday (58h) -> 2025-11-14
+🔄 Mapping: Monday (57.5h) -> 2025-11-10
+🔄 Mapping: Saturday (49h) -> 2025-11-15
+🔄 Mapping: Sunday (45h) -> 2025-11-16
+🔄 Mapping: Thursday (52h) -> 2025-11-13
+🔄 Mapping: Tuesday (59h) -> 2025-11-11
+🔄 Mapping: Wednesday (59h) -> 2025-11-12
+
+📊 ===== SERVICE DELIVERY SUMMARY =====
+✅ Filtered records: 212 (from 221 normalized)
+📈 Monday hours: 57.5 (expected: ~64.5)
+📈 Total hours: 379.5 (expected: 400.33)
+=======================================
+
+
+🏢 ===== BRANCH DETECTION =====
+📄 CG Data sample branches: Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk
+📄 Guaranteed Hours sample branches: Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk
+📄 Availability sample branches: Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk
+✅ Detected branches: stirling-falkirk
+🏢 Final detected branch: stirling-falkirk
+=======================================
+
+✅ Branch validation complete - processing data for: Stirling
+
+🚀 ===== USING CG DATA AS MASTER EMPLOYEE LIST =====
+📊 Total employees in CG Data: 14
+📋 Sample CG Data entries:
+  1. Rowan Boyle (GH) - 30 hours/week
+  2. Paul Chalmers (GH) - 16 hours/week
+  3. John Clarke (GH) - 30 hours/week
+
+===== RECEIVED DEMAND DATA =====
+  - 2025-11-14: 58 hours
+  - 2025-11-10: 57.5 hours
+  - 2025-11-15: 49 hours
+  - 2025-11-16: 45 hours
+  - 2025-11-13: 52 hours
+  - 2025-11-11: 59 hours
+  - 2025-11-12: 59 hours
+📊 TOTAL DEMAND HOURS FROM FILTERING: 379.5 (Expected: 400.33)
+================================
+
+
+🔍 SCHEDULED HOURS FILTERING SUMMARY:
+  📊 Total guaranteed hours entries: 189
+  ❌ Filtered cancelled entries: 0
+  ❌ Filtered "Multiple Care (Secondary)": 0
+  ✅ Valid entries for scheduling: 189
