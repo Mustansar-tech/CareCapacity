@@ -2978,13 +2978,32 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
     for (const row of guaranteed) {
-      // Skip cancelled or secondary multiple care entries
-      if (!isCancellationBlank(row["Cancellation Description"])) continue;
-      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+      // FILTER 1: Skip cancelled visits
+      if (!isCancellationBlank(row["Cancellation Description"])) {
+        console.log(`🚫 FILTER 1 - Cancelled visit in pipeline: ${row["Service Location Name"] || 'unknown'}`);
+        continue;
+      }
+
+      // FILTER 2: Skip secondary multiple care
+      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) {
+        console.log(`🚫 FILTER 2 - Secondary multiple care in pipeline: ${row["Actual Service Type Description"]}`);
+        continue;
+      }
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
       const serviceLocationAddress = row["Service Location Address"];
+      const serviceType = row["Actual Service Type Description"];
+
+      // FILTER 3: Skip office visits (if client name indicates office)
+      if (clientName) {
+        const clientNameLower = clientName.toLowerCase();
+        const officeKeywords = ['east nl', 'glasgow', 'training seawared', 'training (nl)', 'seaward place', 'office', 'training', 'admin', 'meeting'];
+        if (officeKeywords.some(keyword => clientNameLower.includes(keyword))) {
+          console.log(`🚫 FILTER 3 - Office visit in pipeline: ${clientName}`);
+          continue;
+        }
+      }
 
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
@@ -2993,16 +3012,15 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       const actualEndTime = row["Actual End Date And Time"];
       const startTime = row["Service Requirement Start Date And Time"];
       const endTime = row["Service Requirement End Date And Time"];
-      const serviceType = row["Actual Service Type Description"];
 
       if (clientName && (plannedStartTime || actualStartTime || startTime)) {
-        // Skip night visits (sleep-in, waking nights, etc.)
+        // FILTER 4: Skip night visits (sleep-in, waking nights, etc.)
         const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
         const clientNameLower = clientName.toLowerCase();
         const serviceTypeLower = (serviceType || '').toLowerCase();
 
         if (nightKeywords.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
-          console.log(`🌙 Skipping night visit in pipeline: ${clientName} (${serviceType})`);
+          console.log(`🌙 FILTER 4 - Night visit in pipeline: ${clientName} (${serviceType})`);
           continue;
         }
 

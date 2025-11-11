@@ -135,44 +135,40 @@ export function extractClientVisitsFromGHExcel(
   const visits: ExcelClientVisit[] = [];
 
   for (const row of data) {
-    // Skip cancelled visits
-    const cancelStatus = String(row[CANCEL_COL] ?? '').toLowerCase();
-    if (cancelStatus.includes('cancel')) continue;
-
-    // CRITICAL FILTERS: Check cancellation first (most important filter)
+    // FILTER 1: Check cancellation first (most important filter)
     const cancellationDesc = row['Cancellation Description'];
-    if (cancellationDesc && String(cancellationDesc).trim() !== '' && 
-        String(cancellationDesc).trim().toLowerCase() !== '(blank)') {
-      console.log(`🚫 Skipping cancelled visit: ${row['Service Location Name'] || 'unknown'}`);
+    const cancelStatus = String(cancellationDesc ?? '').trim().toLowerCase();
+    if (cancelStatus && cancelStatus !== '' && cancelStatus !== '(blank)') {
+      console.log(`🚫 FILTER 1 - Cancelled visit: ${row['Service Location Name'] || 'unknown'}`);
       continue;
     }
 
-    // Get service type for secondary multiple care check
+    // FILTER 2: Get service type for secondary multiple care check
     const serviceType = row['Actual Service Type Description'] || '';
     const serviceTypeLower = String(serviceType).toLowerCase();
     
-    // Skip secondary multiple care visits
     if (serviceTypeLower.includes('multiple care (secondary)') || 
         serviceTypeLower.includes('secondary') ||
         serviceTypeLower.includes('multiple care - secondary')) {
-      console.log(`🚫 Skipping secondary multiple care visit: ${serviceType}`);
+      console.log(`🚫 FILTER 2 - Secondary multiple care: ${serviceType}`);
       continue;
     }
 
-    // Get client name
+    // Get client name (needed for filters 3 and 4)
     const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
-
-    // Skip office visits
     const clientNameLower = clientName.toLowerCase();
+
+    // FILTER 3: Skip office visits
     if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
+      console.log(`🚫 FILTER 3 - Office visit: ${clientName}`);
       continue;
     }
 
-    // Skip night visits (sleep-in, waking nights, etc.)
+    // FILTER 4: Skip night visits (sleep-in, waking nights, etc.)
     if (NIGHT_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
-      console.log(`🌙 Skipping night visit: ${clientName} (${serviceType})`);
+      console.log(`🌙 FILTER 4 - Night visit: ${clientName} (${serviceType})`);
       continue;
     }
 
