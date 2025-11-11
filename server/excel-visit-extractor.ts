@@ -51,6 +51,7 @@ const SERVICE_TYPE_COLS = [
   'Service Type Description',
   'Service Type',
   'Template Service Type Description',
+  'Planned Service Type Description',
 ];
 
 function toDate(v: any): Date | undefined {
@@ -163,10 +164,13 @@ export function extractClientVisitsFromGHExcel(
     const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (serviceTypeRaw) {
       const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
-      if (EXCLUDED_SERVICE_TYPES.some(excluded => serviceTypeLower.includes(excluded))) {
-        console.log(`🚫 Excluding service type: ${clientName} - ${serviceTypeRaw}`);
+      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded => serviceTypeLower.includes(excluded));
+      if (isExcluded) {
+        console.log(`🚫 Excluding service type: "${serviceTypeRaw}" for ${clientName}`);
         continue;
       }
+    } else {
+      console.log(`⚠️ No service type found for ${clientName} - columns checked: ${SERVICE_TYPE_COLS.join(', ')}`);
     }
 
     // Get start time
