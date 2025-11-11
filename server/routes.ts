@@ -111,54 +111,8 @@ function normalizeFileName(fileName: string): string {
   return fileName.replace(/\s*\(\d+\)/g, '');
 }
 
-// Enhanced geocoding with fallback hierarchy
-async function geocodeWithFallback(postcode: string, storage: any, branchId?: string): Promise<any> {
-  const normalizedPostcode = postcode.trim().toUpperCase();
-
-  // Step 1: Try exact postcode from cache
-  const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
-  if (cached) {
-    return {
-      query: normalizedPostcode,
-      type: 'postcode',
-      lat: cached.lat,
-      lng: cached.lng,
-    };
-  }
-
-  // Step 2: Try postcodes.io API
-  try {
-    const response = await fetch(`https://api.postcodes.io/postcodes/${normalizedPostcode}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.result) {
-        const result = {
-          query: normalizedPostcode,
-          type: 'postcode',
-          lat: data.result.latitude,
-          lng: data.result.longitude,
-        };
-
-        // Cache the result (only if branchId is provided)
-        if (branchId) {
-          await storage.saveGeocode({
-            branchId,
-            key: `postcode:${normalizedPostcode}`,
-            lat: result.lat,
-            lng: result.lng,
-            source: 'postcodes.io'
-          });
-        }
-
-        return result;
-      }
-    }
-  } catch (error) {
-    console.log(`geocodeWithFallback: postcodes.io failed for ${normalizedPostcode}:`, error);
-  }
-
-  return null;
-}
+// Import shared geocoding function from pipeline
+import { geocodeWithFallback } from './pipeline';
 
 export async function registerRoutes(app: Express): Promise<Server> {
 

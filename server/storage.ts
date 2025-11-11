@@ -1064,11 +1064,11 @@ export class DatabaseStorage implements IStorage {
   }
 
 
-  async clearAllVisits(): Promise<any> {
-    console.log(`🧹 Clearing all visits data...`);
-    const result = await db.delete(visits);
-    console.log(`✅ Cleared visits data`);
-    return result;
+  async clearAllVisits(branchId: string): Promise<any> {
+    console.log(`🧹 Clearing all visits data for branch ${branchId}...`);
+    const result = await db.delete(visits).where(eq(visits.branchId, branchId));
+    console.log(`✅ Cleared visits data for branch ${branchId}`);
+    return { visitsDeleted: result.rowCount || 0 };
   }
 
   async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
