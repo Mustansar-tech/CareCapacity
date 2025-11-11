@@ -432,15 +432,26 @@ export class AutoScheduler {
 
   private async getUnassignedVisits(date: string, branchId?: string): Promise<SchedulingVisit[]> {
     try {
-      const [visits, clientLocations] = await Promise.all([
-        storage.listVisitsBetween(date, date, branchId),
-        storage.getAllClientLocations(branchId)
-      ]);
+      // Import the visit extractor dynamically
+      const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
+      const { latestGuaranteedBuffer } = await import('./routes');
+      
+      if (!latestGuaranteedBuffer) {
+        console.warn(`⚠️ No Guaranteed Hours buffer available for visit extraction`);
+        return [];
+      }
 
+      // Extract visits from Excel buffer for this date
+      const parsedDate = new Date(date + 'T00:00:00.000Z');
+      const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
+      
+      console.log(`📋 Extracted ${visits.length} visits from GH Excel for ${date}`);
+
+      const clientLocations = await storage.getAllClientLocations(branchId);
       const clientLocationMap = new Map(clientLocations.map(c => [c.clientName, c]));
 
       return visits
-        .filter(visit => visit.date === date && visit.clientName) // Filter out visits without client names
+        .filter(visit => visit.clientName) // Filter out visits without client names
         .map(visit => {
           const client = clientLocationMap.get(visit.clientName);
 
@@ -450,17 +461,17 @@ export class AutoScheduler {
           }
 
           return {
-            id: visit.id || `${visit.clientName}-${visit.date}`,
+            id: `${visit.clientName}-${date}-${visit.startTime}`,
             clientName: visit.clientName,
             clientLat: parseFloat(client.lat),
             clientLng: parseFloat(client.lng),
-            startTime: this.timeStringToMinutes(visit.preferredStartTime || '09:00'),
-            endTime: this.timeStringToMinutes(visit.preferredEndTime || '10:00'),
-            durationMinutes: visit.durationMinutes || 60,
+            startTime: this.timeStringToMinutes(visit.startTime),
+            endTime: this.timeStringToMinutes(visit.endTime),
+            durationMinutes: visit.durationMinutes,
             priority: visit.priority || 2,
             serviceType: visit.serviceType || '',
-            preferredStartTime: this.timeStringToMinutes(visit.preferredStartTime || ''),
-            preferredEndTime: this.timeStringToMinutes(visit.preferredEndTime || ''),
+            preferredStartTime: this.timeStringToMinutes(visit.startTime),
+            preferredEndTime: this.timeStringToMinutes(visit.endTime),
           };
         })
         .filter((visit): visit is SchedulingVisit => visit !== null);
