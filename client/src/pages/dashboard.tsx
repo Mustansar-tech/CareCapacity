@@ -63,7 +63,7 @@ const renderStatusBadge = (status: string) => {
 export default function Dashboard() {
   // Get selected branch ID
   const { selectedBranchId } = useBranch();
-  
+
   // File upload state - Adding CG Data Export as 4th file
   const [files, setFiles] = useState<{
     availability: File | null;
@@ -89,19 +89,33 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Query to get all historical weeks for the dropdown
+  // Query to get all historical weeks for the dropdown - include branchId to refetch on branch change
   const { data: allHistoryData } = useQuery<any[]>({
-    queryKey: ['/api/history'],
-    enabled: true, // Enable to populate week selector
+    queryKey: ['/api/history', selectedBranchId],
+    queryFn: async () => {
+      const response = await fetch(`/api/history/${selectedBranchId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch history');
+      }
+      return response.json();
+    },
+    enabled: !!selectedBranchId, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
 
-  // Query to load latest data automatically
+  // Query to load latest data automatically - include branchId in queryKey to refetch on branch change
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/latest'],
-    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
+    queryKey: ['/api/history/latest', selectedBranchId],
+    queryFn: async () => {
+      const response = await fetch(`/api/history/latest/${selectedBranchId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch latest data');
+      }
+      return response.json();
+    },
+    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData && !!selectedBranchId, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
     refetchOnMount: false, // Prevent refetch on component mount
   });
@@ -237,7 +251,7 @@ export default function Dashboard() {
     formData.append('guaranteed', files.guaranteed);
     formData.append('demand', files.demand);
     formData.append('cgData', files.cgData);
-    
+
     // Include branch ID in the form data
     if (selectedBranchId) {
       formData.append('branchId', selectedBranchId);
