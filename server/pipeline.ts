@@ -2139,7 +2139,7 @@ export async function processCapacityData(
         .map(([s, e]: [number, number]) => `${fromMin(s)}-${fromMin(e)}`)
         .join("; ");
 
-      // Skip if this employee has night availability
+      // Check if this employee has night availability outside 6am-10pm
       if (hasNightAvailability(windows)) {
         console.log(`🌙 Filtering out ad-hoc ${display} from ${date} - has night availability outside 6am-10pm`);
         return;
@@ -3225,4 +3225,37 @@ export async function generateExcelExport(
   console.log("Heatmap sheets excluded from Excel export");
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+}
+
+// Helper function to normalize file names by removing browser download numbers
+function normalizeFileName(fileName: string): string {
+  // Remove numbers in parentheses that browsers add for duplicate downloads
+  // e.g. "Hours by Service Type (1).xlsx" -> "Hours by Service Type.xlsx"
+  return fileName.replace(/\s*\(\d+\)/g, '');
+}
+
+// Check if time windows contain night availability (outside 6am-10pm)
+function hasNightAvailability(windows: string): boolean {
+  if (!windows) return false;
+
+  const timeRanges = windows.split(';').map(w => w.trim()).filter(w => w);
+
+  for (const range of timeRanges) {
+    const match = range.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+    if (!match) continue;
+
+    const startHour = parseInt(match[1]);
+    const endHour = parseInt(match[3]);
+
+    // Check if outside 6am-10pm range (360 minutes to 1320 minutes)
+    const startMinutes = startHour * 60 + parseInt(match[2]);
+    const endMinutes = endHour * 60 + parseInt(match[4]);
+
+    // If start is before 6am or end is after 10pm, it's night availability
+    if (startMinutes < 360 || endMinutes > 1320) {
+      return true;
+    }
+  }
+
+  return false;
 }
