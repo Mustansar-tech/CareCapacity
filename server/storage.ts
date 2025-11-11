@@ -4,6 +4,8 @@ import {
   type Branch,
   type CapacityAnalysis,
   type InsertCapacityAnalysis,
+  type BranchUpload,
+  type InsertBranchUpload,
   type EmployeeLocation,
   type InsertEmployeeLocation,
   type ClientLocation,
@@ -34,6 +36,10 @@ export interface IStorage {
   getAllBranches(): Promise<Branch[]>;
   getBranchById(id: string): Promise<Branch | undefined>;
   getBranchByName(name: string): Promise<Branch | undefined>;
+
+  // Branch upload methods (file persistence)
+  saveBranchUpload(upload: InsertBranchUpload): Promise<BranchUpload>;
+  getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined>;
 
   // Capacity analysis methods (branch-aware)
   saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis>;
@@ -85,6 +91,7 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private capacityAnalyses: Map<string, CapacityAnalysis>;
+  private branchUploads: Map<string, BranchUpload>; // keyed by `${branchId}:${uploadType}`
   private employeeLocations: Map<string, EmployeeLocation>;
   private clientLocations: Map<string, ClientLocation>;
   private visits: Map<string, Visit>;
@@ -96,6 +103,7 @@ export class MemStorage implements IStorage {
   constructor() {
     this.users = new Map();
     this.capacityAnalyses = new Map();
+    this.branchUploads = new Map();
     this.employeeLocations = new Map();
     this.clientLocations = new Map();
     this.visits = new Map();
@@ -120,6 +128,42 @@ export class MemStorage implements IStorage {
     const user: User = { ...insertUser, id };
     this.users.set(id, user);
     return user;
+  }
+
+  // Branch methods (stub implementation for MemStorage)
+  async getAllBranches(): Promise<Branch[]> {
+    return []; // In-memory storage doesn't persist branches
+  }
+
+  async getBranchById(id: string): Promise<Branch | undefined> {
+    return undefined; // In-memory storage doesn't persist branches
+  }
+
+  async getBranchByName(name: string): Promise<Branch | undefined> {
+    return undefined; // In-memory storage doesn't persist branches
+  }
+
+  async saveBranchUpload(insertUpload: InsertBranchUpload): Promise<BranchUpload> {
+    const key = `${insertUpload.branchId}:${insertUpload.uploadType}`;
+    const existing = this.branchUploads.get(key);
+    
+    const upload: BranchUpload = {
+      ...insertUpload,
+      id: existing?.id || randomUUID(), // Reuse ID if updating
+      uploadedAt: new Date(),
+      // Normalize undefined to null for consistency
+      originalFileName: insertUpload.originalFileName ?? null,
+      fileSize: insertUpload.fileSize ?? null,
+      sha256: insertUpload.sha256 ?? null,
+    };
+    
+    this.branchUploads.set(key, upload);
+    return upload;
+  }
+
+  async getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined> {
+    const key = `${branchId}:${uploadType}`;
+    return this.branchUploads.get(key);
   }
 
   async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
@@ -599,14 +643,14 @@ import {
   users,
   branches,
   capacityAnalyses,
+  branchUploads,
   employeeLocations,
   clientLocations,
   visits,
   routePlans,
   routeStops,
   geocodeCache,
-  weeklySchedules,
-  clientVisits // Assuming clientVisits table exists and is relevant
+  weeklySchedules
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
@@ -627,6 +671,41 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async saveBranchUpload(insertUpload: InsertBranchUpload): Promise<BranchUpload> {
+    const [upload] = await db
+      .insert(branchUploads)
+      .values({
+        ...insertUpload,
+        // Normalize undefined to null for consistency
+        originalFileName: insertUpload.originalFileName ?? null,
+        fileSize: insertUpload.fileSize ?? null,
+        sha256: insertUpload.sha256 ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [branchUploads.branchId, branchUploads.uploadType],
+        set: {
+          fileBuffer: insertUpload.fileBuffer,
+          originalFileName: insertUpload.originalFileName ?? null,
+          fileSize: insertUpload.fileSize ?? null,
+          sha256: insertUpload.sha256 ?? null,
+          uploadedAt: sql`now()`,
+        },
+      })
+      .returning();
+    return upload;
+  }
+
+  async getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined> {
+    const [upload] = await db
+      .select()
+      .from(branchUploads)
+      .where(and(
+        eq(branchUploads.branchId, branchId),
+        eq(branchUploads.uploadType, uploadType as BranchUpload['uploadType'])
+      ));
+    return upload || undefined;
   }
 
   // Branch methods
@@ -967,20 +1046,18 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(visits.clientId, clientId), eq(visits.date, date)));
   }
 
-  async listVisitsBetween(startDate: string | null, endDate: string | null, branchId?: string): Promise<Visit[]> {
-    const conditions = [];
+  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> {
+    const conditions = [eq(visits.branchId, branchId)];
     if (startDate) {
       conditions.push(gte(visits.date, startDate));
     }
     if (endDate) {
       conditions.push(lte(visits.date, endDate));
     }
-    if (branchId) {
-      conditions.push(eq(visits.branchId, branchId));
-    }
 
-    if (conditions.length === 0) {
-      return await db.select().from(visits);
+    if (conditions.length === 1) {
+      // Only branchId condition
+      return await db.select().from(visits).where(eq(visits.branchId, branchId));
     }
 
     return await db.select().from(visits).where(and(...conditions));
