@@ -109,15 +109,15 @@ export class AutoScheduler {
   /**
    * Automatically schedule visits for a given date
    */
-  async scheduleDay(date: string): Promise<WeeklySchedule> {
-    console.log(`🤖 Starting automatic scheduling for ${date}`);
+  async scheduleDay(date: string, branchId?: string): Promise<WeeklySchedule> {
+    console.log(`🤖 Starting automatic scheduling for ${date} (branch: ${branchId || 'default'})`);
 
     // Get employees available for this date
-    const employees = await this.getAvailableEmployees(date);
+    const employees = await this.getAvailableEmployees(date, branchId);
     console.log(`👥 Found ${employees.length} available employees`);
 
     // Get unassigned visits for this date
-    const visits = await this.getUnassignedVisits(date);
+    const visits = await this.getUnassignedVisits(date, branchId);
     console.log(`📋 Found ${visits.length} visits to schedule`);
 
     if (employees.length === 0 || visits.length === 0) {
@@ -268,13 +268,12 @@ export class AutoScheduler {
     return weekSchedule;
   }
 
-  private async getAvailableEmployees(date: string): Promise<SchedulingEmployee[]> {
+  private async getAvailableEmployees(date: string, branchId?: string): Promise<SchedulingEmployee[]> {
     try {
-      // Get employee locations and availability data
+      // Get employee locations and availability data for this branch
       const [employeeLocations, availabilityData] = await Promise.all([
-        storage.getAllEmployeeLocations(),
-        // You'll need to implement this method to get availability for specific date
-        this.getEmployeeAvailability(date)
+        branchId ? storage.getAllEmployeeLocations(branchId) : storage.getAllEmployeeLocations(),
+        this.getEmployeeAvailability(date, branchId)
       ]);
 
       const employees: SchedulingEmployee[] = [];
@@ -325,7 +324,7 @@ export class AutoScheduler {
     }
   }
 
-  private async getEmployeeAvailability(date: string): Promise<Array<{
+  private async getEmployeeAvailability(date: string, branchId?: string): Promise<Array<{
     employeeName: string;
     isAvailable: boolean;
     timeWindows: string;
@@ -334,8 +333,10 @@ export class AutoScheduler {
     gender?: string;
   }>> {
     try {
-      // Get the latest capacity analysis from storage
-      const analyses = await storage.getCapacityAnalyses();
+      // Get the latest capacity analysis from storage for this branch
+      const analyses = branchId 
+        ? await storage.getCapacityAnalyses(branchId)
+        : await storage.getCapacityAnalyses();
       if (analyses.length === 0) return [];
 
       const latestAnalysis = analyses[0]; // Most recent analysis
@@ -436,13 +437,20 @@ export class AutoScheduler {
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const { getLatestGuaranteedBuffer } = await import('./routes');
       
-      // Get the buffer
-      const ghBuffer = getLatestGuaranteedBuffer();
-      
-      if (!ghBuffer) {
-        console.warn(`⚠️ No Guaranteed Hours buffer available for visit extraction - please upload files first`);
+      // Get the buffer for this specific branch
+      if (!branchId) {
+        console.warn(`⚠️ No branchId provided for visit extraction`);
         return [];
       }
+      
+      const ghBuffer = getLatestGuaranteedBuffer(branchId);
+      
+      if (!ghBuffer) {
+        console.warn(`⚠️ No Guaranteed Hours buffer available for branch ${branchId} - please upload files first`);
+        return [];
+      }
+      
+      console.log(`✅ Found GH buffer for branch ${branchId} (${ghBuffer.length} bytes)`);
 
       // Extract visits from Excel buffer for this date
       const parsedDate = new Date(date + 'T00:00:00.000Z');

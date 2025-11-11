@@ -64,12 +64,17 @@ const upload = multer({
 // Store the latest processed data and export file
 let latestExportBuffer: Buffer | null = null;
 
-// Store Guaranteed Hours Excel buffer for extracting real client visit times
-let latestGuaranteedBuffer: Buffer | null = null;
+// Store Guaranteed Hours Excel buffer for extracting real client visit times, per branch
+const guaranteedBufferByBranch: Map<string, Buffer> = new Map();
 
-// Getter function for latestGuaranteedBuffer
-export function getLatestGuaranteedBuffer(): Buffer | null {
-  return latestGuaranteedBuffer;
+// Setter function for guaranteedBufferByBranch
+function setLatestGuaranteedBuffer(branchId: string, buffer: Buffer): void {
+  guaranteedBufferByBranch.set(branchId, buffer);
+}
+
+// Getter function for guaranteedBufferByBranch
+export function getLatestGuaranteedBuffer(branchId: string): Buffer | null {
+  return guaranteedBufferByBranch.get(branchId) || null;
 }
 
 // Helper function to normalize file names by removing browser download numbers
@@ -266,8 +271,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store for export endpoint
       latestExportBuffer = exportBuffer;
 
-      // Store Guaranteed Hours buffer for real-time visit extraction
-      latestGuaranteedBuffer = guaranteedFile.buffer;
+      // Store Guaranteed Hours buffer per branch for visit extraction
+      setLatestGuaranteedBuffer(requestedBranchId, guaranteedFile.buffer);
+      console.log(`✅ Stored Guaranteed Hours buffer (${guaranteedFile.buffer.length} bytes) for branch ${requestedBranchId}`);
 
       // Save Excel file to disk
       const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
@@ -348,16 +354,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/visits/:date", async (req, res) => {
     try {
       const { date } = req.params;
-      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date}`);
+      const branchId = await resolveBranch(req); // Resolve branchId for buffer lookup
+      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date} (Branch: ${branchId})`);
 
-      if (!latestGuaranteedBuffer) {
-        return res.status(404).json({ error: "No processed data available. Please process files first." });
+      const guaranteedBuffer = getLatestGuaranteedBuffer(branchId);
+      if (!guaranteedBuffer) {
+        return res.status(404).json({ error: "No processed data available for this branch. Please process files first." });
       }
 
       // Dynamically import the function to avoid circular dependencies or unnecessary loads
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
-      const visits = extractClientVisitsFromGHExcel(latestGuaranteedBuffer, parsedDate);
+      const visits = extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate);
       res.json(visits);
     } catch (error) {
       console.error("Error extracting visits:", error);
@@ -395,13 +403,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/schedule/auto-day", async (req, res) => {
     try {
       const { date } = req.body;
+      const branchId = await resolveBranch(req);
 
       if (!date) {
         return res.status(400).json({ error: "Date is required" });
       }
 
+      console.log(`📅 Generating schedule for ${date} (branch: ${branchId})`);
+
       const { autoScheduler } = await import("./auto-scheduler");
-      const schedule = await autoScheduler.scheduleDay(date);
+      const schedule = await autoScheduler.scheduleDay(date, branchId); // Pass branchId
 
       res.json(schedule);
     } catch (error) {
@@ -414,13 +425,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/schedule/auto-week", async (req, res) => {
     try {
       const { startDate } = req.body;
+      const branchId = await resolveBranch(req);
 
       if (!startDate) {
         return res.status(400).json({ error: "Start date is required" });
       }
 
+      console.log(`📅 Generating schedule for week starting ${startDate} (branch: ${branchId})`);
+
       const { autoScheduler } = await import("./auto-scheduler");
-      const weekSchedule = await autoScheduler.scheduleWeek(startDate);
+      const weekSchedule = await autoScheduler.scheduleWeek(startDate, branchId); // Pass branchId
 
       res.json(weekSchedule);
     } catch (error) {
@@ -433,9 +447,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/schedule/week/:startDate", async (req, res) => {
     try {
       const { startDate } = req.params;
+      const branchId = await resolveBranch(req);
 
       const { autoScheduler } = await import("./auto-scheduler");
-      const weekSchedule = await autoScheduler.scheduleWeek(startDate);
+      const weekSchedule = await autoScheduler.getWeekSchedule(startDate, branchId); // Pass branchId
 
       res.json(weekSchedule);
     } catch (error) {
@@ -448,14 +463,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/run-optimization/optimize', async (req, res) => {
     try {
       const { date, maxCareMinutes, bufferMinutes, maxTravelBetweenVisits } = req.body;
+      const branchId = await resolveBranch(req);
 
       if (!date) {
         return res.status(400).json({ error: 'Date is required' });
       }
 
-      console.log(`🤖 Starting run optimization for ${date}`);
+      console.log(`🤖 Starting run optimization for ${date} (branch: ${branchId})`);
       const { autoScheduler } = await import("./auto-scheduler");
-      const result = await autoScheduler.scheduleDay(date);
+      const result = await autoScheduler.scheduleDay(date, branchId); // Pass branchId
 
       res.json(result);
     } catch (error) {
@@ -1368,6 +1384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/weekly-schedule/generate', async (req, res) => {
     try {
       const { weekStartDate } = req.body;
+      const branchId = await resolveBranch(req);
 
       if (!weekStartDate) {
         return res.status(400).json({ message: 'weekStartDate is required' });
@@ -1376,10 +1393,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the week boundaries
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(weekStartDate);
 
-      // Get latest processed data
-      const latestData = await storage.getLatestCapacityAnalysis();
+      // Get latest processed data for the branch
+      const latestData = await storage.getLatestCapacityAnalysis(branchId);
       if (!latestData) {
-        return res.status(404).json({ message: 'No processed data available. Please process files first.' });
+        return res.status(404).json({ message: `No processed data available for branch ${branchId}. Please process files first.` });
       }
 
       // Convert to ProcessingResult format
@@ -1389,20 +1406,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         employeesByDate: latestData.employeesByDate as any,
         employeeSummaryByDate: latestData.employeeSummaryByDate as any,
         warnings: latestData.warnings as string[] | undefined,
-        employeeLocations: latestData.branchId ? await storage.getAllEmployeeLocations(latestData.branchId).then(locs => locs.map(loc => ({
+        employeeLocations: await storage.getAllEmployeeLocations(branchId).then(locs => locs.map(loc => ({
           employeeName: loc.employeeName,
           homePostcode: loc.homePostcode,
           homeLat: loc.homeLat ? Number(loc.homeLat) : undefined,
           homeLng: loc.homeLng ? Number(loc.homeLng) : undefined,
           transportMode: loc.transportMode || undefined,
-        }))) : [],
-        clientLocations: latestData.branchId ? await storage.getAllClientLocations(latestData.branchId).then(locs => locs.map(loc => ({
+        }))),
+        clientLocations: await storage.getAllClientLocations(branchId).then(locs => locs.map(loc => ({
           clientName: loc.clientName,
           addressLine: loc.addressLine,
           postcode: loc.postcode,
           lat: loc.lat ? Number(loc.lat) : undefined,
           lng: loc.lng ? Number(loc.lng) : undefined,
-        }))) : [],
+        }))),
       };
 
       // Generate weekly schedule using the same algorithm as manual scheduling
@@ -1421,6 +1438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save to database
       const savedSchedule = await storage.saveWeeklySchedule({
+        branchId,
         weekStartDate: weekStart,
         weekEndDate: weekEnd,
         scheduleData,
