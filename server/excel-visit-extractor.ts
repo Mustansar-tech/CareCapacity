@@ -90,8 +90,13 @@ const OFFICE_VISIT_KEYWORDS = [
 
 // Service types to exclude (office hours, night shifts, secondary care)
 const EXCLUDED_SERVICE_TYPES = [
+  // Office-related
   'office hours',
   'office',
+  'visit, office',
+  'office visit',
+  
+  // Night shifts
   'nights - sleep in',
   'sleep in',
   'nights - waking nights',
@@ -100,6 +105,10 @@ const EXCLUDED_SERVICE_TYPES = [
   'nights-waking nights',
   'night - sleep in',
   'night - waking nights',
+  'sleepover',
+  'overnight',
+  
+  // Secondary care
   'multiple care (secondary)',
   'secondary',
   '(secondary)',
@@ -168,13 +177,16 @@ export function extractClientVisitsFromGHExcel(
     // Get service type and skip excluded service types
     const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (serviceTypeRaw) {
-      const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
+      // Normalize: trim, lowercase, remove extra spaces
+      const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase().replace(/\s+/g, ' ');
+      
       // Check if service type contains any of the excluded keywords
-      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded => 
-        serviceTypeLower.includes(excluded.toLowerCase())
+      const matchedExclusion = EXCLUDED_SERVICE_TYPES.find(excluded => 
+        serviceTypeLower.includes(excluded.toLowerCase().trim())
       );
-      if (isExcluded) {
-        console.log(`🚫 Excluding service type: "${serviceTypeRaw}" for ${clientName}`);
+      
+      if (matchedExclusion) {
+        console.log(`🚫 Excluding service type: "${serviceTypeRaw}" (matched: "${matchedExclusion}") for ${clientName}`);
         continue;
       }
     }
