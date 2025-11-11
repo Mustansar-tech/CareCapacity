@@ -104,6 +104,14 @@ function isOfficeVisit(clientName: string): boolean {
   return OFFICE_VISIT_KEYWORDS.some(keyword => lowerName.includes(keyword));
 }
 
+// Helper to check if visit is a night visit (sleep-in, waking nights, etc.)
+const isNightVisit = (clientName: string, serviceType?: string): boolean => {
+  const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
+  const nameLower = clientName.toLowerCase();
+  const typeLower = (serviceType || '').toLowerCase();
+  return nightKeywords.some(keyword => nameLower.includes(keyword) || typeLower.includes(keyword));
+};
+
 // Filter out secondary multiple care visits
 function isSecondaryMultipleCare(serviceType: string): boolean {
   if (!serviceType) return false;
@@ -420,55 +428,28 @@ function assignVisitToBestEmployee(
     score: best.score,
   };
 
-  // CRITICAL: Verify chronological order and travel time buffers before insertion
-      const visitStartMin = timeToMinutes(assignedVisit.startTime);
-      const visitEndMin = timeToMinutes(assignedVisit.endTime);
+  // CRITICAL: Verify chronological order before insertion
+  const visitStartMin = timeToMinutes(assignedVisit.startTime);
 
-      // Check previous visit doesn't overlap and has enough travel time
-      if (best.insertionIndex > 0) {
-        const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
-        const prevEndMin = timeToMinutes(prevVisit.endTime);
+  // Check previous visit doesn't start after this one
+  if (best.insertionIndex > 0) {
+    const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
+    const prevStartMin = timeToMinutes(prevVisit.startTime);
+    if (prevStartMin > visitStartMin) {
+      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) after ${prevVisit.clientName} (${prevVisit.startTime})`);
+      return { success: false, reason: 'Would break chronological order (previous visit starts later)' };
+    }
+  }
 
-        // Check for time overlap
-        if (prevEndMin > visitStartMin) {
-          console.error(`❌ TIME OVERLAP: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}-${assignedVisit.endTime}) - overlaps with ${prevVisit.clientName} (ends ${prevVisit.endTime})`);
-          return { success: false, reason: `Time overlap with previous visit (${prevVisit.clientName} ends at ${prevVisit.endTime})` };
-        }
-
-        // Check for sufficient travel time buffer
-        const requiredTravelTime = actualTravelTimeBefore;
-        const availableGap = visitStartMin - prevEndMin;
-
-        if (availableGap < requiredTravelTime) {
-          console.error(`❌ INSUFFICIENT TRAVEL TIME: Cannot insert ${assignedVisit.clientName} @ ${assignedVisit.startTime} - needs ${requiredTravelTime}min travel from ${prevVisit.clientName}, only ${availableGap}min available`);
-          return { success: false, reason: `Insufficient travel time (needs ${requiredTravelTime}min, has ${availableGap}min)` };
-        }
-      }
-
-      // Check next visit doesn't overlap and has enough travel time
-      if (best.insertionIndex < schedule.assignedVisits.length) {
-        const nextVisit = schedule.assignedVisits[best.insertionIndex];
-        const nextStartMin = timeToMinutes(nextVisit.startTime);
-
-        // Check for time overlap
-        if (visitEndMin > nextStartMin) {
-          console.error(`❌ TIME OVERLAP: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}-${assignedVisit.endTime}) - overlaps with ${nextVisit.clientName} (starts ${nextVisit.startTime})`);
-          return { success: false, reason: `Time overlap with next visit (${nextVisit.clientName} starts at ${nextVisit.startTime})` };
-        }
-
-        // Check for sufficient travel time to next visit
-        const travelToNext = getTravelMinutes(
-          { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
-          { lat: nextVisit.lat || 0, lng: nextVisit.lng || 0 },
-          schedule.transportMode
-        );
-        const availableGap = nextStartMin - visitEndMin;
-
-        if (availableGap < travelToNext) {
-          console.error(`❌ INSUFFICIENT TRAVEL TIME: Cannot insert ${assignedVisit.clientName} (ends ${assignedVisit.endTime}) - needs ${travelToNext}min travel to ${nextVisit.clientName} @ ${nextVisit.startTime}, only ${availableGap}min available`);
-          return { success: false, reason: `Insufficient travel time to next visit (needs ${travelToNext}min, has ${availableGap}min)` };
-        }
-      }
+  // Check next visit doesn't start before this one
+  if (best.insertionIndex < schedule.assignedVisits.length) {
+    const nextVisit = schedule.assignedVisits[best.insertionIndex];
+    const nextStartMin = timeToMinutes(nextVisit.startTime);
+    if (nextStartMin < visitStartMin) {
+      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) before ${nextVisit.clientName} (${nextVisit.startTime})`);
+      return { success: false, reason: 'Would break chronological order (next visit starts earlier)' };
+    }
+  }
 
   // Debug logging for travel time
   if (best.insertionIndex === 0) {
@@ -584,6 +565,12 @@ export function generateWeeklySchedule(
       return false;
     }
 
+    // Skip night visits
+    if (isNightVisit(visit.clientName, visit.serviceType)) {
+      console.log(`🚫 Excluding night visit: ${visit.clientName} (${visit.serviceType})`);
+      return false;
+    }
+
     // Skip if no location data
     if (!visit.lat || !visit.lng) {
       console.log(`🚫 Excluding visit without location: ${visit.clientName}`);
@@ -633,7 +620,22 @@ export function generateWeeklySchedule(
 
   weekDates.forEach(date => {
     const dayEmployees = employees.filter(e => e.date === date);
-    schedulesByDate[date] = dayEmployees.map(emp => {
+    schedulesByDate[date] = dayEmployees
+      .filter(emp => {
+        // Filter out employees with night availability
+        const windows = parseTimeWindows(emp.timeWindows);
+        const hasNightAvailability = windows.some(w => {
+          // Check if window extends past 10pm (22:00 = 1320 minutes) or starts before 6am (360 minutes)
+          return w.end > 1320 || w.start < 360;
+        });
+
+        if (hasNightAvailability) {
+          console.log(`🌙 Filtering out ${emp.employeeName} - has night availability outside 6am-10pm`);
+          return false;
+        }
+        return true;
+      })
+      .map(emp => {
       const windows = parseTimeWindows(emp.timeWindows);
       // Normalize transport mode to allowed values
       let mode: 'car' | 'walking' | 'public' = 'car';

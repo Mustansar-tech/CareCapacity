@@ -80,6 +80,17 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
+// Night visit keywords to exclude (sleep-in, waking nights, etc.)
+const NIGHT_VISIT_KEYWORDS = [
+  'nights',
+  'sleep in',
+  'waking night',
+  'overnight',
+  'night shift',
+  'sleep-in',
+  'sleepin'
+];
+
 // Round time to nearest 15-minute interval
 function roundToNearest15Minutes(date: Date): Date {
   const minutes = date.getMinutes();
@@ -124,18 +135,40 @@ export function extractClientVisitsFromGHExcel(
   const visits: ExcelClientVisit[] = [];
 
   for (const row of data) {
-    // Skip cancelled visits
-    const cancelStatus = String(row[CANCEL_COL] ?? '').toLowerCase();
-    if (cancelStatus.includes('cancel')) continue;
+    // FILTER 1: Check cancellation first (most important filter)
+    const cancellationDesc = row['Cancellation Description'];
+    const cancelStatus = String(cancellationDesc ?? '').trim().toLowerCase();
+    if (cancelStatus && cancelStatus !== '' && cancelStatus !== '(blank)') {
+      console.log(`🚫 FILTER 1 - Cancelled visit: ${row['Service Location Name'] || 'unknown'}`);
+      continue;
+    }
 
-    // Get client name
+    // FILTER 2: Get service type for secondary multiple care check
+    const serviceType = row['Actual Service Type Description'] || '';
+    const serviceTypeLower = String(serviceType).toLowerCase();
+    
+    if (serviceTypeLower.includes('multiple care (secondary)') || 
+        serviceTypeLower.includes('secondary') ||
+        serviceTypeLower.includes('multiple care - secondary')) {
+      console.log(`🚫 FILTER 2 - Secondary multiple care: ${serviceType}`);
+      continue;
+    }
+
+    // Get client name (needed for filters 3 and 4)
     const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
-
-    // Skip office visits
     const clientNameLower = clientName.toLowerCase();
+
+    // FILTER 3: Skip office visits
     if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
+      console.log(`🚫 FILTER 3 - Office visit: ${clientName}`);
+      continue;
+    }
+
+    // FILTER 4: Skip night visits (sleep-in, waking nights, etc.)
+    if (NIGHT_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
+      console.log(`🌙 FILTER 4 - Night visit: ${clientName} (${serviceType})`);
       continue;
     }
 
@@ -179,15 +212,28 @@ export function extractClientVisitsFromGHExcel(
       postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
     }
 
-    visits.push({
-      clientName,
-      startTime: fmt(startDate, 'HH:mm'),
-      endTime: fmt(endDate, 'HH:mm'),
-      durationMinutes,
-      date: dateStr,
-      address,
-      postcode,
-    });
+    // Check if this is an overnight visit that crosses midnight
+    const startDateOnly = fmt(startDate, 'yyyy-MM-dd');
+    const endDateOnly = fmt(endDate, 'yyyy-MM-dd');
+
+    if (startDateOnly !== endDateOnly) {
+      // Skip overnight visits - they cause issues with scheduling logic
+      console.log(`🚫 Skipping overnight visit: ${clientName} ${fmt(startDate, 'HH:mm')}-${fmt(endDate, 'HH:mm')} (crosses midnight)`);
+      continue;
+    }
+
+    // Normal visit within same day - only include if it matches our query date
+    if (startDateOnly === dateStr) {
+      visits.push({
+        clientName,
+        startTime: fmt(startDate, 'HH:mm'),
+        endTime: fmt(endDate, 'HH:mm'),
+        durationMinutes,
+        date: dateStr,
+        address,
+        postcode,
+      });
+    }
   }
 
   console.log(`📋 Extracted ${visits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);

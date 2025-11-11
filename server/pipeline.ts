@@ -690,11 +690,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   let totalProcessed = 0;
   let filteredCancelled = 0;
   let filteredSecondary = 0;
+  let filteredNight = 0;
 
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters (exactly as in Hours by Service Type.xlsx)
+    // Apply robust filters
     const cancelOk = isCancellationBlank(g["Cancellation Description"]);
     if (!cancelOk) {
       filteredCancelled++;
@@ -708,6 +709,17 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       filteredSecondary++;
       continue;
     }
+
+    // CRITICAL FILTER 3: Skip night visits
+    const serviceType = (g["Actual Service Type Description"] || '').toLowerCase();
+    const clientName = (g["Service Location Name"] || '').toLowerCase();
+    const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
+
+    if (nightKeywords.some(keyword => serviceType.includes(keyword) || clientName.includes(keyword))) {
+      filteredNight++;
+      continue;
+    }
+
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -767,8 +779,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   console.log(
     `  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
   );
+  console.log(`  🌙 Filtered night visits: ${filteredNight}`);
   console.log(
-    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`,
+    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredNight}`,
   );
 
   // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
@@ -1350,6 +1363,8 @@ export async function parseExcelFiles(
   console.log(`================================\n`);
 
   // Map weekday hours to actual dates from the files
+  // CRITICAL: Night visit hours are already filtered out in service-delivery-rules.ts
+  // so these hours should NOT include night visits
   hoursByWeekday.forEach(({ weekday, hours }) => {
     const actualDatesForWeekday = weekdayToActualDates[weekday] || [];
 
@@ -1367,7 +1382,7 @@ export async function parseExcelFiles(
         : hours;
 
     actualDatesForWeekday.forEach((dateStr) => {
-      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr}`);
+      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr} (night visits already excluded)`);
       validatedDemand.push({
         Date: dateStr,
         "Required Client Hours": hoursPerDate,
@@ -1561,7 +1576,7 @@ export async function processCapacityData(
 
       const parsedDate = row.parsedDate; // Already parsed
       const hrs =
-        row.Hours != null
+        row.Hours !== undefined && row.Hours !== null
           ? Number(row.Hours)
           : hoursBetween(row["Start Time"], row["End Time"]);
 
@@ -2139,6 +2154,12 @@ export async function processCapacityData(
         .map(([s, e]: [number, number]) => `${fromMin(s)}-${fromMin(e)}`)
         .join("; ");
 
+      // Check if this employee has night availability outside 6am-10pm
+      if (hasNightAvailability(windows)) {
+        console.log(`🌙 Filtering out ad-hoc ${display} from ${date} - has night availability outside 6am-10pm`);
+        return;
+      }
+
       // Get gender from master employee list for this ad-hoc employee
       const masterEmployee = masterEmployees.find(
         (emp) => emp.normalizedName === normName,
@@ -2154,8 +2175,12 @@ export async function processCapacityData(
         scheduledHours: Math.round(schedHoursRaw * 100) / 100,
         hours: 0, // not counted toward availability
         netCapacity: 0, // do not inflate capacity
-        notes: "Scheduled (no availability record for this day)",
-        gender: gender,
+        notes: "Scheduled (no availability record for this date)",
+        transportMode: undefined,
+        weeklyContractedHours: 0,
+        homeLat: undefined,
+        homeLng: undefined,
+        gender,
       });
 
       // mark as present to avoid duplicates if multiple keys flow in
@@ -2382,9 +2407,6 @@ export async function processCapacityData(
   // and replaced with a comment indicating that the new extraction is handled elsewhere.
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
-
-  // Note: Visit extraction is now handled by excel-visit-extractor module
-  // which is called separately when needed. No need to extract visits here.
 
 
   // Re-sort after injection
@@ -2680,8 +2702,38 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
 
-        // Check if client already has geocoded coordinates
-        const existingClient = await storage.getClientLocationByName(clientKey);
+        // Check if client already has geocoded coordinates - try exact match first
+        let existingClient = branchId ? await storage.getClientLocationByName(branchId, clientKey) : null;
+
+        // If no exact match, try fuzzy matching on all clients
+        if (!existingClient && branchId) {
+          const allClients = await storage.getAllClientLocations(branchId);
+          const normalizedSearchName = normalizeName(clientKey);
+
+          existingClient = allClients.find(client => {
+            const storedName = normalizeName(client.clientName);
+
+            // Try exact normalized match
+            if (storedName === normalizedSearchName) return true;
+
+            // Try substring match
+            if (storedName.includes(normalizedSearchName) || normalizedSearchName.includes(storedName)) return true;
+
+            // Try matching individual words
+            const storedWords = storedName.split(/[\s,]+/).filter(w => w.length > 2);
+            const searchWords = normalizedSearchName.split(/[\s,]+/).filter(w => w.length > 2);
+
+            const matchingWords = storedWords.filter(word =>
+              searchWords.some(searchWord => searchWord.includes(word) || word.includes(searchWord))
+            );
+
+            return matchingWords.length >= Math.min(2, Math.min(storedWords.length, searchWords.length));
+          });
+
+          if (existingClient) {
+            console.log(`🔍 Found client via fuzzy match: "${clientKey}" -> "${existingClient.clientName}"`);
+          }
+        }
 
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {
@@ -2768,8 +2820,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            postcodes: employeePostcodes, 
+          body: JSON.stringify({
+            postcodes: employeePostcodes,
             addresses: [],
             branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
           }),
@@ -2926,13 +2978,32 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
     for (const row of guaranteed) {
-      // Skip cancelled or secondary multiple care entries
-      if (!isCancellationBlank(row["Cancellation Description"])) continue;
-      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+      // FILTER 1: Skip cancelled visits
+      if (!isCancellationBlank(row["Cancellation Description"])) {
+        console.log(`🚫 FILTER 1 - Cancelled visit in pipeline: ${row["Service Location Name"] || 'unknown'}`);
+        continue;
+      }
+
+      // FILTER 2: Skip secondary multiple care
+      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) {
+        console.log(`🚫 FILTER 2 - Secondary multiple care in pipeline: ${row["Actual Service Type Description"]}`);
+        continue;
+      }
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
       const serviceLocationAddress = row["Service Location Address"];
+      const serviceType = row["Actual Service Type Description"];
+
+      // FILTER 3: Skip office visits (if client name indicates office)
+      if (clientName) {
+        const clientNameLower = clientName.toLowerCase();
+        const officeKeywords = ['east nl', 'glasgow', 'training seawared', 'training (nl)', 'seaward place', 'office', 'training', 'admin', 'meeting'];
+        if (officeKeywords.some(keyword => clientNameLower.includes(keyword))) {
+          console.log(`🚫 FILTER 3 - Office visit in pipeline: ${clientName}`);
+          continue;
+        }
+      }
 
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
@@ -2941,9 +3012,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       const actualEndTime = row["Actual End Date And Time"];
       const startTime = row["Service Requirement Start Date And Time"];
       const endTime = row["Service Requirement End Date And Time"];
-      const serviceType = row["Actual Service Type Description"];
 
       if (clientName && (plannedStartTime || actualStartTime || startTime)) {
+        // FILTER 4: Skip night visits (sleep-in, waking nights, etc.)
+        const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
+        const clientNameLower = clientName.toLowerCase();
+        const serviceTypeLower = (serviceType || '').toLowerCase();
+
+        if (nightKeywords.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
+          console.log(`🌙 FILTER 4 - Night visit in pipeline: ${clientName} (${serviceType})`);
+          continue;
+        }
+
         // Use planned times first as requested, then fall back to others
         const visitStart = plannedStartTime || actualStartTime || startTime;
         const visitEnd = plannedEndTime || actualEndTime || endTime;
@@ -3185,4 +3265,37 @@ export async function generateExcelExport(
   console.log("Heatmap sheets excluded from Excel export");
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+}
+
+// Helper function to normalize file names by removing browser download numbers
+function normalizeFileName(fileName: string): string {
+  // Remove numbers in parentheses that browsers add for duplicate downloads
+  // e.g. "Hours by Service Type (1).xlsx" -> "Hours by Service Type.xlsx"
+  return fileName.replace(/\s*\(\d+\)/g, '');
+}
+
+// Check if time windows contain night availability (outside 6am-10pm)
+function hasNightAvailability(windows: string): boolean {
+  if (!windows) return false;
+
+  const timeRanges = windows.split(';').map(w => w.trim()).filter(w => w);
+
+  for (const range of timeRanges) {
+    const match = range.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+    if (!match) continue;
+
+    const startHour = parseInt(match[1]);
+    const endHour = parseInt(match[3]);
+
+    // Check if outside 6am-10pm range (360 minutes to 1320 minutes)
+    const startMinutes = startHour * 60 + parseInt(match[2]);
+    const endMinutes = endHour * 60 + parseInt(match[4]);
+
+    // If start is before 6am or end is after 10pm, it's night availability
+    if (startMinutes < 360 || endMinutes > 1320) {
+      return true;
+    }
+  }
+
+  return false;
 }

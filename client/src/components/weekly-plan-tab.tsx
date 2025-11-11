@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
 import { generateWeeklySchedule } from "@/utils/scheduling-engine";
-import { useBranch } from "@/contexts/BranchContext";
 
 interface WeeklyPlanTabProps {
   data: ProcessingResult | null;
@@ -50,9 +49,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
 
-  // Get selected branch ID
-  const { selectedBranchId } = useBranch();
-
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
@@ -83,15 +79,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   );
 
   // Fetch visits for each day of the week
-  const visitsQueries = weekDates.map(date => 
+  const visitQueries = weekDates.map(date => 
     useQuery<ClientVisit[]>({
-      queryKey: ['/api/visits', date, selectedBranchId],
-      enabled: !!data && !!weekDates.length && !!selectedBranchId,
+      queryKey: ['/api/visits', date],
+      enabled: !!data && weekDates.length > 0,
     })
   );
 
-  const isLoadingVisits = visitsQueries.some(q => q.isLoading);
-  const allWeekVisits = visitsQueries.flatMap(q => q.data || []);
+  const isLoadingVisits = visitQueries.some(q => q.isLoading);
+  const allWeekVisits = visitQueries.flatMap(q => q.data || []);
 
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
@@ -326,7 +322,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
         <Button
           onClick={() => generateMutation.mutate()}
-          disabled={!data || generateMutation.isPending || allWeekVisits.length === 0 || !selectedBranchId}
+          disabled={!data || generateMutation.isPending || allWeekVisits.length === 0}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           data-testid="button-generate-weekly"
         >
