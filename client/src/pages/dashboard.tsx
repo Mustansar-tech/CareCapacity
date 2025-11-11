@@ -115,9 +115,9 @@ export default function Dashboard() {
       }
       return response.json();
     },
-    enabled: !isProcessing && !!selectedBranchId && !processedData, // Only fetch if not processing, have branch, and no current data
+    enabled: !isProcessing && !!selectedBranchId, // Always fetch if not processing and have branch
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
-    refetchOnMount: false, // Prevent refetch on component mount
+    refetchOnMount: true, // Allow refetch on mount to load data initially
   });
 
   // Clear processed data when branch changes
