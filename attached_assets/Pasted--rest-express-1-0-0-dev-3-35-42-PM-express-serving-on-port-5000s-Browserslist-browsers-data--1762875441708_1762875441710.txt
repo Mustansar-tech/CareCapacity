@@ -1,0 +1,1947 @@
+
+> rest-express@1.0.0 dev
+3:35:42 PM [express] serving on port 5000s
+Browserslist: browsers data (caniuse-lite) is 13 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+3:35:48 PM [express] GET /api/branches 304 in 624ms :: [{"id":"0d087ea2-68ed-45f3-9738-85de38d4ec9e"…
+3:35:48 PM [express] GET /api/history/latest 304 in 172ms :: {"id":"8c57940e-4649-4bf9-bba7-6724aced…
+3:35:48 PM [express] GET /api/history 304 in 278ms :: [{"id":"8c57940e-4649-4bf9-bba7-6724acedbafe",…
+📂 File upload attempt: "Availability Export (2).xlsx" with MIME type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+✅ File accepted: "Availability Export (2).xlsx"
+📂 File upload attempt: "Care Pro Guaranteed Hours (2).xlsx" with MIME type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+✅ File accepted: "Care Pro Guaranteed Hours (2).xlsx"
+📂 File upload attempt: "Hours by Service Type (2).xlsx" with MIME type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+✅ File accepted: "Hours by Service Type (2).xlsx"
+📂 File upload attempt: "CG Data Export (2).xlsx" with MIME type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+✅ File accepted: "CG Data Export (2).xlsx"
+🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====
+📋 Files received: [ 'availability', 'guaranteed', 'demand', 'cgData' ]
+🏢 Requested branch ID: 311ed83e-0715-4a83-9cdf-ca6b7792b624
+✅ Branch validated: Stirling (stirling-falkirk)
+📁 File name validation:
+  Availability: "Availability Export (2).xlsx" -> "Availability Export.xlsx"
+  Guaranteed: "Care Pro Guaranteed Hours (2).xlsx" -> "Care Pro Guaranteed Hours.xlsx"
+  Demand: "Hours by Service Type (2).xlsx" -> "Hours by Service Type.xlsx"
+  CG Data: "CG Data Export (2).xlsx" -> "CG Data Export.xlsx"
+  Expected: {"availability":"Availability Export.xlsx","guaranteed":"Care Pro Guaranteed Hours.xlsx","demand":"Hours by Service Type.xlsx","cgData":"CG Data Export.xlsx"}
+✅ FILE VALIDATION PASSED - Proceeding to parsing...
+
+🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====
+🔧 Buffer lengths: availability=17191, guaranteed=397921, demand=160301, cgData=668714
+🔧 Calling applyServiceRules with buffer of length: 160301
+✅ applyServiceRules completed successfully
+📁 Sheet: Data, Header row: 0, Rows: 222 → 221 → 212
+🔍 Column mapping: {
+  serviceType: 'Planned Service Type Description',
+  weekday: 'Planned Start Date Weekday',
+  duration: 'Planned Duration',
+  cancellation: 'Cancellation Description'
+}
+📊 Weekday totals: [
+  { weekday: 'Friday', hours: 58 },
+  { weekday: 'Monday', hours: 57.5 },
+  { weekday: 'Saturday', hours: 49 },
+  { weekday: 'Sunday', hours: 45 },
+  { weekday: 'Thursday', hours: 52 },
+  { weekday: 'Tuesday', hours: 59 },
+  { weekday: 'Wednesday', hours: 59 }
+]
+📊 Filtered demand rows for visit generation: 212
+🧹 Clearing old visits data before generating new visits...
+🧹 Clearing all visits data for branch undefined...
+✅ Cleared visits data for branch undefined
+⚡ Skipping synthetic visit generation - using real Excel visit times for performance
+🔍 CG Data sheet names available: [ 'Pivot', 'Charts', 'Data' ]
+🔍 Using sheet: "Data"
+🔍 Raw CG Data rows: 34
+🔍 First raw CG Data row: {
+  Count: 1,
+  Title: 'Ms',
+  'First Name': 'Saima',
+  Initial: '',
+  'Last Name': 'Ahmed',
+  'Preferred Name': '',
+  Gender: 'Undisclosed',
+  'Date Of Birth': 28858,
+  'Year Of Birth': '1979',
+  'Month Of Birth': 'January',
+  Age: 46,
+  Sexuality: '',
+  MaritalStatus: 'Unknown',
+  Nationality: '',
+  'Ethnic Origin': 'Unknown',
+  Religion: '',
+  Disabled: 'No',
+  'Disability Details': '',
+  'Reasonable Adjustment': 'No',
+  'Reasonable Adjustment Details': '',
+  'NI Number': 'XX111111X',
+  'Start Date': 45861,
+  'Start Year': '2025',
+  'Start Month': 'July',
+  'Length Of Service Years': 0,
+  'Termination Date': '',
+  'Termination Year': '',
+  'Termination Month': '',
+  'Address Line 1': '7 Langton Road',
+  'Address Line 11': '',
+  'Address Line 12': '',
+  'City / Town': 'Glasgow',
+  County: '',
+  'Post Code': 'G53 5DF   ',
+  'Post Code Known': 'Yes',
+  Home: '7367688775',
+  Mobile: '7367688775',
+  Other: '',
+  Pager: '',
+  Email: 'ahmedsaima708@yahoo.com',
+  'Employee Type': 'CAREGiver',
+  Position: 'CAREGiver',
+  Branch: 'Stirling & Falkirk',
+  Area: 'Out of Territory',
+  'Employment Reason': '',
+  Status: 'Active',
+  Eligibility: 'X SmartRecruiters New Hire',
+  'Eligibility From Date': 45861,
+  'Eligibility Expiry Date': '',
+  'Eligibility Notes': '',
+  'PIN Number': '9840',
+  'External ID': '16',
+  'Payroll Run': 'Standard',
+  'Rate Sheet': 'CAREGiver Rate Sheets',
+  'Hours Per Week': '',
+  'Days Per Week': '',
+  Salaried: 'No',
+  Salary: '',
+  'Rate Sheet Travel': '',
+  TransportModeDescription: 'X SmartRecruiters New Hire',
+  TransportModeInsuranceTypeDescription: '',
+  TransportModeInsuranceExpiryDate: '',
+  TransportModeLicenseTypeDescription: '',
+  TransportModeLicenseExpiryDate: '',
+  'Run Description': '',
+  'First Worked Date': 45866.93125,
+  'Last Worked Date': 45896.90625,
+  EmployeeTerminationReasonDescription: '',
+  EmployeeCreatedDateTime: 45861.6323604514,
+  EmployeeLastUpdatedDateTime: 45962.1706547801,
+  EmployeeCustomID1: '',
+  EmployeeID1: '',
+  EmployeeCustom_BOSS_ID: 0,
+  EmployeeCustom_IQ_ID: 0,
+  Empty: '',
+  Empty_1: '',
+  Empty_2: '',
+  Empty_3: '',
+  Empty_4: '',
+  Empty_5: '',
+  Empty_6: '',
+  Empty_7: '',
+  Empty_8: '',
+  Empty_9: '',
+  Empty_10: '',
+  Empty_11: '',
+  Empty_12: '',
+  Empty_13: '',
+  Empty_14: '',
+  Empty_15: '',
+  Empty_16: '',
+  Empty_17: '',
+  Empty_18: '',
+  Empty_19: '',
+  Empty_20: '',
+  Empty_21: '',
+  Empty_22: '',
+  Empty_23: '',
+  Empty_24: '',
+  Empty_25: '',
+  Empty_26: '',
+  Empty_27: '',
+  Empty_28: '',
+  Empty_29: '',
+  Empty_30: '',
+  Empty_31: '',
+  Empty_32: '',
+  Empty_33: '',
+  Empty_34: '',
+  Empty_35: '',
+  Empty_36: '',
+  Empty_37: '',
+  Empty_38: '',
+  Empty_39: '',
+  Empty_40: '',
+  Empty_41: '',
+  Empty_42: '',
+  Empty_43: '',
+  Empty_44: '',
+  Empty_45: '',
+  Empty_46: '',
+  Empty_47: '',
+  Empty_48: '',
+  Empty_49: '',
+  Empty_50: '',
+  Empty_51: '',
+  Empty_52: '',
+  Empty_53: '',
+  Empty_54: '',
+  Empty_55: '',
+  Empty_56: '',
+  Empty_57: '',
+  Empty_58: '',
+  Empty_59: '',
+  Empty_60: '',
+  Empty_61: '',
+  Empty_62: '',
+  Empty_63: '',
+  Empty_64: '',
+  Empty_65: '',
+  Empty_66: '',
+  Empty_67: '',
+  Empty_68: '',
+  Empty_69: '',
+  Empty_70: '',
+  Empty_71: '',
+  Empty_72: '',
+  Empty_73: '',
+  Empty_74: '',
+  Empty_75: '',
+  Empty_76: '',
+  Empty_77: '',
+  Empty_78: '',
+  Empty_79: '',
+  Empty_80: '',
+  Empty_81: '',
+  Empty_82: '',
+  Empty_83: '',
+  Empty_84: '',
+  Empty_85: '',
+  Empty_86: '',
+  Empty_87: '',
+  Empty_88: '',
+  Empty_89: '',
+  Empty_90: '',
+  Empty_91: '',
+  Empty_92: '',
+  Empty_93: '',
+  Empty_94: '',
+  Empty_95: '',
+  Empty_96: '',
+  Empty_97: '',
+  Empty_98: '',
+  Empty_99: '',
+  Empty_100: '',
+  Empty_101: '',
+  Empty_102: '',
+  Empty_103: '',
+  Empty_104: '',
+  Empty_105: '',
+  Empty_106: '',
+  Empty_107: '',
+  Empty_108: '',
+  Empty_109: '',
+  Empty_110: '',
+  Empty_111: '',
+  Empty_112: '',
+  Empty_113: '',
+  Empty_114: '',
+  Empty_115: '',
+  Empty_116: '',
+  Empty_117: '',
+  Empty_118: '',
+  Empty_119: '',
+  Empty_120: '',
+  Empty_121: '',
+  Empty_122: '',
+  Empty_123: '',
+  Empty_124: '',
+  Empty_125: '',
+  Empty_126: '',
+  Empty_127: '',
+  Empty_128: '',
+  Empty_129: '',
+  Empty_130: '',
+  Empty_131: '',
+  Empty_132: '',
+  Empty_133: '',
+  Empty_134: '',
+  Empty_135: '',
+  Empty_136: '',
+  Empty_137: '',
+  Empty_138: '',
+  Empty_139: '',
+  Empty_140: '',
+  Empty_141: '',
+  Empty_142: '',
+  Empty_143: '',
+  Empty_144: '',
+  Empty_145: '',
+  Empty_146: '',
+  Empty_147: '',
+  Empty_148: '',
+  Empty_149: '',
+  Empty_150: '',
+  Empty_151: '',
+  Empty_152: '',
+  Empty_153: '',
+  Empty_154: '',
+  Empty_155: '',
+  Empty_156: '',
+  Empty_157: '',
+  Empty_158: '',
+  Empty_159: '',
+  Empty_160: '',
+  Empty_161: '',
+  Empty_162: '',
+  Empty_163: '',
+  Empty_164: '',
+  Empty_165: '',
+  Empty_166: '',
+  Empty_167: '',
+  Empty_168: '',
+  Empty_169: '',
+  Empty_170: '',
+  Empty_171: '',
+  Empty_172: '',
+  Empty_173: '',
+  Empty_174: '',
+  Empty_175: '',
+  Empty_176: '',
+  Empty_177: '',
+  Empty_178: '',
+  Empty_179: '',
+  Empty_180: '',
+  Empty_181: ''
+}
+🔍 Available columns: [
+  'Count',
+  'Title',
+  'First Name',
+  'Initial',
+  'Last Name',
+  'Preferred Name',
+  'Gender',
+  'Date Of Birth',
+  'Year Of Birth',
+  'Month Of Birth',
+  'Age',
+  'Sexuality',
+  'MaritalStatus',
+  'Nationality',
+  'Ethnic Origin',
+  'Religion',
+  'Disabled',
+  'Disability Details',
+  'Reasonable Adjustment',
+  'Reasonable Adjustment Details',
+  'NI Number',
+  'Start Date',
+  'Start Year',
+  'Start Month',
+  'Length Of Service Years',
+  'Termination Date',
+  'Termination Year',
+  'Termination Month',
+  'Address Line 1',
+  'Address Line 11',
+  'Address Line 12',
+  'City / Town',
+  'County',
+  'Post Code',
+  'Post Code Known',
+  'Home',
+  'Mobile',
+  'Other',
+  'Pager',
+  'Email',
+  'Employee Type',
+  'Position',
+  'Branch',
+  'Area',
+  'Employment Reason',
+  'Status',
+  'Eligibility',
+  'Eligibility From Date',
+  'Eligibility Expiry Date',
+  'Eligibility Notes',
+  'PIN Number',
+  'External ID',
+  'Payroll Run',
+  'Rate Sheet',
+  'Hours Per Week',
+  'Days Per Week',
+  'Salaried',
+  'Salary',
+  'Rate Sheet Travel',
+  'TransportModeDescription',
+  'TransportModeInsuranceTypeDescription',
+  'TransportModeInsuranceExpiryDate',
+  'TransportModeLicenseTypeDescription',
+  'TransportModeLicenseExpiryDate',
+  'Run Description',
+  'First Worked Date',
+  'Last Worked Date',
+  'EmployeeTerminationReasonDescription',
+  'EmployeeCreatedDateTime',
+  'EmployeeLastUpdatedDateTime',
+  'EmployeeCustomID1',
+  'EmployeeID1',
+  'EmployeeCustom_BOSS_ID',
+  'EmployeeCustom_IQ_ID',
+  'Empty',
+  'Empty_1',
+  'Empty_2',
+  'Empty_3',
+  'Empty_4',
+  'Empty_5',
+  'Empty_6',
+  'Empty_7',
+  'Empty_8',
+  'Empty_9',
+  'Empty_10',
+  'Empty_11',
+  'Empty_12',
+  'Empty_13',
+  'Empty_14',
+  'Empty_15',
+  'Empty_16',
+  'Empty_17',
+  'Empty_18',
+  'Empty_19',
+  'Empty_20',
+  'Empty_21',
+  'Empty_22',
+  'Empty_23',
+  'Empty_24',
+  'Empty_25',
+  ... 156 more items
+]
+📊 CG Data: 34 rows → 14 employees with weekly hours (sheet: Data)
+🔍 First processed CG Data row: {
+  'CAREGiver Name': 'Rowan Boyle (GH)',
+  'Weekly Hours': 30,
+  TransportModeDescription: 'Driver',
+  Title: 'Miss',
+  Gender: 'female',
+  PostCode: 'FK10 1NH  '
+}
+👥 Gender distribution: { female: 11, male: 3 }
+👤 Sample employees (Title → Gender): [
+  { name: 'Rowan Boyle (GH)', title: 'Miss', gender: 'female' },
+  { name: 'Paul Chalmers (GH)', title: 'Mr', gender: 'male' },
+  { name: 'John Clarke (GH)', title: 'Mr', gender: 'male' },
+  { name: 'Kristin Earhart', title: 'Mrs', gender: 'female' },
+  { name: 'Haseeb Halepota (GH)', title: 'Mr', gender: 'male' }
+]
+🔍 SECONDARY CLIENT FILTERING: Excluded 8 rows with service descriptions from 221 total Care Pro entries
+
+📅 ACTUAL DATES FOUND IN FILES:
+  Total unique dates: 7
+  Date range: 2025-11-10 to 2025-11-16
+
+📅 WEEKDAY TO ACTUAL DATES MAPPING:
+  Monday: 2025-11-10
+  Tuesday: 2025-11-11
+  Wednesday: 2025-11-12
+  Thursday: 2025-11-13
+  Friday: 2025-11-14
+  Saturday: 2025-11-15
+  Sunday: 2025-11-16
+================================
+
+🔄 Mapping: Friday (58h) -> 2025-11-14
+🔄 Mapping: Monday (57.5h) -> 2025-11-10
+🔄 Mapping: Saturday (49h) -> 2025-11-15
+🔄 Mapping: Sunday (45h) -> 2025-11-16
+🔄 Mapping: Thursday (52h) -> 2025-11-13
+🔄 Mapping: Tuesday (59h) -> 2025-11-11
+🔄 Mapping: Wednesday (59h) -> 2025-11-12
+
+📊 ===== SERVICE DELIVERY SUMMARY =====
+✅ Filtered records: 212 (from 221 normalized)
+📈 Monday hours: 57.5 (expected: ~64.5)
+📈 Total hours: 379.5 (expected: 400.33)
+=======================================
+
+
+🏢 ===== BRANCH DETECTION =====
+📄 CG Data sample branches: Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk
+📄 Guaranteed Hours sample branches: Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk
+📄 Availability sample branches: Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk, Stirling & Falkirk
+✅ Detected branches: stirling-falkirk
+🏢 Final detected branch: stirling-falkirk
+=======================================
+
+✅ Branch validation complete - processing data for: Stirling
+
+🚀 ===== USING CG DATA AS MASTER EMPLOYEE LIST =====
+📊 Total employees in CG Data: 14
+📋 Sample CG Data entries:
+  1. Rowan Boyle (GH) - 30 hours/week
+  2. Paul Chalmers (GH) - 16 hours/week
+  3. John Clarke (GH) - 30 hours/week
+
+===== RECEIVED DEMAND DATA =====
+  - 2025-11-14: 58 hours
+  - 2025-11-10: 57.5 hours
+  - 2025-11-15: 49 hours
+  - 2025-11-16: 45 hours
+  - 2025-11-13: 52 hours
+  - 2025-11-11: 59 hours
+  - 2025-11-12: 59 hours
+📊 TOTAL DEMAND HOURS FROM FILTERING: 379.5 (Expected: 400.33)
+================================
+
+
+🔍 SCHEDULED HOURS FILTERING SUMMARY:
+  📊 Total guaranteed hours entries: 189
+  ❌ Filtered cancelled entries: 0
+  ❌ Filtered "Multiple Care (Secondary)": 0
+  ✅ Valid entries for scheduling: 189
+
+🔍 FINAL SCHEDULED HOURS MAP (Makala entries):
+=========================================
+
+=== GUARANTEED HOURS DEBUGGING ===
+First row raw data: {
+  Count: 1,
+  'Customer Name': 'Fouracre, Shelley',
+  'Customer Address': '3 Moray Place, Gargunnock, FK8 3BT   ',
+  'Customer Branch': 'Stirling & Falkirk',
+  'Customer Area': 'Stirling',
+  'Customer Type': 'Private Client',
+  'Service Location Created Date & Time': 44076.5550651968,
+  'Service Location Updated Date & Time': 45888.4017966435,
+  'Service Location Name': 'Fouracre, Shelley',
+  'Service Location Mobizio ID': '1-108',
+  'Service Location Address': '3 Moray Place, Gargunnock, FK8 3BT   ',
+  'Service Location Phone': '01786 860239',
+  'Service Location Date Of Birth': 15511,
+  'Service Location Branch': 'Stirling & Falkirk',
+  'Service Location Area': 'Stirling',
+  'Service Location Type': 'Client',
+  'Service Duty Created Date & Time': 45526.4764039699,
+  'Service Duty Updated Date & Time': 45971.5265155093,
+  'Service Requirement Start Date And Time': 45971.375,
+  'Service Requirement End Date And Time': 45971.5,
+  'Service Requirement Duration': 3,
+  'Service Requirement Service Type Description': 'Companionship',
+  'Service Requirement Type Description': 'Home Instead',
+  Adhoc: 'FALSE',
+  'Template Start Date And Time': 45971.375,
+  'Template End Date And Time': 45971.5,
+  'Template Duration': 3,
+  'Template Employee Name': 'Stevenson (GH), Keri',
+  'Planned Start Date And Time': 45971.375,
+  'Planned End Date And Time': 45971.5,
+  'Planned Duration': 3,
+  'Planned Travel Time': 5,
+  'Planned Start Date Year': '2025',
+  'Planned Start Date Month': 'November',
+  'Planned Start Date Weekday': 'Monday',
+  'Planned Start Date Week': '46',
+  'Planned Employee Name': 'Stevenson (GH), Keri',
+  'Planned Employee External ID': '24',
+  'Planned Employee Home': '7548514371',
+  'Planned Employee Mobile': '7548514371',
+  'Planned Employee Mobizio ID': '2-74',
+  'Planned Employee Branch': 'Stirling & Falkirk',
+  'Planned Employee Area': 'Stirling',
+  'Planned Employee Hours Per Week': 16,
+  'Planned Employee Default Pay Rate': 0,
+  'Planned Service Type Description': 'Companionship',
+  'Planned Service Requirement Type Description': 'Home Instead',
+  'Planned Pay Rate': 13,
+  'Planned Pay Rate Type': 'Hourly',
+  'Planned Pay Rate Hours': 3,
+  'Planned Pay Rate Hours - Banded': 3,
+  'Planned Pay Rate Adhoc': false,
+  'Planned Pay Rate Public Holiday': false,
+  'Planned Pay Rate Value': 39,
+  'Planned Invoice Rate': 39.9,
+  'Planned Invoice Rate Type': 'Hourly',
+  'Planned Invoice Rate Hours': 3,
+  'Planned Invoice Rate Hours - Banded': 3,
+  'Planned Invoice Rate Adhoc': false,
+  'Planned Invoice Rate Public Holiday': false,
+  'Planned Invoice Rate Value': 119.7,
+  'Actual Start Date And Time': 45971.3861111111,
+  'Actual End Date And Time': 45971.5111111111,
+  'Actual Duration': 3,
+  'Actual Travel Time': 5,
+  'Actual Start Date Year': '2025',
+  'Actual Start Date Month': 'November',
+  'Actual Start Date Weekday': 'Monday',
+  'Actual Start Date Week': '46',
+  'Actual Employee Name': 'Stevenson (GH), Keri',
+  'Actual Employee External ID': '24',
+  'Actual Employee Home': '7548514371',
+  'Actual Employee Mobile': '7548514371',
+  'Actual Employee Mobizio ID': '2-74',
+  'Actual Employee Branch': 'Stirling & Falkirk',
+  'Actual Employee Area': 'Stirling',
+  'Actual Employee Hours Per Week': 16,
+  'Actual Employee Default Pay Rate': 0,
+  'Actual Service Type Description': 'Companionship',
+  'Actual Service Requirement Type Description': 'Home Instead',
+  'Actual Pay Rate': 13,
+  'Actual Pay Rate Type': 'Hourly',
+  'Actual Pay Rate Hours': 3,
+  'Actual Pay Rate Hours - Banded': 3,
+  'Actual Pay Rate Adhoc': false,
+  'Actual Pay Rate Public Holiday': false,
+  'Actual Pay Rate Value': 39,
+  'Base Rate Value': 39,
+  'Actual Pay Rate Sheet Description': 'CAREGiver Rate Sheets',
+  'Actual Invoice Rate': 39.9,
+  'Actual Invoice Rate Type': 'Hourly',
+  'Actual Invoice Rate Hours': 3,
+  'Actual Invoice Rate Hours - Banded': 3,
+  'Actual Invoice Rate Adhoc': false,
+  'Actual Invoice Rate Public Holiday': false,
+  'Actual Invoice Rate Value': 119.7,
+  'Actual Invoice Rate Sheet Description': 'Private Client Monthly Invoice',
+  PayValueDifferance: 0,
+  InvoiceValueDifferance: -80.7,
+  DurationDifferanceMinutes: 0,
+  PunctualityStartTimeMinutes: 16,
+  PunctualityEndTimeMinutes: 16,
+  PunctualityTotalMinutes: 32,
+  Reconciled: 'Yes',
+  'Actual Booked On Time': 45971.3866898148,
+  'Actual Booked On Method': 'Electronic Monitoring',
+  'Actual Booked On Method Dialogic': 'Yes',
+  'Actual Booked On Method Dialogic Time': 45971.3866898148,
+  'Actual Booked Off Time': 45971.5252777778,
+  'Actual Booked Off Method': 'Electronic Monitoring',
+  'Actual Booked Off Method Dialogic': 'Yes',
+  'Actual Booked Off Method Dialogic Time': 45971.5252777778,
+  'Service Package Override': 'FALSE',
+  PayrollAccepted: 'No',
+  InvoiceAccepted: 'No',
+  CreatedStage: 'Planning',
+  AlertFirstDateTime: 45971.5220836458,
+  AlertFirstType: 'Book Off',
+  AlertDateTimeLast: 45971.3859244213,
+  AlertLastType: 'Book On',
+  'Planned Override Training and Qualifications': 'FALSE',
+  'Actual Override Training and Qualifications': 'FALSE'
+}
+Service Start Date raw: 45971.375
+Service End Date raw: 45971.5
+🔍 CG Data debugging:
+  - Total CG Data rows: 14
+  - First row keys: [
+  'CAREGiver Name',
+  'Weekly Hours',
+  'TransportModeDescription',
+  'Title',
+  'Gender',
+  'PostCode'
+]
+  - First row: {
+  'CAREGiver Name': 'Rowan Boyle (GH)',
+  'Weekly Hours': 30,
+  TransportModeDescription: 'Driver',
+  Title: 'Miss',
+  Gender: 'female',
+  PostCode: 'FK10 1NH  '
+}
+📋 Master employee list created: 14 employees from CG Data (with non-zero weekly hours)
+  - Sample employee: {
+  originalName: 'Rowan Boyle (GH)',
+  normalizedName: 'boyle rowan',
+  weeklyHours: 30,
+  transportMode: 'Driver',
+  gender: 'female'
+}
+📊 Availability filtered: 71 rows (only master employees)
+
+===== DAILY SUMMARY CLIENT REQUIRED BREAKDOWN =====
+  - 2025-11-10: 57.5 hours
+  - 2025-11-11: 59 hours
+  - 2025-11-12: 59 hours
+  - 2025-11-13: 52 hours
+  - 2025-11-14: 58 hours
+  - 2025-11-15: 49 hours
+  - 2025-11-16: 45 hours
+📊 TOTAL CLIENT REQUIRED FROM DAILY SUMMARY: 379.5
+==================================================
+
+📝 Adding to employeesByDate[2025-11-11]: Jamie Lee Kane (GH)
+  - Normalized name: "jamie kane lee"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-13]: Jamie Lee Kane (GH)
+  - Normalized name: "jamie kane lee"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-10]: John Clarke (GH)
+  - Normalized name: "clarke john"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-11]: John Clarke (GH)
+  - Normalized name: "clarke john"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-14]: Chiamaka Onweluzo (GH)
+  - Normalized name: "chiamaka onweluzo"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-15]: Chiamaka Onweluzo (GH)
+  - Normalized name: "chiamaka onweluzo"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-16]: Chiamaka Onweluzo (GH)
+  - Normalized name: "chiamaka onweluzo"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-10]: Haseeb Halepota (GH)
+  - Normalized name: "halepota haseeb"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-11]: Anisa Naeem
+  - Normalized name: "anisa naeem"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-12]: Anisa Naeem
+  - Normalized name: "anisa naeem"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-13]: Anisa Naeem
+  - Normalized name: "anisa naeem"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-14]: Anisa Naeem
+  - Normalized name: "anisa naeem"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Barbora Slabochova (GH)
+  - Normalized name: "barbora slabochova"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-12]: Barbora Slabochova (GH)
+  - Normalized name: "barbora slabochova"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-13]: Barbora Slabochova (GH)
+  - Normalized name: "barbora slabochova"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-14]: Barbora Slabochova (GH)
+  - Normalized name: "barbora slabochova"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-15]: Barbora Slabochova (GH)
+  - Normalized name: "barbora slabochova"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-12]: Jamie Lee Kane (GH)
+  - Normalized name: "jamie kane lee"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-14]: Jamie Lee Kane (GH)
+  - Normalized name: "jamie kane lee"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-10]: Rhian Steel
+  - Normalized name: "rhian steel"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Rhian Steel
+  - Normalized name: "rhian steel"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-15]: Rhian Steel
+  - Normalized name: "rhian steel"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-16]: Rhian Steel
+  - Normalized name: "rhian steel"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-10]: Rowan Boyle (GH)
+  - Normalized name: "boyle rowan"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Rowan Boyle (GH)
+  - Normalized name: "boyle rowan"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-12]: Rowan Boyle (GH)
+  - Normalized name: "boyle rowan"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-13]: Rowan Boyle (GH)
+  - Normalized name: "boyle rowan"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-14]: Rowan Boyle (GH)
+  - Normalized name: "boyle rowan"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-13]: Ziyal Vidler
+  - Normalized name: "vidler ziyal"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-14]: Ziyal Vidler
+  - Normalized name: "vidler ziyal"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-16]: Ziyal Vidler
+  - Normalized name: "vidler ziyal"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Haseeb Halepota (GH)
+  - Normalized name: "halepota haseeb"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-12]: Haseeb Halepota (GH)
+  - Normalized name: "halepota haseeb"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-13]: Haseeb Halepota (GH)
+  - Normalized name: "halepota haseeb"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-14]: Haseeb Halepota (GH)
+  - Normalized name: "halepota haseeb"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-15]: John Clarke (GH)
+  - Normalized name: "clarke john"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-16]: John Clarke (GH)
+  - Normalized name: "clarke john"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-10]: Paul Chalmers (GH)
+  - Normalized name: "chalmers paul"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-11]: Paul Chalmers (GH)
+  - Normalized name: "chalmers paul"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-12]: Paul Chalmers (GH)
+  - Normalized name: "chalmers paul"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-13]: Paul Chalmers (GH)
+  - Normalized name: "chalmers paul"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-16]: Paul Chalmers (GH)
+  - Normalized name: "chalmers paul"
+  - Master employee found: YES
+  - Master employee gender: "male"
+  - Final gender value: "male"
+📝 Adding to employeesByDate[2025-11-10]: Chiamaka Onweluzo (GH)
+  - Normalized name: "chiamaka onweluzo"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Chiamaka Onweluzo (GH)
+  - Normalized name: "chiamaka onweluzo"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-10]: Kristin Earhart
+  - Normalized name: "earhart kristin"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Kristin Earhart
+  - Normalized name: "earhart kristin"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-12]: Kristin Earhart
+  - Normalized name: "earhart kristin"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-13]: Kristin Earhart
+  - Normalized name: "earhart kristin"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-14]: Kristin Earhart
+  - Normalized name: "earhart kristin"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-10]: Alison Shields (GH)
+  - Normalized name: "alison shields"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-11]: Alison Shields (GH)
+  - Normalized name: "alison shields"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-15]: Alison Shields (GH)
+  - Normalized name: "alison shields"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+📝 Adding to employeesByDate[2025-11-16]: Alison Shields (GH)
+  - Normalized name: "alison shields"
+  - Master employee found: YES
+  - Master employee gender: "female"
+  - Final gender value: "female"
+
+🔍 VERIFYING GENDER IN employeesByDate (for auto-scheduler):
+  Checking 10 employees on 2025-11-11:
+    - Jamie Lee Kane (GH): gender="female" (status: Holiday)
+    - John Clarke (GH): gender="male" (status: Holiday)
+    - Anisa Naeem: gender="female" (status: Available)
+    - Barbora Slabochova (GH): gender="female" (status: Available)
+    - Rhian Steel: gender="female" (status: Available)
+    - Rowan Boyle (GH): gender="female" (status: Available)
+    - Haseeb Halepota (GH): gender="male" (status: Available)
+    - Paul Chalmers (GH): gender="male" (status: Available)
+    - Chiamaka Onweluzo (GH): gender="female" (status: Available)
+    - Kristin Earhart: gender="female" (status: Available)
+  ✅ 10/10 employees have gender data in employeesByDate
+  📦 Sample object structure: {
+  "employeeName": "Jamie Lee Kane (GH)",
+  "status": "Holiday",
+  "timeWindows": "",
+  "contractedDailyHours": 4,
+  "scheduledHours": 0,
+  "hours": 4,
+  "netCapacity": 0,
+  "notes": "Created by new vacation process. [availability ignored due to day-level leave]",
+  "gender": "female"
+}
+  📊 TOTAL GENDER COVERAGE: 53/53 employees (100%)
+=========================================
+
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-11...
+📊 Found 1 employees with cancelled visits on 2025-11-11
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-13...
+📊 Found 0 employees with cancelled visits on 2025-11-13
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-10...
+📊 Found 0 employees with cancelled visits on 2025-11-10
+⚠️ SUMMARY: Stevenson (GH), Keri on 2025-11-10 - NO GENDER (normalized: keri stevenson)
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-14...
+📊 Found 0 employees with cancelled visits on 2025-11-14
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-15...
+📊 Found 0 employees with cancelled visits on 2025-11-15
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-16...
+📊 Found 0 employees with cancelled visits on 2025-11-16
+
+🚫 EXTRACTING CANCELLED VISITS FOR 2025-11-12...
+📊 Found 1 employees with cancelled visits on 2025-11-12
+🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...
+📊 CG Data rows to process: 14
+🏢 Branch ID: 311ed83e-0715-4a83-9cdf-ca6b7792b624
+🔄 Starting to iterate through 14 CG Data rows...
+  👤 Rowan Boyle (GH): Title="Miss" -> Gender="female"
+✅ Cache hit for Rowan Boyle (GH) - using existing coordinates
+  👤 Paul Chalmers (GH): Title="Mr" -> Gender="male"
+✅ Cache hit for Paul Chalmers (GH) - using existing coordinates
+  👤 John Clarke (GH): Title="Mr" -> Gender="male"
+✅ Cache hit for John Clarke (GH) - using existing coordinates
+  👤 Kristin Earhart: Title="Mrs" -> Gender="female"
+✅ Cache hit for Kristin Earhart - using existing coordinates
+  👤 Haseeb Halepota (GH): Title="Mr" -> Gender="male"
+Successfully saved capacity analysis to database
+✅ Cache hit for Haseeb Halepota (GH) - using existing coordinates
+  👤 Jamie Lee Kane (GH): Title="Miss" -> Gender="female"
+✅ Cache hit for Jamie Lee Kane (GH) - using existing coordinates
+  👤 Clare Mackie: Title="Miss" -> Gender="female"
+✅ Cache hit for Clare Mackie - using existing coordinates
+  👤 Anisa Naeem: Title="Miss" -> Gender="female"
+✅ Cache hit for Anisa Naeem - using existing coordinates
+  👤 Chiamaka Onweluzo (GH): Title="Mrs" -> Gender="female"
+✅ Cache hit for Chiamaka Onweluzo (GH) - using existing coordinates
+  👤 Emma (NL) Shawcross: Title="Miss" -> Gender="female"
+✅ Cache hit for Emma (NL) Shawcross - using existing coordinates
+  👤 Alison Shields (GH): Title="Ms" -> Gender="female"
+✅ Cache hit for Alison Shields (GH) - using existing coordinates
+  👤 Barbora Slabochova (GH): Title="Miss" -> Gender="female"
+✅ Cache hit for Barbora Slabochova (GH) - using existing coordinates
+  👤 Rhian Steel: Title="Miss" -> Gender="female"
+✅ Cache hit for Rhian Steel - using existing coordinates
+  👤 Ziyal Vidler: Title="Miss" -> Gender="female"
+✅ Cache hit for Ziyal Vidler - using existing coordinates
+👥 Employee locations: 14 total (0 need geocoding, 14 cached)
+⚡ All employee locations already cached - skipping geocoding API calls
+🔍 Processing 189 guaranteed hours rows for client locations
+🔍 Available columns in first row: [
+  'Count',
+  'Customer Name',
+  'Customer Address',
+  'Customer Branch',
+  'Customer Area',
+  'Customer Type',
+  'Service Location Created Date & Time',
+  'Service Location Updated Date & Time',
+  'Service Location Name',
+  'Service Location Mobizio ID',
+  'Service Location Address',
+  'Service Location Phone',
+  'Service Location Date Of Birth',
+  'Service Location Branch',
+  'Service Location Area',
+  'Service Location Type',
+  'Service Duty Created Date & Time',
+  'Service Duty Updated Date & Time',
+  'Service Requirement Start Date And Time',
+  'Service Requirement End Date And Time',
+  'Service Requirement Duration',
+  'Service Requirement Service Type Description',
+  'Service Requirement Type Description',
+  'Adhoc',
+  'Template Start Date And Time',
+  'Template End Date And Time',
+  'Template Duration',
+  'Template Employee Name',
+  'Planned Start Date And Time',
+  'Planned End Date And Time',
+  'Planned Duration',
+  'Planned Travel Time',
+  'Planned Start Date Year',
+  'Planned Start Date Month',
+  'Planned Start Date Weekday',
+  'Planned Start Date Week',
+  'Planned Employee Name',
+  'Planned Employee External ID',
+  'Planned Employee Home',
+  'Planned Employee Mobile',
+  'Planned Employee Mobizio ID',
+  'Planned Employee Branch',
+  'Planned Employee Area',
+  'Planned Employee Hours Per Week',
+  'Planned Employee Default Pay Rate',
+  'Planned Service Type Description',
+  'Planned Service Requirement Type Description',
+  'Planned Pay Rate',
+  'Planned Pay Rate Type',
+  'Planned Pay Rate Hours',
+  'Planned Pay Rate Hours - Banded',
+  'Planned Pay Rate Adhoc',
+  'Planned Pay Rate Public Holiday',
+  'Planned Pay Rate Value',
+  'Planned Invoice Rate',
+  'Planned Invoice Rate Type',
+  'Planned Invoice Rate Hours',
+  'Planned Invoice Rate Hours - Banded',
+  'Planned Invoice Rate Adhoc',
+  'Planned Invoice Rate Public Holiday',
+  'Planned Invoice Rate Value',
+  'Actual Start Date And Time',
+  'Actual End Date And Time',
+  'Actual Duration',
+  'Actual Travel Time',
+  'Actual Start Date Year',
+  'Actual Start Date Month',
+  'Actual Start Date Weekday',
+  'Actual Start Date Week',
+  'Actual Employee Name',
+  'Actual Employee External ID',
+  'Actual Employee Home',
+  'Actual Employee Mobile',
+  'Actual Employee Mobizio ID',
+  'Actual Employee Branch',
+  'Actual Employee Area',
+  'Actual Employee Hours Per Week',
+  'Actual Employee Default Pay Rate',
+  'Actual Service Type Description',
+  'Actual Service Requirement Type Description',
+  'Actual Pay Rate',
+  'Actual Pay Rate Type',
+  'Actual Pay Rate Hours',
+  'Actual Pay Rate Hours - Banded',
+  'Actual Pay Rate Adhoc',
+  'Actual Pay Rate Public Holiday',
+  'Actual Pay Rate Value',
+  'Base Rate Value',
+  'Actual Pay Rate Sheet Description',
+  'Actual Invoice Rate',
+  'Actual Invoice Rate Type',
+  'Actual Invoice Rate Hours',
+  'Actual Invoice Rate Hours - Banded',
+  'Actual Invoice Rate Adhoc',
+  'Actual Invoice Rate Public Holiday',
+  'Actual Invoice Rate Value',
+  'Actual Invoice Rate Sheet Description',
+  'PayValueDifferance',
+  'InvoiceValueDifferance',
+  'DurationDifferanceMinutes',
+  ... 22 more items
+]
+🔍 DEBUG: Processing address for Fouracre, Shelley: "3 Moray Place, Gargunnock, FK8 3BT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 3BT"
+✅ DEBUG: Extracted postcode "FK8 3BT" from address, remaining: "3 Moray Place, Gargunnock"
+✅ Cache hit for client "Fouracre, Shelley" - using existing coordinates
+🔍 DEBUG: Processing address for Visit, Office: "Pavilion 1, Castlecraig Business Park, Players Road, Stirling, Stirlingshire, FK7 7SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 7SH"
+✅ DEBUG: Extracted postcode "FK7 7SH" from address, remaining: "Pavilion 1, Castlecraig Business Park, Players Road, Stirling, Stirlingshire"
+✅ Cache hit for client "Visit, Office" - using existing coordinates
+🔍 DEBUG: Processing address for Wise, Moira: "5B Cornhill Crescent, Stirling, Stirling, FK7 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0DE"
+✅ DEBUG: Extracted postcode "FK7 0DE" from address, remaining: "5B Cornhill Crescent, Stirling, Stirling"
+✅ Cache hit for client "Wise, Moira" - using existing coordinates
+🔍 DEBUG: Processing address for Wise, Moira: "5B Cornhill Crescent, Stirling, Stirling, FK7 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0DE"
+✅ DEBUG: Extracted postcode "FK7 0DE" from address, remaining: "5B Cornhill Crescent, Stirling, Stirling"
+🔍 DEBUG: Processing address for Wise, Moira: "5B Cornhill Crescent, Stirling, Stirling, FK7 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0DE"
+✅ DEBUG: Extracted postcode "FK7 0DE" from address, remaining: "5B Cornhill Crescent, Stirling, Stirling"
+🔍 DEBUG: Processing address for Wise, Moira: "5B Cornhill Crescent, Stirling, Stirling, FK7 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0DE"
+✅ DEBUG: Extracted postcode "FK7 0DE" from address, remaining: "5B Cornhill Crescent, Stirling, Stirling"
+🔍 DEBUG: Processing address for Wise, Moira: "5B Cornhill Crescent, Stirling, Stirling, FK7 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0DE"
+✅ DEBUG: Extracted postcode "FK7 0DE" from address, remaining: "5B Cornhill Crescent, Stirling, Stirling"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+✅ Cache hit for client "Smith, Georgina" - using existing coordinates
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Smith, Georgina: "46 Kennedy Way, Airth, Falkirk, FK2 8GB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8GB"
+✅ DEBUG: Extracted postcode "FK2 8GB" from address, remaining: "46 Kennedy Way, Airth, Falkirk"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+✅ Cache hit for client "Marshallsay, Alex" - using existing coordinates
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Robertson, Maria: "11 Tarduff Place, Stoneywood, Denny, FK6 5HT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK6 5HT"
+✅ DEBUG: Extracted postcode "FK6 5HT" from address, remaining: "11 Tarduff Place, Stoneywood, Denny"
+✅ Cache hit for client "Robertson, Maria" - using existing coordinates
+🔍 DEBUG: Processing address for Robertson, Maria: "11 Tarduff Place, Stoneywood, Denny, FK6 5HT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK6 5HT"
+✅ DEBUG: Extracted postcode "FK6 5HT" from address, remaining: "11 Tarduff Place, Stoneywood, Denny"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Marshallsay, Alex: "3 Douglas Avenue, Airth, FK2 8JF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8JF"
+✅ DEBUG: Extracted postcode "FK2 8JF" from address, remaining: "3 Douglas Avenue, Airth"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+✅ Cache hit for client "Hunter, Sylvia" - using existing coordinates
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Cullen, Janette: "Highfield, Main Street, Gargunnock, Stirling, FK8 3BP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 3BP"
+✅ DEBUG: Extracted postcode "FK8 3BP" from address, remaining: "Highfield, Main Street, Gargunnock, Stirling"
+✅ Cache hit for client "Cullen, Janette" - using existing coordinates
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Cullen, Janette: "Highfield, Main Street, Gargunnock, Stirling, FK8 3BP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 3BP"
+✅ DEBUG: Extracted postcode "FK8 3BP" from address, remaining: "Highfield, Main Street, Gargunnock, Stirling"
+🔍 DEBUG: Processing address for Cullen, Janette: "Highfield, Main Street, Gargunnock, Stirling, FK8 3BP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 3BP"
+✅ DEBUG: Extracted postcode "FK8 3BP" from address, remaining: "Highfield, Main Street, Gargunnock, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Hunter, Sylvia: "Earlsburn Cottage, Stirling, Stirling, FK7 9QX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QX"
+✅ DEBUG: Extracted postcode "FK7 9QX" from address, remaining: "Earlsburn Cottage, Stirling, Stirling"
+🔍 DEBUG: Processing address for Cullen, Janette: "Highfield, Main Street, Gargunnock, Stirling, FK8 3BP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 3BP"
+✅ DEBUG: Extracted postcode "FK8 3BP" from address, remaining: "Highfield, Main Street, Gargunnock, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+✅ Cache hit for client "McCurrach, Moira" - using existing coordinates
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for McCurrach, Moira: "135 Ochiltree, Dunblane, Stirling, FK15 0PA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0PA"
+✅ DEBUG: Extracted postcode "FK15 0PA" from address, remaining: "135 Ochiltree, Dunblane, Stirling"
+🔍 DEBUG: Processing address for Watson, Alan: "5 Argyle Grove, Dunblane, Stirling, FK15 9DT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9DT"
+✅ DEBUG: Extracted postcode "FK15 9DT" from address, remaining: "5 Argyle Grove, Dunblane, Stirling"
+✅ Cache hit for client "Watson, Alan" - using existing coordinates
+🔍 DEBUG: Processing address for Watson, Alan: "5 Argyle Grove, Dunblane, Stirling, FK15 9DT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9DT"
+✅ DEBUG: Extracted postcode "FK15 9DT" from address, remaining: "5 Argyle Grove, Dunblane, Stirling"
+🔍 DEBUG: Processing address for Watson, Alan: "5 Argyle Grove, Dunblane, Stirling, FK15 9DT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9DT"
+✅ DEBUG: Extracted postcode "FK15 9DT" from address, remaining: "5 Argyle Grove, Dunblane, Stirling"
+🔍 DEBUG: Processing address for Flynn, Elizabeth: "33 Hanover Grange, Forth Street, Grangemouth, FK3 8LF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 8LF"
+✅ DEBUG: Extracted postcode "FK3 8LF" from address, remaining: "33 Hanover Grange, Forth Street, Grangemouth"
+✅ Cache hit for client "Flynn, Elizabeth" - using existing coordinates
+🔍 DEBUG: Processing address for Flynn, Elizabeth: "33 Hanover Grange, Forth Street, Grangemouth, FK3 8LF"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 8LF"
+✅ DEBUG: Extracted postcode "FK3 8LF" from address, remaining: "33 Hanover Grange, Forth Street, Grangemouth"
+🔍 DEBUG: Processing address for Stevenson, Violet: "15 Grendon Court, Stirling, Stirling, FK8 2JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2JX"
+✅ DEBUG: Extracted postcode "FK8 2JX" from address, remaining: "15 Grendon Court, Stirling, Stirling"
+✅ Cache hit for client "Stevenson, Violet" - using existing coordinates
+🔍 DEBUG: Processing address for Stevenson, Violet: "15 Grendon Court, Stirling, Stirling, FK8 2JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2JX"
+✅ DEBUG: Extracted postcode "FK8 2JX" from address, remaining: "15 Grendon Court, Stirling, Stirling"
+🔍 DEBUG: Processing address for Stevenson, Violet: "15 Grendon Court, Stirling, Stirling, FK8 2JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2JX"
+✅ DEBUG: Extracted postcode "FK8 2JX" from address, remaining: "15 Grendon Court, Stirling, Stirling"
+🔍 DEBUG: Processing address for Stevenson, Violet: "15 Grendon Court, Stirling, Stirling, FK8 2JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2JX"
+✅ DEBUG: Extracted postcode "FK8 2JX" from address, remaining: "15 Grendon Court, Stirling, Stirling"
+🔍 DEBUG: Processing address for Ramsay, Allan: "Flat 10, Allan Park House, Allan Park, Stirling, FK8 2LT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2LT"
+✅ DEBUG: Extracted postcode "FK8 2LT" from address, remaining: "Flat 10, Allan Park House, Allan Park, Stirling"
+✅ Cache hit for client "Ramsay, Allan" - using existing coordinates
+🔍 DEBUG: Processing address for Ramsay, Allan: "Flat 10, Allan Park House, Allan Park, Stirling, FK8 2LT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2LT"
+✅ DEBUG: Extracted postcode "FK8 2LT" from address, remaining: "Flat 10, Allan Park House, Allan Park, Stirling"
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+✅ Cache hit for client "Pollock, Cora" - using existing coordinates
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+🔍 DEBUG: Processing address for Pollock, Cora: "11 Laburnum Grove, Stirling, FK8 2PS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2PS"
+✅ DEBUG: Extracted postcode "FK8 2PS" from address, remaining: "11 Laburnum Grove, Stirling"
+🔍 DEBUG: Processing address for Tait, William: "Cultenhove Mill, Stirling, FK7 9QB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QB"
+✅ DEBUG: Extracted postcode "FK7 9QB" from address, remaining: "Cultenhove Mill, Stirling"
+✅ Cache hit for client "Tait, William" - using existing coordinates
+🔍 DEBUG: Processing address for Tait, William: "Cultenhove Mill, Stirling, FK7 9QB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QB"
+✅ DEBUG: Extracted postcode "FK7 9QB" from address, remaining: "Cultenhove Mill, Stirling"
+🔍 DEBUG: Processing address for Tait, William: "Cultenhove Mill, Stirling, FK7 9QB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QB"
+✅ DEBUG: Extracted postcode "FK7 9QB" from address, remaining: "Cultenhove Mill, Stirling"
+🔍 DEBUG: Processing address for Tait, William: "Cultenhove Mill, Stirling, FK7 9QB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 9QB"
+✅ DEBUG: Extracted postcode "FK7 9QB" from address, remaining: "Cultenhove Mill, Stirling"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+✅ Cache hit for client "Davies, Barbara" - using existing coordinates
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Davies, Barbara: "11 Melfort Drive, Stirling, Stirlingshire, FK7 0BD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK7 0BD"
+✅ DEBUG: Extracted postcode "FK7 0BD" from address, remaining: "11 Melfort Drive, Stirling, Stirlingshire"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+✅ Cache hit for client "Fairley, Barbara" - using existing coordinates
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for Fairley, Barbara: "Cleddans Farm, Stirling Road, Larbert, Stirling, FK5 4SH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK5 4SH"
+✅ DEBUG: Extracted postcode "FK5 4SH" from address, remaining: "Cleddans Farm, Stirling Road, Larbert, Stirling"
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+✅ Cache hit for client "McCreath, Sally" - using existing coordinates
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+🔍 DEBUG: Processing address for McCreath, Sally: "38 Kenilworth Road, Bridge of Allan, FK9 4RP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK9 4RP"
+✅ DEBUG: Extracted postcode "FK9 4RP" from address, remaining: "38 Kenilworth Road, Bridge of Allan"
+🔍 DEBUG: Processing address for McDonald, Grazyna: "5 Cortachy Avenue, Carron, Falkirk, Falkirk, FK2 8DH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8DH"
+✅ DEBUG: Extracted postcode "FK2 8DH" from address, remaining: "5 Cortachy Avenue, Carron, Falkirk, Falkirk"
+✅ Cache hit for client "McDonald, Grazyna" - using existing coordinates
+🔍 DEBUG: Processing address for McDonald, Grazyna: "5 Cortachy Avenue, Carron, Falkirk, Falkirk, FK2 8DH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 8DH"
+✅ DEBUG: Extracted postcode "FK2 8DH" from address, remaining: "5 Cortachy Avenue, Carron, Falkirk, Falkirk"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+✅ Cache hit for client "Stevens, Lewis" - using existing coordinates
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Stevens, Lewis: "4, Drummond Rise, Stirling, Dunblane, FK15 0EX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 0EX"
+✅ DEBUG: Extracted postcode "FK15 0EX" from address, remaining: "4, Drummond Rise, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Wilson, Mary: "19A Allan Park, Stirling, FK8 2QG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2QG"
+✅ DEBUG: Extracted postcode "FK8 2QG" from address, remaining: "19A Allan Park, Stirling"
+✅ Cache hit for client "Wilson, Mary" - using existing coordinates
+🔍 DEBUG: Processing address for Wilson, Mary: "19A Allan Park, Stirling, FK8 2QG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2QG"
+✅ DEBUG: Extracted postcode "FK8 2QG" from address, remaining: "19A Allan Park, Stirling"
+🔍 DEBUG: Processing address for Wilson, Mary: "19A Allan Park, Stirling, FK8 2QG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2QG"
+✅ DEBUG: Extracted postcode "FK8 2QG" from address, remaining: "19A Allan Park, Stirling"
+🔍 DEBUG: Processing address for Wilson, Mary: "19A Allan Park, Stirling, FK8 2QG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK8 2QG"
+✅ DEBUG: Extracted postcode "FK8 2QG" from address, remaining: "19A Allan Park, Stirling"
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+✅ Cache hit for client "Scales, John" - using existing coordinates
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Scales, John: "63 Montgomery Crescent, Stirling, Dunblane, FK15 9FB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK15 9FB"
+✅ DEBUG: Extracted postcode "FK15 9FB" from address, remaining: "63 Montgomery Crescent, Stirling, Dunblane"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+✅ Cache hit for client "Kennedy, Catherine" - using existing coordinates
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Kennedy, Catherine: "8 Archibald Russel Court, Polmont, Falkirk, FK2 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK2 0EW"
+✅ DEBUG: Extracted postcode "FK2 0EW" from address, remaining: "8 Archibald Russel Court, Polmont, Falkirk"
+🔍 DEBUG: Processing address for Hunter, Agnes: "38 Craigleith Road, Grangemouth, FK3 0AJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 0AJ"
+✅ DEBUG: Extracted postcode "FK3 0AJ" from address, remaining: "38 Craigleith Road, Grangemouth"
+✅ Cache hit for client "Hunter, Agnes" - using existing coordinates
+🔍 DEBUG: Processing address for Hunter, Agnes: "38 Craigleith Road, Grangemouth, FK3 0AJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 0AJ"
+✅ DEBUG: Extracted postcode "FK3 0AJ" from address, remaining: "38 Craigleith Road, Grangemouth"
+🔍 DEBUG: Processing address for Hunter, Agnes: "38 Craigleith Road, Grangemouth, FK3 0AJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 0AJ"
+✅ DEBUG: Extracted postcode "FK3 0AJ" from address, remaining: "38 Craigleith Road, Grangemouth"
+🔍 DEBUG: Processing address for Hunter, Agnes: "38 Craigleith Road, Grangemouth, FK3 0AJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 0AJ"
+✅ DEBUG: Extracted postcode "FK3 0AJ" from address, remaining: "38 Craigleith Road, Grangemouth"
+🔍 DEBUG: Processing address for Hunter, Agnes: "38 Craigleith Road, Grangemouth, FK3 0AJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 0AJ"
+✅ DEBUG: Extracted postcode "FK3 0AJ" from address, remaining: "38 Craigleith Road, Grangemouth"
+🔍 DEBUG: Processing address for Hunter, Agnes: "38 Craigleith Road, Grangemouth, FK3 0AJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK3 0AJ"
+✅ DEBUG: Extracted postcode "FK3 0AJ" from address, remaining: "38 Craigleith Road, Grangemouth"
+🏠 Client locations: 24 total (0 need geocoding, 24 cached)
+🗺️ Starting enhanced batch geocoding for locations...
+🚀 Parallel geocoding 14 unique postcodes (from 14 total) for branch 311ed83e-0715-4a83-9cdf-ca6b7792b624...
+📊 Cache stats: 0 cached, 14 need geocoding
+🔍 Geocoding postcode: "FK10 1NH"
+🔍 Geocoding postcode: "FK10 3HJ"
+🔍 Geocoding postcode: "FK8 1XY"
+🔍 Geocoding postcode: "FK12 5HG"
+🔍 Geocoding postcode: "FK2 7ER"
+🔍 Geocoding postcode: "FK7 7PN"
+🔍 Geocoding postcode: "FK2 8FD"
+🔍 Geocoding postcode: "FK6 5AE"
+🔍 Geocoding postcode: "FK8 1RS"
+🔍 Geocoding postcode: "ML6 0JH"
+🔍 Geocoding postcode: "FK3 8LP"
+🔍 Geocoding postcode: "FK8 2BQ"
+🔍 Geocoding postcode: "FK10 2SR"
+🔍 Geocoding postcode: "FK5 4XD"
+✅ Geocoded "FK12 5HG" -> 56.151025, -3.793462
+✅ Geocoded "FK10 2SR" -> 56.13343, -3.846566
+✅ Geocoded "FK3 8LP" -> 56.014161, -3.72466
+✅ Geocoded "FK10 1NH" -> 56.115391, -3.807984
+✅ Geocoded "FK2 8FD" -> 56.02568, -3.777294
+✅ Geocoded "FK2 7ER" -> 56.008327, -3.782272
+✅ Geocoded "FK8 1RS" -> 56.130406, -3.955985
+✅ Geocoded "FK8 1XY" -> 56.135315, -3.960386
+✅ Geocoded "ML6 0JH" -> 55.866116, -3.996579
+✅ Geocoded "FK10 3HJ" -> 56.131832, -3.777844
+✅ Geocoded "FK6 5AE" -> 56.019223, -3.910328
+✅ Geocoded "FK5 4XD" -> 56.036597, -3.821039
+✅ Geocoded "FK8 2BQ" -> 56.105893, -3.946188
+✅ Geocoded "FK7 7PN" -> 56.109042, -3.930505
+3:36:36 PM [express] POST /api/geo/geocode-batch 200 in 3902ms :: {"results":[{"query":"FK10 1NH","t…
+✅ Employee geocoding saved for 14 new records
+⚡ All client locations already cached - skipping geocoding API calls
+🔍 DEBUG: Processing visit data from 189 guaranteed hours rows
+🔍 DEBUG: Added visit Fouracre, Shelley on 2025-11-10 at 540-720 minutes
+🔍 DEBUG: Added visit Visit, Office on 2025-11-10 at 630-839 minutes
+🔍 DEBUG: Added visit Wise, Moira on 2025-11-13 at 780-839 minutes
+🔍 DEBUG: Added visit Wise, Moira on 2025-11-15 at 704-765 minutes
+🔍 DEBUG: Added visit Wise, Moira on 2025-11-11 at 704-765 minutes
+🔍 DEBUG: Added visit Wise, Moira on 2025-11-10 at 704-765 minutes
+🔍 DEBUG: Added visit Wise, Moira on 2025-11-12 at 630-690 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-11 at 780-839 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-16 at 780-839 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-14 at 780-839 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-14 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-11 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-10 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-16 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-10 at 780-839 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-12 at 780-839 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-15 at 780-839 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-12 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-15 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-13 at 1154-1215 minutes
+🔍 DEBUG: Added visit Smith, Georgina on 2025-11-13 at 780-839 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-12 at 495-614 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-14 at 495-614 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-12 at 855-1035 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-11 at 855-1035 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-14 at 855-1035 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-13 at 495-614 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-13 at 855-1035 minutes
+🔍 DEBUG: Added visit Robertson, Maria on 2025-11-11 at 630-749 minutes
+🔍 DEBUG: Added visit Robertson, Maria on 2025-11-13 at 630-749 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-10 at 495-614 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-11 at 495-614 minutes
+🔍 DEBUG: Added visit Marshallsay, Alex on 2025-11-10 at 855-1035 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-15 at 569-630 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-13 at 1080-1140 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-13 at 569-630 minutes
+🔍 DEBUG: Added visit Cullen, Janette on 2025-11-13 at 479-540 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-10 at 569-630 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-12 at 1154-1215 minutes
+🔍 DEBUG: Added visit Cullen, Janette on 2025-11-16 at 479-540 minutes
+🔍 DEBUG: Added visit Cullen, Janette on 2025-11-14 at 479-540 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-15 at 1080-1140 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-16 at 630-690 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-12 at 630-870 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-14 at 569-630 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-12 at 569-630 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-10 at 960-1019 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-11 at 569-630 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-14 at 1080-1140 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-11 at 1080-1140 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-11 at 630-810 minutes
+🔍 DEBUG: Added visit Hunter, Sylvia on 2025-11-16 at 1080-1140 minutes
+🔍 DEBUG: Added visit Cullen, Janette on 2025-11-11 at 479-540 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-14 at 1170-1289 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-14 at 704-765 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-11 at 1170-1289 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-11 at 569-690 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-15 at 1170-1289 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-10 at 1170-1289 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-13 at 630-690 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-10 at 630-749 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-16 at 1170-1289 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-12 at 1170-1289 minutes
+🔍 DEBUG: Added visit McCurrach, Moira on 2025-11-13 at 1170-1289 minutes
+🔍 DEBUG: Added visit Watson, Alan on 2025-11-14 at 630-690 minutes
+🔍 DEBUG: Added visit Watson, Alan on 2025-11-12 at 585-704 minutes
+🔍 DEBUG: Added visit Watson, Alan on 2025-11-10 at 630-690 minutes
+🔍 DEBUG: Added visit Flynn, Elizabeth on 2025-11-14 at 1080-1140 minutes
+🔍 DEBUG: Added visit Flynn, Elizabeth on 2025-11-12 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevenson, Violet on 2025-11-16 at 704-765 minutes
+🔍 DEBUG: Added visit Stevenson, Violet on 2025-11-15 at 1154-1215 minutes
+🔍 DEBUG: Added visit Stevenson, Violet on 2025-11-15 at 704-765 minutes
+🔍 DEBUG: Added visit Stevenson, Violet on 2025-11-16 at 1005-1064 minutes
+🔍 DEBUG: Added visit Ramsay, Allan on 2025-11-15 at 900-1019 minutes
+🔍 DEBUG: Added visit Ramsay, Allan on 2025-11-11 at 630-749 minutes
+🔍 DEBUG: Added visit Pollock, Cora on 2025-11-11 at 780-839 minutes
+🔍 DEBUG: Added visit Pollock, Cora on 2025-11-12 at 720-839 minutes
+🔍 DEBUG: Added visit Pollock, Cora on 2025-11-14 at 780-900 minutes
+🔍 DEBUG: Added visit Pollock, Cora on 2025-11-10 at 720-839 minutes
+🔍 DEBUG: Added visit Pollock, Cora on 2025-11-15 at 780-839 minutes
+🔍 DEBUG: Added visit Pollock, Cora on 2025-11-13 at 780-900 minutes
+🔍 DEBUG: Added visit Tait, William on 2025-11-11 at 1005-1064 minutes
+🔍 DEBUG: Added visit Tait, William on 2025-11-12 at 704-765 minutes
+🔍 DEBUG: Added visit Tait, William on 2025-11-13 at 704-765 minutes
+🔍 DEBUG: Added visit Tait, William on 2025-11-14 at 704-765 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-14 at 479-540 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-13 at 1154-1215 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-15 at 479-540 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-15 at 1154-1215 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-14 at 1154-1215 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-10 at 479-540 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-13 at 479-540 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-16 at 1154-1215 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-12 at 1154-1215 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-10 at 1154-1215 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-11 at 479-540 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-12 at 479-540 minutes
+🔍 DEBUG: Added visit Davies, Barbara on 2025-11-11 at 1154-1215 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-15 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-16 at 1230-1289 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-10 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-10 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-14 at 1230-1289 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-10 at 1230-1289 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-16 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-11 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-14 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-11 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-15 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-11 at 1230-1289 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-14 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-16 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-12 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-12 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-12 at 1230-1289 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-13 at 1230-1289 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-13 at 630-690 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-13 at 929-990 minutes
+🔍 DEBUG: Added visit Fairley, Barbara on 2025-11-15 at 1230-1289 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-14 at 720-839 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-16 at 720-839 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-11 at 720-839 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-12 at 720-839 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-10 at 720-839 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-15 at 720-839 minutes
+🔍 DEBUG: Added visit McCreath, Sally on 2025-11-13 at 720-839 minutes
+🔍 DEBUG: Added visit McDonald, Grazyna on 2025-11-14 at 659-780 minutes
+🔍 DEBUG: Added visit McDonald, Grazyna on 2025-11-12 at 780-960 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-16 at 630-690 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-15 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-16 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-15 at 630-690 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-10 at 630-690 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-14 at 1005-1064 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-10 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-14 at 630-690 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-13 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-13 at 630-690 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-11 at 630-690 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-11 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-12 at 1080-1140 minutes
+🔍 DEBUG: Added visit Stevens, Lewis on 2025-11-12 at 630-690 minutes
+🔍 DEBUG: Added visit Wilson, Mary on 2025-11-15 at 555-614 minutes
+🔍 DEBUG: Added visit Wilson, Mary on 2025-11-15 at 1005-1064 minutes
+🔍 DEBUG: Added visit Wilson, Mary on 2025-11-16 at 1005-1064 minutes
+🔍 DEBUG: Added visit Wilson, Mary on 2025-11-16 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-15 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-10 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-14 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-11 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-13 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-16 at 555-614 minutes
+🔍 DEBUG: Added visit Scales, John on 2025-11-12 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-10 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-10 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-16 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-10 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-11 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-11 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-11 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-16 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-12 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-12 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-12 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-16 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-13 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-13 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-13 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-14 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-15 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-14 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-14 at 1080-1140 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-15 at 479-540 minutes
+🔍 DEBUG: Added visit Kennedy, Catherine on 2025-11-15 at 704-765 minutes
+🔍 DEBUG: Added visit Hunter, Agnes on 2025-11-12 at 555-614 minutes
+🔍 DEBUG: Added visit Hunter, Agnes on 2025-11-16 at 555-614 minutes
+🔍 DEBUG: Added visit Hunter, Agnes on 2025-11-13 at 555-614 minutes
+🔍 DEBUG: Added visit Hunter, Agnes on 2025-11-11 at 555-614 minutes
+🔍 DEBUG: Added visit Hunter, Agnes on 2025-11-14 at 555-614 minutes
+🔍 DEBUG: Added visit Hunter, Agnes on 2025-11-15 at 555-614 minutes
+📅 Found 180 visits across 7 dates for route optimization
+📍 After geocode: employees with coords = 14/14
+📍 After geocode: clients with coords = 24/24
+✅ Geographical data extraction complete!
+📍 Including 14 employee locations and 24 client locations in result
+Heatmap sheets excluded from Excel export
+📦 STORING GH buffer for branch 311ed83e-0715-4a83-9cdf-ca6b7792b624: 397921 bytes
+📦 Current branches in map BEFORE set: 
+📦 Current branches in map AFTER set: 311ed83e-0715-4a83-9cdf-ca6b7792b624
+📦 Verification - can retrieve?: true
+✅ Stored Guaranteed Hours buffer in memory (397921 bytes) for branch 311ed83e-0715-4a83-9cdf-ca6b7792b624
+✅ Persisted Guaranteed Hours buffer to database for branch 311ed83e-0715-4a83-9cdf-ca6b7792b624
+💾 Persisting analysis for week: 2025-11-10 to 2025-11-16 (Branch: Stirling)
+✅ Analysis persisted successfully for week 2025-11-10 (Branch: stirling-falkirk)
+✅ Data processing complete - scheduling tab will show new visits on next load
+3:36:52 PM [express] POST /api/process 200 in 37454ms :: {"kpis":{"netCapacitySum":282.91,"clientReq…
