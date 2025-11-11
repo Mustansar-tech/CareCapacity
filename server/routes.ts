@@ -112,7 +112,7 @@ function normalizeFileName(fileName: string): string {
 }
 
 // Enhanced geocoding with fallback hierarchy
-async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
+async function geocodeWithFallback(postcode: string, storage: any, branchId?: string): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
 
   // Step 1: Try exact postcode from cache
@@ -139,13 +139,16 @@ async function geocodeWithFallback(postcode: string, storage: any): Promise<any>
           lng: data.result.longitude,
         };
 
-        // Cache the result
-        await storage.saveGeocode({
-          key: `postcode:${normalizedPostcode}`,
-          lat: result.lat,
-          lng: result.lng,
-          source: 'postcodes.io'
-        });
+        // Cache the result (only if branchId is provided)
+        if (branchId) {
+          await storage.saveGeocode({
+            branchId,
+            key: `postcode:${normalizedPostcode}`,
+            lat: result.lat,
+            lng: result.lng,
+            source: 'postcodes.io'
+          });
+        }
 
         return result;
       }
@@ -701,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Geographical scheduling optimization routes
 
   // Enhanced geocoding with fallback hierarchy
-  async function geocodeWithFallback(postcode: string, storage: any): Promise<any> {
+  async function geocodeWithFallback(postcode: string, storage: any, branchId?: string): Promise<any> {
     const normalizedPostcode = postcode.trim().toUpperCase();
 
     // Step 1: Try exact postcode from cache
@@ -726,13 +729,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const lat = data.result.latitude.toString();
           const lng = data.result.longitude.toString();
 
-          // Cache the exact result
-          await storage.saveGeocode({
-            key: `postcode:${normalizedPostcode}`,
-            lat,
-            lng,
-            source: 'postcodes.io'
-          });
+          // Cache the exact result (only if branchId is provided)
+          if (branchId) {
+            await storage.saveGeocode({
+              branchId,
+              key: `postcode:${normalizedPostcode}`,
+              lat,
+              lng,
+              source: 'postcodes.io'
+            });
+          }
 
           return {
             query: normalizedPostcode,
@@ -775,13 +781,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const lat = data.result.latitude.toString();
             const lng = data.result.longitude.toString();
 
-            // Cache the district result
-            await storage.saveGeocode({
-              key: `district:${district}`,
-              lat,
-              lng,
-              source: 'postcodes.io'
-            });
+            // Cache the district result (only if branchId is provided)
+            if (branchId) {
+              await storage.saveGeocode({
+                branchId,
+                key: `district:${district}`,
+                lat,
+                lng,
+                source: 'postcodes.io'
+              });
+            }
 
             return {
               query: normalizedPostcode,
@@ -820,13 +829,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (fallback) {
       console.log(`📍 Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
 
-      // Cache the fallback to avoid repeated lookups
-      await storage.saveGeocode({
-        key: `fallback:${prefix}`,
-        lat: fallback.lat,
-        lng: fallback.lng,
-        source: 'fallback'
-      });
+      // Cache the fallback to avoid repeated lookups (only if branchId is provided)
+      if (branchId) {
+        await storage.saveGeocode({
+          branchId,
+          key: `fallback:${prefix}`,
+          lat: fallback.lat,
+          lng: fallback.lng,
+          source: 'fallback'
+        });
+      }
 
       return {
         query: normalizedPostcode,
@@ -853,11 +865,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/geo/geocode-batch - Batch geocode postcodes and addresses
   app.post('/api/geo/geocode-batch', async (req, res) => {
     try {
-      const { postcodes = [], addresses = [] } = req.body;
+      const { postcodes = [], addresses = [], branchId } = req.body;
 
       // OPTIMIZATION: Process unique postcodes in parallel for 70-80% faster geocoding
       const uniquePostcodes = Array.from(new Set(postcodes as string[]));
-      console.log(`🚀 Parallel geocoding ${uniquePostcodes.length} unique postcodes (from ${postcodes.length} total)...`);
+      console.log(`🚀 Parallel geocoding ${uniquePostcodes.length} unique postcodes (from ${postcodes.length} total) for branch ${branchId || 'UNKNOWN'}...`);
 
       // CACHE VERIFICATION: Check which postcodes are already cached
       const cacheChecks = await Promise.all(
@@ -888,7 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const postcodePromises = uncachedPostcodes.map(async (postcode) => {
         try {
           console.log(`🔍 Geocoding postcode: "${postcode}"`);
-          const geocodeResult = await geocodeWithFallback(postcode, storage);
+          const geocodeResult = await geocodeWithFallback(postcode, storage, branchId);
           if (geocodeResult && geocodeResult.lat && geocodeResult.lng) {
             console.log(`✅ Geocoded "${postcode}" -> ${geocodeResult.lat}, ${geocodeResult.lng}`);
             return {
