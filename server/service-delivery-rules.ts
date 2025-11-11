@@ -167,7 +167,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
   }
 
   // 5) RULES: remove cancellations and excluded service types
-  // Excluded service types (office hours, night shifts, secondary care)
+  // Excluded service types (office hours, night shifts, secondary care, shadowing, on-call)
   const EXCLUDED_TYPES = [
     'office hours',
     'office',
@@ -180,7 +180,10 @@ export function applyServiceRules(demandBuffer: Buffer): {
     'sleepover',
     'multiple care (secondary)',
     'secondary',
-    '(secondary)'
+    '(secondary)',
+    'shadowing',
+    'on-call',
+    'on call'
   ];
 
   const filtered = normalized.filter((r) => {
@@ -218,9 +221,23 @@ export function applyServiceRules(demandBuffer: Buffer): {
   });
   const officeHours = officeRows.reduce((sum, r) => sum + (r.duration || 0), 0);
 
+  const shadowingRows = normalized.filter(row => {
+    const st = norm(row.serviceType);
+    return st.includes("shadowing");
+  });
+  const shadowingHours = shadowingRows.reduce((sum, r) => sum + (r.duration || 0), 0);
+
+  const onCallRows = normalized.filter(row => {
+    const st = norm(row.serviceType);
+    return st.includes("on-call") || st.includes("on call");
+  });
+  const onCallHours = onCallRows.reduce((sum, r) => sum + (r.duration || 0), 0);
+
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
   console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
   console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
+  console.log(`  ❌ Shadowing: ${shadowingRows.length} rows (${Math.round(shadowingHours * 100) / 100}h)`);
+  console.log(`  ❌ On-Call: ${onCallRows.length} rows (${Math.round(onCallHours * 100) / 100}h)`);
 
 
   // 6) Aggregate outputs
