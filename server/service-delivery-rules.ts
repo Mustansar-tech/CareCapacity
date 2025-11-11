@@ -182,8 +182,8 @@ export function applyServiceRules(demandBuffer: Buffer): {
     'secondary',
     '(secondary)',
     'shadowing',
-    'on-call',
-    'on call'
+    'oncall',  // normalized version (hyphen removed by norm())
+    'on call'  // space-separated version
   ];
 
   const filtered = normalized.filter((r) => {
