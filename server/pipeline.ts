@@ -2847,9 +2847,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
     for (const row of guaranteed) {
-      // Skip cancelled or secondary multiple care entries
+      // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
-      if (isSecondaryMultipleCare(row["Actual Service Type Description"])) continue;
+      
+      // Skip excluded service types (office hours, night shifts, secondary care)
+      const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
+      if (serviceType) {
+        const lowerType = String(serviceType).toLowerCase();
+        const excludedTypes = ['office hours', 'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'multiple care (secondary)', 'secondary'];
+        if (excludedTypes.some(excluded => lowerType.includes(excluded))) {
+          continue;
+        }
+      }
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);

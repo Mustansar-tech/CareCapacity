@@ -46,6 +46,13 @@ const POSTCODE_COLS = [
 
 const CANCEL_COL = 'Cancellation Description';
 
+const SERVICE_TYPE_COLS = [
+  'Actual Service Type Description',
+  'Service Type Description',
+  'Service Type',
+  'Template Service Type Description',
+];
+
 function toDate(v: any): Date | undefined {
   if (v instanceof Date && !isNaN(+v)) return v;
   if (typeof v === 'number') {
@@ -78,6 +85,17 @@ const OFFICE_VISIT_KEYWORDS = [
   'training',
   'admin',
   'meeting'
+];
+
+// Service types to exclude
+const EXCLUDED_SERVICE_TYPES = [
+  'office hours',
+  'nights - sleep in',
+  'sleep in',
+  'nights - waking nights',
+  'waking nights',
+  'multiple care (secondary)',
+  'secondary'
 ];
 
 // Round time to nearest 15-minute interval
@@ -137,6 +155,16 @@ export function extractClientVisitsFromGHExcel(
     const clientNameLower = clientName.toLowerCase();
     if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
       continue;
+    }
+
+    // Get service type and skip excluded service types
+    const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    if (serviceTypeRaw) {
+      const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
+      if (EXCLUDED_SERVICE_TYPES.some(excluded => serviceTypeLower.includes(excluded))) {
+        console.log(`🚫 Excluding service type: ${clientName} - ${serviceTypeRaw}`);
+        continue;
+      }
     }
 
     // Get start time
