@@ -89,18 +89,18 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
-  // Query to get all historical weeks for the dropdown - include branchId to refetch on branch change
+  // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
-    queryKey: ['/api/history', selectedBranchId],
+    queryKey: ['/api/history'],
     enabled: true, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
 
-  // Query to load latest data automatically - include branchId in queryKey to refetch on branch change
+  // Query to load latest data automatically
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
-    queryKey: ['/api/history/latest', selectedBranchId],
+    queryKey: ['/api/history/latest'],
     enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
     refetchOnMount: false, // Prevent refetch on component mount
