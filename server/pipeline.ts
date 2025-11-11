@@ -2849,7 +2849,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     for (const row of guaranteed) {
       // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
-      
+
       // Skip excluded service types (office hours, night shifts, secondary care)
       const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
       if (serviceType) {
