@@ -316,9 +316,9 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getEmployeeLocationByName(employeeName: string): Promise<EmployeeLocation | undefined> {
+  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
     return Array.from(this.employeeLocations.values()).find(
-      loc => loc.employeeName === employeeName
+      loc => loc.branchId === branchId && loc.employeeName === employeeName
     );
   }
 
@@ -356,9 +356,9 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getClientLocationByName(clientName: string): Promise<ClientLocation | undefined> {
+  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
     return Array.from(this.clientLocations.values()).find(
-      loc => loc.clientName === clientName
+      loc => loc.branchId === branchId && loc.clientName === clientName
     );
   }
 
@@ -821,14 +821,6 @@ export class DatabaseStorage implements IStorage {
     const [location] = await db
       .select()
       .from(employeeLocations)
-      .where(eq(employeeLocations.employeeName, employeeName));
-    return location || undefined;
-  }
-
-  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
-    const [location] = await db
-      .select()
-      .from(employeeLocations)
       .where(eq(employeeLocations.id, id));
     return location || undefined;
   }
@@ -860,11 +852,14 @@ export class DatabaseStorage implements IStorage {
     return location;
   }
 
-  async getClientLocationByName(clientName: string): Promise<ClientLocation | undefined> {
+  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
     const [location] = await db
       .select()
       .from(clientLocations)
-      .where(eq(clientLocations.clientName, clientName));
+      .where(and(
+        eq(clientLocations.branchId, branchId),
+        eq(clientLocations.clientName, clientName)
+      ));
     return location || undefined;
   }
 
