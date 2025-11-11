@@ -169,34 +169,38 @@ export class MemStorage implements IStorage {
     return analyses[0];
   }
 
-  async getLatestWeeksAnalyses(limit: number = 4): Promise<CapacityAnalysis[]> {
+  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
     // Group by week, then get the latest analysis per week, then take the latest N weeks
     const weekMap = new Map<string, CapacityAnalysis>();
 
-    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
-      const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
-      const existing = weekMap.get(weekKey);
-      if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
-        weekMap.set(weekKey, analysis);
-      }
-    });
+    Array.from(this.capacityAnalyses.values())
+      .filter(analysis => analysis.branchId === branchId)
+      .forEach(analysis => {
+        const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
+        const existing = weekMap.get(weekKey);
+        if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
+          weekMap.set(weekKey, analysis);
+        }
+      });
 
     return Array.from(weekMap.values())
       .sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime())
       .slice(0, limit);
   }
 
-  async enforceRetentionLatestWeeks(limit: number = 4): Promise<number> {
-    // Group by week and keep only the latest N weeks
+  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> {
+    // Group by week and keep only the latest N weeks for this branch
     const weekMap = new Map<string, CapacityAnalysis[]>();
 
-    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
-      const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
-      if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, []);
-      }
-      weekMap.get(weekKey)!.push(analysis);
-    });
+    Array.from(this.capacityAnalyses.values())
+      .filter(analysis => analysis.branchId === branchId)
+      .forEach(analysis => {
+        const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
+        if (!weekMap.has(weekKey)) {
+          weekMap.set(weekKey, []);
+        }
+        weekMap.get(weekKey)!.push(analysis);
+      });
 
     // Sort weeks by start date descending using actual weekStartDate from analyses
     const sortedWeeks = Array.from(weekMap.entries())
@@ -271,13 +275,14 @@ export class MemStorage implements IStorage {
   }
 
 
-  async cleanupOldAnalyses(monthsOld: number): Promise<number> {
+  async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
 
     const oldAnalyses = Array.from(this.capacityAnalyses.values()).filter(
-      analysis => new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
+      analysis => analysis.branchId === branchId && 
+                  new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString
     );
 
     oldAnalyses.forEach(analysis => {
