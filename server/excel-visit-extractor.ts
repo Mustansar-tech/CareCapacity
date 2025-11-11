@@ -139,6 +139,26 @@ export function extractClientVisitsFromGHExcel(
     const cancelStatus = String(row[CANCEL_COL] ?? '').toLowerCase();
     if (cancelStatus.includes('cancel')) continue;
 
+    // CRITICAL FILTERS: Check cancellation first (most important filter)
+    const cancellationDesc = row['Cancellation Description'];
+    if (cancellationDesc && String(cancellationDesc).trim() !== '' && 
+        String(cancellationDesc).trim().toLowerCase() !== '(blank)') {
+      console.log(`🚫 Skipping cancelled visit: ${row['Service Location Name'] || 'unknown'}`);
+      continue;
+    }
+
+    // Get service type for secondary multiple care check
+    const serviceType = row['Actual Service Type Description'] || '';
+    const serviceTypeLower = String(serviceType).toLowerCase();
+    
+    // Skip secondary multiple care visits
+    if (serviceTypeLower.includes('multiple care (secondary)') || 
+        serviceTypeLower.includes('secondary') ||
+        serviceTypeLower.includes('multiple care - secondary')) {
+      console.log(`🚫 Skipping secondary multiple care visit: ${serviceType}`);
+      continue;
+    }
+
     // Get client name
     const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (!clientNameRaw) continue;
@@ -151,8 +171,8 @@ export function extractClientVisitsFromGHExcel(
     }
 
     // Skip night visits (sleep-in, waking nights, etc.)
-    if (NIGHT_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
-      console.log(`🌙 Skipping night visit: ${clientName}`);
+    if (NIGHT_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
+      console.log(`🌙 Skipping night visit: ${clientName} (${serviceType})`);
       continue;
     }
 

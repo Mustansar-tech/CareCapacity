@@ -690,11 +690,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   let totalProcessed = 0;
   let filteredCancelled = 0;
   let filteredSecondary = 0;
+  let filteredNight = 0;
 
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters (exactly as in Hours by Service Type.xlsx)
+    // Apply robust filters
     const cancelOk = isCancellationBlank(g["Cancellation Description"]);
     if (!cancelOk) {
       filteredCancelled++;
@@ -708,6 +709,17 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       filteredSecondary++;
       continue;
     }
+
+    // CRITICAL FILTER 3: Skip night visits
+    const serviceType = (g["Actual Service Type Description"] || '').toLowerCase();
+    const clientName = (g["Service Location Name"] || '').toLowerCase();
+    const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
+
+    if (nightKeywords.some(keyword => serviceType.includes(keyword) || clientName.includes(keyword))) {
+      filteredNight++;
+      continue;
+    }
+
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -767,8 +779,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   console.log(
     `  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
   );
+  console.log(`  🌙 Filtered night visits: ${filteredNight}`);
   console.log(
-    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`,
+    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredNight}`,
   );
 
   // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
@@ -2395,9 +2408,6 @@ export async function processCapacityData(
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
 
-  // Note: Visit extraction is now handled by excel-visit-extractor module
-  // which is called separately when needed. No need to extract visits here.
-
 
   // Re-sort after injection
   Object.values(employeesByDate).forEach((employees) => {
@@ -2990,7 +3000,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
         const clientNameLower = clientName.toLowerCase();
         const serviceTypeLower = (serviceType || '').toLowerCase();
-        
+
         if (nightKeywords.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
           console.log(`🌙 Skipping night visit in pipeline: ${clientName} (${serviceType})`);
           continue;
