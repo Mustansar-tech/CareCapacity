@@ -115,9 +115,19 @@ export default function Dashboard() {
     setSelectedDate(null);
   }, [selectedBranchId]);
 
+  // Clear processed data if it doesn't match current branch
+  useEffect(() => {
+    if (latestData && latestData.branchId !== selectedBranchId) {
+      console.log('🧹 Clearing stale data from different branch');
+      setProcessedData(null);
+      setFilteredData(null);
+    }
+  }, [latestData, selectedBranchId]);
+
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
-    if (latestData && !processedData && !selectedWeekId) {
+    // Only auto-load if data belongs to current branch
+    if (latestData && !processedData && !selectedWeekId && latestData.branchId === selectedBranchId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -131,7 +141,7 @@ export default function Dashboard() {
         description: "Automatically loaded your most recent analysis."
       });
     }
-  }, [latestData, processedData, selectedWeekId, toast]);
+  }, [latestData, processedData, selectedWeekId, selectedBranchId, toast]);
 
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
