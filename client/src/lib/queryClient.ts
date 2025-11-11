@@ -13,23 +13,13 @@ function getBranchId(): string | null {
 }
 
 // Helper to append branchId to URL for GET requests
-function appendBranchIdToUrl(url: string, queryKey?: unknown[]): string {
+function appendBranchIdToUrl(url: string): string {
   const branchId = getBranchId();
-  
-  // Don't add branchId to the branches endpoint itself
   if (!branchId || url.includes('/api/branches')) {
+    // Don't add branchId to the branches endpoint itself
     return url;
   }
-
-  // Check if branchId is already in the query key parameters
-  if (queryKey && queryKey.length > 1) {
-    const params = queryKey[1];
-    if (params && typeof params === 'object' && 'branchId' in params) {
-      // branchId is already in query params, don't append again
-      return url;
-    }
-  }
-
+  
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}branchId=${encodeURIComponent(branchId)}`;
 }
@@ -40,12 +30,12 @@ function addBranchIdToBody(data?: unknown): unknown {
   if (!branchId || !data) {
     return data;
   }
-
+  
   // Add branchId to the request body
   if (typeof data === 'object' && data !== null) {
     return { ...data, branchId };
   }
-
+  
   return data;
 }
 
@@ -55,9 +45,9 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   // Add branchId to request based on method
-  const finalUrl = method === 'GET' ? appendBranchIdToUrl(url, undefined) : url;
+  const finalUrl = method === 'GET' ? appendBranchIdToUrl(url) : url;
   const finalData = method !== 'GET' && method !== 'DELETE' ? addBranchIdToBody(data) : data;
-
+  
   const res = await fetch(finalUrl, {
     method,
     headers: finalData ? { "Content-Type": "application/json" } : {},
@@ -75,11 +65,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Extract URL from queryKey - only use string parts
-    const urlParts = queryKey.filter(part => typeof part === 'string');
-    const url = urlParts.join("/");
-    const finalUrl = appendBranchIdToUrl(url, queryKey);
-
+    const url = queryKey.join("/") as string;
+    const finalUrl = appendBranchIdToUrl(url);
+    
     const res = await fetch(finalUrl, {
       credentials: "include",
     });

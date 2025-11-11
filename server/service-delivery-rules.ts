@@ -143,7 +143,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
   headers.forEach((h, i) => (headerIndex[h] = i));
 
   // 4) Normalize rows
-  const normalizedRows: CleanRow[] = [];
+  const normalized: CleanRow[] = [];
   for (const arr of dataRows) {
     if (!arr || arr.length === 0) continue;
 
@@ -163,40 +163,20 @@ export function applyServiceRules(demandBuffer: Buffer): {
     // Skip blank lines
     if (!serviceType && !weekday && duration === 0) continue;
 
-    normalizedRows.push({ serviceType, weekday, duration, cancellation });
+    normalized.push({ serviceType, weekday, duration, cancellation });
   }
 
-  // 5) RULES: remove cancellations and "Multiple Care (Secondary)" and night visits
-  // Filter out rows with (blank) or empty service types AND night visits
-  const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
-
-  let nightVisitsFiltered = 0;
-  let nightHoursFiltered = 0;
-
-  const filteredRows = normalizedRows.filter(r => {
-    const serviceType = r.serviceType?.toLowerCase() || '';
-    const isNightVisit = nightKeywords.some(keyword => serviceType.includes(keyword));
-
-    if (isNightVisit) {
-      nightVisitsFiltered++;
-      nightHoursFiltered += r.duration || 0;
-      console.log(`🌙 Filtering out night visit from demand: ${r.serviceType} (${r.duration}h on ${r.weekday})`);
-      return false;
-    }
-
-    return r.serviceType !== '(blank)' && r.serviceType !== '';
+  // 5) RULES: remove cancellations and "Multiple Care (Secondary)"
+  const filtered = normalized.filter((r) => {
+    const isSecondary = r.serviceType === "Multiple Care (Secondary)";
+    const isCancelled = !!(r.cancellation && r.cancellation.length > 0);
+    return !isSecondary && !isCancelled;
   });
-
-  console.log(`🌙 NIGHT VISIT FILTERING SUMMARY:`);
-  console.log(`  Total night visits filtered: ${nightVisitsFiltered}`);
-  console.log(`  Total night hours excluded from demand: ${nightHoursFiltered.toFixed(2)}h`);
-  console.log(`  Remaining demand hours after filtering: ${filteredRows.reduce((sum, r) => sum + (r.duration || 0), 0).toFixed(2)}h`);
-
 
   // 6) Aggregate outputs
   // 6a) Totals by weekday
   const hoursByWeekdayMap = new Map<string, number>();
-  for (const r of filteredRows) {
+  for (const r of filtered) {
     hoursByWeekdayMap.set(r.weekday, (hoursByWeekdayMap.get(r.weekday) || 0) + (r.duration || 0));
   }
   const hoursByWeekday = Array.from(hoursByWeekdayMap.entries())
@@ -205,7 +185,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
 
   // 6b) Pivot: serviceType × weekday
   const pivot = new Map<string, Map<string, number>>();
-  for (const r of filteredRows) {
+  for (const r of filtered) {
     if (!pivot.has(r.serviceType)) pivot.set(r.serviceType, new Map());
     const row = pivot.get(r.serviceType)!;
     row.set(r.weekday, (row.get(r.weekday) || 0) + (r.duration || 0));
@@ -221,10 +201,10 @@ export function applyServiceRules(demandBuffer: Buffer): {
       headerRow: headerRowIdx,
       columnMap: colMap,
       rowsIn: matrix.length - (headerRowIdx),        // approximate
-      rowsAfterNormalize: normalizedRows.length,
-      rowsAfterFilter: filteredRows.length,
+      rowsAfterNormalize: normalized.length,
+      rowsAfterFilter: filtered.length,
     },
-    filteredRows: filteredRows,
+    filteredRows: filtered,
     hoursByWeekday,
     serviceTypeByWeekday: pivot,
   };
