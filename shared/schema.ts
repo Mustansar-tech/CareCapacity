@@ -406,7 +406,10 @@ export const insertClientLocationSchema = createInsertSchema(clientLocations).om
 
 export const insertVisitSchema = createInsertSchema(visits).omit({
   id: true,
-  createdAt: true,
+  createdAt: true
+}).required({
+  branchId: true,
+  clientId: true,
 });
 
 export const insertRoutePlanSchema = createInsertSchema(routePlans).omit({
