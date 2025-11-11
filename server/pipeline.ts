@@ -2984,6 +2984,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       const serviceType = row["Actual Service Type Description"];
 
       if (clientName && (plannedStartTime || actualStartTime || startTime)) {
+        // Skip night visits (sleep-in, waking nights, etc.)
+        const nightKeywords = ['nights', 'sleep in', 'waking night', 'overnight', 'night shift', 'sleep-in', 'sleepin'];
+        const clientNameLower = clientName.toLowerCase();
+        const serviceTypeLower = (serviceType || '').toLowerCase();
+        
+        if (nightKeywords.some(keyword => clientNameLower.includes(keyword) || serviceTypeLower.includes(keyword))) {
+          console.log(`🌙 Skipping night visit in pipeline: ${clientName} (${serviceType})`);
+          continue;
+        }
+
         // Use planned times first as requested, then fall back to others
         const visitStart = plannedStartTime || actualStartTime || startTime;
         const visitEnd = plannedEndTime || actualEndTime || endTime;
