@@ -110,7 +110,11 @@ export class AutoScheduler {
    * Automatically schedule visits for a given date
    */
   async scheduleDay(date: string, branchId?: string): Promise<WeeklySchedule> {
-    console.log(`🤖 Starting automatic scheduling for ${date} (branch: ${branchId || 'default'})`);
+    console.log(`\n🤖 ====== AUTO-SCHEDULER scheduleDay CALLED ======`);
+    console.log(`   Date: ${date}`);
+    console.log(`   BranchId: ${branchId || 'UNDEFINED'}`);
+    console.log(`   BranchId type: ${typeof branchId}`);
+    console.log(`================================================\n`);
 
     // Get employees available for this date
     const employees = await this.getAvailableEmployees(date, branchId);
@@ -433,24 +437,27 @@ export class AutoScheduler {
 
   private async getUnassignedVisits(date: string, branchId?: string): Promise<SchedulingVisit[]> {
     try {
+      console.log(`\n🔍 AUTO-SCHEDULER: getUnassignedVisits called for date=${date}, branchId=${branchId || 'UNDEFINED'}`);
+      
       // Import the visit extractor and buffer getter
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const { getLatestGuaranteedBuffer } = await import('./routes');
       
       // Get the buffer for this specific branch
       if (!branchId) {
-        console.warn(`⚠️ No branchId provided for visit extraction`);
+        console.warn(`⚠️ AUTO-SCHEDULER: No branchId provided for visit extraction`);
         return [];
       }
       
+      console.log(`🔍 AUTO-SCHEDULER: Calling getLatestGuaranteedBuffer('${branchId}')...`);
       const ghBuffer = getLatestGuaranteedBuffer(branchId);
       
       if (!ghBuffer) {
-        console.warn(`⚠️ No Guaranteed Hours buffer available for branch ${branchId} - please upload files first`);
+        console.warn(`⚠️ AUTO-SCHEDULER: No Guaranteed Hours buffer available for branch ${branchId} - please upload files first`);
         return [];
       }
       
-      console.log(`✅ Found GH buffer for branch ${branchId} (${ghBuffer.length} bytes)`);
+      console.log(`✅ AUTO-SCHEDULER: Found GH buffer for branch ${branchId} (${ghBuffer.length} bytes)`);
 
       // Extract visits from Excel buffer for this date
       const parsedDate = new Date(date + 'T00:00:00.000Z');

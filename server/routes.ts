@@ -69,12 +69,20 @@ const guaranteedBufferByBranch: Map<string, Buffer> = new Map();
 
 // Setter function for guaranteedBufferByBranch
 function setLatestGuaranteedBuffer(branchId: string, buffer: Buffer): void {
+  console.log(`📦 STORING GH buffer for branch ${branchId}: ${buffer.length} bytes`);
+  console.log(`📦 Current branches in map BEFORE set: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
   guaranteedBufferByBranch.set(branchId, buffer);
+  console.log(`📦 Current branches in map AFTER set: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
+  console.log(`📦 Verification - can retrieve?: ${guaranteedBufferByBranch.has(branchId)}`);
 }
 
 // Getter function for guaranteedBufferByBranch
 export function getLatestGuaranteedBuffer(branchId: string): Buffer | null {
-  return guaranteedBufferByBranch.get(branchId) || null;
+  console.log(`📦 RETRIEVING GH buffer for branch ${branchId}`);
+  console.log(`📦 Available branches in map: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
+  const buffer = guaranteedBufferByBranch.get(branchId) || null;
+  console.log(`📦 Retrieved buffer: ${buffer ? `${buffer.length} bytes` : 'NULL'}`);
+  return buffer;
 }
 
 // Helper function to normalize file names by removing browser download numbers
