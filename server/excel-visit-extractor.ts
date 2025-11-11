@@ -168,30 +168,26 @@ export function extractClientVisitsFromGHExcel(
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
 
-    // Skip office visits
+    // Check client name for office keywords (like "Visit, Office")
     const clientNameLower = clientName.toLowerCase();
-    if (OFFICE_VISIT_KEYWORDS.some(keyword => clientNameLower.includes(keyword))) {
+    if (clientNameLower.includes('office') || clientNameLower.includes('visit, office')) {
+      console.log(`🚫 Excluding office visit by client name: "${clientName}"`);
       continue;
     }
 
-    // Get service type and skip excluded service types
+    // Get service type and skip excluded service types (office hours, night shifts, secondary care)
     const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (serviceTypeRaw) {
-      // Normalize: trim, lowercase, remove extra spaces
-      const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase().replace(/\s+/g, ' ');
+      const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
       
-      console.log(`🔍 Checking service type: "${serviceTypeRaw}" -> normalized: "${serviceTypeLower}"`);
-      
-      // Check if service type contains any of the excluded keywords
-      const matchedExclusion = EXCLUDED_SERVICE_TYPES.find(excluded => 
-        serviceTypeLower.includes(excluded.toLowerCase().trim())
+      // Check if service type matches any excluded types
+      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded => 
+        serviceTypeLower.includes(excluded.toLowerCase())
       );
       
-      if (matchedExclusion) {
-        console.log(`🚫 Excluding service type: "${serviceTypeRaw}" (matched: "${matchedExclusion}") for ${clientName}`);
+      if (isExcluded) {
+        console.log(`🚫 Excluding by service type: "${serviceTypeRaw}" for ${clientName}`);
         continue;
-      } else {
-        console.log(`✅ Keeping service type: "${serviceTypeRaw}" for ${clientName}`);
       }
     }
 
