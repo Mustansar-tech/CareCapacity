@@ -1561,7 +1561,7 @@ export async function processCapacityData(
 
       const parsedDate = row.parsedDate; // Already parsed
       const hrs =
-        row.Hours != null
+        row.Hours !== undefined && row.Hours !== null
           ? Number(row.Hours)
           : hoursBetween(row["Start Time"], row["End Time"]);
 
@@ -2139,6 +2139,12 @@ export async function processCapacityData(
         .map(([s, e]: [number, number]) => `${fromMin(s)}-${fromMin(e)}`)
         .join("; ");
 
+      // Skip if this employee has night availability
+      if (hasNightAvailability(windows)) {
+        console.log(`🌙 Filtering out ad-hoc ${display} from ${date} - has night availability outside 6am-10pm`);
+        return;
+      }
+
       // Get gender from master employee list for this ad-hoc employee
       const masterEmployee = masterEmployees.find(
         (emp) => emp.normalizedName === normName,
@@ -2154,8 +2160,12 @@ export async function processCapacityData(
         scheduledHours: Math.round(schedHoursRaw * 100) / 100,
         hours: 0, // not counted toward availability
         netCapacity: 0, // do not inflate capacity
-        notes: "Scheduled (no availability record for this day)",
-        gender: gender,
+        notes: "Scheduled (no availability record for this date)",
+        transportMode: undefined,
+        weeklyContractedHours: 0,
+        homeLat: undefined,
+        homeLng: undefined,
+        gender,
       });
 
       // mark as present to avoid duplicates if multiple keys flow in
@@ -2687,27 +2697,27 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         if (!existingClient && branchId) {
           const allClients = await storage.getAllClientLocations(branchId);
           const normalizedSearchName = normalizeName(clientKey);
-          
+
           existingClient = allClients.find(client => {
             const storedName = normalizeName(client.clientName);
-            
+
             // Try exact normalized match
             if (storedName === normalizedSearchName) return true;
-            
+
             // Try substring match
             if (storedName.includes(normalizedSearchName) || normalizedSearchName.includes(storedName)) return true;
-            
+
             // Try matching individual words
             const storedWords = storedName.split(/[\s,]+/).filter(w => w.length > 2);
             const searchWords = normalizedSearchName.split(/[\s,]+/).filter(w => w.length > 2);
-            
-            const matchingWords = storedWords.filter(word => 
+
+            const matchingWords = storedWords.filter(word =>
               searchWords.some(searchWord => searchWord.includes(word) || word.includes(searchWord))
             );
-            
+
             return matchingWords.length >= Math.min(2, Math.min(storedWords.length, searchWords.length));
           });
-          
+
           if (existingClient) {
             console.log(`🔍 Found client via fuzzy match: "${clientKey}" -> "${existingClient.clientName}"`);
           }
@@ -2798,8 +2808,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            postcodes: employeePostcodes, 
+          body: JSON.stringify({
+            postcodes: employeePostcodes,
             addresses: [],
             branchId: branchId // CRITICAL FIX: Pass branchId for data isolation
           }),
