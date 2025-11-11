@@ -180,6 +180,8 @@ export function extractClientVisitsFromGHExcel(
       // Normalize: trim, lowercase, remove extra spaces
       const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase().replace(/\s+/g, ' ');
       
+      console.log(`🔍 Checking service type: "${serviceTypeRaw}" -> normalized: "${serviceTypeLower}"`);
+      
       // Check if service type contains any of the excluded keywords
       const matchedExclusion = EXCLUDED_SERVICE_TYPES.find(excluded => 
         serviceTypeLower.includes(excluded.toLowerCase().trim())
@@ -188,6 +190,8 @@ export function extractClientVisitsFromGHExcel(
       if (matchedExclusion) {
         console.log(`🚫 Excluding service type: "${serviceTypeRaw}" (matched: "${matchedExclusion}") for ${clientName}`);
         continue;
+      } else {
+        console.log(`✅ Keeping service type: "${serviceTypeRaw}" for ${clientName}`);
       }
     }
 
