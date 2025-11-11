@@ -179,15 +179,28 @@ export function extractClientVisitsFromGHExcel(
       postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
     }
 
-    visits.push({
-      clientName,
-      startTime: fmt(startDate, 'HH:mm'),
-      endTime: fmt(endDate, 'HH:mm'),
-      durationMinutes,
-      date: dateStr,
-      address,
-      postcode,
-    });
+    // Check if this is an overnight visit that crosses midnight
+    const startDateOnly = fmt(startDate, 'yyyy-MM-dd');
+    const endDateOnly = fmt(endDate, 'yyyy-MM-dd');
+
+    if (startDateOnly !== endDateOnly) {
+      // Skip overnight visits - they cause issues with scheduling logic
+      console.log(`🚫 Skipping overnight visit: ${clientName} ${fmt(startDate, 'HH:mm')}-${fmt(endDate, 'HH:mm')} (crosses midnight)`);
+      continue;
+    }
+
+    // Normal visit within same day - only include if it matches our query date
+    if (startDateOnly === dateStr) {
+      visits.push({
+        clientName,
+        startTime: fmt(startDate, 'HH:mm'),
+        endTime: fmt(endDate, 'HH:mm'),
+        durationMinutes,
+        date: dateStr,
+        address,
+        postcode,
+      });
+    }
   }
 
   console.log(`📋 Extracted ${visits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);

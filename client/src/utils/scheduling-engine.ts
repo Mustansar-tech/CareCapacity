@@ -606,7 +606,22 @@ export function generateWeeklySchedule(
 
   weekDates.forEach(date => {
     const dayEmployees = employees.filter(e => e.date === date);
-    schedulesByDate[date] = dayEmployees.map(emp => {
+    schedulesByDate[date] = dayEmployees
+      .filter(emp => {
+        // Filter out employees with night availability
+        const windows = parseTimeWindows(emp.timeWindows);
+        const hasNightAvailability = windows.some(w => {
+          // Check if window extends past 10pm (22:00 = 1320 minutes) or starts before 6am (360 minutes)
+          return w.end > 1320 || w.start < 360;
+        });
+        
+        if (hasNightAvailability) {
+          console.log(`🌙 Filtering out ${emp.employeeName} - has night availability outside 6am-10pm`);
+          return false;
+        }
+        return true;
+      })
+      .map(emp => {
       const windows = parseTimeWindows(emp.timeWindows);
       // Normalize transport mode to allowed values
       let mode: 'car' | 'walking' | 'public' = 'car';
