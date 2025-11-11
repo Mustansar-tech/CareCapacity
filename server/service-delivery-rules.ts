@@ -175,42 +175,52 @@ export function applyServiceRules(demandBuffer: Buffer): {
     'sleep in',
     'nights - waking nights',
     'waking nights',
+    'night',
+    'overnight',
+    'sleepover',
     'multiple care (secondary)',
     'secondary',
     '(secondary)'
   ];
 
   const filtered = normalized.filter((r) => {
-    const isExcludedType = EXCLUDED_TYPES.includes(norm(r.serviceType));
+    // Check if service type contains any excluded keywords
+    const serviceTypeLower = norm(r.serviceType);
+    const isExcludedType = EXCLUDED_TYPES.some(excluded => 
+      serviceTypeLower.includes(excluded)
+    );
     const isCancelled = !!(r.cancellation && r.cancellation.length > 0);
     return !isExcludedType && !isCancelled;
   });
 
-  // Log the filtering process
+  // Log the filtering process with HOURS breakdown
   const totalFiltered = normalized.length - filtered.length;
   console.log(
     `🔍 SERVICE TYPE FILTERING: Excluded ${totalFiltered} rows (secondary care, night shifts, office hours) from ${normalized.length} normalized rows`,
   );
 
-  // Show breakdown of what was filtered
-  const secondaryCount = normalized.filter(row => {
-    const st = (row.serviceType || "").toLowerCase();
+  // Show breakdown of what was filtered WITH HOURS
+  const secondaryRows = normalized.filter(row => {
+    const st = norm(row.serviceType);
     return st.includes("multiple care (secondary)") || st.includes("secondary");
-  }).length;
+  });
+  const secondaryHours = secondaryRows.reduce((sum, r) => sum + (r.duration || 0), 0);
 
-  const nightCount = normalized.filter(row => {
-    const st = (row.serviceType || "").toLowerCase();
+  const nightRows = normalized.filter(row => {
+    const st = norm(row.serviceType);
     return st.includes("night") || st.includes("sleep in") || st.includes("waking") || st.includes("sleepover") || st.includes("overnight");
-  }).length;
+  });
+  const nightHours = nightRows.reduce((sum, r) => sum + (r.duration || 0), 0);
 
-  const officeCount = normalized.filter(row => {
-    const st = (row.serviceType || "").toLowerCase();
+  const officeRows = normalized.filter(row => {
+    const st = norm(row.serviceType);
     return st.includes("office");
-  }).length;
+  });
+  const officeHours = officeRows.reduce((sum, r) => sum + (r.duration || 0), 0);
 
-  console.log(`  ❌ Secondary care: ${secondaryCount} rows`);
-  console.log(`  ❌ Night shifts: ${nightCount} rows`);
-  console.log(`  ❌ Office hours: ${officeCount} rows`);
+  console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
+  console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
+  console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
 
 
   // 6) Aggregate outputs
