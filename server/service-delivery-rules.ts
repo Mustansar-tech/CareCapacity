@@ -186,6 +186,33 @@ export function applyServiceRules(demandBuffer: Buffer): {
     return !isExcludedType && !isCancelled;
   });
 
+  // Log the filtering process
+  const totalFiltered = normalized.length - filtered.length;
+  console.log(
+    `🔍 SERVICE TYPE FILTERING: Excluded ${totalFiltered} rows (secondary care, night shifts, office hours) from ${normalized.length} normalized rows`,
+  );
+
+  // Show breakdown of what was filtered
+  const secondaryCount = normalized.filter(row => {
+    const st = (row.serviceType || "").toLowerCase();
+    return st.includes("multiple care (secondary)") || st.includes("secondary");
+  }).length;
+
+  const nightCount = normalized.filter(row => {
+    const st = (row.serviceType || "").toLowerCase();
+    return st.includes("night") || st.includes("sleep in") || st.includes("waking") || st.includes("sleepover") || st.includes("overnight");
+  }).length;
+
+  const officeCount = normalized.filter(row => {
+    const st = (row.serviceType || "").toLowerCase();
+    return st.includes("office");
+  }).length;
+
+  console.log(`  ❌ Secondary care: ${secondaryCount} rows`);
+  console.log(`  ❌ Night shifts: ${nightCount} rows`);
+  console.log(`  ❌ Office hours: ${officeCount} rows`);
+
+
   // 6) Aggregate outputs
   // 6a) Totals by weekday
   const hoursByWeekdayMap = new Map<string, number>();
