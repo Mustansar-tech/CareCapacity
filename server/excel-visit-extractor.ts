@@ -96,7 +96,7 @@ const EXCLUDED_SERVICE_TYPES = [
   'visit, office',
   'office visit',
   
-  // Night shifts
+  // Night shifts (covering all variations found in Excel)
   'nights - sleep in',
   'sleep in',
   'nights - waking nights',
@@ -105,8 +105,10 @@ const EXCLUDED_SERVICE_TYPES = [
   'nights-waking nights',
   'night - sleep in',
   'night - waking nights',
+  'night - waking night',  // Singular 'night' at end (from Excel data)
   'sleepover',
   'overnight',
+  'waking night',  // Singular variant
   
   // Secondary care
   'multiple care (secondary)',
