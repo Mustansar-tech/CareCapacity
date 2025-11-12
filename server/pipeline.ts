@@ -1453,6 +1453,22 @@ export async function processCapacityData(
   console.log(`================================\n`);
 
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
+  console.log(`\n🔍 DEBUG: About to call buildScheduledHoursLookup with ${guaranteed.length} guaranteed rows`);
+  
+  // Debug: Check if office hours exist in the data
+  const officeRows = guaranteed.filter(row => {
+    const serviceType = (row["Actual Service Type Description"] || "").toString().toLowerCase();
+    return serviceType.includes("office");
+  });
+  console.log(`🏢 DEBUG: Found ${officeRows.length} office hours rows in guaranteed data`);
+  if (officeRows.length > 0) {
+    console.log(`🏢 DEBUG: Sample office hours rows:`, officeRows.slice(0, 3).map(r => ({
+      employee: r["Actual Employee Name"],
+      serviceType: r["Actual Service Type Description"],
+      hours: r["Actual Pay Rate Hours"]
+    })));
+  }
+  
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
   // Debug: Check what's actually in the guaranteed hours data
