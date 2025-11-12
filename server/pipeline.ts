@@ -1214,13 +1214,13 @@ export async function parseExcelFiles(
         row["Actual Service Type Description"] || "",
       );
 
-      // Check for excluded service types (office hours, nights)
+      // Check for excluded service types (nights only - office hours MUST be included in scheduled totals)
       const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
       const isExcludedType = serviceType && (() => {
         const lowerType = String(serviceType).toLowerCase();
         const excludedTypes = [
-          'office hours',
-          'office',
+          // Office hours are INCLUDED in scheduled totals for accurate capacity analysis
+          // Only exclude night shifts which don't count toward regular scheduled hours
           'nights - sleep in',
           'sleep in',
           'nights - waking nights',
