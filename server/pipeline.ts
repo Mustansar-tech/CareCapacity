@@ -611,6 +611,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   let totalProcessed = 0;
   let filteredCancelled = 0;
   let filteredSecondary = 0;
+  let officeHoursIncluded = 0;
 
   for (const g of guaranteed || []) {
     totalProcessed++;
@@ -634,6 +635,10 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
     // This ensures employees show correct scheduled hours including office work
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
+    
+    // Track office hours for debugging
+    const serviceType = g["Actual Service Type Description"] || "";
+    const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -644,15 +649,19 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Sum only positive/real pay hours
     const pay = Number(g["Actual Pay Rate Hours"]) || 0;
+    
+    if (isOfficeHours && pay > 0) {
+      officeHoursIncluded++;
+    }
 
-    // Debug: Log office hours entries
-    const serviceType = g["Actual Service Type Description"] || "";
-    if (serviceType && serviceType.toLowerCase().includes("office")) {
+    // Debug: Log office hours entries being added to scheduled totals
+    if (isOfficeHours && pay > 0) {
       console.log(`🏢 DEBUG: Including office hours in scheduled total:`);
-      console.log(`  Employee: ${g["Actual Employee Name"]}`);
+      console.log(`  Employee: ${g["Actual Employee Name"]} (normalized: ${name})`);
       console.log(`  Service Type: ${serviceType}`);
       console.log(`  Date: ${date}`);
       console.log(`  Pay Hours: ${pay}`);
+      console.log(`  Map Key: ${name}|${date}`);
     }
 
     // Debug specific employee entries
@@ -690,6 +699,13 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
           `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
       }
+      
+      // Also log for office hours to verify they're being added
+      if (isOfficeHours) {
+        console.log(
+          `  🏢 Office hours added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        );
+      }
     } else {
       if (originalName && originalName.toLowerCase().includes("makala")) {
         console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
@@ -702,6 +718,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   console.log(`  ❌ Filtered cancelled entries: ${filteredCancelled}`);
   console.log(
     `  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
+  );
+  console.log(
+    `  ✅ Office hours included in totals: ${officeHoursIncluded}`,
   );
   console.log(
     `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`,
