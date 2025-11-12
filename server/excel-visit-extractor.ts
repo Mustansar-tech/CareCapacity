@@ -88,9 +88,16 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
-// Service types to exclude (night shifts, secondary care)
-// Note: Office hours are now INCLUDED to count in scheduled hours
+// Service types to exclude for SCHEDULING (office hours, night shifts, secondary care)
+// Note: Office hours are EXCLUDED here for scheduling purposes
+// but INCLUDED in scheduled hours totals (pipeline.ts)
 const EXCLUDED_SERVICE_TYPES = [
+  // Office-related (exclude from scheduling, but count in scheduled hours)
+  'office hours',
+  'office',
+  'visit, office',
+  'office visit',
+  
   // Night shifts (covering all variations found in Excel)
   'nights - sleep in',
   'sleep in',
@@ -165,10 +172,15 @@ export function extractClientVisitsFromGHExcel(
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
 
-    // Note: Office visits are now included in scheduled hours calculation
-    // They represent actual work time that employees are scheduled for
+    // Check client name for office keywords (like "Visit, Office")
+    // These are EXCLUDED from scheduling but INCLUDED in scheduled hours totals
+    const clientNameLower = clientName.toLowerCase();
+    if (clientNameLower.includes('office') || clientNameLower.includes('visit, office')) {
+      console.log(`🚫 Excluding office visit from scheduling: "${clientName}"`);
+      continue;
+    }
 
-    // Get service type and skip excluded service types (night shifts, secondary care)
+    // Get service type and skip excluded service types (office hours, night shifts, secondary care)
     const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (serviceTypeRaw) {
       const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
