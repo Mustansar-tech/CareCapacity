@@ -1,0 +1,81 @@
+Employee Details for Tuesday, November 25, 2025
+19 of 19 employees
+Employee	
+All Statuses (19)
+Time Window(s)	Desired Hours	Scheduled Hours	Net Capacity	Notes
+Adedayo (30GH) Adeyanju (NL)	Partial Availability	
+08:00-19:15
+(11.3h)
+20:15-21:30
+(1.3h)
+4.29h	4h	3.29h	Childcare Eilidh 06/11/2025
+Amanda (16GH) Forbes (NL)	Holiday	
+-
+3.2h	0h	0h	Confirmed at induction with MT; Created by new vacation process. [availability ignored due to day-level leave]
+Ashleigh (16GH) Graham	Maternity/Paternity	
+-
+2.29h	0h	0h	[availability ignored due to day-level leave]
+Ayoola (37.5 GH) Ajibade (NL)	Maternity/Paternity	
+-
+7.5h	0h	0h	[availability ignored due to day-level leave]
+Brooke (16GH) O'Brien (NL)	Available	
+09:15-14:00
+(4.8h)
+2.67h	4h	2.67h	Increased availability to 09.15am starts on Monday, Tuesday and Wednesday as of Monday 28/04 - MT
+Chelsi-Anne (37.5GH) Hume (NL)	Available	
+08:00-15:15
+(7.3h)
+9.38h	3h	9.38h	
+Cheryl (16GH) McGhie (NL)	Available	
+16:45-21:30
+(4.8h)
+4h	4h	4h	
+Donna Gabillard (NL)	Available	
+09:15-11:30
+(2.3h)
+2.8h	2h	2.8h	
+Hamza (45GH) Nafees (NL)	Available	
+08:00-21:30
+(13.5h)
+9h	5h	9h	
+Kaitlyn (30GH) Barton (NL)	Available	
+08:00-21:30
+(13.5h)
+7.5h	7h	7.5h	
+Lori Wylie (NL)	Available	
+09:15-15:15
+(6.0h)
+6h	4.75h	6h	
+Lynsey (20GH) Mooney (NL)	Available	
+08:00-15:00
+(7.0h)
+6h	7h	6h	
+Madison Duncan (NL)	Available	
+08:00-18:00
+(10.0h)
+5h	1h	5h	
+Mustansar (30GH) Hussain (NL)	Available	
+08:00-21:30
+(13.5h)
+6h	0h	6h	
+Olusegun Isaac Ibrahim (NL)	Available	
+09:15-15:15
+(6.0h)
+3.2h	2h	3.2h	Agreed at induction with SM 25/04/2025 - MT
+Shafiya (45GH) Fayaz	Available	
+08:00-21:30
+(13.5h)
+9h	7h	9h	
+Sharon Jack (NL)	Partial Availability	
+09:15-10:30
+(1.3h)
+12:30-16:15
+(3.8h)
+4.8h	3h	2.8h	Sharon has advised she is unable to work between 10.30 and 12.30 on Tuesday's - MT
+Sophie (30GH) Lamont (NL)	Holiday	
+-
+7.5h	0h	0h	Created by new vacation process. [availability ignored due to day-level leave]
+Wayne (30GH) Griffiths (NL)	Available	
+08:00-21:30
+(13.5h)
+6h	4.75h	6h	
