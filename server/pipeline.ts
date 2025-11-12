@@ -630,6 +630,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
+    // NOTE: Office hours are NOT filtered here - they count toward scheduled totals
+    // They are only filtered in excel-visit-extractor.ts for scheduling purposes
+
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
     if (!start) continue;
