@@ -537,7 +537,16 @@ function isAllDayTimeKiller(
   // Use 90% threshold to account for minor gaps/rounding
   const threshold = Math.max(contractedDailyMin * 0.9, 60); // At least 1 hour minimum
 
-  return totalBlockedMin >= threshold;
+  if (totalBlockedMin >= threshold) return true;
+
+  // CRITICAL FIX: Also check if blockers completely cover all availability windows
+  // Even if the blocker is small (e.g., 2.25 hours), if it covers the ENTIRE availability window,
+  // treat it as a day-killer (no capacity left)
+  const freeTime = subtractIntervals(availPairs, mergedBlockers);
+  const totalFreeMin = freeTime.reduce((sum, [s, e]) => sum + (e - s), 0);
+
+  // If there's no meaningful free time left (less than 15 minutes), it's a day-killer
+  return totalFreeMin < 15;
 }
 
 // Build time windows per employee/day from Guaranteed (ACTUAL start/end)
