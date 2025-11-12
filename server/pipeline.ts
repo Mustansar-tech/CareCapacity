@@ -1736,11 +1736,15 @@ export async function processCapacityData(
     });
     hasDayKiller = dayKillerStatus !== "";
 
-    // Check for time-killers
+    // Check for time-killers and available status
     let hasTimeKiller = false;
+    let hasAvailableStatus = false;
     statusAgg.forEach((_agg, status) => {
       if (TIME_KILLERS.has(status)) {
         hasTimeKiller = true;
+      }
+      if (status === "Available") {
+        hasAvailableStatus = true;
       }
     });
 
@@ -1774,12 +1778,12 @@ export async function processCapacityData(
       highestPriorityStatus = dayKillerStatus;
       highestPriority = dayKillerPriority;
     } else if (hasTimeKiller) {
-      if (timeKillerIsAllDay) {
-        // Treat like day-level absence
+      if (timeKillerIsAllDay || !hasAvailableStatus) {
+        // Treat like day-level absence if all-day OR no explicit availability
         highestPriorityStatus = "Other Unavailable";
         highestPriority = STATUS_PRIORITY["Other Unavailable"] || 5;
       } else {
-        // Partial blocker but still some availability
+        // Partial blocker AND has availability record
         highestPriorityStatus = "Partial Availability";
         highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
       }
