@@ -615,7 +615,8 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters (exactly as in Hours by Service Type.xlsx)
+    // Apply robust filters - ONLY filter cancelled and secondary care
+    // Office hours MUST be included in scheduled totals
     const cancelOk = isCancellationBlank(g["Cancellation Description"]);
     if (!cancelOk) {
       filteredCancelled++;
@@ -630,8 +631,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
-    // NOTE: Office hours are NOT filtered here - they count toward scheduled totals
-    // They are only filtered in excel-visit-extractor.ts for scheduling purposes
+    // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
+    // This ensures employees show correct scheduled hours including office work
+    // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -642,6 +644,16 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Sum only positive/real pay hours
     const pay = Number(g["Actual Pay Rate Hours"]) || 0;
+
+    // Debug: Log office hours entries
+    const serviceType = g["Actual Service Type Description"] || "";
+    if (serviceType && serviceType.toLowerCase().includes("office")) {
+      console.log(`🏢 DEBUG: Including office hours in scheduled total:`);
+      console.log(`  Employee: ${g["Actual Employee Name"]}`);
+      console.log(`  Service Type: ${serviceType}`);
+      console.log(`  Date: ${date}`);
+      console.log(`  Pay Hours: ${pay}`);
+    }
 
     // Debug specific employee entries
     const originalName = g["Actual Employee Name"];
