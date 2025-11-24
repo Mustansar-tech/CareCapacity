@@ -3032,23 +3032,24 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       }
     }
 
-    // Generate service type summary
+    // Generate service type summary with total hours
     const serviceTypeSummary = new Map<string, number>();
     for (const visitData of Array.from(visitsMap.values())) {
       const serviceType = visitData.serviceType || 'Unknown';
-      serviceTypeSummary.set(serviceType, (serviceTypeSummary.get(serviceType) || 0) + 1);
+      const durationHours = (visitData.durationMinutes || 0) / 60;
+      serviceTypeSummary.set(serviceType, (serviceTypeSummary.get(serviceType) || 0) + durationHours);
     }
 
     console.log(`\n📊 ===== VISIT EXTRACTION SERVICE TYPE SUMMARY =====`);
     console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
-    console.log(`\n📋 Visits by Service Type:`);
+    console.log(`\n📋 Total Hours by Service Type:`);
     
-    // Sort by count (descending) for easier reading
+    // Sort by hours (descending) for easier reading
     const sortedServiceTypes = Array.from(serviceTypeSummary.entries())
       .sort((a, b) => b[1] - a[1]);
     
-    sortedServiceTypes.forEach(([serviceType, count]) => {
-      console.log(`  • ${serviceType}: ${count} visits`);
+    sortedServiceTypes.forEach(([serviceType, hours]) => {
+      console.log(`  • ${serviceType}: ${Math.round(hours * 100) / 100} hours`);
     });
     console.log(`====================================================\n`);
 
