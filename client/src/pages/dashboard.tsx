@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle, 
+import {
+  Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle,
   TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +32,7 @@ import { useBranch } from "@/contexts/BranchContext";
 const fmtH = (hours: number): string => `${hours}h`;
 const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
 const statusBadge = (status: string): string => {
-  return status === 'Sufficient' 
+  return status === 'Sufficient'
     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
     : 'bg-gradient-to-r from-red-500 to-red-600 text-white';
 };
@@ -63,12 +63,12 @@ const renderStatusBadge = (status: string) => {
 export default function Dashboard() {
   // Get selected branch ID
   const { selectedBranchId } = useBranch();
-  
+
   // File upload state - Adding CG Data Export as 4th file
   const [files, setFiles] = useState<{
     availability: File | null;
     guaranteed: File | null;
-    demand: File | null;
+    demand: File | null; // This will be removed
     cgData: File | null;
   }>({
     availability: null,
@@ -175,7 +175,7 @@ export default function Dashboard() {
   }, [allHistoryData, toast]);
 
   // Handle file selection
-  const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') => 
+  const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') =>
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0] || null;
       setFiles(prev => ({ ...prev, [type]: file }));
@@ -231,11 +231,14 @@ export default function Dashboard() {
 
   // Process files
   const handleProcessFiles = useCallback(async () => {
-    if (!files.availability || !files.guaranteed || !files.demand || !files.cgData) {
+    // Update validation to check for 3 files instead of 4
+    const allFilesSelected = files.availability && files.guaranteed && files.cgData;
+
+    if (!allFilesSelected) {
       toast({
         variant: "destructive",
         title: "Missing Files",
-        description: "Please select all four required files before processing."
+        description: "Please select all three required files (Availability, Guaranteed, CG Data) before processing."
       });
       return;
     }
@@ -243,11 +246,11 @@ export default function Dashboard() {
     setIsProcessing(true);
 
     const formData = new FormData();
-    formData.append('availability', files.availability);
-    formData.append('guaranteed', files.guaranteed);
-    formData.append('demand', files.demand);
-    formData.append('cgData', files.cgData);
-    
+    formData.append('availability', files.availability!);
+    formData.append('guaranteed', files.guaranteed!);
+    // Demand file is no longer appended
+    formData.append('cgData', files.cgData!);
+
     // Include branch ID in the form data
     if (selectedBranchId) {
       formData.append('branchId', selectedBranchId);
@@ -301,7 +304,7 @@ export default function Dashboard() {
     : selectedDayDetailsRaw;
 
   // Get unique statuses from the current day's employees for the filter dropdown
-  const availableStatuses = selectedDate 
+  const availableStatuses = selectedDate
     ? Array.from(new Set(selectedDayDetailsRaw.map(emp => emp.status))).sort()
     : [];
 
@@ -373,11 +376,7 @@ export default function Dashboard() {
                   <h3 className="font-semibold mb-2">Care Pro Guaranteed Hours</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Contracted hours and employee data</p>
                 </div>
-                <div className="p-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-purple-600" />
-                  <h3 className="font-semibold mb-2">Client Demand</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Client requirements and scheduling needs</p>
-                </div>
+                {/* Client Demand intro card removed */}
                 <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                   <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
                   <h3 className="font-semibold mb-2">CG Data Export</h3>
@@ -387,7 +386,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6"> {/* Changed grid columns to 3 */}
             {/* Availability Export */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
@@ -444,34 +443,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Client Demand */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                  <TrendingUp className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <Label htmlFor="demand-file" className="text-[11px] font-medium truncate">
-                  Demand
-                </Label>
-              </div>
-              <Input
-                id="demand-file"
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileChange('demand')}
-                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-all duration-200"
-                data-testid="input-demand-file"
-              />
-              {files.demand && (
-                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-demand-selected">
-                    {files.demand.name}
-                  </p>
-                </div>
-              )}
-            </div>
-
             {/* CG Data Export - NEW MASTER EMPLOYEE LIST */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
@@ -507,7 +478,8 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
+              // Update disabled condition to reflect 3 files
+              disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
             >
@@ -532,7 +504,7 @@ export default function Dashboard() {
                   setFiles({
                     availability: null,
                     guaranteed: null,
-                    demand: null,
+                    demand: null, // Keep demand in state for reset, though not used
                     cgData: null
                   });
                   // Clear file inputs
@@ -562,64 +534,64 @@ export default function Dashboard() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-            <TabsTrigger 
-              value="overview" 
+            <TabsTrigger
+              value="overview"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger 
-              value="daily-capacity" 
+            <TabsTrigger
+              value="daily-capacity"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-daily-capacity"
             >
               <Calendar className="w-4 h-4 mr-2" />
               Daily View
             </TabsTrigger>
-            <TabsTrigger 
-              value="employee-summary" 
+            <TabsTrigger
+              value="employee-summary"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-employee-summary"
             >
               <Users className="w-4 h-4 mr-2" />
               Summary
             </TabsTrigger>
-            <TabsTrigger 
-              value="bd-matrix" 
+            <TabsTrigger
+              value="bd-matrix"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-bd-matrix"
             >
               <Users className="w-4 h-4 mr-2" />
               BD Matrix
             </TabsTrigger>
-            <TabsTrigger 
-              value="schedules" 
+            <TabsTrigger
+              value="schedules"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-schedules"
             >
               <Calendar className="w-4 h-4 mr-2" />
               Schedules
             </TabsTrigger>
-            <TabsTrigger 
-              value="ai-suggestions" 
+            <TabsTrigger
+              value="ai-suggestions"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-suggestions"
             >
               <LightBulbIcon className="w-4 h-4 mr-2" />
               AI Insights
             </TabsTrigger>
-            <TabsTrigger 
-              value="charts" 
+            <TabsTrigger
+              value="charts"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-charts"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger 
-              value="export" 
+            <TabsTrigger
+              value="export"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-export"
             >
@@ -735,11 +707,11 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold flex items-center gap-2" data-testid="drilldown-title">
                         <Calendar className="h-5 w-5" />
-                        Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
+                        Employee Details for {new Date(selectedDate).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
                         })}
                         <Badge variant="outline" className="ml-2">
                           {selectedDayDetails.length} of {selectedDayDetailsRaw.length} employees
@@ -809,7 +781,7 @@ export default function Dashboard() {
                               {renderStatusBadge(emp.status)}
                             </TableCell>
                             <TableCell data-testid={`drilldown-time-windows-${index}`}>
-                              <FlexibleTimeWindow 
+                              <FlexibleTimeWindow
                                 timeWindows={emp.timeWindows || '-'}
                                 compact={true}
                                 editable={false}
@@ -846,20 +818,20 @@ export default function Dashboard() {
 
           {/* AI Suggestions Tab */}
           <TabsContent value="ai-suggestions" data-testid="content-ai-suggestions">
-            <AISuggestions 
-              data={filteredData || processedData} 
+            <AISuggestions
+              data={filteredData || processedData}
             />
           </TabsContent>
 
           {/* Interactive Charts Tab with Data Quality */}
           <TabsContent value="charts" data-testid="content-charts">
             <div className="space-y-6">
-              <InteractiveCharts 
+              <InteractiveCharts
                 data={filteredData || processedData}
                 onDateSelect={setSelectedDate}
                 onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
               />
-              <DataQualityPanel 
+              <DataQualityPanel
                 data={filteredData || processedData}
                 warnings={warnings}
               />
@@ -868,7 +840,7 @@ export default function Dashboard() {
 
           {/* BD Matrix Tab */}
           <TabsContent value="bd-matrix" data-testid="content-bd-matrix">
-            <BDMatrix 
+            <BDMatrix
               data={filteredData || processedData}
             />
           </TabsContent>
@@ -900,7 +872,8 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                {/* Changed grid columns to 3 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   {/* Availability Export */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -957,34 +930,6 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {/* Client Demand */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                        <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <Label htmlFor="demand-file-overview" className="text-sm font-medium">
-                        Hours by Service Type.xlsx
-                      </Label>
-                    </div>
-                    <Input
-                      id="demand-file-overview"
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleFileChange('demand')}
-                      className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-all duration-200"
-                      data-testid="input-demand-file-overview"
-                    />
-                    {files.demand && (
-                      <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-demand-selected-overview">
-                          {files.demand.name}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
                   {/* CG Data Export (Master Employee List) */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -1016,9 +961,10 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex justify-center gap-4">
-                  <Button 
+                  <Button
                     onClick={handleProcessFiles}
-                    disabled={!files.availability || !files.guaranteed || !files.demand || !files.cgData || isProcessing || processMutation.isPending}
+                    // Update disabled condition to reflect 3 files
+                    disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
                     data-testid="button-process-overview"
                   >
@@ -1042,7 +988,7 @@ export default function Dashboard() {
                       setFiles({
                         availability: null,
                         guaranteed: null,
-                        demand: null,
+                        demand: null, // Keep demand in state for reset, though not used
                         cgData: null
                       });
                       const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
@@ -1076,8 +1022,8 @@ export default function Dashboard() {
                         <div className="font-bold text-lg bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
                           Select Week:
                         </div>
-                        <Select 
-                          value={selectedWeekId || "latest"} 
+                        <Select
+                          value={selectedWeekId || "latest"}
                           onValueChange={handleWeekChange}
                         >
                           <SelectTrigger className="w-80" data-testid="week-selector">
@@ -1206,8 +1152,8 @@ export default function Dashboard() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 
-                        ? 'bg-gradient-to-br from-green-500 to-green-600' 
+                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
+                        ? 'bg-gradient-to-br from-green-500 to-green-600'
                         : 'bg-gradient-to-br from-red-500 to-red-600'
                     }`}>
                       {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
@@ -1221,8 +1167,8 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className={`text-3xl font-bold mb-1 ${
-                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 
-                      ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent' 
+                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
+                      ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent'
                       : 'bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent'
                   }`} data-testid="text-capacity-gap-sum">
                     {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
@@ -1278,8 +1224,8 @@ export default function Dashboard() {
               const summaryData = data?.employeeSummaryByDate?.[currentDate] || [];
 
               return (
-                <EmployeeSummaryTab 
-                  data={summaryData} 
+                <EmployeeSummaryTab
+                  data={summaryData}
                   selectedDate={currentDate}
                   availableDates={Object.keys(data?.employeeSummaryByDate || {})}
                   onDateChange={setSelectedDate}
@@ -1321,7 +1267,7 @@ export default function Dashboard() {
                 <p className="text-gray-600 dark:text-gray-300 mb-6" data-testid="export-description">
                   Download the processed capacity data as a comprehensive Excel file with detailed analysis sheets:
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"> {/* Changed to 2 columns for less crowded layout */}
                   <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                     <div>
@@ -1344,7 +1290,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <Button 
+                <Button
                   onClick={handleExport}
                   className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
                   disabled={isProcessing}

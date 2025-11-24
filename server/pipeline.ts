@@ -6,7 +6,7 @@ import {
   timeToString,
 } from "./time-window-utils";
 import { computeCapacityWindows } from "./capacity-windows";
-import { applyServiceRules } from "./service-delivery-rules";
+// Service delivery rules are now applied inline during demand calculation from GH data
 import { extractCancelledWindowsFromGHWorkbook } from "./cancelled-visits-from-gh";
 import {
   AvailabilityRow,
@@ -996,7 +996,6 @@ interface CGDataRow {
 export async function parseExcelFiles(
   availabilityBuffer: Buffer,
   guaranteedBuffer: Buffer,
-  demandBuffer: Buffer,
   cgDataBuffer: Buffer,
 ): Promise<{
   availability: ParsedAvailabilityRow[];
@@ -1008,7 +1007,7 @@ export async function parseExcelFiles(
 }> {
   console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
   console.log(
-    `🔧 Buffer lengths: availability=${availabilityBuffer?.length}, guaranteed=${guaranteedBuffer?.length}, demand=${demandBuffer?.length}, cgData=${cgDataBuffer?.length}`,
+    `🔧 Buffer lengths: availability=${availabilityBuffer?.length}, guaranteed=${guaranteedBuffer?.length}, cgData=${cgDataBuffer?.length}`,
   );
   const warnings: string[] = [];
 
@@ -1038,39 +1037,47 @@ export async function parseExcelFiles(
   const guaranteedData =
     XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
 
-  // === Use modular service delivery rules processing ===
-  console.log(
-    `🔧 Calling applyServiceRules with buffer of length: ${demandBuffer.length}`,
-  );
-  let serviceRulesResult;
-  try {
-    serviceRulesResult = applyServiceRules(demandBuffer);
-    console.log(`✅ applyServiceRules completed successfully`);
-  } catch (error) {
-    console.error(`❌ applyServiceRules failed:`, error);
-    throw error;
-  }
+  // === Calculate demand from Guaranteed Hours data ===
+  console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
+  
+  // Filter guaranteed hours to exclude cancelled, secondary care, night shifts, office hours
+  const demandRows = guaranteedData.filter(row => {
+    // Skip cancelled
+    if (!isCancellationBlank(row["Cancellation Description"])) return false;
+    
+    // Skip secondary care
+    if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
+    
+    // Skip excluded service types (night shifts, office hours, shadowing, on-call)
+    const serviceType = row["Actual Service Type Description"] || "";
+    const lowerType = String(serviceType).toLowerCase();
+    const excludedTypes = ['office hours', 'office', 'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'night', 'overnight', 'sleepover', 'shadowing', 'on-call', 'on call'];
+    if (excludedTypes.some(excluded => lowerType.includes(excluded))) return false;
+    
+    return true;
+  });
 
-  const { meta, hoursByWeekday, filteredRows } =
-    serviceRulesResult;
+  // Group by weekday and sum duration
+  const hoursByWeekday = new Map<string, number>();
+  const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  demandRows.forEach(row => {
+    const { start } = resolveServiceTimestamps(row);
+    if (!start) return;
+    
+    const startDate = parseDate(start);
+    const weekdayName = weekdayNames[startDate.getDay()];
+    const duration = Number(row["Actual Pay Rate Hours"]) || 0;
+    
+    hoursByWeekday.set(weekdayName, (hoursByWeekday.get(weekdayName) || 0) + duration);
+  });
 
-  console.log(
-    `📁 Sheet: ${meta.sheetName}, Header row: ${meta.headerRow}, Rows: ${meta.rowsIn} → ${meta.rowsAfterNormalize} → ${meta.rowsAfterFilter}`,
-  );
-  console.log(`🔍 Column mapping:`, meta.columnMap);
-  console.log(`📊 Weekday totals:`, hoursByWeekday);
-  console.log(`📊 Filtered demand rows for visit generation: ${filteredRows.length}`);
+  const hoursByWeekdayArray = Array.from(hoursByWeekday.entries())
+    .map(([weekday, hours]) => ({ weekday, hours: Math.round(hours * 100) / 100 }))
+    .sort((a, b) => a.weekday.localeCompare(b.weekday));
 
-  // Clear old visits data before generating new visits to prevent accumulation
-  console.log(`🧹 Clearing old visits data before generating new visits...`);
-  await storage.clearAllVisits();
-
-  // OPTIMIZATION: Skip synthetic visit generation - we use real visit times from GH Workbook
-  // This saves 3-4 minutes of unnecessary geocoding and database operations
-  // The actual visit extraction logic is now in extractAndStoreGeographicalData
-  // const analysisStartDate = new Date();
-  // await generateVisitsFromDemand(filteredRows, analysisStartDate, 7);
-  console.log(`⚡ Skipping synthetic visit generation - using real Excel visit times for performance`);
+  console.log(`📊 Calculated demand from Guaranteed Hours:`, hoursByWeekdayArray);
+  console.log(`📊 Total demand rows after filtering: ${demandRows.length}`);
 
   // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
@@ -1255,7 +1262,7 @@ export async function parseExcelFiles(
     `🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`,
   );
 
-  // === Use modular service delivery rules processing ===
+  // === Map calculated demand to actual dates ===
   const validatedDemand: ClientDemandRow[] = [];
 
   // Extract actual dates from availability and guaranteed hours data
@@ -1333,7 +1340,7 @@ export async function parseExcelFiles(
   console.log(`================================\n`);
 
   // Map weekday hours to actual dates from the files
-  hoursByWeekday.forEach(({ weekday, hours }) => {
+  hoursByWeekdayArray.forEach(({ weekday, hours }) => {
     const actualDatesForWeekday = weekdayToActualDates[weekday] || [];
 
     if (actualDatesForWeekday.length === 0) {
@@ -1359,16 +1366,16 @@ export async function parseExcelFiles(
   });
 
   // Summary logging
-  const totalHours = hoursByWeekday.reduce((sum, { hours }) => sum + hours, 0);
+  const totalHours = hoursByWeekdayArray.reduce((sum, { hours }) => sum + hours, 0);
   const mondayHours =
-    hoursByWeekday.find(({ weekday }) => weekday === "Monday")?.hours || 0;
+    hoursByWeekdayArray.find(({ weekday }) => weekday === "Monday")?.hours || 0;
 
-  console.log(`\n📊 ===== SERVICE DELIVERY SUMMARY =====`);
+  console.log(`\n📊 ===== DEMAND CALCULATION SUMMARY =====`);
   console.log(
-    `✅ Filtered records: ${meta.rowsAfterFilter} (from ${meta.rowsAfterNormalize} normalized)`,
+    `✅ Calculated from ${demandRows.length} Guaranteed Hours entries`,
   );
-  console.log(`📈 Monday hours: ${mondayHours} (expected: ~64.5)`);
-  console.log(`📈 Total hours: ${totalHours} (expected: 400.33)`);
+  console.log(`📈 Monday hours: ${mondayHours}`);
+  console.log(`📈 Total hours: ${totalHours}`);
   console.log(`=======================================\n`);
 
   // === BRANCH EXTRACTION AND VALIDATION ===
