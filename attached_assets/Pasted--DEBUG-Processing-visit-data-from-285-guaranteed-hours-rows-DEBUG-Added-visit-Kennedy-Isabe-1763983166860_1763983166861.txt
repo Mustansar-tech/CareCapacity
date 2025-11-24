@@ -1,0 +1,227 @@
+🔍 DEBUG: Processing visit data from 285 guaranteed hours rows
+🔍 DEBUG: Added visit Kennedy, Isabelle on 2025-11-25 at 630-749 minutes
+🔍 DEBUG: Added visit East NL, Glasgow on 2025-11-25 at 855-915 minutes
+🔍 DEBUG: Added visit East NL, Glasgow on 2025-11-26 at 569-810 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-24 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-25 at 704-825 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-25 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-26 at 704-765 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-26 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-27 at 704-825 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-27 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-28 at 704-765 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-11-28 at 1080-1140 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-27 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-28 at 555-614 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-28 at 780-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-28 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-28 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-29 at 555-614 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-29 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-30 at 555-614 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-30 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-30 at 1230-1289 minutes
+🔍 DEBUG: Added visit Murray, James on 2025-11-25 at 704-765 minutes
+🔍 DEBUG: Added visit Murray, James on 2025-11-26 at 704-765 minutes
+🔍 DEBUG: Added visit Murray, James on 2025-11-27 at 704-765 minutes
+🔍 DEBUG: Added visit Murray, James on 2025-11-28 at 704-765 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-27 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-27 at 780-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-27 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-26 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-26 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-26 at 780-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-26 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-25 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-25 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-25 at 780-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-25 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-24 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-24 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-11-24 at 479-765 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-30 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-30 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-30 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-29 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-29 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-29 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-28 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-28 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-28 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-27 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-27 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-27 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-26 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-26 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-26 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-25 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-25 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-25 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-24 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-24 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-11-24 at 780-900 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-30 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-29 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-27 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-26 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-26 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-25 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-25 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-24 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-24 at 1005-1064 minutes
+🔍 DEBUG: Added visit Murray, James on 2025-11-30 at 704-765 minutes
+🔍 DEBUG: Added visit Murray, James on 2025-11-29 at 704-765 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-24 at 479-900 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-24 at 704-765 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-24 at 855-915 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-24 at 1154-1215 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-25 at 479-540 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-25 at 704-765 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-25 at 1154-1215 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-26 at 479-540 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-26 at 704-765 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-26 at 855-915 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-26 at 1154-1215 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-27 at 479-540 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-27 at 704-765 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-27 at 855-915 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-27 at 1154-1215 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-28 at 479-839 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-28 at 1154-1215 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-29 at 479-540 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-29 at 1154-1215 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-30 at 479-540 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-30 at 780-839 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-11-30 at 1154-1215 minutes
+🔍 DEBUG: Added visit Law (F), Angela on 2025-11-26 at 855-1035 minutes
+🔍 DEBUG: Added visit Law (F), Angela on 2025-11-28 at 855-1095 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-25 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-25 at 1005-1064 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-26 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-27 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-27 at 1080-1140 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-28 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-29 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-24 at 1080-1140 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-11-24 at 555-614 minutes
+🔍 DEBUG: Added visit Gray (F), Mary on 2025-11-26 at 870-990 minutes
+🔍 DEBUG: Added visit Scott (F), Edith on 2025-11-26 at 555-675 minutes
+🔍 DEBUG: Added visit Scott (F), Edith on 2025-11-24 at 555-675 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-24 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-24 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-25 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-25 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-26 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-26 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-27 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-27 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-28 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-28 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-29 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-30 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-11-30 at 1154-1199 minutes
+🔍 DEBUG: Added visit McInnes, James on 2025-11-24 at 1005-1064 minutes
+🔍 DEBUG: Added visit McInnes, James on 2025-11-26 at 1005-1125 minutes
+🔍 DEBUG: Added visit McInnes, James on 2025-11-27 at 1005-1064 minutes
+🔍 DEBUG: Added visit Ramsay (F), Jean on 2025-11-25 at 630-690 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-25 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-24 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-25 at 1080-1140 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-24 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-24 at 1080-1140 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-25 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-26 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-30 at 1080-1140 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-29 at 1080-1140 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-26 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-29 at 855-915 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-28 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-26 at 1080-1140 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-27 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-28 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-27 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-11-27 at 1080-1140 minutes
+🔍 DEBUG: Added visit Training (NL), Seaward place on 2025-11-27 at 569-990 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-24 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-25 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-26 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-27 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-28 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-29 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-11-30 at 1005-1064 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-11-28 at 555-839 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-11-27 at 555-839 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-11-26 at 555-839 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-11-24 at 555-839 minutes
+🔍 DEBUG: Added visit Robertson (F), Doreen on 2025-11-29 at 945-1064 minutes
+🔍 DEBUG: Added visit Robertson (F), Doreen on 2025-11-25 at 1005-1125 minutes
+🔍 DEBUG: Added visit Kennedy, Roberta on 2025-11-29 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Roberta on 2025-11-27 at 855-915 minutes
+🔍 DEBUG: Added visit Grant (F), Helen on 2025-11-27 at 630-749 minutes
+🔍 DEBUG: Added visit Grant (F), Helen on 2025-11-25 at 555-675 minutes
+🔍 DEBUG: Added visit McConnell, Marion on 2025-11-24 at 690-870 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-24 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-24 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-25 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-25 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-26 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-26 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-27 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-27 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-27 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-30 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-29 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-29 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-11-28 at 704-765 minutes
+🔍 DEBUG: Added visit White, Sarah on 2025-11-29 at 630-690 minutes
+🔍 DEBUG: Added visit White, Sarah on 2025-11-28 at 630-690 minutes
+🔍 DEBUG: Added visit Morris (F), Jack on 2025-11-30 at 1005-1064 minutes
+🔍 DEBUG: Added visit Morris (F), Jack on 2025-11-28 at 1005-1064 minutes
+🔍 DEBUG: Added visit Morris (F), Jack on 2025-11-27 at 1005-1064 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-11-30 at 855-974 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-11-27 at 704-825 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-11-26 at 855-915 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-11-25 at 704-825 minutes
+🔍 DEBUG: Added visit Hood (F), Catherine on 2025-11-25 at 704-825 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-24 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-25 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-26 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-27 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-28 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-29 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-11-30 at 1080-1140 minutes
+🔍 DEBUG: Added visit Pedrick, Michael on 2025-11-26 at 479-600 minutes
+🔍 DEBUG: Added visit Pedrick, Michael on 2025-11-29 at 479-600 minutes
+🔍 DEBUG: Added visit Gibb (F), Irene on 2025-11-27 at 1154-1215 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-11-24 at 780-839 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-11-25 at 780-839 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-11-28 at 780-839 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-11-29 at 780-839 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-30 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-30 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-29 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-29 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-28 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-28 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-27 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-27 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-26 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-26 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-25 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-25 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-24 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-11-24 at 479-540 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-24 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-25 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-26 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-27 at 479-540 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-28 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-29 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-11-30 at 630-690 minutes
+🔍 DEBUG: Added visit Lindsay (F), Martha on 2025-11-25 at 630-690 minutes
+🔍 DEBUG: Added visit Lindsay (F), Martha on 2025-11-28 at 630-690 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-11-25 at 630-690 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-11-27 at 630-690 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-11-28 at 555-614 minutes
+🔍 DEBUG: Added visit Mclachlan, William on 2025-11-27 at 555-675 minutes
+📅 Found 225 visits across 7 dates for route optimization
