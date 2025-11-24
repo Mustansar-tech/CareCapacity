@@ -1067,7 +1067,14 @@ export async function parseExcelFiles(
     
     const startDate = parseDate(start);
     const weekdayName = weekdayNames[startDate.getDay()];
-    const duration = Number(row["Actual Pay Rate Hours"]) || 0;
+    
+    // Use Planned Duration first (client requirement), then fallback to Actual
+    const plannedDuration = Number(row["Planned Duration"]) || 0;
+    const actualDuration = Number(row["Actual Duration"]) || 0;
+    const actualPayHours = Number(row["Actual Pay Rate Hours"]) || 0;
+    
+    // Priority: Planned Duration > Actual Duration > Actual Pay Rate Hours
+    const duration = plannedDuration || actualDuration || actualPayHours;
     
     hoursByWeekday.set(weekdayName, (hoursByWeekday.get(weekdayName) || 0) + duration);
   });
