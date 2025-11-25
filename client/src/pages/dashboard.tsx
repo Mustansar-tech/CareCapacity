@@ -200,6 +200,12 @@ export default function Dashboard() {
     onSuccess: (data: ProcessingResult) => {
       setProcessedData(data);
       setIsProcessing(false);
+
+      // Auto-select the first date so all tabs work immediately
+      if (data.dailySummary && data.dailySummary.length > 0) {
+        setSelectedDate(data.dailySummary[0].date);
+      }
+
       // Don't invalidate queries to prevent auto-refresh
       // queryClient.invalidateQueries({ queryKey: ['/api/history'] });
       toast({
