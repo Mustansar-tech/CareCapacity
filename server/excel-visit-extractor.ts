@@ -3,18 +3,19 @@ import * as XLSX from 'xlsx';
 import { startOfDay, endOfDay, format as fmt, addMinutes } from 'date-fns';
 
 const START_COLS = [
+  'Planned Start Date And Time',  // Primary column as requested
   'Service Requirement Start Date And Time',
-  'Planned Start Date And Time',
   'Actual Start Date And Time',
 ];
 
 const END_COLS = [
+  'Planned End Date And Time',  // Primary column as requested
   'Service Requirement End Date And Time',
-  'Planned End Date And Time',
   'Actual End Date And Time',
 ];
 
 const DUR_COLS = [
+  'Planned Duration',  // Primary column as requested (in hours)
   'Service Requirement Duration',
   'Actual Duration',
   'Template Duration (Minutes)',
@@ -209,7 +210,12 @@ export function extractClientVisitsFromGHExcel(
     for (const c of DUR_COLS) {
       const val = Number(row[c]);
       if (!isFinite(val)) continue;
-      durationMinutes = c.toLowerCase().includes('minute') ? Math.round(val) : Math.round(val * 60);
+      // Planned Duration is in hours, Template Duration is in minutes
+      if (c === 'Planned Duration' || c === 'Service Requirement Duration' || c === 'Actual Duration') {
+        durationMinutes = Math.round(val * 60);
+      } else {
+        durationMinutes = Math.round(val);
+      }
       break;
     }
     if (!isFinite(durationMinutes) || durationMinutes <= 0) continue;

@@ -1062,17 +1062,16 @@ export async function parseExcelFiles(
   const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
   demandRows.forEach(row => {
-    // CRITICAL FIX: Use PLANNED Start Date (not Service Requirement) to match Hours by Service Type logic
+    // Use PLANNED columns as requested by user
     const plannedStart = row["Planned Start Date And Time"];
     if (!plannedStart) return;
     
     const startDate = parseDate(plannedStart);
     const weekdayName = weekdayNames[startDate.getDay()];
     
-    // Use EXACT same column priority as "Hours by Service Type" file (service-delivery-rules.ts)
-    // This ensures we get the same demand calculation as the old 4-file system
+    // Use PLANNED DURATION column as primary source
     const durationCols = [
-      "Planned Duration",
+      "Planned Duration",  // Primary column as requested
       "Duration (Planned)",
       "Duration",
       "Planned Hrs",
