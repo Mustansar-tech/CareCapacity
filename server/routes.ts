@@ -271,6 +271,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
       fs.writeFileSync(exportPath, exportBuffer);
 
+      // Clear old visits data before processing new data
+      console.log(`🧹 Clearing old visits data for branch ${branch.displayName}...`);
+      await storage.clearAllVisits(requestedBranchId);
+
       // Persist processed data to database with derived week boundaries
       try {
         if (result.dailySummary && result.dailySummary.length > 0) {
