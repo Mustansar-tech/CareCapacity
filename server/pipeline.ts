@@ -599,11 +599,19 @@ function buildDisplayNameMap(guaranteed: any[]): Map<string, string> {
 // Robust secondary filter (case/spacing tolerant)
 function isSecondaryMultipleCare(serviceType: string): boolean {
   if (!serviceType) return false;
-  const lower = serviceType.toLowerCase();
-  return lower.includes("multiple care (secondary)") ||
-         lower.includes("secondary") ||
-         lower.includes("multiple care - secondary") ||
-         lower.includes("(secondary)");
+  const normalized = String(serviceType)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "") // Remove non-alphanumeric
+    .replace(/\s/g, ""); // Remove spaces
+
+  const excluded = [
+    "multiplecaresecondary",
+    "secondary",
+    "multiplecare-secondary",
+    "(secondary)",
+  ].map(s => s.replace(/[^a-z0-9]/g, "").replace(/\s/g, ""));
+
+  return excluded.some(ex => normalized.includes(ex));
 }
 
 // Treat common "blank" tokens as blank
@@ -644,7 +652,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
     // This ensures employees show correct scheduled hours including office work
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
-    
+
     // Track office hours for debugging
     const serviceType = g["Actual Service Type Description"] || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
@@ -658,7 +666,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Sum only positive/real pay hours
     const pay = Number(g["Actual Pay Rate Hours"]) || 0;
-    
+
     if (isOfficeHours && pay > 0) {
       officeHoursIncluded++;
     }
@@ -708,7 +716,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
           `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
       }
-      
+
       // Also log for office hours to verify they're being added
       if (isOfficeHours) {
         console.log(
@@ -1039,7 +1047,7 @@ export async function parseExcelFiles(
 
   // === Calculate demand from Guaranteed Hours data ===
   console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
-  
+
   // Apply SAME filtering rules as service-delivery-rules.ts for consistency
   // This ensures demand calculation matches the Hours by Service Type logic
   const EXCLUDED_TYPES = [
@@ -1066,10 +1074,10 @@ export async function parseExcelFiles(
     const cancellation = row["Cancellation Description"];
     const isCancelled = cancellation && String(cancellation).trim().length > 0;
     if (isCancelled) return false;
-    
+
     // Rule 2: Skip secondary care using robust check
     if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
-    
+
     // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
     const serviceType = row["Actual Service Type Description"] || "";
     const normalizedServiceType = String(serviceType)
@@ -1077,13 +1085,13 @@ export async function parseExcelFiles(
       .replace(/[^\w\s]/g, '')  // Remove special chars
       .replace(/\s+/g, ' ')      // Normalize spaces
       .trim();
-    
-    const isExcludedType = EXCLUDED_TYPES.some(excluded => 
+
+    const isExcludedType = EXCLUDED_TYPES.some(excluded =>
       normalizedServiceType.includes(excluded.replace(/[^\w\s]/g, '').replace(/\s+/g, ' '))
     );
-    
+
     if (isExcludedType) return false;
-    
+
     return true;
   });
 
@@ -1100,7 +1108,7 @@ export async function parseExcelFiles(
   });
   const cancelledHours = cancelledRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
-  const secondaryRows = guaranteedData.filter(row => 
+  const secondaryRows = guaranteedData.filter(row =>
     isSecondaryMultipleCare(row["Actual Service Type Description"])
   );
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
@@ -1139,15 +1147,15 @@ export async function parseExcelFiles(
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
   const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  
+
   demandRows.forEach(row => {
     // Use PLANNED columns as requested by user
     const plannedStart = row["Planned Start Date And Time"];
     if (!plannedStart) return;
-    
+
     const startDate = parseDate(plannedStart);
     const weekdayName = weekdayNames[startDate.getDay()];
-    
+
     // Use PLANNED DURATION column as primary source
     const durationCols = [
       "Planned Duration",  // Primary column as requested
@@ -1157,7 +1165,7 @@ export async function parseExcelFiles(
       "Planned Hours",
       "Planned Time",
     ];
-    
+
     let duration = 0;
     let foundColumn = "";
     for (const col of durationCols) {
@@ -1169,13 +1177,13 @@ export async function parseExcelFiles(
         break;
       }
     }
-    
+
     // Debug: Log first 10 entries to verify fractional hours are being captured
     const currentTotal = hoursByWeekday.get(weekdayName) || 0;
     if (demandRows.indexOf(row) < 10) {
       console.log(`  📊 Row ${demandRows.indexOf(row) + 1}: ${weekdayName} - ${duration}h from "${foundColumn}" (running total: ${currentTotal + duration}h)`);
     }
-    
+
     // If no duration found in preferred columns, this visit won't count toward demand
     if (duration > 0) {
       hoursByWeekday.set(weekdayName, currentTotal + duration);
@@ -1291,6 +1299,7 @@ export async function parseExcelFiles(
         return;
       }
 
+      const empName = row["CAREGiver Name"]; // For logging
       const parsedDate = parseDate(row["Start Date"]);
       const effectiveHours =
         row.Hours ?? hoursBetween(row["Start Time"], row["End Time"]);
@@ -1302,10 +1311,69 @@ export async function parseExcelFiles(
         return;
       }
 
+      // Parse availability windows using enhanced logic
+      const rawWindows = row["Time Window(s)"] || row["Time Window"] || "";
+      let timeWindows = "";
+
+      if (typeof rawWindows === "string" && rawWindows.trim()) {
+        // Split multiple windows by semicolon or comma
+        const windows = rawWindows
+          .split(/[;,]/)
+          .map((w) => w.trim())
+          .filter((w) => w);
+
+        // Process each window
+        const processedWindows = windows
+          .map((w) => {
+            // Handle combined format like "08:00 - 12:00"
+            const match = w.match(
+              /(\d{1,2}:\d{2})\s*[\-–—]\s*(\d{1,2}:\d{2})/,
+            );
+            if (match) {
+              const startTime = match[1].padStart(5, "0");
+              const endTime = match[2].padStart(5, "0");
+
+              // Skip overnight windows (end time earlier than start time means crosses midnight)
+              const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+              const endMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
+
+              if (endMinutes < startMinutes) {
+                console.log(`🚫 Skipping overnight availability window for ${empName}: ${startTime}-${endTime} (crosses midnight)`);
+                return null;
+              }
+
+              return `${startTime}-${endTime}`;
+            }
+            return null;
+          })
+          .filter((w): w is string => w !== null);
+
+        timeWindows = processedWindows.join(", ");
+      } else {
+        // Fallback to buildTimeWindow if raw string parsing fails
+        const builtWindow = buildTimeWindow(row);
+
+        // Check if built window is overnight
+        if (builtWindow) {
+          const [start, end] = builtWindow.split('-');
+          const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1]);
+          const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1]);
+
+          if (endMinutes < startMinutes) {
+            console.log(`🚫 Skipping overnight availability window for ${empName}: ${builtWindow} (crosses midnight)`);
+            timeWindows = "";
+          } else {
+            timeWindows = builtWindow;
+          }
+        }
+      }
+
+
       validatedAvailability.push({
         ...row,
         parsedDate,
         calculatedHours: effectiveHours,
+        "Time Window(s)": timeWindows, // Update with filtered windows
       });
     } catch (error) {
       warnings.push(
@@ -1465,7 +1533,8 @@ export async function parseExcelFiles(
     // If there are multiple dates for this weekday, distribute hours evenly
     const hoursPerDate =
       actualDatesForWeekday.length > 1
-        ? Math.round((hours / actualDatesForWeekday.length) * 100) / 100
+        ? Math.round((hours / actualDatesForWeekday.length) * 100) /
+          100
         : hours;
 
     actualDatesForWeekday.forEach((dateStr) => {
@@ -1582,7 +1651,7 @@ export async function processCapacityData(
 
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
   console.log(`\n🔍 DEBUG: About to call buildScheduledHoursLookup with ${guaranteed.length} guaranteed rows`);
-  
+
   // Debug: Check if office hours exist in the data
   const officeRows = guaranteed.filter(row => {
     const serviceType = (row["Actual Service Type Description"] || "").toString().toLowerCase();
@@ -1596,7 +1665,7 @@ export async function processCapacityData(
       hours: r["Actual Pay Rate Hours"]
     })));
   }
-  
+
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
   // Debug: Check what's actually in the guaranteed hours data
@@ -1754,7 +1823,7 @@ export async function processCapacityData(
       status: canonicalStatus(row.Type),
       startTime: timeToString(row["Start Time"]),
       endTime: timeToString(row["End Time"]),
-      timeWindow: buildTimeWindow(row),
+      timeWindow: row["Time Window(s)"], // Use the filtered time windows
       hours: hoursEffective,
       notes: row.Notes || "",
       employeeKey: key,
@@ -1921,6 +1990,7 @@ export async function processCapacityData(
         const p = STATUS_PRIORITY[status] || 999;
         if (p < highestPriority) {
           highestPriority = p;
+          highestPriority = p; // Ensure highestPriority is updated
           highestPriorityStatus = status;
         }
       });
@@ -3148,11 +3218,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     console.log(`\n📊 ===== VISIT EXTRACTION SERVICE TYPE SUMMARY =====`);
     console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
     console.log(`\n📋 Total Hours by Service Type:`);
-    
+
     // Sort by hours (descending) for easier reading
     const sortedServiceTypes = Array.from(serviceTypeSummary.entries())
       .sort((a, b) => b[1] - a[1]);
-    
+
     sortedServiceTypes.forEach(([serviceType, hours]) => {
       console.log(`  • ${serviceType}: ${Math.round(hours * 100) / 100} hours`);
     });

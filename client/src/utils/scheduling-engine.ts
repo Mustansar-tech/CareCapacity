@@ -593,6 +593,12 @@ export function generateWeeklySchedule(
       return false;
     }
 
+    // Skip overnight visits (start date ≠ end date)
+    if ((visit as any).crossesMidnight) {
+      console.log(`🚫 Excluding overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} (crosses midnight)`);
+      return false;
+    }
+
     // Skip if no location data
     if (!visit.lat || !visit.lng) {
       console.log(`🚫 Excluding visit without location: ${visit.clientName}`);

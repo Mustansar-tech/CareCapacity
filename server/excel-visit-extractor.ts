@@ -316,6 +316,7 @@ export function extractClientVisitsFromGHExcel(
             if (crossesMidnight) {
               visitData.crossesMidnight = true;
               visitData.actualEndDate = format(endDateTime, "yyyy-MM-dd");
+              console.log(`🌙 Overnight visit flagged for exclusion: ${clientName} (${visitDate} ${startTimeStr}-${endTimeStr})`);
             }
 
             visitsMap.set(visitKey, visitData as ExcelClientVisit);
