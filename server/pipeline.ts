@@ -1048,10 +1048,10 @@ export async function parseExcelFiles(
     // Skip secondary care
     if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
     
-    // Skip excluded service types (night shifts, office hours, shadowing, on-call)
+    // Skip excluded service types (night shifts, office hours, shadowing, on-call, training)
     const serviceType = row["Actual Service Type Description"] || "";
     const lowerType = String(serviceType).toLowerCase();
-    const excludedTypes = ['office hours', 'office', 'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'night', 'overnight', 'sleepover', 'shadowing', 'on-call', 'on call'];
+    const excludedTypes = ['office hours', 'office', 'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'night', 'overnight', 'sleepover', 'shadowing', 'on-call', 'on call', 'training'];
     if (excludedTypes.some(excluded => lowerType.includes(excluded))) return false;
     
     return true;
