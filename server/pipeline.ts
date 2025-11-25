@@ -1300,7 +1300,28 @@ export async function parseExcelFiles(
       }
 
       const empName = row["CAREGiver Name"]; // For logging
-      const parsedDate = parseDate(row["Start Date"]);
+      const parsedStartDate = parseDate(row["Start Date"]);
+      
+      // CRITICAL FIX: Reject entries where start and end dates differ
+      // This prevents incorrectly including dates when availability spans multiple days
+      if (row["End Date"]) {
+        try {
+          const parsedEndDate = parseDate(row["End Date"]);
+          const startDateStr = format(parsedStartDate, "yyyy-MM-dd");
+          const endDateStr = format(parsedEndDate, "yyyy-MM-dd");
+          
+          if (startDateStr !== endDateStr) {
+            console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} differs from end date ${endDateStr} - multi-day entries not supported`);
+            warnings.push(
+              `Availability row ${index + 1} (${empName}): Rejected - start date (${startDateStr}) differs from end date (${endDateStr}). Multi-day availability entries are not supported.`,
+            );
+            return;
+          }
+        } catch (endDateError) {
+          console.log(`⚠️ Could not parse end date for ${empName}, continuing with start date validation`);
+        }
+      }
+      
       const effectiveHours =
         row.Hours ?? hoursBetween(row["Start Time"], row["End Time"]);
 
@@ -1371,7 +1392,7 @@ export async function parseExcelFiles(
 
       validatedAvailability.push({
         ...row,
-        parsedDate,
+        parsedDate: parsedStartDate,
         calculatedHours: effectiveHours,
         "Time Window(s)": timeWindows, // Update with filtered windows
       });
