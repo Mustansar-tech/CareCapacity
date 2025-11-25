@@ -1062,10 +1062,11 @@ export async function parseExcelFiles(
   const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
   demandRows.forEach(row => {
-    const { start } = resolveServiceTimestamps(row);
-    if (!start) return;
+    // CRITICAL FIX: Use PLANNED Start Date (not Service Requirement) to match Hours by Service Type logic
+    const plannedStart = row["Planned Start Date And Time"];
+    if (!plannedStart) return;
     
-    const startDate = parseDate(start);
+    const startDate = parseDate(plannedStart);
     const weekdayName = weekdayNames[startDate.getDay()];
     
     // Use EXACT same column priority as "Hours by Service Type" file (service-delivery-rules.ts)
