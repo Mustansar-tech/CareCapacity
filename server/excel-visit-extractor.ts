@@ -133,19 +133,7 @@ function roundToNearest15Minutes(date: Date): Date {
   return result;
 }
 
-// This function needs to be adapted to handle potential storage access.
-// For now, it's a placeholder. The original code did not provide `storage` or `branchId`.
-// Assuming these are available in the context where this function is called.
-async function getClientLocationByName(branchId: string, clientName: string): Promise<any | null> {
-  // Placeholder: In a real scenario, this would interact with a storage service
-  // to retrieve client location details.
-  console.log(`Fetching location for ${clientName} in branch ${branchId}...`);
-  // Mock data for demonstration
-  if (clientName.includes("Test Client")) {
-    return { lat: 51.5074, lng: -0.1278 }; // Example coordinates
-  }
-  return null;
-}
+
 
 
 export async function extractClientVisitsFromGHExcel(
@@ -286,7 +274,7 @@ export async function extractClientVisitsFromGHExcel(
           const visitKey = `${clientName}-${visitDate}-${format(startDateTime, "HH:mm")}`; // Use formatted start time for key
 
           // Get client location for this visit using the provided storage and branchId
-          const clientLocation = await getClientLocationByName(branchId, clientName);
+          const clientLocation = await storage.getClientLocationByName(branchId, clientName);
 
           if (clientLocation && !visitsMap.has(visitKey)) {
             // Extract time windows for VRPTW optimizer
