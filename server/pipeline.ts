@@ -1040,22 +1040,101 @@ export async function parseExcelFiles(
   // === Calculate demand from Guaranteed Hours data ===
   console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
   
-  // Filter guaranteed hours to exclude cancelled, secondary care, night shifts, office hours
+  // Apply SAME filtering rules as service-delivery-rules.ts for consistency
+  // This ensures demand calculation matches the Hours by Service Type logic
+  const EXCLUDED_TYPES = [
+    'office hours',
+    'office',
+    'nights - sleep in',
+    'sleep in',
+    'nights - waking nights',
+    'waking nights',
+    'night',
+    'overnight',
+    'sleepover',
+    'multiple care (secondary)',
+    'secondary',
+    '(secondary)',
+    'shadowing',
+    'oncall',  // normalized version (hyphen removed)
+    'on call',  // space-separated version
+    'training'  // training sessions
+  ];
+
   const demandRows = guaranteedData.filter(row => {
-    // Skip cancelled
-    if (!isCancellationBlank(row["Cancellation Description"])) return false;
+    // Rule 1: Skip cancelled visits (same as service-delivery-rules.ts)
+    const cancellation = row["Cancellation Description"];
+    const isCancelled = cancellation && String(cancellation).trim().length > 0;
+    if (isCancelled) return false;
     
-    // Skip secondary care
+    // Rule 2: Skip secondary care using robust check
     if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
     
-    // Skip excluded service types (night shifts, office hours, shadowing, on-call, training)
+    // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
     const serviceType = row["Actual Service Type Description"] || "";
-    const lowerType = String(serviceType).toLowerCase();
-    const excludedTypes = ['office hours', 'office', 'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'night', 'overnight', 'sleepover', 'shadowing', 'on-call', 'on call', 'training'];
-    if (excludedTypes.some(excluded => lowerType.includes(excluded))) return false;
+    const normalizedServiceType = String(serviceType)
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')  // Remove special chars
+      .replace(/\s+/g, ' ')      // Normalize spaces
+      .trim();
+    
+    const isExcludedType = EXCLUDED_TYPES.some(excluded => 
+      normalizedServiceType.includes(excluded.replace(/[^\w\s]/g, '').replace(/\s+/g, ' '))
+    );
+    
+    if (isExcludedType) return false;
     
     return true;
   });
+
+  // Log filtering breakdown (same detail as service-delivery-rules.ts)
+  const totalFiltered = guaranteedData.length - demandRows.length;
+  console.log(
+    `🔍 DEMAND FILTERING: Excluded ${totalFiltered} rows from ${guaranteedData.length} total Guaranteed Hours entries`,
+  );
+
+  // Show breakdown by exclusion type WITH HOURS
+  const cancelledRows = guaranteedData.filter(row => {
+    const cancellation = row["Cancellation Description"];
+    return cancellation && String(cancellation).trim().length > 0;
+  });
+  const cancelledHours = cancelledRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
+  const secondaryRows = guaranteedData.filter(row => 
+    isSecondaryMultipleCare(row["Actual Service Type Description"])
+  );
+  const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
+  const nightRows = guaranteedData.filter(row => {
+    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
+    return st.includes("night") || st.includes("sleep in") || st.includes("waking") || st.includes("sleepover") || st.includes("overnight");
+  });
+  const nightHours = nightRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
+  const officeRows = guaranteedData.filter(row => {
+    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
+    return st.includes("office");
+  });
+  const officeHours = officeRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
+  const shadowingRows = guaranteedData.filter(row => {
+    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
+    return st.includes("shadowing");
+  });
+  const shadowingHours = shadowingRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
+  const trainingRows = guaranteedData.filter(row => {
+    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
+    return st.includes("training");
+  });
+  const trainingHours = trainingRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
+  console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
+  console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
+  console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
+  console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
+  console.log(`  ❌ Shadowing: ${shadowingRows.length} rows (${Math.round(shadowingHours * 100) / 100}h)`);
+  console.log(`  ❌ Training: ${trainingRows.length} rows (${Math.round(trainingHours * 100) / 100}h)`);
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
