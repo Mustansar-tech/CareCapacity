@@ -2511,22 +2511,43 @@ export async function processCapacityData(
         let freeWindows = "";
         try {
           if (availabilityWindows) {
-            const capacityResult = computeCapacityWindows(
-              {
-                employeeName,
-                date: dateStr,
-                availabilityWindows,
-                unavailabilityWindows,
-                scheduledWindows,
-                desiredMinutes: empData.contractedDailyHours * 60, // Convert hours to minutes
-              },
-              {
-                roundToMinutes: 15,
-                minWindowMinutes: 60,
-                bufferMinutes: 0,
-              },
-            );
-            freeWindows = capacityResult.freeWindows;
+            // CRITICAL: Filter out any overnight windows before processing
+            const filteredAvailability = availabilityWindows
+              .split(',')
+              .map(w => w.trim())
+              .filter(w => {
+                if (!w || !w.includes('-')) return false;
+                const [start, end] = w.split('-').map(t => t.trim());
+                const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1] || '0');
+                const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1] || '0');
+                
+                // Reject if end time is before start time (overnight)
+                if (endMinutes < startMinutes) {
+                  console.log(`🚫 REJECTING overnight availability window for ${employeeName} on ${dateStr}: ${w}`);
+                  return false;
+                }
+                return true;
+              })
+              .join(', ');
+
+            if (filteredAvailability) {
+              const capacityResult = computeCapacityWindows(
+                {
+                  employeeName,
+                  date: dateStr,
+                  availabilityWindows: filteredAvailability,
+                  unavailabilityWindows,
+                  scheduledWindows,
+                  desiredMinutes: empData.contractedDailyHours * 60, // Convert hours to minutes
+                },
+                {
+                  roundToMinutes: 15,
+                  minWindowMinutes: 60,
+                  bufferMinutes: 0,
+                },
+              );
+              freeWindows = capacityResult.freeWindows;
+            }
           }
         } catch (error) {
           console.warn(

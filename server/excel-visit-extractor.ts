@@ -251,25 +251,31 @@ export async function extractClientVisitsFromGHExcel(
     }
 
     // --- Start of modified section ---
-    if (startRaw) { // Ensure startRaw is not null or empty
+      if (startRaw) { // Ensure startRaw is not null or empty
         try {
           const startDateTime = roundToNearest15Minutes(toDate(startRaw)!); // Use toDate and round
           const endDateTime = endRaw ? roundToNearest15Minutes(toDate(endRaw)!) : addMinutes(startDateTime, durationMinutes);
 
           if (!endDateTime) continue; // Skip if endDateTime could not be determined
 
-          // Handle overnight visits (crossing midnight)
-          // Use the START date as the primary visit date for grouping
+          // CRITICAL: Reject overnight visits completely (crosses midnight)
+          const crossesMidnight = format(startDateTime, "yyyy-MM-dd") !== format(endDateTime, "yyyy-MM-dd");
+          if (crossesMidnight) {
+            console.log(`🚫 REJECTING overnight visit: ${clientName} starts ${format(startDateTime, "yyyy-MM-dd HH:mm")} ends ${format(endDateTime, "yyyy-MM-dd HH:mm")} - crosses midnight boundary`);
+            continue; // Skip this visit entirely
+          }
+
+          // Use the START date as the visit date (only single-day visits reach here)
           const visitDate = format(startDateTime, "yyyy-MM-dd");
+
+          // Validate visit is within the requested date
+          const requestedDate = format(specificDate, "yyyy-MM-dd");
+          if (visitDate !== requestedDate) {
+            continue; // Skip visits not on the requested date
+          }
 
           // Calculate duration in minutes based on actual start and end times
           const duration = Math.round((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60));
-
-          // Check if visit crosses midnight
-          const crossesMidnight = format(startDateTime, "yyyy-MM-dd") !== format(endDateTime, "yyyy-MM-dd");
-          if (crossesMidnight) {
-            console.log(`🌙 Overnight visit detected: ${clientName} starts ${format(startDateTime, "yyyy-MM-dd HH:mm")} ends ${format(endDateTime, "yyyy-MM-dd HH:mm")} (${duration}min)`);
-          }
 
           const visitKey = `${clientName}-${visitDate}-${format(startDateTime, "HH:mm")}`; // Use formatted start time for key
 
@@ -277,10 +283,6 @@ export async function extractClientVisitsFromGHExcel(
           const clientLocation = await storage.getClientLocationByName(branchId, clientName);
 
           if (clientLocation && !visitsMap.has(visitKey)) {
-            // Extract time windows for VRPTW optimizer
-            const startDate = startDateTime;
-
-            // For overnight visits, end time may be in the next day
             // Store the actual clock times (HH:mm format)
             const startTimeStr = format(startDateTime, "HH:mm");
             const endTimeStr = format(endDateTime, "HH:mm");
@@ -300,13 +302,6 @@ export async function extractClientVisitsFromGHExcel(
               postcode,
             };
 
-            // Add overnight flag if it crosses midnight
-            if (crossesMidnight) {
-              visitData.crossesMidnight = true;
-              visitData.actualEndDate = format(endDateTime, "yyyy-MM-dd");
-              console.log(`🌙 Overnight visit flagged for exclusion: ${clientName} (${visitDate} ${startTimeStr}-${endTimeStr})`);
-            }
-
             visitsMap.set(visitKey, visitData as ExcelClientVisit);
           }
         } catch (error) {
@@ -314,7 +309,7 @@ export async function extractClientVisitsFromGHExcel(
           // Continue to the next row even if one fails
         }
       }
-    // --- End of modified section ---
+      // --- End of modified section ---
   }
 
   // Convert Map values back to an array
