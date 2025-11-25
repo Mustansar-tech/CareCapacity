@@ -1,9 +1,18 @@
 // Scheduling utility functions for VRPTW optimization
 
-// Convert HH:MM time string to minutes since midnight
-export function timeToMinutes(time: string): number {
+// Convert HH:mm to minutes since midnight
+// For overnight visits (e.g., 22:00-02:00), end time wraps to next day
+export function timeToMinutes(time: string, allowNextDay: boolean = false): number {
   const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + minutes;
+  const totalMinutes = hours * 60 + minutes;
+
+  // If time is very early (0:00-6:00) and we're allowing next day interpretation,
+  // add 24 hours to represent next day
+  if (allowNextDay && hours >= 0 && hours < 6) {
+    return totalMinutes + (24 * 60);
+  }
+
+  return totalMinutes;
 }
 
 // Convert minutes since midnight to HH:MM format
@@ -126,9 +135,13 @@ export function parseTimeWindows(windows: string | string[]): TimeWindow[] {
     .map(w => {
       const match = w.match(/(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/);
       if (!match) return null;
+      // Use allowNextDay=true for the end time of the window if it's in the early hours
+      // This handles cases where a window might end at 02:00, implying it's on the next day
+      const startTime = timeToMinutes(match[1]);
+      const endTime = timeToMinutes(match[2], match[2].startsWith('0') || parseInt(match[2].split(':')[0]) < 6);
       return {
-        start: timeToMinutes(match[1]),
-        end: timeToMinutes(match[2]),
+        start: startTime,
+        end: endTime,
       };
     })
     .filter((w): w is TimeWindow => w !== null);
@@ -168,11 +181,11 @@ export function isInsertionFeasible(
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
   // LENIENT window check - allow if visit has ANY overlap with windows
-  const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
-  
+  const hasWindowOverlap = windows.some(w => visitStart < w.end && visitEnd > w.start);
+
   // If no overlap at all, check if within working hours (6am-10pm / 22:00)
   const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320; // 6am to 10pm
-  
+
   if (!hasWindowOverlap && !isWithinWorkingHours) {
     return false; // Visit completely outside reasonable time
   }
@@ -195,7 +208,7 @@ export function isInsertionFeasible(
     if (prevVisit.end + travelFromPrev > visit.start) {
       return false; // Not enough time to travel from previous visit
     }
-    
+
     // REMOVED: No penalty for large gaps - they're acceptable
   }
 
@@ -211,7 +224,7 @@ export function isInsertionFeasible(
     if (visit.end + travelToNext > nextVisit.start) {
       return false; // Not enough time to travel to next visit
     }
-    
+
     // REMOVED: No penalty for large gaps - they're acceptable
   }
 

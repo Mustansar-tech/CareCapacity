@@ -151,9 +151,32 @@ function wouldExceedCapacity(
 // STRICT: Visit must fit COMPLETELY within an availability window
 function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
-  const visitEnd = timeToMinutes(visit.endTime);
+  let visitEnd = timeToMinutes(visit.endTime);
+  
+  // Detect overnight visit
+  const crossesMidnight = (visit as any).crossesMidnight || visitEnd < visitStart;
+  
+  if (crossesMidnight) {
+    // For overnight visits, check if the visit fits across the day boundary
+    // The visit needs availability from start time to midnight (1440min) AND from midnight to end time
+    visitEnd = timeToMinutes(visit.endTime, true); // Add 24 hours
+    
+    console.log(`🌙 Checking overnight visit fit: ${visit.clientName} ${visitStart}min to ${visitEnd}min`);
+    
+    // Check if employee has availability that can accommodate the overnight visit
+    // This requires checking if windows extend late enough and start early enough
+    const hasLateWindow = windows.some(w => w.end >= visitStart && w.end >= 1380); // Works late (after 11pm)
+    const hasEarlyWindow = windows.some(w => w.start <= (visitEnd - 1440) && w.start <= 180); // Starts early (before 3am)
+    
+    if (hasLateWindow && hasEarlyWindow) {
+      return visit; // Can accommodate overnight visit
+    }
+    
+    console.log(`⚠️ ${visit.clientName}: Overnight visit doesn't fit (needs late + early availability)`);
+    return null;
+  }
 
-  // STRICT: Check if visit fits COMPLETELY within any availability window
+  // Regular same-day visit: Check if visit fits COMPLETELY within any availability window
   for (const window of windows) {
     if (visitStart >= window.start && visitEnd <= window.end) {
       return visit; // Perfect fit - return original visit
@@ -166,10 +189,23 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
 
 // Convert ClientVisit to ScoringVisit format
 function toScoringVisit(visit: ClientVisit): ScoringVisit {
+  const startMin = timeToMinutes(visit.startTime);
+  let endMin = timeToMinutes(visit.endTime);
+  
+  // Detect overnight visit: if end time is earlier than start time, it crosses midnight
+  // OR if visit has crossesMidnight flag set
+  const crossesMidnight = (visit as any).crossesMidnight || endMin < startMin;
+  
+  if (crossesMidnight) {
+    // Add 24 hours to end time to represent next day
+    endMin = timeToMinutes(visit.endTime, true);
+    console.log(`🌙 Overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} → ${startMin}min to ${endMin}min (crosses midnight)`);
+  }
+  
   return {
     clientName: visit.clientName,
-    start: timeToMinutes(visit.startTime),
-    end: timeToMinutes(visit.endTime),
+    start: startMin,
+    end: endMin,
     lat: visit.lat || 0,
     lng: visit.lng || 0,
   };

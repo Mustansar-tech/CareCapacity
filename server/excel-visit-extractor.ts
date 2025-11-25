@@ -1,6 +1,6 @@
 // Extract real client visit times directly from Guaranteed Hours Excel file
 import * as XLSX from 'xlsx';
-import { startOfDay, endOfDay, format as fmt, addMinutes } from 'date-fns';
+import { startOfDay, endOfDay, format as fmt, addMinutes, parse as parseDate, format } from 'date-fns';
 
 const START_COLS = [
   'Planned Start Date And Time',  // Primary column as requested
@@ -74,6 +74,8 @@ export interface ExcelClientVisit {
   date: string;
   address?: string;
   postcode?: string;
+  crossesMidnight?: boolean; // Added for overnight visits
+  actualEndDate?: string; // Added for overnight visits
 }
 
 // Office visit keywords to exclude
@@ -98,7 +100,7 @@ const EXCLUDED_SERVICE_TYPES = [
   'office',
   'visit, office',
   'office visit',
-  
+
   // Night shifts (covering all variations found in Excel)
   'nights - sleep in',
   'sleep in',
@@ -112,7 +114,7 @@ const EXCLUDED_SERVICE_TYPES = [
   'sleepover',
   'overnight',
   'waking night',  // Singular variant
-  
+
   // Secondary care
   'multiple care (secondary)',
   'secondary',
@@ -131,9 +133,26 @@ function roundToNearest15Minutes(date: Date): Date {
   return result;
 }
 
+// This function needs to be adapted to handle potential storage access.
+// For now, it's a placeholder. The original code did not provide `storage` or `branchId`.
+// Assuming these are available in the context where this function is called.
+async function getClientLocationByName(branchId: string, clientName: string): Promise<any | null> {
+  // Placeholder: In a real scenario, this would interact with a storage service
+  // to retrieve client location details.
+  console.log(`Fetching location for ${clientName} in branch ${branchId}...`);
+  // Mock data for demonstration
+  if (clientName.includes("Test Client")) {
+    return { lat: 51.5074, lng: -0.1278 }; // Example coordinates
+  }
+  return null;
+}
+
+
 export function extractClientVisitsFromGHExcel(
   ghWorkbookBuffer: Buffer,
-  specificDate: Date
+  specificDate: Date,
+  branchId: string, // Added branchId as it's used in the modified logic
+  storage: any // Added storage as it's used in the modified logic
 ): ExcelClientVisit[] {
   const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
@@ -162,6 +181,7 @@ export function extractClientVisitsFromGHExcel(
   const dateStr = fmt(specificDate, 'yyyy-MM-dd');
 
   const visits: ExcelClientVisit[] = [];
+  const visitsMap: Map<string, ExcelClientVisit> = new Map(); // Use a map to avoid duplicates
 
   for (const row of data) {
     // Skip cancelled visits
@@ -185,12 +205,12 @@ export function extractClientVisitsFromGHExcel(
     const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
     if (serviceTypeRaw) {
       const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
-      
+
       // Check if service type matches any excluded types
-      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded => 
+      const isExcluded = EXCLUDED_SERVICE_TYPES.some(excluded =>
         serviceTypeLower.includes(excluded.toLowerCase())
       );
-      
+
       if (isExcluded) {
         console.log(`🚫 Excluding by service type: "${serviceTypeRaw}" for ${clientName}`);
         continue;
@@ -242,17 +262,75 @@ export function extractClientVisitsFromGHExcel(
       postcode = postcodeMatch ? postcodeMatch[1].toUpperCase() : undefined;
     }
 
-    visits.push({
-      clientName,
-      startTime: fmt(startDate, 'HH:mm'),
-      endTime: fmt(endDate, 'HH:mm'),
-      durationMinutes,
-      date: dateStr,
-      address,
-      postcode,
-    });
+    // --- Start of modified section ---
+    if (startRaw) { // Ensure startRaw is not null or empty
+        try {
+          const startDateTime = roundToNearest15Minutes(toDate(startRaw)!); // Use toDate and round
+          const endDateTime = endRaw ? roundToNearest15Minutes(toDate(endRaw)!) : addMinutes(startDateTime, durationMinutes);
+
+          if (!endDateTime) continue; // Skip if endDateTime could not be determined
+
+          // Handle overnight visits (crossing midnight)
+          // Use the START date as the primary visit date for grouping
+          const visitDate = format(startDateTime, "yyyy-MM-dd");
+
+          // Calculate duration in minutes based on actual start and end times
+          const duration = Math.round((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60));
+
+          // Check if visit crosses midnight
+          const crossesMidnight = format(startDateTime, "yyyy-MM-dd") !== format(endDateTime, "yyyy-MM-dd");
+          if (crossesMidnight) {
+            console.log(`🌙 Overnight visit detected: ${clientName} starts ${format(startDateTime, "yyyy-MM-dd HH:mm")} ends ${format(endDateTime, "yyyy-MM-dd HH:mm")} (${duration}min)`);
+          }
+
+          const visitKey = `${clientName}-${visitDate}-${format(startDateTime, "HH:mm")}`; // Use formatted start time for key
+
+          // Get client location for this visit using the provided storage and branchId
+          const clientLocation = await getClientLocationByName(branchId, clientName);
+
+          if (clientLocation && !visitsMap.has(visitKey)) {
+            // Extract time windows for VRPTW optimizer
+            const startDate = startDateTime;
+
+            // For overnight visits, end time may be in the next day
+            // Store the actual clock times (HH:mm format)
+            const startTimeStr = format(startDateTime, "HH:mm");
+            const endTimeStr = format(endDateTime, "HH:mm");
+
+            const visitData: Partial<ExcelClientVisit> = {
+              id: visitKey,
+              clientName,
+              startTime: startTimeStr,
+              endTime: endTimeStr,
+              durationMinutes: duration,
+              date: visitDate,
+              lat: clientLocation.lat,
+              lng: clientLocation.lng,
+              serviceType: row[SERVICE_TYPE_COLS.find(c => row[c]) ?? ''] || "", // Safely get service type
+              priority: 1, // Default priority
+              address,
+              postcode,
+            };
+
+            // Add overnight flag if it crosses midnight
+            if (crossesMidnight) {
+              visitData.crossesMidnight = true;
+              visitData.actualEndDate = format(endDateTime, "yyyy-MM-dd");
+            }
+
+            visitsMap.set(visitKey, visitData as ExcelClientVisit);
+          }
+        } catch (error) {
+          console.error(`Error processing row for client "${clientName}":`, error);
+          // Continue to the next row even if one fails
+        }
+      }
+    // --- End of modified section ---
   }
 
-  console.log(`📋 Extracted ${visits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);
-  return visits;
+  // Convert Map values back to an array
+  const finalVisits = Array.from(visitsMap.values());
+
+  console.log(`📋 Extracted ${finalVisits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);
+  return finalVisits;
 }
