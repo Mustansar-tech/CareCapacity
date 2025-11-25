@@ -163,121 +163,65 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
-      try {
-        console.log(`📅 Starting weekly schedule generation for ${weekDates.length} days with ${allWeekVisits.length} total visits`);
+      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
 
-        // Validate we have data
-        if (!data || !locationsData) {
-          throw new Error('Missing required data or location information');
+      // Prepare employee data with locations and weekly hours
+      const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
+        empList.map(emp => {
+          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+          // Get weekly contracted hours from the employee weekly hours map
+          const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+          return {
+            employeeName: emp.employeeName,
+            date,
+            timeWindows: emp.timeWindows,
+            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
+            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
+            transportMode: location?.transportMode || undefined,
+            weeklyContractedHours: weeklyHours,
+            // Include gender for client matching
+            gender: emp.gender || (location ? location.gender : undefined), // Use gender from emp (preferred) or location (fallback)
+          };
+        })
+      );
+
+      // Add location data to visits
+      const visitsWithLocations: ClientVisit[] = allWeekVisits.map((visit, index) => {
+        const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
+        return {
+          id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
+          clientName: visit.clientName,
+          startTime: visit.startTime,
+          endTime: visit.endTime,
+          durationMinutes: visit.durationMinutes,
+          date: visit.date,
+          lat: clientLocation?.lat ? Number(clientLocation.lat) : undefined,
+          lng: clientLocation?.lng ? Number(clientLocation.lng) : undefined,
+          serviceType: visit.serviceType,
+          priority: visit.priority,
+        };
+      });
+
+      console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
+
+      // Log gender data for debugging purposes
+      employeesWithLocations.forEach(emp => {
+        if (!emp.gender) {
+          console.warn(`⚠️ Missing gender for ${emp.employeeName} on ${emp.date} - Check employee data and location data.`);
         }
+      });
 
-        if (allWeekVisits.length === 0) {
-          throw new Error('No visits found for this week');
-        }
+      const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
 
-        // Get all employee-date combinations with locations
-        const employeesWithLocations: Array<{
-          employeeName: string;
-          date: string;
-          weeklyContractedHours: number;
-          timeWindows: string;
-          homeLat?: number;
-          homeLng?: number;
-          transportMode?: string;
-          gender?: string;
-        }> = [];
+      console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
 
-        weekDates.forEach(date => {
-          const dayEmployees = data?.employeesByDate[date] || [];
-          dayEmployees.forEach(emp => {
-            // Skip ad-hoc employees (they're not real availability)
-            if (emp.status === 'Ad-hoc') {
-              console.log(`⏭️  Skipping ad-hoc employee: ${emp.employeeName} on ${date}`);
-              return;
-            }
-
-            // Only include employees with real availability (non-empty time windows)
-            if (!emp.timeWindows || emp.timeWindows.trim() === '' || emp.timeWindows === '-') {
-              console.log(`⏭️  Skipping employee with no time windows: ${emp.employeeName} on ${date}`);
-              return;
-            }
-
-            const empLocation = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-
-            // Get gender from employee data (should be available from pipeline processing)
-            const gender = emp.gender || empLocation?.gender || undefined;
-
-            if (!empLocation?.homeLat || !empLocation?.homeLng) {
-              console.warn(`⚠️  Missing location for ${emp.employeeName} - skipping`);
-              return;
-            }
-
-            employeesWithLocations.push({
-              employeeName: emp.employeeName,
-              date,
-              weeklyContractedHours: emp.contractedDailyHours || 0,
-              timeWindows: emp.timeWindows,
-              homeLat: Number(empLocation.homeLat),
-              homeLng: Number(empLocation.homeLng),
-              transportMode: empLocation?.transportMode || 'car',
-              gender: gender,
-            });
-          });
-        });
-
-        console.log(`👥 Found ${employeesWithLocations.length} valid employee-day combinations (excluding ad-hoc)`);
-
-        if (employeesWithLocations.length === 0) {
-          throw new Error('No employees with valid availability and locations found');
-        }
-
-        // Add location data to visits
-        const visitsWithLocations: ClientVisit[] = allWeekVisits
-          .map((visit, index) => {
-            const clientLocation = locationsData?.clients.find(loc => loc.clientName === visit.clientName);
-
-            if (!clientLocation?.lat || !clientLocation?.lng) {
-              console.warn(`⚠️  Missing location for client ${visit.clientName} - skipping visit`);
-              return null;
-            }
-
-            return {
-              id: visit.id || `${visit.clientName}-${visit.startTime}-${visit.endTime}-${index}`,
-              clientName: visit.clientName,
-              startTime: visit.startTime,
-              endTime: visit.endTime,
-              durationMinutes: visit.durationMinutes,
-              date: visit.date,
-              lat: Number(clientLocation.lat),
-              lng: Number(clientLocation.lng),
-              serviceType: visit.serviceType,
-              priority: visit.priority,
-            };
-          })
-          .filter((v): v is ClientVisit => v !== null);
-
-        console.log(`📊 Processing ${visitsWithLocations.length} visits with complete location data`);
-
-        if (visitsWithLocations.length === 0) {
-          throw new Error('No visits with valid client locations found');
-        }
-
-        // Generate the schedule
-        const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
-
-        console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
-
-        return result;
-      } catch (error) {
-        console.error('❌ Error in generateMutation:', error);
-        throw error;
-      }
+      return result;
     },
     onSuccess: async (result) => {
-      try {
-        setWeeklySchedule(result);
+      setWeeklySchedule(result);
 
-        // Save to database
+      // Save to database
+      try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
           weekStartDate: weekStart,
           weekEndDate: weekEnd,
@@ -295,19 +239,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       } catch (error) {
         console.error('Failed to save schedule:', error);
         toast({
-          title: "Schedule Generated (Not Saved)",
-          description: `Assigned ${result.metrics.totalVisitsAssigned} visits. Database save failed.`,
+          title: "Schedule Generated",
+          description: `Assigned ${result.metrics.totalVisitsAssigned} visits (save failed)`,
           variant: "destructive",
         });
       }
-    },
-    onError: (error) => {
-      console.error('❌ Schedule generation failed:', error);
-      toast({
-        title: "Schedule Generation Failed",
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
-        variant: "destructive",
-      });
     },
   });
 
@@ -655,7 +591,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         };
 
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                        const mode = transportMode.includes('car') ? 'car' : 'walking';
+                                        const mode = transportMode.includes('walk') ? 'walking' : 'car';
 
                                         // Travel from current visit to home
                                         if (currentVisit.lat && currentVisit.lng) {
@@ -745,7 +681,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   };
 
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                  const mode = transportMode.includes('car') ? 'car' : 'walking';
+                                  const mode = transportMode.includes('walk') ? 'walking' : 'car';
 
                                   travelToHome = getTravelMinutes(
                                     { lat: lastVisit.lat, lng: lastVisit.lng },
