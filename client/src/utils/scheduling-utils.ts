@@ -181,7 +181,7 @@ export function isInsertionFeasible(
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
   // LENIENT window check - allow if visit has ANY overlap with windows
-  const hasWindowOverlap = windows.some(w => visitStart < w.end && visitEnd > w.start);
+  const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
 
   // If no overlap at all, check if within working hours (6am-10pm / 22:00)
   const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320; // 6am to 10pm
