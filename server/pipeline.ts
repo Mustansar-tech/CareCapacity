@@ -1068,15 +1068,30 @@ export async function parseExcelFiles(
     const startDate = parseDate(start);
     const weekdayName = weekdayNames[startDate.getDay()];
     
-    // Use Planned Duration first (client requirement), then fallback to Actual
-    const plannedDuration = Number(row["Planned Duration"]) || 0;
-    const actualDuration = Number(row["Actual Duration"]) || 0;
-    const actualPayHours = Number(row["Actual Pay Rate Hours"]) || 0;
+    // Use EXACT same column priority as "Hours by Service Type" file (service-delivery-rules.ts)
+    // This ensures we get the same demand calculation as the old 4-file system
+    const durationCols = [
+      "Planned Duration",
+      "Duration (Planned)",
+      "Duration",
+      "Planned Hrs",
+      "Planned Hours",
+      "Planned Time",
+    ];
     
-    // Priority: Planned Duration > Actual Duration > Actual Pay Rate Hours
-    const duration = plannedDuration || actualDuration || actualPayHours;
+    let duration = 0;
+    for (const col of durationCols) {
+      const val = Number(row[col]);
+      if (val && isFinite(val) && val > 0) {
+        duration = val;
+        break;
+      }
+    }
     
-    hoursByWeekday.set(weekdayName, (hoursByWeekday.get(weekdayName) || 0) + duration);
+    // If no duration found in preferred columns, this visit won't count toward demand
+    if (duration > 0) {
+      hoursByWeekday.set(weekdayName, (hoursByWeekday.get(weekdayName) || 0) + duration);
+    }
   });
 
   const hoursByWeekdayArray = Array.from(hoursByWeekday.entries())
