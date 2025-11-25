@@ -1080,17 +1080,28 @@ export async function parseExcelFiles(
     ];
     
     let duration = 0;
+    let foundColumn = "";
     for (const col of durationCols) {
-      const val = Number(row[col]);
+      const rawVal = row[col];
+      const val = Number(rawVal);
       if (val && isFinite(val) && val > 0) {
         duration = val;
+        foundColumn = col;
         break;
       }
     }
     
+    // Debug: Log first 10 entries to verify fractional hours are being captured
+    const currentTotal = hoursByWeekday.get(weekdayName) || 0;
+    if (demandRows.indexOf(row) < 10) {
+      console.log(`  📊 Row ${demandRows.indexOf(row) + 1}: ${weekdayName} - ${duration}h from "${foundColumn}" (running total: ${currentTotal + duration}h)`);
+    }
+    
     // If no duration found in preferred columns, this visit won't count toward demand
     if (duration > 0) {
-      hoursByWeekday.set(weekdayName, (hoursByWeekday.get(weekdayName) || 0) + duration);
+      hoursByWeekday.set(weekdayName, currentTotal + duration);
+    } else if (demandRows.indexOf(row) < 10) {
+      console.log(`  ⚠️ Row ${demandRows.indexOf(row) + 1}: NO DURATION FOUND - checked columns: ${durationCols.join(", ")}`);
     }
   });
 
