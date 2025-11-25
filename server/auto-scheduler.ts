@@ -461,7 +461,7 @@ export class AutoScheduler {
 
       // Extract visits from Excel buffer for this date
       const parsedDate = new Date(date + 'T00:00:00.000Z');
-      const visits = extractClientVisitsFromGHExcel(ghBuffer, parsedDate);
+      const visits = await extractClientVisitsFromGHExcel(ghBuffer, parsedDate, branchId, storage);
       
       console.log(`📋 Extracted ${visits.length} visits from GH Excel for ${date}`);
 

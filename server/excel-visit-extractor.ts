@@ -148,12 +148,12 @@ async function getClientLocationByName(branchId: string, clientName: string): Pr
 }
 
 
-export function extractClientVisitsFromGHExcel(
+export async function extractClientVisitsFromGHExcel(
   ghWorkbookBuffer: Buffer,
   specificDate: Date,
   branchId: string, // Added branchId as it's used in the modified logic
   storage: any // Added storage as it's used in the modified logic
-): ExcelClientVisit[] {
+): Promise<ExcelClientVisit[]> {
   const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
 

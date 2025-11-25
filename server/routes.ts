@@ -361,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Dynamically import the function to avoid circular dependencies or unnecessary loads
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
       const parsedDate = new Date(date + 'T00:00:00.000Z'); // Parse as UTC
-      const visits = extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate);
+      const visits = await extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate, branchId, storage);
       res.json(visits);
     } catch (error) {
       console.error("Error extracting visits:", error);
