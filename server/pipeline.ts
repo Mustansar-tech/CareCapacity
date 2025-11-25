@@ -660,6 +660,19 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
     if (!start) continue;
+    
+    // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
+    const end = g["Actual End Date And Time"];
+    if (start && end) {
+      const startDate = format(parseDate(start), "yyyy-MM-dd");
+      const endDate = format(parseDate(end), "yyyy-MM-dd");
+      
+      if (startDate !== endDate) {
+        console.log(`🚫 REJECTING multi-day scheduled visit: ${g["Actual Employee Name"]} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
+        continue; // Skip this visit entirely from scheduled hours
+      }
+    }
+    
     const date = format(parseDate(start), "yyyy-MM-dd");
 
     const name = normalizeName(g["Actual Employee Name"]);
