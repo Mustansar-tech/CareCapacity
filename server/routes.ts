@@ -372,17 +372,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get visits between dates
   app.get('/api/visits', async (req, res) => {
     const { startDate, endDate } = req.query;
-    const branchId = req.headers['x-branch-id'] as string | undefined;
+    const branchId = await resolveBranch(req);
 
     if (!startDate || !endDate) {
       return res.status(400).json({ message: 'Start date and end date are required' });
     }
 
+    if (!branchId) {
+      return res.status(400).json({ message: 'Branch selection is required' });
+    }
+
     try {
-      console.log(`📅 Fetching visits for branch ${branchId || 'default'} from ${startDate} to ${endDate}`);
+      console.log(`📅 Fetching visits for branch ${branchId} from ${startDate} to ${endDate}`);
 
       const visits = await storage.listVisitsBetween(
-        branchId || '',
+        branchId,
         String(startDate),
         String(endDate)
       );
@@ -652,170 +656,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Geographical scheduling optimization routes
-
-  // Enhanced geocoding with fallback hierarchy
-  async function geocodeWithFallback(postcode: string, storage: any, branchId?: string): Promise<any> {
-    const normalizedPostcode = postcode.trim().toUpperCase();
-
-    // Step 1: Try exact postcode from cache
-    const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
-    if (cached) {
-      return {
-        query: normalizedPostcode,
-        type: 'postcode',
-        lat: cached.lat,
-        lng: cached.lng,
-        source: 'cache',
-        approximate: false
-      };
-    }
-
-    // Step 2: Try exact postcode from API
-    try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.status === 200 && data.result) {
-          const lat = data.result.latitude.toString();
-          const lng = data.result.longitude.toString();
-
-          // Cache the exact result (only if branchId is provided)
-          if (branchId) {
-            await storage.saveGeocode({
-              branchId,
-              key: `postcode:${normalizedPostcode}`,
-              lat,
-              lng,
-              source: 'postcodes.io'
-            });
-          }
-
-          return {
-            query: normalizedPostcode,
-            type: 'postcode',
-            lat,
-            lng,
-            source: 'postcodes.io',
-            approximate: false
-          };
-        }
-      }
-    } catch (err) {
-      console.log(`🔄 Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
-    }
-
-    // Step 3: Try postcode district (first part)
-    const parts = normalizedPostcode.split(' ');
-    if (parts.length >= 2) {
-      const district = parts[0];
-
-      // Check cache for district
-      const districtCached = await storage.getGeocode(`district:${district}`);
-      if (districtCached) {
-        return {
-          query: normalizedPostcode,
-          type: 'postcode',
-          lat: districtCached.lat,
-          lng: districtCached.lng,
-          source: 'cache-district',
-          approximate: true
-        };
-      }
-
-      // Try district from API
-      try {
-        const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(district)}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === 200 && data.result) {
-            const lat = data.result.latitude.toString();
-            const lng = data.result.longitude.toString();
-
-            // Cache the district result (only if branchId is provided)
-            if (branchId) {
-              await storage.saveGeocode({
-                branchId,
-                key: `district:${district}`,
-                lat,
-                lng,
-                source: 'postcodes.io'
-              });
-            }
-
-            return {
-              query: normalizedPostcode,
-              type: 'postcode',
-              lat,
-              lng,
-              source: 'postcodes.io-district',
-              approximate: true
-            };
-          }
-        }
-      } catch (err) {
-        console.log(`🔄 District geocoding failed for ${district}, trying area fallback...`);
-      }
-    }
-
-    // Step 4: Default to approximate city center based on postcode prefix
-    const prefix = normalizedPostcode.substring(0, 2);
-    const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
-      'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },   // Edinburgh
-      'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },       // Glasgow  
-      'AB': { lat: '57.1497', lng: '-2.0943', name: 'Aberdeen' },     // Aberdeen
-      'DD': { lat: '56.4620', lng: '-2.9707', name: 'Dundee' },       // Dundee
-      'IV': { lat: '57.4778', lng: '-4.2247', name: 'Inverness' },    // Inverness
-      'KY': { lat: '56.1165', lng: '-3.1359', name: 'Fife' },         // Fife
-      'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },        // Perth
-      'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },      // Falkirk
-      'ML': { lat: '55.8642', lng: '-3.9442', name: 'Motherwell' },   // Motherwell/North Lanarkshire
-      'PA': { lat: '55.9467', lng: '-4.6249', name: 'Paisley' },      // Paisley
-      'KA': { lat: '55.6118', lng: '-4.6298', name: 'Kilmarnock' },   // Kilmarnock/Ayrshire
-      'DG': { lat: '55.0709', lng: '-3.6059', name: 'Dumfries' },     // Dumfries
-      'TD': { lat: '55.6038', lng: '-2.5650', name: 'Galashiels' },   // Scottish Borders
-    };
-
-    const fallback = fallbackLocations[prefix];
-    if (fallback) {
-      console.log(`📍 Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
-
-      // Cache the fallback to avoid repeated lookups (only if branchId is provided)
-      if (branchId) {
-        await storage.saveGeocode({
-          branchId,
-          key: `fallback:${prefix}`,
-          lat: fallback.lat,
-          lng: fallback.lng,
-          source: 'fallback'
-        });
-      }
-
-      return {
-        query: normalizedPostcode,
-        type: 'postcode',
-        lat: fallback.lat,
-        lng: fallback.lng,
-        source: 'fallback-' + fallback.name.toLowerCase(),
-        approximate: true
-      };
-    }
-
-    // Step 5: Ultimate fallback to Edinburgh city center
-    console.log(`📍 Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
-    return {
-      query: normalizedPostcode,
-      type: 'postcode',
-      lat: '55.9533',
-      lng: '-3.1883',
-      source: 'fallback-edinburgh',
-      approximate: true
-    };
-  }
+  // NOTE: geocodeWithFallback is imported from pipeline.ts at the top of this file
 
   // POST /api/geo/geocode-batch - Batch geocode postcodes and addresses
   app.post('/api/geo/geocode-batch', async (req, res) => {
     try {
       const { postcodes = [], addresses = [], branchId } = req.body;
+
+      // Validate branchId - required for proper cache isolation
+      if (!branchId) {
+        console.warn(`⚠️ geocode-batch called without branchId - cache lookups may not work correctly`);
+      }
 
       // OPTIMIZATION: Process unique postcodes in parallel for 70-80% faster geocoding
       const uniquePostcodes = Array.from(new Set(postcodes as string[]));
@@ -825,7 +676,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cacheChecks = await Promise.all(
         uniquePostcodes.map(async (postcode) => {
           const normalizedPostcode = postcode.trim().toUpperCase();
-          const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
+          // Only check cache if branchId is provided
+          const cached = branchId ? await storage.getGeocode(branchId, `postcode:${normalizedPostcode}`) : undefined;
           return { postcode, normalizedPostcode, cached };
         })
       );
@@ -835,8 +687,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         input: c.postcode,
         postcode: c.postcode,
         type: 'postcode',
-        lat: Number(c.cached.lat),
-        lng: Number(c.cached.lng),
+        lat: Number(c.cached!.lat),
+        lng: Number(c.cached!.lng),
         source: 'cache',
         success: true,
         approximate: false

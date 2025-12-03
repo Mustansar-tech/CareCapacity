@@ -76,12 +76,12 @@ function normalizeBranchName(branchName: string): string {
 }
 
 // Enhanced geocoding with fallback hierarchy
-async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
+export async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
   const prefix = normalizedPostcode.substring(0, 2);
 
-  // Step 1: Try exact postcode from cache
-  const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
+  // Step 1: Try exact postcode from cache (branch-scoped)
+  const cached = await storage.getGeocode(branchId, `postcode:${normalizedPostcode}`);
   if (cached) {
     return {
       query: normalizedPostcode,
@@ -94,7 +94,7 @@ async function geocodeWithFallback(postcode: string, storage: any, branchId: str
   }
 
   // Step 1.5: Try fallback cache for this prefix (OPTIMIZATION: avoid repeated API calls for same area)
-  const fallbackCached = await storage.getGeocode(`fallback:${prefix}`);
+  const fallbackCached = await storage.getGeocode(branchId, `fallback:${prefix}`);
   if (fallbackCached) {
     return {
       query: normalizedPostcode,
@@ -143,8 +143,8 @@ async function geocodeWithFallback(postcode: string, storage: any, branchId: str
   if (parts.length >= 2) {
     const district = parts[0];
 
-    // Check cache for district
-    const districtCached = await storage.getGeocode(`district:${district}`);
+    // Check cache for district (branch-scoped)
+    const districtCached = await storage.getGeocode(branchId, `district:${district}`);
     if (districtCached) {
       return {
         query: normalizedPostcode,
@@ -2855,7 +2855,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Prioritize 'Service Location Name' as the client identifier
       const clientName = pickCol(row, CLIENT_COLS);
-      const serviceLocationAddress = row["Service Location Address"];
+      
+      // Try multiple column names for address (different branches may use different names)
+      const ADDRESS_COLS = [
+        'Service Location Address',
+        'Client Address',
+        'Address',
+        'Service Address',
+        'Location Address'
+      ];
+      const serviceLocationAddress = pickCol(row, ADDRESS_COLS);
 
       // Try to extract postcode from the address if possible
       let postcode = "";
@@ -2928,8 +2937,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         postcode = String(row["Postal Code"]).trim().toUpperCase();
       }
 
-      if (clientName && (addressLine || postcode)) {
+      if (clientName) {
         const clientKey = clientName.trim();
+
+        // Log if we have a client but no address data (helps debug missing client locations)
+        if (!addressLine && !postcode) {
+          console.log(`⚠️ Client "${clientKey}" has no address or postcode - will save without geocoding`);
+        }
 
         // Check if client already has geocoded coordinates
         const existingClient = await storage.getClientLocationByName(branchId, clientKey);
@@ -2946,12 +2960,14 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
           clientLocationsMap.set(clientKey, clientData);
 
-          // Only add to geocoding queue if not already geocoded
-          if (!existingClient?.lat || !existingClient?.lng) {
-            console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
-            clientsToGeocode.push(clientData);
-          } else {
-            console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+          // Only add to geocoding queue if we have address data AND not already geocoded
+          if (addressLine || postcode) {
+            if (!existingClient?.lat || !existingClient?.lng) {
+              console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
+              clientsToGeocode.push(clientData);
+            } else {
+              console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+            }
           }
         } else {
           // Update existing entry if we have better data

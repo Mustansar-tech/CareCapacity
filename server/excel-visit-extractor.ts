@@ -67,6 +67,7 @@ function toDate(v: any): Date | undefined {
 }
 
 export interface ExcelClientVisit {
+  id?: string;
   clientName: string;
   startTime: string;
   endTime: string;
@@ -74,8 +75,12 @@ export interface ExcelClientVisit {
   date: string;
   address?: string;
   postcode?: string;
-  crossesMidnight?: boolean; // Added for overnight visits
-  actualEndDate?: string; // Added for overnight visits
+  lat?: string;
+  lng?: string;
+  serviceType?: string;
+  priority?: number;
+  crossesMidnight?: boolean;
+  actualEndDate?: string;
 }
 
 // Office visit keywords to exclude
