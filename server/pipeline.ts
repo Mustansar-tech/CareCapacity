@@ -42,30 +42,37 @@ function extractBranchFromRow(row: any): string | null {
 
 // Normalize branch name to match database values
 function normalizeBranchName(branchName: string): string {
-  const normalized = branchName.toLowerCase()
-    .replace(/home instead /gi, "")
-    .replace(/ & /g, "-")
-    .replace(/\s+/g, "-");
+  const normalized = branchName.toLowerCase().trim();
 
-  // Map common variations to canonical names
+  // Map variations to canonical names
   const branchMap: Record<string, string> = {
-    "east-lothian-and-midlothian": "east-lothian",
-    "east-lothian": "east-lothian",
-    "scottish-borders": "scottish-borders",
-    "glasgow-north": "glasgow-north",
-    "north-lanarkshire-&-glasgow-east": "north-lanarkshire",
-    "north-lanarkshire-glasgow-east": "north-lanarkshire",
-    "north-lanarkshire": "north-lanarkshire",
-    "glasgow-south": "glasgow-south",
-    "aberdeen": "aberdeen",
-    "perthshire": "perthshire",
-    "south-ayrshire-kilmarnock": "south-ayrshire",
-    "south-ayrshire": "south-ayrshire",
-    "stirling-&-falkirk": "stirling-falkirk",
-    "stirling-falkirk": "stirling-falkirk"
+    'north lanarkshire & glasgow east': 'north-lanarkshire',
+    'north lanarkshire': 'north-lanarkshire',
+    'glasgow east': 'north-lanarkshire',
+    'glasgow north': 'glasgow-north',
+    'glasgow south': 'glasgow-south',
+    'stirling & falkirk': 'stirling-falkirk',
+    'stirling': 'stirling-falkirk',
+    'falkirk': 'stirling-falkirk',
+    'perthshire': 'perthshire',
+    'perth': 'perthshire',
+    'south ayrshire': 'south-ayrshire',
+    'ayrshire': 'south-ayrshire',
+    'ayr': 'south-ayrshire',
+    'aberdeen': 'aberdeen',
+    'east lothian & midlothian': 'east-lothian-midlothian',
+    'east lothian': 'east-lothian-midlothian',
+    'midlothian': 'east-lothian-midlothian',
+    'scottish borders': 'scottish-borders',
+    'borders': 'scottish-borders',
+    'west fife and kinross': 'west-fife-kinross',
+    'west fife & kinross': 'west-fife-kinross',
+    'west fife': 'west-fife-kinross',
+    'kinross': 'west-fife-kinross',
+    'home instead west fife and kinross': 'west-fife-kinross',
   };
 
-  return branchMap[normalized] || normalized;
+  return branchMap[normalized] || normalized.replace(/\s+/g, '-');
 }
 
 // Enhanced geocoding with fallback hierarchy
@@ -660,19 +667,19 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
     if (!start) continue;
-    
+
     // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
     const end = g["Actual End Date And Time"];
     if (start && end) {
       const startDate = format(parseDate(start), "yyyy-MM-dd");
       const endDate = format(parseDate(end), "yyyy-MM-dd");
-      
+
       if (startDate !== endDate) {
         console.log(`🚫 REJECTING multi-day scheduled visit: ${g["Actual Employee Name"]} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
         continue; // Skip this visit entirely from scheduled hours
       }
     }
-    
+
     const date = format(parseDate(start), "yyyy-MM-dd");
 
     const name = normalizeName(g["Actual Employee Name"]);
@@ -1206,7 +1213,7 @@ export async function parseExcelFiles(
   });
 
   const hoursByWeekdayArray = Array.from(hoursByWeekday.entries())
-    .map(([weekday, hours]) => ({ weekday, hours: Math.round(hours * 100) / 100 }))
+    .map(({0: weekday, 1: hours}) => ({ weekday, hours: Math.round(hours * 100) / 100 }))
     .sort((a, b) => a.weekday.localeCompare(b.weekday));
 
   console.log(`📊 Calculated demand from Guaranteed Hours:`, hoursByWeekdayArray);
@@ -1314,7 +1321,7 @@ export async function parseExcelFiles(
 
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
-      
+
       // CRITICAL FIX: Reject entries where start and end dates differ
       // This prevents incorrectly including dates when availability spans multiple days
       if (row["End Date"]) {
@@ -1322,7 +1329,7 @@ export async function parseExcelFiles(
           const parsedEndDate = parseDate(row["End Date"]);
           const startDateStr = format(parsedStartDate, "yyyy-MM-dd");
           const endDateStr = format(parsedEndDate, "yyyy-MM-dd");
-          
+
           if (startDateStr !== endDateStr) {
             console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} differs from end date ${endDateStr} - multi-day entries not supported`);
             warnings.push(
@@ -1334,7 +1341,7 @@ export async function parseExcelFiles(
           console.log(`⚠️ Could not parse end date for ${empName}, continuing with start date validation`);
         }
       }
-      
+
       const effectiveHours =
         row.Hours ?? hoursBetween(row["Start Time"], row["End Time"]);
 
@@ -2552,9 +2559,9 @@ export async function processCapacityData(
               .filter(w => {
                 if (!w || !w.includes('-')) return false;
                 const [start, end] = w.split('-').map(t => t.trim());
-                const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1] || '0');
-                const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1] || '0');
-                
+                const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1]);
+                const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1]);
+
                 // Reject if end time is before start time (overnight)
                 if (endMinutes < startMinutes) {
                   console.log(`🚫 REJECTING overnight availability window for ${employeeName} on ${dateStr}: ${w}`);
@@ -2631,9 +2638,6 @@ export async function processCapacityData(
   // and replaced with a comment indicating that the new extraction is handled elsewhere.
   const visitsMap = new Map<string, any>(); // Placeholder, actual visits are handled in extractAndStoreGeographicalData
   const visitsByDate = new Map<string, any[]>(); // Placeholder
-
-  // Note: Visit extraction is now handled by excel-visit-extractor module
-  // which is called separately when needed. No need to extract visits here.
 
 
   // Re-sort after injection
@@ -2915,7 +2919,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Also check if there's a separate postcode column
       if (!postcode && row["Postcode"]) {
-        postcode = String(row["PostCode"]).trim().toUpperCase();
+        postcode = String(row["Postcode"]).trim().toUpperCase();
       }
       if (!postcode && row["Post Code"]) {
         postcode = String(row["Post Code"]).trim().toUpperCase();
