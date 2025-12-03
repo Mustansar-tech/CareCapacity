@@ -1157,12 +1157,20 @@ export async function parseExcelFiles(
   });
   const trainingHours = trainingRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
+  const liveInCareRows = guaranteedData.filter(row => {
+    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
+    return st.includes("live in care") || st.includes("live-in care");
+  });
+  const liveInCareHours = liveInCareRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
+
   console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
   console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
   console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
   console.log(`  ❌ Shadowing: ${shadowingRows.length} rows (${Math.round(shadowingHours * 100) / 100}h)`);
   console.log(`  ❌ Training: ${trainingRows.length} rows (${Math.round(trainingHours * 100) / 100}h)`);
+  console.log(`  ❌ Live In Care (SC): ${liveInCareRows.length} rows (${Math.round(liveInCareHours * 100) / 100}h)`);
+
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
@@ -2564,7 +2572,7 @@ export async function processCapacityData(
 
                 // Reject if end time is before start time (overnight)
                 if (endMinutes < startMinutes) {
-                  console.log(`🚫 REJECTING overnight availability window for ${employeeName} on ${dateStr}: ${w}`);
+                  console.log(`🚫 REJECTING availability window for ${employeeName} on ${dateStr}: ${w}`);
                   return false;
                 }
                 return true;
