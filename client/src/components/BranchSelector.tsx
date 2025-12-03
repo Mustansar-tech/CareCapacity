@@ -19,11 +19,6 @@ export function BranchSelector() {
   
   const { selectedBranchId, setSelectedBranchId, branches, isLoadingBranches, selectedBranch } = branchContext;
 
-  // Sort branches alphabetically by display name
-  const sortedBranches = [...branches].sort((a, b) => 
-    a.displayName.localeCompare(b.displayName)
-  );
-
   if (isLoadingBranches) {
     return (
       <div className="flex items-center gap-2 px-4 py-2 bg-white/10 dark:bg-black/10 backdrop-blur-xl rounded-xl border border-white/20 dark:border-white/10 min-w-64">
@@ -52,12 +47,12 @@ export function BranchSelector() {
         <SelectTrigger className="border-0 bg-transparent text-sm font-medium focus:ring-0 px-0 h-auto" data-testid="select-branch-trigger">
           <SelectValue placeholder="Select branch..." />
         </SelectTrigger>
-        <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-white/20 dark:border-white/10 max-h-[500px] overflow-y-auto">
-          {sortedBranches.map((branch) => (
+        <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-white/20 dark:border-white/10">
+          {branches.map((branch) => (
             <SelectItem
               key={branch.id}
               value={branch.id}
-              className="cursor-pointer py-3"
+              className="cursor-pointer"
               data-testid={`branch-option-${branch.id}`}
             >
               <div className="flex flex-col">
