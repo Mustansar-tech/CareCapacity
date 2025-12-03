@@ -67,6 +67,7 @@ function toDate(v: any): Date | undefined {
 }
 
 export interface ExcelClientVisit {
+  id?: string;
   clientName: string;
   startTime: string;
   endTime: string;
@@ -74,8 +75,12 @@ export interface ExcelClientVisit {
   date: string;
   address?: string;
   postcode?: string;
-  crossesMidnight?: boolean; // Added for overnight visits
-  actualEndDate?: string; // Added for overnight visits
+  lat?: string;
+  lng?: string;
+  serviceType?: string;
+  priority?: number;
+  crossesMidnight?: boolean;
+  actualEndDate?: string;
 }
 
 // Office visit keywords to exclude
@@ -91,7 +96,7 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
-// Service types to exclude for SCHEDULING (office hours, night shifts, secondary care)
+// Service types to exclude for SCHEDULING (office hours, night shifts, secondary care, live in care)
 // Note: Office hours are EXCLUDED here for scheduling purposes
 // but INCLUDED in scheduled hours totals (pipeline.ts)
 const EXCLUDED_SERVICE_TYPES = [
@@ -121,7 +126,7 @@ const EXCLUDED_SERVICE_TYPES = [
   '(secondary)',
   'multiple care - secondary',
 
-  // Live In Care (SC) variants
+  // Live in care
   'live in care (sc)',
   'live in care',
   'live-in care'
@@ -136,6 +141,17 @@ function roundToNearest15Minutes(date: Date): Date {
   result.setSeconds(0);
   result.setMilliseconds(0);
   return result;
+}
+
+// Helper: case/space-insensitive column picker (matches pipeline.ts)
+function pickCol(row: Record<string, any>, names: string[]): any {
+  const keys = Object.keys(row);
+  for (const want of names) {
+    const target = want.trim().toLowerCase();
+    const hit = keys.find((k) => k.trim().toLowerCase() === target);
+    if (hit) return row[hit];
+  }
+  return undefined;
 }
 
 
@@ -176,13 +192,21 @@ export async function extractClientVisitsFromGHExcel(
   const visits: ExcelClientVisit[] = [];
   const visitsMap: Map<string, ExcelClientVisit> = new Map(); // Use a map to avoid duplicates
 
+  // Log detected columns for debugging (case-insensitive)
+  const firstRow = data[0];
+  if (firstRow) {
+    console.log(`📋 Detected columns in Excel file:`);
+    Object.keys(firstRow).forEach(col => console.log(`   - "${col}"`));
+  }
+
   for (const row of data) {
-    // Skip cancelled visits
-    const cancelStatus = String(row[CANCEL_COL] ?? '').toLowerCase();
+    // Skip cancelled visits (use pickCol for case-insensitive lookup)
+    const cancelRaw = pickCol(row, [CANCEL_COL]);
+    const cancelStatus = String(cancelRaw ?? '').toLowerCase();
     if (cancelStatus.includes('cancel')) continue;
 
-    // Get client name
-    const clientNameRaw = CLIENT_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    // Get client name (use pickCol for case-insensitive lookup)
+    const clientNameRaw = pickCol(row, CLIENT_COLS);
     if (!clientNameRaw) continue;
     const clientName = String(clientNameRaw).trim();
 
@@ -195,7 +219,7 @@ export async function extractClientVisitsFromGHExcel(
     }
 
     // Get service type and skip excluded service types (office hours, night shifts, secondary care)
-    const serviceTypeRaw = SERVICE_TYPE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    const serviceTypeRaw = pickCol(row, SERVICE_TYPE_COLS);
     if (serviceTypeRaw) {
       const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
 
@@ -210,19 +234,21 @@ export async function extractClientVisitsFromGHExcel(
       }
     }
 
-    // Get start time
-    const startRaw = START_COLS.map(c => row[c]).find(v => v != null && v !== '');
+    // Get start time (use pickCol for case-insensitive lookup)
+    const startRaw = pickCol(row, START_COLS);
     let startDate = toDate(startRaw);
     if (!startDate || startDate < dayStart || startDate > dayEnd) continue;
 
     // Round start time to nearest 15 minutes
     startDate = roundToNearest15Minutes(startDate);
 
-    // Get duration
+    // Get duration (use pickCol for case-insensitive lookup)
     let durationMinutes = NaN;
+    let foundDurationCol: string | undefined;
     for (const c of DUR_COLS) {
-      const val = Number(row[c]);
+      const val = Number(pickCol(row, [c]));
       if (!isFinite(val)) continue;
+      foundDurationCol = c;
       // Planned Duration is in hours, Template Duration is in minutes
       if (c === 'Planned Duration' || c === 'Service Requirement Duration' || c === 'Actual Duration') {
         durationMinutes = Math.round(val * 60);
@@ -234,20 +260,20 @@ export async function extractClientVisitsFromGHExcel(
     if (!isFinite(durationMinutes) || durationMinutes <= 0) continue;
 
     // Calculate end time (prefer explicit end column, fallback to start + duration)
-    const endRaw = END_COLS.map(c => row[c]).find(v => v != null && v !== '');
+    const endRaw = pickCol(row, END_COLS);
     let endDate = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
     if (!endDate) continue;
 
     // Round end time to nearest 15 minutes
     endDate = roundToNearest15Minutes(endDate);
 
-    // Get address
-    const addressRaw = ADDRESS_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    // Get address (use pickCol for case-insensitive lookup)
+    const addressRaw = pickCol(row, ADDRESS_COLS);
     const address = addressRaw ? String(addressRaw).trim() : undefined;
 
     // Get postcode (check dedicated columns first, then extract from address)
     let postcode: string | undefined;
-    const postcodeRaw = POSTCODE_COLS.map(c => row[c]).find(v => v && String(v).trim() !== '');
+    const postcodeRaw = pickCol(row, POSTCODE_COLS);
     if (postcodeRaw) {
       postcode = String(postcodeRaw).trim().toUpperCase();
     } else if (address) {

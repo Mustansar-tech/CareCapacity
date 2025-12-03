@@ -8,10 +8,7 @@ const EXCLUDED_SERVICE_TYPES = [
   'waking nights',
   'multiple care (secondary)',
   'secondary',
-  '(secondary)',
-  'live in care (sc)',
-  'live in care',
-  'live-in care'
+  '(secondary)'
 ];
 
 // Filter out excluded service types (secondary care, office hours, night shifts)

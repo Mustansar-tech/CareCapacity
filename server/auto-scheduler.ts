@@ -109,12 +109,15 @@ export class AutoScheduler {
   /**
    * Automatically schedule visits for a given date
    */
-  async scheduleDay(date: string, branchId?: string): Promise<WeeklySchedule> {
+  async scheduleDay(date: string, branchId: string): Promise<WeeklySchedule> {
     console.log(`\n🤖 ====== AUTO-SCHEDULER scheduleDay CALLED ======`);
     console.log(`   Date: ${date}`);
-    console.log(`   BranchId: ${branchId || 'UNDEFINED'}`);
-    console.log(`   BranchId type: ${typeof branchId}`);
+    console.log(`   BranchId: ${branchId}`);
     console.log(`================================================\n`);
+
+    if (!branchId) {
+      throw new Error('scheduleDay requires branchId parameter - cannot schedule without branch context');
+    }
 
     // Get employees available for this date
     const employees = await this.getAvailableEmployees(date, branchId);
@@ -257,7 +260,11 @@ export class AutoScheduler {
   /**
    * Schedule entire week
    */
-  async scheduleWeek(startDate: string): Promise<Record<string, WeeklySchedule>> {
+  async scheduleWeek(startDate: string, branchId: string): Promise<Record<string, WeeklySchedule>> {
+    if (!branchId) {
+      throw new Error('scheduleWeek requires branchId parameter - cannot schedule without branch context');
+    }
+
     const weekSchedule: Record<string, WeeklySchedule> = {};
 
     // Schedule each day of the week
@@ -266,17 +273,33 @@ export class AutoScheduler {
       date.setDate(date.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
 
-      weekSchedule[dateStr] = await this.scheduleDay(dateStr);
+      weekSchedule[dateStr] = await this.scheduleDay(dateStr, branchId);
     }
 
     return weekSchedule;
   }
 
+  /**
+   * Get week schedule (retrieves or generates)
+   */
+  async getWeekSchedule(startDate: string, branchId: string): Promise<Record<string, WeeklySchedule>> {
+    if (!branchId) {
+      throw new Error('getWeekSchedule requires branchId parameter - cannot schedule without branch context');
+    }
+    return this.scheduleWeek(startDate, branchId);
+  }
+
   private async getAvailableEmployees(date: string, branchId?: string): Promise<SchedulingEmployee[]> {
     try {
+      // Validate branchId - scheduling requires branch-specific data
+      if (!branchId) {
+        console.warn(`⚠️ getAvailableEmployees called without branchId - returning empty list`);
+        return [];
+      }
+      
       // Get employee locations and availability data for this branch
       const [employeeLocations, availabilityData] = await Promise.all([
-        branchId ? storage.getAllEmployeeLocations(branchId) : storage.getAllEmployeeLocations(),
+        storage.getAllEmployeeLocations(branchId),
         this.getEmployeeAvailability(date, branchId)
       ]);
 
@@ -337,10 +360,14 @@ export class AutoScheduler {
     gender?: string;
   }>> {
     try {
+      // Validate branchId - availability data is branch-specific
+      if (!branchId) {
+        console.warn(`⚠️ getEmployeeAvailability called without branchId - returning empty list`);
+        return [];
+      }
+      
       // Get the latest capacity analysis from storage for this branch
-      const analyses = branchId 
-        ? await storage.getCapacityAnalyses(branchId)
-        : await storage.getCapacityAnalyses();
+      const analyses = await storage.getCapacityAnalyses(branchId);
       if (analyses.length === 0) return [];
 
       const latestAnalysis = analyses[0]; // Most recent analysis
@@ -468,31 +495,33 @@ export class AutoScheduler {
       const clientLocations = await storage.getAllClientLocations(branchId);
       const clientLocationMap = new Map(clientLocations.map(c => [c.clientName, c]));
 
-      return visits
-        .filter(visit => visit.clientName) // Filter out visits without client names
-        .map(visit => {
-          const client = clientLocationMap.get(visit.clientName);
+      const schedulingVisits: SchedulingVisit[] = [];
+      
+      for (const visit of visits) {
+        if (!visit.clientName) continue;
+        
+        const client = clientLocationMap.get(visit.clientName);
+        if (!client || !client.lat || !client.lng) {
+          console.warn(`⚠️ Missing location data for client ${visit.clientName}`);
+          continue;
+        }
 
-          if (!client || !client.lat || !client.lng) {
-            console.warn(`⚠️ Missing location data for client ${visit.clientName}`);
-            return null;
-          }
-
-          return {
-            id: `${visit.clientName}-${date}-${visit.startTime}`,
-            clientName: visit.clientName,
-            clientLat: parseFloat(client.lat),
-            clientLng: parseFloat(client.lng),
-            startTime: this.timeStringToMinutes(visit.startTime),
-            endTime: this.timeStringToMinutes(visit.endTime),
-            durationMinutes: visit.durationMinutes,
-            priority: visit.priority || 2,
-            serviceType: visit.serviceType || '',
-            preferredStartTime: this.timeStringToMinutes(visit.startTime),
-            preferredEndTime: this.timeStringToMinutes(visit.endTime),
-          };
-        })
-        .filter((visit): visit is SchedulingVisit => visit !== null);
+        schedulingVisits.push({
+          id: `${visit.clientName}-${date}-${visit.startTime}`,
+          clientName: visit.clientName,
+          clientLat: parseFloat(client.lat),
+          clientLng: parseFloat(client.lng),
+          startTime: this.timeStringToMinutes(visit.startTime),
+          endTime: this.timeStringToMinutes(visit.endTime),
+          durationMinutes: visit.durationMinutes,
+          priority: visit.priority || 2,
+          serviceType: visit.serviceType || '',
+          preferredStartTime: this.timeStringToMinutes(visit.startTime),
+          preferredEndTime: this.timeStringToMinutes(visit.endTime),
+        });
+      }
+      
+      return schedulingVisits;
     } catch (error) {
       console.error('Error getting unassigned visits:', error);
       return [];
@@ -557,7 +586,7 @@ export class AutoScheduler {
       console.log(`   Checking ${employeeSchedules.size} employees...`);
     }
 
-    for (const [empName, schedule] of employeeSchedules) {
+    for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
       const employee = schedule.employee;
 
       // Check gender preference match

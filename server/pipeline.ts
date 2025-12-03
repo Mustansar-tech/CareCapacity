@@ -60,9 +60,9 @@ function normalizeBranchName(branchName: string): string {
     'ayrshire': 'south-ayrshire',
     'ayr': 'south-ayrshire',
     'aberdeen': 'aberdeen',
-    'east lothian & midlothian': 'east-lothian-midlothian',
-    'east lothian': 'east-lothian-midlothian',
-    'midlothian': 'east-lothian-midlothian',
+    'east lothian & midlothian': 'east-lothian',
+    'east lothian': 'east-lothian',
+    'midlothian': 'east-lothian',
     'scottish borders': 'scottish-borders',
     'borders': 'scottish-borders',
     'west fife and kinross': 'west-fife-kinross',
@@ -76,12 +76,12 @@ function normalizeBranchName(branchName: string): string {
 }
 
 // Enhanced geocoding with fallback hierarchy
-async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
+export async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
   const prefix = normalizedPostcode.substring(0, 2);
 
-  // Step 1: Try exact postcode from cache
-  const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
+  // Step 1: Try exact postcode from cache (branch-scoped)
+  const cached = await storage.getGeocode(branchId, `postcode:${normalizedPostcode}`);
   if (cached) {
     return {
       query: normalizedPostcode,
@@ -94,7 +94,7 @@ async function geocodeWithFallback(postcode: string, storage: any, branchId: str
   }
 
   // Step 1.5: Try fallback cache for this prefix (OPTIMIZATION: avoid repeated API calls for same area)
-  const fallbackCached = await storage.getGeocode(`fallback:${prefix}`);
+  const fallbackCached = await storage.getGeocode(branchId, `fallback:${prefix}`);
   if (fallbackCached) {
     return {
       query: normalizedPostcode,
@@ -143,8 +143,8 @@ async function geocodeWithFallback(postcode: string, storage: any, branchId: str
   if (parts.length >= 2) {
     const district = parts[0];
 
-    // Check cache for district
-    const districtCached = await storage.getGeocode(`district:${district}`);
+    // Check cache for district (branch-scoped)
+    const districtCached = await storage.getGeocode(branchId, `district:${district}`);
     if (districtCached) {
       return {
         query: normalizedPostcode,
@@ -656,21 +656,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
-    // Filter out Live In Care (SC)
-    const serviceType = g["Actual Service Type Description"] || "";
-    const isLiveInCare = serviceType && (() => {
-      const lowerType = String(serviceType).toLowerCase();
-      return lowerType.includes("live in care") || lowerType.includes("live-in care");
-    })();
-    if (isLiveInCare) {
-      continue; // Skip Live In Care from scheduled hours
-    }
-
     // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
     // This ensures employees show correct scheduled hours including office work
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
 
     // Track office hours for debugging
+    const serviceType = g["Actual Service Type Description"] || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
     // Use Actual priority for Care Pro Guaranteed Hours
@@ -1093,9 +1084,12 @@ export async function parseExcelFiles(
     'secondary',
     '(secondary)',
     'shadowing',
-    'oncall',  // normalized version (hyphen removed)
+    'oncall',  // normalized version (hyphen removed by norm())
     'on call',  // space-separated version
-    'training'  // training sessions
+    'training',  // training sessions
+    'live in care (sc)',
+    'live in care',
+    'live-in care'
   ];
 
   const demandRows = guaranteedData.filter(row => {
@@ -1105,7 +1099,7 @@ export async function parseExcelFiles(
     if (isCancelled) return false;
 
     // Rule 2: Skip secondary care using robust check
-    if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
+    if (isSecondaryMultipleCare(row["Actual Service Type Description"] || "")) return false;
 
     // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
     const serviceType = row["Actual Service Type Description"] || "";
@@ -1138,7 +1132,7 @@ export async function parseExcelFiles(
   const cancelledHours = cancelledRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
   const secondaryRows = guaranteedData.filter(row =>
-    isSecondaryMultipleCare(row["Actual Service Type Description"])
+    isSecondaryMultipleCare(row["Actual Service Type Description"] || "")
   );
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
@@ -1166,20 +1160,12 @@ export async function parseExcelFiles(
   });
   const trainingHours = trainingRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
-  const liveInCareRows = guaranteedData.filter(row => {
-    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
-    return st.includes("live in care") || st.includes("live-in care");
-  });
-  const liveInCareHours = liveInCareRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
-
   console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
   console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
   console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
   console.log(`  ❌ Shadowing: ${shadowingRows.length} rows (${Math.round(shadowingHours * 100) / 100}h)`);
   console.log(`  ❌ Training: ${trainingRows.length} rows (${Math.round(trainingHours * 100) / 100}h)`);
-  console.log(`  ❌ Live In Care (SC): ${liveInCareRows.length} rows (${Math.round(liveInCareHours * 100) / 100}h)`);
-
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
@@ -2581,7 +2567,7 @@ export async function processCapacityData(
 
                 // Reject if end time is before start time (overnight)
                 if (endMinutes < startMinutes) {
-                  console.log(`🚫 REJECTING availability window for ${employeeName} on ${dateStr}: ${w}`);
+                  console.log(`🚫 REJECTING overnight availability window for ${employeeName} on ${dateStr}: ${w}`);
                   return false;
                 }
                 return true;
@@ -2872,7 +2858,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Prioritize 'Service Location Name' as the client identifier
       const clientName = pickCol(row, CLIENT_COLS);
-      const serviceLocationAddress = row["Service Location Address"];
+
+      // Try multiple column names for address (different branches may use different names)
+      const ADDRESS_COLS = [
+        'Service Location Address',
+        'Client Address',
+        'Address',
+        'Service Address',
+        'Location Address'
+      ];
+      const serviceLocationAddress = pickCol(row, ADDRESS_COLS);
 
       // Try to extract postcode from the address if possible
       let postcode = "";
@@ -2945,8 +2940,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         postcode = String(row["Postal Code"]).trim().toUpperCase();
       }
 
-      if (clientName && (addressLine || postcode)) {
+      if (clientName) {
         const clientKey = clientName.trim();
+
+        // Log if we have a client but no address data (helps debug missing client locations)
+        if (!addressLine && !postcode) {
+          console.log(`⚠️ Client "${clientKey}" has no address or postcode - will save without geocoding`);
+        }
 
         // Check if client already has geocoded coordinates
         const existingClient = await storage.getClientLocationByName(branchId, clientKey);
@@ -2963,12 +2963,14 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
           clientLocationsMap.set(clientKey, clientData);
 
-          // Only add to geocoding queue if not already geocoded
-          if (!existingClient?.lat || !existingClient?.lng) {
-            console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
-            clientsToGeocode.push(clientData);
-          } else {
-            console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+          // Only add to geocoding queue if we have address data AND not already geocoded
+          if (addressLine || postcode) {
+            if (!existingClient?.lat || !existingClient?.lng) {
+              console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
+              clientsToGeocode.push(clientData);
+            } else {
+              console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+            }
           }
         } else {
           // Update existing entry if we have better data
