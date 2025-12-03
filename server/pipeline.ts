@@ -1036,6 +1036,7 @@ export async function parseExcelFiles(
   guaranteedBuffer: Buffer,
   cgDataBuffer: Buffer,
   ghWorkbookBuffer?: Buffer, // NEW: Add raw GH workbook buffer
+  branchId?: string, // NEW: Add branchId for branch-scoped parsing
 ): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
@@ -1076,33 +1077,16 @@ export async function parseExcelFiles(
 
   const guaranteedSheet = guaranteedWorkbook.Sheets[guaranteedSheetName];
   
-  // Get raw 2D array to find the actual header row (skip empty rows/formatting)
-  const sheetRows: any[][] = XLSX.utils.sheet_to_json(guaranteedSheet, {
-    header: 1,
-    range: 0,
-    blankrows: false,
-  }) as any[][];
-  
-  // Find the header row (first row with content)
-  let headerRowIdx = 0;
-  for (let i = 0; i < Math.min(10, sheetRows.length); i++) {
-    const row = sheetRows[i];
-    const hasContent = row && row.some(cell => cell && String(cell).trim().length > 0);
-    if (hasContent && row.some(cell => cell && String(cell).toLowerCase().includes('count') || String(cell).toLowerCase().includes('actual') || String(cell).toLowerCase().includes('customer'))) {
-      headerRowIdx = i;
-      break;
-    }
-  }
-  
-  // Parse with correct header row
+  // Parse Guaranteed Hours SAME WAY as CG Data - with defval for missing cells
   const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet, {
-    range: headerRowIdx
+    defval: "", // Same as CG Data parsing - handle missing cells gracefully
   });
   
-  console.log(`📊 Guaranteed Hours sheet parsed: ${guaranteedData.length} rows found (header row index: ${headerRowIdx})`);
+  console.log(`📊 Guaranteed Hours sheet parsed: ${guaranteedData.length} rows found`);
+  console.log(`🏢 Branch context: ${branchId || 'NO BRANCH ID'}`);
   if (guaranteedData.length > 0) {
-    console.log(`📊 First row columns:`, Object.keys(guaranteedData[0]).slice(0, 10));
-    console.log(`📊 First row sample:`, JSON.stringify(guaranteedData[0]).substring(0, 300));
+    console.log(`📊 First row columns:`, Object.keys(guaranteedData[0]).slice(0, 15));
+    console.log(`📊 First row sample:`, JSON.stringify(guaranteedData[0]).substring(0, 400));
   }
 
   // === Calculate demand from Guaranteed Hours data ===

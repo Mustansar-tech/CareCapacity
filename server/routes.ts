@@ -203,11 +203,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ FILE VALIDATION PASSED - Proceeding to parsing...`);
 
-      // Parse Excel files including CG Data Export
+      // Parse Excel files including CG Data Export - pass branchId for branch-scoped parsing
       const parsedData = await parseExcelFiles(
         availabilityFile.buffer,
         guaranteedFile.buffer,
-        cgDataFile.buffer
+        cgDataFile.buffer,
+        undefined, // ghWorkbookBuffer (not needed here)
+        requestedBranchId  // Pass branchId for proper branch scoping
       );
 
       // Validate detected branch matches requested branch
