@@ -19,6 +19,11 @@ export function BranchSelector() {
   
   const { selectedBranchId, setSelectedBranchId, branches, isLoadingBranches, selectedBranch } = branchContext;
 
+  // Sort branches alphabetically by display name
+  const sortedBranches = [...branches].sort((a, b) => 
+    a.displayName.localeCompare(b.displayName)
+  );
+
   if (isLoadingBranches) {
     return (
       <div className="flex items-center gap-2 px-4 py-2 bg-white/10 dark:bg-black/10 backdrop-blur-xl rounded-xl border border-white/20 dark:border-white/10 min-w-64">
@@ -48,7 +53,7 @@ export function BranchSelector() {
           <SelectValue placeholder="Select branch..." />
         </SelectTrigger>
         <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-white/20 dark:border-white/10 max-h-[500px] overflow-y-auto">
-          {branches.map((branch) => (
+          {sortedBranches.map((branch) => (
             <SelectItem
               key={branch.id}
               value={branch.id}
