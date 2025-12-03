@@ -1,0 +1,112 @@
+The issue is not Excel structure.
+It’s not missing service types.
+It’s not missing client locations.
+It’s not geocoding.
+It’s not filters.
+
+The issue is:
+
+You pass the parsed rows into the demand calculator but do not pass the same rows into the visit extractor.
+
+So the demand side works.
+The visit extraction side gets nothing.
+
+🔎 Why this happens
+
+Most likely:
+
+You store the GH buffer in memory after validation.
+
+Then you parse GH once for demand.
+
+But you don’t pass the parsed GH rows into visit extraction.
+
+Or you rebuild the GH parser later and it returns [] because your header finder misidentified the header row.
+
+Looking at your extractor:
+
+const rows2d = XLSX.utils.sheet_to_json<any[]>(..., { header: 1 })
+
+
+This is where the header detection bug kicks in if the sheet has:
+
+a blank row at the top
+
+merged header rows
+
+hidden header labels
+
+Excel comments in header cells
+
+If headerIdx is wrong → data becomes [] → visit extraction gets zero rows.
+
+🔥 Proof inside your logs
+
+This confirms the GH parser DID find rows for demand:
+
+410 total Guaranteed Hours entries
+
+
+But the visit extractor logs:
+
+🔍 DEBUG: Processing visit data from 0 guaranteed hours rows
+
+
+This is irrefutable:
+
+One part of your code sees 410 rows.
+The visit extractor sees 0.
+
+They are using different parsing.
+
+This is the bug.
+
+🧠 What to fix
+Fix header detection in the extractor
+
+Replace this fragile code:
+
+let headerIdx = rows2d.findIndex(r => {
+  const low = r.map(v => String(v ?? '').toLowerCase());
+  return low.some(s => s.includes('start date')) || low.some(s => s.includes('client'));
+});
+
+
+With a robust version:
+
+// Always pick **first non-empty row** as header
+let headerIdx = rows2d.findIndex(r =>
+  r.some(cell => String(cell ?? '').trim() !== '')
+);
+
+
+Or even safer:
+
+// Guaranteed Hours files always have headers in the first non-empty row
+let headerIdx = rows2d.findIndex(r => r.length > 5);
+
+
+Then derive rows:
+
+const headers = rows2d[headerIdx];
+const data = rows2d.slice(headerIdx + 1).map(r => {
+  const o: Record<string, any> = {};
+  headers.forEach((h, i) => o[h] = r[i]);
+  return o;
+});
+
+🛠️ What to log to confirm the fix
+
+Add these before mapping:
+
+console.log("GH rows2d length:", rows2d.length);
+console.log("Header row detected at index:", headerIdx);
+console.log("Detected header cells:", rows2d[headerIdx]);
+console.log("Next 5 data rows:", rows2d.slice(headerIdx + 1, headerIdx + 6));
+
+
+If header detection works, you’ll see 300+ rows instead of 0.
+
+📌 Final summary you can paste into Replit issue tracking
+
+The demand calculator correctly reads 410 Guaranteed Hours rows, but the visit extractor receives 0 rows. Both parts of the system parse the file separately. The visit extractor uses fragile header-row detection and fails to identify the real header, so it builds an empty dataset and passes 0 rows into extraction. Fix header detection by selecting the first non-empty row as the header and ensure the same parsed GH rows are reused for both demand and visit extraction.
