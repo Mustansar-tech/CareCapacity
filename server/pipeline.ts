@@ -1096,7 +1096,7 @@ export async function parseExcelFiles(
     if (isCancelled) return false;
 
     // Rule 2: Skip secondary care using robust check
-    if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
+    if (isSecondaryMultipleCare(row["Actual Service Type Description"] || "")) return false;
 
     // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
     const serviceType = row["Actual Service Type Description"] || "";
@@ -1129,7 +1129,7 @@ export async function parseExcelFiles(
   const cancelledHours = cancelledRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
   const secondaryRows = guaranteedData.filter(row =>
-    isSecondaryMultipleCare(row["Actual Service Type Description"])
+    isSecondaryMultipleCare(row["Actual Service Type Description"] || "")
   );
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
