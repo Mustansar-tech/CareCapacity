@@ -3318,6 +3318,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
 
     console.log(`✅ Geographical data extraction complete!`);
+    console.log(`\n🎯 SUMMARY FOR BRANCH ${branchId}:`);
+    console.log(`   📍 Employee locations stored: ${empLocs.length}`);
+    console.log(`   📍 Client locations stored: ${cliLocs.length}`);
+    console.log(`   📍 Employees with coordinates: ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
+    console.log(`   📍 Clients with coordinates: ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
+    console.log(`\n✅ You can now use the Scheduling tab - client visits will have coordinates\n`);
 
   } catch (error) {
     console.error('❌ Error extracting geographical data:', error);
