@@ -311,6 +311,15 @@ const CLIENT_COLS = [
   'Customer Name'
 ];
 
+// Guaranteed hours data column name aliases (case-insensitive lookup)
+const CANCEL_COLS = ['Cancellation Description'];
+const EMPLOYEE_NAME_COLS = ['Actual Employee Name', 'Employee Name', 'Caregiver Name', 'Care giver Name'];
+const START_TIME_COLS = ['Actual Start Date And Time', 'Start Date And Time', 'Planned Start Date And Time', 'Service Requirement Start Date And Time'];
+const END_TIME_COLS = ['Actual End Date And Time', 'End Date And Time', 'Planned End Date And Time', 'Service Requirement End Date And Time'];
+const SERVICE_TYPE_COLS = ['Actual Service Type Description', 'Service Type Description', 'Service Type'];
+const PAY_HOURS_COLS = ['Actual Pay Rate Hours', 'Pay Hours', 'Pay Rate Hours', 'Hours'];
+const ADDRESS_COLS_GH = ['Service Location Address', 'Service Requirement Location', 'Service Location', 'Client Address', 'Address Line 1', 'Full Address', 'Address'];
+
 // Helper: case/space-insensitive column picker
 function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
@@ -414,9 +423,9 @@ function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
   return { start, end };
 }
 
-// Helper for Care Pro Guaranteed Hours with Actual priority
+// Helper for Care Pro Guaranteed Hours with Actual priority (case-insensitive)
 function pickStartForBucket(row: any): any {
-  return row["Actual Start Date And Time"];
+  return pickCol(row, START_TIME_COLS);
 }
 
 // "HH:mm" helpers for time windows
@@ -563,15 +572,18 @@ function buildAdHocWindowsMap(
   const map = new Map<string, Array<[number, number]>>();
 
   for (const r of guaranteed || []) {
-    // use same filters as your scheduled lookup:
-    if (!isCancellationBlank(r["Cancellation Description"])) continue;
-    if (isSecondaryMultipleCare(r["Actual Service Type Description"])) continue;
+    // use same filters as your scheduled lookup (case-insensitive):
+    const cancelRaw = pickCol(r, CANCEL_COLS);
+    if (!isCancellationBlank(cancelRaw)) continue;
+    const serviceTypeRaw = pickCol(r, SERVICE_TYPE_COLS);
+    if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
 
-    const nameNorm = normalizeName(r["Actual Employee Name"]);
+    const empName = pickCol(r, EMPLOYEE_NAME_COLS);
+    const nameNorm = normalizeName(empName);
     if (!nameNorm) continue;
 
     const startV = pickStartForBucket(r);
-    const endV = r["Actual End Date And Time"]; // window is Actual start → Actual end
+    const endV = pickCol(r, END_TIME_COLS); // window is Actual start → Actual end
     if (!startV || !endV) continue;
 
     const dateKey = format(parseDate(startV), "yyyy-MM-dd");
@@ -596,9 +608,10 @@ function buildAdHocWindowsMap(
 function buildDisplayNameMap(guaranteed: any[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const r of guaranteed || []) {
-    const n = normalizeName(r["Actual Employee Name"]);
-    if (n && r["Actual Employee Name"])
-      m.set(n, String(r["Actual Employee Name"]));
+    const empName = pickCol(r, EMPLOYEE_NAME_COLS);
+    const n = normalizeName(empName);
+    if (n && empName)
+      m.set(n, String(empName));
   }
   return m;
 }
@@ -640,17 +653,17 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters - ONLY filter cancelled and secondary care
+    // Apply robust filters - ONLY filter cancelled and secondary care (case-insensitive)
     // Office hours MUST be included in scheduled totals
-    const cancelOk = isCancellationBlank(g["Cancellation Description"]);
+    const cancelRaw = pickCol(g, CANCEL_COLS);
+    const cancelOk = isCancellationBlank(cancelRaw);
     if (!cancelOk) {
       filteredCancelled++;
       continue;
     }
 
-    const secondary = isSecondaryMultipleCare(
-      g["Actual Service Type Description"],
-    );
+    const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
+    const secondary = isSecondaryMultipleCare(serviceTypeRaw);
     if (secondary) {
       filteredSecondary++;
       continue;
@@ -661,7 +674,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
 
     // Track office hours for debugging
-    const serviceType = g["Actual Service Type Description"] || "";
+    const serviceType = serviceTypeRaw || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
     // Use Actual priority for Care Pro Guaranteed Hours
@@ -669,23 +682,26 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     if (!start) continue;
 
     // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
-    const end = g["Actual End Date And Time"];
+    const end = pickCol(g, END_TIME_COLS);
     if (start && end) {
       const startDate = format(parseDate(start), "yyyy-MM-dd");
       const endDate = format(parseDate(end), "yyyy-MM-dd");
 
       if (startDate !== endDate) {
-        console.log(`🚫 REJECTING multi-day scheduled visit: ${g["Actual Employee Name"]} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
+        const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+        console.log(`🚫 REJECTING multi-day scheduled visit: ${empName} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
         continue; // Skip this visit entirely from scheduled hours
       }
     }
 
     const date = format(parseDate(start), "yyyy-MM-dd");
 
-    const name = normalizeName(g["Actual Employee Name"]);
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    const name = normalizeName(empName);
 
     // Sum only positive/real pay hours
-    const pay = Number(g["Actual Pay Rate Hours"]) || 0;
+    const payRaw = pickCol(g, PAY_HOURS_COLS);
+    const pay = Number(payRaw) || 0;
 
     if (isOfficeHours && pay > 0) {
       officeHoursIncluded++;
@@ -701,28 +717,22 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       console.log(`  Map Key: ${name}|${date}`);
     }
 
-    // Debug specific employee entries
-    const originalName = g["Actual Employee Name"];
+    // Debug specific employee entries (case-insensitive)
     if (
-      originalName &&
-      (originalName.toLowerCase().includes("makala") ||
-        originalName.toLowerCase().includes("brooke") ||
-        originalName.toLowerCase().includes("brien"))
+      empName &&
+      (empName.toLowerCase().includes("makala") ||
+        empName.toLowerCase().includes("brooke") ||
+        empName.toLowerCase().includes("brien"))
     ) {
       console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
-      console.log(`  Original Name: ${originalName}`);
+      console.log(`  Original Name: ${empName}`);
       console.log(`  Normalized Name: ${name}`);
-      console.log(`  Actual Start: ${g["Actual Start Date And Time"]}`);
-      console.log(`  Planned Start: ${g["Planned Start Date And Time"]}`);
-      console.log(
-        `  SR Start: ${g["Service Requirement Start Date And Time"]}`,
-      );
       console.log(`  Picked Start: ${start}`);
       console.log(`  Parsed Date: ${date}`);
-      console.log(`  Raw Pay Hours: ${g["Actual Pay Rate Hours"]}`);
+      console.log(`  Raw Pay Hours: ${payRaw}`);
       console.log(`  Parsed Pay Hours: ${pay}`);
-      console.log(`  Service Type: ${g["Actual Service Type Description"]}`);
-      console.log(`  Cancellation: "${g["Cancellation Description"]}"`);
+      console.log(`  Service Type: ${serviceType}`);
+      console.log(`  Cancellation: "${cancelRaw}"`);
     }
 
     if (name && date && pay > 0) {
@@ -731,7 +741,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       const newTotal = existing + pay;
       ghMap.set(key, newTotal);
 
-      if (originalName && originalName.toLowerCase().includes("makala")) {
+      if (empName && empName.toLowerCase().includes("makala")) {
         console.log(
           `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
@@ -744,7 +754,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
         );
       }
     } else {
-      if (originalName && originalName.toLowerCase().includes("makala")) {
+      if (empName && empName.toLowerCase().includes("makala")) {
         console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
       }
     }
@@ -3273,7 +3283,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
-      const serviceLocationAddress = pickCol(row, ADDRESS_COLS); // Use helper for address too
+      const serviceLocationAddress = pickCol(row, ADDRESS_COLS_GH); // Use helper for address too
 
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
