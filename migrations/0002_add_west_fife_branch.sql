@@ -1,12 +1,10 @@
 
--- Add West Fife branch
-INSERT INTO branches (id, name, display_name, region)
+-- Add West Fife and Kinross branch
+INSERT INTO branches (id, name, display_name, created_at)
 VALUES (
-  'd3859b52-cfbb-4c23-b94a-4ca4f5351d65',
-  'west-fife',
+  gen_random_uuid(),
+  'west-fife-kinross',
   'West Fife',
-  'Fife'
+  NOW()
 )
-ON CONFLICT (id) DO UPDATE SET
-  display_name = EXCLUDED.display_name,
-  region = EXCLUDED.region;
+ON CONFLICT (name) DO NOTHING;
