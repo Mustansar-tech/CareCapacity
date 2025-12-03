@@ -1729,7 +1729,7 @@ export async function processCapacityData(
   
   // Show first 10 entries
   let count = 0;
-  for (const [key, hours] of scheduledHoursMap.entries()) {
+  for (const [key, hours] of Array.from(scheduledHoursMap.entries())) {
     if (count < 10) {
       console.log(`  ${key}: ${hours}h`);
       count++;
