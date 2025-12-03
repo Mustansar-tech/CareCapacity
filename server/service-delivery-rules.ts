@@ -184,7 +184,10 @@ export function applyServiceRules(demandBuffer: Buffer): {
     'shadowing',
     'oncall',  // normalized version (hyphen removed by norm())
     'on call',  // space-separated version
-    'training'  // training sessions
+    'training',  // training sessions
+    'live in care (sc)',
+    'live in care',
+    'live-in care'
   ];
 
   const filtered = normalized.filter((r) => {

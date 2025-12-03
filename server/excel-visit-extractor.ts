@@ -119,7 +119,12 @@ const EXCLUDED_SERVICE_TYPES = [
   'multiple care (secondary)',
   'secondary',
   '(secondary)',
-  'multiple care - secondary'
+  'multiple care - secondary',
+
+  // Live In Care (SC) variants
+  'live in care (sc)',
+  'live in care',
+  'live-in care'
 ];
 
 // Round time to nearest 15-minute interval
