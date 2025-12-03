@@ -1084,9 +1084,12 @@ export async function parseExcelFiles(
     'secondary',
     '(secondary)',
     'shadowing',
-    'oncall',  // normalized version (hyphen removed)
+    'oncall',  // normalized version (hyphen removed by norm())
     'on call',  // space-separated version
-    'training'  // training sessions
+    'training',  // training sessions
+    'live in care (sc)',
+    'live in care',
+    'live-in care'
   ];
 
   const demandRows = guaranteedData.filter(row => {
@@ -2855,7 +2858,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Prioritize 'Service Location Name' as the client identifier
       const clientName = pickCol(row, CLIENT_COLS);
-      
+
       // Try multiple column names for address (different branches may use different names)
       const ADDRESS_COLS = [
         'Service Location Address',

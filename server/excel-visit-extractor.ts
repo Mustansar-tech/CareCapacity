@@ -96,7 +96,7 @@ const OFFICE_VISIT_KEYWORDS = [
   'meeting'
 ];
 
-// Service types to exclude for SCHEDULING (office hours, night shifts, secondary care)
+// Service types to exclude for SCHEDULING (office hours, night shifts, secondary care, live in care)
 // Note: Office hours are EXCLUDED here for scheduling purposes
 // but INCLUDED in scheduled hours totals (pipeline.ts)
 const EXCLUDED_SERVICE_TYPES = [
@@ -124,7 +124,12 @@ const EXCLUDED_SERVICE_TYPES = [
   'multiple care (secondary)',
   'secondary',
   '(secondary)',
-  'multiple care - secondary'
+  'multiple care - secondary',
+
+  // Live in care
+  'live in care (sc)',
+  'live in care',
+  'live-in care'
 ];
 
 // Round time to nearest 15-minute interval

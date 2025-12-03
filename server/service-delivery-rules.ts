@@ -167,7 +167,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
   }
 
   // 5) RULES: remove cancellations and excluded service types
-  // Excluded service types (office hours, night shifts, secondary care, shadowing, on-call)
+  // Excluded service types (office hours, night shifts, secondary care, shadowing, on-call, live in care)
   const EXCLUDED_TYPES = [
     'office hours',
     'office',
@@ -184,7 +184,10 @@ export function applyServiceRules(demandBuffer: Buffer): {
     'shadowing',
     'oncall',  // normalized version (hyphen removed by norm())
     'on call',  // space-separated version
-    'training'  // training sessions
+    'training',  // training sessions
+    'live in care (sc)',
+    'live in care',
+    'live-in care'
   ];
 
   const filtered = normalized.filter((r) => {
