@@ -31,22 +31,6 @@ const OFFICE_VISIT_KEYWORDS = [
 // Secondary multiple care keywords to exclude
 const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];
 
-// Service types to exclude (including secondary care, office hours, night shifts, and live in care)
-const EXCLUDED_SERVICE_TYPES = [
-  'office hours',
-  'office',
-  'nights - sleep in',
-  'sleep in',
-  'nights - waking nights',
-  'waking nights',
-  'multiple care (secondary)',
-  'secondary',
-  '(secondary)',
-  'live in care (sc)',
-  'live in care',
-  'live-in care'
-];
-
 // Minimum bookable window duration (minutes)
 // Set to 0 to allow scheduling in ANY available time slot
 const MIN_WINDOW_DURATION = 0;
@@ -127,13 +111,6 @@ function isSecondaryMultipleCare(serviceType: string): boolean {
   return SECONDARY_CARE_KEYWORDS.some(keyword => lowerType.includes(keyword));
 }
 
-// Check if service type is excluded
-function isExcludedServiceType(serviceType: string): boolean {
-  if (!serviceType) return false;
-  const lowerType = serviceType.toLowerCase();
-  return EXCLUDED_SERVICE_TYPES.some(keyword => lowerType.includes(keyword));
-}
-
 // Calculate total capacity from ALL time windows
 function calculateTotalCapacity(windows: TimeWindow[]): number {
   return windows.reduce((sum, w) => sum + (w.end - w.start), 0);
@@ -175,26 +152,26 @@ function wouldExceedCapacity(
 function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
   let visitEnd = timeToMinutes(visit.endTime);
-
+  
   // Detect overnight visit
   const crossesMidnight = (visit as any).crossesMidnight || visitEnd < visitStart;
-
+  
   if (crossesMidnight) {
     // For overnight visits, check if the visit fits across the day boundary
     // The visit needs availability from start time to midnight (1440min) AND from midnight to end time
     visitEnd = timeToMinutes(visit.endTime, true); // Add 24 hours
-
+    
     console.log(`🌙 Checking overnight visit fit: ${visit.clientName} ${visitStart}min to ${visitEnd}min`);
-
+    
     // Check if employee has availability that can accommodate the overnight visit
     // This requires checking if windows extend late enough and start early enough
     const hasLateWindow = windows.some(w => w.end >= visitStart && w.end >= 1380); // Works late (after 11pm)
     const hasEarlyWindow = windows.some(w => w.start <= (visitEnd - 1440) && w.start <= 180); // Starts early (before 3am)
-
+    
     if (hasLateWindow && hasEarlyWindow) {
       return visit; // Can accommodate overnight visit
     }
-
+    
     console.log(`⚠️ ${visit.clientName}: Overnight visit doesn't fit (needs late + early availability)`);
     return null;
   }
@@ -214,17 +191,17 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
 function toScoringVisit(visit: ClientVisit): ScoringVisit {
   const startMin = timeToMinutes(visit.startTime);
   let endMin = timeToMinutes(visit.endTime);
-
+  
   // Detect overnight visit: if end time is earlier than start time, it crosses midnight
   // OR if visit has crossesMidnight flag set
   const crossesMidnight = (visit as any).crossesMidnight || endMin < startMin;
-
+  
   if (crossesMidnight) {
     // Add 24 hours to end time to represent next day
     endMin = timeToMinutes(visit.endTime, true);
     console.log(`🌙 Overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} → ${startMin}min to ${endMin}min (crosses midnight)`);
   }
-
+  
   return {
     clientName: visit.clientName,
     start: startMin,
@@ -305,8 +282,8 @@ function assignVisitToBestEmployee(
     return { success: false, reason: 'Already assigned' };
   }
 
-  // Note: Office visits, secondary multiple care, visits without location data,
-  // and excluded service types are already filtered out in generateWeeklySchedule, so no need to check again here
+  // Note: Office visits, secondary multiple care, and visits without location data
+  // are already filtered out in generateWeeklySchedule, so no need to check again here
 
   const candidates: Array<{
     employeeName: string;
@@ -374,11 +351,11 @@ function assignVisitToBestEmployee(
         const vEnd = timeToMinutes(v.endTime);
         const visitStart = timeToMinutes(adjustedVisit.startTime);
         const visitEnd = timeToMinutes(adjustedVisit.endTime);
-
+        
         // Check for any overlap in time
         return (visitStart < vEnd && visitEnd > vStart);
       });
-
+      
       if (hasConflictingVisit) {
         finalScore *= 0.1; // Massive penalty - nearly eliminate this option
         console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
@@ -447,7 +424,7 @@ function assignVisitToBestEmployee(
     const prevEndMin = timeToMinutes(prevVisit.endTime);
     const currentStartMin = timeToMinutes(best.adjustedVisit.startTime);
     const gapMinutes = currentStartMin - prevEndMin;
-
+    
     if (gapMinutes >= 90) {
       // Large gap - employee goes home and returns
       const travelToHome = getTravelMinutes(
@@ -460,7 +437,7 @@ function assignVisitToBestEmployee(
         { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
         schedule.transportMode
       );
-
+      
       actualTravelTimeBefore = travelFromHome;
       console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
     }
@@ -481,7 +458,7 @@ function assignVisitToBestEmployee(
 
   // CRITICAL: Verify chronological order before insertion
   const visitStartMin = timeToMinutes(assignedVisit.startTime);
-
+  
   // Check previous visit doesn't start after this one
   if (best.insertionIndex > 0) {
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
@@ -491,7 +468,7 @@ function assignVisitToBestEmployee(
       return { success: false, reason: 'Would break chronological order (previous visit starts later)' };
     }
   }
-
+  
   // Check next visit doesn't start before this one
   if (best.insertionIndex < schedule.assignedVisits.length) {
     const nextVisit = schedule.assignedVisits[best.insertionIndex];
@@ -512,7 +489,7 @@ function assignVisitToBestEmployee(
 
   // Insert at the correct position
   schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
-
+  
   // CRITICAL: Re-sort visits by start time to ensure chronological order is maintained
   // This prevents the chronological error bug
   schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
@@ -613,12 +590,6 @@ export function generateWeeklySchedule(
     // Skip secondary multiple care visits
     if (isSecondaryMultipleCare(visit.serviceType || '')) {
       console.log(`🚫 Excluding secondary multiple care visit: ${visit.clientName} (${visit.serviceType})`);
-      return false;
-    }
-
-    // Skip excluded service types
-    if (isExcludedServiceType(visit.serviceType || '')) {
-      console.log(`🚫 Excluding visit with excluded service type: ${visit.clientName} (${visit.serviceType})`);
       return false;
     }
 
@@ -735,18 +706,18 @@ export function generateWeeklySchedule(
   const sortedVisits = [...filteredVisits].sort((a, b) => {
     const aStart = timeToMinutes(a.startTime);
     const bStart = timeToMinutes(b.startTime);
-
+    
     // Primary sort: by start time (earlier visits first)
     if (aStart !== bStart) {
       return aStart - bStart;
     }
-
+    
     // Secondary sort: by priority if start times are equal
     return (b.priority || 1) - (a.priority || 1);
   });
-
+  
   console.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
-
+  
   // Log first 5 visits to verify chronological order
   if (sortedVisits.length > 0) {
     console.log('📋 First 5 visits in chronological order:');

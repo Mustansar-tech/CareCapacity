@@ -109,8 +109,8 @@ export function getCanonicalWeekBoundaries(dateStr: string): { weekStart: string
 
 // ====================== CARE CAPACITY DASHBOARD SCHEMAS ======================
 
-// Raw Excel data interfaces - using Record for dynamic Excel column access
-export interface AvailabilityRow extends Record<string, unknown> {
+// Raw Excel data interfaces
+export interface AvailabilityRow {
   "CAREGiver Name": string;
   "Start Date": string;
   "Start Time": string;
@@ -118,12 +118,9 @@ export interface AvailabilityRow extends Record<string, unknown> {
   "Type": string;
   "Hours"?: number;
   "Notes"?: string;
-  "End Date"?: string;
-  "Time Window(s)"?: string;
-  "Time Window"?: string;
 }
 
-export interface GuaranteedHoursRow extends Record<string, unknown> {
+export interface GuaranteedHoursRow {
   "Actual Employee Name": string;
   "Actual Employee Hours Per Week": number;
   "Actual Pay Rate Hours": number;
@@ -131,15 +128,6 @@ export interface GuaranteedHoursRow extends Record<string, unknown> {
   "Service Requirement End Date And Time": string;
   "Actual Service Type Description"?: string;
   "Cancellation Description"?: string;
-  "Planned Duration"?: number;
-  "Planned Start Date And Time"?: string;
-  "Planned End Date And Time"?: string;
-  "Service Type Description"?: string;
-  "Duration (Planned)"?: number;
-  "Duration"?: number;
-  "Planned Hrs"?: number;
-  "Planned Hours"?: number;
-  "Planned Time"?: number;
 }
 
 export interface ClientDemandRow {

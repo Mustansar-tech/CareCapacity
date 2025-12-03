@@ -60,9 +60,9 @@ function normalizeBranchName(branchName: string): string {
     'ayrshire': 'south-ayrshire',
     'ayr': 'south-ayrshire',
     'aberdeen': 'aberdeen',
-    'east lothian & midlothian': 'east-lothian',
-    'east lothian': 'east-lothian',
-    'midlothian': 'east-lothian',
+    'east lothian & midlothian': 'east-lothian-midlothian',
+    'east lothian': 'east-lothian-midlothian',
+    'midlothian': 'east-lothian-midlothian',
     'scottish borders': 'scottish-borders',
     'borders': 'scottish-borders',
     'west fife and kinross': 'west-fife-kinross',
@@ -76,12 +76,12 @@ function normalizeBranchName(branchName: string): string {
 }
 
 // Enhanced geocoding with fallback hierarchy
-export async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
+async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
   const prefix = normalizedPostcode.substring(0, 2);
 
-  // Step 1: Try exact postcode from cache (branch-scoped)
-  const cached = await storage.getGeocode(branchId, `postcode:${normalizedPostcode}`);
+  // Step 1: Try exact postcode from cache
+  const cached = await storage.getGeocode(`postcode:${normalizedPostcode}`);
   if (cached) {
     return {
       query: normalizedPostcode,
@@ -94,7 +94,7 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
   }
 
   // Step 1.5: Try fallback cache for this prefix (OPTIMIZATION: avoid repeated API calls for same area)
-  const fallbackCached = await storage.getGeocode(branchId, `fallback:${prefix}`);
+  const fallbackCached = await storage.getGeocode(`fallback:${prefix}`);
   if (fallbackCached) {
     return {
       query: normalizedPostcode,
@@ -143,8 +143,8 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
   if (parts.length >= 2) {
     const district = parts[0];
 
-    // Check cache for district (branch-scoped)
-    const districtCached = await storage.getGeocode(branchId, `district:${district}`);
+    // Check cache for district
+    const districtCached = await storage.getGeocode(`district:${district}`);
     if (districtCached) {
       return {
         query: normalizedPostcode,
@@ -311,15 +311,6 @@ const CLIENT_COLS = [
   'Customer Name'
 ];
 
-// Guaranteed hours data column name aliases (case-insensitive lookup)
-const CANCEL_COLS = ['Cancellation Description'];
-const EMPLOYEE_NAME_COLS = ['Actual Employee Name', 'Employee Name', 'Caregiver Name', 'Care giver Name'];
-const START_TIME_COLS = ['Actual Start Date And Time', 'Start Date And Time', 'Planned Start Date And Time', 'Service Requirement Start Date And Time'];
-const END_TIME_COLS = ['Actual End Date And Time', 'End Date And Time', 'Planned End Date And Time', 'Service Requirement End Date And Time'];
-const SERVICE_TYPE_COLS = ['Actual Service Type Description', 'Service Type Description', 'Service Type'];
-const PAY_HOURS_COLS = ['Actual Pay Rate Hours', 'Pay Hours', 'Pay Rate Hours', 'Hours'];
-const ADDRESS_COLS_GH = ['Service Location Address', 'Service Requirement Location', 'Service Location', 'Client Address', 'Address Line 1', 'Full Address', 'Address'];
-
 // Helper: case/space-insensitive column picker
 function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
@@ -423,9 +414,9 @@ function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
   return { start, end };
 }
 
-// Helper for Care Pro Guaranteed Hours with Actual priority (case-insensitive)
+// Helper for Care Pro Guaranteed Hours with Actual priority
 function pickStartForBucket(row: any): any {
-  return pickCol(row, START_TIME_COLS);
+  return row["Actual Start Date And Time"];
 }
 
 // "HH:mm" helpers for time windows
@@ -572,18 +563,15 @@ function buildAdHocWindowsMap(
   const map = new Map<string, Array<[number, number]>>();
 
   for (const r of guaranteed || []) {
-    // use same filters as your scheduled lookup (case-insensitive):
-    const cancelRaw = pickCol(r, CANCEL_COLS);
-    if (!isCancellationBlank(cancelRaw)) continue;
-    const serviceTypeRaw = pickCol(r, SERVICE_TYPE_COLS);
-    if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
+    // use same filters as your scheduled lookup:
+    if (!isCancellationBlank(r["Cancellation Description"])) continue;
+    if (isSecondaryMultipleCare(r["Actual Service Type Description"])) continue;
 
-    const empName = pickCol(r, EMPLOYEE_NAME_COLS);
-    const nameNorm = normalizeName(empName);
+    const nameNorm = normalizeName(r["Actual Employee Name"]);
     if (!nameNorm) continue;
 
     const startV = pickStartForBucket(r);
-    const endV = pickCol(r, END_TIME_COLS); // window is Actual start → Actual end
+    const endV = r["Actual End Date And Time"]; // window is Actual start → Actual end
     if (!startV || !endV) continue;
 
     const dateKey = format(parseDate(startV), "yyyy-MM-dd");
@@ -608,10 +596,9 @@ function buildAdHocWindowsMap(
 function buildDisplayNameMap(guaranteed: any[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const r of guaranteed || []) {
-    const empName = pickCol(r, EMPLOYEE_NAME_COLS);
-    const n = normalizeName(empName);
-    if (n && empName)
-      m.set(n, String(empName));
+    const n = normalizeName(r["Actual Employee Name"]);
+    if (n && r["Actual Employee Name"])
+      m.set(n, String(r["Actual Employee Name"]));
   }
   return m;
 }
@@ -653,17 +640,17 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters - ONLY filter cancelled and secondary care (case-insensitive)
+    // Apply robust filters - ONLY filter cancelled and secondary care
     // Office hours MUST be included in scheduled totals
-    const cancelRaw = pickCol(g, CANCEL_COLS);
-    const cancelOk = isCancellationBlank(cancelRaw);
+    const cancelOk = isCancellationBlank(g["Cancellation Description"]);
     if (!cancelOk) {
       filteredCancelled++;
       continue;
     }
 
-    const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
-    const secondary = isSecondaryMultipleCare(serviceTypeRaw);
+    const secondary = isSecondaryMultipleCare(
+      g["Actual Service Type Description"],
+    );
     if (secondary) {
       filteredSecondary++;
       continue;
@@ -674,7 +661,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
 
     // Track office hours for debugging
-    const serviceType = serviceTypeRaw || "";
+    const serviceType = g["Actual Service Type Description"] || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
     // Use Actual priority for Care Pro Guaranteed Hours
@@ -682,26 +669,23 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     if (!start) continue;
 
     // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
-    const end = pickCol(g, END_TIME_COLS);
+    const end = g["Actual End Date And Time"];
     if (start && end) {
       const startDate = format(parseDate(start), "yyyy-MM-dd");
       const endDate = format(parseDate(end), "yyyy-MM-dd");
 
       if (startDate !== endDate) {
-        const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-        console.log(`🚫 REJECTING multi-day scheduled visit: ${empName} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
+        console.log(`🚫 REJECTING multi-day scheduled visit: ${g["Actual Employee Name"]} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
         continue; // Skip this visit entirely from scheduled hours
       }
     }
 
     const date = format(parseDate(start), "yyyy-MM-dd");
 
-    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-    const name = normalizeName(empName);
+    const name = normalizeName(g["Actual Employee Name"]);
 
     // Sum only positive/real pay hours
-    const payRaw = pickCol(g, PAY_HOURS_COLS);
-    const pay = Number(payRaw) || 0;
+    const pay = Number(g["Actual Pay Rate Hours"]) || 0;
 
     if (isOfficeHours && pay > 0) {
       officeHoursIncluded++;
@@ -717,22 +701,28 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       console.log(`  Map Key: ${name}|${date}`);
     }
 
-    // Debug specific employee entries (case-insensitive)
+    // Debug specific employee entries
+    const originalName = g["Actual Employee Name"];
     if (
-      empName &&
-      (empName.toLowerCase().includes("makala") ||
-        empName.toLowerCase().includes("brooke") ||
-        empName.toLowerCase().includes("brien"))
+      originalName &&
+      (originalName.toLowerCase().includes("makala") ||
+        originalName.toLowerCase().includes("brooke") ||
+        originalName.toLowerCase().includes("brien"))
     ) {
       console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
-      console.log(`  Original Name: ${empName}`);
+      console.log(`  Original Name: ${originalName}`);
       console.log(`  Normalized Name: ${name}`);
+      console.log(`  Actual Start: ${g["Actual Start Date And Time"]}`);
+      console.log(`  Planned Start: ${g["Planned Start Date And Time"]}`);
+      console.log(
+        `  SR Start: ${g["Service Requirement Start Date And Time"]}`,
+      );
       console.log(`  Picked Start: ${start}`);
       console.log(`  Parsed Date: ${date}`);
-      console.log(`  Raw Pay Hours: ${payRaw}`);
+      console.log(`  Raw Pay Hours: ${g["Actual Pay Rate Hours"]}`);
       console.log(`  Parsed Pay Hours: ${pay}`);
-      console.log(`  Service Type: ${serviceType}`);
-      console.log(`  Cancellation: "${cancelRaw}"`);
+      console.log(`  Service Type: ${g["Actual Service Type Description"]}`);
+      console.log(`  Cancellation: "${g["Cancellation Description"]}"`);
     }
 
     if (name && date && pay > 0) {
@@ -741,7 +731,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       const newTotal = existing + pay;
       ghMap.set(key, newTotal);
 
-      if (empName && empName.toLowerCase().includes("makala")) {
+      if (originalName && originalName.toLowerCase().includes("makala")) {
         console.log(
           `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
@@ -754,7 +744,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
         );
       }
     } else {
-      if (empName && empName.toLowerCase().includes("makala")) {
+      if (originalName && originalName.toLowerCase().includes("makala")) {
         console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
       }
     }
@@ -1035,8 +1025,6 @@ export async function parseExcelFiles(
   availabilityBuffer: Buffer,
   guaranteedBuffer: Buffer,
   cgDataBuffer: Buffer,
-  ghWorkbookBuffer?: Buffer, // NEW: Add raw GH workbook buffer
-  branchId?: string, // NEW: Add branchId for branch-scoped parsing
 ): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
@@ -1066,28 +1054,16 @@ export async function parseExcelFiles(
 
   // Parse Care Pro Guaranteed Hours.xlsx
   const guaranteedWorkbook = XLSX.read(guaranteedBuffer);
-  console.log(`📊 Guaranteed workbook sheets available:`, guaranteedWorkbook.SheetNames);
-  
   const guaranteedSheetName = GUAR_SHEET;
   if (!guaranteedWorkbook.SheetNames.includes(guaranteedSheetName)) {
     throw new Error(
-      `Sheet "${guaranteedSheetName}" not found in Care Pro Guaranteed Hours file. Available sheets: ${guaranteedWorkbook.SheetNames.join(', ')}`,
+      `Sheet "${guaranteedSheetName}" not found in Care Pro Guaranteed Hours file`,
     );
   }
 
   const guaranteedSheet = guaranteedWorkbook.Sheets[guaranteedSheetName];
-  
-  // Parse Guaranteed Hours SAME WAY as CG Data - with defval for missing cells
-  const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet, {
-    defval: "", // Same as CG Data parsing - handle missing cells gracefully
-  });
-  
-  console.log(`📊 Guaranteed Hours sheet parsed: ${guaranteedData.length} rows found`);
-  console.log(`🏢 Branch context: ${branchId || 'NO BRANCH ID'}`);
-  if (guaranteedData.length > 0) {
-    console.log(`📊 First row columns:`, Object.keys(guaranteedData[0]).slice(0, 15));
-    console.log(`📊 First row sample:`, JSON.stringify(guaranteedData[0]).substring(0, 400));
-  }
+  const guaranteedData =
+    XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
 
   // === Calculate demand from Guaranteed Hours data ===
   console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
@@ -1108,12 +1084,9 @@ export async function parseExcelFiles(
     'secondary',
     '(secondary)',
     'shadowing',
-    'oncall',  // normalized version (hyphen removed by norm())
+    'oncall',  // normalized version (hyphen removed)
     'on call',  // space-separated version
-    'training',  // training sessions
-    'live in care (sc)',
-    'live in care',
-    'live-in care'
+    'training'  // training sessions
   ];
 
   const demandRows = guaranteedData.filter(row => {
@@ -1123,7 +1096,7 @@ export async function parseExcelFiles(
     if (isCancelled) return false;
 
     // Rule 2: Skip secondary care using robust check
-    if (isSecondaryMultipleCare(row["Actual Service Type Description"] || "")) return false;
+    if (isSecondaryMultipleCare(row["Actual Service Type Description"])) return false;
 
     // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
     const serviceType = row["Actual Service Type Description"] || "";
@@ -1156,7 +1129,7 @@ export async function parseExcelFiles(
   const cancelledHours = cancelledRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
   const secondaryRows = guaranteedData.filter(row =>
-    isSecondaryMultipleCare(row["Actual Service Type Description"] || "")
+    isSecondaryMultipleCare(row["Actual Service Type Description"])
   );
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
@@ -1735,20 +1708,6 @@ export async function processCapacityData(
   }
 
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
-
-  // VERIFICATION: Show what's in the scheduled hours map
-  console.log(`\n📊 SCHEDULED HOURS MAP VERIFICATION:`);
-  console.log(`  Total entries in map: ${scheduledHoursMap.size}`);
-  
-  // Show first 10 entries
-  let count = 0;
-  for (const [key, hours] of Array.from(scheduledHoursMap.entries())) {
-    if (count < 10) {
-      console.log(`  ${key}: ${hours}h`);
-      count++;
-    }
-  }
-  console.log(`=========================================\n`);
 
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
@@ -2482,20 +2441,9 @@ export async function processCapacityData(
       const key = emp.employeeName;
 
       if (!employeeMap.has(key)) {
-        // CRITICAL FIX: Get scheduled hours directly from the lookup map
-        const empNormalized = normalizeName(emp.employeeName);
-        const scheduleKey = `${empNormalized}|${dateStr}`;
-        const scheduledHoursFromLookup = scheduledHoursMap.get(scheduleKey) || 0;
-
-        console.log(`📊 Employee summary for ${emp.employeeName} on ${dateStr}:`);
-        console.log(`  - Normalized: ${empNormalized}`);
-        console.log(`  - Lookup key: ${scheduleKey}`);
-        console.log(`  - Scheduled hours from lookup: ${scheduledHoursFromLookup}`);
-        console.log(`  - Scheduled hours from emp object: ${emp.scheduledHours || 0}`);
-
         employeeMap.set(key, {
           contractedDailyHours: emp.contractedDailyHours,
-          scheduledHours: scheduledHoursFromLookup, // Use lookup value directly
+          scheduledHours: emp.scheduledHours || 0,
           unavailabilityHours: 0,
           hasAvailableStatus: false,
           hasUnavailableStatus: false,
@@ -2510,7 +2458,10 @@ export async function processCapacityData(
         empData.contractedDailyHours,
         emp.contractedDailyHours,
       );
-      // Scheduled hours already set from lookup - don't overwrite
+      // Take the first scheduledHours value we see (they should all be the same since they come from the lookup)
+      if (empData.scheduledHours === 0) {
+        empData.scheduledHours = emp.scheduledHours || 0;
+      }
 
       // Track all status types separately, then consolidate at the end
       if (emp.status === "Available") {
@@ -2664,7 +2615,7 @@ export async function processCapacityData(
           console.log(`⚠️ SUMMARY: ${employeeName} on ${dateStr} - NO GENDER (normalized: ${empNormalized})`);
         }
 
-        const summaryRecord = {
+        return {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
           unavailability: finalUnavailabilityHours,
@@ -2678,13 +2629,6 @@ export async function processCapacityData(
           transportMode, // Transport mode from CG Data (e.g., "Car", "Walker")
           gender, // CRITICAL: Gender derived from title in CG Data (e.g., "male", "female") - MUST be populated for auto-scheduler
         };
-
-        // Debug logging to verify scheduled hours are being set
-        if (empData.scheduledHours > 0) {
-          console.log(`✅ SUMMARY RECORD with scheduled hours: ${employeeName} on ${dateStr} = ${empData.scheduledHours}h`);
-        }
-
-        return summaryRecord;
       },
     );
   });
@@ -2747,7 +2691,7 @@ export async function processCapacityData(
 
   // Extract and store geographical data for scheduling optimization
   if (branchId) {
-    await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer); // Pass raw GH workbook buffer
+    await extractAndStoreGeographicalData(cgData, guaranteed, branchId);
   } else {
     console.log(`⚠️ WARNING: No branchId provided - skipping geographical data extraction`);
   }
@@ -2786,7 +2730,7 @@ export async function processCapacityData(
 }
 
 // Extract and store geographical data for route optimization
-async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branchId?: string, ghWorkbookBuffer?: Buffer) { // Added ghWorkbookBuffer parameter
+async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branchId?: string) {
   console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
   console.log(`📊 CG Data rows to process: ${cgData.length}`);
   console.log(`🏢 Branch ID: ${branchId || 'NONE'}`);
@@ -2891,52 +2835,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     }
 
     // Extract client locations from Care Pro Guaranteed Hours
-    // CRITICAL FIX: Use the RAW workbook buffer to extract client locations
-    // because guaranteedData has already been filtered for scheduling
-    console.log(`🔍 Extracting client locations from raw GH Excel workbook`);
+    const clientLocationsMap = new Map<string, any>();
+    const clientsToGeocode: any[] = [];
+    console.log(`🔍 Processing ${guaranteed.length} guaranteed hours rows for client locations`);
 
-    const clientLocationsMap = new Map<string, {
-      branchId: string;
-      clientName: string;
-      addressLine: string;
-      postcode: string;
-      lat: string | null;
-      lng: string | null;
-    }>();
-    const clientsToGeocode: Array<{
-      branchId: string;
-      clientName: string;
-      addressLine: string;
-      postcode: string;
-      lat: string | null;
-      lng: string | null;
-    }> = [];
-
-    // Parse raw GH workbook to get ALL rows (not just filtered scheduling rows)
-    let rawGHRows: any[] = [];
-    if (ghWorkbookBuffer) {
-      const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
-      const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
-      const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
-        header: 1,
-        raw: true,
-        blankrows: false
-      }) as any[][];
-
-      // Find header row (first non-empty row)
-      const headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
-      if (headerIdx >= 0) {
-        const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
-        rawGHRows = rows2d.slice(headerIdx + 1).map(r => {
-          const o: Record<string, any> = {};
-          headers.forEach((h, i) => (o[h] = r[i]));
-          return o;
-        });
-        console.log(`📋 Parsed ${rawGHRows.length} raw GH rows for client location extraction`);
-      }
+    // Debug: Check what columns are available
+    if (guaranteed.length > 0) {
+      console.log(`🔍 Available columns in first row:`, Object.keys(guaranteed[0]));
     }
 
-    for (const row of rawGHRows) {
+    for (const row of guaranteed) {
       // Skip cancelled or secondary multiple care entries
       if (!isCancellationBlank(row["Cancellation Description"])) {
         continue;
@@ -2947,16 +2855,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Prioritize 'Service Location Name' as the client identifier
       const clientName = pickCol(row, CLIENT_COLS);
-
-      // Try multiple column names for address (different branches may use different names)
-      const ADDRESS_COLS = [
-        'Service Location Address',
-        'Client Address',
-        'Address',
-        'Service Address',
-        'Location Address'
-      ];
-      const serviceLocationAddress = pickCol(row, ADDRESS_COLS);
+      const serviceLocationAddress = row["Service Location Address"];
 
       // Try to extract postcode from the address if possible
       let postcode = "";
@@ -3029,13 +2928,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         postcode = String(row["Postal Code"]).trim().toUpperCase();
       }
 
-      if (clientName) {
+      if (clientName && (addressLine || postcode)) {
         const clientKey = clientName.trim();
-
-        // Log if we have a client but no address data (helps debug missing client locations)
-        if (!addressLine && !postcode) {
-          console.log(`⚠️ Client "${clientKey}" has no address or postcode - will save without geocoding`);
-        }
 
         // Check if client already has geocoded coordinates
         const existingClient = await storage.getClientLocationByName(branchId, clientKey);
@@ -3052,14 +2946,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
           clientLocationsMap.set(clientKey, clientData);
 
-          // Only add to geocoding queue if we have address data AND not already geocoded
-          if (addressLine || postcode) {
-            if (!existingClient?.lat || !existingClient?.lng) {
-              console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
-              clientsToGeocode.push(clientData);
-            } else {
-              console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
-            }
+          // Only add to geocoding queue if not already geocoded
+          if (!existingClient?.lat || !existingClient?.lng) {
+            console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
+            clientsToGeocode.push(clientData);
+          } else {
+            console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
           }
         } else {
           // Update existing entry if we have better data
@@ -3278,9 +3170,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
 
-    console.log(`🔍 DEBUG: Processing visit data from ${rawGHRows.length} raw GH rows`); // Use rawGHRows here
+    console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
 
-    for (const row of rawGHRows) { // Iterate over rawGHRows
+    for (const row of guaranteed) {
       // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
 
@@ -3296,7 +3188,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
-      const serviceLocationAddress = pickCol(row, ADDRESS_COLS_GH); // Use helper for address too
+      const serviceLocationAddress = row["Service Location Address"];
 
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
@@ -3407,12 +3299,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
 
     console.log(`✅ Geographical data extraction complete!`);
-    console.log(`\n🎯 SUMMARY FOR BRANCH ${branchId}:`);
-    console.log(`   📍 Employee locations stored: ${empLocs.length}`);
-    console.log(`   📍 Client locations stored: ${cliLocs.length}`);
-    console.log(`   📍 Employees with coordinates: ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
-    console.log(`   📍 Clients with coordinates: ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
-    console.log(`\n✅ You can now use the Scheduling tab - client visits will have coordinates\n`);
 
   } catch (error) {
     console.error('❌ Error extracting geographical data:', error);
