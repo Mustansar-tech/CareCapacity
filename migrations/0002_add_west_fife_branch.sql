@@ -1,9 +1,12 @@
--- Add West Fife branch (matching the naming pattern from the image: "Home Instead West Fife and Kinross")
-INSERT INTO branches (id, name, display_name, region, created_at)
+
+-- Add West Fife branch
+INSERT INTO branches (id, name, display_name, region)
 VALUES (
-  '7e8f9a0b-1c2d-3e4f-5a6b-7c8d9e0f1a2b',
-  'west-fife-and-kinross',
+  'd3859b52-cfbb-4c23-b94a-4ca4f5351d65',
+  'west-fife',
   'West Fife',
-  'Fife',
-  NOW()
-) ON CONFLICT (name) DO UPDATE SET display_name = EXCLUDED.display_name, region = EXCLUDED.region;
+  'Fife'
+)
+ON CONFLICT (id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  region = EXCLUDED.region;
