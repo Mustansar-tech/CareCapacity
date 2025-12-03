@@ -1065,16 +1065,45 @@ export async function parseExcelFiles(
 
   // Parse Care Pro Guaranteed Hours.xlsx
   const guaranteedWorkbook = XLSX.read(guaranteedBuffer);
+  console.log(`📊 Guaranteed workbook sheets available:`, guaranteedWorkbook.SheetNames);
+  
   const guaranteedSheetName = GUAR_SHEET;
   if (!guaranteedWorkbook.SheetNames.includes(guaranteedSheetName)) {
     throw new Error(
-      `Sheet "${guaranteedSheetName}" not found in Care Pro Guaranteed Hours file`,
+      `Sheet "${guaranteedSheetName}" not found in Care Pro Guaranteed Hours file. Available sheets: ${guaranteedWorkbook.SheetNames.join(', ')}`,
     );
   }
 
   const guaranteedSheet = guaranteedWorkbook.Sheets[guaranteedSheetName];
-  const guaranteedData =
-    XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet);
+  
+  // Get raw 2D array to find the actual header row (skip empty rows/formatting)
+  const sheetRows: any[][] = XLSX.utils.sheet_to_json(guaranteedSheet, {
+    header: 1,
+    range: 0,
+    blankrows: false,
+  }) as any[][];
+  
+  // Find the header row (first row with content)
+  let headerRowIdx = 0;
+  for (let i = 0; i < Math.min(10, sheetRows.length); i++) {
+    const row = sheetRows[i];
+    const hasContent = row && row.some(cell => cell && String(cell).trim().length > 0);
+    if (hasContent && row.some(cell => cell && String(cell).toLowerCase().includes('count') || String(cell).toLowerCase().includes('actual') || String(cell).toLowerCase().includes('customer'))) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+  
+  // Parse with correct header row
+  const guaranteedData = XLSX.utils.sheet_to_json<GuaranteedHoursRow>(guaranteedSheet, {
+    range: headerRowIdx
+  });
+  
+  console.log(`📊 Guaranteed Hours sheet parsed: ${guaranteedData.length} rows found (header row index: ${headerRowIdx})`);
+  if (guaranteedData.length > 0) {
+    console.log(`📊 First row columns:`, Object.keys(guaranteedData[0]).slice(0, 10));
+    console.log(`📊 First row sample:`, JSON.stringify(guaranteedData[0]).substring(0, 300));
+  }
 
   // === Calculate demand from Guaranteed Hours data ===
   console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
