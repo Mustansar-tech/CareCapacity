@@ -47,12 +47,12 @@ export function BranchSelector() {
         <SelectTrigger className="border-0 bg-transparent text-sm font-medium focus:ring-0 px-0 h-auto" data-testid="select-branch-trigger">
           <SelectValue placeholder="Select branch..." />
         </SelectTrigger>
-        <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-white/20 dark:border-white/10">
+        <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-white/20 dark:border-white/10 max-h-[500px] overflow-y-auto">
           {branches.map((branch) => (
             <SelectItem
               key={branch.id}
               value={branch.id}
-              className="cursor-pointer"
+              className="cursor-pointer py-3"
               data-testid={`branch-option-${branch.id}`}
             >
               <div className="flex flex-col">
