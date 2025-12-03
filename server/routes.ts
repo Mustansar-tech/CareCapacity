@@ -80,10 +80,10 @@ function setLatestGuaranteedBuffer(branchId: string, buffer: Buffer): void {
 export async function getLatestGuaranteedBuffer(branchId: string): Promise<Buffer | null> {
   console.log(`📦 RETRIEVING GH buffer for branch ${branchId}`);
   console.log(`📦 Available branches in map: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
-  
+
   // Check in-memory cache first
   let buffer = guaranteedBufferByBranch.get(branchId) || null;
-  
+
   if (!buffer) {
     // Fallback to database
     console.log(`📦 Not in memory - checking database...`);
@@ -99,7 +99,7 @@ export async function getLatestGuaranteedBuffer(branchId: string): Promise<Buffe
       console.error(`❌ Failed to retrieve GH buffer from database:`, dbError);
     }
   }
-  
+
   console.log(`📦 Final result: ${buffer ? `${buffer.length} bytes` : 'NULL'}`);
   return buffer;
 }
@@ -203,11 +203,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ FILE VALIDATION PASSED - Proceeding to parsing...`);
 
-      // Parse Excel files including CG Data Export
+      // Parse Excel files including CG Data Export - pass branchId for branch-scoped parsing
       const parsedData = await parseExcelFiles(
         availabilityFile.buffer,
         guaranteedFile.buffer,
-        cgDataFile.buffer
+        cgDataFile.buffer,
+        undefined, // ghWorkbookBuffer (not needed here)
+        requestedBranchId  // Pass branchId for proper branch scoping
       );
 
       // Validate detected branch matches requested branch
@@ -250,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store Guaranteed Hours buffer per branch for visit extraction (in-memory + database)
       setLatestGuaranteedBuffer(requestedBranchId, guaranteedFile.buffer);
       console.log(`✅ Stored Guaranteed Hours buffer in memory (${guaranteedFile.buffer.length} bytes) for branch ${requestedBranchId}`);
-      
+
       // Persist to database for cross-restart/cross-branch reliability
       try {
         await storage.saveBranchUpload({
@@ -305,7 +307,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the request if persistence fails
       }
 
-      console.log(`✅ Data processing complete - scheduling tab will show new visits on next load`);
+      console.log(`✅ PIPELINE COMPLETE for branch ${requestedBranchId}`);
+      console.log(`   - Client locations should now be geocoded and stored`);
+      console.log(`   - Employee locations should now be geocoded and stored`);
+      console.log(`   - Visits data is ready for scheduling tab`);
 
       res.json(result);
 

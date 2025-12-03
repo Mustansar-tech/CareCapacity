@@ -1,0 +1,2560 @@
+🔍 Processing 236 guaranteed hours rows for client locations
+🔍 Available columns in first row: [
+  'Count',
+  'Customer Name',
+  'Customer Address',
+  'Customer Branch',
+  'Customer Area',
+  'Customer Type',
+  'Service Location Created Date & Time',
+  'Service Location Updated Date & Time',
+  'Service Location Name',
+  'Service Location Mobizio ID',
+  'Service Location Address',
+  'Service Location Phone',
+  'Service Location Date Of Birth',
+  'Service Location Branch',
+  'Service Location Area',
+  'Service Location Type',
+  'Service Duty Created Date & Time',
+  'Service Duty Updated Date & Time',
+  'Adhoc',
+  'Planned Start Date And Time',
+  'Planned End Date And Time',
+  'Planned Duration',
+  'Planned Travel Time',
+  'Planned Start Date Year',
+  'Planned Start Date Month',
+  'Planned Start Date Weekday',
+  'Planned Start Date Week',
+  'Planned Employee Name',
+  'Planned Employee External ID',
+  'Planned Employee Home',
+  'Planned Employee Mobile',
+  'Planned Employee Mobizio ID',
+  'Planned Employee Branch',
+  'Planned Employee Area',
+  'Planned Employee Hours Per Week',
+  'Planned Employee Default Pay Rate',
+  'Planned Service Type Description',
+  'Planned Service Requirement Type Description',
+  'Planned Pay Rate',
+  'Planned Pay Rate Type',
+  'Planned Pay Rate Hours',
+  'Planned Pay Rate Hours - Banded',
+  'Planned Pay Rate Adhoc',
+  'Planned Pay Rate Public Holiday',
+  'Planned Pay Rate Value',
+  'Planned Invoice Rate',
+  'Planned Invoice Rate Type',
+  'Planned Invoice Rate Hours',
+  'Planned Invoice Rate Hours - Banded',
+  'Planned Invoice Rate Adhoc',
+  'Planned Invoice Rate Public Holiday',
+  'Planned Invoice Rate Value',
+  'Actual Start Date And Time',
+  'Actual End Date And Time',
+  'Actual Duration',
+  'Actual Travel Time',
+  'Actual Start Date Year',
+  'Actual Start Date Month',
+  'Actual Start Date Weekday',
+  'Actual Start Date Week',
+  'Actual Employee Name',
+  'Actual Employee External ID',
+  'Actual Employee Home',
+  'Actual Employee Mobile',
+  'Actual Employee Mobizio ID',
+  'Actual Employee Branch',
+  'Actual Employee Area',
+  'Actual Employee Hours Per Week',
+  'Actual Employee Default Pay Rate',
+  'Actual Service Type Description',
+  'Actual Service Requirement Type Description',
+  'Actual Pay Rate',
+  'Actual Pay Rate Type',
+  'Actual Pay Rate Hours',
+  'Actual Pay Rate Hours - Banded',
+  'Actual Pay Rate Adhoc',
+  'Actual Pay Rate Public Holiday',
+  'Actual Pay Rate Value',
+  'Base Rate Value',
+  'Actual Pay Rate Sheet Description',
+  'Actual Invoice Rate',
+  'Actual Invoice Rate Type',
+  'Actual Invoice Rate Hours',
+  'Actual Invoice Rate Hours - Banded',
+  'Actual Invoice Rate Adhoc',
+  'Actual Invoice Rate Public Holiday',
+  'Actual Invoice Rate Value',
+  'Actual Invoice Rate Sheet Description',
+  'PayValueDifferance',
+  'InvoiceValueDifferance',
+  'DurationDifferanceMinutes',
+  'PunctualityStartTimeMinutes',
+  'PunctualityEndTimeMinutes',
+  'PunctualityTotalMinutes',
+  'Reconciled',
+  'Service Package Override',
+  'PayrollAccepted',
+  'InvoiceAccepted',
+  'CreatedStage',
+  'Planned Override Training and Qualifications',
+  ... 1 more item
+]
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+✅ Cache hit for client "East NL, Glasgow" - using existing coordinates
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+🔍 DEBUG: Processing address for East NL, Glasgow: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld, G67 1AX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1AX"
+✅ DEBUG: Extracted postcode "G67 1AX" from address, remaining: "The Muirfield Centre, 1a South Muirhead Road, Cumbernauld"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+✅ Cache hit for client "Clements (F), Jessie" - using existing coordinates
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Clements (F), Jessie: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire, G67 1EP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1EP"
+✅ DEBUG: Extracted postcode "G67 1EP" from address, remaining: "4 Hillcrest Court, -, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+✅ Cache hit for client "Lynch (F), Roselyn" - using existing coordinates
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+✅ Cache hit for client "Campbell, Neil" - using existing coordinates
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for Campbell, Neil: "13, Strathbeg court, Airdrie, ML6 0EA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EA"
+✅ DEBUG: Extracted postcode "ML6 0EA" from address, remaining: "13, Strathbeg court, Airdrie"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+✅ Cache hit for client "O'Brien (F), Josephine" - using existing coordinates
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for Barrons, Shirley: "82 Frankfield Road, Stepps, Cardowan, G33 6AE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6AE"
+✅ DEBUG: Extracted postcode "G33 6AE" from address, remaining: "82 Frankfield Road, Stepps, Cardowan"
+✅ Cache hit for client "Barrons, Shirley" - using existing coordinates
+🔍 DEBUG: Processing address for Barrons, Shirley: "82 Frankfield Road, Stepps, Cardowan, G33 6AE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6AE"
+✅ DEBUG: Extracted postcode "G33 6AE" from address, remaining: "82 Frankfield Road, Stepps, Cardowan"
+🔍 DEBUG: Processing address for Law (F), Angela: "13, Mill Road, Kilsyth, North Lanarkshire, G65 0RB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 0RB"
+✅ DEBUG: Extracted postcode "G65 0RB" from address, remaining: "13, Mill Road, Kilsyth, North Lanarkshire"
+✅ Cache hit for client "Law (F), Angela" - using existing coordinates
+🔍 DEBUG: Processing address for Law (F), Angela: "13, Mill Road, Kilsyth, North Lanarkshire, G65 0RB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 0RB"
+✅ DEBUG: Extracted postcode "G65 0RB" from address, remaining: "13, Mill Road, Kilsyth, North Lanarkshire"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Lynch (F), Roselyn: "40 Victor Street, Plains, Airdrie, ML6 7JX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JX"
+✅ DEBUG: Extracted postcode "ML6 7JX" from address, remaining: "40 Victor Street, Plains, Airdrie"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+✅ Cache hit for client "Munro, Alistair" - using existing coordinates
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Munro, Alistair: "23 Third Avenue, Stepps, North Lanarkshire, G33 6JU"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JU"
+✅ DEBUG: Extracted postcode "G33 6JU" from address, remaining: "23 Third Avenue, Stepps, North Lanarkshire"
+🔍 DEBUG: Processing address for Gray (F), Mary: "151 Mossvale Road, Glasgow, G33 5PT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 5PT"
+✅ DEBUG: Extracted postcode "G33 5PT" from address, remaining: "151 Mossvale Road, Glasgow"
+✅ Cache hit for client "Gray (F), Mary" - using existing coordinates
+🔍 DEBUG: Processing address for Scott (F), Edith: "36 Berryknowe Avenue, Chryston, North Lanarkshire, G69 9BA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9BA"
+✅ DEBUG: Extracted postcode "G69 9BA" from address, remaining: "36 Berryknowe Avenue, Chryston, North Lanarkshire"
+✅ Cache hit for client "Scott (F), Edith" - using existing coordinates
+🔍 DEBUG: Processing address for Scott (F), Edith: "36 Berryknowe Avenue, Chryston, North Lanarkshire, G69 9BA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9BA"
+✅ DEBUG: Extracted postcode "G69 9BA" from address, remaining: "36 Berryknowe Avenue, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Scott (F), Edith: "36 Berryknowe Avenue, Chryston, North Lanarkshire, G69 9BA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9BA"
+✅ DEBUG: Extracted postcode "G69 9BA" from address, remaining: "36 Berryknowe Avenue, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+✅ Cache hit for client "Docherty, Elizabeth" - using existing coordinates
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Docherty, Elizabeth: "53A Chapel Street, Airdrie, North Lanarkshire, ML6 6LE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6LE"
+✅ DEBUG: Extracted postcode "ML6 6LE" from address, remaining: "53A Chapel Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for McInnes, James: "18 Leckethill Court, Cumbernauld, North Lanarkshire, G68 9EG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 9EG"
+✅ DEBUG: Extracted postcode "G68 9EG" from address, remaining: "18 Leckethill Court, Cumbernauld, North Lanarkshire"
+✅ Cache hit for client "McInnes, James" - using existing coordinates
+🔍 DEBUG: Processing address for McInnes, James: "18 Leckethill Court, Cumbernauld, North Lanarkshire, G68 9EG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 9EG"
+✅ DEBUG: Extracted postcode "G68 9EG" from address, remaining: "18 Leckethill Court, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for McInnes, James: "18 Leckethill Court, Cumbernauld, North Lanarkshire, G68 9EG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 9EG"
+✅ DEBUG: Extracted postcode "G68 9EG" from address, remaining: "18 Leckethill Court, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+✅ Cache hit for client "Mullen (F), Eileen" - using existing coordinates
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Mullen (F), Eileen: "95, Whitelees Road, Cumbernauld, North Lanarkshire, G67 3JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3JS"
+✅ DEBUG: Extracted postcode "G67 3JS" from address, remaining: "95, Whitelees Road, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Training (NL), Seaward place: "18 Seaward Place, Glasgow, Glasgow City, G41 1HH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G41 1HH"
+✅ DEBUG: Extracted postcode "G41 1HH" from address, remaining: "18 Seaward Place, Glasgow, Glasgow City"
+✅ Cache hit for client "Training (NL), Seaward place" - using existing coordinates
+🔍 DEBUG: Processing address for Training (NL), Seaward place: "18 Seaward Place, Glasgow, Glasgow City, G41 1HH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G41 1HH"
+✅ DEBUG: Extracted postcode "G41 1HH" from address, remaining: "18 Seaward Place, Glasgow, Glasgow City"
+🔍 DEBUG: Processing address for Training (NL), Seaward place: "18 Seaward Place, Glasgow, Glasgow City, G41 1HH"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G41 1HH"
+✅ DEBUG: Extracted postcode "G41 1HH" from address, remaining: "18 Seaward Place, Glasgow, Glasgow City"
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+✅ Cache hit for client "McIntyre, Donald" - using existing coordinates
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+🔍 DEBUG: Processing address for McIntyre, Donald: "5 Second Avenue, Stepps, Glasgow, G33 6JS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JS"
+✅ DEBUG: Extracted postcode "G33 6JS" from address, remaining: "5 Second Avenue, Stepps, Glasgow"
+🔍 DEBUG: Processing address for O'Hara (F), Rose: "18 Clive Street, Shotts, North Lanarkshire, ML7 4BE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML7 4BE"
+✅ DEBUG: Extracted postcode "ML7 4BE" from address, remaining: "18 Clive Street, Shotts, North Lanarkshire"
+✅ Cache hit for client "O'Hara (F), Rose" - using existing coordinates
+🔍 DEBUG: Processing address for Russell (F), Julia: "2 Glen Orchy Drive, Cumbernauld, G68 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 0DE"
+✅ DEBUG: Extracted postcode "G68 0DE" from address, remaining: "2 Glen Orchy Drive, Cumbernauld"
+✅ Cache hit for client "Russell (F), Julia" - using existing coordinates
+🔍 DEBUG: Processing address for Russell (F), Julia: "2 Glen Orchy Drive, Cumbernauld, G68 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 0DE"
+✅ DEBUG: Extracted postcode "G68 0DE" from address, remaining: "2 Glen Orchy Drive, Cumbernauld"
+🔍 DEBUG: Processing address for Russell (F), Julia: "2 Glen Orchy Drive, Cumbernauld, G68 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 0DE"
+✅ DEBUG: Extracted postcode "G68 0DE" from address, remaining: "2 Glen Orchy Drive, Cumbernauld"
+🔍 DEBUG: Processing address for Russell (F), Julia: "2 Glen Orchy Drive, Cumbernauld, G68 0DE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G68 0DE"
+✅ DEBUG: Extracted postcode "G68 0DE" from address, remaining: "2 Glen Orchy Drive, Cumbernauld"
+🔍 DEBUG: Processing address for Robertson (F), Doreen: "133 Cromarty Road, Airdrie, Glasgow, North Lanarkshire, ML6 9RZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 9RZ"
+✅ DEBUG: Extracted postcode "ML6 9RZ" from address, remaining: "133 Cromarty Road, Airdrie, Glasgow, North Lanarkshire"
+✅ Cache hit for client "Robertson (F), Doreen" - using existing coordinates
+🔍 DEBUG: Processing address for Robertson (F), Doreen: "133 Cromarty Road, Airdrie, Glasgow, North Lanarkshire, ML6 9RZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 9RZ"
+✅ DEBUG: Extracted postcode "ML6 9RZ" from address, remaining: "133 Cromarty Road, Airdrie, Glasgow, North Lanarkshire"
+🔍 DEBUG: Processing address for Kennedy, Roberta (F): "1 Blenheim Court, Kilsyth, Glasgow, G65 0JN"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 0JN"
+✅ DEBUG: Extracted postcode "G65 0JN" from address, remaining: "1 Blenheim Court, Kilsyth, Glasgow"
+✅ Cache hit for client "Kennedy, Roberta (F)" - using existing coordinates
+🔍 DEBUG: Processing address for Kennedy, Roberta (F): "1 Blenheim Court, Kilsyth, Glasgow, G65 0JN"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 0JN"
+✅ DEBUG: Extracted postcode "G65 0JN" from address, remaining: "1 Blenheim Court, Kilsyth, Glasgow"
+🔍 DEBUG: Processing address for Kennedy, Roberta (F): "1 Blenheim Court, Kilsyth, Glasgow, G65 0JN"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 0JN"
+✅ DEBUG: Extracted postcode "G65 0JN" from address, remaining: "1 Blenheim Court, Kilsyth, Glasgow"
+🔍 DEBUG: Processing address for Grant (F), Helen: "87, Glenmanor Avenue, Moodiesburn, Glasgow, G69 0LB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 0LB"
+✅ DEBUG: Extracted postcode "G69 0LB" from address, remaining: "87, Glenmanor Avenue, Moodiesburn, Glasgow"
+✅ Cache hit for client "Grant (F), Helen" - using existing coordinates
+🔍 DEBUG: Processing address for Grant (F), Helen: "87, Glenmanor Avenue, Moodiesburn, Glasgow, G69 0LB"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 0LB"
+✅ DEBUG: Extracted postcode "G69 0LB" from address, remaining: "87, Glenmanor Avenue, Moodiesburn, Glasgow"
+🔍 DEBUG: Processing address for Bryce (F), Angela: "1 Motherwell Street, Airdrie, Glasgow, ML6 7EJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7EJ"
+✅ DEBUG: Extracted postcode "ML6 7EJ" from address, remaining: "1 Motherwell Street, Airdrie, Glasgow"
+✅ Cache hit for client "Bryce (F), Angela" - using existing coordinates
+🔍 DEBUG: Processing address for Bryce (F), Angela: "1 Motherwell Street, Airdrie, Glasgow, ML6 7EJ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7EJ"
+✅ DEBUG: Extracted postcode "ML6 7EJ" from address, remaining: "1 Motherwell Street, Airdrie, Glasgow"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for O'Brien (F), Josephine: "26 Alexandra Avenue, Unknown, G33 6JL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G33 6JL"
+✅ DEBUG: Extracted postcode "G33 6JL" from address, remaining: "26 Alexandra Avenue, Unknown"
+🔍 DEBUG: Processing address for White, Sarah: "236 Kirskshaws Road, Coatbridge, North Lanarkshire, ML5 5AL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 5AL"
+✅ DEBUG: Extracted postcode "ML5 5AL" from address, remaining: "236 Kirskshaws Road, Coatbridge, North Lanarkshire"
+✅ Cache hit for client "White, Sarah" - using existing coordinates
+🔍 DEBUG: Processing address for White, Sarah: "236 Kirskshaws Road, Coatbridge, North Lanarkshire, ML5 5AL"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 5AL"
+✅ DEBUG: Extracted postcode "ML5 5AL" from address, remaining: "236 Kirskshaws Road, Coatbridge, North Lanarkshire"
+🔍 DEBUG: Processing address for Morris (F), Jack: "28 Oakbank Street, Airdrie, North Lanarkshire, ML6 8SE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 8SE"
+✅ DEBUG: Extracted postcode "ML6 8SE" from address, remaining: "28 Oakbank Street, Airdrie, North Lanarkshire"
+✅ Cache hit for client "Morris (F), Jack" - using existing coordinates
+🔍 DEBUG: Processing address for Morris (F), Jack: "28 Oakbank Street, Airdrie, North Lanarkshire, ML6 8SE"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 8SE"
+✅ DEBUG: Extracted postcode "ML6 8SE" from address, remaining: "28 Oakbank Street, Airdrie, North Lanarkshire"
+🔍 DEBUG: Processing address for Collie (F), Mattie: "44 Newlands Place, Cumbernauld, North Lanarkshire, G67 1HS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1HS"
+✅ DEBUG: Extracted postcode "G67 1HS" from address, remaining: "44 Newlands Place, Cumbernauld, North Lanarkshire"
+✅ Cache hit for client "Collie (F), Mattie" - using existing coordinates
+🔍 DEBUG: Processing address for Collie (F), Mattie: "44 Newlands Place, Cumbernauld, North Lanarkshire, G67 1HS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1HS"
+✅ DEBUG: Extracted postcode "G67 1HS" from address, remaining: "44 Newlands Place, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Collie (F), Mattie: "44 Newlands Place, Cumbernauld, North Lanarkshire, G67 1HS"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 1HS"
+✅ DEBUG: Extracted postcode "G67 1HS" from address, remaining: "44 Newlands Place, Cumbernauld, North Lanarkshire"
+🔍 DEBUG: Processing address for Hood (F), Catherine: "76 Robertson Street, Airdrie, North Lanarkshire, ML6 0EW"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 0EW"
+✅ DEBUG: Extracted postcode "ML6 0EW" from address, remaining: "76 Robertson Street, Airdrie, North Lanarkshire"
+✅ Cache hit for client "Hood (F), Catherine" - using existing coordinates
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+✅ Cache hit for client "Goldsmith, Astrid" - using existing coordinates
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Goldsmith, Astrid: "9 Gartferry Road, Chryston, North Lanarkshire, G69 9JY"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G69 9JY"
+✅ DEBUG: Extracted postcode "G69 9JY" from address, remaining: "9 Gartferry Road, Chryston, North Lanarkshire"
+🔍 DEBUG: Processing address for Pedrick, Michael: "Seven Acres, Denny, Falkirk, FK6 5NA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK6 5NA"
+✅ DEBUG: Extracted postcode "FK6 5NA" from address, remaining: "Seven Acres, Denny, Falkirk"
+✅ Cache hit for client "Pedrick, Michael" - using existing coordinates
+🔍 DEBUG: Processing address for Pedrick, Michael: "Seven Acres, Denny, Falkirk, FK6 5NA"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "FK6 5NA"
+✅ DEBUG: Extracted postcode "FK6 5NA" from address, remaining: "Seven Acres, Denny, Falkirk"
+🔍 DEBUG: Processing address for Gibb (F), Irene: "91 Springholme Drive, Airdrie, North Lanarkshire, ML6 6NZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 6NZ"
+✅ DEBUG: Extracted postcode "ML6 6NZ" from address, remaining: "91 Springholme Drive, Airdrie, North Lanarkshire"
+✅ Cache hit for client "Gibb (F), Irene" - using existing coordinates
+🔍 DEBUG: Processing address for Whyte (F), Jean: "129 Ash Road, Abram Hill, Glasgow, G67 3DZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3DZ"
+✅ DEBUG: Extracted postcode "G67 3DZ" from address, remaining: "129 Ash Road, Abram Hill, Glasgow"
+✅ Cache hit for client "Whyte (F), Jean" - using existing coordinates
+🔍 DEBUG: Processing address for Whyte (F), Jean: "129 Ash Road, Abram Hill, Glasgow, G67 3DZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3DZ"
+✅ DEBUG: Extracted postcode "G67 3DZ" from address, remaining: "129 Ash Road, Abram Hill, Glasgow"
+🔍 DEBUG: Processing address for Whyte (F), Jean: "129 Ash Road, Abram Hill, Glasgow, G67 3DZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3DZ"
+✅ DEBUG: Extracted postcode "G67 3DZ" from address, remaining: "129 Ash Road, Abram Hill, Glasgow"
+🔍 DEBUG: Processing address for Whyte (F), Jean: "129 Ash Road, Abram Hill, Glasgow, G67 3DZ"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 3DZ"
+✅ DEBUG: Extracted postcode "G67 3DZ" from address, remaining: "129 Ash Road, Abram Hill, Glasgow"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+✅ Cache hit for client "Anderson (F), Margaret" - using existing coordinates
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Anderson (F), Margaret: "3 Ryefield Avenue, Drumpellier,, Coatbridge, ML5 1LG"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML5 1LG"
+✅ DEBUG: Extracted postcode "ML5 1LG" from address, remaining: "3 Ryefield Avenue, Drumpellier,, Coatbridge"
+🔍 DEBUG: Processing address for Armstrong, Hugh: "73 Constarry Road, Croy, Kilsyth, G65 9HT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 9HT"
+✅ DEBUG: Extracted postcode "G65 9HT" from address, remaining: "73 Constarry Road, Croy, Kilsyth"
+✅ Cache hit for client "Armstrong, Hugh" - using existing coordinates
+🔍 DEBUG: Processing address for Armstrong, Hugh: "73 Constarry Road, Croy, Kilsyth, G65 9HT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 9HT"
+✅ DEBUG: Extracted postcode "G65 9HT" from address, remaining: "73 Constarry Road, Croy, Kilsyth"
+🔍 DEBUG: Processing address for Duffy (F), Sarah Anne: "431 Greenrigg Rd, Cumbernauld, G67 2PP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 2PP"
+✅ DEBUG: Extracted postcode "G67 2PP" from address, remaining: "431 Greenrigg Rd, Cumbernauld"
+✅ Cache hit for client "Duffy (F), Sarah Anne" - using existing coordinates
+🔍 DEBUG: Processing address for Duffy (F), Sarah Anne: "431 Greenrigg Rd, Cumbernauld, G67 2PP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 2PP"
+✅ DEBUG: Extracted postcode "G67 2PP" from address, remaining: "431 Greenrigg Rd, Cumbernauld"
+🔍 DEBUG: Processing address for Duffy (F), Sarah Anne: "431 Greenrigg Rd, Cumbernauld, G67 2PP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 2PP"
+✅ DEBUG: Extracted postcode "G67 2PP" from address, remaining: "431 Greenrigg Rd, Cumbernauld"
+🔍 DEBUG: Processing address for Duffy (F), Sarah Anne: "431 Greenrigg Rd, Cumbernauld, G67 2PP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 2PP"
+✅ DEBUG: Extracted postcode "G67 2PP" from address, remaining: "431 Greenrigg Rd, Cumbernauld"
+🔍 DEBUG: Processing address for Duffy (F), Sarah Anne: "431 Greenrigg Rd, Cumbernauld, G67 2PP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 2PP"
+✅ DEBUG: Extracted postcode "G67 2PP" from address, remaining: "431 Greenrigg Rd, Cumbernauld"
+🔍 DEBUG: Processing address for Duffy (F), Sarah Anne: "431 Greenrigg Rd, Cumbernauld, G67 2PP"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G67 2PP"
+✅ DEBUG: Extracted postcode "G67 2PP" from address, remaining: "431 Greenrigg Rd, Cumbernauld"
+🔍 DEBUG: Processing address for Lindsay (F), Martha: "63 Broomfield Street, Airdrie, ML6 9LX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 9LX"
+✅ DEBUG: Extracted postcode "ML6 9LX" from address, remaining: "63 Broomfield Street, Airdrie"
+✅ Cache hit for client "Lindsay (F), Martha" - using existing coordinates
+🔍 DEBUG: Processing address for Lindsay (F), Martha: "63 Broomfield Street, Airdrie, ML6 9LX"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 9LX"
+✅ DEBUG: Extracted postcode "ML6 9LX" from address, remaining: "63 Broomfield Street, Airdrie"
+🔍 DEBUG: Processing address for Reid, Robert: "19 Springbank View, Plains, Airdrie, ML6 7JD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JD"
+✅ DEBUG: Extracted postcode "ML6 7JD" from address, remaining: "19 Springbank View, Plains, Airdrie"
+✅ Cache hit for client "Reid, Robert" - using existing coordinates
+🔍 DEBUG: Processing address for Reid, Robert: "19 Springbank View, Plains, Airdrie, ML6 7JD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JD"
+✅ DEBUG: Extracted postcode "ML6 7JD" from address, remaining: "19 Springbank View, Plains, Airdrie"
+🔍 DEBUG: Processing address for Reid, Robert: "19 Springbank View, Plains, Airdrie, ML6 7JD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JD"
+✅ DEBUG: Extracted postcode "ML6 7JD" from address, remaining: "19 Springbank View, Plains, Airdrie"
+🔍 DEBUG: Processing address for Reid, Robert: "19 Springbank View, Plains, Airdrie, ML6 7JD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JD"
+✅ DEBUG: Extracted postcode "ML6 7JD" from address, remaining: "19 Springbank View, Plains, Airdrie"
+🔍 DEBUG: Processing address for Reid, Robert: "19 Springbank View, Plains, Airdrie, ML6 7JD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JD"
+✅ DEBUG: Extracted postcode "ML6 7JD" from address, remaining: "19 Springbank View, Plains, Airdrie"
+🔍 DEBUG: Processing address for Reid, Robert: "19 Springbank View, Plains, Airdrie, ML6 7JD"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "ML6 7JD"
+✅ DEBUG: Extracted postcode "ML6 7JD" from address, remaining: "19 Springbank View, Plains, Airdrie"
+🔍 DEBUG: Processing address for Mclachlan, William: "23, Haughton Avenue, Glasgow, G65 0DT"
+🔍 DEBUG: Postcode pattern matched: /\b([A-Z]{1,2}[0-9R][0-9A-Z]?\s*[0-9][A-Z]{2})\b/i -> "G65 0DT"
+✅ DEBUG: Extracted postcode "G65 0DT" from address, remaining: "23, Haughton Avenue, Glasgow"
+✅ Cache hit for client "Mclachlan, William" - using existing coordinates
+🏠 Client locations: 35 total (0 need geocoding, 35 cached)
+🗺️ Starting enhanced batch geocoding for locations...
+🚀 Parallel geocoding 23 unique postcodes (from 23 total) for branch c812f593-9ec6-4a18-b48e-c847cc2eac81...
+📊 Cache stats: 23 cached, 0 need geocoding
+12:16:52 PM [express] POST /api/geo/geocode-batch 200 in 281ms :: {"results":[{"query":"G34 9QA","inp…
+✅ Employee geocoding saved for 23 new records
+⚡ All client locations already cached - skipping geocoding API calls
+🔍 DEBUG: Processing visit data from 236 guaranteed hours rows
+🔍 DEBUG: Added visit East NL, Glasgow on 2025-12-03 at 839-900 minutes
+🔍 DEBUG: Added visit East NL, Glasgow on 2025-12-03 at 915-945 minutes
+🔍 DEBUG: Added visit East NL, Glasgow on 2025-12-04 at 929-990 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-01 at 704-765 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-01 at 855-915 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-01 at 1080-1199 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-02 at 704-825 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-02 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-03 at 704-825 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-03 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-04 at 704-825 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-04 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-05 at 704-765 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-05 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-06 at 630-749 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-06 at 1080-1140 minutes
+🔍 DEBUG: Added visit Clements (F), Jessie on 2025-12-07 at 1080-1140 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-05 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-05 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-05 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-06 at 555-614 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-06 at 780-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-06 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-06 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-07 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-07 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-04 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-04 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-04 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-03 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-03 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-03 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-02 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-02 at 1005-1064 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-02 at 555-839 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-01 at 1230-1289 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-01 at 1005-1064 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-07 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-07 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-07 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-06 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-06 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-06 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-05 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-05 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-05 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-04 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-04 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-04 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-03 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-03 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-03 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-02 at 1230-1289 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-02 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-02 at 780-900 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-01 at 1080-1140 minutes
+🔍 DEBUG: Added visit Campbell, Neil on 2025-12-01 at 780-900 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-04 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-03 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-03 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-02 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-02 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-01 at 1230-1289 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-01 at 1005-1064 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-12-01 at 704-765 minutes
+🔍 DEBUG: Added visit Barrons, Shirley on 2025-12-01 at 479-900 minutes
+🔍 DEBUG: Added visit Law (F), Angela on 2025-12-03 at 855-1035 minutes
+🔍 DEBUG: Added visit Law (F), Angela on 2025-12-05 at 855-1095 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-01 at 555-614 minutes
+🔍 DEBUG: Added visit Lynch (F), Roselyn on 2025-12-01 at 780-839 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-02 at 1005-1064 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-03 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-03 at 1080-1140 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-04 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-05 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-05 at 1080-1140 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-02 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-01 at 1080-1140 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-01 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-06 at 555-614 minutes
+🔍 DEBUG: Added visit Munro, Alistair on 2025-12-07 at 555-614 minutes
+🔍 DEBUG: Added visit Gray (F), Mary on 2025-12-03 at 870-990 minutes
+🔍 DEBUG: Added visit Scott (F), Edith on 2025-12-04 at 855-1035 minutes
+🔍 DEBUG: Added visit Scott (F), Edith on 2025-12-03 at 555-675 minutes
+🔍 DEBUG: Added visit Scott (F), Edith on 2025-12-01 at 555-675 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-07 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-07 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-06 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-06 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-05 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-04 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-04 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-03 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-03 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-02 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-02 at 630-690 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-01 at 1154-1199 minutes
+🔍 DEBUG: Added visit Docherty, Elizabeth on 2025-12-01 at 630-690 minutes
+🔍 DEBUG: Added visit McInnes, James on 2025-12-04 at 1005-1064 minutes
+🔍 DEBUG: Added visit McInnes, James on 2025-12-02 at 1005-1064 minutes
+🔍 DEBUG: Added visit McInnes, James on 2025-12-01 at 1005-1064 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-03 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-03 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-02 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-02 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-01 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-01 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-07 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-06 at 855-915 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-05 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-04 at 555-614 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-04 at 780-839 minutes
+🔍 DEBUG: Added visit Mullen (F), Eileen on 2025-12-05 at 555-614 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-01 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-07 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-06 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-05 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-04 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-03 at 1005-1064 minutes
+🔍 DEBUG: Added visit McIntyre, Donald on 2025-12-02 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Hara (F), Rose on 2025-12-05 at 630-810 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-12-06 at 630-749 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-12-05 at 555-839 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-12-04 at 555-839 minutes
+🔍 DEBUG: Added visit Russell (F), Julia on 2025-12-03 at 555-839 minutes
+🔍 DEBUG: Added visit Robertson (F), Doreen on 2025-12-06 at 929-1050 minutes
+🔍 DEBUG: Added visit Robertson (F), Doreen on 2025-12-02 at 1005-1125 minutes
+🔍 DEBUG: Added visit Kennedy, Roberta (F) on 2025-12-06 at 704-765 minutes
+🔍 DEBUG: Added visit Kennedy, Roberta (F) on 2025-12-04 at 780-839 minutes
+🔍 DEBUG: Added visit Kennedy, Roberta (F) on 2025-12-01 at 780-839 minutes
+🔍 DEBUG: Added visit Grant (F), Helen on 2025-12-04 at 630-749 minutes
+🔍 DEBUG: Added visit Grant (F), Helen on 2025-12-02 at 555-675 minutes
+🔍 DEBUG: Added visit Bryce (F), Angela on 2025-12-02 at 704-825 minutes
+🔍 DEBUG: Added visit Bryce (F), Angela on 2025-12-05 at 704-825 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-01 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-01 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-02 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-02 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-03 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-04 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-04 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-07 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-07 at 704-765 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-07 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-06 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-06 at 555-614 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-05 at 1005-1064 minutes
+🔍 DEBUG: Added visit O'Brien (F), Josephine on 2025-12-04 at 1005-1064 minutes
+🔍 DEBUG: Added visit White, Sarah on 2025-12-02 at 630-690 minutes
+🔍 DEBUG: Added visit White, Sarah on 2025-12-01 at 630-690 minutes
+🔍 DEBUG: Added visit Morris (F), Jack on 2025-12-07 at 1005-1064 minutes
+🔍 DEBUG: Added visit Morris (F), Jack on 2025-12-04 at 1005-1064 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-12-07 at 855-974 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-12-04 at 704-825 minutes
+🔍 DEBUG: Added visit Collie (F), Mattie on 2025-12-02 at 704-825 minutes
+🔍 DEBUG: Added visit Hood (F), Catherine on 2025-12-03 at 704-825 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-01 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-02 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-03 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-04 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-05 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-06 at 1080-1140 minutes
+🔍 DEBUG: Added visit Goldsmith, Astrid on 2025-12-07 at 1080-1140 minutes
+🔍 DEBUG: Added visit Pedrick, Michael on 2025-12-03 at 479-600 minutes
+🔍 DEBUG: Added visit Pedrick, Michael on 2025-12-06 at 479-600 minutes
+🔍 DEBUG: Added visit Gibb (F), Irene on 2025-12-04 at 1154-1215 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-12-01 at 780-839 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-12-02 at 780-839 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-12-05 at 780-839 minutes
+🔍 DEBUG: Added visit Whyte (F), Jean on 2025-12-06 at 780-839 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-07 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-06 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-05 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-05 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-04 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-04 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-03 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-03 at 479-540 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-02 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-01 at 929-990 minutes
+🔍 DEBUG: Added visit Anderson (F), Margaret on 2025-12-01 at 479-540 minutes
+🔍 DEBUG: Added visit Armstrong, Hugh on 2025-12-02 at 929-990 minutes
+🔍 DEBUG: Added visit Armstrong, Hugh on 2025-12-04 at 929-990 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-12-01 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-12-02 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-12-03 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-12-04 at 479-540 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-12-05 at 630-690 minutes
+🔍 DEBUG: Added visit Duffy (F), Sarah Anne on 2025-12-06 at 630-690 minutes
+🔍 DEBUG: Added visit Lindsay (F), Martha on 2025-12-02 at 630-690 minutes
+🔍 DEBUG: Added visit Lindsay (F), Martha on 2025-12-05 at 630-690 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-12-02 at 630-690 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-12-04 at 630-690 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-12-05 at 555-614 minutes
+🔍 DEBUG: Added visit Reid, Robert on 2025-12-05 at 855-915 minutes
+🔍 DEBUG: Added visit Mclachlan, William on 2025-12-05 at 555-675 minutes
+
+📊 ===== VISIT EXTRACTION SERVICE TYPE SUMMARY =====
+📅 Found 196 visits across 7 dates for route optimization
+
+📋 Total Hours by Service Type:
+  • Care and Companionship: 234.25 hours
+  • Multiple Care (Primary): 23 hours
+  • Specialised Care: 8 hours
+  • Training: 2.5 hours
+====================================================
+
+📍 After geocode: employees with coords = 37/37
+📍 After geocode: clients with coords = 251/251
+✅ Geographical data extraction complete!
+📍 Including 37 employee locations and 251 client locations in result
+Heatmap sheets excluded from Excel export
+📦 STORING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81: 490071 bytes
+📦 Current branches in map BEFORE set: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4
+📦 Current branches in map AFTER set: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Verification - can retrieve?: true
+✅ Stored Guaranteed Hours buffer in memory (490071 bytes) for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+✅ Persisted Guaranteed Hours buffer to database for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+🧹 Clearing old visits data for branch North Lanarkshire...
+🧹 Clearing all visits data for branch c812f593-9ec6-4a18-b48e-c847cc2eac81...
+✅ Cleared visits data for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+💾 Persisting analysis for week: 2025-12-01 to 2025-12-07 (Branch: North Lanarkshire)
+✅ Analysis persisted successfully for week 2025-12-01 (Branch: north-lanarkshire)
+✅ Data processing complete - scheduling tab will show new visits on next load
+12:17:08 PM [express] POST /api/process 200 in 32713ms :: {"kpis":{"netCapacitySum":335.02,"clientReq…
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-01 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-04 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-03 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-05 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-02 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+12:18:36 PM [express] GET /api/locations 200 in 3492ms :: {"employees":[{"id":"184c0701-2219-4742-bb4…
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-06 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+📋 Extracted 31 client visits from Guaranteed Hours Excel for 2025-12-03
+12:18:38 PM [express] GET /api/visits/2025-12-03 304 in 5168ms :: [{"id":"East NL, Glasgow-2025-12-03…
+📋 Extracted 31 client visits from Guaranteed Hours Excel for 2025-12-01
+12:18:38 PM [express] GET /api/visits/2025-12-01 304 in 5184ms :: [{"id":"Clements (F), Jessie-2025-1…
+📋 Extracted 33 client visits from Guaranteed Hours Excel for 2025-12-05
+12:18:38 PM [express] GET /api/visits/2025-12-05 304 in 5230ms :: [{"id":"Clements (F), Jessie-2025-1…
+📋 Extracted 34 client visits from Guaranteed Hours Excel for 2025-12-02
+12:18:38 PM [express] GET /api/visits/2025-12-02 304 in 5326ms :: [{"id":"Clements (F), Jessie-2025-1…
+📋 Extracting client visits from Guaranteed Hours Excel for 2025-12-07 (Branch: c812f593-9ec6-4a18-b48e-c847cc2eac81)
+📦 RETRIEVING GH buffer for branch c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Available branches in map: 7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4, c812f593-9ec6-4a18-b48e-c847cc2eac81
+📦 Final result: 490071 bytes
+📋 Detected columns in Excel file:
+   - "Count"
+   - "Customer Name"
+   - "Customer Address"
+   - "Customer External ID"
+   - "Customer Branch"
+   - "Customer Area"
+   - "Customer Type"
+   - "Service Location Created Date & Time"
+   - "Service Location Updated Date & Time"
+   - "Service Location Name"
+   - "Service Location Mobizio ID"
+   - "Service Location Address"
+   - "Service Location Phone"
+   - "Service Location Date Of Birth"
+   - "Service Location External ID"
+   - "Service Location Branch"
+   - "Service Location Area"
+   - "Service Location Type"
+   - "Service Duty Created Date & Time"
+   - "Service Duty Updated Date & Time"
+   - "Service Requirement Start Date And Time"
+   - "Service Requirement End Date And Time"
+   - "Service Requirement Duration"
+   - "Service Requirement Service Type Description"
+   - "Service Requirement Type Description"
+   - "Service Requirement Location Analysis"
+   - "Adhoc"
+   - "Template Start Date And Time"
+   - "Template End Date And Time"
+   - "Template Duration"
+   - "Template Employee Name"
+   - "Planned Start Date And Time"
+   - "Planned End Date And Time"
+   - "Planned Duration"
+   - "Planned Travel Time"
+   - "Planned Start Date Year"
+   - "Planned Start Date Month"
+   - "Planned Start Date Weekday"
+   - "Planned Start Date Week"
+   - "Planned Employee Name"
+   - "Planned Employee External ID"
+   - "Planned Employee Home"
+   - "Planned Employee Mobile"
+   - "Planned Employee Mobizio ID"
+   - "Planned Employee Branch"
+   - "Planned Employee Area"
+   - "Planned Employee Days Per Week"
+   - "Planned Employee Hours Per Week"
+   - "Planned Employee Default Pay Rate"
+   - "Planned Service Type Description"
+   - "Planned Service Requirement Type Description"
+   - "Planned Location Analysis"
+   - "Planned Pay Rate"
+   - "Planned Pay Rate Type"
+   - "Planned Pay Rate Hours"
+   - "Planned Pay Rate Hours - Banded"
+   - "Planned Pay Rate Adhoc"
+   - "Planned Pay Rate Public Holiday"
+   - "Planned Pay Rate Value"
+   - "Planned Invoice Rate"
+   - "Planned Invoice Rate Type"
+   - "Planned Invoice Rate Hours"
+   - "Planned Invoice Rate Hours - Banded"
+   - "Planned Invoice Rate Adhoc"
+   - "Planned Invoice Rate Public Holiday"
+   - "Planned Invoice Rate Value"
+   - "Actual Start Date And Time"
+   - "Actual End Date And Time"
+   - "Actual Duration"
+   - "Actual Travel Time"
+   - "Actual Start Date Year"
+   - "Actual Start Date Month"
+   - "Actual Start Date Weekday"
+   - "Actual Start Date Week"
+   - "Actual Employee Name"
+   - "Actual Employee External ID"
+   - "Actual Employee Home"
+   - "Actual Employee Mobile"
+   - "Actual Employee Mobizio ID"
+   - "Actual Employee Branch"
+   - "Actual Employee Area"
+   - "Actual Employee Days Per Week"
+   - "Actual Employee Hours Per Week"
+   - "Actual Employee Default Pay Rate"
+   - "Actual Service Type Description"
+   - "Actual Service Requirement Type Description"
+   - "Actual Location Analysis"
+   - "Actual Pay Rate"
+   - "Actual Pay Rate Type"
+   - "Actual Pay Rate Hours"
+   - "Actual Pay Rate Hours - Banded"
+   - "Actual Pay Rate Adhoc"
+   - "Actual Pay Rate Public Holiday"
+   - "Actual Pay Rate Value"
+   - "Actual Pay Rate External ID"
+   - "Base Rate Value"
+   - "Actual Pay Rate Sheet Description"
+   - "Actual Invoice Rate"
+   - "Actual Invoice Rate Type"
+   - "Actual Invoice Rate Hours"
+   - "Actual Invoice Rate Hours - Banded"
+   - "Actual Invoice Rate Adhoc"
+   - "Actual Invoice Rate Public Holiday"
+   - "Actual Invoice Rate Value"
+   - "Actual Invoice Rate External ID"
+   - "Actual Invoice Rate Sheet Description"
+   - "PayValueDifferance"
+   - "InvoiceValueDifferance"
+   - "DurationDifferanceMinutes"
+   - "PunctualityStartTimeMinutes"
+   - "PunctualityEndTimeMinutes"
+   - "PunctualityTotalMinutes"
+   - "Reconciled"
+   - "Actual Booked On Time"
+   - "Actual Booked On Method"
+   - "Actual Booked On Method Dialogic"
+   - "Actual Booked On Method Dialogic Time"
+   - "Actual Booked On Notes"
+   - "Actual Booked Off Time"
+   - "Actual Booked Off Method"
+   - "Actual Booked Off Method Dialogic"
+   - "Actual Booked Off Method Dialogic Time"
+   - "Actual Booked Off Notes"
+   - "CM2000 Arrival Exception Code"
+   - "CM2000 Departure Exception Code"
+   - "Notes"
+   - "Timesheet Notes"
+   - "Cancellation Description"
+   - "Run Description"
+   - "ServiceDutyNotes"
+   - "ServiceDutyTimesheetNotes"
+   - "Service Package Override"
+   - "Service Package Override Notes"
+   - "ActualTravelDistanceToInvoice"
+   - "ActualTravelDistanceToInvoiceValue"
+   - "ActualTravelDistanceToPayroll"
+   - "ActualTravelDistanceToPayrollValue"
+   - "ActualTravelDistanceDuringInvoice"
+   - "ActualTravelDistanceDuringInvoiceValue"
+   - "ActualTravelDistanceDuringPayroll"
+   - "ActualTravelDistanceDuringPayrollValue"
+   - "ActualTravelTimeToPayroll"
+   - "ActualTravelTimeToPayrollValue"
+   - "Wait Time Duration"
+   - "Paid Wait Time Duration"
+   - "Wait Time Rate"
+   - "Wait Time Value"
+   - "ExpensesInvoiceValue"
+   - "ExpensesPayrollValue"
+   - "PayrollRunDescription"
+   - "PayrollRunPeriodID"
+   - "PayrollAccepted"
+   - "InvoiceRunDescription"
+   - "InvoiceRunPeriodID"
+   - "InvoiceAccepted"
+   - "InvoiceRunPeriodHeaderInvoiceNumber"
+   - "CreatedStage"
+   - "ServiceDutyTimeSheetNumber"
+   - "External Invoice Number"
+   - "ServiceDutyPurchaseOrderNumber"
+   - "AlertFirstDateTime"
+   - "AlertFirstType"
+   - "AlertDateTimeLast"
+   - "AlertLastType"
+   - "AlertDateTimeBookOnAlertCancelled"
+   - "AlertDateTimeBookOnAlertCancelledNotes"
+   - "AlertDateTimeBookOffAlertCancelled"
+   - "AlertDateTimeBookOffAlertCancelledNotes"
+   - "ServiceTypeID"
+   - "Planned Override Training and Qualifications"
+   - "Actual Override Training and Qualifications"
+   - "Empty"
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+🚫 Excluding by service type: "Office Hours" for East NL, Glasgow
+12:18:39 PM [express] GET /api/weekly-schedule/2025-12-01 200 in 598ms :: {"id":"70fd2ac2-a918-40a9-9…
+📋 Extracted 26 client visits from Guaranteed Hours Excel for 2025-12-06
+12:18:39 PM [express] GET /api/visits/2025-12-06 304 in 2161ms :: [{"id":"Clements (F), Jessie-2025-1…
+📋 Extracted 34 client visits from Guaranteed Hours Excel for 2025-12-04
+12:18:39 PM [express] GET /api/visits/2025-12-04 304 in 6106ms :: [{"id":"East NL, Glasgow-2025-12-04…
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Munro (NL), Marion
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Multiple Care (Secondary)" for Mullen (F), Eddie
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+🚫 Excluding by service type: "Office Hours" for Training (NL), Seaward place
+📋 Extracted 22 client visits from Guaranteed Hours Excel for 2025-12-07
+12:18:40 PM [express] GET /api/visits/2025-12-07 304 in 1633ms :: [{"id":"Clements (F), Jessie-2025-1…
+12:18:43 PM [express] POST /api/weekly-schedule/save 200 in 237ms :: {"id":"70fd2ac2-a918-40a9-98f6-6…

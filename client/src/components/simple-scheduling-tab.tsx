@@ -193,6 +193,28 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
     }));
   };
 
+  // Filter visits that have coordinates for the current employee
+  const employeeWithCoords = data?.employeeLocations?.find(e => e.employeeName === selectedEmployee);
+  const filteredVisits = visits.filter(v => {
+    const clientLocation = data?.clientLocations?.find(c => c.clientName === v.clientName);
+    return clientLocation?.lat && clientLocation?.lng;
+  });
+
+  // Display error message if no visits have coordinates
+  if (filteredVisits.length === 0 && selectedEmployee) {
+    return (
+      <div className="p-6 text-center">
+        <div className="text-muted-foreground mb-2">
+          No visits with location data found for {date}.
+        </div>
+        <div className="text-sm text-yellow-600 dark:text-yellow-500">
+          💡 Tip: Upload Guaranteed Hours via Data Management first to geocode client locations, then return to scheduling.
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div className="space-y-4" data-testid="simple-scheduling-tab">
       {/* Date Selector */}

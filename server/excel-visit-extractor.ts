@@ -172,11 +172,19 @@ export async function extractClientVisitsFromGHExcel(
     blankrows: false
   }) as any[][];
 
-  let headerIdx = rows2d.findIndex(r => {
-    const low = r.map(v => String(v ?? '').toLowerCase());
-    return low.some(s => s.includes('start date')) || low.some(s => s.includes('client'));
-  });
-  if (headerIdx < 0) headerIdx = 0;
+  // CRITICAL FIX: Always use first non-empty row as header
+  // This is the most robust approach - avoids fragile pattern matching
+  let headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
+  
+  if (headerIdx < 0) {
+    console.log("❌ ERROR: No valid header row found in Excel file");
+    headerIdx = 0; // Last resort fallback
+  }
+
+  console.log(`📋 GH rows2d length: ${rows2d.length}`);
+  console.log(`📋 Header row detected at index ${headerIdx}`);
+  console.log(`📋 Detected header cells:`, rows2d[headerIdx]?.slice(0, 10));
+  console.log(`📋 Next 3 data rows:`, rows2d.slice(headerIdx + 1, headerIdx + 4).map(r => r.slice(0, 5)));
 
   const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
   const data = rows2d.slice(headerIdx + 1).map(r => {
@@ -282,6 +290,10 @@ export async function extractClientVisitsFromGHExcel(
     }
 
     // --- Start of modified section ---
+      // NOTE: This extraction now depends on client locations being in the database.
+      // For a new branch, you must first upload Guaranteed Hours via Data Management
+      // to populate client_locations table, otherwise all visits will be extracted
+      // without coordinates (lat/lng will be undefined).
       if (startRaw) { // Ensure startRaw is not null or empty
         try {
           const startDateTime = roundToNearest15Minutes(toDate(startRaw)!); // Use toDate and round
@@ -313,7 +325,7 @@ export async function extractClientVisitsFromGHExcel(
           // Get client location for this visit using the provided storage and branchId
           const clientLocation = await storage.getClientLocationByName(branchId, clientName);
 
-          if (clientLocation && !visitsMap.has(visitKey)) {
+          if (!visitsMap.has(visitKey)) {
             // Store the actual clock times (HH:mm format)
             const startTimeStr = format(startDateTime, "HH:mm");
             const endTimeStr = format(endDateTime, "HH:mm");
@@ -325,8 +337,8 @@ export async function extractClientVisitsFromGHExcel(
               endTime: endTimeStr,
               durationMinutes: duration,
               date: visitDate,
-              lat: clientLocation.lat,
-              lng: clientLocation.lng,
+              lat: clientLocation?.lat || undefined,
+              lng: clientLocation?.lng || undefined,
               serviceType: row[SERVICE_TYPE_COLS.find(c => row[c]) ?? ''] || "", // Safely get service type
               priority: 1, // Default priority
               address,
@@ -334,6 +346,10 @@ export async function extractClientVisitsFromGHExcel(
             };
 
             visitsMap.set(visitKey, visitData as ExcelClientVisit);
+            
+            if (!clientLocation) {
+              console.log(`⚠️ Visit extracted without coordinates: ${clientName} - needs geocoding during data upload`);
+            }
           }
         } catch (error) {
           console.error(`Error processing row for client "${clientName}":`, error);
