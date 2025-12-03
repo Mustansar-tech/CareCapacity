@@ -1025,6 +1025,7 @@ export async function parseExcelFiles(
   availabilityBuffer: Buffer,
   guaranteedBuffer: Buffer,
   cgDataBuffer: Buffer,
+  ghWorkbookBuffer?: Buffer, // NEW: Add raw GH workbook buffer
 ): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
@@ -2694,7 +2695,7 @@ export async function processCapacityData(
 
   // Extract and store geographical data for scheduling optimization
   if (branchId) {
-    await extractAndStoreGeographicalData(cgData, guaranteed, branchId);
+    await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer); // Pass raw GH workbook buffer
   } else {
     console.log(`⚠️ WARNING: No branchId provided - skipping geographical data extraction`);
   }
@@ -2733,7 +2734,7 @@ export async function processCapacityData(
 }
 
 // Extract and store geographical data for route optimization
-async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branchId?: string) {
+async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branchId?: string, ghWorkbookBuffer?: Buffer) { // Added ghWorkbookBuffer parameter
   console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
   console.log(`📊 CG Data rows to process: ${cgData.length}`);
   console.log(`🏢 Branch ID: ${branchId || 'NONE'}`);
@@ -2838,16 +2839,52 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     }
 
     // Extract client locations from Care Pro Guaranteed Hours
-    const clientLocationsMap = new Map<string, any>();
-    const clientsToGeocode: any[] = [];
-    console.log(`🔍 Processing ${guaranteed.length} guaranteed hours rows for client locations`);
+    // CRITICAL FIX: Use the RAW workbook buffer to extract client locations
+    // because guaranteedData has already been filtered for scheduling
+    console.log(`🔍 Extracting client locations from raw GH Excel workbook`);
 
-    // Debug: Check what columns are available
-    if (guaranteed.length > 0) {
-      console.log(`🔍 Available columns in first row:`, Object.keys(guaranteed[0]));
+    const clientLocationsMap = new Map<string, {
+      branchId: string;
+      clientName: string;
+      addressLine: string;
+      postcode: string;
+      lat: string | null;
+      lng: string | null;
+    }>();
+    const clientsToGeocode: Array<{
+      branchId: string;
+      clientName: string;
+      addressLine: string;
+      postcode: string;
+      lat: string | null;
+      lng: string | null;
+    }> = [];
+
+    // Parse raw GH workbook to get ALL rows (not just filtered scheduling rows)
+    let rawGHRows: any[] = [];
+    if (ghWorkbookBuffer) {
+      const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
+      const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
+      const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
+        header: 1,
+        raw: true,
+        blankrows: false
+      }) as any[][];
+
+      // Find header row (first non-empty row)
+      const headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
+      if (headerIdx >= 0) {
+        const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
+        rawGHRows = rows2d.slice(headerIdx + 1).map(r => {
+          const o: Record<string, any> = {};
+          headers.forEach((h, i) => (o[h] = r[i]));
+          return o;
+        });
+        console.log(`📋 Parsed ${rawGHRows.length} raw GH rows for client location extraction`);
+      }
     }
 
-    for (const row of guaranteed) {
+    for (const row of rawGHRows) {
       // Skip cancelled or secondary multiple care entries
       if (!isCancellationBlank(row["Cancellation Description"])) {
         continue;
@@ -3189,9 +3226,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
 
-    console.log(`🔍 DEBUG: Processing visit data from ${guaranteed.length} guaranteed hours rows`);
+    console.log(`🔍 DEBUG: Processing visit data from ${rawGHRows.length} raw GH rows`); // Use rawGHRows here
 
-    for (const row of guaranteed) {
+    for (const row of rawGHRows) { // Iterate over rawGHRows
       // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
 
@@ -3207,7 +3244,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
-      const serviceLocationAddress = row["Service Location Address"];
+      const serviceLocationAddress = pickCol(row, ADDRESS_COLS); // Use helper for address too
 
       // Use Planned Start/End Date And Time as requested, falling back to Actual or Service Requirement
       const plannedStartTime = row["Planned Start Date And Time"];
