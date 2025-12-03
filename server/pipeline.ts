@@ -1713,6 +1713,20 @@ export async function processCapacityData(
 
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
+  // VERIFICATION: Show what's in the scheduled hours map
+  console.log(`\n📊 SCHEDULED HOURS MAP VERIFICATION:`);
+  console.log(`  Total entries in map: ${scheduledHoursMap.size}`);
+  
+  // Show first 10 entries
+  let count = 0;
+  for (const [key, hours] of scheduledHoursMap.entries()) {
+    if (count < 10) {
+      console.log(`  ${key}: ${hours}h`);
+      count++;
+    }
+  }
+  console.log(`=========================================\n`);
+
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
     console.log("=== GUARANTEED HOURS DEBUGGING ===");
@@ -2445,9 +2459,20 @@ export async function processCapacityData(
       const key = emp.employeeName;
 
       if (!employeeMap.has(key)) {
+        // CRITICAL FIX: Get scheduled hours directly from the lookup map
+        const empNormalized = normalizeName(emp.employeeName);
+        const scheduleKey = `${empNormalized}|${dateStr}`;
+        const scheduledHoursFromLookup = scheduledHoursMap.get(scheduleKey) || 0;
+
+        console.log(`📊 Employee summary for ${emp.employeeName} on ${dateStr}:`);
+        console.log(`  - Normalized: ${empNormalized}`);
+        console.log(`  - Lookup key: ${scheduleKey}`);
+        console.log(`  - Scheduled hours from lookup: ${scheduledHoursFromLookup}`);
+        console.log(`  - Scheduled hours from emp object: ${emp.scheduledHours || 0}`);
+
         employeeMap.set(key, {
           contractedDailyHours: emp.contractedDailyHours,
-          scheduledHours: emp.scheduledHours || 0,
+          scheduledHours: scheduledHoursFromLookup, // Use lookup value directly
           unavailabilityHours: 0,
           hasAvailableStatus: false,
           hasUnavailableStatus: false,
@@ -2462,10 +2487,7 @@ export async function processCapacityData(
         empData.contractedDailyHours,
         emp.contractedDailyHours,
       );
-      // Take the first scheduledHours value we see (they should all be the same since they come from the lookup)
-      if (empData.scheduledHours === 0) {
-        empData.scheduledHours = emp.scheduledHours || 0;
-      }
+      // Scheduled hours already set from lookup - don't overwrite
 
       // Track all status types separately, then consolidate at the end
       if (emp.status === "Available") {
@@ -2619,7 +2641,7 @@ export async function processCapacityData(
           console.log(`⚠️ SUMMARY: ${employeeName} on ${dateStr} - NO GENDER (normalized: ${empNormalized})`);
         }
 
-        return {
+        const summaryRecord = {
           employeeName,
           availability: empData.contractedDailyHours, // Direct contracted daily hours from Employee Details
           unavailability: finalUnavailabilityHours,
@@ -2633,6 +2655,13 @@ export async function processCapacityData(
           transportMode, // Transport mode from CG Data (e.g., "Car", "Walker")
           gender, // CRITICAL: Gender derived from title in CG Data (e.g., "male", "female") - MUST be populated for auto-scheduler
         };
+
+        // Debug logging to verify scheduled hours are being set
+        if (empData.scheduledHours > 0) {
+          console.log(`✅ SUMMARY RECORD with scheduled hours: ${employeeName} on ${dateStr} = ${empData.scheduledHours}h`);
+        }
+
+        return summaryRecord;
       },
     );
   });
