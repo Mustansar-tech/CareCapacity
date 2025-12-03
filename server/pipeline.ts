@@ -671,7 +671,6 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
 
     // Track office hours for debugging
-    const serviceType = g["Actual Service Type Description"] || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
     // Use Actual priority for Care Pro Guaranteed Hours
