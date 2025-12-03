@@ -172,34 +172,19 @@ export async function extractClientVisitsFromGHExcel(
     blankrows: false
   }) as any[][];
 
-  // CRITICAL FIX: Robust header detection that handles blank rows at top of file
-  // Check for actual column names we need, not vague patterns
-  const REQUIRED_HEADERS = [
-    'planned start date and time',
-    'service requirement start date and time',
-    'actual start date and time',
-    'service location name',
-    'client name',
-    'customer name'
-  ];
-
-  let headerIdx = rows2d.findIndex((row) => {
-    if (!row) return false;
-    const cells = row.map(v => String(v ?? '').trim().toLowerCase());
-    return REQUIRED_HEADERS.some(h => cells.includes(h));
-  });
-
-  if (headerIdx < 0) {
-    console.log("⚠️ Could not find header row by column names. Using first non-empty row.");
-    headerIdx = rows2d.findIndex(r => r.some(cell => cell && cell.toString().trim() !== ""));
-  }
-
+  // CRITICAL FIX: Always use first non-empty row as header
+  // This is the most robust approach - avoids fragile pattern matching
+  let headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
+  
   if (headerIdx < 0) {
     console.log("❌ ERROR: No valid header row found in Excel file");
     headerIdx = 0; // Last resort fallback
   }
 
+  console.log(`📋 GH rows2d length: ${rows2d.length}`);
   console.log(`📋 Header row detected at index ${headerIdx}`);
+  console.log(`📋 Detected header cells:`, rows2d[headerIdx]?.slice(0, 10));
+  console.log(`📋 Next 3 data rows:`, rows2d.slice(headerIdx + 1, headerIdx + 4).map(r => r.slice(0, 5)));
 
   const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
   const data = rows2d.slice(headerIdx + 1).map(r => {
