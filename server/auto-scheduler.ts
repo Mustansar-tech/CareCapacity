@@ -109,12 +109,15 @@ export class AutoScheduler {
   /**
    * Automatically schedule visits for a given date
    */
-  async scheduleDay(date: string, branchId?: string): Promise<WeeklySchedule> {
+  async scheduleDay(date: string, branchId: string): Promise<WeeklySchedule> {
     console.log(`\n🤖 ====== AUTO-SCHEDULER scheduleDay CALLED ======`);
     console.log(`   Date: ${date}`);
-    console.log(`   BranchId: ${branchId || 'UNDEFINED'}`);
-    console.log(`   BranchId type: ${typeof branchId}`);
+    console.log(`   BranchId: ${branchId}`);
     console.log(`================================================\n`);
+
+    if (!branchId) {
+      throw new Error('scheduleDay requires branchId parameter - cannot schedule without branch context');
+    }
 
     // Get employees available for this date
     const employees = await this.getAvailableEmployees(date, branchId);
@@ -257,7 +260,11 @@ export class AutoScheduler {
   /**
    * Schedule entire week
    */
-  async scheduleWeek(startDate: string, branchId?: string): Promise<Record<string, WeeklySchedule>> {
+  async scheduleWeek(startDate: string, branchId: string): Promise<Record<string, WeeklySchedule>> {
+    if (!branchId) {
+      throw new Error('scheduleWeek requires branchId parameter - cannot schedule without branch context');
+    }
+
     const weekSchedule: Record<string, WeeklySchedule> = {};
 
     // Schedule each day of the week
@@ -275,7 +282,10 @@ export class AutoScheduler {
   /**
    * Get week schedule (retrieves or generates)
    */
-  async getWeekSchedule(startDate: string, branchId?: string): Promise<Record<string, WeeklySchedule>> {
+  async getWeekSchedule(startDate: string, branchId: string): Promise<Record<string, WeeklySchedule>> {
+    if (!branchId) {
+      throw new Error('getWeekSchedule requires branchId parameter - cannot schedule without branch context');
+    }
     return this.scheduleWeek(startDate, branchId);
   }
 
