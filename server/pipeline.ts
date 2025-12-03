@@ -634,6 +634,23 @@ function isSecondaryMultipleCare(serviceType: string): boolean {
   return excluded.some(ex => normalized.includes(ex));
 }
 
+// Filter for Live In Care (SC) service types (case/spacing tolerant)
+function isLiveInCare(serviceType: string): boolean {
+  if (!serviceType) return false;
+  const normalized = String(serviceType)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "") // Remove non-alphanumeric
+    .replace(/\s/g, ""); // Remove spaces
+
+  const excluded = [
+    "liveincaresc",
+    "liveincare",
+    "liveincarewithoutscsuffix",
+  ].map(s => s.replace(/[^a-z0-9]/g, "").replace(/\s/g, ""));
+
+  return excluded.some(ex => normalized.includes(ex));
+}
+
 // Treat common "blank" tokens as blank
 function isCancellationBlank(value: any): boolean {
   const s = (value ?? "").toString().trim().toLowerCase();
@@ -648,12 +665,13 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   let totalProcessed = 0;
   let filteredCancelled = 0;
   let filteredSecondary = 0;
+  let filteredLiveInCare = 0;
   let officeHoursIncluded = 0;
 
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Apply robust filters - ONLY filter cancelled and secondary care (case-insensitive)
+    // Apply robust filters - filter cancelled, secondary care, and live in care (case-insensitive)
     // Office hours MUST be included in scheduled totals
     const cancelRaw = pickCol(g, CANCEL_COLS);
     const cancelOk = isCancellationBlank(cancelRaw);
@@ -666,6 +684,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const secondary = isSecondaryMultipleCare(serviceTypeRaw);
     if (secondary) {
       filteredSecondary++;
+      continue;
+    }
+
+    const liveInCare = isLiveInCare(serviceTypeRaw);
+    if (liveInCare) {
+      filteredLiveInCare++;
       continue;
     }
 
@@ -767,10 +791,13 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     `  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
   );
   console.log(
+    `  ❌ Filtered "Live In Care (SC)": ${filteredLiveInCare}`,
+  );
+  console.log(
     `  ✅ Office hours included in totals: ${officeHoursIncluded}`,
   );
   console.log(
-    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary}`,
+    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
   // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
