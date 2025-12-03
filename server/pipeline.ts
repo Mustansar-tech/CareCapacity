@@ -656,6 +656,16 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
+    // Filter out Live In Care (SC)
+    const serviceType = g["Actual Service Type Description"] || "";
+    const isLiveInCare = serviceType && (() => {
+      const lowerType = String(serviceType).toLowerCase();
+      return lowerType.includes("live in care") || lowerType.includes("live-in care");
+    })();
+    if (isLiveInCare) {
+      continue; // Skip Live In Care from scheduled hours
+    }
+
     // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
     // This ensures employees show correct scheduled hours including office work
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
