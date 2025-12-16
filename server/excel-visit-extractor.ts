@@ -320,36 +320,48 @@ export async function extractClientVisitsFromGHExcel(
           // Calculate duration in minutes based on actual start and end times
           const duration = Math.round((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60));
 
-          const visitKey = `${clientName}-${visitDate}-${format(startDateTime, "HH:mm")}`; // Use formatted start time for key
+          // Generate unique key that allows multiple visits at same time (for multiple care)
+          // Include row index or use a counter to ensure uniqueness
+          const baseKey = `${clientName}-${visitDate}-${format(startDateTime, "HH:mm")}`;
+          let visitKey = baseKey;
+          let counter = 1;
+          
+          // If this key already exists, add a suffix (for multiple care visits)
+          while (visitsMap.has(visitKey)) {
+            visitKey = `${baseKey}-CP${counter}`;
+            counter++;
+          }
 
           // Get client location for this visit using the provided storage and branchId
           const clientLocation = await storage.getClientLocationByName(branchId, clientName);
 
-          if (!visitsMap.has(visitKey)) {
-            // Store the actual clock times (HH:mm format)
-            const startTimeStr = format(startDateTime, "HH:mm");
-            const endTimeStr = format(endDateTime, "HH:mm");
+          // Store the actual clock times (HH:mm format)
+          const startTimeStr = format(startDateTime, "HH:mm");
+          const endTimeStr = format(endDateTime, "HH:mm");
 
-            const visitData: Partial<ExcelClientVisit> = {
-              id: visitKey,
-              clientName,
-              startTime: startTimeStr,
-              endTime: endTimeStr,
-              durationMinutes: duration,
-              date: visitDate,
-              lat: clientLocation?.lat || undefined,
-              lng: clientLocation?.lng || undefined,
-              serviceType: row[SERVICE_TYPE_COLS.find(c => row[c]) ?? ''] || "", // Safely get service type
-              priority: 1, // Default priority
-              address,
-              postcode,
-            };
+          const visitData: Partial<ExcelClientVisit> = {
+            id: visitKey,
+            clientName,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            durationMinutes: duration,
+            date: visitDate,
+            lat: clientLocation?.lat || undefined,
+            lng: clientLocation?.lng || undefined,
+            serviceType: row[SERVICE_TYPE_COLS.find(c => row[c]) ?? ''] || "", // Safely get service type
+            priority: 1, // Default priority
+            address,
+            postcode,
+          };
 
-            visitsMap.set(visitKey, visitData as ExcelClientVisit);
-            
-            if (!clientLocation) {
-              console.log(`⚠️ Visit extracted without coordinates: ${clientName} - needs geocoding during data upload`);
-            }
+          visitsMap.set(visitKey, visitData as ExcelClientVisit);
+          
+          if (counter > 1) {
+            console.log(`👥 Multiple care visit detected: ${clientName} @ ${startTimeStr}-${endTimeStr} (CP ${counter})`);
+          }
+          
+          if (!clientLocation) {
+            console.log(`⚠️ Visit extracted without coordinates: ${clientName} - needs geocoding during data upload`);
           }
         } catch (error) {
           console.error(`Error processing row for client "${clientName}":`, error);
