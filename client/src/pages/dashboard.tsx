@@ -769,8 +769,8 @@ export default function Dashboard() {
                           </TableHead>
                           <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
                           <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
                           <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
                           <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -796,11 +796,11 @@ export default function Dashboard() {
                             <TableCell data-testid={`drilldown-contracted-daily-${index}`}>
                               {emp.contractedDailyHours}h
                             </TableCell>
-                            <TableCell data-testid={`drilldown-scheduled-hours-${index}`}>
-                              {emp.scheduledHours}h
-                            </TableCell>
                             <TableCell data-testid={`drilldown-net-capacity-${index}`}>
                               {emp.netCapacity}h
+                            </TableCell>
+                            <TableCell data-testid={`drilldown-scheduled-hours-${index}`}>
+                              {emp.scheduledHours}h
                             </TableCell>
                             <TableCell data-testid={`drilldown-notes-${index}`}>
                               {emp.notes}
