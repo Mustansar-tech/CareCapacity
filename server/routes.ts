@@ -116,6 +116,26 @@ import { geocodeWithFallback } from './pipeline';
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  // Health check endpoint for monitoring
+  app.get('/health', async (_req, res) => {
+    const { checkDatabaseHealth } = await import('./db');
+    const dbHealthy = await checkDatabaseHealth();
+    
+    const health = {
+      status: dbHealthy ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: dbHealthy ? 'connected' : 'disconnected',
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+      }
+    };
+
+    const statusCode = dbHealthy ? 200 : 503;
+    res.status(statusCode).json(health);
+  });
+
   // GET /api/branches - Get all available branches
   app.get('/api/branches', async (_req, res) => {
     try {

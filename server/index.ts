@@ -1,10 +1,22 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { generalLimiter } from "./rate-limiter";
+import { securityHeaders } from "./security";
 
 const app = express();
+
+// Security headers
+app.use(securityHeaders);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Apply rate limiting in production
+if (process.env.NODE_ENV === 'production') {
+  app.use('/api', generalLimiter.middleware);
+  log('Rate limiting enabled for production');
+}
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -64,4 +76,23 @@ app.use((req, res, next) => {
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
+
+  // Graceful shutdown handling
+  const shutdown = async (signal: string) => {
+    log(`${signal} received, starting graceful shutdown...`);
+    
+    server.close(() => {
+      log('HTTP server closed');
+      process.exit(0);
+    });
+
+    // Force shutdown after 30 seconds
+    setTimeout(() => {
+      log('Forced shutdown after timeout');
+      process.exit(1);
+    }, 30000);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 })();
