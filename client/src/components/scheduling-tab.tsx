@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass } from "@/utils/gender-colors";
+import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SchedulingTabProps {
   data: ProcessingResult | null;

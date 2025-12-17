@@ -14,6 +14,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
 import { generateWeeklySchedule } from "@/utils/scheduling-engine";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface WeeklyPlanTabProps {
   data: ProcessingResult | null;
