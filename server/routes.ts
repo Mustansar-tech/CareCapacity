@@ -6,9 +6,6 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
-import { logger } from './logger'; // Assuming logger is configured elsewhere
-import { db } from './db'; // Assuming db connection and schema are available
-import * as schema from '@shared/schema'; // Assuming schema is imported
 
 /**
  * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)
@@ -123,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/health', async (_req, res) => {
     const { checkDatabaseHealth } = await import('./db');
     const dbHealthy = await checkDatabaseHealth();
-
+    
     const health = {
       status: dbHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -140,15 +137,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/branches - Get all available branches
-  app.get("/api/branches", async (req, res) => {
+  app.get('/api/branches', async (_req, res) => {
     try {
-      logger.info("📋 Fetching all branches from database");
-      const allBranches = await db.select().from(schema.branches);
-      logger.info(`✅ Found ${allBranches.length} branches`);
-      res.json(allBranches);
+      const branches = await storage.getAllBranches();
+      res.json(branches);
     } catch (error) {
-      logger.error("❌ Failed to fetch branches:", error);
-      res.status(500).json({ error: "Failed to fetch branches" });
+      console.error('Error fetching branches:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch branches',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
