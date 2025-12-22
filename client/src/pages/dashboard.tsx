@@ -144,6 +144,13 @@ export default function Dashboard() {
     }
   }, [latestData, processedData, selectedWeekId, selectedBranchId, toast]);
 
+  // Auto-hide upload panel when data is processed
+  useEffect(() => {
+    if (processedData) {
+      setShowUploadPanel(false);
+    }
+  }, [processedData]);
+
   // Handle week selection
   const handleWeekChange = useCallback(async (value: string) => {
     if (value === "latest") {
@@ -354,9 +361,6 @@ export default function Dashboard() {
             >
               <Upload className="w-4 h-4 mr-2" />
               {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
-              <Badge variant="secondary" className="ml-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                New Analysis
-              </Badge>
             </Button>
           </div>
         )}
@@ -882,9 +886,6 @@ export default function Dashboard() {
               >
                 <Upload className="w-4 h-4 mr-2" />
                 {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
-                <Badge variant="secondary" className="ml-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                  New Analysis
-                </Badge>
               </Button>
             </div>
 
