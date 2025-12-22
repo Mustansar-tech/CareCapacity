@@ -86,6 +86,7 @@ export default function Dashboard() {
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
 
   const { toast } = useToast();
 
@@ -342,8 +343,26 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-2xl animate-fade-in">
-        {/* Upload Section with Enhanced Design */}
+        {/* Compact Upload Toggle - Shows when no data is loaded */}
         {!processedData && (
+          <div className="mb-6 animate-fade-in">
+            <Button
+              onClick={() => setShowUploadPanel(!showUploadPanel)}
+              variant="outline"
+              className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6"
+              data-testid="toggle-upload-panel"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+              <Badge variant="secondary" className="ml-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                New Analysis
+              </Badge>
+            </Button>
+          </div>
+        )}
+
+        {/* Upload Section - Collapsible */}
+        {!processedData && showUploadPanel && (
           <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
@@ -853,8 +872,25 @@ export default function Dashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6 animate-fade-in" data-testid="content-overview">
-            {/* File Upload Section inside Overview */}
-            <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
+            {/* Compact Upload Toggle in Overview */}
+            <div className="mb-6">
+              <Button
+                onClick={() => setShowUploadPanel(!showUploadPanel)}
+                variant="outline"
+                className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6 w-full md:w-auto"
+                data-testid="toggle-upload-panel-overview"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+                <Badge variant="secondary" className="ml-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                  New Analysis
+                </Badge>
+              </Button>
+            </div>
+
+            {/* File Upload Section - Collapsible */}
+            {showUploadPanel && (
+              <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
               <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
                 <CardTitle className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
@@ -1014,6 +1050,7 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Data Period Information inside Overview */}
             <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info-overview">
