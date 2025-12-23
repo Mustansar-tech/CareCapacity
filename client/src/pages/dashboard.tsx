@@ -214,6 +214,14 @@ export default function Dashboard() {
         setSelectedDate(data.dailySummary[0].date);
       }
 
+      // Clear file inputs after successful processing
+      setFiles({
+        availability: null,
+        guaranteed: null,
+        demand: null,
+        cgData: null
+      });
+
       // Don't invalidate queries to prevent auto-refresh
       // queryClient.invalidateQueries({ queryKey: ['/api/history'] });
       toast({
