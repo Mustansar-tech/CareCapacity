@@ -1256,9 +1256,6 @@ export class DatabaseStorage implements IStorage {
       id: crypto.randomUUID(),
       branchId,
       excludedServiceTypes: [],
-      excludedEmployees: [],
-      minVisitDurationMinutes: 15,
-      maxTravelTimeMinutes: 60,
       updatedAt: new Date(),
     };
   }
@@ -1266,12 +1263,9 @@ export class DatabaseStorage implements IStorage {
   async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
     // Return the preference as-is (table not yet created in DB)
     return {
-      ...preference,
       id: crypto.randomUUID(),
+      branchId: preference.branchId,
       excludedServiceTypes: preference.excludedServiceTypes || [],
-      excludedEmployees: preference.excludedEmployees || [],
-      minVisitDurationMinutes: preference.minVisitDurationMinutes || 15,
-      maxTravelTimeMinutes: preference.maxTravelTimeMinutes || 60,
       updatedAt: new Date(),
     };
   }
