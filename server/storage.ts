@@ -641,6 +641,34 @@ export class MemStorage implements IStorage {
         (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
       );
   }
+
+  // Branch scheduling preferences (stub for MemStorage - returns defaults)
+  private branchPreferences: Map<string, BranchSchedulingPreference> = new Map();
+
+  async getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference> {
+    const existing = this.branchPreferences.get(branchId);
+    if (existing) return existing;
+    
+    // Return default preference
+    return {
+      id: randomUUID(),
+      branchId,
+      excludedServiceTypes: [],
+      updatedAt: new Date(),
+    };
+  }
+
+  async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
+    const id = randomUUID();
+    const saved: BranchSchedulingPreference = {
+      id,
+      branchId: preference.branchId,
+      excludedServiceTypes: preference.excludedServiceTypes || [],
+      updatedAt: new Date(),
+    };
+    this.branchPreferences.set(preference.branchId, saved);
+    return saved;
+  }
 }
 
 // Switch to database storage in production
@@ -1219,6 +1247,33 @@ export class DatabaseStorage implements IStorage {
       .from(weeklySchedules)
       .where(eq(weeklySchedules.branchId, branchId))
       .orderBy(desc(weeklySchedules.generatedAt));
+  }
+
+  // Branch scheduling preferences (returns defaults - table doesn't exist yet)
+  async getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference> {
+    // Return default preference (table not yet created in DB)
+    return {
+      id: crypto.randomUUID(),
+      branchId,
+      excludedServiceTypes: [],
+      excludedEmployees: [],
+      minVisitDurationMinutes: 15,
+      maxTravelTimeMinutes: 60,
+      updatedAt: new Date(),
+    };
+  }
+
+  async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
+    // Return the preference as-is (table not yet created in DB)
+    return {
+      ...preference,
+      id: crypto.randomUUID(),
+      excludedServiceTypes: preference.excludedServiceTypes || [],
+      excludedEmployees: preference.excludedEmployees || [],
+      minVisitDurationMinutes: preference.minVisitDurationMinutes || 15,
+      maxTravelTimeMinutes: preference.maxTravelTimeMinutes || 60,
+      updatedAt: new Date(),
+    };
   }
 }
 

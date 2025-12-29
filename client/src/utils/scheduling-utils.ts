@@ -1,5 +1,8 @@
 // Scheduling utility functions for VRPTW optimization
 
+// Travel time cache for memoization - improves performance significantly
+const travelTimeCache = new Map<string, number>();
+
 // Convert HH:mm to minutes since midnight
 // For overnight visits (e.g., 22:00-02:00), end time wraps to next day
 export function timeToMinutes(time: string, allowNextDay: boolean = false): number {
@@ -63,7 +66,7 @@ export function calculateTravelTime(
   return Math.ceil(hours * 60); // Return minutes, rounded up
 }
 
-// Calculate travel time between two locations
+// Calculate travel time between two locations (with memoization)
 export function getTravelMinutes(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
@@ -79,14 +82,21 @@ export function getTravelMinutes(
   if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) ||
       !Number.isFinite(toLat) || !Number.isFinite(toLng)) {
     console.warn(`Invalid coordinates: from(${from.lat}, ${from.lng}) to(${to.lat}, ${to.lng})`);
-    console.warn(`Parsed coordinates: from(${fromLat}, ${fromLng}) to(${toLat}, ${toLng})`);
     return 0;
   }
 
   // Check for zero coordinates (indicates missing geocoding)
   if ((fromLat === 0 && fromLng === 0) || (toLat === 0 && toLng === 0)) {
-    console.warn(`Zero coordinates detected: from(${fromLat}, ${fromLng}) to(${toLat}, ${toLng})`);
     return 0;
+  }
+
+  // Create cache key with rounded coordinates for better hit rate
+  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}`;
+  
+  // Check cache first
+  const cached = travelTimeCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
   }
 
   const distance = haversineDistance(
@@ -104,11 +114,15 @@ export function getTravelMinutes(
   const speedKmh = speeds[mode] || speeds.car;
   const travelTimeMinutes = Math.max(1, Math.round((distance / speedKmh) * 60));
 
-  console.log(`🔍 Utils travel calc: distance=${distance.toFixed(2)}km, mode=${mode}, time=${travelTimeMinutes}min`);
-  console.log(`  From coords: ${fromLat}, ${fromLng}`);
-  console.log(`  To coords: ${toLat}, ${toLng}`);
+  // Store in cache
+  travelTimeCache.set(cacheKey, travelTimeMinutes);
 
   return travelTimeMinutes;
+}
+
+// Clear travel time cache (call when starting new scheduling run)
+export function clearTravelCache(): void {
+  travelTimeCache.clear();
 }
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
