@@ -1135,9 +1135,6 @@ export default function Dashboard() {
                         <Clock className="w-4 h-4" />
                         <span className="font-medium">{filteredData?.dailySummary.length || processedData?.dailySummary.length || 0} days</span>
                       </Badge>
-                      <Badge variant="secondary" className="py-2 px-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0">
-                        Processed: Today
-                      </Badge>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
