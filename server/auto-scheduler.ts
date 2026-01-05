@@ -671,7 +671,10 @@ export class AutoScheduler {
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime + 10; // Allow 10min overflow for end of shift
 
-      if (earliestStart + visit.durationMinutes <= latestEnd) {
+      // Allow "travel time extra": if travel time exceeds gap by up to 15 minutes, still allow it
+      // This effectively "compresses" the visit or shifts it slightly to make it fit.
+      const maxCompression = 15; 
+      if (earliestStart + visit.durationMinutes <= latestEnd + maxCompression) {
         // Calculate score based on multiple factors
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
 
@@ -745,7 +748,7 @@ export class AutoScheduler {
       : 0;
 
     const actualStartTime = prevVisit 
-      ? Math.max(visit.startTime, prevVisit.actualEndTime + travelTimeBefore)
+      ? Math.max(visit.startTime - 15, prevVisit.actualEndTime + travelTimeBefore - 15) // Allow 15min earlier start or compression
       : visit.startTime;
 
     return {
