@@ -667,9 +667,9 @@ export class AutoScheduler {
         : 0;
 
       // Check if insertion is feasible with scheduling buffer
-      const BUFFER = 10;
+      const BUFFER = 2; // Reduced buffer to allow tighter scheduling of visits
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
-      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime + BUFFER;
+      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime + 10; // Allow 10min overflow for end of shift
 
       if (earliestStart + visit.durationMinutes <= latestEnd) {
         // Calculate score based on multiple factors
@@ -745,7 +745,7 @@ export class AutoScheduler {
       : 0;
 
     const actualStartTime = prevVisit 
-      ? prevVisit.actualEndTime + travelTimeBefore
+      ? Math.max(visit.startTime, prevVisit.actualEndTime + travelTimeBefore)
       : visit.startTime;
 
     return {
