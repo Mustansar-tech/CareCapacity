@@ -35,8 +35,16 @@ The Care Capacity Dashboard now supports complete data isolation across 9 franch
 - ✅ Implemented loading screen until branch is selected
 - ✅ Updated file upload to include `branchId` in FormData
 - ✅ Smart cache invalidation on branch change (no full page reload needed)
+- ✅ Added branch-specific scheduling preference panel
 
-### 4. **Query Client Improvements**
+### 4. **Scheduling Preferences & Isolation**
+- ✅ Implemented `branch_scheduling_preferences` table
+- ✅ Support for branch-specific excluded service types
+- ✅ Branch-level travel limit configuration
+- ✅ Per-branch employee exclusion lists
+- ✅ Isolated preference retrieval and storage in `DatabaseStorage` and `MemStorage`
+
+### 5. **Query Client Improvements**
 - ✅ Automatic `branchId` injection into all GET requests via URL params
 - ✅ Automatic `branchId` injection into POST/PUT request bodies
 - ✅ Query cache invalidation on branch change preserves UI state

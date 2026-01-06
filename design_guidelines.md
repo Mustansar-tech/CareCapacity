@@ -60,7 +60,14 @@
 - Icon indicator (map pin or building) before branch name
 - Width: min-w-64 on desktop, full-width drawer on mobile
 
-**3. Navigation:**
+**3. Scheduling Visuals:**
+- **Visit Blocks:** Glass cards with status-specific borders
+- **Travel Indicators:** Visual connecting lines with duration labels
+- **Constraint Warnings:** Amber/Red badges for compressed travel or window breaches
+- **Compression Visuals:** Special treatment (e.g., dashed borders or specific icons) when "travel time extra" is utilized.
+- **Gaps:** Interactive "free time" slots calculated between assigned visits.
+
+**4. Navigation:**
 - Sidebar navigation (left-aligned, fixed)
 - Width: w-64 on desktop, collapsible hamburger on mobile
 - Glass-morphism treatment matching card aesthetic

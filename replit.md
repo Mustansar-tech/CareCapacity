@@ -51,6 +51,7 @@ The application is designed for care home scheduling teams and business developm
     - **Travel Time Extra:** Intelligent "compression" logic that allows visits to be scheduled even if travel time exceeds available gaps by up to 15 minutes.
     - **Early Start Allowance:** Permits visits to start up to 15 minutes early to maximize workforce utilization.
     - **Constraint Enforcement:** Respects 9-hour daily care limits, weekly contracted hours, and gender preferences.
+    - **Visual Indicators:** Real-time feedback on travel compression and shift overflows in the dashboard.
 - **AI Insights Tab:** Provides predictive analytics, workload redistribution opportunities, staff optimization suggestions, and risk assessments with actionable insights.
 - **Analytics Tab:** Interactive visualizations (bar, line, area, pie charts) for daily comparisons, trend analysis, and data distribution, along with a data quality panel.
 - **Export Tab:** Comprehensive Excel reports including cleaned data, daily summary, and employee details.
@@ -60,7 +61,8 @@ The application is designed for care home scheduling teams and business developm
 - **Smart Time Window Management:** Distinguishes "Day-Killers" (e.g., Holiday, Sick) from "Time-Killers" (e.g., Appointment) and enforces minimum bookable windows. Includes "Partial Availability" detection for business development.
 - **Enhanced Status Intelligence:** Canonical status mapping, typo handling, and "Ad-Hoc Status Highlighting" for scheduled visits without availability records.
 - **Geocoding & Travel Time Calculation:** Multi-level geocoding cache and real-time travel time calculations considering transport mode (car/walking). Features a "soft limit" for travel time with exponential scoring penalties rather than rigid rejections.
-- **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types and custom constraints.
+- **Travel Compression Logic:** Allows a "travel time extra" allowance where travel exceeding gaps by up to 15 minutes is accepted through smart start-time shifting.
+- **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types, custom travel limits, and employee exclusions.
 - **Weekly Contracted Hours (Net Capacity):** Integrates guaranteed hours from the master employee file to calculate and display net capacity, used for weekly constraint enforcement.
 
 ### Data Privacy & Retention
