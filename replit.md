@@ -37,12 +37,7 @@ The application is designed for care home scheduling teams and business developm
 ### Performance Optimizations
 
 - **70-80% Faster File Processing:** Achieved through multi-level geocoding cache (exact postcode → district → area fallback), parallel batch processing, duplicate elimination, and smart fallback cache checks before API calls.
-
-### UI/UX Decisions
-
-- **Modern Glass-Morphism UI:** Featuring glass-morphism effects, gradient backgrounds, backdrop blur, dark/light theme support, smooth animations, and responsive design.
-- **Intuitive Interactions:** One-click data refresh, visual status badges, interactive date-based filtering, comprehensive error messaging, and real-time tooltips.
-- **Performance Optimizations:** Loading skeletons, progress indicators, automatic data caching, and optimistic UI updates.
+- **Advanced Scheduling Memoization:** Significantly reduced optimization time by caching and reusing travel time calculations between identical location pairs, preventing redundant API/geometric calculations.
 
 ### Feature Specifications
 
@@ -51,7 +46,11 @@ The application is designed for care home scheduling teams and business developm
 - **Daily Capacity Tab:** Day-by-day analysis with a daily summary table, employee drill-down, gender-based color coding, and transport mode indicators.
 - **Employee Summary Tab:** Comprehensive metrics per employee, including contracted vs. scheduled hours, availability patterns, and free windows calculation.
 - **BD Matrix (Business Development):** A 7-day heatmap visually displaying employee availability for business development opportunities.
-- **Schedules Tab:** Automated weekly planning using a VRPTW optimization engine, generating optimal employee runs while respecting constraints (e.g., 9-hour daily care limit, 20-minute max travel time, weekly contracted hours, time window compliance).
+- **Schedules Tab:** Automated weekly planning using an enhanced VRPTW optimization engine. Features include:
+    - **Flexible Gap-Filling:** Optimized to allocate visits in tight windows (e.g., 2-minute buffers).
+    - **Travel Time Extra:** Intelligent "compression" logic that allows visits to be scheduled even if travel time exceeds available gaps by up to 15 minutes.
+    - **Early Start Allowance:** Permits visits to start up to 15 minutes early to maximize workforce utilization.
+    - **Constraint Enforcement:** Respects 9-hour daily care limits, weekly contracted hours, and gender preferences.
 - **AI Insights Tab:** Provides predictive analytics, workload redistribution opportunities, staff optimization suggestions, and risk assessments with actionable insights.
 - **Analytics Tab:** Interactive visualizations (bar, line, area, pie charts) for daily comparisons, trend analysis, and data distribution, along with a data quality panel.
 - **Export Tab:** Comprehensive Excel reports including cleaned data, daily summary, and employee details.
@@ -60,7 +59,8 @@ The application is designed for care home scheduling teams and business developm
 
 - **Smart Time Window Management:** Distinguishes "Day-Killers" (e.g., Holiday, Sick) from "Time-Killers" (e.g., Appointment) and enforces minimum bookable windows. Includes "Partial Availability" detection for business development.
 - **Enhanced Status Intelligence:** Canonical status mapping, typo handling, and "Ad-Hoc Status Highlighting" for scheduled visits without availability records.
-- **Geocoding & Travel Time Calculation:** Multi-level geocoding cache and real-time travel time calculations considering transport mode (car/walking) with a 20-minute hard constraint.
+- **Geocoding & Travel Time Calculation:** Multi-level geocoding cache and real-time travel time calculations considering transport mode (car/walking). Features a "soft limit" for travel time with exponential scoring penalties rather than rigid rejections.
+- **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types and custom constraints.
 - **Weekly Contracted Hours (Net Capacity):** Integrates guaranteed hours from the master employee file to calculate and display net capacity, used for weekly constraint enforcement.
 
 ### Data Privacy & Retention
