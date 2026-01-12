@@ -441,14 +441,14 @@ function assignVisitToBestEmployee(
       continue; // Skip - would exceed capacity (strict mode)
     }
     
-    // In relaxed mode, still check but with 1 hour extra weekly tolerance
+    // In relaxed mode, still check but with 2 hours extra weekly tolerance
     if (relaxedCapacity) {
       const newWeeklyTotal = schedule.weeklyUsedMinutes + originalVisit.durationMinutes;
       // Still enforce daily capacity even in relaxed mode
-      if (newTotalCareTime > schedule.totalCapacityMinutes) {
+      if (newTotalCareTime > schedule.totalCapacityMinutes + 120) { // Increased daily tolerance
         continue; // Skip - would exceed daily availability
       }
-      if (newWeeklyTotal > schedule.weeklyContractedMinutes + 120) { // Increased tolerance to 2 hours
+      if (newWeeklyTotal > schedule.weeklyContractedMinutes + 180) { // Increased tolerance to 3 hours
         continue;
       }
     }
@@ -466,9 +466,8 @@ function assignVisitToBestEmployee(
       continue; // Could not adjust visit to fit any window
     }
 
+    // Score visit Match (with home break logic)
     const scoringVisit = toScoringVisit(adjustedVisit);
-
-    // Convert assigned visits to scoring format
     const employeeRun: EmployeeRun = {
       visits: schedule.assignedVisits.map(v => ({
         clientName: v.clientName,
@@ -483,63 +482,83 @@ function assignVisitToBestEmployee(
     };
 
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
+    if (!matchScore || matchScore.score <= 0) continue;
 
-    if (matchScore && matchScore.score > 0) {
-      // Add GH bonus to prioritize guaranteed hours employees
-      let finalScore = isGHEmployee(schedule.employeeName)
-        ? matchScore.score + GH_SCORE_BONUS
-        : matchScore.score;
+    // VERIFY CHRONOLOGICAL ORDER FOR THIS INSERTION INDEX
+    const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
+    let isChronologicallyValid = true;
 
-      // CRITICAL: Penalize if employee already has a visit at this exact time
-      // This prevents same-time assignments unless it's multiple care
-      const hasConflictingVisit = schedule.assignedVisits.some(v => {
-        const vStart = timeToMinutes(v.startTime);
-        const vEnd = timeToMinutes(v.endTime);
-        const visitStart = timeToMinutes(adjustedVisit.startTime);
-        const visitEnd = timeToMinutes(adjustedVisit.endTime);
-
-        // Check for any overlap in time
-        return (visitStart < vEnd && visitEnd > vStart);
-      });
-
-      if (hasConflictingVisit) {
-        finalScore *= 0.1; // Massive penalty - nearly eliminate this option
-        console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
-      }
-
-      // Add early visit bonus for first visits (prioritize starting early and near home)
-      const visitStartMin = timeToMinutes(adjustedVisit.startTime);
-      if (schedule.assignedVisits.length === 0) {
-        // First visit - bonus for early morning (before 10am)
-        if (visitStartMin < 600) { // Before 10am
-          finalScore += 0.3; // Strong bonus for early starts
-        }
-        // Also bonus for proximity to home (already in matchScore but emphasize it)
-        const distFromHome = getTravelMinutes(
-          { lat: schedule.homeLat, lng: schedule.homeLng },
-          { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
-          schedule.transportMode
-        );
-        if (distFromHome < 15) { // Within 15 minutes of home
-          finalScore += 0.2; // Bonus for starting near home
-        }
-      }
-
-      // Add evening visit bonus for GH employees (helps fill their hours)
-      const isEveningVisit = visitStartMin >= 1020; // After 5pm
-      if (isGHEmployee(schedule.employeeName) && isEveningVisit) {
-        finalScore += 0.2; // Extra bonus for evening visits to GH employees
-        console.log(`🌙 EVENING BONUS: ${schedule.employeeName} gets +0.2 for evening visit ${adjustedVisit.clientName}`);
-      }
-      candidates.push({
-        employeeName: schedule.employeeName,
-        score: finalScore,
-        insertionIndex: matchScore.insertionIndex,
-        travelFromPrev: matchScore.travelFromPrev,
-        travelToNext: matchScore.travelToNext,
-        adjustedVisit,
-      });
+    if (matchScore.insertionIndex > 0) {
+      const prevVisit = schedule.assignedVisits[matchScore.insertionIndex - 1];
+      if (timeToMinutes(prevVisit.startTime) > visitStartMinInternal) isChronologicallyValid = false;
     }
+    if (isChronologicallyValid && matchScore.insertionIndex < schedule.assignedVisits.length) {
+      const nextVisit = schedule.assignedVisits[matchScore.insertionIndex];
+      if (timeToMinutes(nextVisit.startTime) < visitStartMinInternal) isChronologicallyValid = false;
+    }
+
+    if (!isChronologicallyValid) {
+      // If insertion index from scoreVisitMatch is invalid, try to find the correct index manually
+      let correctIndex = 0;
+      while (correctIndex < schedule.assignedVisits.length && timeToMinutes(schedule.assignedVisits[correctIndex].startTime) < visitStartMinInternal) {
+        correctIndex++;
+      }
+      (matchScore as any).insertionIndex = correctIndex;
+    }
+
+    // Add GH bonus to prioritize guaranteed hours employees
+    let finalScore = isGHEmployee(schedule.employeeName)
+      ? matchScore.score + GH_SCORE_BONUS
+      : matchScore.score;
+
+    // CRITICAL: Penalize if employee already has a visit at this exact time
+    // This prevents same-time assignments unless it's multiple care
+    const hasConflictingVisit = schedule.assignedVisits.some(v => {
+      const vStart = timeToMinutes(v.startTime);
+      const vEnd = timeToMinutes(v.endTime);
+      const visitStart = timeToMinutes(adjustedVisit.startTime);
+      const visitEnd = timeToMinutes(adjustedVisit.endTime);
+
+      // Check for any overlap in time
+      return (visitStart < vEnd && visitEnd > vStart);
+    });
+
+    if (hasConflictingVisit) {
+      finalScore *= 0.1; // Massive penalty - nearly eliminate this option
+      console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
+    }
+
+    // Add early visit bonus for first visits (prioritize starting early and near home)
+    if (schedule.assignedVisits.length === 0) {
+      // First visit - bonus for early morning (before 10am)
+      if (visitStartMinInternal < 600) { // Before 10am
+        finalScore += 0.3; // Strong bonus for early starts
+      }
+      // Also bonus for proximity to home (already in matchScore but emphasize it)
+      const distFromHome = getTravelMinutes(
+        { lat: schedule.homeLat, lng: schedule.homeLng },
+        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+        schedule.transportMode
+      );
+      if (distFromHome < 15) { // Within 15 minutes of home
+        finalScore += 0.2; // Bonus for starting near home
+      }
+    }
+
+    // Add evening visit bonus for GH employees (helps fill their hours)
+    const isEveningVisit = visitStartMinInternal >= 1020; // After 5pm
+    if (isGHEmployee(schedule.employeeName) && isEveningVisit) {
+      finalScore += 0.2; // Extra bonus for evening visits to GH employees
+      console.log(`🌙 EVENING BONUS: ${schedule.employeeName} gets +0.2 for evening visit ${adjustedVisit.clientName}`);
+    }
+    candidates.push({
+      employeeName: schedule.employeeName,
+      score: finalScore,
+      insertionIndex: (matchScore as any).insertionIndex,
+      travelFromPrev: matchScore.travelFromPrev,
+      travelToNext: matchScore.travelToNext,
+      adjustedVisit,
+    });
   }
 
   // No feasible employees
