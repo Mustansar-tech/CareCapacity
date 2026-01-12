@@ -56,7 +56,10 @@ const EXCLUDED_SERVICE_TYPES = [
 const MIN_WINDOW_DURATION = 0;
 
 // Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
-const TIME_FLEXIBILITY_MINUTES = 5;
+const TIME_FLEXIBILITY_MINUTES = 10; // Increased from 5 to 10
+
+// Relaxed pass tolerances
+const RELAXED_TIME_TOLERANCE = 15; // Allow 15 min outside windows in relaxed pass
 
 // GH (Guaranteed Hours) bonus for prioritization
 const GH_SCORE_BONUS = 0.1;
@@ -143,6 +146,47 @@ function calculateTotalCapacity(windows: TimeWindow[]): number {
   return windows.reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
+// Cluster visits by geographic location for better route optimization
+// Groups nearby visits together so they can be assigned to the same employee
+function clusterVisitsByLocation<T extends { lat?: number; lng?: number; date: string }>(visits: T[]): T[] {
+  if (visits.length <= 1) return visits;
+  
+  // Group by date first
+  const byDate = new Map<string, T[]>();
+  visits.forEach(v => {
+    if (!byDate.has(v.date)) byDate.set(v.date, []);
+    byDate.get(v.date)!.push(v);
+  });
+  
+  const clustered: T[] = [];
+  
+  byDate.forEach((dateVisits) => {
+    // Sort visits within each date by location (simple grid-based clustering)
+    // Divide area into grid cells and sort by cell, then by lat/lng within cell
+    const gridSize = 0.02; // ~2km grid cells
+    
+    const withGrid = dateVisits.map(v => ({
+      visit: v,
+      gridX: Math.floor((v.lat || 0) / gridSize),
+      gridY: Math.floor((v.lng || 0) / gridSize),
+    }));
+    
+    // Sort by grid cell (clusters nearby visits)
+    withGrid.sort((a, b) => {
+      if (a.gridX !== b.gridX) return a.gridX - b.gridX;
+      if (a.gridY !== b.gridY) return a.gridY - b.gridY;
+      // Within same cell, sort by exact coordinates
+      const latDiff = (a.visit.lat || 0) - (b.visit.lat || 0);
+      if (latDiff !== 0) return latDiff;
+      return (a.visit.lng || 0) - (b.visit.lng || 0);
+    });
+    
+    clustered.push(...withGrid.map(w => w.visit));
+  });
+  
+  return clustered;
+}
+
 // Check if adding a visit would exceed capacity, daily limit, or weekly hours
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
@@ -173,10 +217,34 @@ function wouldExceedCapacity(
   return false;
 }
 
-// Check if visit fits in available windows WITHOUT adjusting times
-// Client visit times are FIXED and cannot be shifted
-// STRICT: Visit must fit COMPLETELY within an availability window
-function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): ClientVisit | null {
+// Merge adjacent or overlapping time windows for better scheduling
+function mergeAdjacentWindows(windows: TimeWindow[]): TimeWindow[] {
+  if (windows.length <= 1) return windows;
+  
+  // Sort by start time
+  const sorted = [...windows].sort((a, b) => a.start - b.start);
+  const merged: TimeWindow[] = [];
+  
+  let current = { ...sorted[0] };
+  
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    // Merge if windows overlap or are adjacent (within 30 min gap)
+    if (next.start <= current.end + 30) {
+      current.end = Math.max(current.end, next.end);
+    } else {
+      merged.push(current);
+      current = { ...next };
+    }
+  }
+  merged.push(current);
+  
+  return merged;
+}
+
+// Check if visit fits in available windows with tolerance
+// toleranceMinutes: how many minutes the visit can extend outside windows
+function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[], toleranceMinutes: number = TIME_FLEXIBILITY_MINUTES): ClientVisit | null {
   const visitStart = timeToMinutes(visit.startTime);
   let visitEnd = timeToMinutes(visit.endTime);
 
@@ -185,13 +253,11 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
 
   if (crossesMidnight) {
     // For overnight visits, check if the visit fits across the day boundary
-    // The visit needs availability from start time to midnight (1440min) AND from midnight to end time
     visitEnd = timeToMinutes(visit.endTime, true); // Add 24 hours
 
     console.log(`🌙 Checking overnight visit fit: ${visit.clientName} ${visitStart}min to ${visitEnd}min`);
 
     // Check if employee has availability that can accommodate the overnight visit
-    // This requires checking if windows extend late enough and start early enough
     const hasLateWindow = windows.some(w => w.end >= visitStart && w.end >= 1380); // Works late (after 11pm)
     const hasEarlyWindow = windows.some(w => w.start <= (visitEnd - 1440) && w.start <= 180); // Starts early (before 3am)
 
@@ -203,10 +269,41 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[]): Cli
     return null;
   }
 
-  // Regular same-day visit: Check if visit fits COMPLETELY within any availability window
-  for (const window of windows) {
+  // Merge adjacent windows for better coverage
+  const mergedWindows = mergeAdjacentWindows(windows);
+
+  // Regular same-day visit: Check if visit fits within any availability window (with tolerance)
+  for (const window of mergedWindows) {
+    // Exact fit
     if (visitStart >= window.start && visitEnd <= window.end) {
-      return visit; // Perfect fit - return original visit
+      return visit;
+    }
+    
+    // Fit with tolerance - allow visit to slightly extend beyond window boundaries
+    const extendedStart = window.start - toleranceMinutes;
+    const extendedEnd = window.end + toleranceMinutes;
+    
+    if (visitStart >= extendedStart && visitEnd <= extendedEnd) {
+      return visit; // Fits with tolerance
+    }
+  }
+
+  // Check if visit mostly overlaps with any window (but still respects tolerance limits)
+  for (const window of mergedWindows) {
+    const overlapStart = Math.max(visitStart, window.start);
+    const overlapEnd = Math.min(visitEnd, window.end);
+    const overlapMinutes = Math.max(0, overlapEnd - overlapStart);
+    const visitDuration = visitEnd - visitStart;
+    
+    // Only accept if overhang on each side is within tolerance
+    const startOverhang = Math.max(0, window.start - visitStart);
+    const endOverhang = Math.max(0, visitEnd - window.end);
+    
+    if (visitDuration > 0 && 
+        overlapMinutes / visitDuration >= 0.7 &&
+        startOverhang <= toleranceMinutes && 
+        endOverhang <= toleranceMinutes) {
+      return visit; // Acceptable overlap within tolerance bounds
     }
   }
 
@@ -322,15 +419,38 @@ function assignVisitToBestEmployee(
   }> = [];
 
   // Score visit for each employee
+  // Use relaxed tolerance if passed as option (for later passes)
+  const tolerance = (originalVisit as any)._relaxedPass ? RELAXED_TIME_TOLERANCE : TIME_FLEXIBILITY_MINUTES;
+  const relaxedCapacity = (originalVisit as any)._relaxedPass;
+  
   for (const schedule of employeeSchedules) {
     // Check gender preference match
     if (!isGenderMatch(schedule.gender, originalVisit.clientName)) {
       console.log(`⚠️ Gender mismatch: ${schedule.employeeName} (${schedule.gender || 'unknown'}) cannot serve ${originalVisit.clientName}`);
       continue; // Skip this employee - gender doesn't match client preference
     }
+    
+    // ALWAYS check 9-hour daily limit regardless of pass
+    const newTotalCareTime = schedule.usedCapacityMinutes + originalVisit.durationMinutes;
+    if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
+      continue; // Skip - would exceed 9-hour daily limit
+    }
+    
     // Check capacity constraint
-    if (wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
-      continue; // Skip - would exceed capacity
+    if (!relaxedCapacity && wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
+      continue; // Skip - would exceed capacity (strict mode)
+    }
+    
+    // In relaxed mode, still check but with 1 hour extra weekly tolerance
+    if (relaxedCapacity) {
+      const newWeeklyTotal = schedule.weeklyUsedMinutes + originalVisit.durationMinutes;
+      // Still enforce daily capacity even in relaxed mode
+      if (newTotalCareTime > schedule.totalCapacityMinutes) {
+        continue; // Skip - would exceed daily availability
+      }
+      if (newWeeklyTotal > schedule.weeklyContractedMinutes + 60) { // 1 hour extra tolerance
+        continue;
+      }
     }
 
     // Use all availability windows without filtering
@@ -340,10 +460,9 @@ function assignVisitToBestEmployee(
       continue; // No valid windows available
     }
 
-    // Try to adjust visit to fit in employee's windows
-    const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows);
+    // Try to adjust visit to fit in employee's windows (with tolerance)
+    const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows, tolerance);
     if (!adjustedVisit) {
-      console.log(`⚠️ ${schedule.employeeName}: Visit ${originalVisit.clientName} ${originalVisit.startTime}-${originalVisit.endTime} does not fit in any availability window`);
       continue; // Could not adjust visit to fit any window
     }
 
@@ -811,7 +930,8 @@ export function generateWeeklySchedule(
 
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)
-  const remainingUnallocated: Array<ClientVisit & { reason: string }> = [];
+  console.log(`\n🔄 SECOND PASS: Attempting to allocate ${unallocated.length} unallocated visits (sorted by duration)`);
+  let remainingUnallocated: Array<ClientVisit & { reason: string }> = [];
   const secondPassVisits = [...unallocated].sort((a, b) => a.durationMinutes - b.durationMinutes);
 
   for (const visit of secondPassVisits) {
@@ -847,7 +967,110 @@ export function generateWeeklySchedule(
     }
   }
 
-  // Update unallocated with only the visits that couldn't be assigned in either pass
+  console.log(`📊 Second pass results: ${unallocated.length - remainingUnallocated.length} assigned, ${remainingUnallocated.length} still unallocated`);
+
+  // Third pass: RELAXED rules with geographic clustering
+  // Group unallocated visits by location clusters and try to fit them with relaxed constraints
+  if (remainingUnallocated.length > 0) {
+    console.log(`\n🔄 THIRD PASS (RELAXED): Attempting ${remainingUnallocated.length} visits with relaxed time windows (+15min tolerance)`);
+    
+    const thirdPassUnallocated: Array<ClientVisit & { reason: string }> = [];
+    
+    // Sort by geographic clusters - group nearby visits together
+    const clusteredVisits = clusterVisitsByLocation(remainingUnallocated);
+    
+    for (const visit of clusteredVisits) {
+      const employeeSchedules = schedulesByDate[visit.date] || [];
+      
+      if (employeeSchedules.length === 0) {
+        thirdPassUnallocated.push(visit);
+        continue;
+      }
+      
+      const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+      const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+      const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
+      
+      if (availableSchedules.length === 0) {
+        thirdPassUnallocated.push(visit);
+        continue;
+      }
+      
+      // Mark as relaxed pass for higher tolerance
+      const relaxedVisit = { ...visit, _relaxedPass: true } as ClientVisit & { reason: string };
+      const result = assignVisitToBestEmployee(relaxedVisit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      if (result.success && result.employeeName) {
+        if (!visitEmployeeAssignments.has(visitKey)) {
+          visitEmployeeAssignments.set(visitKey, new Set());
+        }
+        visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+        console.log(`✅ [Relaxed] Assigned ${visit.clientName} to ${result.employeeName}`);
+      } else {
+        thirdPassUnallocated.push(visit);
+      }
+    }
+    
+    remainingUnallocated = thirdPassUnallocated;
+    console.log(`📊 Third pass results: ${clusteredVisits.length - remainingUnallocated.length} assigned, ${remainingUnallocated.length} still unallocated`);
+  }
+
+  // Fourth pass: Try employees with ANY remaining capacity (very relaxed)
+  if (remainingUnallocated.length > 0) {
+    console.log(`\n🔄 FOURTH PASS (MAXIMUM EFFORT): Attempting ${remainingUnallocated.length} visits`);
+    
+    const fourthPassUnallocated: Array<ClientVisit & { reason: string }> = [];
+    
+    for (const visit of remainingUnallocated) {
+      const employeeSchedules = schedulesByDate[visit.date] || [];
+      
+      // Find employees with ANY remaining capacity (even if contracted hours exceeded)
+      const employeesWithCapacity = employeeSchedules.filter(s => {
+        // Must not be already assigned to this exact time slot
+        const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+        const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+        if (alreadyAssignedEmployees.has(s.employeeName)) return false;
+        
+        // Check gender match
+        if (!isGenderMatch(s.gender, visit.clientName)) return false;
+        
+        // Check if has time window that even partially overlaps
+        const visitStart = timeToMinutes(visit.startTime);
+        const visitEnd = timeToMinutes(visit.endTime);
+        const hasPartialOverlap = s.windows.some(w => {
+          const overlapStart = Math.max(visitStart, w.start - 20);
+          const overlapEnd = Math.min(visitEnd, w.end + 20);
+          return overlapEnd > overlapStart;
+        });
+        
+        return hasPartialOverlap;
+      });
+      
+      if (employeesWithCapacity.length === 0) {
+        fourthPassUnallocated.push({ ...visit, reason: 'No employee with compatible availability' });
+        continue;
+      }
+      
+      const relaxedVisit = { ...visit, _relaxedPass: true } as ClientVisit & { reason: string };
+      const result = assignVisitToBestEmployee(relaxedVisit, employeesWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      if (result.success && result.employeeName) {
+        const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+        if (!visitEmployeeAssignments.has(visitKey)) {
+          visitEmployeeAssignments.set(visitKey, new Set());
+        }
+        visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+        console.log(`✅ [Maximum effort] Assigned ${visit.clientName} to ${result.employeeName}`);
+      } else {
+        fourthPassUnallocated.push({ ...visit, reason: result.reason || 'Could not fit in any schedule' });
+      }
+    }
+    
+    remainingUnallocated = fourthPassUnallocated;
+    console.log(`📊 Fourth pass results: ${remainingUnallocated.length} still unallocated`);
+  }
+
+  // Update unallocated with only the visits that couldn't be assigned in any pass
   unallocated.length = 0;
   unallocated.push(...remainingUnallocated);
 

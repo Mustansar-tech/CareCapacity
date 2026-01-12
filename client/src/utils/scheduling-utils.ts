@@ -1,5 +1,8 @@
 // Scheduling utility functions for VRPTW optimization
 
+// Maximum travel time in minutes before a route is considered infeasible
+export const MAX_TRAVEL_TIME_MINUTES = 45;
+
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
 
