@@ -20,14 +20,21 @@ import {
   type InsertRouteStop,
   type GeocodeCache,
   type InsertGeocode,
+  type TravelTimeCache,
+  type InsertTravelTimeCache,
   type WeeklySchedule,
   type InsertWeeklySchedule,
-  type ClientVisit // Assuming ClientVisit is defined in @shared/schema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { 
+  users, branches, capacityAnalyses, branchUploads, 
+  employeeLocations, clientLocations, visits, 
+  routePlans, routeStops, geocodeCache, 
+  weeklySchedules, branchSchedulingPreferences,
+  travelTimeCache
+} from "@shared/schema";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -39,21 +46,21 @@ export interface IStorage {
   getBranchById(id: string): Promise<Branch | undefined>;
   getBranchByName(name: string): Promise<Branch | undefined>;
 
-  // Branch upload methods (file persistence)
+  // Branch upload methods
   saveBranchUpload(upload: InsertBranchUpload): Promise<BranchUpload>;
   getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined>;
 
-  // Capacity analysis methods (branch-aware)
+  // Capacity analysis
   saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis>;
   getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]>;
   getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>;
-  getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>; // Alias for getAllCapacityAnalyses
+  getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>;
   getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(branchId: string, limit?: number): Promise<CapacityAnalysis[]>;
   enforceRetentionLatestWeeks(branchId: string, limit?: number): Promise<number>;
   cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number>;
 
-  // Geographical scheduling methods (branch-aware)
+  // Geographical scheduling
   upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation>;
   getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined>;
   getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined>;
@@ -83,845 +90,123 @@ export interface IStorage {
 
   clearRoutesAndVisits(branchId: string): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }>;
 
-  // Weekly schedule methods (branch-aware)
   saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule>;
   getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined>;
   getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined>;
   getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]>;
 
-  // Branch scheduling preferences (filter settings per branch)
+  getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined>;
+  saveTravelTime(travelTime: InsertTravelTimeCache): Promise<TravelTimeCache>;
+
   getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference>;
   saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private capacityAnalyses: Map<string, CapacityAnalysis>;
-  private branchUploads: Map<string, BranchUpload>; // keyed by `${branchId}:${uploadType}`
-  private employeeLocations: Map<string, EmployeeLocation>;
-  private clientLocations: Map<string, ClientLocation>;
-  private visits: Map<string, Visit>;
-  private routePlans: Map<string, RoutePlan>;
-  private routeStops: Map<string, RouteStop>;
-  private geocodeCache: Map<string, GeocodeCache>;
-  private weeklySchedules: Map<string, WeeklySchedule>;
-
-  constructor() {
-    this.users = new Map();
-    this.capacityAnalyses = new Map();
-    this.branchUploads = new Map();
-    this.employeeLocations = new Map();
-    this.clientLocations = new Map();
-    this.visits = new Map();
-    this.routePlans = new Map();
-    this.routeStops = new Map();
-    this.geocodeCache = new Map();
-    this.weeklySchedules = new Map();
-  }
-
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
-  }
-
-  // Branch methods (stub implementation for MemStorage)
-  async getAllBranches(): Promise<Branch[]> {
-    return []; // In-memory storage doesn't persist branches
-  }
-
-  async getBranchById(id: string): Promise<Branch | undefined> {
-    return undefined; // In-memory storage doesn't persist branches
-  }
-
-  async getBranchByName(name: string): Promise<Branch | undefined> {
-    return undefined; // In-memory storage doesn't persist branches
-  }
-
-  async saveBranchUpload(insertUpload: InsertBranchUpload): Promise<BranchUpload> {
-    const key = `${insertUpload.branchId}:${insertUpload.uploadType}`;
-    const existing = this.branchUploads.get(key);
-    
-    const upload: BranchUpload = {
-      ...insertUpload,
-      id: existing?.id || randomUUID(), // Reuse ID if updating
-      uploadedAt: new Date(),
-      // Normalize undefined to null for consistency
-      originalFileName: insertUpload.originalFileName ?? null,
-      fileSize: insertUpload.fileSize ?? null,
-      sha256: insertUpload.sha256 ?? null,
-    };
-    
-    this.branchUploads.set(key, upload);
-    return upload;
-  }
-
-  async getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined> {
-    const key = `${branchId}:${uploadType}`;
-    return this.branchUploads.get(key);
-  }
-
-  async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
-    // Remove existing entry with same week dates for deduplication
-    const existingEntry = Array.from(this.capacityAnalyses.values()).find(
-      analysis => analysis.branchId === insertAnalysis.branchId && 
-                  analysis.weekStartDate === insertAnalysis.weekStartDate && 
-                  analysis.weekEndDate === insertAnalysis.weekEndDate
-    );
-    if (existingEntry) {
-      this.capacityAnalyses.delete(existingEntry.id);
-    }
-
-    const id = randomUUID();
-    const analysis: CapacityAnalysis = {
-      ...insertAnalysis,
-      id,
-      uploadedAt: new Date(),
-      employeeSummaryByDate: insertAnalysis.employeeSummaryByDate || {},
-      warnings: insertAnalysis.warnings || [],
-    };
-    this.capacityAnalyses.set(id, analysis);
-
-    // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
-    if (insertAnalysis.branchId) {
-      await this.enforceSimpleRetention(insertAnalysis.branchId, 3);
-    }
-
-    return analysis;
-  }
-
-  async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
-    return Array.from(this.capacityAnalyses.values()).filter(
-      (analysis) => analysis.branchId === branchId && analysis.weekStartDate >= startDate && analysis.weekEndDate <= endDate
-    );
-  }
-
-
-  async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
-    return Array.from(this.capacityAnalyses.values())
-      .filter(analysis => analysis.branchId === branchId)
-      .sort(
-        (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-      );
-  }
-
-  async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
-    return this.getAllCapacityAnalyses(branchId);
-  }
-
-  async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
-    const analyses = await this.getAllCapacityAnalyses(branchId);
-    return analyses[0];
-  }
-
-  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
-    // Group by week, then get the latest analysis per week, then take the latest N weeks
-    const weekMap = new Map<string, CapacityAnalysis>();
-
-    Array.from(this.capacityAnalyses.values())
-      .filter(analysis => analysis.branchId === branchId)
-      .forEach(analysis => {
-        const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
-        const existing = weekMap.get(weekKey);
-        if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
-          weekMap.set(weekKey, analysis);
-        }
-      });
-
-    return Array.from(weekMap.values())
-      .sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime())
-      .slice(0, limit);
-  }
-
-  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> {
-    // Group by week and keep only the latest N weeks for this branch
-    const weekMap = new Map<string, CapacityAnalysis[]>();
-
-    Array.from(this.capacityAnalyses.values())
-      .filter(analysis => analysis.branchId === branchId)
-      .forEach(analysis => {
-        const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
-        if (!weekMap.has(weekKey)) {
-          weekMap.set(weekKey, []);
-        }
-        weekMap.get(weekKey)!.push(analysis);
-      });
-
-    // Sort weeks by start date descending using actual weekStartDate from analyses
-    const sortedWeeks = Array.from(weekMap.entries())
-      .sort(([, analysesA], [, analysesB]) => {
-        const dateA = new Date(analysesA[0].weekStartDate); // Use actual weekStartDate field
-        const dateB = new Date(analysesB[0].weekStartDate); 
-        return dateB.getTime() - dateA.getTime();
-      });
-
-    let deletedCount = 0;
-
-    // Delete weeks beyond the limit
-    sortedWeeks.slice(limit).forEach(([_weekKey, analyses]) => {
-      analyses.forEach(analysis => {
-        this.capacityAnalyses.delete(analysis.id);
-        deletedCount++;
-      });
-    });
-
-    // For remaining weeks, keep only the latest analysis per week
-    sortedWeeks.slice(0, limit).forEach(([_weekKey, analyses]) => {
-      if (analyses.length > 1) {
-        const sortedAnalyses = analyses.sort((a, b) => 
-          new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-        );
-        // Delete all but the latest
-        sortedAnalyses.slice(1).forEach(analysis => {
-          this.capacityAnalyses.delete(analysis.id);
-          deletedCount++;
-        });
-      }
-    });
-
-    return deletedCount;
-  }
-
-  async enforceSimpleRetention(branchId: string, monthsToKeep: number = 3): Promise<number> {
-    // Simple retention: keep all weeks for N months, removing duplicates (keep latest per week per branch)
-    const cutoffDate = new Date();
-    cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
-
-    let deletedCount = 0;
-
-    // Delete anything older than cutoff date for this branch
-    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
-      if (analysis.branchId === branchId && analysis.weekStartDate < cutoffString) {
-        this.capacityAnalyses.delete(analysis.id);
-        deletedCount++;
-      }
-    });
-
-    // Remove duplicates - keep only latest per week per branch
-    const weekMap = new Map<string, CapacityAnalysis>();
-
-    Array.from(this.capacityAnalyses.values())
-      .filter(analysis => analysis.branchId === branchId)
-      .forEach(analysis => {
-        const weekKey = `${analysis.weekStartDate}-${analysis.weekEndDate}`;
-        const existing = weekMap.get(weekKey);
-        if (!existing || new Date(analysis.uploadedAt) > new Date(existing.uploadedAt)) {
-          if (existing) {
-            this.capacityAnalyses.delete(existing.id);
-            deletedCount++;
-          }
-          weekMap.set(weekKey, analysis);
-        } else {
-          this.capacityAnalyses.delete(analysis.id);
-          deletedCount++;
-        }
-      });
-
-    return deletedCount;
-  }
-
-
-  async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
-
-    let deletedCount = 0;
-    Array.from(this.capacityAnalyses.values()).forEach(analysis => {
-      if (analysis.branchId === branchId && new Date(analysis.uploadedAt).toISOString().split('T')[0] < cutoffString) {
-        this.capacityAnalyses.delete(analysis.id);
-        deletedCount++;
-      }
-    });
-
-    return deletedCount;
-  }
-
-  // Geographical scheduling method implementations
-  async upsertEmployeeLocation(insertLocation: InsertEmployeeLocation): Promise<EmployeeLocation> {
-    // Check if employee already exists in this branch
-    const existing = Array.from(this.employeeLocations.values()).find(
-      loc => loc.branchId === insertLocation.branchId && loc.employeeName === insertLocation.employeeName
-    );
-
-    if (existing) {
-      // Update existing
-      const updated: EmployeeLocation = { ...existing, ...insertLocation };
-      this.employeeLocations.set(existing.id, updated);
-      return updated;
-    } else {
-      // Create new
-      const id = randomUUID();
-      const location: EmployeeLocation = {
-        ...insertLocation,
-        id,
-        homeLat: insertLocation.homeLat || null,
-        homeLng: insertLocation.homeLng || null,
-        transportMode: insertLocation.transportMode || null,
-        gender: insertLocation.gender || null, // Convert undefined to null
-        geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
-      };
-      this.employeeLocations.set(id, location);
-      return location;
-    }
-  }
-
-  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
-    return Array.from(this.employeeLocations.values()).find(
-      loc => loc.branchId === branchId && loc.employeeName === employeeName
-    );
-  }
-
-  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
-    return this.employeeLocations.get(id);
-  }
-
-  async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> {
-    return Array.from(this.employeeLocations.values()).filter(loc => loc.branchId === branchId);
-  }
-
-  async upsertClientLocation(insertLocation: InsertClientLocation): Promise<ClientLocation> {
-    // Check if client already exists in this branch
-    const existing = Array.from(this.clientLocations.values()).find(
-      loc => loc.branchId === insertLocation.branchId && loc.clientName === insertLocation.clientName
-    );
-
-    if (existing) {
-      // Update existing
-      const updated: ClientLocation = { ...existing, ...insertLocation };
-      this.clientLocations.set(existing.id, updated);
-      return updated;
-    } else {
-      // Create new
-      const id = randomUUID();
-      const location: ClientLocation = {
-        ...insertLocation,
-        id,
-        lat: insertLocation.lat || null,
-        lng: insertLocation.lng || null,
-        geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
-      };
-      this.clientLocations.set(id, location);
-      return location;
-    }
-  }
-
-  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
-    return Array.from(this.clientLocations.values()).find(
-      loc => loc.branchId === branchId && loc.clientName === clientName
-    );
-  }
-
-  async getClientLocationById(id: string): Promise<ClientLocation | undefined> {
-    return this.clientLocations.get(id);
-  }
-
-  async getAllClientLocations(branchId: string): Promise<ClientLocation[]> {
-    return Array.from(this.clientLocations.values()).filter(loc => loc.branchId === branchId);
-  }
-
-  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
-    const id = randomUUID();
-    const visit: Visit = {
-      ...insertVisit,
-      id,
-      preferredStartTime: insertVisit.preferredStartTime || null,
-      preferredEndTime: insertVisit.preferredEndTime || null,
-      priority: insertVisit.priority || null,
-      serviceType: insertVisit.serviceType || null,
-      createdAt: new Date(),
-    };
-    this.visits.set(id, visit);
-    return visit;
-  }
-
-  async getVisitById(id: string): Promise<Visit | undefined> {
-    return this.visits.get(id);
-  }
-
-  async getVisitsByDate(branchId: string, date: string): Promise<Visit[]> {
-    return Array.from(this.visits.values()).filter(visit => visit.branchId === branchId && visit.date === date);
-  }
-
-  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> {
-    return Array.from(this.visits.values()).filter(
-      visit => visit.clientId === clientId && visit.date === date
-    );
-  }
-
-  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> {
-    const allVisits = Array.from(this.visits.values()).filter(visit => visit.branchId === branchId);
-    if (!startDate && !endDate) {
-      return allVisits;
-    }
-    return allVisits.filter(visit => {
-      if (startDate && visit.date < startDate) return false;
-      if (endDate && visit.date > endDate) return false;
-      return true;
-    });
-  }
-
-  async clearAllVisits(branchId: string): Promise<any> {
-    console.log(`🧹 Clearing all visits data for branch ${branchId}...`);
-    const initialSize = this.visits.size;
-    const remainingVisits = new Map<string, Visit>();
-    this.visits.forEach((visit, id) => {
-      if (visit.branchId !== branchId) {
-        remainingVisits.set(id, visit);
-      }
-    });
-    this.visits = remainingVisits;
-    const deletedCount = initialSize - this.visits.size;
-    console.log(`✅ Cleared ${deletedCount} visits data for branch ${branchId}`);
-    return { visitsDeleted: deletedCount };
-  }
-
-  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
-    const id = randomUUID();
-    const plan: RoutePlan = {
-      ...insertPlan,
-      id,
-      status: insertPlan.status || null,
-      warnings: insertPlan.warnings || [],
-      totalDistanceKm: insertPlan.totalDistanceKm || null,
-      totalTravelMinutes: insertPlan.totalTravelMinutes || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.routePlans.set(id, plan);
-    return plan;
-  }
-
-  async getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]> {
-    return Array.from(this.routePlans.values()).filter(plan => plan.branchId === branchId && plan.date === date);
-  }
-
-  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> {
-    return Array.from(this.routePlans.values()).find(
-      plan => plan.employeeId === employeeId && plan.date === date
-    );
-  }
-
-  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
-    const id = randomUUID();
-    const stop: RouteStop = {
-      ...insertStop,
-      id,
-      scheduledStart: insertStop.scheduledStart || null,
-      scheduledEnd: insertStop.scheduledEnd || null,
-      travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
-      distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
-    };
-    this.routeStops.set(id, stop);
-    return stop;
-  }
-
-  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
-    return Array.from(this.routeStops.values())
-      .filter(stop => stop.routePlanId === routePlanId)
-      .sort((a, b) => a.sequence - b.sequence);
-  }
-
-  async getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined> {
-    return this.geocodeCache.get(`${branchId}:${key}`);
-  }
-
-  async saveGeocode(insertGeocode: InsertGeocode): Promise<GeocodeCache> {
-    const fullKey = `${insertGeocode.branchId}:${insertGeocode.key}`;
-    const existing = this.geocodeCache.get(fullKey);
-    if (existing) {
-      return existing;
-    }
-
-    const id = randomUUID();
-    const geocode: GeocodeCache = {
-      ...insertGeocode,
-      id,
-      cachedAt: new Date(),
-    };
-    this.geocodeCache.set(fullKey, geocode);
-    return geocode;
-  }
-
-  async clearRoutesAndVisits(branchId: string): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
-    let routePlansDeleted = 0;
-    let routeStopsDeleted = 0;
-    let visitsDeleted = 0;
-
-    const remainingRoutePlans = new Map<string, RoutePlan>();
-    this.routePlans.forEach((plan, id) => {
-      if (plan.branchId !== branchId) {
-        remainingRoutePlans.set(id, plan);
-      } else {
-        routePlansDeleted++;
-      }
-    });
-    this.routePlans = remainingRoutePlans;
-
-    const remainingRouteStops = new Map<string, RouteStop>();
-    this.routeStops.forEach((stop, id) => {
-      // Assuming route stops are also branch-aware or can be linked back
-      // For simplicity, let's assume they are deleted if their plan is deleted
-      // A more robust solution would involve a branchId on routeStops
-      if (!this.routePlans.has(stop.routePlanId)) {
-        remainingRouteStops.set(id, stop);
-      } else {
-        routeStopsDeleted++;
-      }
-    });
-    this.routeStops = remainingRouteStops;
-
-    const remainingVisits = new Map<string, Visit>();
-    this.visits.forEach((visit, id) => {
-      if (visit.branchId !== branchId) {
-        remainingVisits.set(id, visit);
-      } else {
-        visitsDeleted++;
-      }
-    });
-    this.visits = remainingVisits;
-
-    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
-  }
-
-  // Weekly schedule methods
-  async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
-    // Remove existing entry with same week dates for deduplication
-    const existingEntry = Array.from(this.weeklySchedules.values()).find(
-      schedule => schedule.branchId === insertSchedule.branchId && 
-                  schedule.weekStartDate === insertSchedule.weekStartDate && 
-                  schedule.weekEndDate === insertSchedule.weekEndDate
-    );
-    if (existingEntry) {
-      this.weeklySchedules.delete(existingEntry.id);
-    }
-
-    const id = randomUUID();
-    const schedule: WeeklySchedule = {
-      ...insertSchedule,
-      id,
-      generatedAt: new Date(),
-      unallocatedVisits: insertSchedule.unallocatedVisits || [],
-    };
-    this.weeklySchedules.set(id, schedule);
-    return schedule;
-  }
-
-  async getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined> {
-    const schedules = Array.from(this.weeklySchedules.values())
-      .filter(schedule => schedule.branchId === branchId)
-      .sort(
-        (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
-      );
-    return schedules[0];
-  }
-
-  async getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
-    return Array.from(this.weeklySchedules.values()).find(
-      schedule => schedule.branchId === branchId && schedule.weekStartDate === weekStartDate && schedule.weekEndDate === weekEndDate
-    );
-  }
-
-  async getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]> {
-    return Array.from(this.weeklySchedules.values())
-      .filter(schedule => schedule.branchId === branchId)
-      .sort(
-        (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
-      );
-  }
-
-  // Branch scheduling preferences (stub for MemStorage - returns defaults)
-  private branchPreferences: Map<string, BranchSchedulingPreference> = new Map();
-
-  async getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference> {
-    const existing = this.branchPreferences.get(branchId);
-    if (existing) return existing;
-    
-    // Return default preference
-    return {
-      id: randomUUID(),
-      branchId,
-      excludedServiceTypes: [],
-      updatedAt: new Date(),
-    };
-  }
-
-  async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
-    const id = randomUUID();
-    const saved: BranchSchedulingPreference = {
-      id,
-      branchId: preference.branchId,
-      excludedServiceTypes: preference.excludedServiceTypes || [],
-      updatedAt: new Date(),
-    };
-    this.branchPreferences.set(preference.branchId, saved);
-    return saved;
-  }
-}
-
-// Switch to database storage in production
-import { db } from "./db";
-import {
-  users,
-  branches,
-  capacityAnalyses,
-  branchUploads,
-  employeeLocations,
-  clientLocations,
-  visits,
-  routePlans,
-  routeStops,
-  geocodeCache,
-  weeklySchedules
-} from "@shared/schema";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
     return user;
   }
 
-  async saveBranchUpload(insertUpload: InsertBranchUpload): Promise<BranchUpload> {
-    const [upload] = await db
-      .insert(branchUploads)
-      .values({
-        ...insertUpload,
-        // Normalize undefined to null for consistency
-        originalFileName: insertUpload.originalFileName ?? null,
-        fileSize: insertUpload.fileSize ?? null,
-        sha256: insertUpload.sha256 ?? null,
-      })
-      .onConflictDoUpdate({
-        target: [branchUploads.branchId, branchUploads.uploadType],
-        set: {
-          fileBuffer: insertUpload.fileBuffer,
-          originalFileName: insertUpload.originalFileName ?? null,
-          fileSize: insertUpload.fileSize ?? null,
-          sha256: insertUpload.sha256 ?? null,
-          uploadedAt: sql`now()`,
-        },
-      })
-      .returning();
-    return upload;
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
   }
 
-  async getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined> {
-    const [upload] = await db
-      .select()
-      .from(branchUploads)
-      .where(and(
-        eq(branchUploads.branchId, branchId),
-        eq(branchUploads.uploadType, uploadType as BranchUpload['uploadType'])
-      ));
-    return upload || undefined;
-  }
-
-  // Branch methods
   async getAllBranches(): Promise<Branch[]> {
-    return await db.select().from(branches).orderBy(branches.displayName);
+    return await db.select().from(branches);
   }
 
   async getBranchById(id: string): Promise<Branch | undefined> {
     const [branch] = await db.select().from(branches).where(eq(branches.id, id));
-    return branch || undefined;
+    return branch;
   }
 
   async getBranchByName(name: string): Promise<Branch | undefined> {
     const [branch] = await db.select().from(branches).where(eq(branches.name, name));
-    return branch || undefined;
+    return branch;
   }
 
-  async saveCapacityAnalysis(insertAnalysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
-    // Use upsert to replace existing week data with new data (per branch)
-    const [analysis] = await db
-      .insert(capacityAnalyses)
-      .values({
-        ...insertAnalysis,
-        employeeSummaryByDate: insertAnalysis.employeeSummaryByDate || {},
-        warnings: insertAnalysis.warnings || [],
+  async saveBranchUpload(upload: InsertBranchUpload): Promise<BranchUpload> {
+    const [result] = await db
+      .insert(branchUploads)
+      .values(upload)
+      .onConflictDoUpdate({
+        target: [branchUploads.branchId, branchUploads.uploadType],
+        set: {
+          fileBuffer: upload.fileBuffer,
+          originalFileName: upload.originalFileName,
+          fileSize: upload.fileSize,
+          sha256: upload.sha256,
+          uploadedAt: new Date()
+        }
       })
+      .returning();
+    return result;
+  }
+
+  async getLatestBranchUpload(branchId: string, uploadType: any): Promise<BranchUpload | undefined> {
+    const [upload] = await db
+      .select()
+      .from(branchUploads)
+      .where(
+        and(
+          eq(branchUploads.branchId, branchId),
+          eq(branchUploads.uploadType, uploadType)
+        )
+      )
+      .orderBy(desc(branchUploads.uploadedAt));
+    return upload;
+  }
+
+  async saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
+    const [result] = await db
+      .insert(capacityAnalyses)
+      .values(analysis)
       .onConflictDoUpdate({
         target: [capacityAnalyses.branchId, capacityAnalyses.weekStartDate, capacityAnalyses.weekEndDate],
         set: {
-          kpis: insertAnalysis.kpis,
-          dailySummary: insertAnalysis.dailySummary,
-          employeesByDate: insertAnalysis.employeesByDate,
-          employeeSummaryByDate: insertAnalysis.employeeSummaryByDate || {},
-          warnings: insertAnalysis.warnings || [],
-          uploadedAt: sql`now()`,
-        },
+          kpis: analysis.kpis,
+          dailySummary: analysis.dailySummary,
+          employeesByDate: analysis.employeesByDate,
+          employeeSummaryByDate: analysis.employeeSummaryByDate,
+          warnings: analysis.warnings,
+          uploadedAt: new Date()
+        }
       })
       .returning();
-
-    // Automatically enforce retention after saving - keep all weeks for 3 months, deduplicated
-    if (insertAnalysis.branchId) {
-      await this.enforceSimpleRetention(insertAnalysis.branchId, 3);
-    }
-
-    return analysis;
+    return result;
   }
 
   async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
     return await db
       .select()
       .from(capacityAnalyses)
-      .where(and(
-        eq(capacityAnalyses.branchId, branchId),
-        gte(capacityAnalyses.weekStartDate, startDate),
-        lte(capacityAnalyses.weekEndDate, endDate)
-      ))
-      .orderBy(desc(capacityAnalyses.uploadedAt));
+      .where(
+        and(
+          eq(capacityAnalyses.branchId, branchId),
+          gte(capacityAnalyses.weekStartDate, startDate),
+          lte(capacityAnalyses.weekEndDate, endDate)
+        )
+      );
   }
 
-
   async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
-    // Return deduplicated results using window function with proper column aliasing (filtered by branch)
-    return await db.execute(sql`
-      SELECT DISTINCT ON (week_start_date, week_end_date)
-             id,
-             branch_id AS "branchId",
-             week_start_date AS "weekStartDate",
-             week_end_date AS "weekEndDate",
-             uploaded_at AS "uploadedAt",
-             kpis,
-             daily_summary AS "dailySummary",
-             employees_by_date AS "employeesByDate",
-             employee_summary_by_date AS "employeeSummaryByDate",
-             warnings
-      FROM capacity_analyses
-      WHERE branch_id = ${branchId}
-      ORDER BY week_start_date DESC, week_end_date DESC, uploaded_at DESC
-    `).then(result => result.rows as CapacityAnalysis[]);
+    return await db
+      .select()
+      .from(capacityAnalyses)
+      .where(eq(capacityAnalyses.branchId, branchId))
+      .orderBy(desc(capacityAnalyses.uploadedAt));
   }
 
   async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
     return this.getAllCapacityAnalyses(branchId);
   }
-
-  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
-    // Get the latest record for each of the latest N weeks with proper column aliasing (filtered by branch)
-    return await db.execute(sql`
-      WITH latest_per_week AS (
-        SELECT *,
-               ROW_NUMBER() OVER (
-                 PARTITION BY week_start_date, week_end_date
-                 ORDER BY uploaded_at DESC
-               ) as rn
-        FROM capacity_analyses
-        WHERE branch_id = ${branchId}
-      ),
-      week_ranking AS (
-        SELECT *,
-               ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
-        FROM latest_per_week
-        WHERE rn = 1
-      )
-      SELECT id,
-             branch_id AS "branchId",
-             week_start_date AS "weekStartDate",
-             week_end_date AS "weekEndDate",
-             uploaded_at AS "uploadedAt",
-             kpis,
-             daily_summary AS "dailySummary",
-             employees_by_date AS "employeesByDate",
-             employee_summary_by_date AS "employeeSummaryByDate",
-             warnings
-      FROM week_ranking
-      WHERE week_rank <= ${limit}
-      ORDER BY week_start_date DESC
-    `).then(result => result.rows as CapacityAnalysis[]);
-  }
-
-  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> {
-    // Delete all but the latest record for each week, and keep only latest N weeks (per branch)
-    const result = await db.execute(sql`
-      WITH week_ranks AS (
-        SELECT DISTINCT week_start_date, week_end_date,
-               ROW_NUMBER() OVER (ORDER BY week_start_date DESC) as week_rank
-        FROM capacity_analyses
-        WHERE branch_id = ${branchId}
-      ),
-      records_to_keep AS (
-        SELECT ca.id
-        FROM capacity_analyses ca
-        INNER JOIN week_ranks wr ON ca.week_start_date = wr.week_start_date
-                                 AND ca.week_end_date = wr.week_end_date
-        WHERE ca.branch_id = ${branchId}
-          AND wr.week_rank <= ${limit}
-          AND ca.id IN (
-            SELECT id FROM (
-              SELECT id,
-                     ROW_NUMBER() OVER (
-                       PARTITION BY week_start_date, week_end_date
-                       ORDER BY uploaded_at DESC
-                     ) as rn
-              FROM capacity_analyses
-              WHERE branch_id = ${branchId}
-            ) ranked WHERE rn = 1
-          )
-      )
-      DELETE FROM capacity_analyses
-      WHERE branch_id = ${branchId} AND id NOT IN (SELECT id FROM records_to_keep)
-    `);
-
-    return result.rowCount || 0;
-  }
-
-  async enforceSimpleRetention(branchId: string, monthsToKeep: number = 3): Promise<number> {
-    // Simple retention: keep all weeks for N months, removing duplicates (keep latest per week per branch)
-    const cutoffDate = new Date();
-    cutoffDate.setMonth(cutoffDate.getMonth() - monthsToKeep);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
-
-    const result = await db.execute(sql`
-      WITH latest_per_week AS (
-        -- Keep only the latest entry for each week
-        SELECT *,
-               ROW_NUMBER() OVER (
-                 PARTITION BY week_start_date, week_end_date
-                 ORDER BY uploaded_at DESC
-               ) as rn
-        FROM capacity_analyses
-        WHERE branch_id = ${branchId} AND week_start_date >= ${cutoffString}
-      ),
-      records_to_keep AS (
-        SELECT id
-        FROM latest_per_week
-        WHERE rn = 1  -- Keep only latest per week
-      )
-      DELETE FROM capacity_analyses
-      WHERE branch_id = ${branchId} AND id NOT IN (SELECT id FROM records_to_keep)
-    `);
-
-    return result.rowCount || 0;
-  }
-
 
   async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
     const [analysis] = await db
@@ -930,140 +215,136 @@ export class DatabaseStorage implements IStorage {
       .where(eq(capacityAnalyses.branchId, branchId))
       .orderBy(desc(capacityAnalyses.uploadedAt))
       .limit(1);
-    return analysis || undefined;
+    return analysis;
+  }
+
+  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
+    return await db
+      .select()
+      .from(capacityAnalyses)
+      .where(eq(capacityAnalyses.branchId, branchId))
+      .orderBy(desc(capacityAnalyses.weekStartDate))
+      .limit(limit);
+  }
+
+  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> {
+    const analyses = await this.getLatestWeeksAnalyses(branchId, limit);
+    if (analyses.length < limit) return 0;
+    const lastKeepDate = analyses[analyses.length - 1].weekStartDate;
+    const result = await db
+      .delete(capacityAnalyses)
+      .where(
+        and(
+          eq(capacityAnalyses.branchId, branchId),
+          sql`${capacityAnalyses.weekStartDate} < ${lastKeepDate}`
+        )
+      );
+    return result.rowCount ?? 0;
   }
 
   async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - monthsOld);
-
     const result = await db
       .delete(capacityAnalyses)
-      .where(and(
-        eq(capacityAnalyses.branchId, branchId),
-        lte(capacityAnalyses.uploadedAt, cutoffDate)
-      ))
-      .returning({ id: capacityAnalyses.id });
-
-    return result.length;
+      .where(
+        and(
+          eq(capacityAnalyses.branchId, branchId),
+          lte(capacityAnalyses.uploadedAt, cutoffDate)
+        )
+      );
+    return result.rowCount ?? 0;
   }
 
-  // Geographical scheduling database method implementations
-  async upsertEmployeeLocation(insertLocation: InsertEmployeeLocation): Promise<EmployeeLocation> {
-    const [location] = await db
+  async upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation> {
+    const [result] = await db
       .insert(employeeLocations)
-      .values({
-        ...insertLocation,
-        homeLat: insertLocation.homeLat || null,
-        homeLng: insertLocation.homeLng || null,
-        transportMode: insertLocation.transportMode || "car",
-        gender: insertLocation.gender || null,
-        geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
-      })
+      .values(location)
       .onConflictDoUpdate({
         target: [employeeLocations.branchId, employeeLocations.employeeName],
         set: {
-          homePostcode: insertLocation.homePostcode,
-          homeLat: insertLocation.homeLat || null,
-          homeLng: insertLocation.homeLng || null,
-          transportMode: insertLocation.transportMode || "car",
-          gender: insertLocation.gender || null,
-          geocodedAt: insertLocation.homeLat && insertLocation.homeLng ? new Date() : null,
-        },
+          homePostcode: location.homePostcode,
+          homeLat: location.homeLat,
+          homeLng: location.homeLng,
+          transportMode: location.transportMode,
+          gender: location.gender,
+          geocodedAt: location.homeLat && location.homeLng ? new Date() : null
+        }
       })
       .returning();
-    return location;
+    return result;
   }
 
   async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
     const [location] = await db
       .select()
       .from(employeeLocations)
-      .where(and(
-        eq(employeeLocations.branchId, branchId),
-        eq(employeeLocations.employeeName, employeeName)
-      ));
-    return location || undefined;
+      .where(
+        and(
+          eq(employeeLocations.branchId, branchId),
+          eq(employeeLocations.employeeName, employeeName)
+        )
+      );
+    return location;
   }
 
   async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> {
-    const [location] = await db
-      .select()
-      .from(employeeLocations)
-      .where(eq(employeeLocations.id, id));
-    return location || undefined;
+    const [location] = await db.select().from(employeeLocations).where(eq(employeeLocations.id, id));
+    return location;
   }
 
   async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> {
     return await db.select().from(employeeLocations).where(eq(employeeLocations.branchId, branchId));
   }
 
-  async upsertClientLocation(insertLocation: InsertClientLocation): Promise<ClientLocation> {
-    const [location] = await db
+  async upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation> {
+    const [result] = await db
       .insert(clientLocations)
-      .values({
-        ...insertLocation,
-        lat: insertLocation.lat || null,
-        lng: insertLocation.lng || null,
-        geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
-      })
+      .values(location)
       .onConflictDoUpdate({
         target: [clientLocations.branchId, clientLocations.clientName],
         set: {
-          addressLine: insertLocation.addressLine,
-          postcode: insertLocation.postcode,
-          lat: insertLocation.lat || null,
-          lng: insertLocation.lng || null,
-          geocodedAt: insertLocation.lat && insertLocation.lng ? new Date() : null,
-        },
+          addressLine: location.addressLine,
+          postcode: location.postcode,
+          lat: location.lat,
+          lng: location.lng,
+          geocodedAt: location.lat && location.lng ? new Date() : null
+        }
       })
       .returning();
-    return location;
+    return result;
   }
 
   async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
     const [location] = await db
       .select()
       .from(clientLocations)
-      .where(and(
-        eq(clientLocations.branchId, branchId),
-        eq(clientLocations.clientName, clientName)
-      ));
-    return location || undefined;
+      .where(
+        and(
+          eq(clientLocations.branchId, branchId),
+          eq(clientLocations.clientName, clientName)
+        )
+      );
+    return location;
   }
 
   async getClientLocationById(id: string): Promise<ClientLocation | undefined> {
-    const [location] = await db
-      .select()
-      .from(clientLocations)
-      .where(eq(clientLocations.id, id));
-    return location || undefined;
+    const [location] = await db.select().from(clientLocations).where(eq(clientLocations.id, id));
+    return location;
   }
 
   async getAllClientLocations(branchId: string): Promise<ClientLocation[]> {
     return await db.select().from(clientLocations).where(eq(clientLocations.branchId, branchId));
   }
 
-  async saveVisit(insertVisit: InsertVisit): Promise<Visit> {
-    const [visit] = await db
-      .insert(visits)
-      .values({
-        ...insertVisit,
-        preferredStartTime: insertVisit.preferredStartTime || null,
-        preferredEndTime: insertVisit.preferredEndTime || null,
-        priority: insertVisit.priority || 1,
-        serviceType: insertVisit.serviceType || null,
-      })
-      .returning();
-    return visit;
+  async saveVisit(visit: InsertVisit): Promise<Visit> {
+    const [result] = await db.insert(visits).values(visit).returning();
+    return result;
   }
 
   async getVisitById(id: string): Promise<Visit | undefined> {
-    const [visit] = await db
-      .select()
-      .from(visits)
-      .where(eq(visits.id, id));
-    return visit || undefined;
+    const [visit] = await db.select().from(visits).where(eq(visits.id, id));
+    return visit;
   }
 
   async getVisitsByDate(branchId: string, date: string): Promise<Visit[]> {
@@ -1081,42 +362,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> {
-    const conditions = [eq(visits.branchId, branchId)];
-    if (startDate) {
-      conditions.push(gte(visits.date, startDate));
-    }
-    if (endDate) {
-      conditions.push(lte(visits.date, endDate));
-    }
-
-    if (conditions.length === 1) {
-      // Only branchId condition
-      return await db.select().from(visits).where(eq(visits.branchId, branchId));
-    }
-
-    return await db.select().from(visits).where(and(...conditions));
+    let q = db.select().from(visits).where(eq(visits.branchId, branchId));
+    if (startDate) q = q.where(gte(visits.date, startDate));
+    if (endDate) q = q.where(lte(visits.date, endDate));
+    return await q;
   }
-
 
   async clearAllVisits(branchId: string): Promise<any> {
-    console.log(`🧹 Clearing all visits data for branch ${branchId}...`);
-    const result = await db.delete(visits).where(eq(visits.branchId, branchId));
-    console.log(`✅ Cleared visits data for branch ${branchId}`);
-    return { visitsDeleted: result.rowCount || 0 };
+    return await db.delete(visits).where(eq(visits.branchId, branchId));
   }
 
-  async saveRoutePlan(insertPlan: InsertRoutePlan): Promise<RoutePlan> {
-    const [plan] = await db
-      .insert(routePlans)
-      .values({
-        ...insertPlan,
-        totalDistanceKm: insertPlan.totalDistanceKm || null,
-        totalTravelMinutes: insertPlan.totalTravelMinutes || null,
-        status: insertPlan.status || "optimized",
-        warnings: insertPlan.warnings || [],
-      })
-      .returning();
-    return plan;
+  async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
+    const [result] = await db.insert(routePlans).values(plan).returning();
+    return result;
   }
 
   async getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]> {
@@ -1131,21 +389,12 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(routePlans)
       .where(and(eq(routePlans.employeeId, employeeId), eq(routePlans.date, date)));
-    return plan || undefined;
+    return plan;
   }
 
-  async saveRouteStop(insertStop: InsertRouteStop): Promise<RouteStop> {
-    const [stop] = await db
-      .insert(routeStops)
-      .values({
-        ...insertStop,
-        scheduledStart: insertStop.scheduledStart || null,
-        scheduledEnd: insertStop.scheduledEnd || null,
-        travelMinutesFromPrev: insertStop.travelMinutesFromPrev || null,
-        distanceKmFromPrev: insertStop.distanceKmFromPrev || null,
-      })
-      .returning();
-    return stop;
+  async saveRouteStop(stop: InsertRouteStop): Promise<RouteStop> {
+    const [result] = await db.insert(routeStops).values(stop).returning();
+    return result;
   }
 
   async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> {
@@ -1157,66 +406,62 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined> {
-    const [geocode] = await db
+    const [result] = await db
       .select()
       .from(geocodeCache)
       .where(and(eq(geocodeCache.branchId, branchId), eq(geocodeCache.key, key)));
-    return geocode || undefined;
+    return result;
   }
 
-  async saveGeocode(insertGeocode: InsertGeocode): Promise<GeocodeCache> {
-    const [geocode] = await db
+  async saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache> {
+    const [result] = await db
       .insert(geocodeCache)
-      .values(insertGeocode)
-      .onConflictDoNothing()
-      .returning();
-
-    if (!geocode) {
-      // If no insert happened due to conflict, get existing
-      return (await this.getGeocode(insertGeocode.branchId, insertGeocode.key))!;
-    }
-
-    return geocode;
-  }
-
-  async clearRoutesAndVisits(): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
-    // Count existing records
-    const routePlansCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_plans`);
-    const routeStopsCount = await db.execute(sql`SELECT COUNT(*) as count FROM route_stops`);
-    const visitsCount = await db.execute(sql`SELECT COUNT(*) as count FROM visits`);
-
-    const routePlansDeleted = Number(routePlansCount.rows[0]?.count || 0);
-    const routeStopsDeleted = Number(routeStopsCount.rows[0]?.count || 0);
-    const visitsDeleted = Number(visitsCount.rows[0]?.count || 0);
-
-    // Delete in correct order (route_stops first due to foreign key)
-    await db.delete(routeStops);
-    await db.delete(routePlans);
-    await db.delete(visits);
-
-    return { routePlansDeleted, routeStopsDeleted, visitsDeleted };
-  }
-
-  // Weekly schedule methods
-  async saveWeeklySchedule(insertSchedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
-    const [schedule] = await db
-      .insert(weeklySchedules)
-      .values({
-        ...insertSchedule,
-        unallocatedVisits: insertSchedule.unallocatedVisits || [],
+      .values(geocode)
+      .onConflictDoUpdate({
+        target: [geocodeCache.branchId, geocodeCache.key],
+        set: {
+          lat: geocode.lat,
+          lng: geocode.lng,
+          source: geocode.source,
+          cachedAt: new Date()
+        }
       })
+      .returning();
+    return result;
+  }
+
+  async clearRoutesAndVisits(branchId: string): Promise<{ routePlansDeleted: number; routeStopsDeleted: number; visitsDeleted: number }> {
+    const routePlansToDelete = await db.select({ id: routePlans.id }).from(routePlans).where(eq(routePlans.branchId, branchId));
+    const routePlanIds = routePlansToDelete.map(p => p.id);
+    let routeStopsDeleted = 0;
+    if (routePlanIds.length > 0) {
+      const stopsResult = await db.delete(routeStops).where(sql`${routeStops.routePlanId} IN ${routePlanIds}`);
+      routeStopsDeleted = stopsResult.rowCount ?? 0;
+    }
+    const plansResult = await db.delete(routePlans).where(eq(routePlans.branchId, branchId));
+    const visitsResult = await db.delete(visits).where(eq(visits.branchId, branchId));
+    return {
+      routePlansDeleted: plansResult.rowCount ?? 0,
+      routeStopsDeleted,
+      visitsDeleted: visitsResult.rowCount ?? 0
+    };
+  }
+
+  async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
+    const [result] = await db
+      .insert(weeklySchedules)
+      .values(schedule)
       .onConflictDoUpdate({
         target: [weeklySchedules.branchId, weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
         set: {
-          scheduleData: insertSchedule.scheduleData,
-          unallocatedVisits: insertSchedule.unallocatedVisits || [],
-          metrics: insertSchedule.metrics,
-          generatedAt: sql`now()`,
-        },
+          scheduleData: schedule.scheduleData,
+          unallocatedVisits: schedule.unallocatedVisits,
+          metrics: schedule.metrics,
+          generatedAt: new Date()
+        }
       })
       .returning();
-
-    return schedule;
+    return result;
   }
 
   async getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined> {
@@ -1226,19 +471,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(weeklySchedules.branchId, branchId))
       .orderBy(desc(weeklySchedules.generatedAt))
       .limit(1);
-    return schedule || undefined;
+    return schedule;
   }
 
   async getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
     const [schedule] = await db
       .select()
       .from(weeklySchedules)
-      .where(and(
-        eq(weeklySchedules.branchId, branchId),
-        eq(weeklySchedules.weekStartDate, weekStartDate),
-        eq(weeklySchedules.weekEndDate, weekEndDate)
-      ));
-    return schedule || undefined;
+      .where(
+        and(
+          eq(weeklySchedules.branchId, branchId),
+          eq(weeklySchedules.weekStartDate, weekStartDate),
+          eq(weeklySchedules.weekEndDate, weekEndDate)
+        )
+      );
+    return schedule;
   }
 
   async getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]> {
@@ -1249,26 +496,203 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(weeklySchedules.generatedAt));
   }
 
-  // Branch scheduling preferences (returns defaults - table doesn't exist yet)
+  async getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined> {
+    const [result] = await db.select().from(travelTimeCache).where(
+      and(
+        eq(travelTimeCache.branchId, branchId),
+        eq(travelTimeCache.fromLat, fromLat),
+        eq(travelTimeCache.fromLng, fromLng),
+        eq(travelTimeCache.toLat, toLat),
+        eq(travelTimeCache.toLng, toLng),
+        eq(travelTimeCache.transportMode, mode)
+      )
+    );
+    return result;
+  }
+
+  async saveTravelTime(insertTravelTime: InsertTravelTimeCache): Promise<TravelTimeCache> {
+    const [result] = await db.insert(travelTimeCache).values(insertTravelTime).returning();
+    return result;
+  }
+
   async getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference> {
-    // Return default preference (table not yet created in DB)
-    return {
-      id: crypto.randomUUID(),
-      branchId,
-      excludedServiceTypes: [],
-      updatedAt: new Date(),
-    };
+    const [pref] = await db.select().from(branchSchedulingPreferences).where(eq(branchSchedulingPreferences.branchId, branchId));
+    if (pref) return pref;
+    const [newPref] = await db.insert(branchSchedulingPreferences).values({ branchId }).returning();
+    return newPref;
   }
 
   async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
-    // Return the preference as-is (table not yet created in DB)
-    return {
-      id: crypto.randomUUID(),
-      branchId: preference.branchId,
-      excludedServiceTypes: preference.excludedServiceTypes || [],
-      updatedAt: new Date(),
-    };
+    const [result] = await db
+      .insert(branchSchedulingPreferences)
+      .values(preference)
+      .onConflictDoUpdate({
+        target: [branchSchedulingPreferences.branchId],
+        set: {
+          excludedServiceTypes: preference.excludedServiceTypes,
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+    return result;
   }
 }
 
-export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();
+export class MemStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private capacityAnalyses: Map<string, CapacityAnalysis> = new Map();
+  private branchUploads: Map<string, BranchUpload> = new Map();
+  private employeeLocations: Map<string, EmployeeLocation> = new Map();
+  private clientLocations: Map<string, ClientLocation> = new Map();
+  private visits: Map<string, Visit> = new Map();
+  private routePlans: Map<string, RoutePlan> = new Map();
+  private routeStops: Map<string, RouteStop> = new Map();
+  private geocodeCache: Map<string, GeocodeCache> = new Map();
+  private travelTimeCache: Map<string, TravelTimeCache> = new Map();
+  private weeklySchedules: Map<string, WeeklySchedule> = new Map();
+  private branchSchedulingPreferences: Map<string, BranchSchedulingPreference> = new Map();
+
+  async getUser(id: string): Promise<User | undefined> { return this.users.get(id); }
+  async getUserByUsername(username: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.username === username); }
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = randomUUID();
+    const user: User = { ...insertUser, id };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async getAllBranches(): Promise<Branch[]> { return []; }
+  async getBranchById(id: string): Promise<Branch | undefined> { return undefined; }
+  async getBranchByName(name: string): Promise<Branch | undefined> { return undefined; }
+
+  async saveBranchUpload(upload: InsertBranchUpload): Promise<BranchUpload> {
+    const id = randomUUID();
+    const result: BranchUpload = { ...upload, id, uploadedAt: new Date(), originalFileName: upload.originalFileName ?? null, fileSize: upload.fileSize ?? null, sha256: upload.sha256 ?? null };
+    this.branchUploads.set(`${upload.branchId}:${upload.uploadType}`, result);
+    return result;
+  }
+  async getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined> { return this.branchUploads.get(`${branchId}:${uploadType}`); }
+
+  async saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
+    const id = randomUUID();
+    const result: CapacityAnalysis = { ...analysis, id, uploadedAt: new Date(), employeeSummaryByDate: analysis.employeeSummaryByDate || {}, warnings: analysis.warnings || [] };
+    this.capacityAnalyses.set(id, result);
+    return result;
+  }
+  async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
+    return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId && a.weekStartDate >= startDate && a.weekEndDate <= endDate);
+  }
+  async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> { return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId); }
+  async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> { return this.getAllCapacityAnalyses(branchId); }
+  async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
+    return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  }
+  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
+    return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)).slice(0, limit);
+  }
+  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> { return 0; }
+  async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> { return 0; }
+
+  async upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation> {
+    const id = randomUUID();
+    const result: EmployeeLocation = { ...location, id, homeLat: location.homeLat ?? null, homeLng: location.homeLng ?? null, transportMode: location.transportMode ?? null, gender: location.gender ?? null, geocodedAt: new Date() };
+    this.employeeLocations.set(id, result);
+    return result;
+  }
+  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
+    return Array.from(this.employeeLocations.values()).find(l => l.branchId === branchId && l.employeeName === employeeName);
+  }
+  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> { return this.employeeLocations.get(id); }
+  async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> { return Array.from(this.employeeLocations.values()).filter(l => l.branchId === branchId); }
+
+  async upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation> {
+    const id = randomUUID();
+    const result: ClientLocation = { ...location, id, lat: location.lat ?? null, lng: location.lng ?? null, geocodedAt: new Date() };
+    this.clientLocations.set(id, result);
+    return result;
+  }
+  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
+    return Array.from(this.clientLocations.values()).find(l => l.branchId === branchId && l.clientName === clientName);
+  }
+  async getClientLocationById(id: string): Promise<ClientLocation | undefined> { return this.clientLocations.get(id); }
+  async getAllClientLocations(branchId: string): Promise<ClientLocation[]> { return Array.from(this.clientLocations.values()).filter(l => l.branchId === branchId); }
+
+  async saveVisit(visit: InsertVisit): Promise<Visit> {
+    const id = randomUUID();
+    const result: Visit = { ...visit, id, createdAt: new Date(), preferredStartTime: visit.preferredStartTime ?? null, preferredEndTime: visit.preferredEndTime ?? null, priority: visit.priority ?? null, serviceType: visit.serviceType ?? null };
+    this.visits.set(id, result);
+    return result;
+  }
+  async getVisitById(id: string): Promise<Visit | undefined> { return this.visits.get(id); }
+  async getVisitsByDate(branchId: string, date: string): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId && v.date === date); }
+  async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.clientId === clientId && v.date === date); }
+  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId); }
+  async clearAllVisits(branchId: string): Promise<any> { Array.from(this.visits.values()).forEach(v => { if (v.branchId === branchId) this.visits.delete(v.id); }); }
+
+  async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
+    const id = randomUUID();
+    const result: RoutePlan = { ...plan, id, createdAt: new Date(), updatedAt: new Date(), totalDistanceKm: plan.totalDistanceKm ?? null, totalTravelMinutes: plan.totalTravelMinutes ?? null, status: plan.status ?? null, warnings: plan.warnings ?? [] };
+    this.routePlans.set(id, result);
+    return result;
+  }
+  async getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]> { return Array.from(this.routePlans.values()).filter(p => p.branchId === branchId && p.date === date); }
+  async getRoutePlanByEmployeeAndDate(employeeId: string, date: string): Promise<RoutePlan | undefined> { return Array.from(this.routePlans.values()).find(p => p.employeeId === employeeId && p.date === date); }
+
+  async saveRouteStop(stop: InsertRouteStop): Promise<RouteStop> {
+    const id = randomUUID();
+    const result: RouteStop = { ...stop, id, scheduledStart: stop.scheduledStart ?? null, scheduledEnd: stop.scheduledEnd ?? null, travelMinutesFromPrev: stop.travelMinutesFromPrev ?? null, distanceKmFromPrev: stop.distanceKmFromPrev ?? null };
+    this.routeStops.set(id, result);
+    return result;
+  }
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> { return Array.from(this.routeStops.values()).filter(s => s.routePlanId === routePlanId); }
+
+  async getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined> { return this.geocodeCache.get(`${branchId}:${key}`); }
+  async saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache> {
+    const id = randomUUID();
+    const result: GeocodeCache = { ...geocode, id, cachedAt: new Date() };
+    this.geocodeCache.set(`${geocode.branchId}:${geocode.key}`, result);
+    return result;
+  }
+  async clearRoutesAndVisits(branchId: string): Promise<any> { return {}; }
+
+  async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
+    const id = randomUUID();
+    const result: WeeklySchedule = { ...schedule, id, generatedAt: new Date() };
+    this.weeklySchedules.set(id, result);
+    return result;
+  }
+  async getLatestWeeklySchedule(branchId: string): Promise<WeeklySchedule | undefined> {
+    return Array.from(this.weeklySchedules.values()).filter(s => s.branchId === branchId).sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime())[0];
+  }
+  async getWeeklyScheduleByWeek(branchId: string, weekStartDate: string, weekEndDate: string): Promise<WeeklySchedule | undefined> {
+    return Array.from(this.weeklySchedules.values()).find(s => s.branchId === branchId && s.weekStartDate === weekStartDate && s.weekEndDate === weekEndDate);
+  }
+  async getAllWeeklySchedules(branchId: string): Promise<WeeklySchedule[]> { return Array.from(this.weeklySchedules.values()).filter(s => s.branchId === branchId); }
+
+  async getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined> {
+    return this.travelTimeCache.get(`${branchId}:${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}`);
+  }
+  async saveTravelTime(travelTime: InsertTravelTimeCache): Promise<TravelTimeCache> {
+    const id = randomUUID();
+    const result: TravelTimeCache = { ...travelTime, id, cachedAt: new Date(), distanceMeters: travelTime.distanceMeters ?? null };
+    this.travelTimeCache.set(`${travelTime.branchId}:${travelTime.fromLat}:${travelTime.fromLng}:${travelTime.toLat}:${travelTime.toLng}:${travelTime.transportMode}`, result);
+    return result;
+  }
+
+  async getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference> {
+    let pref = this.branchSchedulingPreferences.get(branchId);
+    if (!pref) {
+      pref = { id: randomUUID(), branchId, excludedServiceTypes: [], updatedAt: new Date() };
+      this.branchSchedulingPreferences.set(branchId, pref);
+    }
+    return pref;
+  }
+  async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
+    const id = randomUUID();
+    const result: BranchSchedulingPreference = { ...preference, id, updatedAt: new Date() };
+    this.branchSchedulingPreferences.set(preference.branchId, result);
+    return result;
+  }
+}
+
+export const storage = new DatabaseStorage();
