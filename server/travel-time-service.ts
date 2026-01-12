@@ -23,9 +23,9 @@ export type TransportMode = "car" | "walking" | "public";
 
 export class TravelTimeService {
   private readonly SPEED_KMH: Record<TransportMode, number> = {
-    car: 40,
-    walking: 4.5,
-    public: 25
+    car: 30,       // Reduced for more realistic urban travel
+    walking: 4.0,
+    public: 20
   };
 
   private readonly maxTravelMinutes: number;
