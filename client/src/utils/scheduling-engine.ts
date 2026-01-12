@@ -653,12 +653,40 @@ function assignVisitToBestEmployee(
     console.log(`✅ Visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from ${prevVisit.clientName}`);
   }
 
-  // Insert at the correct position
-  schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
+    // Insert at the correct position
+    schedule.assignedVisits.splice(best.insertionIndex, 0, assignedVisit);
 
-  // CRITICAL: Re-sort visits by start time to ensure chronological order is maintained
-  // This prevents the chronological error bug
-  schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    // CRITICAL: Ensure travelTimeBefore is not lost after sorting
+    // Re-sort visits by start time to ensure chronological order is maintained
+    schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+    // After sorting, we need to ensure the travel times reflect the new order
+    // especially for the visit we just inserted and its neighbors
+    schedule.assignedVisits.forEach((v, idx) => {
+      if (idx === 0) {
+        v.travelTimeBefore = getTravelMinutes(
+          { lat: schedule.homeLat, lng: schedule.homeLng },
+          { lat: v.lat || 0, lng: v.lng || 0 },
+          schedule.transportMode
+        );
+      } else {
+        const prev = schedule.assignedVisits[idx - 1];
+        const gap = timeToMinutes(v.startTime) - timeToMinutes(prev.endTime);
+        if (gap >= 90) {
+          v.travelTimeBefore = getTravelMinutes(
+            { lat: schedule.homeLat, lng: schedule.homeLng },
+            { lat: v.lat || 0, lng: v.lng || 0 },
+            schedule.transportMode
+          );
+        } else {
+          v.travelTimeBefore = getTravelMinutes(
+            { lat: prev.lat || 0, lng: prev.lng || 0 },
+            { lat: v.lat || 0, lng: v.lng || 0 },
+            schedule.transportMode
+          );
+        }
+      }
+    });
 
   // Update capacity usage
   schedule.usedCapacityMinutes += best.adjustedVisit.durationMinutes;

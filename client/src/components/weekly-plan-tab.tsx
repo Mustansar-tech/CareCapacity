@@ -584,18 +584,20 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       let travelFromHome = 0;
 
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
-                                        const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
-                                          const R = 6371;
-                                          const dLat = (to.lat - from.lat) * Math.PI / 180;
-                                          const dLng = (to.lng - from.lng) * Math.PI / 180;
-                                          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                                            Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
-                                            Math.sin(dLng/2) * Math.sin(dLng/2);
-                                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                                          const distKm = R * c;
-                                          const speedKmh = mode === 'walking' ? 4.0 : 35;
-                                          return Math.max(2, Math.round((distKm / speedKmh) * 60));
-                                        };
+                                          const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
+                                            const R = 6371;
+                                            const dLat = (to.lat - from.lat) * Math.PI / 180;
+                                            const dLng = (to.lng - from.lng) * Math.PI / 180;
+                                            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                              Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
+                                              Math.sin(dLng/2) * Math.sin(dLng/2);
+                                            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                            const distKm = R * c;
+                                            // Synchronized speed: 35 km/h car, 4 km/h walking
+                                            const speedKmh = mode === 'walking' ? 4.0 : 35;
+                                            // Synchronized minimum: 2 minutes
+                                            return Math.max(2, Math.round((distKm / speedKmh) * 60));
+                                          };
 
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                         const mode = transportMode.includes('walk') ? 'walking' : 'car';
