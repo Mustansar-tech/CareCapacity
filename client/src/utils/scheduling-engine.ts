@@ -519,8 +519,9 @@ function assignVisitToBestEmployee(
       const visitStart = timeToMinutes(adjustedVisit.startTime);
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
-      // Check for any overlap in time
-      return (visitStart < vEnd && visitEnd > vStart);
+      // Check for any overlap in time with a small buffer
+      const buffer = 1; 
+      return (visitStart < vEnd - buffer && visitEnd > vStart + buffer);
     });
 
     if (hasConflictingVisit) {
