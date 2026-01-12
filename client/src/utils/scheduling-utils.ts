@@ -106,13 +106,13 @@ export function getTravelMinutes(
 
   // Transport mode speeds (km/h)
   const speeds = {
-    car: 30,        // Reduced from 40 for more realistic urban travel
+    car: 35,        // Increased from 30 to 35 for better fallback accuracy
     walking: 4.0,   // Reduced from 4.5
     public: 20      // Reduced from 25
   };
 
   const speedKmh = speeds[mode] || speeds.car;
-  const travelTimeMinutes = Math.max(1, Math.round((distance / speedKmh) * 60));
+  const travelTimeMinutes = Math.max(2, Math.round((distance / speedKmh) * 60)); // Minimum 2 min
 
   // Store in cache
   travelTimeCache.set(cacheKey, travelTimeMinutes);

@@ -593,7 +593,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             Math.sin(dLng/2) * Math.sin(dLng/2);
                                           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                           const distKm = R * c;
-                                          const speedKmh = mode === 'walking' ? 4.0 : 30;
+                                          const speedKmh = mode === 'walking' ? 4.0 : 35;
                                           return Math.max(2, Math.round((distKm / speedKmh) * 60));
                                         };
 
@@ -683,7 +683,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       Math.sin(dLng/2) * Math.sin(dLng/2);
                                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                     const distKm = R * c;
-                                    const speedKmh = mode === 'walking' ? 4.0 : 30;
+                                    const speedKmh = mode === 'walking' ? 4.0 : 35;
                                     return Math.max(2, Math.round((distKm / speedKmh) * 60));
                                   };
 
