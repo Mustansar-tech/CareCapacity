@@ -448,7 +448,7 @@ function assignVisitToBestEmployee(
       if (newTotalCareTime > schedule.totalCapacityMinutes) {
         continue; // Skip - would exceed daily availability
       }
-      if (newWeeklyTotal > schedule.weeklyContractedMinutes + 60) { // 1 hour extra tolerance
+      if (newWeeklyTotal > schedule.weeklyContractedMinutes + 120) { // Increased tolerance to 2 hours
         continue;
       }
     }
@@ -931,8 +931,17 @@ export function generateWeeklySchedule(
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)
   console.log(`\n🔄 SECOND PASS: Attempting to allocate ${unallocated.length} unallocated visits (sorted by duration)`);
+  
+  // CRITICAL: Sort second pass visits chronologically first, then by duration
+  // This maintains chronological insertion order to prevent CHRONOLOGICAL ERRORs
+  const secondPassVisits = [...unallocated].sort((a, b) => {
+    const timeA = timeToMinutes(a.startTime);
+    const timeB = timeToMinutes(b.startTime);
+    if (timeA !== timeB) return timeA - timeB;
+    return a.durationMinutes - b.durationMinutes;
+  });
+
   let remainingUnallocated: Array<ClientVisit & { reason: string }> = [];
-  const secondPassVisits = [...unallocated].sort((a, b) => a.durationMinutes - b.durationMinutes);
 
   for (const visit of secondPassVisits) {
     const employeeSchedules = schedulesByDate[visit.date] || [];
@@ -1070,9 +1079,47 @@ export function generateWeeklySchedule(
     console.log(`📊 Fourth pass results: ${remainingUnallocated.length} still unallocated`);
   }
 
+  // Final Pass: Chronological retry for anything remaining
+  if (remainingUnallocated.length > 0) {
+    console.log(`\n🔄 FINAL CHRONOLOGICAL PASS: Attempting ${remainingUnallocated.length} visits`);
+    const finalUnallocated: Array<ClientVisit & { reason: string }> = [];
+    const sortedFinal = [...remainingUnallocated].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    
+    for (const visit of sortedFinal) {
+      const employeeSchedules = (schedulesByDate[visit.date] || []).filter(s => {
+         const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+         const alreadyAssigned = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+         return !alreadyAssigned.has(s.employeeName) && isGenderMatch(s.gender, visit.clientName);
+      });
+      
+      const relaxedVisit = { ...visit, _relaxedPass: true } as any;
+      const result = assignVisitToBestEmployee(relaxedVisit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      if (result.success && result.employeeName) {
+        const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+        if (!visitEmployeeAssignments.has(visitKey)) visitEmployeeAssignments.set(visitKey, new Set());
+        visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+      } else {
+        finalUnallocated.push(visit);
+      }
+    }
+    remainingUnallocated = finalUnallocated;
+  }
+
   // Update unallocated with only the visits that couldn't be assigned in any pass
   unallocated.length = 0;
   unallocated.push(...remainingUnallocated);
+
+  // CRITICAL: Sort assigned visits chronologically one last time to prevent rendering errors
+  Object.keys(schedulesByDate).forEach(date => {
+    schedulesByDate[date].forEach(schedule => {
+      schedule.assignedVisits.sort((a, b) => {
+        const timeA = timeToMinutes(a.startTime);
+        const timeB = timeToMinutes(b.startTime);
+        return timeA - timeB;
+      });
+    });
+  });
 
   // Build final assignments structure
   const assignments: Record<string, Record<string, AssignedVisit[]>> = {};
