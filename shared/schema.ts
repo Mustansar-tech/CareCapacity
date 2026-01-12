@@ -491,6 +491,36 @@ export type GeocodeCache = typeof geocodeCache.$inferSelect;
 export type InsertWeeklySchedule = z.infer<typeof insertWeeklyScheduleSchema>;
 export type WeeklySchedule = typeof weeklySchedules.$inferSelect;
 
+// Travel time cache - stores ORS API results for faster lookups
+export const travelTimeCache = pgTable("travel_time_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  fromLat: text("from_lat").notNull(),
+  fromLng: text("from_lng").notNull(),
+  toLat: text("to_lat").notNull(),
+  toLng: text("to_lng").notNull(),
+  transportMode: text("transport_mode", { enum: ["car", "walking", "public"] }).default("car"),
+  durationMinutes: integer("duration_minutes").notNull(),
+  distanceMeters: integer("distance_meters"),
+  source: text("source", { enum: ["ors", "haversine"] }).notNull(), // Whether from API or fallback
+  cachedAt: timestamp("cached_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueTravelTime: unique("unique_travel_time").on(
+    table.branchId, table.fromLat, table.fromLng, table.toLat, table.toLng, table.transportMode
+  ),
+  branchIdx: index("travel_cache_branch_idx").on(table.branchId),
+  fromIdx: index("travel_cache_from_idx").on(table.fromLat, table.fromLng),
+  toIdx: index("travel_cache_to_idx").on(table.toLat, table.toLng),
+}));
+
+export const insertTravelTimeCacheSchema = createInsertSchema(travelTimeCache).omit({
+  id: true,
+  cachedAt: true,
+});
+
+export type InsertTravelTimeCache = z.infer<typeof insertTravelTimeCacheSchema>;
+export type TravelTimeCache = typeof travelTimeCache.$inferSelect;
+
 // Branch scheduling preferences - stores filter preferences per branch
 export const branchSchedulingPreferences = pgTable("branch_scheduling_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
