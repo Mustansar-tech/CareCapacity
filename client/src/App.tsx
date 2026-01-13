@@ -8,8 +8,10 @@ import NotFound from "@/pages/not-found";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { BranchSelector } from "@/components/BranchSelector";
+import { SplashScreen } from "@/components/SplashScreen";
 import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
-import { Component, ErrorInfo, ReactNode } from "react";
+import { Component, ErrorInfo, ReactNode, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -121,13 +123,40 @@ function Router() {
 }
 
 function App() {
+  const [showSplash, setShowSplash] = useState(() => {
+    const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
+    return !hasSeenSplash;
+  });
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('hasSeenSplash', 'true');
+    setShowSplash(false);
+  };
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BranchProvider>
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <AnimatePresence mode="wait">
+              {showSplash ? (
+                <SplashScreen 
+                  key="splash"
+                  onComplete={handleSplashComplete} 
+                  minimumDisplayTime={2500}
+                />
+              ) : (
+                <motion.div
+                  key="app"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Router />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </TooltipProvider>
         </BranchProvider>
       </QueryClientProvider>
