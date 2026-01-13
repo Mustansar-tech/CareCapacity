@@ -2304,7 +2304,8 @@ export async function processCapacityData(
         const endStr = format(endDate, "yyyy-MM-dd");
         
         if (startStr !== endStr) {
-          console.log(`🚫 KPI: Skipping overnight visit for Client Required calculation: ${row[CLIENT_COLS[0]] || 'Unknown'} (${startStr} to ${endStr})`);
+          const clientName = (row as any)[CLIENT_COLS[0]] || 'Unknown';
+          console.log(`🚫 KPI: Skipping overnight visit for Client Required calculation: ${clientName} (${startStr} to ${endStr})`);
           return;
         }
       }
