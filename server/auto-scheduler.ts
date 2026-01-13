@@ -619,7 +619,7 @@ export class AutoScheduler {
       }
 
       // Calculate travel time for scoring (no hard limit)
-      const travelTime = await this.calculateTravelTime(
+      const travelTime = await (this as any).calculateTravelTime(
         "default",
         employee.employeeName,
         visit.clientName,
@@ -659,7 +659,7 @@ export class AutoScheduler {
         ? { lat: prevVisit.clientLat, lng: prevVisit.clientLng }
         : { lat: employee.homeLat, lng: employee.homeLng };
 
-      const travelToPrev = await this.calculateTravelTime(
+      const travelToPrev = await (this as any).calculateTravelTime(
         "default",
         employee.employeeName,
         visit.clientName,
@@ -667,7 +667,7 @@ export class AutoScheduler {
       );
 
       const travelToNext = nextVisit 
-        ? await this.calculateTravelTime(
+        ? await (this as any).calculateTravelTime(
           "default",
           visit.clientName,
           nextVisit.clientName,
