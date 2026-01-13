@@ -139,24 +139,15 @@ function App() {
         <BranchProvider>
           <TooltipProvider>
             <Toaster />
-            <AnimatePresence mode="wait">
-              {showSplash ? (
-                <SplashScreen 
-                  key="splash"
-                  onComplete={handleSplashComplete} 
-                  minimumDisplayTime={2500}
-                />
-              ) : (
-                <motion.div
-                  key="app"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <Router />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {showSplash ? (
+              <SplashScreen 
+                key="splash"
+                onComplete={handleSplashComplete} 
+                minimumDisplayTime={2500}
+              />
+            ) : (
+              <Router />
+            )}
           </TooltipProvider>
         </BranchProvider>
       </QueryClientProvider>
