@@ -538,13 +538,13 @@ function assignVisitToBestEmployee(
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
       // Check for any overlap in time with a small buffer
-      const buffer = 1; 
-      return (visitStart < vEnd - buffer && visitEnd > vStart + buffer);
+      // If visits overlap by more than 1 minute, it's a conflict
+      return (visitStart < vEnd - 1 && visitEnd > vStart + 1);
     });
 
     if (hasConflictingVisit) {
-      finalScore *= 0.1; // Massive penalty - nearly eliminate this option
-      console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
+      console.log(`❌ REJECTING: ${schedule.employeeName} has overlap with existing visit at ${adjustedVisit.startTime}`);
+      continue; // Skip this employee entirely - NO overlaps allowed
     }
 
     // Add early visit bonus for first visits (prioritize starting early and near home)
