@@ -2255,6 +2255,7 @@ export async function processCapacityData(
   // Calculate demand from GUARANTEED HOURS (GH) data instead of Hours by Service Type
   // This allows us to apply the exact same filters as the scheduling engine
   const ghDemandMap = new Map<string, number>();
+  const seenVisits = new Set<string>();
 
   // Re-use the existing extraction logic to get filtered visits
   // We'll group them by date and sum their durations
@@ -2290,17 +2291,25 @@ export async function processCapacityData(
         return; // Skip overnight visits
       }
 
-      // Calculate duration in hours
-      const sMin = toMin(start);
-      const eMin = toMin(end);
-      if (Number.isFinite(sMin) && Number.isFinite(eMin)) {
-        const durationHours = (eMin - sMin) / 60;
-        ghDemandMap.set(
-          startDay,
-          (ghDemandMap.get(startDay) || 0) + durationHours,
-        );
-        allDates.add(startDay);
-      }
+    // Calculate duration in hours
+    const sMin = toMin(start);
+    const eMin = toMin(end);
+    if (Number.isFinite(sMin) && Number.isFinite(eMin)) {
+      // HANDLE DUPLICATE ENTRIES:
+      // If the exact same visit (client, time, duration) exists multiple times
+      // in the GH data, we only count it once for demand.
+      const clientName = pickCol(row, CLIENT_COLS) || "Unknown";
+      const dupKey = `${clientName}|${startDay}|${sMin}|${eMin}|${serviceTypeLower}`;
+      if (seenVisits.has(dupKey)) return;
+      seenVisits.add(dupKey);
+
+      const durationHours = (eMin - sMin) / 60;
+      ghDemandMap.set(
+        startDay,
+        (ghDemandMap.get(startDay) || 0) + durationHours,
+      );
+      allDates.add(startDay);
+    }
     }
   });
 
