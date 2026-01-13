@@ -680,16 +680,16 @@ export class AutoScheduler {
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime + 10; // Allow 10min overflow for end of shift
 
-      // Allow "travel time extra": if travel time exceeds gap by up to 15 minutes, still allow it
+      // Allow "travel time extra": if travel time exceeds gap by up to 5 minutes, still allow it
       // This effectively "compresses" the visit or shifts it slightly to make it fit.
-      const maxCompression = 15; 
+      const maxCompression = 5; 
       if (earliestStart + visit.durationMinutes <= latestEnd + maxCompression) {
         // Calculate score based on multiple factors
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
 
         if (score > bestScore) {
           bestScore = score;
-          bestInsertion = { index: i, score };
+          bestInsertion = { index: i, score, travelTimeBefore: travelToPrev } as any;
         }
       }
     }
@@ -741,6 +741,16 @@ export class AutoScheduler {
     return score;
   }
 
+  private async calculateTravelTime(
+    branchId: string,
+    employeeName: string,
+    clientName: string,
+    transportMode: 'car' | 'walking' | 'public' = 'car'
+  ): Promise<number> {
+    const { calculateTravelTime: travelFunc } = require('./travel-time-service');
+    return await travelFunc(branchId, employeeName, clientName, transportMode);
+  }
+
   private assignVisitToEmployee(
     visit: SchedulingVisit,
     assignment: { employeeName: string; score: number; insertionIndex: number },
@@ -748,13 +758,7 @@ export class AutoScheduler {
   ): ScheduledVisit {
     const prevVisit = assignment.insertionIndex > 0 ? schedule.visits[assignment.insertionIndex - 1] : null;
 
-    const travelTimeBefore = prevVisit 
-      ? this.travelService.calculateTravelTime(
-          { lat: prevVisit.clientLat, lng: prevVisit.clientLng },
-          { lat: visit.clientLat, lng: visit.clientLng },
-          schedule.employee.transportMode
-        ).travelTimeMinutes
-      : 0;
+    const travelTimeBefore = assignment.score > 0 ? (assignment as any).travelTimeBefore || 0 : 0;
 
     const actualStartTime = prevVisit 
       ? Math.max(visit.startTime - 15, prevVisit.actualEndTime + travelTimeBefore - 15) // Allow 15min earlier start or compression

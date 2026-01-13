@@ -56,10 +56,10 @@ const EXCLUDED_SERVICE_TYPES = [
 const MIN_WINDOW_DURATION = 0;
 
 // Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
-const TIME_FLEXIBILITY_MINUTES = 10; // Increased from 5 to 10
+const TIME_FLEXIBILITY_MINUTES = 5; // Reduced from 10 to 5
 
 // Relaxed pass tolerances
-const RELAXED_TIME_TOLERANCE = 15; // Allow 15 min outside windows in relaxed pass
+const RELAXED_TIME_TOLERANCE = 10; // Reduced from 15 to 10
 
 // GH (Guaranteed Hours) bonus for prioritization
 const GH_SCORE_BONUS = 0.1;
