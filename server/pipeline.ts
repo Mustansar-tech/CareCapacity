@@ -2285,35 +2285,34 @@ export async function processCapacityData(
     });
   });
 
-  // Step 8: Merge with client demand
-  const demandMap = new Map<string, number>();
-  demand.forEach((row) => {
-    // Check for "Required Client Hours" specifically from GH data
-    // This part assumes 'demand' contains rows from the Guaranteed Hours sheet
-    // We want to skip overnight visits here just like in the scheduling extraction
-    
-    const startRaw = pickCol(row, START_TIME_COLS);
-    const endRaw = pickCol(row, END_TIME_COLS);
-    
-    if (startRaw && endRaw) {
-      const startDate = parseGuaranteedDate(startRaw);
-      const endDate = parseGuaranteedDate(endRaw);
+    // Step 8: Merge with client demand
+    const demandMap = new Map<string, number>();
+    demand.forEach((row: any) => {
+      // Check for start/end dates from row columns
+      // If start and end are on different dates, skip this row for Client Required sum
+      const startVal = row["Actual Start Date And Time"] || row["Start Date And Time"] || row["Planned Start Date And Time"] || row["Service Requirement Start Date And Time"];
+      const endVal = row["Actual End Date And Time"] || row["End Date And Time"] || row["Planned End Date And Time"] || row["Service Requirement End Date And Time"];
       
-      if (startDate && endDate) {
-        const startStr = format(startDate, "yyyy-MM-dd");
-        const endStr = format(endDate, "yyyy-MM-dd");
+      if (startVal && endVal) {
+        const startDate = parseGuaranteedDate(startVal);
+        const endDate = parseGuaranteedDate(endVal);
         
-        if (startStr !== endStr) {
-          const clientName = (row as any)[CLIENT_COLS[0]] || 'Unknown';
-          console.log(`🚫 KPI: Skipping overnight visit for Client Required calculation: ${clientName} (${startStr} to ${endStr})`);
-          return;
+        if (startDate && endDate) {
+          const startDay = format(startDate, "yyyy-MM-dd");
+          const endDay = format(endDate, "yyyy-MM-dd");
+          
+          if (startDay !== endDay) {
+            const clientNameCol = CLIENT_COLS.find(col => row[col]);
+            const clientName = clientNameCol ? row[clientNameCol] : "Unknown";
+            console.log(`🚫 KPI: Skipping overnight row for Client Required calculation: ${clientName} (${startDay} to ${endDay})`);
+            return;
+          }
         }
       }
-    }
 
-    const dateStr = format(parseDate(row.Date), "yyyy-MM-dd");
-    demandMap.set(dateStr, (demandMap.get(dateStr) || 0) + row["Required Client Hours"]);
-  });
+      const dateStr = format(parseDate(row.Date), "yyyy-MM-dd");
+      demandMap.set(dateStr, (demandMap.get(dateStr) || 0) + row["Required Client Hours"]);
+    });
 
   const dailySummary: DailySummaryRecord[] = Array.from(
     dailySummaryMap.entries(),
