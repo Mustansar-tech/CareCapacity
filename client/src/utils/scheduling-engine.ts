@@ -539,12 +539,24 @@ function assignVisitToBestEmployee(
 
       // Check for any overlap in time with a small buffer
       // If visits overlap by more than 1 minute, it's a conflict
+      // EXCEPT if it's the exact same visit duration and time, which might be a duplicate
+      // OR if we want to be more precise about "overlap"
       return (visitStart < vEnd - 1 && visitEnd > vStart + 1);
     });
 
     if (hasConflictingVisit) {
-      console.log(`❌ REJECTING: ${schedule.employeeName} has overlap with existing visit at ${adjustedVisit.startTime}`);
-      continue; // Skip this employee entirely - NO overlaps allowed
+      // Check if it's the EXACT same client and time - if so, it's a duplicate of the one we're trying to assign
+      // but in the scheduling context, we shouldn't have the same visit ID twice in assignedVisits
+      const exactDuplicate = schedule.assignedVisits.some(v => 
+        v.clientName === adjustedVisit.clientName && 
+        v.startTime === adjustedVisit.startTime && 
+        v.endTime === adjustedVisit.endTime
+      );
+
+      if (!exactDuplicate) {
+        console.log(`❌ REJECTING: ${schedule.employeeName} has overlap with existing visit at ${adjustedVisit.startTime}`);
+        continue; // Skip this employee entirely - NO overlaps allowed
+      }
     }
 
     // Add early visit bonus for first visits (prioritize starting early and near home)
