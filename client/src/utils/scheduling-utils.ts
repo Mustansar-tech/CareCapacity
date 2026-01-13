@@ -117,10 +117,16 @@ export function getTravelMinutes(
   const speedKmh = speeds[mode] || speeds.car;
   const travelTimeMinutes = Math.max(2, Math.round((distance / speedKmh) * 60)); // Minimum 2 min
 
-  // Store in cache
-  travelTimeCache.set(cacheKey, travelTimeMinutes);
+  // Add 10-minute public transport overhead (walking to/from stops, waiting)
+  let finalTravelMinutes = travelTimeMinutes;
+  if (mode === 'public') {
+    finalTravelMinutes += 10;
+  }
 
-  return travelTimeMinutes;
+  // Store in cache
+  travelTimeCache.set(cacheKey, finalTravelMinutes);
+
+  return finalTravelMinutes;
 }
 
 // Clear travel time cache (call when starting new scheduling run)

@@ -91,7 +91,13 @@ export class TravelTimeService {
           const data = await response.json();
           const durationSeconds = data.routes[0].summary.duration;
           const distanceMeters = data.routes[0].summary.distance;
-          const durationMinutes = Math.max(2, Math.round(durationSeconds / 60)); // Minimum 2 min
+          let durationMinutes = Math.max(2, Math.round(durationSeconds / 60)); // Minimum 2 min
+
+          // Add 10-minute public transport overhead (walking to/from stops, waiting)
+          if (transportMode === 'public') {
+            durationMinutes += 10;
+            console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
+          }
 
           console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
@@ -127,7 +133,13 @@ export class TravelTimeService {
     // 3. Fallback to Haversine
     const distanceKm = this.calculateHaversineDistance(from, to);
     const speedKmh = this.SPEED_KMH[transportMode] || this.SPEED_KMH.car;
-    const travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60)); // Minimum 2 min
+    let travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60)); // Minimum 2 min
+
+    // Add 10-minute public transport overhead (walking to/from stops, waiting)
+    if (transportMode === 'public') {
+      travelTimeMinutes += 10;
+      console.log(`🚌 [Fallback] Added 10min public transport overhead: ${travelTimeMinutes - 10} -> ${travelTimeMinutes} min`);
+    }
 
     console.log(`⚠️ Fallback Haversine (${transportMode}, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km`);
 

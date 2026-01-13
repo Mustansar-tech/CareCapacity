@@ -165,7 +165,7 @@ export class AutoScheduler {
 
     // First pass: Assign visits using standard constraints
     for (const visit of prioritizedVisits) {
-      const bestAssignment = this.findBestEmployeeForVisit(visit, employeeSchedules);
+      const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
 
       if (bestAssignment) {
         const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
@@ -195,7 +195,7 @@ export class AutoScheduler {
           schedule.employee.maxTravelPerVisit += 5;
         });
 
-        const bestAssignment = this.findBestEmployeeForVisit(visit, employeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
 
         // Restore original limits
         Array.from(employeeSchedules.values()).forEach(schedule => {
@@ -321,7 +321,8 @@ export class AutoScheduler {
                               emp.transportMode?.toLowerCase().includes('walk') ? 'public' : 'car') as any;
 
         // Set travel limits based on transport mode for better allocation
-        const maxTravel = transportMode === 'car' ? 25 : 30; // 25min for car, 30min for public transport (walkers)
+        // 40 minutes for public transport (account for overhead)
+        const maxTravel = transportMode === 'car' ? 25 : 40; 
 
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;
@@ -572,10 +573,10 @@ export class AutoScheduler {
     });
   }
 
-  private findBestEmployeeForVisit(
+  private async findBestEmployeeForVisit(
     visit: SchedulingVisit, 
     employeeSchedules: Map<string, any>
-  ): { employeeName: string; score: number; insertionIndex: number } | null {
+  ): Promise<{ employeeName: string; score: number; insertionIndex: number } | null> {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
 
@@ -613,14 +614,16 @@ export class AutoScheduler {
       }
 
       // Calculate travel time for scoring (no hard limit)
-      const travelTime = this.travelService.calculateTravelTime(
+      const travelTimeMatrix = await this.travelService.calculateTravelTime(
+        "default",
         { lat: employee.homeLat, lng: employee.homeLng },
         { lat: visit.clientLat, lng: visit.clientLng },
         employee.transportMode
       );
+      const travelTime = travelTimeMatrix.travelTimeMinutes;
 
       // Find best insertion point and calculate score
-      const insertion = this.findBestInsertionPoint(visit, schedule);
+      const insertion = await this.findBestInsertionPoint(visit, schedule);
 
       if (insertion && insertion.score > bestScore) {
         bestScore = insertion.score;
@@ -635,7 +638,7 @@ export class AutoScheduler {
     return bestMatch;
   }
 
-  private findBestInsertionPoint(visit: SchedulingVisit, schedule: any): { index: number; score: number } | null {
+  private async findBestInsertionPoint(visit: SchedulingVisit, schedule: any): Promise<{ index: number; score: number } | null> {
     const employee = schedule.employee;
     const visits = schedule.visits;
 
@@ -652,18 +655,21 @@ export class AutoScheduler {
         ? { lat: prevVisit.clientLat, lng: prevVisit.clientLng }
         : { lat: employee.homeLat, lng: employee.homeLng };
 
-      const travelToPrev = this.travelService.calculateTravelTime(
+      const travelToPrevMatrix = await this.travelService.calculateTravelTime(
+        "default", // branchId placeholder, service handles it
         prevLocation,
         { lat: visit.clientLat, lng: visit.clientLng },
         employee.transportMode
-      ).travelTimeMinutes;
+      );
+      const travelToPrev = travelToPrevMatrix.travelTimeMinutes;
 
       const travelToNext = nextVisit 
-        ? this.travelService.calculateTravelTime(
+        ? (await this.travelService.calculateTravelTime(
+          "default",
           { lat: visit.clientLat, lng: visit.clientLng },
           { lat: nextVisit.clientLat, lng: nextVisit.clientLng },
           employee.transportMode
-        ).travelTimeMinutes
+        )).travelTimeMinutes
         : 0;
 
       // Check if insertion is feasible with scheduling buffer
