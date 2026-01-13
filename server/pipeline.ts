@@ -2186,9 +2186,33 @@ export async function processCapacityData(
   const dailySummaryMap = new Map<string, any>();
   const allDates = new Set<string>();
 
+  // Use the cleanedRecords to build availability summaries
+  const availabilitySummariesByDate = new Map<string, {
+    totalAvailableHours: number;
+    totalUnavailableHours: number;
+    totalHolidayHours: number;
+  }>();
+
+  cleanedRecords.forEach(record => {
+    if (!availabilitySummariesByDate.has(record.date)) {
+      availabilitySummariesByDate.set(record.date, {
+        totalAvailableHours: 0,
+        totalUnavailableHours: 0,
+        totalHolidayHours: 0
+      });
+    }
+    const summary = availabilitySummariesByDate.get(record.date)!;
+    if (record.status === "Available" || record.status === "Partial Availability") {
+      summary.totalAvailableHours += record.hours;
+    } else if (record.status === "Holiday") {
+      summary.totalHolidayHours += record.hours;
+    } else if (record.status !== "Ad-hoc") {
+      summary.totalUnavailableHours += record.hours;
+    }
+  });
+
   // Collect all dates from availability summaries
-  availabilitySummaries.forEach((s) => {
-    const dateStr = format(parseDate(s.date), "yyyy-MM-dd");
+  availabilitySummariesByDate.forEach((s, dateStr) => {
     allDates.add(dateStr);
     dailySummaryMap.set(dateStr, {
       date: dateStr,
