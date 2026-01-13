@@ -2182,167 +2182,131 @@ export async function processCapacityData(
     return aPriority - bPriority;
   });
 
-  // Step 7: Merge daily summaries with demand
-  const dailySummaryMap = new Map<string, any>();
-  const allDates = new Set<string>();
-
-  // Use the cleanedRecords to build availability summaries
-  const availabilitySummariesByDate = new Map<string, {
-    totalAvailableHours: number;
-    totalUnavailableHours: number;
-    totalHolidayHours: number;
-  }>();
-
-  cleanedRecords.forEach(record => {
-    if (!availabilitySummariesByDate.has(record.date)) {
-      availabilitySummariesByDate.set(record.date, {
-        totalAvailableHours: 0,
-        totalUnavailableHours: 0,
-        totalHolidayHours: 0
-      });
+  // Step 7: Build Daily Summary (with same consolidation logic as Employee Summary)
+  const dailySummaryMap = new Map<
+    string,
+    {
+      availableHours: number;
+      netCapacity: number;
+      unavailability: number;
+      holidays: number;
     }
-    const summary = availabilitySummariesByDate.get(record.date)!;
-    if (record.status === "Available" || record.status === "Partial Availability") {
-      summary.totalAvailableHours += record.hours;
-    } else if (record.status === "Holiday") {
-      summary.totalHolidayHours += record.hours;
-    } else if (record.status !== "Ad-hoc") {
-      summary.totalUnavailableHours += record.hours;
+  >();
+
+  // Group records by date and employee to apply consolidation logic
+  const recordsByDateAndEmployee = new Map<
+    string,
+    Map<string, CleanedEmployeeRecord[]>
+  >();
+
+  cleanedRecords.forEach((record) => {
+    const dateKey = record.date;
+    if (!recordsByDateAndEmployee.has(dateKey)) {
+      recordsByDateAndEmployee.set(dateKey, new Map());
     }
+
+    const dateMap = recordsByDateAndEmployee.get(dateKey)!;
+    if (!dateMap.has(record.employeeName)) {
+      dateMap.set(record.employeeName, []);
+    }
+
+    dateMap.get(record.employeeName)!.push(record);
   });
 
-  // Collect all dates from availability summaries
-  availabilitySummariesByDate.forEach((s, dateStr) => {
-    allDates.add(dateStr);
-    dailySummaryMap.set(dateStr, {
-      date: dateStr,
-      employeeCapacity: s.totalAvailableHours,
-      clientRequired: 0, // Will be filled from GH data
-      unavailability: s.totalUnavailableHours,
-      holidays: s.totalHolidayHours,
-    });
-  });
-
-  // Define excluded service types for KPI calculations
-  const KPI_EXCLUDED_SERVICE_TYPES = [
-    "office hours",
-    "office",
-    "visit, office",
-    "office visit",
-    "nights - sleep in",
-    "sleep in",
-    "nights - waking nights",
-    "waking nights",
-    "nights-sleep in",
-    "nights-waking nights",
-    "night - sleep in",
-    "night - waking nights",
-    "night - waking night",
-    "night",
-    "overnight",
-    "sleepover",
-    "waking night",
-    "multiple care (secondary)",
-    "secondary",
-    "(secondary)",
-    "multiple care - secondary",
-    "live in care (sc)",
-    "live in care",
-    "live-in care",
-    "shadowing",
-  ];
-
-  // Calculate demand from GUARANTEED HOURS (GH) data instead of Hours by Service Type
-  // This allows us to apply the exact same filters as the scheduling engine
-  const ghDemandMap = new Map<string, number>();
-  const seenVisits = new Set<string>();
-
-  // Re-use the existing extraction logic to get filtered visits
-  // We'll group them by date and sum their durations
-  guaranteed.forEach((row: any) => {
-    // 1. Basic cancellations and secondary care (reusing existing filters)
-    const cancelRaw = pickCol(row, CANCEL_COLS);
-    if (!isCancellationBlank(cancelRaw)) return;
-
-    const serviceTypeRaw = pickCol(row, SERVICE_TYPE_COLS);
-    if (!serviceTypeRaw) return;
-    if (isSecondaryMultipleCare(serviceTypeRaw)) return;
-    if (isLiveInCare(serviceTypeRaw)) return;
-
-    // 2. Multi-keyword exclusion (same as scheduling engine)
-    const serviceTypeLower = String(serviceTypeRaw).toLowerCase();
-    const isExcluded = KPI_EXCLUDED_SERVICE_TYPES.some((excluded) =>
-      serviceTypeLower.includes(excluded.toLowerCase()),
-    );
-    if (isExcluded) return;
-
-    // 3. Overnight visit filtering (same as scheduling engine)
-    const { start, end } = resolveServiceTimestamps(row);
-    if (!start || !end) return;
-
-    const startDate = parseGuaranteedDate(start);
-    const endDate = parseGuaranteedDate(end);
-
-    if (startDate && endDate) {
-      const startDay = format(startDate, "yyyy-MM-dd");
-      const endDay = format(endDate, "yyyy-MM-dd");
-
-      if (startDay !== endDay) {
-        return; // Skip overnight visits
-      }
-
-    // Calculate duration in hours
-    const sMin = toMin(start);
-    const eMin = toMin(end);
-    if (Number.isFinite(sMin) && Number.isFinite(eMin)) {
-      // HANDLE DUPLICATE ENTRIES:
-      // If the exact same visit (client, time, duration) exists multiple times
-      // in the GH data, we only count it once for demand.
-      const clientName = pickCol(row, CLIENT_COLS) || "Unknown";
-      const dupKey = `${clientName}|${startDay}|${sMin}|${eMin}|${serviceTypeLower}`;
-      if (seenVisits.has(dupKey)) return;
-      seenVisits.add(dupKey);
-
-      const durationHours = (eMin - sMin) / 60;
-      ghDemandMap.set(
-        startDay,
-        (ghDemandMap.get(startDay) || 0) + durationHours,
-      );
-      allDates.add(startDay);
-    }
-    }
-  });
-
-  // Ensure all dates have an entry
-  allDates.forEach((dateStr) => {
-    if (!dailySummaryMap.has(dateStr)) {
-      dailySummaryMap.set(dateStr, {
-        date: dateStr,
-        employeeCapacity: 0,
-        clientRequired: 0,
+  // Apply consolidation logic for each date and employee
+  recordsByDateAndEmployee.forEach((employeeMap, date) => {
+    if (!dailySummaryMap.has(date)) {
+      dailySummaryMap.set(date, {
+        availableHours: 0,
+        netCapacity: 0,
         unavailability: 0,
         holidays: 0,
       });
     }
-    const summary = dailySummaryMap.get(dateStr);
-    summary.clientRequired = Number((ghDemandMap.get(dateStr) || 0).toFixed(2));
+
+    const summary = dailySummaryMap.get(date)!;
+
+    employeeMap.forEach((records, _employeeName) => {
+      // Apply same consolidation logic as Employee Summary
+      let hasUnavailableStatus = false;
+      let bestRecord = records[0]; // Start with first record
+      let totalUnavailableHours = 0;
+
+      // Find the record with highest contracted daily hours and check for unavailable statuses
+      records.forEach((record) => {
+        if (record.contractedDailyHours > bestRecord.contractedDailyHours) {
+          bestRecord = record;
+        }
+
+        if (
+          record.status !== "Available" &&
+          record.status !== "Partial Availability"
+        ) {
+          hasUnavailableStatus = true;
+          totalUnavailableHours += record.hours;
+        } else if (record.status === "Partial Availability") {
+          // Partial availability adds to unavailable hours but doesn't mark as fully unavailable
+          totalUnavailableHours += record.hours;
+        }
+      });
+
+      // Use the best record's net capacity
+      summary.netCapacity += bestRecord.netCapacity;
+
+      // Apply status priority logic with proper handling of partial availability
+      if (hasUnavailableStatus) {
+        // Count unavailable hours by status type
+        records.forEach((record) => {
+          if (record.status === "Holiday") {
+            summary.holidays += record.hours;
+          } else if (
+            [
+              "Sick",
+              "Maternity/Paternity",
+              "Compassionate Leave",
+              "Other Unavailable",
+              "Pre-Agreed Appointment",
+            ].includes(record.status)
+          ) {
+            summary.unavailability += record.hours;
+          }
+        });
+      } else {
+        // Count available hours and partial availability hours
+        records.forEach((record) => {
+          if (record.status === "Available") {
+            summary.availableHours += record.hours;
+          } else if (record.status === "Partial Availability") {
+            // Partial availability contributes to unavailability hours
+            summary.unavailability += record.hours;
+          }
+        });
+      }
+    });
+  });
+
+  // Step 8: Merge with client demand
+  const demandMap = new Map<string, number>();
+  demand.forEach((row) => {
+    const dateStr = format(parseDate(row.Date), "yyyy-MM-dd");
+    demandMap.set(dateStr, row["Required Client Hours"]);
   });
 
   const dailySummary: DailySummaryRecord[] = Array.from(
-    dailySummaryMap.values(),
+    dailySummaryMap.entries(),
   )
-    .map((summary) => {
+    .map(([date, summary]) => {
+      const clientRequired = demandMap.get(date) || 0;
       const gap =
-        Math.round((summary.employeeCapacity - summary.clientRequired) * 100) /
-        100;
+        Math.round((summary.netCapacity - clientRequired) * 100) / 100;
 
       return {
-        date: summary.date,
-        availableHours: Math.round(summary.employeeCapacity * 100) / 100, // availableHours maps to employeeCapacity in the loop
-        netCapacity: Math.round(summary.employeeCapacity * 100) / 100,
+        date,
+        availableHours: Math.round(summary.availableHours * 100) / 100,
+        netCapacity: Math.round(summary.netCapacity * 100) / 100,
         unavailability: Math.round(summary.unavailability * 100) / 100,
         holidays: Math.round(summary.holidays * 100) / 100,
-        clientRequired: Math.round(summary.clientRequired * 100) / 100,
+        clientRequired: Math.round(clientRequired * 100) / 100,
         gap,
         status: (gap >= 0 ? "Sufficient" : "Shortage") as
           | "Sufficient"

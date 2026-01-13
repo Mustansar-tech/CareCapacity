@@ -35,25 +35,16 @@ const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(sec
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
   'office',
-  'visit, office',
-  'office visit',
   'nights - sleep in',
   'sleep in',
   'nights - waking nights',
   'waking nights',
-  'nights-sleep in',
-  'nights-waking nights',
-  'night - sleep in',
-  'night - waking nights',
-  'night - waking night',
   'night',
   'overnight',
   'sleepover',
-  'waking night',
   'multiple care (secondary)',
   'secondary',
   '(secondary)',
-  'multiple care - secondary',
   'live in care (sc)',
   'live in care',
   'live-in care',
@@ -538,25 +529,13 @@ function assignVisitToBestEmployee(
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
       // Check for any overlap in time with a small buffer
-      // If visits overlap by more than 1 minute, it's a conflict
-      // EXCEPT if it's the exact same visit duration and time, which might be a duplicate
-      // OR if we want to be more precise about "overlap"
-      return (visitStart < vEnd - 1 && visitEnd > vStart + 1);
+      const buffer = 1; 
+      return (visitStart < vEnd - buffer && visitEnd > vStart + buffer);
     });
 
     if (hasConflictingVisit) {
-      // Check if it's the EXACT same client and time - if so, it's a duplicate of the one we're trying to assign
-      // but in the scheduling context, we shouldn't have the same visit ID twice in assignedVisits
-      const exactDuplicate = schedule.assignedVisits.some(v => 
-        v.clientName === adjustedVisit.clientName && 
-        v.startTime === adjustedVisit.startTime && 
-        v.endTime === adjustedVisit.endTime
-      );
-
-      if (!exactDuplicate) {
-        console.log(`❌ REJECTING: ${schedule.employeeName} has overlap with existing visit at ${adjustedVisit.startTime}`);
-        continue; // Skip this employee entirely - NO overlaps allowed
-      }
+      finalScore *= 0.1; // Massive penalty - nearly eliminate this option
+      console.log(`⚠️ TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}`);
     }
 
     // Add early visit bonus for first visits (prioritize starting early and near home)
