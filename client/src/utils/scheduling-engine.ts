@@ -864,7 +864,7 @@ export function generateWeeklySchedule(
       if (emp.transportMode) {
         const modeLower = emp.transportMode.toLowerCase();
         if (modeLower.includes('walk')) {
-          mode = 'walking';
+          mode = 'public';
         } else if (modeLower.includes('public') || modeLower.includes('bus') || modeLower.includes('train')) {
           mode = 'public';
         } else if (modeLower.includes('car')) {

@@ -593,14 +593,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                               Math.sin(dLng/2) * Math.sin(dLng/2);
                                             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                             const distKm = R * c;
-                                            // Synchronized speed: 35 km/h car, 4 km/h walking
-                                            const speedKmh = mode === 'walking' ? 4.0 : 35;
+                                            // Synchronized speed: 35 km/h car, 20 km/h public transport
+                                            const speedKmh = mode === 'car' ? 35 : 20;
                                             // Synchronized minimum: 2 minutes
                                             return Math.max(2, Math.round((distKm / speedKmh) * 60));
                                           };
 
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                        const mode = transportMode.includes('walk') ? 'walking' : 'car';
+                                        const mode = transportMode.includes('car') ? 'car' : 'public';
 
                                         // Travel from current visit to home
                                         if (currentVisit.lat && currentVisit.lng) {
@@ -685,12 +685,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       Math.sin(dLng/2) * Math.sin(dLng/2);
                                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                     const distKm = R * c;
-                                    const speedKmh = mode === 'walking' ? 4.0 : 35;
+                                    const speedKmh = mode === 'car' ? 35 : 20;
                                     return Math.max(2, Math.round((distKm / speedKmh) * 60));
                                   };
 
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                  const mode = transportMode.includes('walk') ? 'walking' : 'car';
+                                  const mode = transportMode.includes('car') ? 'car' : 'public';
 
                                   travelToHome = getTravelMinutes(
                                     { lat: lastVisit.lat, lng: lastVisit.lng },

@@ -437,8 +437,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         const clientLocationCoords = { lat: clientLat, lng: clientLng };
 
                         // Normalize transport mode
-                        const normalizedTransportMode = transportMode.includes('car') ? 'car' : 
-                                                      transportMode.includes('walk') ? 'walking' : 'car';
+                        const normalizedTransportMode = transportMode.includes('car') ? 'car' : 'public';
 
                         const travelMinutes = getTravelMinutes(
                             empLocation,

@@ -318,10 +318,10 @@ export class AutoScheduler {
         const availabilityWindows = parseTimeWindows(availability.timeWindows || "");
 
         const transportMode = (emp.transportMode?.toLowerCase().includes('car') ? 'car' : 
-                              emp.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'car') as any;
+                              emp.transportMode?.toLowerCase().includes('walk') ? 'public' : 'car') as any;
 
         // Set travel limits based on transport mode for better allocation
-        const maxTravel = transportMode === 'car' ? 25 : 20; // 25min for car, 20min for others
+        const maxTravel = transportMode === 'car' ? 25 : 30; // 25min for car, 30min for public transport (walkers)
 
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;

@@ -73,7 +73,8 @@ export class TravelTimeService {
     // 2. Try OpenRouteService
     if (this.ORS_API_KEY) {
       try {
-        const orsMode = transportMode === 'walking' ? 'foot-walking' : 'driving-car';
+        const orsMode = transportMode === 'walking' ? 'foot-walking' : 
+                        transportMode === 'public' ? 'driving-car' : 'driving-car';
         console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
         const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
           method: 'POST',
