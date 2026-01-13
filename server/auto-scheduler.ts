@@ -614,13 +614,12 @@ export class AutoScheduler {
       }
 
       // Calculate travel time for scoring (no hard limit)
-      const travelTimeMatrix = await this.travelService.calculateTravelTime(
+      const travelTime = await this.calculateTravelTime(
         "default",
-        { lat: employee.homeLat, lng: employee.homeLng },
-        { lat: visit.clientLat, lng: visit.clientLng },
+        employee.employeeName,
+        visit.clientName,
         employee.transportMode
       );
-      const travelTime = travelTimeMatrix.travelTimeMinutes;
 
       // Find best insertion point and calculate score
       const insertion = await this.findBestInsertionPoint(visit, schedule);
@@ -655,21 +654,20 @@ export class AutoScheduler {
         ? { lat: prevVisit.clientLat, lng: prevVisit.clientLng }
         : { lat: employee.homeLat, lng: employee.homeLng };
 
-      const travelToPrevMatrix = await this.travelService.calculateTravelTime(
-        "default", // branchId placeholder, service handles it
-        prevLocation,
-        { lat: visit.clientLat, lng: visit.clientLng },
+      const travelToPrev = await this.calculateTravelTime(
+        "default",
+        employee.employeeName,
+        visit.clientName,
         employee.transportMode
       );
-      const travelToPrev = travelToPrevMatrix.travelTimeMinutes;
 
       const travelToNext = nextVisit 
-        ? (await this.travelService.calculateTravelTime(
+        ? await this.calculateTravelTime(
           "default",
-          { lat: visit.clientLat, lng: visit.clientLng },
-          { lat: nextVisit.clientLat, lng: nextVisit.clientLng },
+          visit.clientName,
+          nextVisit.clientName,
           employee.transportMode
-        )).travelTimeMinutes
+        )
         : 0;
 
       // Check if insertion is feasible with scheduling buffer

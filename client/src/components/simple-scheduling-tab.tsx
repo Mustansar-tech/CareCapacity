@@ -355,18 +355,18 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         );
 
                         if (empLocationData?.homeLat && empLocationData?.homeLng) {
-                          empLat = parseFloat(empLocationData.homeLat);
-                          empLng = parseFloat(empLocationData.homeLng);
+                          empLat = parseFloat(empLocationData.homeLat.toString());
+                          empLng = parseFloat(empLocationData.homeLng.toString());
                           transportMode = empLocationData.transportMode?.toLowerCase() || 'car';
                         } else {
                           // Fallback to employee summary data
-                          const selectedEmpSummary = employeeSummary.find(
+                          const selectedEmpSummary = (employeeSummary as any[]).find(
                             (emp: any) => emp.employeeName === selectedEmployee
                           );
 
                           if (selectedEmpSummary) {
-                            empLat = parseFloat(selectedEmpSummary.homeLat || '0');
-                            empLng = parseFloat(selectedEmpSummary.homeLng || '0');
+                            empLat = parseFloat((selectedEmpSummary.homeLat || '0').toString());
+                            empLng = parseFloat((selectedEmpSummary.homeLng || '0').toString());
                             transportMode = selectedEmpSummary.transportMode?.toLowerCase() || 'car';
                           }
                         }
@@ -376,13 +376,13 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         let clientLng = 0;
 
                         // Get client location from the main clientLocations array
-                        const clientLocationData = data?.clientLocations?.find(
+                        const clientLocationData = (data?.clientLocations as any[])?.find(
                           (client: any) => client.clientName === visit.clientName
                         );
 
                         if (clientLocationData?.lat && clientLocationData?.lng) {
-                          clientLat = parseFloat(clientLocationData.lat);
-                          clientLng = parseFloat(clientLocationData.lng);
+                          clientLat = parseFloat(clientLocationData.lat.toString());
+                          clientLng = parseFloat(clientLocationData.lng.toString());
                         }
 
                         // Validate coordinates are valid numbers and not zero
