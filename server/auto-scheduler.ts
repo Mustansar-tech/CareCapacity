@@ -600,12 +600,17 @@ export class AutoScheduler {
 
       // CRITICAL: Check if employee already has a visit at this exact time
       const hasTimeConflict = schedule.visits.some((v: any) => {
-        // Check for any time overlap
-        return (visit.startTime < v.actualEndTime && visit.endTime > v.actualStartTime);
+        // Strict overlap check: No overlapping visits allowed
+        const vStart = v.actualStartTime;
+        const vEnd = v.actualEndTime;
+        const visitStart = visit.startTime;
+        const visitEnd = visit.endTime;
+
+        return (visitStart < vEnd && visitEnd > vStart);
       });
 
       if (hasTimeConflict) {
-        console.log(`   ❌ ${empName}: TIME CONFLICT - already has visit at ${visit.startTime}-${visit.endTime}`);
+        console.log(`   ❌ ${empName}: STRICT TIME CONFLICT - overlap detected with ${visit.startTime}-${visit.endTime}`);
         continue; // Skip - employee already busy at this time
       }
 
