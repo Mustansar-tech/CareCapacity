@@ -364,10 +364,11 @@ function calculateTravelFromPrevious(
 // Check if client requires specific gender (e.g., "Mullen, Eileen (F)" requires female)
 function getClientGenderPreference(clientName: string): string | null {
   const upperName = clientName.toUpperCase();
-  if (upperName.includes('(F)') || upperName.endsWith(' F')) {
+  // Support both (M)/(F), (M )/(F ), and M/F at the end after a space or comma
+  if (upperName.includes('(F)') || upperName.includes(' F)') || upperName.includes(', F)') || upperName.endsWith(' F') || upperName.endsWith(', F')) {
     return 'female';
   }
-  if (upperName.includes('(M)') || upperName.endsWith(' M')) {
+  if (upperName.includes('(M)') || upperName.includes(' M)') || upperName.includes(', M)') || upperName.endsWith(' M') || upperName.endsWith(', M')) {
     return 'male';
   }
   return null; // No preference
@@ -384,13 +385,21 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
   }
 
   const empGenderLower = employeeGender.toLowerCase();
-  const matches = empGenderLower.includes(preference);
+  // Ensure we match 'female' or 'male' accurately
+  const isFemale = empGenderLower === 'female' || empGenderLower === 'f';
+  const isMale = empGenderLower === 'male' || empGenderLower === 'm';
 
-  if (!matches) {
-    console.log(`⚠️ Gender mismatch: Employee (${employeeGender}) cannot serve ${clientName} (requires ${preference})`);
+  if (preference === 'female') {
+    if (!isFemale) console.log(`⚠️ Gender mismatch: Employee (${empGenderLower}) cannot serve ${clientName} (requires female)`);
+    return isFemale;
   }
 
-  return matches;
+  if (preference === 'male') {
+    if (!isMale) console.log(`⚠️ Gender mismatch: Employee (${empGenderLower}) cannot serve ${clientName} (requires male)`);
+    return isMale;
+  }
+
+  return true;
 }
 
 // Try to assign a visit to the best employee
