@@ -2288,8 +2288,30 @@ export async function processCapacityData(
   // Step 8: Merge with client demand
   const demandMap = new Map<string, number>();
   demand.forEach((row) => {
+    // Check for "Required Client Hours" specifically from GH data
+    // This part assumes 'demand' contains rows from the Guaranteed Hours sheet
+    // We want to skip overnight visits here just like in the scheduling extraction
+    
+    const startRaw = pickCol(row, START_TIME_COLS);
+    const endRaw = pickCol(row, END_TIME_COLS);
+    
+    if (startRaw && endRaw) {
+      const startDate = parseGuaranteedDate(startRaw);
+      const endDate = parseGuaranteedDate(endRaw);
+      
+      if (startDate && endDate) {
+        const startStr = format(startDate, "yyyy-MM-dd");
+        const endStr = format(endDate, "yyyy-MM-dd");
+        
+        if (startStr !== endStr) {
+          console.log(`🚫 KPI: Skipping overnight visit for Client Required calculation: ${row[CLIENT_COLS[0]] || 'Unknown'} (${startStr} to ${endStr})`);
+          return;
+        }
+      }
+    }
+
     const dateStr = format(parseDate(row.Date), "yyyy-MM-dd");
-    demandMap.set(dateStr, row["Required Client Hours"]);
+    demandMap.set(dateStr, (demandMap.get(dateStr) || 0) + row["Required Client Hours"]);
   });
 
   const dailySummary: DailySummaryRecord[] = Array.from(
