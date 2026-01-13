@@ -2287,8 +2287,33 @@ export async function processCapacityData(
 
     // Step 8: Merge with client demand
     const demandMap = new Map<string, number>();
+    
+    // Define excluded service types for KPI calculations
+    const KPI_EXCLUDED_SERVICE_TYPES = [
+      'office hours', 'office', 'visit, office', 'office visit',
+      'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights',
+      'nights-sleep in', 'nights-waking nights', 'night - sleep in',
+      'night - waking nights', 'night - waking night', 'night', 'overnight',
+      'sleepover', 'waking night', 'multiple care (secondary)', 'secondary',
+      '(secondary)', 'multiple care - secondary', 'live in care (sc)',
+      'live in care', 'live-in care', 'shadowing'
+    ];
+
     demand.forEach((row: any) => {
-      // Check for start/end dates from row columns
+      // 1. Skip excluded service types (same as scheduling)
+      const serviceTypeRaw = pickCol(row, SERVICE_TYPE_COLS);
+      if (serviceTypeRaw) {
+        const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
+        const isExcluded = KPI_EXCLUDED_SERVICE_TYPES.some(excluded =>
+          serviceTypeLower.includes(excluded.toLowerCase())
+        );
+        if (isExcluded) {
+          console.log(`🚫 KPI: Excluding row by service type: "${serviceTypeRaw}"`);
+          return;
+        }
+      }
+
+      // 2. Check for start/end dates from row columns
       // If start and end are on different dates, skip this row for Client Required sum
       const startVal = row["Actual Start Date And Time"] || row["Start Date And Time"] || row["Planned Start Date And Time"] || row["Service Requirement Start Date And Time"];
       const endVal = row["Actual End Date And Time"] || row["End Date And Time"] || row["Planned End Date And Time"] || row["Service Requirement End Date And Time"];
