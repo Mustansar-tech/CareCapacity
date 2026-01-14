@@ -699,7 +699,14 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Track office hours for debugging
     const serviceType = serviceTypeRaw || "";
-    const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
+    const isOfficeHours = serviceType && (
+      serviceType.toLowerCase().includes("office") ||
+      serviceType.toLowerCase().includes("training") ||
+      serviceType.toLowerCase().includes("shadowing") ||
+      serviceType.toLowerCase().includes("internal") ||
+      serviceType.toLowerCase().includes("meeting") ||
+      serviceType.toLowerCase().includes("admin")
+    );
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -1520,10 +1527,22 @@ export async function parseExcelFiles(
 
       // Check for dummy/planning-only rows (often have keywords in name)
       const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
-      const isDummyClient = clientName.includes('dummy') || clientName.includes('planning') || clientName.includes('office');
+      const isDummyClient = 
+        clientName.includes('dummy') || 
+        clientName.includes('planning') || 
+        clientName.includes('office') ||
+        clientName.includes('training') ||
+        clientName.includes('shadowing') ||
+        clientName.includes('internal') ||
+        clientName.includes('meeting') ||
+        clientName.includes('admin');
 
       // NEW: Do NOT drop dummy client rows if they are needed for scheduled hours.
       // We only filter them out for care-specific metrics later.
+      if (isDummyClient) {
+        (row as any).isDummyClient = true;
+      }
+
       if (!isCancelOk || isSecondary || (isNightShift && !isOfficeHours)) {
         filteredSecondaryCount++;
         return;
