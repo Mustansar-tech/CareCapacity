@@ -699,7 +699,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Track office hours/shadowing for debugging
     const serviceType = serviceTypeRaw || "";
-    const lowerServiceType = serviceType.toLowerCase();
+    const lowerServiceType = String(serviceType).toLowerCase();
     const isOfficeHours = lowerServiceType && (
       lowerServiceType.includes("office") ||
       lowerServiceType.includes("training") ||
@@ -750,35 +750,35 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       console.log(`  Map Key: ${name}|${date}`);
     }
 
-    // Debug specific employee entries (case-insensitive)
-    if (
-      empName &&
-      (empName.toLowerCase().includes("chloe") ||
-        empName.toLowerCase().includes("mcclymont") ||
-        empName.toLowerCase().includes("makala"))
-    ) {
-      console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
-      console.log(`  Original Name: ${empName}`);
-      console.log(`  Normalized Name: ${name}`);
-      console.log(`  Picked Start: ${start}`);
-      console.log(`  Parsed Date: ${date}`);
-      console.log(`  Raw Pay Hours: ${payRaw}`);
-      console.log(`  Parsed Pay Hours: ${pay}`);
-      console.log(`  Service Type: ${serviceType}`);
-      console.log(`  Cancellation: "${cancelRaw}"`);
-    }
-
-    if (name && date && pay > 0) {
-      const key = `${name}|${date}`;
-      const existing = ghMap.get(key) || 0;
-      const newTotal = existing + pay;
-      ghMap.set(key, newTotal);
-
-      if (empName && empName.toLowerCase().includes("makala")) {
-        console.log(
-          `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
-        );
+      // Debug specific employee entries (case-insensitive)
+      if (
+        empName &&
+        (empName.toLowerCase().includes("chloe") ||
+          empName.toLowerCase().includes("mcclymont") ||
+          empName.toLowerCase().includes("makala"))
+      ) {
+        console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
+        console.log(`  Original Name: ${empName}`);
+        console.log(`  Normalized Name: ${name}`);
+        console.log(`  Picked Start: ${start}`);
+        console.log(`  Parsed Date: ${date}`);
+        console.log(`  Raw Pay Hours: ${payRaw}`);
+        console.log(`  Parsed Pay Hours: ${pay}`);
+        console.log(`  Service Type: ${serviceType}`);
+        console.log(`  Cancellation: "${cancelRaw}"`);
       }
+
+      if (name && date && pay > 0) {
+        const key = `${name}|${date}`;
+        const existing = ghMap.get(key) || 0;
+        const newTotal = existing + pay;
+        ghMap.set(key, newTotal);
+
+        if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+          console.log(
+            `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+          );
+        }
 
       // Also log for office hours to verify they're being added
       if (isOfficeHours) {
