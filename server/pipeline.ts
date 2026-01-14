@@ -418,8 +418,10 @@ function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
   const plStart = row["Planned Start Date And Time"];
   const plEnd = row["Planned End Date And Time"];
 
-  const start = srStart ?? acStart ?? plStart;
-  const end = srEnd ?? acEnd ?? plEnd;
+  // CRITICAL FIX: Use || instead of ?? to handle empty strings as falsy
+  // This ensures fallback to Planned when Actual is "" (not actualised yet)
+  const start = srStart || acStart || plStart;
+  const end = srEnd || acEnd || plEnd;
   return { start, end };
 }
 
@@ -710,12 +712,19 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       lowerServiceType.includes("admin")
     );
 
-    // Use Actual priority for Care Pro Guaranteed Hours
-    const start = pickStartForBucket(g);
-    if (!start) continue;
+    // CRITICAL FIX: Use resolveServiceTimestamps to fall back to Planned when Actual is empty
+    // This ensures shadowing/office hours entries with empty Actual fields still get counted
+    const { start, end } = resolveServiceTimestamps(g);
+    if (!start) {
+      // Debug: log when we skip due to no start time
+      const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+      if (empName && (empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+        console.log(`⚠️ SKIPPING entry for ${empName} - no start timestamp (Actual, Planned, or SR)`);
+      }
+      continue;
+    }
 
     // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
-    const end = pickCol(g, END_TIME_COLS);
     if (start && end) {
       const startDate = format(parseDate(start), "yyyy-MM-dd");
       const endDate = format(parseDate(end), "yyyy-MM-dd");
@@ -737,18 +746,15 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     let pay = Number(payRaw) || 0;
 
     // CRITICAL FIX: For office hours/shadowing, calculate duration from timestamps if pay is 0
-    if (isOfficeHours && pay === 0 && start) {
-      const endTime = pickCol(g, END_TIME_COLS);
-      if (endTime) {
-        try {
-          const calculatedDuration = hoursBetween(start, endTime);
-          if (calculatedDuration > 0 && calculatedDuration < 24) {
-            pay = calculatedDuration;
-            console.log(`🏢 CALCULATED DURATION for office hours: ${pay}h (from timestamps)`);
-          }
-        } catch (e) {
-          // Could not calculate duration, keep pay as 0
+    if (isOfficeHours && pay === 0 && start && end) {
+      try {
+        const calculatedDuration = hoursBetween(start, end);
+        if (calculatedDuration > 0 && calculatedDuration < 24) {
+          pay = calculatedDuration;
+          console.log(`🏢 CALCULATED DURATION for office hours: ${pay}h (from timestamps)`);
         }
+      } catch (e) {
+        // Could not calculate duration, keep pay as 0
       }
     }
 
