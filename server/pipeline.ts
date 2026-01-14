@@ -1513,6 +1513,7 @@ export async function parseExcelFiles(
         lowerType.includes('office') || 
         lowerType.includes('training') || 
         lowerType.includes('shadowing') ||
+        lowerType.includes('shadow') ||
         lowerType.includes('internal') ||
         lowerType.includes('meeting') ||
         lowerType.includes('admin')
