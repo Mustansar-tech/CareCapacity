@@ -435,9 +435,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           }, 0)
                         : 0;
 
-                      // Get weekly hours (GH) and net capacity
+                      // Get weekly hours (GH) and holidays/unavailability
                       const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
-                      const weeklyNetCapacity = employeeWeeklyNetCapacityMap.get(empName) || 0;
+                      const holidayDays = employeeHolidaysMap.get(empName) || 0;
+                      const unavailDays = employeeUnavailabilityMap.get(empName) || 0;
 
                       const isSelected = selectedEmployee === empName;
 
@@ -463,10 +464,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {weeklyHours.toFixed(1)}h / week
                                 </span>
                               )}
-                              {weeklyNetCapacity !== 0 && (
-                                <span className="text-xs text-muted-foreground">
-                                  {weeklyNetCapacity.toFixed(1)}h net
-                                </span>
+                              {holidayDays > 0 && (
+                                <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+                                  {holidayDays}d holiday
+                                </Badge>
+                              )}
+                              {unavailDays > 0 && (
+                                <Badge variant="outline" className="text-xs text-red-600 border-red-400">
+                                  {unavailDays}d off
+                                </Badge>
                               )}
                               {totalVisitHours > 0 && (
                                 <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
