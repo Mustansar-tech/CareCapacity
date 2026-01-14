@@ -697,9 +697,18 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // This ensures employees show correct scheduled hours including office work
     // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
 
-    // Track office hours for debugging
+    // Track office hours/shadowing for debugging
     const serviceType = serviceTypeRaw || "";
-    const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
+    const lowerServiceType = serviceType.toLowerCase();
+    const isOfficeHours = lowerServiceType && (
+      lowerServiceType.includes("office") ||
+      lowerServiceType.includes("training") ||
+      lowerServiceType.includes("shadowing") ||
+      lowerServiceType.includes("shadow") ||
+      lowerServiceType.includes("internal") ||
+      lowerServiceType.includes("meeting") ||
+      lowerServiceType.includes("admin")
+    );
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -744,9 +753,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // Debug specific employee entries (case-insensitive)
     if (
       empName &&
-      (empName.toLowerCase().includes("makala") ||
-        empName.toLowerCase().includes("brooke") ||
-        empName.toLowerCase().includes("brien"))
+      (empName.toLowerCase().includes("chloe") ||
+        empName.toLowerCase().includes("mcclymont") ||
+        empName.toLowerCase().includes("makala"))
     ) {
       console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
       console.log(`  Original Name: ${empName}`);
@@ -800,10 +809,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
-  // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
-  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Makala entries):`);
+  // Debug: Show final scheduled hours for Chloe and Makala
+  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Debug entries):`);
   Array.from(ghMap.entries()).forEach(([key, hours]) => {
     if (
+      key.toLowerCase().includes("chloe") ||
+      key.toLowerCase().includes("mcclymont") ||
       key.toLowerCase().includes("makala") ||
       key.toLowerCase().includes("mcewan")
     ) {
