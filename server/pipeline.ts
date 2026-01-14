@@ -1496,22 +1496,12 @@ export async function parseExcelFiles(
       // Check for excluded service types (nights only - office hours MUST be included in scheduled totals)
       const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
       const lowerType = String(serviceType).toLowerCase();
-      
-      const isNightShift = lowerType && (() => {
-        const nightKeywords = [
-          'nights - sleep in',
-          'sleep in',
-          'nights - waking nights',
-          'waking nights'
-        ];
-        return nightKeywords.some(excluded => lowerType.includes(excluded));
-      })();
 
       // Rule: Office hours, Training, Shadowing, and Internal work MUST be included in scheduled totals
       // even if they are from "Dummy" clients or planning-only rows.
       const isOfficeHours = lowerType && (
-        lowerType.includes('office') || 
-        lowerType.includes('training') || 
+        lowerType.includes('office') ||
+        lowerType.includes('training') ||
         lowerType.includes('shadowing') ||
         lowerType.includes('shadow') ||
         lowerType.includes('internal') ||
@@ -1521,7 +1511,16 @@ export async function parseExcelFiles(
 
       // Check for dummy/planning-only rows (often have keywords in name)
       const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
-      const isDummyClient = clientName.includes('dummy') || clientName.includes('planning') || clientName.includes('office');
+
+      const isNightShift = lowerType && (() => {
+        const nightKeywords = [
+          'nights - sleep in',
+          'sleep in',
+          'nights - waking nights',
+          'waking nights'
+        ];
+        return nightKeywords.some(excluded => lowerType.includes(excluded));
+      })();
 
       if (!isCancelOk || isSecondary || (isNightShift && !isOfficeHours)) {
         filteredSecondaryCount++;
