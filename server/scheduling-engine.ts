@@ -2,6 +2,10 @@
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
   'office',
+  'nights - sleep in',
+  'sleep in',
+  'nights - waking nights',
+  'waking nights',
   'multiple care (secondary)',
   'secondary',
   '(secondary)'
@@ -27,7 +31,7 @@ function isOfficeVisit(clientName: string): boolean {
 function processVisits(visits: Visit[]): Visit[] {
   const filteredVisits = visits.filter(visit => {
     // Skip office visits
-    if (visit.clientName && isOfficeVisit(visit.clientName)) {
+    if (isOfficeVisit(visit.clientName)) {
       console.log(`🚫 Excluding office visit: ${visit.clientName}`);
       return false;
     }

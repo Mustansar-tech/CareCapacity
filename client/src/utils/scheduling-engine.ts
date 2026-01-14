@@ -31,10 +31,17 @@ const OFFICE_VISIT_KEYWORDS = [
 // Secondary multiple care keywords to exclude
 const SECONDARY_CARE_KEYWORDS = ['multiple care (secondary)', 'secondary', '(secondary)'];
 
-// Service types to exclude (including secondary care, office hours, and shadowing)
+// Service types to exclude (including secondary care, office hours, night shifts, and shadowing)
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
   'office',
+  'nights - sleep in',
+  'sleep in',
+  'nights - waking nights',
+  'waking nights',
+  'night',
+  'overnight',
+  'sleepover',
   'multiple care (secondary)',
   'secondary',
   '(secondary)',
