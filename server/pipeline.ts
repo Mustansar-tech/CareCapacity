@@ -725,12 +725,22 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       }
     }
 
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    const name = normalizeName(empName);
+    if (!name) continue;
+
+    const start = pickStartForBucket(g);
+    if (!start) continue;
+
+    // Only count if duration is positive (skip rows with missing/invalid Planned Duration)
     if (duration > 0) {
-      const current = scheduledHoursMap.get(name) || new Map();
-      const dayTotal = current.get(date) || 0;
-      current.set(date, dayTotal + duration);
-      scheduledHoursMap.set(name, current);
+      const date = format(parseDate(start), "yyyy-MM-dd");
+
+      // Use a composite key for ghMap: normalized employee name | date
+      const mapKey = `${name}|${date}`;
+      ghMap.set(mapKey, (ghMap.get(mapKey) || 0) + duration);
     }
+  }
 
   console.log(`\n🔍 SCHEDULED HOURS FILTERING SUMMARY:`);
   console.log(`  📊 Total guaranteed hours entries: ${totalProcessed}`);
@@ -748,7 +758,19 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
+  return ghMap;
+}
 
+// Helper function to get scheduled hours for a specific employee and date
+function getScheduledHoursForEmployeeAndDate(
+  scheduledHoursMap: Map<string, number>,
+  employeeName: string,
+  date: string,
+): number {
+  const normalizedName = normalizeName(employeeName);
+  const mapKey = `${normalizedName}|${date}`;
+  return scheduledHoursMap.get(mapKey) || 0;
+}
 
 // Calculate hours between times exactly like your hours_between function
 function hoursBetween(startTime: any, endTime: any): number {
