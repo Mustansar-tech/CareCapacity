@@ -101,6 +101,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeWeeklyNetCapacityMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
 
+  // Track holidays and unavailability per employee
+  const employeeHolidaysMap = new Map<string, number>();
+  const employeeUnavailabilityMap = new Map<string, number>();
+
   // Calculate guaranteed hours (GH) from contracted daily hours
   Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
     dayEmployees.forEach(emp => {
@@ -111,6 +115,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // Store gender info
       if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
         employeeGenderMap.set(emp.employeeName, emp.gender);
+      }
+      // Track holidays and unavailability from status
+      const statusLower = (emp.status || '').toLowerCase();
+      if (statusLower.includes('holiday') || statusLower.includes('annual leave')) {
+        const current = employeeHolidaysMap.get(emp.employeeName) || 0;
+        employeeHolidaysMap.set(emp.employeeName, current + 1);
+      } else if (statusLower.includes('unavailable') || statusLower.includes('sick') || statusLower.includes('off')) {
+        const current = employeeUnavailabilityMap.get(emp.employeeName) || 0;
+        employeeUnavailabilityMap.set(emp.employeeName, current + 1);
       }
     });
   });
