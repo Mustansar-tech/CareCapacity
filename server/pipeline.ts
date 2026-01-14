@@ -1152,19 +1152,29 @@ export async function parseExcelFiles(
     // Rule 2: Skip secondary care using robust check
     if (isSecondaryMultipleCare(row["Actual Service Type Description"] || "")) return false;
 
-    // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
-    const serviceType = row["Actual Service Type Description"] || "";
-    const normalizedServiceType = String(serviceType)
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')  // Remove special chars
-      .replace(/\s+/g, ' ')      // Normalize spaces
-      .trim();
+  // Rule 3: Skip excluded service types (using normalized matching like service-delivery-rules.ts)
+  const serviceType = row["Actual Service Type Description"] || "";
+  const normalizedServiceType = String(serviceType)
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')  // Remove special chars
+    .replace(/\s+/g, ' ')      // Normalize spaces
+    .trim();
 
-    const isExcludedType = EXCLUDED_TYPES.some(excluded =>
-      normalizedServiceType.includes(excluded.replace(/[^\w\s]/g, '').replace(/\s+/g, ' '))
-    );
+  // ONLY EXCLUDE CANCELLED AND SECONDARY VISITS FOR DEMAND
+  // Keep night shifts, office hours, etc. in Client Required calculation as requested
+  const DEMAND_EXCLUDED_TYPES = [
+    'multiple care (secondary)',
+    'secondary',
+    '(secondary)',
+    'oncall',
+    'on call'
+  ];
 
-    if (isExcludedType) return false;
+  const isExcludedType = DEMAND_EXCLUDED_TYPES.some(excluded =>
+    normalizedServiceType.includes(excluded.replace(/[^\w\s]/g, '').replace(/\s+/g, ' '))
+  );
+
+  if (isExcludedType) return false;
 
     return true;
   });
@@ -1172,7 +1182,7 @@ export async function parseExcelFiles(
   // Log filtering breakdown (same detail as service-delivery-rules.ts)
   const totalFiltered = guaranteedData.length - demandRows.length;
   console.log(
-    `🔍 DEMAND FILTERING: Excluded ${totalFiltered} rows from ${guaranteedData.length} total Guaranteed Hours entries`,
+    `🔍 DEMAND FILTERING (INCLUSIVE): Excluded ${totalFiltered} rows from ${guaranteedData.length} total Guaranteed Hours entries`,
   );
 
   // Show breakdown by exclusion type WITH HOURS
@@ -1187,36 +1197,9 @@ export async function parseExcelFiles(
   );
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
-  const nightRows = guaranteedData.filter(row => {
-    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
-    return st.includes("night") || st.includes("sleep in") || st.includes("waking") || st.includes("sleepover") || st.includes("overnight");
-  });
-  const nightHours = nightRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
-
-  const officeRows = guaranteedData.filter(row => {
-    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
-    return st.includes("office");
-  });
-  const officeHours = officeRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
-
-  const shadowingRows = guaranteedData.filter(row => {
-    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
-    return st.includes("shadowing");
-  });
-  const shadowingHours = shadowingRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
-
-  const trainingRows = guaranteedData.filter(row => {
-    const st = String(row["Actual Service Type Description"] || "").toLowerCase();
-    return st.includes("training");
-  });
-  const trainingHours = trainingRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
-
   console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
-  console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
-  console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
-  console.log(`  ❌ Shadowing: ${shadowingRows.length} rows (${Math.round(shadowingHours * 100) / 100}h)`);
-  console.log(`  ❌ Training: ${trainingRows.length} rows (${Math.round(trainingHours * 100) / 100}h)`);
+  console.log(`  ✅ Night shifts, Office, Training, Shadowing: NOW INCLUDED in demand calculation`);
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
