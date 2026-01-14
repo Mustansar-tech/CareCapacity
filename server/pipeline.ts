@@ -1160,14 +1160,18 @@ export async function parseExcelFiles(
     .replace(/\s+/g, ' ')      // Normalize spaces
     .trim();
 
-  // ONLY EXCLUDE CANCELLED AND SECONDARY VISITS FOR DEMAND
-  // Keep night shifts, office hours, etc. in Client Required calculation as requested
+  // EXCLUDE CANCELLED, SECONDARY, OFFICE, TRAINING, AND SHADOWING
+  // Keep night shifts in Client Required calculation as requested
   const DEMAND_EXCLUDED_TYPES = [
     'multiple care (secondary)',
     'secondary',
     '(secondary)',
     'oncall',
-    'on call'
+    'on call',
+    'office hours',
+    'office',
+    'training',
+    'shadowing'
   ];
 
   const isExcludedType = DEMAND_EXCLUDED_TYPES.some(excluded =>
@@ -1199,7 +1203,8 @@ export async function parseExcelFiles(
 
   console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
-  console.log(`  ✅ Night shifts, Office, Training, Shadowing: NOW INCLUDED in demand calculation`);
+  console.log(`  ✅ Night shifts: NOW INCLUDED in demand calculation`);
+  console.log(`  ❌ Office hours, Training, Shadowing: EXCLUDED as requested`);
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
