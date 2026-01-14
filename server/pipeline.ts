@@ -699,14 +699,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Track office hours for debugging
     const serviceType = serviceTypeRaw || "";
-    const isOfficeHours = serviceType && (
-      serviceType.toLowerCase().includes("office") ||
-      serviceType.toLowerCase().includes("training") ||
-      serviceType.toLowerCase().includes("shadowing") ||
-      serviceType.toLowerCase().includes("internal") ||
-      serviceType.toLowerCase().includes("meeting") ||
-      serviceType.toLowerCase().includes("admin")
-    );
+    const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
     // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
@@ -1525,24 +1518,9 @@ export async function parseExcelFiles(
         lowerType.includes('admin')
       );
 
-    // Flag dummy clients for filtering in actuals/demand but inclusion in scheduled hours
-    const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
-    const isDummyClient = 
-      clientName.includes('dummy') || 
-      clientName.includes('planning') || 
-      clientName.includes('office') ||
-      clientName.includes('training') ||
-      clientName.includes('internal') ||
-      clientName.includes('meeting') ||
-      clientName.includes('admin');
-    
-    // Shadowing is now INCLUDED in scheduled hours (not considered a dummy client for exclusion)
-
-      // NEW: Do NOT drop dummy client rows if they are needed for scheduled hours.
-      // We only filter them out for care-specific metrics later.
-      if (isDummyClient) {
-        (row as any).isDummyClient = true;
-      }
+      // Check for dummy/planning-only rows (often have keywords in name)
+      const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
+      const isDummyClient = clientName.includes('dummy') || clientName.includes('planning') || clientName.includes('office');
 
       if (!isCancelOk || isSecondary || (isNightShift && !isOfficeHours)) {
         filteredSecondaryCount++;
