@@ -1689,11 +1689,31 @@ export async function processCapacityData(
   });
   console.log(`🏢 DEBUG: Found ${officeRows.length} office hours rows in guaranteed data`);
   if (officeRows.length > 0) {
-    console.log(`🏢 DEBUG: Sample office hours rows:`, officeRows.slice(0, 3).map(r => ({
+    console.log(`🏢 DEBUG: Sample office hours rows:`, officeRows.slice(0, 5).map(r => ({
       employee: r["Actual Employee Name"],
       serviceType: r["Actual Service Type Description"],
-      hours: r["Actual Pay Rate Hours"]
+      plannedDuration: r["Planned Duration"],
+      actualHours: r["Actual Pay Rate Hours"]
     })));
+  }
+
+  // Debug: Check Chelsi's data specifically
+  const chelsiRows = guaranteed.filter(row => {
+    const empName = (row["Actual Employee Name"] || "").toString().toLowerCase();
+    return empName.includes("chelsi") || empName.includes("chelsea");
+  });
+  console.log(`\n👤 CHELSI DEBUG: Found ${chelsiRows.length} rows for Chelsi`);
+  if (chelsiRows.length > 0) {
+    chelsiRows.forEach((r, i) => {
+      console.log(`  Row ${i+1}:`, {
+        name: r["Actual Employee Name"],
+        serviceType: r["Actual Service Type Description"],
+        plannedDuration: r["Planned Duration"],
+        actualHours: r["Actual Pay Rate Hours"],
+        cancelled: r["Cancellation Reason"] || r["Cancelled Reason"] || r["Cancel Reason"],
+        startDate: r["Service Requirement Start Date And Time"]
+      });
+    });
   }
 
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
