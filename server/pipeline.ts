@@ -1525,17 +1525,18 @@ export async function parseExcelFiles(
         lowerType.includes('admin')
       );
 
-      // Check for dummy/planning-only rows (often have keywords in name)
-      const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
-      const isDummyClient = 
-        clientName.includes('dummy') || 
-        clientName.includes('planning') || 
-        clientName.includes('office') ||
-        clientName.includes('training') ||
-        clientName.includes('shadowing') ||
-        clientName.includes('internal') ||
-        clientName.includes('meeting') ||
-        clientName.includes('admin');
+    // Flag dummy clients for filtering in actuals/demand but inclusion in scheduled hours
+    const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
+    const isDummyClient = 
+      clientName.includes('dummy') || 
+      clientName.includes('planning') || 
+      clientName.includes('office') ||
+      clientName.includes('training') ||
+      clientName.includes('internal') ||
+      clientName.includes('meeting') ||
+      clientName.includes('admin');
+    
+    // Shadowing is now INCLUDED in scheduled hours (not considered a dummy client for exclusion)
 
       // NEW: Do NOT drop dummy client rows if they are needed for scheduled hours.
       // We only filter them out for care-specific metrics later.
