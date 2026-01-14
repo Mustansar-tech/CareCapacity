@@ -2,10 +2,6 @@
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
   'office',
-  'nights - sleep in',
-  'sleep in',
-  'nights - waking nights',
-  'waking nights',
   'multiple care (secondary)',
   'secondary',
   '(secondary)'
