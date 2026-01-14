@@ -27,7 +27,7 @@ function isOfficeVisit(clientName: string): boolean {
 function processVisits(visits: Visit[]): Visit[] {
   const filteredVisits = visits.filter(visit => {
     // Skip office visits
-    if (isOfficeVisit(visit.clientName)) {
+    if (visit.clientName && isOfficeVisit(visit.clientName)) {
       console.log(`🚫 Excluding office visit: ${visit.clientName}`);
       return false;
     }
