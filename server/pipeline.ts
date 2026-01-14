@@ -1522,6 +1522,8 @@ export async function parseExcelFiles(
       const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
       const isDummyClient = clientName.includes('dummy') || clientName.includes('planning') || clientName.includes('office');
 
+      // NEW: Do NOT drop dummy client rows if they are needed for scheduled hours.
+      // We only filter them out for care-specific metrics later.
       if (!isCancelOk || isSecondary || (isNightShift && !isOfficeHours)) {
         filteredSecondaryCount++;
         return;
