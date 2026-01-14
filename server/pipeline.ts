@@ -734,7 +734,23 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Sum only positive/real pay hours
     const payRaw = pickCol(g, PAY_HOURS_COLS);
-    const pay = Number(payRaw) || 0;
+    let pay = Number(payRaw) || 0;
+
+    // CRITICAL FIX: For office hours/shadowing, calculate duration from timestamps if pay is 0
+    if (isOfficeHours && pay === 0 && start) {
+      const endTime = pickCol(g, END_TIME_COLS);
+      if (endTime) {
+        try {
+          const calculatedDuration = hoursBetween(start, endTime);
+          if (calculatedDuration > 0 && calculatedDuration < 24) {
+            pay = calculatedDuration;
+            console.log(`🏢 CALCULATED DURATION for office hours: ${pay}h (from timestamps)`);
+          }
+        } catch (e) {
+          // Could not calculate duration, keep pay as 0
+        }
+      }
+    }
 
     if (isOfficeHours && pay > 0) {
       officeHoursIncluded++;
@@ -750,35 +766,36 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       console.log(`  Map Key: ${name}|${date}`);
     }
 
-      // Debug specific employee entries (case-insensitive)
-      if (
-        empName &&
-        (empName.toLowerCase().includes("chloe") ||
-          empName.toLowerCase().includes("mcclymont") ||
-          empName.toLowerCase().includes("makala"))
-      ) {
-        console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
-        console.log(`  Original Name: ${empName}`);
-        console.log(`  Normalized Name: ${name}`);
-        console.log(`  Picked Start: ${start}`);
-        console.log(`  Parsed Date: ${date}`);
-        console.log(`  Raw Pay Hours: ${payRaw}`);
-        console.log(`  Parsed Pay Hours: ${pay}`);
-        console.log(`  Service Type: ${serviceType}`);
-        console.log(`  Cancellation: "${cancelRaw}"`);
+    // Debug specific employee entries (case-insensitive)
+    if (
+      empName &&
+      (empName.toLowerCase().includes("chloe") ||
+        empName.toLowerCase().includes("mcclymont") ||
+        empName.toLowerCase().includes("makala"))
+    ) {
+      console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
+      console.log(`  Original Name: ${empName}`);
+      console.log(`  Normalized Name: ${name}`);
+      console.log(`  Picked Start: ${start}`);
+      console.log(`  Parsed Date: ${date}`);
+      console.log(`  Raw Pay Hours: ${payRaw}`);
+      console.log(`  Parsed Pay Hours: ${pay}`);
+      console.log(`  Service Type: ${serviceType}`);
+      console.log(`  Cancellation: "${cancelRaw}"`);
+      console.log(`  isOfficeHours: ${isOfficeHours}`);
+    }
+
+    if (name && date && pay > 0) {
+      const key = `${name}|${date}`;
+      const existing = ghMap.get(key) || 0;
+      const newTotal = existing + pay;
+      ghMap.set(key, newTotal);
+
+      if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+        console.log(
+          `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        );
       }
-
-      if (name && date && pay > 0) {
-        const key = `${name}|${date}`;
-        const existing = ghMap.get(key) || 0;
-        const newTotal = existing + pay;
-        ghMap.set(key, newTotal);
-
-        if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
-          console.log(
-            `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
-          );
-        }
 
       // Also log for office hours to verify they're being added
       if (isOfficeHours) {
@@ -787,7 +804,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
         );
       }
     } else {
-      if (empName && empName.toLowerCase().includes("makala")) {
+      if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
         console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
       }
     }
@@ -1484,27 +1501,7 @@ export async function parseExcelFiles(
       // Use fallback resolver (SR -> Actual -> Planned)
       const { start, end } = resolveServiceTimestamps(row);
 
-      // Required fields with fallback timestamps
-      if (
-        !row["Actual Employee Name"] ||
-        typeof row["Actual Employee Hours Per Week"] !== "number" ||
-        typeof row["Actual Pay Rate Hours"] !== "number" ||
-        !start ||
-        !end
-      ) {
-        warnings.push(
-          `Guaranteed hours row ${index + 1}: Missing or invalid required fields`,
-        );
-        return;
-      }
-
-      // Robust cancellation/secondary checks (match Hours by Service Type.xlsx)
-      const isCancelOk = isCancellationBlank(row["Cancellation Description"]);
-      const isSecondary = isSecondaryMultipleCare(
-        row["Actual Service Type Description"] || "",
-      );
-
-      // Check for excluded service types (nights only - office hours MUST be included in scheduled totals)
+      // Check for service type FIRST - shadowing/office hours have relaxed validation
       const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
       const lowerType = String(serviceType).toLowerCase();
 
@@ -1518,6 +1515,51 @@ export async function parseExcelFiles(
         lowerType.includes('internal') ||
         lowerType.includes('meeting') ||
         lowerType.includes('admin')
+      );
+
+      // For office hours/shadowing: only require employee name and timestamps
+      // For regular visits: require all numeric fields
+      const empName = row["Actual Employee Name"] || row["Planned Employee Name"];
+      const payHours = Number(row["Actual Pay Rate Hours"]) || 0;
+      
+      // Debug logging for Chloe's shadowing entries
+      if (empName && (String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont"))) {
+        console.log(`🔍 CHLOE VALIDATION CHECK (row ${index + 1}):`);
+        console.log(`  Service Type: "${serviceType}"`);
+        console.log(`  isOfficeHours: ${isOfficeHours}`);
+        console.log(`  Employee Name: "${empName}"`);
+        console.log(`  Pay Hours Raw: "${row["Actual Pay Rate Hours"]}" -> ${payHours}`);
+        console.log(`  Start: "${start}", End: "${end}"`);
+      }
+
+      if (isOfficeHours) {
+        // Relaxed validation for office/training/shadowing: just need employee name and timestamps
+        if (!empName || !start || !end) {
+          warnings.push(
+            `Guaranteed hours row ${index + 1}: Office/shadowing row missing employee name or timestamps`,
+          );
+          return;
+        }
+      } else {
+        // Standard validation for regular visits
+        if (
+          !row["Actual Employee Name"] ||
+          typeof row["Actual Employee Hours Per Week"] !== "number" ||
+          typeof row["Actual Pay Rate Hours"] !== "number" ||
+          !start ||
+          !end
+        ) {
+          warnings.push(
+            `Guaranteed hours row ${index + 1}: Missing or invalid required fields`,
+          );
+          return;
+        }
+      }
+
+      // Robust cancellation/secondary checks (match Hours by Service Type.xlsx)
+      const isCancelOk = isCancellationBlank(row["Cancellation Description"]);
+      const isSecondary = isSecondaryMultipleCare(
+        row["Actual Service Type Description"] || "",
       );
 
       // Check for dummy/planning-only rows (often have keywords in name)
@@ -1536,6 +1578,11 @@ export async function parseExcelFiles(
       if (!isCancelOk || isSecondary || (isNightShift && !isOfficeHours)) {
         filteredSecondaryCount++;
         return;
+      }
+      
+      // Debug: Log when Chloe's shadowing entry passes validation
+      if (empName && (String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont"))) {
+        console.log(`  ✅ CHLOE ROW ${index + 1} PASSED VALIDATION - adding to validatedGuaranteed`);
       }
 
       validatedGuaranteed.push(row);
