@@ -408,20 +408,19 @@ function canonicalStatus(raw: any): string {
 // key: normalized employee name + yyyy-MM-dd(Service Requirement Start Date And Time)
 // ---- FALLBACK + ROBUST FILTER HELPERS --------------------------------------
 
-// Same priority used in Hours by Service Type.xlsx:
-// 1) Service Requirement  2) Actual  3) Planned
+// Priority: 1) Planned  2) Actual  3) Service Requirement
+// Planned first ensures scheduled hours work even when visits haven't been actualised yet
 function resolveServiceTimestamps(row: any): { start?: any; end?: any } {
-  const srStart = row["Service Requirement Start Date And Time"];
-  const srEnd = row["Service Requirement End Date And Time"];
-  const acStart = row["Actual Start Date And Time"];
-  const acEnd = row["Actual End Date And Time"];
   const plStart = row["Planned Start Date And Time"];
   const plEnd = row["Planned End Date And Time"];
+  const acStart = row["Actual Start Date And Time"];
+  const acEnd = row["Actual End Date And Time"];
+  const srStart = row["Service Requirement Start Date And Time"];
+  const srEnd = row["Service Requirement End Date And Time"];
 
-  // CRITICAL FIX: Use || instead of ?? to handle empty strings as falsy
-  // This ensures fallback to Planned when Actual is "" (not actualised yet)
-  const start = srStart || acStart || plStart;
-  const end = srEnd || acEnd || plEnd;
+  // Use || to handle empty strings as falsy - fall back through the chain
+  const start = plStart || acStart || srStart;
+  const end = plEnd || acEnd || srEnd;
   return { start, end };
 }
 
