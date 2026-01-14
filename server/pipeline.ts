@@ -701,44 +701,86 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const serviceType = serviceTypeRaw || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
-    if (isOfficeHours) {
-      officeHoursIncluded++;
-    }
-
-    // Use PLANNED DURATION as requested by user
-    const durationCols = [
-      "Planned Duration",
-      "Duration (Planned)",
-      "Duration",
-      "Planned Hrs",
-      "Planned Hours",
-      "Planned Time",
-    ];
-
-    let duration = 0;
-    for (const col of durationCols) {
-      const rawVal = g[col];
-      const val = Number(rawVal);
-      if (val && isFinite(val) && val > 0) {
-        duration = val;
-        break;
-      }
-    }
-
-    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-    const name = normalizeName(empName);
-    if (!name) continue;
-
+    // Use Actual priority for Care Pro Guaranteed Hours
     const start = pickStartForBucket(g);
     if (!start) continue;
 
-    // Only count if duration is positive (skip rows with missing/invalid Planned Duration)
-    if (duration > 0) {
-      const date = format(parseDate(start), "yyyy-MM-dd");
+    // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
+    const end = pickCol(g, END_TIME_COLS);
+    if (start && end) {
+      const startDate = format(parseDate(start), "yyyy-MM-dd");
+      const endDate = format(parseDate(end), "yyyy-MM-dd");
 
-      // Use a composite key for ghMap: normalized employee name | date
-      const mapKey = `${name}|${date}`;
-      ghMap.set(mapKey, (ghMap.get(mapKey) || 0) + duration);
+      if (startDate !== endDate) {
+        const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+        console.log(`🚫 REJECTING multi-day scheduled visit: ${empName} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
+        continue; // Skip this visit entirely from scheduled hours
+      }
+    }
+
+    const date = format(parseDate(start), "yyyy-MM-dd");
+
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    const name = normalizeName(empName);
+
+    // Sum only positive/real pay hours
+    const payRaw = pickCol(g, PAY_HOURS_COLS);
+    const pay = Number(payRaw) || 0;
+
+    if (isOfficeHours && pay > 0) {
+      officeHoursIncluded++;
+    }
+
+    // Debug: Log office hours entries being added to scheduled totals
+    if (isOfficeHours && pay > 0) {
+      console.log(`🏢 DEBUG: Including office hours in scheduled total:`);
+      console.log(`  Employee: ${g["Actual Employee Name"]} (normalized: ${name})`);
+      console.log(`  Service Type: ${serviceType}`);
+      console.log(`  Date: ${date}`);
+      console.log(`  Pay Hours: ${pay}`);
+      console.log(`  Map Key: ${name}|${date}`);
+    }
+
+    // Debug specific employee entries (case-insensitive)
+    if (
+      empName &&
+      (empName.toLowerCase().includes("makala") ||
+        empName.toLowerCase().includes("brooke") ||
+        empName.toLowerCase().includes("brien"))
+    ) {
+      console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
+      console.log(`  Original Name: ${empName}`);
+      console.log(`  Normalized Name: ${name}`);
+      console.log(`  Picked Start: ${start}`);
+      console.log(`  Parsed Date: ${date}`);
+      console.log(`  Raw Pay Hours: ${payRaw}`);
+      console.log(`  Parsed Pay Hours: ${pay}`);
+      console.log(`  Service Type: ${serviceType}`);
+      console.log(`  Cancellation: "${cancelRaw}"`);
+    }
+
+    if (name && date && pay > 0) {
+      const key = `${name}|${date}`;
+      const existing = ghMap.get(key) || 0;
+      const newTotal = existing + pay;
+      ghMap.set(key, newTotal);
+
+      if (empName && empName.toLowerCase().includes("makala")) {
+        console.log(
+          `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        );
+      }
+
+      // Also log for office hours to verify they're being added
+      if (isOfficeHours) {
+        console.log(
+          `  🏢 Office hours added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        );
+      }
+    } else {
+      if (empName && empName.toLowerCase().includes("makala")) {
+        console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
+      }
     }
   }
 
@@ -758,18 +800,29 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
+  // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
+  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Makala entries):`);
+  Array.from(ghMap.entries()).forEach(([key, hours]) => {
+    if (
+      key.toLowerCase().includes("makala") ||
+      key.toLowerCase().includes("mcewan")
+    ) {
+      console.log(`  ${key}: ${hours} hours`);
+    }
+  });
+  console.log(`=========================================\n`);
+
   return ghMap;
 }
 
-// Helper function to get scheduled hours for a specific employee and date
 function getScheduledHoursForEmployeeAndDate(
   scheduledHoursMap: Map<string, number>,
   employeeName: string,
-  date: string,
+  dateStr: string,
 ): number {
   const normalizedName = normalizeName(employeeName);
-  const mapKey = `${normalizedName}|${date}`;
-  return scheduledHoursMap.get(mapKey) || 0;
+  const key = `${normalizedName}|${dateStr}`;
+  return scheduledHoursMap.get(key) || 0;
 }
 
 // Calculate hours between times exactly like your hours_between function
@@ -1107,18 +1160,14 @@ export async function parseExcelFiles(
     .replace(/\s+/g, ' ')      // Normalize spaces
     .trim();
 
-  // EXCLUDE CANCELLED, SECONDARY, OFFICE, TRAINING, AND SHADOWING
-  // Keep night shifts in Client Required calculation as requested
+  // ONLY EXCLUDE CANCELLED AND SECONDARY VISITS FOR DEMAND
+  // Keep night shifts, office hours, etc. in Client Required calculation as requested
   const DEMAND_EXCLUDED_TYPES = [
     'multiple care (secondary)',
     'secondary',
     '(secondary)',
     'oncall',
-    'on call',
-    'office hours',
-    'office',
-    'training',
-    'shadowing'
+    'on call'
   ];
 
   const isExcludedType = DEMAND_EXCLUDED_TYPES.some(excluded =>
@@ -1150,8 +1199,7 @@ export async function parseExcelFiles(
 
   console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
-  console.log(`  ✅ Night shifts: NOW INCLUDED in demand calculation`);
-  console.log(`  ❌ Office hours, Training, Shadowing: EXCLUDED as requested`);
+  console.log(`  ✅ Night shifts, Office, Training, Shadowing: NOW INCLUDED in demand calculation`);
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
@@ -1689,31 +1737,11 @@ export async function processCapacityData(
   });
   console.log(`🏢 DEBUG: Found ${officeRows.length} office hours rows in guaranteed data`);
   if (officeRows.length > 0) {
-    console.log(`🏢 DEBUG: Sample office hours rows:`, officeRows.slice(0, 5).map(r => ({
+    console.log(`🏢 DEBUG: Sample office hours rows:`, officeRows.slice(0, 3).map(r => ({
       employee: r["Actual Employee Name"],
       serviceType: r["Actual Service Type Description"],
-      plannedDuration: r["Planned Duration"],
-      actualHours: r["Actual Pay Rate Hours"]
+      hours: r["Actual Pay Rate Hours"]
     })));
-  }
-
-  // Debug: Check Chelsi's data specifically
-  const chelsiRows = guaranteed.filter(row => {
-    const empName = (row["Actual Employee Name"] || "").toString().toLowerCase();
-    return empName.includes("chelsi") || empName.includes("chelsea");
-  });
-  console.log(`\n👤 CHELSI DEBUG: Found ${chelsiRows.length} rows for Chelsi`);
-  if (chelsiRows.length > 0) {
-    chelsiRows.forEach((r, i) => {
-      console.log(`  Row ${i+1}:`, {
-        name: r["Actual Employee Name"],
-        serviceType: r["Actual Service Type Description"],
-        plannedDuration: r["Planned Duration"],
-        actualHours: r["Actual Pay Rate Hours"],
-        cancelled: r["Cancellation Reason"] || r["Cancelled Reason"] || r["Cancel Reason"],
-        startDate: r["Service Requirement Start Date And Time"]
-      });
-    });
   }
 
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
