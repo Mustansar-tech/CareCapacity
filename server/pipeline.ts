@@ -701,88 +701,36 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const serviceType = serviceTypeRaw || "";
     const isOfficeHours = serviceType && serviceType.toLowerCase().includes("office");
 
-    // Use Actual priority for Care Pro Guaranteed Hours
-    const start = pickStartForBucket(g);
-    if (!start) continue;
-
-    // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
-    const end = pickCol(g, END_TIME_COLS);
-    if (start && end) {
-      const startDate = format(parseDate(start), "yyyy-MM-dd");
-      const endDate = format(parseDate(end), "yyyy-MM-dd");
-
-      if (startDate !== endDate) {
-        const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-        console.log(`🚫 REJECTING multi-day scheduled visit: ${empName} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
-        continue; // Skip this visit entirely from scheduled hours
-      }
-    }
-
-    const date = format(parseDate(start), "yyyy-MM-dd");
-
-    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-    const name = normalizeName(empName);
-
-    // Sum only positive/real pay hours
-    const payRaw = pickCol(g, PAY_HOURS_COLS);
-    const pay = Number(payRaw) || 0;
-
-    if (isOfficeHours && pay > 0) {
+    if (isOfficeHours) {
       officeHoursIncluded++;
     }
 
-    // Debug: Log office hours entries being added to scheduled totals
-    if (isOfficeHours && pay > 0) {
-      console.log(`🏢 DEBUG: Including office hours in scheduled total:`);
-      console.log(`  Employee: ${g["Actual Employee Name"]} (normalized: ${name})`);
-      console.log(`  Service Type: ${serviceType}`);
-      console.log(`  Date: ${date}`);
-      console.log(`  Pay Hours: ${pay}`);
-      console.log(`  Map Key: ${name}|${date}`);
-    }
+    // Use PLANNED DURATION as requested by user
+    const durationCols = [
+      "Planned Duration",
+      "Duration (Planned)",
+      "Duration",
+      "Planned Hrs",
+      "Planned Hours",
+      "Planned Time",
+    ];
 
-    // Debug specific employee entries (case-insensitive)
-    if (
-      empName &&
-      (empName.toLowerCase().includes("makala") ||
-        empName.toLowerCase().includes("brooke") ||
-        empName.toLowerCase().includes("brien"))
-    ) {
-      console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
-      console.log(`  Original Name: ${empName}`);
-      console.log(`  Normalized Name: ${name}`);
-      console.log(`  Picked Start: ${start}`);
-      console.log(`  Parsed Date: ${date}`);
-      console.log(`  Raw Pay Hours: ${payRaw}`);
-      console.log(`  Parsed Pay Hours: ${pay}`);
-      console.log(`  Service Type: ${serviceType}`);
-      console.log(`  Cancellation: "${cancelRaw}"`);
-    }
-
-    if (name && date && pay > 0) {
-      const key = `${name}|${date}`;
-      const existing = ghMap.get(key) || 0;
-      const newTotal = existing + pay;
-      ghMap.set(key, newTotal);
-
-      if (empName && empName.toLowerCase().includes("makala")) {
-        console.log(
-          `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
-        );
-      }
-
-      // Also log for office hours to verify they're being added
-      if (isOfficeHours) {
-        console.log(
-          `  🏢 Office hours added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
-        );
-      }
-    } else {
-      if (empName && empName.toLowerCase().includes("makala")) {
-        console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
+    let duration = 0;
+    for (const col of durationCols) {
+      const rawVal = g[col];
+      const val = Number(rawVal);
+      if (val && isFinite(val) && val > 0) {
+        duration = val;
+        break;
       }
     }
-  }
+
+    if (duration > 0) {
+      const current = scheduledHoursMap.get(name) || new Map();
+      const dayTotal = current.get(date) || 0;
+      current.set(date, dayTotal + duration);
+      scheduledHoursMap.set(name, current);
+    }
 
   console.log(`\n🔍 SCHEDULED HOURS FILTERING SUMMARY:`);
   console.log(`  📊 Total guaranteed hours entries: ${totalProcessed}`);
@@ -800,30 +748,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
-  // Debug: Show final scheduled hours for Makala (especially 2025-09-10)
-  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Makala entries):`);
-  Array.from(ghMap.entries()).forEach(([key, hours]) => {
-    if (
-      key.toLowerCase().includes("makala") ||
-      key.toLowerCase().includes("mcewan")
-    ) {
-      console.log(`  ${key}: ${hours} hours`);
-    }
-  });
-  console.log(`=========================================\n`);
 
-  return ghMap;
-}
-
-function getScheduledHoursForEmployeeAndDate(
-  scheduledHoursMap: Map<string, number>,
-  employeeName: string,
-  dateStr: string,
-): number {
-  const normalizedName = normalizeName(employeeName);
-  const key = `${normalizedName}|${dateStr}`;
-  return scheduledHoursMap.get(key) || 0;
-}
 
 // Calculate hours between times exactly like your hours_between function
 function hoursBetween(startTime: any, endTime: any): number {
