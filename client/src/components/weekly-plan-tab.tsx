@@ -101,9 +101,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeWeeklyNetCapacityMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
 
-  // Track holidays and unavailability per employee
-  const employeeHolidaysMap = new Map<string, number>();
-  const employeeUnavailabilityMap = new Map<string, number>();
+  // Track holidays (hours) and other statuses per employee
+  const employeeHolidayHoursMap = new Map<string, number>();
+  const employeeStatusMap = new Map<string, { status: string; hours: number }>();
 
   // Calculate guaranteed hours (GH) from contracted daily hours
   Object.values(data?.employeesByDate || {}).forEach(dayEmployees => {
@@ -116,14 +116,26 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
         employeeGenderMap.set(emp.employeeName, emp.gender);
       }
-      // Track holidays and unavailability from status
+      // Track holidays and other statuses with hours
       const statusLower = (emp.status || '').toLowerCase();
+      const statusHours = emp.contractedDailyHours || 8; // Use contracted hours or default 8h
+      
       if (statusLower.includes('holiday') || statusLower.includes('annual leave')) {
-        const current = employeeHolidaysMap.get(emp.employeeName) || 0;
-        employeeHolidaysMap.set(emp.employeeName, current + 1);
-      } else if (statusLower.includes('unavailable') || statusLower.includes('sick') || statusLower.includes('off')) {
-        const current = employeeUnavailabilityMap.get(emp.employeeName) || 0;
-        employeeUnavailabilityMap.set(emp.employeeName, current + 1);
+        const current = employeeHolidayHoursMap.get(emp.employeeName) || 0;
+        employeeHolidayHoursMap.set(emp.employeeName, current + statusHours);
+      } else if (statusLower.includes('sick') || statusLower.includes('unavailable') || 
+                 statusLower.includes('off') || statusLower.includes('absent')) {
+        // Track the actual status text and accumulate hours
+        const existing = employeeStatusMap.get(emp.employeeName);
+        const displayStatus = emp.status || 'Unavailable';
+        if (existing) {
+          employeeStatusMap.set(emp.employeeName, { 
+            status: existing.status, // Keep first status found
+            hours: existing.hours + statusHours 
+          });
+        } else {
+          employeeStatusMap.set(emp.employeeName, { status: displayStatus, hours: statusHours });
+        }
       }
     });
   });
@@ -437,8 +449,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                       // Get weekly hours (GH) and holidays/unavailability
                       const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
-                      const holidayDays = employeeHolidaysMap.get(empName) || 0;
-                      const unavailDays = employeeUnavailabilityMap.get(empName) || 0;
+                      const holidayHours = employeeHolidayHoursMap.get(empName) || 0;
+                      const statusInfo = employeeStatusMap.get(empName);
 
                       const isSelected = selectedEmployee === empName;
 
@@ -464,14 +476,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {weeklyHours.toFixed(1)}h / week
                                 </span>
                               )}
-                              {holidayDays > 0 && (
+                              {holidayHours > 0 && (
                                 <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
-                                  {holidayDays}d holiday
+                                  {holidayHours.toFixed(1)}h holiday
                                 </Badge>
                               )}
-                              {unavailDays > 0 && (
+                              {statusInfo && statusInfo.hours > 0 && (
                                 <Badge variant="outline" className="text-xs text-red-600 border-red-400">
-                                  {unavailDays}d off
+                                  {statusInfo.hours.toFixed(1)}h {statusInfo.status}
                                 </Badge>
                               )}
                               {totalVisitHours > 0 && (
