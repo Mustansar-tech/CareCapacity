@@ -33,6 +33,7 @@ export class TravelTimeService {
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
 
   constructor(maxTravelMinutes: number = 60, softLimitMinutes?: number) {
+    console.log(`🚀 TravelTimeService initialized with ORS_API_KEY: ${this.ORS_API_KEY ? 'YES' : 'NO'}`);
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
