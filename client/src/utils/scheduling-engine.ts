@@ -594,10 +594,10 @@ function assignVisitToBestEmployee(
     );
     console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
 
-    // STRICT: Enforce max travel limit for first visit from home (23 min car, 40 min public)
-    const maxTravelLimit = schedule.transportMode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
+    // STRICT: Enforce max travel limit for first visit from home (23 min for all modes)
+    const maxTravelLimit = MAX_TRAVEL_TIME_MINUTES;
     if (actualTravelTimeBefore > maxTravelLimit) {
-      console.log(`❌ First visit travel exceeds limit: ${actualTravelTimeBefore}min > ${maxTravelLimit}min (${schedule.transportMode}) - REJECTED`);
+      console.log(`❌ First visit travel exceeds limit: ${actualTravelTimeBefore}min > ${maxTravelLimit}min - REJECTED`);
       return { success: false, reason: `First visit travel time ${actualTravelTimeBefore}min exceeds ${maxTravelLimit}min limit` };
     }
   } else {
@@ -623,10 +623,10 @@ function assignVisitToBestEmployee(
       actualTravelTimeBefore = travelFromHome;
       console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
 
-      // STRICT: Enforce max travel limit for return from home (23 min car, 40 min public)
-      const maxTravelLimit = schedule.transportMode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
+      // STRICT: Enforce max travel limit for return from home (23 min for all modes)
+      const maxTravelLimit = MAX_TRAVEL_TIME_MINUTES;
       if (travelFromHome > maxTravelLimit) {
-        console.log(`❌ Home break return travel exceeds limit: ${travelFromHome}min > ${maxTravelLimit}min (${schedule.transportMode}) - REJECTED`);
+        console.log(`❌ Home break return travel exceeds limit: ${travelFromHome}min > ${maxTravelLimit}min - REJECTED`);
         return { success: false, reason: `Home break travel time ${travelFromHome}min exceeds ${maxTravelLimit}min limit` };
       }
     }

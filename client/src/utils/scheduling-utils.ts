@@ -216,7 +216,7 @@ export function fitsInWindow(
 }
 
 // Check if inserting a visit between two existing visits is feasible
-// Enforces MAX_TRAVEL_TIME_MINUTES constraint for fair scheduling
+// Enforces MAX_TRAVEL_TIME_MINUTES constraint for fair scheduling (23 min for all modes)
 export function isInsertionFeasible(
   visit: { start: number; end: number },
   prevVisit: { end: number; lat: number; lng: number } | null,
@@ -225,9 +225,8 @@ export function isInsertionFeasible(
   windows: TimeWindow[],
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
-  // Get max travel limit based on transport mode
-  // Car: 23 minutes (strict), Public: 40 minutes (more overhead)
-  const maxTravelForMode = mode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
+  // Get max travel limit (strict 23 min for all modes)
+  const maxTravelForMode = MAX_TRAVEL_TIME_MINUTES;
 
   // LENIENT window check - allow if visit has ANY overlap with windows
   const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
