@@ -856,8 +856,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🚀 Travel matrix request: ${pairs.length} pairs for branch ${branchId} (mode: ${transportMode})`);
 
-      // Process pairs in parallel with rate limiting (max 10 concurrent)
-      const batchSize = 10;
+      // Process pairs in parallel with rate limiting
+      const batchSize = 2; // Further reduced batch size to avoid rate limits
       const results: Array<{
         fromLat: number;
         fromLng: number;
@@ -870,6 +870,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }> = [];
 
       for (let i = 0; i < pairs.length; i += batchSize) {
+        // Add a delay between batches to respect ORS rate limits (1 request per second typically)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1100));
+        }
+
         const batch = pairs.slice(i, i + batchSize);
         const batchResults = await Promise.all(
           batch.map(async (pair: any) => {
