@@ -100,6 +100,11 @@ export function getTravelMinutes(
   // Check cache first
   const cached = travelTimeCache.get(cacheKey);
   if (cached !== undefined) {
+    // Log ORS hits if they are in the cache
+    if (cached > 0) {
+      // We don't want to log every single hit, but this helps debug
+      // console.log(`✅ Cache hit: ${cached} min`);
+    }
     return cached;
   }
 
@@ -167,7 +172,13 @@ export function seedTravelCache(results: Array<{
   let seeded = 0;
   for (const result of results) {
     if (result.travelTimeMinutes > 0) {
-      const cacheKey = `${result.fromLat.toFixed(4)},${result.fromLng.toFixed(4)}-${result.toLat.toFixed(4)},${result.toLng.toFixed(4)}-${mode}`;
+      // Round to 4 decimal places to match getTravelMinutes precision
+      const fromLat = Number(result.fromLat).toFixed(4);
+      const fromLng = Number(result.fromLng).toFixed(4);
+      const toLat = Number(result.toLat).toFixed(4);
+      const toLng = Number(result.toLng).toFixed(4);
+      
+      const cacheKey = `${fromLat},${fromLng}-${toLat},${toLng}-${mode}`;
       travelTimeCache.set(cacheKey, result.travelTimeMinutes);
       seeded++;
     }

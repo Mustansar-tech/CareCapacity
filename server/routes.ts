@@ -851,74 +851,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'pairs array is required with {fromLat, fromLng, toLat, toLng}' });
       }
 
-      // Import TravelTimeService
       const { travelTimeService } = await import('./travel-time-service');
-
       console.log(`🚀 Travel matrix request: ${pairs.length} pairs for branch ${branchId} (mode: ${transportMode})`);
 
-      // Process pairs in parallel with rate limiting
-      const batchSize = 2; // Further reduced batch size to avoid rate limits
-      const results: Array<{
-        fromLat: number;
-        fromLng: number;
-        toLat: number;
-        toLng: number;
-        travelTimeMinutes: number;
-        distanceKm: number;
-        feasible: boolean;
-        source: string;
-      }> = [];
+      // 1. Check cache for all pairs first to minimize API calls
+      const results: any[] = [];
+      const missingPairs: any[] = [];
 
-      for (let i = 0; i < pairs.length; i += batchSize) {
-        // Add a delay between batches to respect ORS rate limits (1 request per second typically)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 1100));
+      for (const pair of pairs) {
+        const fromLat = pair.fromLat.toString();
+        const fromLng = pair.fromLng.toString();
+        const toLat = pair.toLat.toString();
+        const toLng = pair.toLng.toString();
+
+        const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
+        if (cached && cached.source === 'ors') {
+          results.push({
+            fromLat: pair.fromLat,
+            fromLng: pair.fromLng,
+            toLat: pair.toLat,
+            toLng: pair.toLng,
+            travelTimeMinutes: cached.durationMinutes,
+            distanceKm: (cached.distanceMeters || 0) / 1000,
+            feasible: cached.durationMinutes <= 60,
+            source: 'cache'
+          });
+        } else {
+          missingPairs.push(pair);
         }
-
-        const batch = pairs.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-          batch.map(async (pair: any) => {
-            try {
-              const from = { lat: parseFloat(pair.fromLat), lng: parseFloat(pair.fromLng) };
-              const to = { lat: parseFloat(pair.toLat), lng: parseFloat(pair.toLng) };
-              
-              const result = await travelTimeService.calculateTravelTime(branchId, from, to, transportMode);
-              
-              return {
-                fromLat: from.lat,
-                fromLng: from.lng,
-                toLat: to.lat,
-                toLng: to.lng,
-                travelTimeMinutes: result.travelTimeMinutes,
-                distanceKm: result.distanceKm,
-                feasible: result.feasible,
-                source: 'ors'
-              };
-            } catch (error) {
-              console.error('Travel pair calculation error:', error);
-              return {
-                fromLat: parseFloat(pair.fromLat),
-                fromLng: parseFloat(pair.fromLng),
-                toLat: parseFloat(pair.toLat),
-                toLng: parseFloat(pair.toLng),
-                travelTimeMinutes: 0,
-                distanceKm: 0,
-                feasible: false,
-                source: 'error'
-              };
-            }
-          })
-        );
-        results.push(...batchResults);
       }
 
-      console.log(`✅ Travel matrix complete: ${results.length} pairs calculated`);
+      console.log(`📊 Cache stats: ${results.length} hits, ${missingPairs.length} missing`);
+
+      // 2. Process missing pairs with strict rate limiting (ORS Free tier: 40 requests/min = 1.5s delay)
+      if (missingPairs.length > 0) {
+        // Limit total API calls per request to 50 to avoid timing out the frontend
+        const pairsToFetch = missingPairs.slice(0, 50);
+        if (missingPairs.length > 50) {
+          console.warn(`⚠️ Too many missing pairs (${missingPairs.length}). Fetching first 50 and falling back for others.`);
+        }
+
+        for (const pair of pairsToFetch) {
+          try {
+            const from = { lat: parseFloat(pair.fromLat), lng: parseFloat(pair.fromLng) };
+            const to = { lat: parseFloat(pair.toLat), lng: parseFloat(pair.toLng) };
+            
+            // This method internally calls ORS and saves to cache
+            const result = await travelTimeService.calculateTravelTime(branchId, from, to, transportMode);
+            
+            results.push({
+              fromLat: from.lat,
+              fromLng: from.lng,
+              toLat: to.lat,
+              toLng: to.lng,
+              travelTimeMinutes: result.travelTimeMinutes,
+              distanceKm: result.distanceKm,
+              feasible: result.feasible,
+              source: 'ors'
+            });
+
+            // Delay 1.6s between individual requests to stay under 40/min
+            await new Promise(resolve => setTimeout(resolve, 1600));
+          } catch (error) {
+            console.error('Individual travel calculation failed:', error);
+          }
+        }
+
+        // Add dummy results for anything we skipped to avoid frontend errors
+        if (missingPairs.length > 50) {
+          for (let i = 50; i < missingPairs.length; i++) {
+            results.push({
+              ...missingPairs[i],
+              travelTimeMinutes: 0, // Frontend will fallback to Haversine
+              source: 'skipped'
+            });
+          }
+        }
+      }
+
+      console.log(`✅ Travel matrix response ready: ${results.length} total pairs`);
       res.json({ results, transportMode, branchId });
     } catch (error) {
       console.error('Travel matrix error:', error);
-      const message = error instanceof Error ? error.message : 'Travel matrix calculation failed';
-      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
-      res.status(statusCode).json({ message });
+      res.status(500).json({ message: 'Travel matrix calculation failed' });
     }
   });
 

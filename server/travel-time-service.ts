@@ -52,7 +52,7 @@ export class TravelTimeService {
     // 1. Check Cache
     try {
       const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
-      // Only return cached value if it's from ORS, or if we don't have an API key to refresh it
+      // Return cached value if it's from ORS
       if (cached && (cached.source === 'ors' || !this.ORS_API_KEY)) {
         console.log(`✨ Travel Cache HIT: ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) = ${cached.durationMinutes}min`);
         return {
@@ -65,9 +65,8 @@ export class TravelTimeService {
         };
       }
       
-      if (cached && cached.source === 'haversine' && this.ORS_API_KEY) {
-        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously haversine)`);
-      }
+      // If we have haversine cache but now have an API key, we should try to refresh it
+      // but only if it's not currently being requested in a batch (managed by routes.ts)
     } catch (e) {
       console.error("Cache lookup failed:", e);
     }
