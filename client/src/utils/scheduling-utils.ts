@@ -102,25 +102,46 @@ export function getTravelMinutes(
     return cached;
   }
 
-  const distance = haversineDistance(
+  const distanceKm = haversineDistance(
     { lat: fromLat, lng: fromLng },
     { lat: toLat, lng: toLng }
   );
 
-  // Transport mode speeds (km/h)
-  const speeds = {
-    car: 35,        // Increased from 30 to 35 for better fallback accuracy
-    walking: 4.0,   // Reduced from 4.5
-    public: 20      // Reduced from 25
-  };
+  let finalTravelMinutes: number;
 
-  const speedKmh = speeds[mode] || speeds.car;
-  const travelTimeMinutes = Math.max(2, Math.round((distance / speedKmh) * 60)); // Minimum 2 min
-
-  // Add 10-minute public transport overhead (walking to/from stops, waiting)
-  let finalTravelMinutes = travelTimeMinutes;
   if (mode === 'public') {
-    finalTravelMinutes += 10;
+    // Realistic UK public transport calculation (matches backend logic)
+    if (distanceKm < 1.0) {
+      // Short distance (<1km) - just walk, no point taking a bus
+      finalTravelMinutes = Math.max(2, Math.round((distanceKm / 4.0) * 60)); // 4 km/h walking
+    } else {
+      // Calculate realistic public transport journey:
+      // 1. Walk to bus stop: ~4 min
+      // 2. Wait for bus: ~7 min (UK average)
+      // 3. Bus travel: 22 km/h average (includes stops)
+      // 4. Walk from bus stop: ~4 min
+      const walkToStop = 4;
+      const waitTime = 7;
+      const walkFromStop = 4;
+      const busSpeedKmh = 22;
+      
+      // Bus covers most of the distance, minus ~400m walking each end
+      const busDistanceKm = Math.max(0, distanceKm - 0.8);
+      const busTimeMinutes = Math.round((busDistanceKm / busSpeedKmh) * 60);
+      
+      finalTravelMinutes = walkToStop + waitTime + busTimeMinutes + walkFromStop;
+      
+      // For very short journeys, check if walking is actually faster
+      const walkingTime = Math.round((distanceKm / 4.0) * 60);
+      if (walkingTime <= finalTravelMinutes && distanceKm < 2.0) {
+        finalTravelMinutes = walkingTime;
+      }
+    }
+  } else if (mode === 'walking') {
+    finalTravelMinutes = Math.max(2, Math.round((distanceKm / 4.0) * 60)); // 4 km/h walking
+  } else {
+    // Car: 35 km/h average urban speed
+    finalTravelMinutes = Math.max(2, Math.round((distanceKm / 35) * 60));
   }
 
   // Store in cache

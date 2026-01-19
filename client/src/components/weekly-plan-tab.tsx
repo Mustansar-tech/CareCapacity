@@ -624,10 +624,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                               Math.sin(dLng/2) * Math.sin(dLng/2);
                                             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                             const distKm = R * c;
-                                            // Synchronized speed: 35 km/h car, 20 km/h public transport
-                                            const speedKmh = mode === 'car' ? 35 : 20;
-                                            // Synchronized minimum: 2 minutes
-                                            return Math.max(2, Math.round((distKm / speedKmh) * 60));
+                                            
+                                            if (mode === 'car') {
+                                              return Math.max(2, Math.round((distKm / 35) * 60));
+                                            } else {
+                                              // Realistic public transport: walk to stop + wait + bus + walk from stop
+                                              if (distKm < 1.0) {
+                                                return Math.max(2, Math.round((distKm / 4.0) * 60)); // Just walk
+                                              }
+                                              const walkToStop = 4;
+                                              const waitTime = 7;
+                                              const walkFromStop = 4;
+                                              const busDistanceKm = Math.max(0, distKm - 0.8);
+                                              const busTimeMinutes = Math.round((busDistanceKm / 22) * 60);
+                                              return walkToStop + waitTime + busTimeMinutes + walkFromStop;
+                                            }
                                           };
 
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
@@ -708,7 +719,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
                                   const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
-                                    const R = 6371; // Earth's radius in km
+                                    const R = 6371;
                                     const dLat = (to.lat - from.lat) * Math.PI / 180;
                                     const dLng = (to.lng - from.lng) * Math.PI / 180;
                                     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -716,8 +727,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       Math.sin(dLng/2) * Math.sin(dLng/2);
                                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                     const distKm = R * c;
-                                    const speedKmh = mode === 'car' ? 35 : 20;
-                                    return Math.max(2, Math.round((distKm / speedKmh) * 60));
+                                    
+                                    if (mode === 'car') {
+                                      return Math.max(2, Math.round((distKm / 35) * 60));
+                                    } else {
+                                      // Realistic public transport: walk to stop + wait + bus + walk from stop
+                                      if (distKm < 1.0) {
+                                        return Math.max(2, Math.round((distKm / 4.0) * 60)); // Just walk
+                                      }
+                                      const walkToStop = 4;
+                                      const waitTime = 7;
+                                      const walkFromStop = 4;
+                                      const busDistanceKm = Math.max(0, distKm - 0.8);
+                                      const busTimeMinutes = Math.round((busDistanceKm / 22) * 60);
+                                      return walkToStop + waitTime + busTimeMinutes + walkFromStop;
+                                    }
                                   };
 
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
