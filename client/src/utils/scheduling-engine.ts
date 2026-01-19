@@ -344,21 +344,19 @@ function calculateTravelFromPrevious(
 ): number {
   if (insertionIndex === 0) {
     // First visit - calculate from home
-    const travelService = new (require('./scheduling-utils').TravelTimeService)();
-    return travelService.calculateTravelTime(
+    return getTravelMinutes(
       { lat: schedule.homeLat, lng: schedule.homeLng },
       { lat: visit.lat || 0, lng: visit.lng || 0 },
       schedule.transportMode
-    ).travelTimeMinutes;
+    );
   } else {
     // Calculate from previous visit
     const prevVisit = schedule.assignedVisits[insertionIndex - 1];
-    const travelService = new (require('./scheduling-utils').TravelTimeService)();
-    return travelService.calculateTravelTime(
+    return getTravelMinutes(
       { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
       { lat: visit.lat || 0, lng: visit.lng || 0 },
       schedule.transportMode
-    ).travelTimeMinutes;
+    );
   }
 }
 
@@ -491,6 +489,7 @@ function assignVisitToBestEmployee(
       mode: schedule.transportMode,
     };
 
+    // pass transportMode to scoreVisitMatch if it supports it, or it will use getTravelMinutes internally which uses it
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     if (!matchScore || matchScore.score <= 0) continue;
 

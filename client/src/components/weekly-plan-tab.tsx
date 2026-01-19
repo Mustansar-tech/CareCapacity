@@ -302,19 +302,38 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         }
         
         if (pairsToFetch.length > 0) {
-          // Clear old cache and fetch new travel times from backend
-          clearTravelCache();
-          
-          const response = await apiRequest('POST', '/api/travel/matrix', {
-            pairs: pairsToFetch,
-            transportMode: 'car'
+          // Group by transport mode
+          const byMode = new Map<string, typeof pairsToFetch>();
+          employeesWithLocations.forEach(emp => {
+            if (!emp.homeLat || !emp.homeLng) return;
+            const mode = (emp.transportMode || 'car') as string;
+            if (!byMode.has(mode)) byMode.set(mode, []);
+            
+            // For this employee, get all client pairs
+            uniqueClients.forEach(client => {
+              byMode.get(mode)!.push({
+                fromLat: emp.homeLat!,
+                fromLng: emp.homeLng!,
+                toLat: client.lat,
+                toLng: client.lng
+              });
+            });
           });
-          
-          const data = await response.json();
-          if (data.results) {
-            seedTravelCache(data.results, 'car');
-            console.log(`✅ Prefetched ${data.results.length} travel times from ORS`);
-          }
+
+          Array.from(byMode.entries()).forEach(async ([mode, modePairs]) => {
+            const cappedPairs = modePairs.slice(0, 300); // Reasonable limit per mode
+            console.log(`🌐 Fetching ${cappedPairs.length} pairs for mode: ${mode}`);
+            const response = await apiRequest('POST', '/api/travel/matrix', {
+              pairs: cappedPairs,
+              transportMode: mode
+            });
+            
+            const data = await response.json();
+            if (data.results) {
+              seedTravelCache(data.results, mode as any);
+              console.log(`✅ Prefetched ${data.results.length} travel times for ${mode}`);
+            }
+          });
         }
       } catch (error) {
         console.warn(`⚠️ ORS prefetch failed, using fallback calculations:`, error);

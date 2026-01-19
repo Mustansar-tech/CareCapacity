@@ -885,10 +885,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // 2. Process missing pairs with strict rate limiting (ORS Free tier: 40 requests/min = 1.5s delay)
       if (missingPairs.length > 0) {
-        // Limit total API calls per request to 50 to avoid timing out the frontend
-        const pairsToFetch = missingPairs.slice(0, 50);
-        if (missingPairs.length > 50) {
-          console.warn(`⚠️ Too many missing pairs (${missingPairs.length}). Fetching first 50 and falling back for others.`);
+        // Limit total API calls per request to 80 to avoid timing out the frontend
+        const pairsToFetch = missingPairs.slice(0, 80);
+        if (missingPairs.length > 80) {
+          console.warn(`⚠️ Too many missing pairs (${missingPairs.length}). Fetching first 80 and falling back for others.`);
         }
 
         for (const pair of pairsToFetch) {
@@ -910,18 +910,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               source: 'ors'
             });
 
-            // Delay 1.6s between individual requests to stay under 40/min
-            await new Promise(resolve => setTimeout(resolve, 1600));
+            // Delay 1.8s between individual requests to be absolutely safe (33 req/min)
+            await new Promise(resolve => setTimeout(resolve, 1800));
           } catch (error) {
             console.error('Individual travel calculation failed:', error);
           }
         }
 
         // Add dummy results for anything we skipped to avoid frontend errors
-        if (missingPairs.length > 50) {
-          for (let i = 50; i < missingPairs.length; i++) {
+        if (missingPairs.length > 80) {
+          for (let i = 80; i < missingPairs.length; i++) {
             results.push({
-              ...missingPairs[i],
+              fromLat: parseFloat(missingPairs[i].fromLat),
+              fromLng: parseFloat(missingPairs[i].fromLng),
+              toLat: parseFloat(missingPairs[i].toLat),
+              toLng: parseFloat(missingPairs[i].toLng),
               travelTimeMinutes: 0, // Frontend will fallback to Haversine
               source: 'skipped'
             });

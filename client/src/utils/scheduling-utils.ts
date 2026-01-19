@@ -99,12 +99,7 @@ export function getTravelMinutes(
   
   // Check cache first
   const cached = travelTimeCache.get(cacheKey);
-  if (cached !== undefined) {
-    // Log ORS hits if they are in the cache
-    if (cached > 0) {
-      // We don't want to log every single hit, but this helps debug
-      // console.log(`✅ Cache hit: ${cached} min`);
-    }
+  if (cached !== undefined && cached > 0) {
     return cached;
   }
 
