@@ -32,7 +32,7 @@ export class TravelTimeService {
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
 
-  constructor(maxTravelMinutes: number = 20, softLimitMinutes?: number) {
+  constructor(maxTravelMinutes: number = 23, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }

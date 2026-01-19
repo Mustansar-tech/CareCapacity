@@ -1,7 +1,8 @@
 // Scheduling utility functions for VRPTW optimization
 
 // Maximum travel time in minutes before a route is considered infeasible
-export const MAX_TRAVEL_TIME_MINUTES = 45;
+// Set to 23 minutes for car mode to ensure fair scheduling and reduce mileage
+export const MAX_TRAVEL_TIME_MINUTES = 23;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
@@ -215,7 +216,7 @@ export function fitsInWindow(
 }
 
 // Check if inserting a visit between two existing visits is feasible
-// VERY LENIENT - allows large gaps, focuses on physical feasibility
+// Enforces MAX_TRAVEL_TIME_MINUTES constraint for fair scheduling
 export function isInsertionFeasible(
   visit: { start: number; end: number },
   prevVisit: { end: number; lat: number; lng: number } | null,
@@ -224,6 +225,10 @@ export function isInsertionFeasible(
   windows: TimeWindow[],
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
+  // Get max travel limit based on transport mode
+  // Car: 23 minutes (strict), Public: 40 minutes (more overhead)
+  const maxTravelForMode = mode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
+
   // LENIENT window check - allow if visit has ANY overlap with windows
   const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
 
@@ -234,14 +239,7 @@ export function isInsertionFeasible(
     return false; // Visit completely outside reasonable time
   }
 
-  // Special allowance for evening visits (5pm-10pm) - critical for GH capacity
-  const isEveningVisit = visit.start >= 1020 && visit.end <= 1320; // 5pm to 10pm
-  if (isEveningVisit) {
-    return true; // Evening visits are always feasible for capacity filling
-  }
-
-  // Check time constraint with previous visit (only check if there's enough time to travel)
-  // ALLOW LARGE GAPS - employee can have free time
+  // Check time constraint with previous visit
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
       { lat: prevVisit.lat, lng: prevVisit.lng },
@@ -249,15 +247,17 @@ export function isInsertionFeasible(
       mode
     );
 
+    // STRICT: Reject if travel time exceeds maximum limit for fair scheduling
+    if (travelFromPrev > maxTravelForMode) {
+      return false; // Travel time too long - reduces mileage and ensures fairness
+    }
+
     if (prevVisit.end + travelFromPrev > visit.start) {
       return false; // Not enough time to travel from previous visit
     }
-
-    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
-  // Check time constraint with next visit (only check if there's enough time to travel)
-  // ALLOW LARGE GAPS - employee can have free time
+  // Check time constraint with next visit
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
       visitLocation,
@@ -265,14 +265,17 @@ export function isInsertionFeasible(
       mode
     );
 
+    // STRICT: Reject if travel time exceeds maximum limit for fair scheduling
+    if (travelToNext > maxTravelForMode) {
+      return false; // Travel time too long - reduces mileage and ensures fairness
+    }
+
     if (visit.end + travelToNext > nextVisit.start) {
       return false; // Not enough time to travel to next visit
     }
-
-    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
-  return true; // Visit is feasible - gaps are OK
+  return true; // Visit is feasible
 }
 
 // Calculate the gap/slack when inserting a visit

@@ -60,8 +60,8 @@ The application is designed for care home scheduling teams and business developm
 
 - **Smart Time Window Management:** Distinguishes "Day-Killers" (e.g., Holiday, Sick) from "Time-Killers" (e.g., Appointment) and enforces minimum bookable windows. Includes "Partial Availability" detection for business development.
 - **Enhanced Status Intelligence:** Canonical status mapping, typo handling, and "Ad-Hoc Status Highlighting" for scheduled visits without availability records.
-- **Geocoding & Travel Time Calculation:** Multi-level geocoding cache and real-time travel time calculations considering transport mode (car/walking). Features a "soft limit" for travel time with exponential scoring penalties rather than rigid rejections.
-- **Travel Compression Logic:** Allows a "travel time extra" allowance where travel exceeding gaps by up to 15 minutes is accepted through smart start-time shifting.
+- **Geocoding & Travel Time Calculation:** Multi-level geocoding cache (postcodes.io API for UK postcodes) and real-time travel time calculations using OpenRouteService API with intelligent caching. Travel times are cached in the database to minimize API calls.
+- **Strict Travel Time Limits:** Enforces a **23-minute maximum travel time for car mode** and **40-minute limit for public transport** to ensure fair scheduling and reduce mileage. Visits requiring longer travel are left unassigned for manual review rather than creating unfair routes.
 - **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types, custom travel limits, and employee exclusions.
 - **Weekly Contracted Hours (Net Capacity):** Integrates guaranteed hours from the master employee file to calculate and display net capacity, used for weekly constraint enforcement.
 
