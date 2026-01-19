@@ -311,8 +311,9 @@ export class AutoScheduler {
         const transportMode = (emp.transportMode?.toLowerCase().includes('car') ? 'car' : 
                               emp.transportMode?.toLowerCase().includes('walk') ? 'public' : 'car') as any;
 
-        // Set travel limits (strict 23 minutes for all modes to reduce mileage)
-        const maxTravel = 23; 
+        // Set travel limits based on transport mode for better allocation
+        // 23 minutes for car (strict limit to reduce mileage), 40 minutes for public transport
+        const maxTravel = transportMode === 'car' ? 23 : 40; 
 
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;
@@ -665,8 +666,8 @@ export class AutoScheduler {
         )
         : 0;
 
-      // STRICT: Enforce max travel time for fair scheduling (strict 23 min for all modes)
-      const maxTravelLimit = 23;
+      // STRICT: Enforce max travel time for fair scheduling (23 min car, 40 min public)
+      const maxTravelLimit = employee.transportMode === 'car' ? 23 : 40;
       if (travelToPrev > maxTravelLimit || (nextVisit && travelToNext > maxTravelLimit)) {
         continue; // Skip this insertion point - travel time too long
       }
