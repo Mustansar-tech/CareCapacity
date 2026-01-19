@@ -1,8 +1,8 @@
 // Scheduling utility functions for VRPTW optimization
 
 // Maximum travel time in minutes before a route is considered infeasible
-// Set to 30 minutes for car mode to ensure fair scheduling and reduce mileage
-export const MAX_TRAVEL_TIME_MINUTES = 30;
+// Set to 40 minutes for car mode to ensure fair scheduling and reduce mileage
+export const MAX_TRAVEL_TIME_MINUTES = 40;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
