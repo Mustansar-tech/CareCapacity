@@ -840,6 +840,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/travel/matrix - Calculate travel times with ORS API + caching
+  // Used by frontend scheduler to get accurate travel times before optimization
+  app.post('/api/travel/matrix', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const { pairs, transportMode = 'car' } = req.body;
+
+      if (!pairs || !Array.isArray(pairs) || pairs.length === 0) {
+        return res.status(400).json({ message: 'pairs array is required with {fromLat, fromLng, toLat, toLng}' });
+      }
+
+      // Import TravelTimeService
+      const { travelTimeService } = await import('./travel-time-service');
+
+      console.log(`🚀 Travel matrix request: ${pairs.length} pairs for branch ${branchId} (mode: ${transportMode})`);
+
+      // Process pairs in parallel with rate limiting (max 10 concurrent)
+      const batchSize = 10;
+      const results: Array<{
+        fromLat: number;
+        fromLng: number;
+        toLat: number;
+        toLng: number;
+        travelTimeMinutes: number;
+        distanceKm: number;
+        feasible: boolean;
+        source: string;
+      }> = [];
+
+      for (let i = 0; i < pairs.length; i += batchSize) {
+        const batch = pairs.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (pair: any) => {
+            try {
+              const from = { lat: parseFloat(pair.fromLat), lng: parseFloat(pair.fromLng) };
+              const to = { lat: parseFloat(pair.toLat), lng: parseFloat(pair.toLng) };
+              
+              const result = await travelTimeService.calculateTravelTime(branchId, from, to, transportMode);
+              
+              return {
+                fromLat: from.lat,
+                fromLng: from.lng,
+                toLat: to.lat,
+                toLng: to.lng,
+                travelTimeMinutes: result.travelTimeMinutes,
+                distanceKm: result.distanceKm,
+                feasible: result.feasible,
+                source: 'ors'
+              };
+            } catch (error) {
+              console.error('Travel pair calculation error:', error);
+              return {
+                fromLat: parseFloat(pair.fromLat),
+                fromLng: parseFloat(pair.fromLng),
+                toLat: parseFloat(pair.toLat),
+                toLng: parseFloat(pair.toLng),
+                travelTimeMinutes: 0,
+                distanceKm: 0,
+                feasible: false,
+                source: 'error'
+              };
+            }
+          })
+        );
+        results.push(...batchResults);
+      }
+
+      console.log(`✅ Travel matrix complete: ${results.length} pairs calculated`);
+      res.json({ results, transportMode, branchId });
+    } catch (error) {
+      console.error('Travel matrix error:', error);
+      const message = error instanceof Error ? error.message : 'Travel matrix calculation failed';
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
+    }
+  });
+
   // POST /api/routing/optimize - Optimize routes for employees with 15-minute constraint
   app.post('/api/routing/optimize', async (req, res) => {
     try {

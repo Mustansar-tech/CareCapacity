@@ -156,6 +156,25 @@ export function clearTravelCache(): void {
   travelTimeCache.clear();
 }
 
+// Seed travel time cache with ORS results from backend
+export function seedTravelCache(results: Array<{
+  fromLat: number;
+  fromLng: number;
+  toLat: number;
+  toLng: number;
+  travelTimeMinutes: number;
+}>, mode: 'car' | 'walking' | 'public' = 'car'): void {
+  let seeded = 0;
+  for (const result of results) {
+    if (result.travelTimeMinutes > 0) {
+      const cacheKey = `${result.fromLat.toFixed(4)},${result.fromLng.toFixed(4)}-${result.toLat.toFixed(4)},${result.toLng.toFixed(4)}-${mode}`;
+      travelTimeCache.set(cacheKey, result.travelTimeMinutes);
+      seeded++;
+    }
+  }
+  console.log(`🌐 Seeded travel cache with ${seeded} ORS results`);
+}
+
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
 // Handles formats like "09:15-10:30; 12:30-16:15" or ["09:15-10:30", "12:30-16:15"]
 export interface TimeWindow {
