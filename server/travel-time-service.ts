@@ -53,6 +53,7 @@ export class TravelTimeService {
       const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
       // Only return cached value if it's from ORS, or if we don't have an API key to refresh it
       if (cached && (cached.source === 'ors' || !this.ORS_API_KEY)) {
+        console.log(`✨ Travel Cache HIT: ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) = ${cached.durationMinutes}min`);
         return {
           fromLocation: from,
           toLocation: to,
