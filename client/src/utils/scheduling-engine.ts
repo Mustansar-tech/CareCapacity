@@ -974,15 +974,37 @@ export function generateWeeklySchedule(
 
     // Separate GH and non-GH employees for two-phase allocation
     const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
+    
+    // Calculate GH employees who still have unfilled contracted hours
+    const ghWithCapacity = ghEmployees.filter(s => {
+      const remaining = s.weeklyContractedMinutes - s.weeklyUsedMinutes;
+      return remaining > 0;
+    });
 
-    // Phase 1: Try to assign to GH employees first (if any available)
-    let result = ghEmployees.length > 0
-      ? assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate)
-      : { success: false, reason: 'No GH employees available' };
+    // Phase 1: STRICT GH-FIRST - Try to assign to GH employees who need hours
+    let result = ghWithCapacity.length > 0
+      ? assignVisitToBestEmployee(visit, ghWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+      : { success: false, reason: 'No GH employees with remaining capacity' };
+
+    // Phase 1b: If no GH with capacity, try all GH employees (they may still want visits)
+    if (!result.success && ghEmployees.length > 0) {
+      result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+    }
 
     // Phase 2: If not assigned to GH employee, try all employees
     if (!result.success) {
       result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+    }
+    
+    // Log GH assignment for tracking
+    if (result.success && result.employeeName && isGHEmployee(result.employeeName)) {
+      const schedule = availableSchedules.find(s => s.employeeName === result.employeeName);
+      if (schedule) {
+        const usedPct = schedule.weeklyContractedMinutes > 0 
+          ? ((schedule.weeklyUsedMinutes / schedule.weeklyContractedMinutes) * 100).toFixed(0)
+          : '0';
+        console.log(`✅ GH ASSIGNED: ${result.employeeName} → ${visit.clientName} (${usedPct}% of contracted hours used)`);
+      }
     }
 
     if (result.success && result.employeeName) {
@@ -1036,7 +1058,21 @@ export function generateWeeklySchedule(
       continue;
     }
 
-    const result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+    // Also prioritize GH in second pass
+    const ghSchedules = availableSchedules.filter(s => isGHEmployee(s.employeeName));
+    const ghWithCapacity2 = ghSchedules.filter(s => s.weeklyContractedMinutes - s.weeklyUsedMinutes > 0);
+    
+    let result = ghWithCapacity2.length > 0
+      ? assignVisitToBestEmployee(visit, ghWithCapacity2, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+      : { success: false };
+    
+    if (!result.success && ghSchedules.length > 0) {
+      result = assignVisitToBestEmployee(visit, ghSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+    }
+    
+    if (!result.success) {
+      result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+    }
 
     if (result.success && result.employeeName) {
       // Track this employee assignment for multiple care visits
@@ -1080,7 +1116,22 @@ export function generateWeeklySchedule(
       
       // Mark as relaxed pass for higher tolerance
       const relaxedVisit = { ...visit, _relaxedPass: true } as ClientVisit & { reason: string };
-      const result = assignVisitToBestEmployee(relaxedVisit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      // GH-first in third pass too
+      const ghSchedules3 = availableSchedules.filter(s => isGHEmployee(s.employeeName));
+      const ghWithCapacity3 = ghSchedules3.filter(s => s.weeklyContractedMinutes - s.weeklyUsedMinutes > 0);
+      
+      let result = ghWithCapacity3.length > 0
+        ? assignVisitToBestEmployee(relaxedVisit, ghWithCapacity3, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+        : { success: false };
+      
+      if (!result.success && ghSchedules3.length > 0) {
+        result = assignVisitToBestEmployee(relaxedVisit, ghSchedules3, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
+      
+      if (!result.success) {
+        result = assignVisitToBestEmployee(relaxedVisit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
       
       if (result.success && result.employeeName) {
         if (!visitEmployeeAssignments.has(visitKey)) {
@@ -1134,7 +1185,22 @@ export function generateWeeklySchedule(
       }
       
       const relaxedVisit = { ...visit, _relaxedPass: true } as ClientVisit & { reason: string };
-      const result = assignVisitToBestEmployee(relaxedVisit, employeesWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      // GH-first in fourth pass too
+      const ghSchedules4 = employeesWithCapacity.filter(s => isGHEmployee(s.employeeName));
+      const ghWithCapacity4 = ghSchedules4.filter(s => s.weeklyContractedMinutes - s.weeklyUsedMinutes > 0);
+      
+      let result = ghWithCapacity4.length > 0
+        ? assignVisitToBestEmployee(relaxedVisit, ghWithCapacity4, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+        : { success: false };
+      
+      if (!result.success && ghSchedules4.length > 0) {
+        result = assignVisitToBestEmployee(relaxedVisit, ghSchedules4, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
+      
+      if (!result.success) {
+        result = assignVisitToBestEmployee(relaxedVisit, employeesWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
       
       if (result.success && result.employeeName) {
         const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
@@ -1166,7 +1232,22 @@ export function generateWeeklySchedule(
       });
       
       const relaxedVisit = { ...visit, _relaxedPass: true } as any;
-      const result = assignVisitToBestEmployee(relaxedVisit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      
+      // GH-first in final pass too
+      const ghSchedulesFinal = employeeSchedules.filter(s => isGHEmployee(s.employeeName));
+      const ghWithCapacityFinal = ghSchedulesFinal.filter(s => s.weeklyContractedMinutes - s.weeklyUsedMinutes > 0);
+      
+      let result = ghWithCapacityFinal.length > 0
+        ? assignVisitToBestEmployee(relaxedVisit, ghWithCapacityFinal, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+        : { success: false };
+      
+      if (!result.success && ghSchedulesFinal.length > 0) {
+        result = assignVisitToBestEmployee(relaxedVisit, ghSchedulesFinal, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
+      
+      if (!result.success) {
+        result = assignVisitToBestEmployee(relaxedVisit, employeeSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
       
       if (result.success && result.employeeName) {
         const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
@@ -1230,6 +1311,41 @@ export function generateWeeklySchedule(
   });
 
   const averageTravelTimePerVisit = visitCount > 0 ? Math.round(totalTravelTime / visitCount) : 0;
+
+  // GH UTILIZATION SUMMARY
+  console.log(`\n📊 === GH UTILIZATION SUMMARY ===`);
+  let totalGHContracted = 0;
+  let totalGHUsed = 0;
+  const ghEmployeeStats: Array<{name: string; contracted: number; used: number; pct: number}> = [];
+  
+  weekDates.forEach(date => {
+    const daySchedules = schedulesByDate[date] || [];
+    daySchedules.forEach(schedule => {
+      if (isGHEmployee(schedule.employeeName)) {
+        // Only count each employee once per week (use first occurrence)
+        const existing = ghEmployeeStats.find(s => s.name === schedule.employeeName);
+        if (!existing) {
+          const contracted = schedule.weeklyContractedMinutes;
+          const used = weeklyUsedMap.get(schedule.employeeName) || 0;
+          const pct = contracted > 0 ? (used / contracted) * 100 : 0;
+          ghEmployeeStats.push({ name: schedule.employeeName, contracted, used, pct });
+          totalGHContracted += contracted;
+          totalGHUsed += used;
+        }
+      }
+    });
+  });
+  
+  ghEmployeeStats.sort((a, b) => b.pct - a.pct);
+  ghEmployeeStats.forEach(stat => {
+    const status = stat.pct >= 90 ? '✅' : stat.pct >= 70 ? '⚠️' : '❌';
+    console.log(`  ${status} ${stat.name}: ${(stat.used/60).toFixed(1)}h / ${(stat.contracted/60).toFixed(1)}h (${stat.pct.toFixed(0)}%)`);
+  });
+  
+  const overallGHPct = totalGHContracted > 0 ? (totalGHUsed / totalGHContracted) * 100 : 0;
+  console.log(`\n  TOTAL GH: ${(totalGHUsed/60).toFixed(1)}h / ${(totalGHContracted/60).toFixed(1)}h (${overallGHPct.toFixed(0)}% utilization)`);
+  console.log(`  GH LOSS: ${((totalGHContracted - totalGHUsed)/60).toFixed(1)}h unfilled`);
+  console.log(`============================\n`);
 
   return {
     assignments,
