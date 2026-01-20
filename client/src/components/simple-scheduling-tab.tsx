@@ -442,7 +442,8 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                         const travelMinutes = getTravelMinutes(
                             empLocation,
                             clientLocationCoords,
-                            normalizedTransportMode as 'car' | 'walking' | 'public'
+                            normalizedTransportMode as 'car' | 'walking' | 'public',
+                            visit.start // Pass visit start time for congestion multiplier
                           );
 
                           console.log(`🔍 Frontend travel calc: ${selectedEmployee} -> ${visit.clientName}: ${travelMinutes}min`);

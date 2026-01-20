@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import { minutesToTime } from "@/utils/scheduling-utils";
+import { minutesToTime, timeToMinutes, getTravelMinutes } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -603,30 +603,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       let travelFromHome = 0;
 
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
-                                          const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
-                                            const R = 6371;
-                                            const dLat = (to.lat - from.lat) * Math.PI / 180;
-                                            const dLng = (to.lng - from.lng) * Math.PI / 180;
-                                            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                                              Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
-                                              Math.sin(dLng/2) * Math.sin(dLng/2);
-                                            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                                            const distKm = R * c;
-                                            // Synchronized speed: 35 km/h car, 20 km/h public transport
-                                            const speedKmh = mode === 'car' ? 35 : 20;
-                                            // Synchronized minimum: 2 minutes
-                                            return Math.max(2, Math.round((distKm / speedKmh) * 60));
-                                          };
-
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                         const mode = transportMode.includes('car') ? 'car' : 'public';
+                                        const currentEndMin = timeToMinutes(currentVisit.endTime);
+                                        const nextStartMin = timeToMinutes(nextVisit.startTime);
 
                                         // Travel from current visit to home
                                         if (currentVisit.lat && currentVisit.lng) {
                                           travelToHome = getTravelMinutes(
                                             { lat: currentVisit.lat, lng: currentVisit.lng },
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
-                                            mode
+                                            mode,
+                                            currentEndMin // Use current visit end time for congestion
                                           );
                                         }
 
@@ -635,7 +623,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                           travelFromHome = getTravelMinutes(
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                             { lat: nextVisit.lat, lng: nextVisit.lng },
-                                            mode
+                                            mode,
+                                            nextStartMin // Use next visit start time for congestion
                                           );
                                         }
                                       }
@@ -695,26 +684,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 // Calculate travel time from last visit to home
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
-                                  const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
-                                    const R = 6371; // Earth's radius in km
-                                    const dLat = (to.lat - from.lat) * Math.PI / 180;
-                                    const dLng = (to.lng - from.lng) * Math.PI / 180;
-                                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                                      Math.cos(from.lat * Math.PI / 180) * Math.cos(to.lat * Math.PI / 180) *
-                                      Math.sin(dLng/2) * Math.sin(dLng/2);
-                                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                                    const distKm = R * c;
-                                    const speedKmh = mode === 'car' ? 35 : 20;
-                                    return Math.max(2, Math.round((distKm / speedKmh) * 60));
-                                  };
-
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                   const mode = transportMode.includes('car') ? 'car' : 'public';
+                                  const lastVisitEndMin = timeToMinutes(lastVisit.endTime);
 
                                   travelToHome = getTravelMinutes(
                                     { lat: lastVisit.lat, lng: lastVisit.lng },
                                     { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
-                                    mode
+                                    mode,
+                                    lastVisitEndMin // Use last visit end time for congestion
                                   );
                                 }
 
