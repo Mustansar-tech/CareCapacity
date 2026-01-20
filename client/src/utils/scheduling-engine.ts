@@ -521,19 +521,29 @@ function assignVisitToBestEmployee(
       : matchScore.score;
 
     // CRITICAL: Penalize if employee already has a visit at this exact time
-    // This prevents same-time assignments unless it's multiple care
-    const hasConflictingVisit = schedule.assignedVisits.some(v => {
+    // OR if they already have a visit for the SAME client on this day
+    const existingVisitConflict = schedule.assignedVisits.find(v => {
       const vStart = timeToMinutes(v.startTime);
       const vEnd = timeToMinutes(v.endTime);
       const visitStart = timeToMinutes(adjustedVisit.startTime);
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
+      // Same client check: Prevent same employee serving same client multiple times per day
+      // unless it's a double-up/secondary care (which we already filter/handle differently)
+      if (v.clientName === adjustedVisit.clientName) {
+        return true;
+      }
+
       // Strict overlap check: No overlapping visits allowed
       return (visitStart < vEnd && visitEnd > vStart);
     });
 
-    if (hasConflictingVisit) {
-      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
+    if (existingVisitConflict) {
+      if (existingVisitConflict.clientName === adjustedVisit.clientName) {
+        console.log(`⚠️ SAME CLIENT CONFLICT: ${schedule.employeeName} already assigned to ${adjustedVisit.clientName} today`);
+      } else {
+        console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
+      }
       continue; // Strictly skip this employee
     }
 
