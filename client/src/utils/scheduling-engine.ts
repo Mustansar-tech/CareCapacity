@@ -6,9 +6,8 @@ import {
   parseTimeWindows,
   type TimeWindow,
   isInsertionFeasible,
-  getTravelMinutes,
-  fitsInWindow,
-  MAX_TRAVEL_TIME_MINUTES
+  getTravelMinutes, // Import getTravelMinutes
+  fitsInWindow // Import fitsInWindow
 } from './scheduling-utils';
 import {
   scoreVisitMatch,
@@ -344,19 +343,21 @@ function calculateTravelFromPrevious(
 ): number {
   if (insertionIndex === 0) {
     // First visit - calculate from home
-    return getTravelMinutes(
+    const travelService = new (require('./scheduling-utils').TravelTimeService)();
+    return travelService.calculateTravelTime(
       { lat: schedule.homeLat, lng: schedule.homeLng },
       { lat: visit.lat || 0, lng: visit.lng || 0 },
       schedule.transportMode
-    );
+    ).travelTimeMinutes;
   } else {
     // Calculate from previous visit
     const prevVisit = schedule.assignedVisits[insertionIndex - 1];
-    return getTravelMinutes(
+    const travelService = new (require('./scheduling-utils').TravelTimeService)();
+    return travelService.calculateTravelTime(
       { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
       { lat: visit.lat || 0, lng: visit.lng || 0 },
       schedule.transportMode
-    );
+    ).travelTimeMinutes;
   }
 }
 
@@ -489,7 +490,6 @@ function assignVisitToBestEmployee(
       mode: schedule.transportMode,
     };
 
-    // pass transportMode to scoreVisitMatch if it supports it, or it will use getTravelMinutes internally which uses it
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     if (!matchScore || matchScore.score <= 0) continue;
 
@@ -520,7 +520,8 @@ function assignVisitToBestEmployee(
       ? matchScore.score + GH_SCORE_BONUS
       : matchScore.score;
 
-    // STRICT: Reject if visit overlaps with ANY existing visit
+    // CRITICAL: Penalize if employee already has a visit at this exact time
+    // This prevents same-time assignments unless it's multiple care
     const hasConflictingVisit = schedule.assignedVisits.some(v => {
       const vStart = timeToMinutes(v.startTime);
       const vEnd = timeToMinutes(v.endTime);
@@ -528,12 +529,11 @@ function assignVisitToBestEmployee(
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
       // Strict overlap check: No overlapping visits allowed
-      // If a visit ends at the same time another starts, it's NOT an overlap
       return (visitStart < vEnd && visitEnd > vStart);
     });
 
     if (hasConflictingVisit) {
-      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit overlapping with ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
+      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
       continue; // Strictly skip this employee
     }
 
@@ -592,13 +592,6 @@ function assignVisitToBestEmployee(
       schedule.transportMode
     );
     console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
-
-    // STRICT: Enforce max travel limit for first visit from home (23 min car, 40 min public)
-    const maxTravelLimit = schedule.transportMode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
-    if (actualTravelTimeBefore > maxTravelLimit) {
-      console.log(`❌ First visit travel exceeds limit: ${actualTravelTimeBefore}min > ${maxTravelLimit}min (${schedule.transportMode}) - REJECTED`);
-      return { success: false, reason: `First visit travel time ${actualTravelTimeBefore}min exceeds ${maxTravelLimit}min limit` };
-    }
   } else {
     // Check if there's a large gap (90+ minutes) suggesting a home break
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
@@ -621,13 +614,6 @@ function assignVisitToBestEmployee(
 
       actualTravelTimeBefore = travelFromHome;
       console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
-
-      // STRICT: Enforce max travel limit for return from home (23 min car, 40 min public)
-      const maxTravelLimit = schedule.transportMode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
-      if (travelFromHome > maxTravelLimit) {
-        console.log(`❌ Home break return travel exceeds limit: ${travelFromHome}min > ${maxTravelLimit}min (${schedule.transportMode}) - REJECTED`);
-        return { success: false, reason: `Home break travel time ${travelFromHome}min exceeds ${maxTravelLimit}min limit` };
-      }
     }
   }
 

@@ -32,8 +32,7 @@ export class TravelTimeService {
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
 
-  constructor(maxTravelMinutes: number = 60, softLimitMinutes?: number) {
-    console.log(`🚀 TravelTimeService initialized with ORS_API_KEY: ${this.ORS_API_KEY ? 'YES' : 'NO'}`);
+  constructor(maxTravelMinutes: number = 20, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
@@ -44,23 +43,16 @@ export class TravelTimeService {
     to: Location,
     transportMode: TransportMode = "car"
   ): Promise<TravelMatrix> {
-    // Round coordinates to 4 decimal places for cache consistency (NON-NEGOTIABLE)
-    const fLatStr = Number(from.lat).toFixed(4);
-    const fLngStr = Number(from.lng).toFixed(4);
-    const tLatStr = Number(to.lat).toFixed(4);
-    const tLngStr = Number(to.lng).toFixed(4);
-
-    const fLatNum = Number(fLatStr);
-    const fLngNum = Number(fLngStr);
-    const tLatNum = Number(tLatStr);
-    const tLngNum = Number(tLngStr);
+    const fromLat = from.lat.toString();
+    const fromLng = from.lng.toString();
+    const toLat = to.lat.toString();
+    const toLng = to.lng.toString();
 
     // 1. Check Cache
     try {
-      const cached = await storage.getTravelTime(branchId, fLatStr, fLngStr, tLatStr, tLngStr, transportMode);
-      // Return cached value if it's from ORS
+      const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
+      // Only return cached value if it's from ORS, or if we don't have an API key to refresh it
       if (cached && (cached.source === 'ors' || !this.ORS_API_KEY)) {
-        console.log(`✨ Travel Cache HIT: ${fLatStr},${fLngStr} → ${tLatStr},${tLngStr} (${transportMode}) = ${cached.durationMinutes}min`);
         return {
           fromLocation: from,
           toLocation: to,
@@ -70,29 +62,52 @@ export class TravelTimeService {
           penaltyScore: this.calculatePenalty(cached.durationMinutes)
         };
       }
+      
+      if (cached && cached.source === 'haversine' && this.ORS_API_KEY) {
+        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously haversine)`);
+      }
     } catch (e) {
       console.error("Cache lookup failed:", e);
     }
 
-    // 2. Try OpenRouteService (CAR ONLY - KILL WALKING ORS CALLS)
-    if (this.ORS_API_KEY && transportMode === 'car') {
+    // 2. Try OpenRouteService
+    if (this.ORS_API_KEY) {
       try {
-        console.log(`🌐 Requesting ORS (driving-car) for ${fLatStr},${fLngStr} to ${tLatStr},${tLngStr}`);
-        const result = await this.fetchORSRoute({ lat: fLatNum, lng: fLngNum }, { lat: tLatNum, lng: tLngNum }, 'driving-car');
-        
-        if (result) {
-          const durationMinutes = result.durationMinutes;
-          const distanceMeters = result.distanceMeters;
+        const orsMode = transportMode === 'walking' ? 'foot-walking' : 
+                        transportMode === 'public' ? 'driving-car' : 'driving-car';
+        console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
+        const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': this.ORS_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            coordinates: [[from.lng, from.lat], [to.lng, to.lat]]
+          })
+        });
 
-          console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m (mode: car)`);
+        if (response.ok) {
+          const data = await response.json();
+          const durationSeconds = data.routes[0].summary.duration;
+          const distanceMeters = data.routes[0].summary.distance;
+          let durationMinutes = Math.max(2, Math.round(durationSeconds / 60)); // Minimum 2 min
+
+          // Add 10-minute public transport overhead (walking to/from stops, waiting)
+          if (transportMode === 'public') {
+            durationMinutes += 10;
+            console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
+          }
+
+          console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
           await storage.saveTravelTime({
             branchId,
-            fromLat: fLatStr,
-            fromLng: fLngStr,
-            toLat: tLatStr,
-            toLng: tLngStr,
-            transportMode: 'car',
+            fromLat,
+            fromLng,
+            toLat,
+            toLng,
+            transportMode,
             durationMinutes,
             distanceMeters: Math.round(distanceMeters),
             source: 'ors'
@@ -106,41 +121,36 @@ export class TravelTimeService {
             feasible: durationMinutes <= this.maxTravelMinutes,
             penaltyScore: this.calculatePenalty(durationMinutes)
           };
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ ORS API Error (${response.status}):`, errorText);
         }
       } catch (error) {
         console.error("ORS API Exception, falling back to Haversine:", error);
       }
     }
 
-    // 3. Fallback/Approximation (Walking & Public use Haversine × 1.2 + Fixed Penalty)
-    const rawDistanceKm = this.calculateHaversineDistance({ lat: fLatNum, lng: fLngNum }, { lat: tLatNum, lng: tLngNum });
-    // Apply 1.2 multiplier for road distance approximation
-    const distanceKm = rawDistanceKm * 1.2;
-    let travelTimeMinutes: number;
-    let penaltyBonus = 0;
-    
-    if (transportMode === 'car') {
-      const speedKmh = this.SPEED_KMH.car;
-      travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60));
-      console.log(`⚠️ Fallback Haversine (car, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km (incl 1.2x factor)`);
-    } else {
-      // Walking and Public now both use public transport approximation (NO FOOT-WALKING ORS CALLS)
-      // Formula: (Distance / 20km/h) * 60 + 15 min fixed penalty
-      const baseTime = (distanceKm / 20) * 60;
-      const fixedPenalty = 15;
-      travelTimeMinutes = Math.max(5, Math.round(baseTime + fixedPenalty));
-      penaltyBonus = 20; // Extra penalty score for non-car modes
-      console.log(`🚌 [Approximation] ${transportMode}: ${travelTimeMinutes} min (${distanceKm.toFixed(2)} km @ 20km/h + 15min fixed penalty)`);
+    // 3. Fallback to Haversine
+    const distanceKm = this.calculateHaversineDistance(from, to);
+    const speedKmh = this.SPEED_KMH[transportMode] || this.SPEED_KMH.car;
+    let travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60)); // Minimum 2 min
+
+    // Add 10-minute public transport overhead (walking to/from stops, waiting)
+    if (transportMode === 'public') {
+      travelTimeMinutes += 10;
+      console.log(`🚌 [Fallback] Added 10min public transport overhead: ${travelTimeMinutes - 10} -> ${travelTimeMinutes} min`);
     }
 
-    // Cache the result
+    console.log(`⚠️ Fallback Haversine (${transportMode}, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km`);
+
+    // Cache the fallback result
     try {
       await storage.saveTravelTime({
         branchId,
-        fromLat: fLatStr,
-        fromLng: fLngStr,
-        toLat: tLatStr,
-        toLng: tLngStr,
+        fromLat,
+        fromLng,
+        toLat,
+        toLng,
         transportMode,
         durationMinutes: travelTimeMinutes,
         distanceMeters: Math.round(distanceKm * 1000),
@@ -156,7 +166,7 @@ export class TravelTimeService {
       distanceKm: Math.round(distanceKm * 100) / 100,
       travelTimeMinutes,
       feasible: travelTimeMinutes <= this.maxTravelMinutes,
-      penaltyScore: this.calculatePenalty(travelTimeMinutes) + penaltyBonus
+      penaltyScore: this.calculatePenalty(travelTimeMinutes)
     };
   }
 
@@ -211,42 +221,6 @@ export class TravelTimeService {
     const excess = minutes - this.softLimitMinutes;
     const maxExcess = this.maxTravelMinutes - this.softLimitMinutes;
     return Math.pow(excess / maxExcess, 2) * 100;
-  }
-
-  private async fetchORSRoute(
-    from: Location,
-    to: Location,
-    orsMode: string
-  ): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
-    if (!this.ORS_API_KEY) return null;
-    
-    try {
-      const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': this.ORS_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          coordinates: [[from.lng, from.lat], [to.lng, to.lat]]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const durationSeconds = data.routes[0].summary.duration;
-        const distanceMeters = data.routes[0].summary.distance;
-        const durationMinutes = Math.max(2, Math.round(durationSeconds / 60));
-        return { durationMinutes, distanceMeters: Math.round(distanceMeters) };
-      } else {
-        const errorText = await response.text();
-        console.error(`❌ ORS API Error (${response.status}):`, errorText);
-        return null;
-      }
-    } catch (error) {
-      console.error("ORS fetch error:", error);
-      return null;
-    }
   }
 
   private calculateHaversineDistance(from: Location, to: Location): number {

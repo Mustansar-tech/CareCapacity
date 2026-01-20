@@ -85,20 +85,6 @@ export function scoreVisitMatch(
       ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode)
       : 0;
 
-    // CRITICAL: Check for time overlaps with neighbors
-    // A visit cannot start before the previous one ends + travel time
-    if (prevVisit) {
-      if (prevVisit.end + travelFrom > visit.start) {
-        continue; // Overlaps with previous visit
-      }
-    }
-    // A visit cannot end after the next one starts - travel time
-    if (nextVisit) {
-      if (visit.end + travelTo > nextVisit.start) {
-        continue; // Overlaps with next visit
-      }
-    }
-
     const gap = calculateInsertionGap(
       visit,
       prevVisit,

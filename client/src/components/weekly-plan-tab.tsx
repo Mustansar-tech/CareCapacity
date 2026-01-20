@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import { minutesToTime, seedTravelCache, clearTravelCache } from "@/utils/scheduling-utils";
+import { minutesToTime } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -242,102 +242,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           console.warn(`⚠️ Missing gender for ${emp.employeeName} on ${emp.date} - Check employee data and location data.`);
         }
       });
-
-      // Prefetch real travel times from backend ORS API
-      // Optimized: Only fetch employee home -> unique client locations (for first-visit calculations)
-      // Client-to-client travel uses fast Haversine estimates (accurate enough for sequential visits)
-      try {
-        console.log(`🌐 Prefetching travel times from ORS API...`);
-        
-        // Collect unique employee home -> client location pairs
-        const pairs: Array<{fromLat: number; fromLng: number; toLat: number; toLng: number}> = [];
-        const seenPairs = new Set<string>();
-        
-        // Get unique employee home locations
-        const uniqueHomes = new Map<string, {lat: number; lng: number}>();
-        for (const emp of employeesWithLocations) {
-          if (!emp.homeLat || !emp.homeLng) continue;
-          const homeKey = `${emp.homeLat.toFixed(4)},${emp.homeLng.toFixed(4)}`;
-          if (!uniqueHomes.has(homeKey)) {
-            uniqueHomes.set(homeKey, { lat: emp.homeLat, lng: emp.homeLng });
-          }
-        }
-        
-        // Get unique client locations
-        const uniqueClients = new Map<string, {lat: number; lng: number}>();
-        for (const visit of visitsWithLocations) {
-          if (!visit.lat || !visit.lng) continue;
-          const clientKey = `${visit.lat.toFixed(4)},${visit.lng.toFixed(4)}`;
-          if (!uniqueClients.has(clientKey)) {
-            uniqueClients.set(clientKey, { lat: visit.lat, lng: visit.lng });
-          }
-        }
-        
-        // Create pairs: each unique home -> each unique client
-        Array.from(uniqueHomes.entries()).forEach(([homeKey, home]) => {
-          Array.from(uniqueClients.entries()).forEach(([clientKey, client]) => {
-            const pairKey = `${homeKey}-${clientKey}`;
-            if (!seenPairs.has(pairKey)) {
-              seenPairs.add(pairKey);
-              pairs.push({
-                fromLat: home.lat,
-                fromLng: home.lng,
-                toLat: client.lat,
-                toLng: client.lng
-              });
-            }
-          });
-        });
-        
-        console.log(`🔢 Collected ${pairs.length} unique home→client pairs (${uniqueHomes.size} homes × ${uniqueClients.size} clients) for ORS prefetch`);
-        
-        // Cap at 500 pairs to avoid overwhelming ORS API
-        const MAX_PREFETCH_PAIRS = 500;
-        const pairsToFetch = pairs.length > MAX_PREFETCH_PAIRS 
-          ? pairs.slice(0, MAX_PREFETCH_PAIRS) 
-          : pairs;
-        
-        if (pairs.length > MAX_PREFETCH_PAIRS) {
-          console.warn(`⚠️ Limiting ORS prefetch to ${MAX_PREFETCH_PAIRS} pairs (${pairs.length} total)`);
-        }
-        
-        if (pairsToFetch.length > 0) {
-          // Group by transport mode
-          const byMode = new Map<string, typeof pairsToFetch>();
-          employeesWithLocations.forEach(emp => {
-            if (!emp.homeLat || !emp.homeLng) return;
-            const mode = (emp.transportMode || 'car') as string;
-            if (!byMode.has(mode)) byMode.set(mode, []);
-            
-            // For this employee, get all client pairs
-            uniqueClients.forEach(client => {
-              byMode.get(mode)!.push({
-                fromLat: emp.homeLat!,
-                fromLng: emp.homeLng!,
-                toLat: client.lat,
-                toLng: client.lng
-              });
-            });
-          });
-
-          Array.from(byMode.entries()).forEach(async ([mode, modePairs]) => {
-            const cappedPairs = modePairs.slice(0, 300); // Reasonable limit per mode
-            console.log(`🌐 Fetching ${cappedPairs.length} pairs for mode: ${mode}`);
-            const response = await apiRequest('POST', '/api/travel/matrix', {
-              pairs: cappedPairs,
-              transportMode: mode
-            });
-            
-            const data = await response.json();
-            if (data.results) {
-              seedTravelCache(data.results, mode as any);
-              console.log(`✅ Prefetched ${data.results.length} travel times for ${mode}`);
-            }
-          });
-        }
-      } catch (error) {
-        console.warn(`⚠️ ORS prefetch failed, using fallback calculations:`, error);
-      }
 
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
 
@@ -720,21 +624,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                               Math.sin(dLng/2) * Math.sin(dLng/2);
                                             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                             const distKm = R * c;
-                                            
-                                            if (mode === 'car') {
-                                              return Math.max(2, Math.round((distKm / 35) * 60));
-                                            } else {
-                                              // Realistic public transport: walk to stop + wait + bus + walk from stop
-                                              if (distKm < 1.0) {
-                                                return Math.max(2, Math.round((distKm / 4.0) * 60)); // Just walk
-                                              }
-                                              const walkToStop = 4;
-                                              const waitTime = 7;
-                                              const walkFromStop = 4;
-                                              const busDistanceKm = Math.max(0, distKm - 0.8);
-                                              const busTimeMinutes = Math.round((busDistanceKm / 22) * 60);
-                                              return walkToStop + waitTime + busTimeMinutes + walkFromStop;
-                                            }
+                                            // Synchronized speed: 35 km/h car, 20 km/h public transport
+                                            const speedKmh = mode === 'car' ? 35 : 20;
+                                            // Synchronized minimum: 2 minutes
+                                            return Math.max(2, Math.round((distKm / speedKmh) * 60));
                                           };
 
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
@@ -815,7 +708,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
                                   const getTravelMinutes = (from: {lat: number, lng: number}, to: {lat: number, lng: number}, mode: string) => {
-                                    const R = 6371;
+                                    const R = 6371; // Earth's radius in km
                                     const dLat = (to.lat - from.lat) * Math.PI / 180;
                                     const dLng = (to.lng - from.lng) * Math.PI / 180;
                                     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -823,21 +716,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       Math.sin(dLng/2) * Math.sin(dLng/2);
                                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                     const distKm = R * c;
-                                    
-                                    if (mode === 'car') {
-                                      return Math.max(2, Math.round((distKm / 35) * 60));
-                                    } else {
-                                      // Realistic public transport: walk to stop + wait + bus + walk from stop
-                                      if (distKm < 1.0) {
-                                        return Math.max(2, Math.round((distKm / 4.0) * 60)); // Just walk
-                                      }
-                                      const walkToStop = 4;
-                                      const waitTime = 7;
-                                      const walkFromStop = 4;
-                                      const busDistanceKm = Math.max(0, distKm - 0.8);
-                                      const busTimeMinutes = Math.round((busDistanceKm / 22) * 60);
-                                      return walkToStop + waitTime + busTimeMinutes + walkFromStop;
-                                    }
+                                    const speedKmh = mode === 'car' ? 35 : 20;
+                                    return Math.max(2, Math.round((distKm / speedKmh) * 60));
                                   };
 
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';

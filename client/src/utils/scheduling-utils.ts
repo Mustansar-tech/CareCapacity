@@ -1,8 +1,7 @@
 // Scheduling utility functions for VRPTW optimization
 
 // Maximum travel time in minutes before a route is considered infeasible
-// Set to 60 minutes for car mode to ensure fair scheduling and reduce mileage
-export const MAX_TRAVEL_TIME_MINUTES = 60;
+export const MAX_TRAVEL_TIME_MINUTES = 45;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
@@ -76,16 +75,11 @@ export function getTravelMinutes(
   to: { lat: number; lng: number },
   mode: 'car' | 'walking' | 'public' = 'car'
 ): number {
-  // Round to 4 decimal places for cache consistency (NON-NEGOTIABLE)
-  const fromLatStr = Number(from.lat).toFixed(4);
-  const fromLngStr = Number(from.lng).toFixed(4);
-  const toLatStr = Number(to.lat).toFixed(4);
-  const toLngStr = Number(to.lng).toFixed(4);
-
-  const fromLat = Number(fromLatStr);
-  const fromLng = Number(fromLngStr);
-  const toLat = Number(toLatStr);
-  const toLng = Number(toLngStr);
+  // Parse coordinates to ensure they are numbers
+  const fromLat = Number(from.lat);
+  const fromLng = Number(from.lng);
+  const toLat = Number(to.lat);
+  const toLng = Number(to.lng);
 
   // Validate coordinates
   if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) ||
@@ -99,34 +93,34 @@ export function getTravelMinutes(
     return 0;
   }
 
-  // Create cache key with rounded coordinates
-  const cacheKey = `${fromLatStr},${fromLngStr}-${toLatStr},${toLngStr}-${mode}`;
+  // Create cache key with rounded coordinates for better hit rate
+  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}`;
   
   // Check cache first
   const cached = travelTimeCache.get(cacheKey);
-  if (cached !== undefined && cached > 0) {
+  if (cached !== undefined) {
     return cached;
   }
 
-  const rawDistanceKm = haversineDistance(
+  const distance = haversineDistance(
     { lat: fromLat, lng: fromLng },
     { lat: toLat, lng: toLng }
   );
 
-  // Apply 1.2 multiplier for road distance approximation
-  const distanceKm = rawDistanceKm * 1.2;
+  // Transport mode speeds (km/h)
+  const speeds = {
+    car: 35,        // Increased from 30 to 35 for better fallback accuracy
+    walking: 4.0,   // Reduced from 4.5
+    public: 20      // Reduced from 25
+  };
 
-  let finalTravelMinutes: number;
+  const speedKmh = speeds[mode] || speeds.car;
+  const travelTimeMinutes = Math.max(2, Math.round((distance / speedKmh) * 60)); // Minimum 2 min
 
-  if (mode === 'car') {
-    // Car: 35 km/h average urban speed
-    finalTravelMinutes = Math.max(2, Math.round((distanceKm / 35) * 60));
-  } else {
-    // Walking and Public now use public transport approximation (matches backend)
-    // Formula: (Distance / 20km/h) * 60 + 15 min fixed penalty
-    const baseTime = (distanceKm / 20) * 60;
-    const fixedPenalty = 15;
-    finalTravelMinutes = Math.max(5, Math.round(baseTime + fixedPenalty));
+  // Add 10-minute public transport overhead (walking to/from stops, waiting)
+  let finalTravelMinutes = travelTimeMinutes;
+  if (mode === 'public') {
+    finalTravelMinutes += 10;
   }
 
   // Store in cache
@@ -138,31 +132,6 @@ export function getTravelMinutes(
 // Clear travel time cache (call when starting new scheduling run)
 export function clearTravelCache(): void {
   travelTimeCache.clear();
-}
-
-// Seed travel time cache with ORS results from backend
-export function seedTravelCache(results: Array<{
-  fromLat: number;
-  fromLng: number;
-  toLat: number;
-  toLng: number;
-  travelTimeMinutes: number;
-}>, mode: 'car' | 'walking' | 'public' = 'car'): void {
-  let seeded = 0;
-  for (const result of results) {
-    if (result.travelTimeMinutes > 0) {
-      // Round to 4 decimal places to match getTravelMinutes precision
-      const fromLat = Number(result.fromLat).toFixed(4);
-      const fromLng = Number(result.fromLng).toFixed(4);
-      const toLat = Number(result.toLat).toFixed(4);
-      const toLng = Number(result.toLng).toFixed(4);
-      
-      const cacheKey = `${fromLat},${fromLng}-${toLat},${toLng}-${mode}`;
-      travelTimeCache.set(cacheKey, result.travelTimeMinutes);
-      seeded++;
-    }
-  }
-  console.log(`🌐 Seeded travel cache with ${seeded} ORS results`);
 }
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
@@ -225,7 +194,7 @@ export function fitsInWindow(
 }
 
 // Check if inserting a visit between two existing visits is feasible
-// Enforces MAX_TRAVEL_TIME_MINUTES constraint for fair scheduling
+// VERY LENIENT - allows large gaps, focuses on physical feasibility
 export function isInsertionFeasible(
   visit: { start: number; end: number },
   prevVisit: { end: number; lat: number; lng: number } | null,
@@ -234,10 +203,6 @@ export function isInsertionFeasible(
   windows: TimeWindow[],
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
-  // Get max travel limit based on transport mode
-  // Car: 23 minutes (strict), Public: 40 minutes (more overhead)
-  const maxTravelForMode = mode === 'car' ? MAX_TRAVEL_TIME_MINUTES : 40;
-
   // LENIENT window check - allow if visit has ANY overlap with windows
   const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
 
@@ -248,7 +213,14 @@ export function isInsertionFeasible(
     return false; // Visit completely outside reasonable time
   }
 
-  // Check time constraint with previous visit
+  // Special allowance for evening visits (5pm-10pm) - critical for GH capacity
+  const isEveningVisit = visit.start >= 1020 && visit.end <= 1320; // 5pm to 10pm
+  if (isEveningVisit) {
+    return true; // Evening visits are always feasible for capacity filling
+  }
+
+  // Check time constraint with previous visit (only check if there's enough time to travel)
+  // ALLOW LARGE GAPS - employee can have free time
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
       { lat: prevVisit.lat, lng: prevVisit.lng },
@@ -256,17 +228,15 @@ export function isInsertionFeasible(
       mode
     );
 
-    // STRICT: Reject if travel time exceeds maximum limit for fair scheduling
-    if (travelFromPrev > maxTravelForMode) {
-      return false; // Travel time too long - reduces mileage and ensures fairness
-    }
-
     if (prevVisit.end + travelFromPrev > visit.start) {
       return false; // Not enough time to travel from previous visit
     }
+
+    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
-  // Check time constraint with next visit
+  // Check time constraint with next visit (only check if there's enough time to travel)
+  // ALLOW LARGE GAPS - employee can have free time
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
       visitLocation,
@@ -274,17 +244,14 @@ export function isInsertionFeasible(
       mode
     );
 
-    // STRICT: Reject if travel time exceeds maximum limit for fair scheduling
-    if (travelToNext > maxTravelForMode) {
-      return false; // Travel time too long - reduces mileage and ensures fairness
-    }
-
     if (visit.end + travelToNext > nextVisit.start) {
       return false; // Not enough time to travel to next visit
     }
+
+    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
-  return true; // Visit is feasible
+  return true; // Visit is feasible - gaps are OK
 }
 
 // Calculate the gap/slack when inserting a visit

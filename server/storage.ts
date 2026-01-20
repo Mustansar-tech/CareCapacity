@@ -363,11 +363,8 @@ export class DatabaseStorage implements IStorage {
 
   async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> {
     let q = db.select().from(visits).where(eq(visits.branchId, branchId));
-    if (startDate) q = db.select().from(visits).where(and(eq(visits.branchId, branchId), gte(visits.date, startDate)));
-    if (endDate) {
-      const currentWhere = and(eq(visits.branchId, branchId), startDate ? gte(visits.date, startDate) : undefined);
-      q = db.select().from(visits).where(and(currentWhere, lte(visits.date, endDate)));
-    }
+    if (startDate) q = q.where(gte(visits.date, startDate));
+    if (endDate) q = q.where(lte(visits.date, endDate));
     return await q;
   }
 
@@ -453,15 +450,12 @@ export class DatabaseStorage implements IStorage {
   async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     const [result] = await db
       .insert(weeklySchedules)
-      .values({
-        ...schedule,
-        unallocatedVisits: schedule.unallocatedVisits ?? []
-      })
+      .values(schedule)
       .onConflictDoUpdate({
         target: [weeklySchedules.branchId, weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
         set: {
           scheduleData: schedule.scheduleData,
-          unallocatedVisits: schedule.unallocatedVisits ?? [],
+          unallocatedVisits: schedule.unallocatedVisits,
           metrics: schedule.metrics,
           generatedAt: new Date()
         }
@@ -502,7 +496,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(weeklySchedules.generatedAt));
   }
 
-  async getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: any): Promise<TravelTimeCache | undefined> {
+  async getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined> {
     const [result] = await db.select().from(travelTimeCache).where(
       and(
         eq(travelTimeCache.branchId, branchId),
@@ -517,10 +511,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveTravelTime(insertTravelTime: InsertTravelTimeCache): Promise<TravelTimeCache> {
-    const [result] = await db.insert(travelTimeCache).values({
-      ...insertTravelTime,
-      transportMode: insertTravelTime.transportMode ?? 'car'
-    }).returning();
+    const [result] = await db.insert(travelTimeCache).values(insertTravelTime).returning();
     return result;
   }
 
@@ -534,14 +525,11 @@ export class DatabaseStorage implements IStorage {
   async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
     const [result] = await db
       .insert(branchSchedulingPreferences)
-      .values({
-        ...preference,
-        excludedServiceTypes: preference.excludedServiceTypes ?? []
-      })
+      .values(preference)
       .onConflictDoUpdate({
         target: [branchSchedulingPreferences.branchId],
         set: {
-          excludedServiceTypes: preference.excludedServiceTypes ?? [],
+          excludedServiceTypes: preference.excludedServiceTypes,
           updatedAt: new Date()
         }
       })
@@ -669,12 +657,7 @@ export class MemStorage implements IStorage {
 
   async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     const id = randomUUID();
-    const result: WeeklySchedule = { 
-      ...schedule, 
-      id, 
-      generatedAt: new Date(),
-      unallocatedVisits: schedule.unallocatedVisits ?? []
-    };
+    const result: WeeklySchedule = { ...schedule, id, generatedAt: new Date() };
     this.weeklySchedules.set(id, result);
     return result;
   }
@@ -689,16 +672,9 @@ export class MemStorage implements IStorage {
   async getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined> {
     return this.travelTimeCache.get(`${branchId}:${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}`);
   }
-
   async saveTravelTime(travelTime: InsertTravelTimeCache): Promise<TravelTimeCache> {
     const id = randomUUID();
-    const result: TravelTimeCache = { 
-      ...travelTime, 
-      id, 
-      cachedAt: new Date(), 
-      distanceMeters: travelTime.distanceMeters ?? null,
-      transportMode: travelTime.transportMode ?? 'car'
-    };
+    const result: TravelTimeCache = { ...travelTime, id, cachedAt: new Date(), distanceMeters: travelTime.distanceMeters ?? null };
     this.travelTimeCache.set(`${travelTime.branchId}:${travelTime.fromLat}:${travelTime.fromLng}:${travelTime.toLat}:${travelTime.toLng}:${travelTime.transportMode}`, result);
     return result;
   }
@@ -711,15 +687,9 @@ export class MemStorage implements IStorage {
     }
     return pref;
   }
-
   async saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference> {
     const id = randomUUID();
-    const result: BranchSchedulingPreference = { 
-      ...preference, 
-      id, 
-      updatedAt: new Date(),
-      excludedServiceTypes: preference.excludedServiceTypes ?? []
-    };
+    const result: BranchSchedulingPreference = { ...preference, id, updatedAt: new Date() };
     this.branchSchedulingPreferences.set(preference.branchId, result);
     return result;
   }

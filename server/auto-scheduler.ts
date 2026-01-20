@@ -103,7 +103,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
 
   constructor() {
-    this.travelService = new TravelTimeService(60, 45); // 60min max, 45min soft limit for fair scheduling
+    this.travelService = new TravelTimeService(20, 15); // 20min max, 15min soft limit
   }
 
   /**
@@ -183,15 +183,24 @@ export class AutoScheduler {
       }
     }
 
-    // Second pass: Try to assign remaining visits (no travel relaxation - strict 60-min cap enforced)
+    // Second pass: Try to assign remaining visits with relaxed travel constraints (+5 minutes)
     if (unassignedVisits.length > 0) {
-      console.log(`🔄 Second pass: attempting to allocate ${unassignedVisits.length} unassigned visits (strict 60-min travel cap maintained)`);
+      console.log(`🔄 Second pass: attempting to allocate ${unassignedVisits.length} unassigned visits with relaxed constraints`);
 
       const secondPassUnassigned: SchedulingVisit[] = [];
 
       for (const visit of unassignedVisits) {
-        // NOTE: No travel limit relaxation - maintain strict 60-minute cap for fair scheduling
+        // Temporarily increase travel limits by 5 minutes for second pass
+        Array.from(employeeSchedules.values()).forEach(schedule => {
+          schedule.employee.maxTravelPerVisit += 5;
+        });
+
         const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
+
+        // Restore original limits
+        Array.from(employeeSchedules.values()).forEach(schedule => {
+          schedule.employee.maxTravelPerVisit -= 5;
+        });
 
         if (bestAssignment) {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
@@ -312,8 +321,8 @@ export class AutoScheduler {
                               emp.transportMode?.toLowerCase().includes('walk') ? 'public' : 'car') as any;
 
         // Set travel limits based on transport mode for better allocation
-        // 60 minutes for car (strict limit to reduce mileage), 40 minutes for public transport
-        const maxTravel = transportMode === 'car' ? 60 : 40; 
+        // 40 minutes for public transport (account for overhead)
+        const maxTravel = transportMode === 'car' ? 25 : 40; 
 
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;
@@ -665,12 +674,6 @@ export class AutoScheduler {
           employee.transportMode
         )
         : 0;
-
-      // STRICT: Enforce max travel time for fair scheduling (60 min car, 40 min public)
-      const maxTravelLimit = employee.transportMode === 'car' ? 60 : 40;
-      if (travelToPrev > maxTravelLimit || (nextVisit && travelToNext > maxTravelLimit)) {
-        continue; // Skip this insertion point - travel time too long
-      }
 
       // Check if insertion is feasible with scheduling buffer
       const BUFFER = 2; // Reduced buffer to allow tighter scheduling of visits
