@@ -533,22 +533,12 @@ function assignVisitToBestEmployee(
       const visitStart = timeToMinutes(adjustedVisit.startTime);
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
-      // Same client check: Prevent same employee serving same client multiple times per day
-      // UNLESS they are exactly same time (multiple care / double-up)
-      if (v.clientName === adjustedVisit.clientName && vStart !== visitStart) {
-        return true;
-      }
-
       // Strict overlap check: No overlapping visits allowed
       return (visitStart < vEnd && visitEnd > vStart);
     });
 
     if (existingVisitConflict) {
-      if (existingVisitConflict.clientName === adjustedVisit.clientName) {
-        console.log(`⚠️ SAME CLIENT CONFLICT: ${schedule.employeeName} already assigned to ${adjustedVisit.clientName} today`);
-      } else {
-        console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
-      }
+      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
       continue; // Strictly skip this employee
     }
 
