@@ -22,15 +22,40 @@ export interface TravelMatrix {
 export type TransportMode = "car" | "walking" | "public";
 
 export class TravelTimeService {
-  private readonly SPEED_KMH: Record<TransportMode, number> = {
-    car: 35,       // Increased from 30 to 35 for better fallback accuracy
-    walking: 4.0,
-    public: 20
+  // Road distance inflation factor (Haversine × 1.2 approximates UK road distance)
+  private readonly ROAD_FACTOR = 1.2;
+  
+  // Mode-specific average speeds (km/h) and minimums (minutes)
+  private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
+    car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5 },
+    walking: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }, // Treated as public transport proxy
+    public: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }
   };
 
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
+  
+  // Get time-of-day congestion multiplier
+  private getTimeOfDayMultiplier(startTimeMinutes?: number): number {
+    if (startTimeMinutes === undefined) return 1.0;
+    const hours = startTimeMinutes / 60;
+    if (hours >= 7 && hours < 9.5) return 1.3;      // Morning peak
+    if (hours >= 15.5 && hours < 18.5) return 1.25; // School run / evening
+    return 1.0; // Off-peak
+  }
+  
+  // Calculate heuristic travel time using distance-based approach
+  private calculateHeuristicTravelTime(straightLineKm: number, mode: TransportMode, startTimeMinutes?: number): number {
+    const roadDistanceKm = straightLineKm * this.ROAD_FACTOR;
+    const config = this.MODE_CONFIG[mode] || this.MODE_CONFIG.car;
+    
+    const baseTravelMinutes = (roadDistanceKm / config.speedKmh) * 60 + config.overheadMinutes;
+    const congestionMultiplier = this.getTimeOfDayMultiplier(startTimeMinutes);
+    const adjustedMinutes = baseTravelMinutes * congestionMultiplier;
+    
+    return Math.max(config.minMinutes, Math.round(adjustedMinutes));
+  }
 
   constructor(maxTravelMinutes: number = 20, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -130,20 +155,15 @@ export class TravelTimeService {
       }
     }
 
-    // 3. Fallback to Haversine
+    // 3. Fallback to Heuristic (Haversine × 1.2 road factor with mode-specific speeds)
     const distanceKm = this.calculateHaversineDistance(from, to);
-    const speedKmh = this.SPEED_KMH[transportMode] || this.SPEED_KMH.car;
-    let travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60)); // Minimum 2 min
+    const travelTimeMinutes = this.calculateHeuristicTravelTime(distanceKm, transportMode);
+    const config = this.MODE_CONFIG[transportMode] || this.MODE_CONFIG.car;
 
-    // Add 10-minute public transport overhead (walking to/from stops, waiting)
-    if (transportMode === 'public') {
-      travelTimeMinutes += 10;
-      console.log(`🚌 [Fallback] Added 10min public transport overhead: ${travelTimeMinutes - 10} -> ${travelTimeMinutes} min`);
-    }
+    console.log(`⚠️ Heuristic fallback (${transportMode}, ${config.speedKmh}km/h): ${travelTimeMinutes} min for ${(distanceKm * this.ROAD_FACTOR).toFixed(2)} km road distance`);
 
-    console.log(`⚠️ Fallback Haversine (${transportMode}, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km`);
-
-    // Cache the fallback result
+    // Cache the fallback result (using road distance)
+    const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
     try {
       await storage.saveTravelTime({
         branchId,
@@ -153,8 +173,8 @@ export class TravelTimeService {
         toLng,
         transportMode,
         durationMinutes: travelTimeMinutes,
-        distanceMeters: Math.round(distanceKm * 1000),
-        source: 'haversine'
+        distanceMeters: Math.round(roadDistanceKm * 1000),
+        source: 'heuristic'
       });
     } catch (e) {
       console.error("Cache save failed:", e);
@@ -163,7 +183,7 @@ export class TravelTimeService {
     return {
       fromLocation: from,
       toLocation: to,
-      distanceKm: Math.round(distanceKm * 100) / 100,
+      distanceKm: Math.round(roadDistanceKm * 100) / 100,
       travelTimeMinutes,
       feasible: travelTimeMinutes <= this.maxTravelMinutes,
       penaltyScore: this.calculatePenalty(travelTimeMinutes)

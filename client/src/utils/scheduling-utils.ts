@@ -52,28 +52,71 @@ function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
 
+// Get time-of-day congestion multiplier based on visit start time
+export function getTimeOfDayMultiplier(startTimeMinutes?: number): number {
+  if (startTimeMinutes === undefined) return 1.0; // Off-peak default
+  
+  const hours = startTimeMinutes / 60;
+  
+  // Morning peak (07:00–09:30): ×1.3
+  if (hours >= 7 && hours < 9.5) return 1.3;
+  
+  // School run / evening (15:30–18:30): ×1.25
+  if (hours >= 15.5 && hours < 18.5) return 1.25;
+  
+  // Off-peak: ×1.0
+  return 1.0;
+}
+
 // Calculate travel time in minutes based on distance and transport mode
+// Uses heuristic approach: Haversine distance × 1.2 road factor, mode-specific speeds
 export function calculateTravelTime(
   distanceKm: number,
-  mode: 'car' | 'walking' | 'public'
+  mode: 'car' | 'walking' | 'public',
+  startTimeMinutes?: number
 ): number {
-  // Speed assumptions (km/h)
-  const speeds = {
-    car: 40,      // Average urban driving speed
-    walking: 4.5, // Average walking speed
-    public: 25,   // Public transport average
-  };
-
-  const speed = speeds[mode] || speeds.car;
-  const hours = distanceKm / speed;
-  return Math.ceil(hours * 60); // Return minutes, rounded up
+  // Apply road distance inflation (straight-line × 1.2 for UK roads)
+  const roadDistanceKm = distanceKm * 1.2;
+  
+  // Mode-specific speeds and minimums
+  // Car: 32.5 km/h avg (30-35 range), min 5 min
+  // Non-driver (public): 15 km/h effective + 12 min overhead, min 15 min
+  // Walking: avoid as main mode, but support at 4 km/h
+  
+  let baseTravelMinutes: number;
+  let minTravelMinutes: number;
+  
+  if (mode === 'car') {
+    const speedKmh = 32.5; // Urban/mixed average
+    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
+    minTravelMinutes = 5;
+  } else if (mode === 'public' || mode === 'walking') {
+    // Treat both non-car modes as public transport proxy
+    const speedKmh = 15; // Effective speed including waits
+    const fixedOverheadMinutes = 12; // Walking to/from stops, waiting
+    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
+    minTravelMinutes = 15;
+  } else {
+    // Default to car
+    baseTravelMinutes = (roadDistanceKm / 32.5) * 60;
+    minTravelMinutes = 5;
+  }
+  
+  // Apply time-of-day congestion multiplier
+  const congestionMultiplier = getTimeOfDayMultiplier(startTimeMinutes);
+  const adjustedMinutes = baseTravelMinutes * congestionMultiplier;
+  
+  // Enforce minimum travel time
+  return Math.max(minTravelMinutes, Math.round(adjustedMinutes));
 }
 
 // Calculate travel time between two locations (with memoization)
+// Uses heuristic: Haversine × 1.2 road factor, mode-specific speeds, time-of-day multipliers
 export function getTravelMinutes(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
-  mode: 'car' | 'walking' | 'public' = 'car'
+  mode: 'car' | 'walking' | 'public' = 'car',
+  startTimeMinutes?: number
 ): number {
   // Parse coordinates to ensure they are numbers
   const fromLat = Number(from.lat);
@@ -93,8 +136,9 @@ export function getTravelMinutes(
     return 0;
   }
 
-  // Create cache key with rounded coordinates for better hit rate
-  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}`;
+  // Create cache key with rounded coordinates, mode, and time band for better hit rate
+  const timeBand = startTimeMinutes !== undefined ? Math.floor(startTimeMinutes / 60) : 'offpeak';
+  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}-${timeBand}`;
   
   // Check cache first
   const cached = travelTimeCache.get(cacheKey);
@@ -102,26 +146,14 @@ export function getTravelMinutes(
     return cached;
   }
 
-  const distance = haversineDistance(
+  // Calculate Haversine (straight-line) distance
+  const straightLineKm = haversineDistance(
     { lat: fromLat, lng: fromLng },
     { lat: toLat, lng: toLng }
   );
 
-  // Transport mode speeds (km/h)
-  const speeds = {
-    car: 35,        // Increased from 30 to 35 for better fallback accuracy
-    walking: 4.0,   // Reduced from 4.5
-    public: 20      // Reduced from 25
-  };
-
-  const speedKmh = speeds[mode] || speeds.car;
-  const travelTimeMinutes = Math.max(2, Math.round((distance / speedKmh) * 60)); // Minimum 2 min
-
-  // Add 10-minute public transport overhead (walking to/from stops, waiting)
-  let finalTravelMinutes = travelTimeMinutes;
-  if (mode === 'public') {
-    finalTravelMinutes += 10;
-  }
+  // Use heuristic calculation with road factor, mode speeds, and time-of-day multiplier
+  const finalTravelMinutes = calculateTravelTime(straightLineKm, mode, startTimeMinutes);
 
   // Store in cache
   travelTimeCache.set(cacheKey, finalTravelMinutes);
