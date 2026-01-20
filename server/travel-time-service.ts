@@ -44,17 +44,18 @@ export class TravelTimeService {
     to: Location,
     transportMode: TransportMode = "car"
   ): Promise<TravelMatrix> {
-    const fromLat = from.lat.toString();
-    const fromLng = from.lng.toString();
-    const toLat = to.lat.toString();
-    const toLng = to.lng.toString();
+    // Round coordinates to 4 decimal places for cache consistency
+    const fLat = Number(from.lat).toFixed(4);
+    const fLng = Number(from.lng).toFixed(4);
+    const tLat = Number(to.lat).toFixed(4);
+    const tLng = Number(to.lng).toFixed(4);
 
     // 1. Check Cache
     try {
-      const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
+      const cached = await storage.getTravelTime(branchId, fLat, fLng, tLat, tLng, transportMode);
       // Return cached value if it's from ORS
       if (cached && (cached.source === 'ors' || !this.ORS_API_KEY)) {
-        console.log(`✨ Travel Cache HIT: ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) = ${cached.durationMinutes}min`);
+        console.log(`✨ Travel Cache HIT: ${fLat},${fLng} → ${tLat},${tLng} (${transportMode}) = ${cached.durationMinutes}min`);
         return {
           fromLocation: from,
           toLocation: to,
@@ -64,142 +65,77 @@ export class TravelTimeService {
           penaltyScore: this.calculatePenalty(cached.durationMinutes)
         };
       }
-      
-      // If we have haversine cache but now have an API key, we should try to refresh it
-      // but only if it's not currently being requested in a batch (managed by routes.ts)
     } catch (e) {
       console.error("Cache lookup failed:", e);
     }
 
-    // 2. Try OpenRouteService
-    if (this.ORS_API_KEY) {
+    // 2. Try OpenRouteService (CAR ONLY)
+    if (this.ORS_API_KEY && transportMode === 'car') {
       try {
-        // For public transport: use foot-walking for short distances, calculate realistic transit for longer
-        const distanceEstimate = this.calculateHaversineDistance(from, to);
+        console.log(`🌐 Requesting ORS (driving-car) for ${fLat},${fLng} to ${tLat},${tLng}`);
+        const result = await this.fetchORSRoute(from, to, 'driving-car');
         
-        // Short distance (<1km): just walk, no need for public transport
-        if (transportMode === 'public' && distanceEstimate < 1.0) {
-          console.log(`🚶 Short distance (${distanceEstimate.toFixed(2)}km) - using walking instead of public transport`);
-          return this.calculateTravelTime(branchId, from, to, 'walking');
+        if (result) {
+          const durationMinutes = result.durationMinutes;
+          const distanceMeters = result.distanceMeters;
+
+          console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m (mode: car)`);
+
+          await storage.saveTravelTime({
+            branchId,
+            fromLat: fLat,
+            fromLng: fLng,
+            toLat: tLat,
+            toLng: tLng,
+            transportMode: 'car',
+            durationMinutes,
+            distanceMeters: Math.round(distanceMeters),
+            source: 'ors'
+          });
+
+          return {
+            fromLocation: from,
+            toLocation: to,
+            distanceKm: distanceMeters / 1000,
+            travelTimeMinutes: durationMinutes,
+            feasible: durationMinutes <= this.maxTravelMinutes,
+            penaltyScore: this.calculatePenalty(durationMinutes)
+          };
         }
-        
-        // For public transport, we need both walking time and driving time to calculate realistic transit
-        let durationMinutes: number;
-        let distanceMeters: number;
-        
-        if (transportMode === 'public') {
-          // Get walking route to understand the actual route distance
-          const walkingResult = await this.fetchORSRoute(from, to, 'foot-walking');
-          
-          if (walkingResult) {
-            distanceMeters = walkingResult.distanceMeters;
-            const walkingMinutes = walkingResult.durationMinutes;
-            const distanceKm = distanceMeters / 1000;
-            
-            // Realistic UK public transport calculation:
-            // 1. Walk to bus stop: ~3-5 min (average 4 min)
-            // 2. Wait for bus: ~5-10 min (average 7 min for UK bus)
-            // 3. Bus travel: roughly 20-25 km/h average speed in urban areas
-            // 4. Walk from bus stop to destination: ~3-5 min (average 4 min)
-            
-            const walkToStop = 4; // minutes
-            const waitTime = 7;   // average bus wait time UK
-            const walkFromStop = 4; // minutes
-            const busSpeedKmh = 22; // average urban bus speed including stops
-            
-            // Bus covers most of the distance, minus ~400m walking each end
-            const busDistanceKm = Math.max(0, distanceKm - 0.8);
-            const busTimeMinutes = Math.round((busDistanceKm / busSpeedKmh) * 60);
-            
-            durationMinutes = walkToStop + waitTime + busTimeMinutes + walkFromStop;
-            
-            // For very short bus journeys, walking might be faster
-            if (walkingMinutes <= durationMinutes && distanceKm < 2.0) {
-              console.log(`🚶 Walking faster than bus (${walkingMinutes}min vs ${durationMinutes}min) - using walking`);
-              durationMinutes = walkingMinutes;
-            } else {
-              console.log(`🚌 Public transport breakdown: walk to stop (${walkToStop}min) + wait (${waitTime}min) + bus ${busDistanceKm.toFixed(1)}km (${busTimeMinutes}min) + walk from stop (${walkFromStop}min) = ${durationMinutes}min`);
-            }
-          } else {
-            // Fallback if walking route fails
-            distanceMeters = distanceEstimate * 1000;
-            durationMinutes = Math.round(15 + (distanceEstimate / 22) * 60); // 15 min overhead + bus time
-          }
-        } else {
-          // Car or walking - use appropriate ORS mode
-          const orsMode = transportMode === 'walking' ? 'foot-walking' : 'driving-car';
-          console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
-          
-          const result = await this.fetchORSRoute(from, to, orsMode);
-          if (!result) {
-            throw new Error('ORS request failed');
-          }
-          durationMinutes = result.durationMinutes;
-          distanceMeters = result.distanceMeters;
-        }
-
-        console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m (mode: ${transportMode})`);
-
-        await storage.saveTravelTime({
-          branchId,
-          fromLat,
-          fromLng,
-          toLat,
-          toLng,
-          transportMode,
-          durationMinutes,
-          distanceMeters: Math.round(distanceMeters),
-          source: 'ors'
-        });
-
-        return {
-          fromLocation: from,
-          toLocation: to,
-          distanceKm: distanceMeters / 1000,
-          travelTimeMinutes: durationMinutes,
-          feasible: durationMinutes <= this.maxTravelMinutes,
-          penaltyScore: this.calculatePenalty(durationMinutes)
-        };
       } catch (error) {
         console.error("ORS API Exception, falling back to Haversine:", error);
       }
     }
 
-    // 3. Fallback to Haversine
-    const distanceKm = this.calculateHaversineDistance(from, to);
+    // 3. Fallback/Approximation (Walking & Public use Haversine × 1.2 + Fixed Penalty)
+    const rawDistanceKm = this.calculateHaversineDistance(from, to);
+    // Apply 1.2 multiplier for road distance approximation
+    const distanceKm = rawDistanceKm * 1.2;
     let travelTimeMinutes: number;
+    let penaltyBonus = 0;
     
-    if (transportMode === 'public') {
-      // Realistic UK public transport fallback calculation
-      if (distanceKm < 1.0) {
-        // Short distance - just walk
-        travelTimeMinutes = Math.max(2, Math.round((distanceKm / 4.0) * 60)); // 4 km/h walking
-        console.log(`🚶 [Fallback] Short distance walking: ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km`);
-      } else {
-        // Calculate realistic public transport time
-        const walkToStop = 4;
-        const waitTime = 7;
-        const walkFromStop = 4;
-        const busSpeedKmh = 22;
-        const busDistanceKm = Math.max(0, distanceKm - 0.8);
-        const busTimeMinutes = Math.round((busDistanceKm / busSpeedKmh) * 60);
-        travelTimeMinutes = walkToStop + waitTime + busTimeMinutes + walkFromStop;
-        console.log(`🚌 [Fallback] Public transport: walk (${walkToStop}min) + wait (${waitTime}min) + bus ${busDistanceKm.toFixed(1)}km (${busTimeMinutes}min) + walk (${walkFromStop}min) = ${travelTimeMinutes}min`);
-      }
-    } else {
-      const speedKmh = this.SPEED_KMH[transportMode] || this.SPEED_KMH.car;
+    if (transportMode === 'car') {
+      const speedKmh = this.SPEED_KMH.car;
       travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60));
-      console.log(`⚠️ Fallback Haversine (${transportMode}, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km`);
+      console.log(`⚠️ Fallback Haversine (car, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km (incl 1.2x factor)`);
+    } else {
+      // Walking and Public now both use public transport approximation
+      // Fixed 15 min penalty for public/walking wait/overhead + 20km/h speed
+      const baseTime = (distanceKm / 20) * 60;
+      const fixedPenalty = 15;
+      travelTimeMinutes = Math.max(5, Math.round(baseTime + fixedPenalty));
+      penaltyBonus = 20; // Extra penalty score for non-car modes
+      console.log(`🚌 [Approximation] ${transportMode}: ${travelTimeMinutes} min (${distanceKm.toFixed(2)} km @ 20km/h + 15min fixed penalty)`);
     }
 
-    // Cache the fallback result
+    // Cache the result
     try {
       await storage.saveTravelTime({
         branchId,
-        fromLat,
-        fromLng,
-        toLat,
-        toLng,
+        fromLat: fLat,
+        fromLng: fLng,
+        toLat: tLat,
+        toLng: tLng,
         transportMode,
         durationMinutes: travelTimeMinutes,
         distanceMeters: Math.round(distanceKm * 1000),
@@ -208,6 +144,16 @@ export class TravelTimeService {
     } catch (e) {
       console.error("Cache save failed:", e);
     }
+
+    return {
+      fromLocation: from,
+      toLocation: to,
+      distanceKm: Math.round(distanceKm * 100) / 100,
+      travelTimeMinutes,
+      feasible: travelTimeMinutes <= this.maxTravelMinutes,
+      penaltyScore: this.calculatePenalty(travelTimeMinutes) + penaltyBonus
+    };
+  }
 
     return {
       fromLocation: from,

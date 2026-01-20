@@ -76,11 +76,16 @@ export function getTravelMinutes(
   to: { lat: number; lng: number },
   mode: 'car' | 'walking' | 'public' = 'car'
 ): number {
-  // Parse coordinates to ensure they are numbers
-  const fromLat = Number(from.lat);
-  const fromLng = Number(from.lng);
-  const toLat = Number(to.lat);
-  const toLng = Number(to.lng);
+  // Round to 4 decimal places for cache consistency (NON-NEGOTIABLE)
+  const fromLatStr = Number(from.lat).toFixed(4);
+  const fromLngStr = Number(from.lng).toFixed(4);
+  const toLatStr = Number(to.lat).toFixed(4);
+  const toLngStr = Number(to.lng).toFixed(4);
+
+  const fromLat = Number(fromLatStr);
+  const fromLng = Number(fromLngStr);
+  const toLat = Number(toLatStr);
+  const toLng = Number(toLngStr);
 
   // Validate coordinates
   if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) ||
@@ -94,8 +99,8 @@ export function getTravelMinutes(
     return 0;
   }
 
-  // Create cache key with rounded coordinates for better hit rate
-  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}`;
+  // Create cache key with rounded coordinates
+  const cacheKey = `${fromLatStr},${fromLngStr}-${toLatStr},${toLngStr}-${mode}`;
   
   // Check cache first
   const cached = travelTimeCache.get(cacheKey);
@@ -103,46 +108,25 @@ export function getTravelMinutes(
     return cached;
   }
 
-  const distanceKm = haversineDistance(
+  const rawDistanceKm = haversineDistance(
     { lat: fromLat, lng: fromLng },
     { lat: toLat, lng: toLng }
   );
 
+  // Apply 1.2 multiplier for road distance approximation
+  const distanceKm = rawDistanceKm * 1.2;
+
   let finalTravelMinutes: number;
 
-  if (mode === 'public') {
-    // Realistic UK public transport calculation (matches backend logic)
-    if (distanceKm < 1.0) {
-      // Short distance (<1km) - just walk, no point taking a bus
-      finalTravelMinutes = Math.max(2, Math.round((distanceKm / 4.0) * 60)); // 4 km/h walking
-    } else {
-      // Calculate realistic public transport journey:
-      // 1. Walk to bus stop: ~4 min
-      // 2. Wait for bus: ~7 min (UK average)
-      // 3. Bus travel: 22 km/h average (includes stops)
-      // 4. Walk from bus stop: ~4 min
-      const walkToStop = 4;
-      const waitTime = 7;
-      const walkFromStop = 4;
-      const busSpeedKmh = 22;
-      
-      // Bus covers most of the distance, minus ~400m walking each end
-      const busDistanceKm = Math.max(0, distanceKm - 0.8);
-      const busTimeMinutes = Math.round((busDistanceKm / busSpeedKmh) * 60);
-      
-      finalTravelMinutes = walkToStop + waitTime + busTimeMinutes + walkFromStop;
-      
-      // For very short journeys, check if walking is actually faster
-      const walkingTime = Math.round((distanceKm / 4.0) * 60);
-      if (walkingTime <= finalTravelMinutes && distanceKm < 2.0) {
-        finalTravelMinutes = walkingTime;
-      }
-    }
-  } else if (mode === 'walking') {
-    finalTravelMinutes = Math.max(2, Math.round((distanceKm / 4.0) * 60)); // 4 km/h walking
-  } else {
+  if (mode === 'car') {
     // Car: 35 km/h average urban speed
     finalTravelMinutes = Math.max(2, Math.round((distanceKm / 35) * 60));
+  } else {
+    // Walking and Public now use public transport approximation (matches backend)
+    // Formula: (Distance / 20km/h) * 60 + 15 min fixed penalty
+    const baseTime = (distanceKm / 20) * 60;
+    const fixedPenalty = 15;
+    finalTravelMinutes = Math.max(5, Math.round(baseTime + fixedPenalty));
   }
 
   // Store in cache
