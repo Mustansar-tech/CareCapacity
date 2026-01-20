@@ -44,18 +44,23 @@ export class TravelTimeService {
     to: Location,
     transportMode: TransportMode = "car"
   ): Promise<TravelMatrix> {
-    // Round coordinates to 4 decimal places for cache consistency
-    const fLat = Number(from.lat).toFixed(4);
-    const fLng = Number(from.lng).toFixed(4);
-    const tLat = Number(to.lat).toFixed(4);
-    const tLng = Number(to.lng).toFixed(4);
+    // Round coordinates to 4 decimal places for cache consistency (NON-NEGOTIABLE)
+    const fLatStr = Number(from.lat).toFixed(4);
+    const fLngStr = Number(from.lng).toFixed(4);
+    const tLatStr = Number(to.lat).toFixed(4);
+    const tLngStr = Number(to.lng).toFixed(4);
+
+    const fLatNum = Number(fLatStr);
+    const fLngNum = Number(fLngStr);
+    const tLatNum = Number(tLatStr);
+    const tLngNum = Number(tLngStr);
 
     // 1. Check Cache
     try {
-      const cached = await storage.getTravelTime(branchId, fLat, fLng, tLat, tLng, transportMode);
+      const cached = await storage.getTravelTime(branchId, fLatStr, fLngStr, tLatStr, tLngStr, transportMode);
       // Return cached value if it's from ORS
       if (cached && (cached.source === 'ors' || !this.ORS_API_KEY)) {
-        console.log(`✨ Travel Cache HIT: ${fLat},${fLng} → ${tLat},${tLng} (${transportMode}) = ${cached.durationMinutes}min`);
+        console.log(`✨ Travel Cache HIT: ${fLatStr},${fLngStr} → ${tLatStr},${tLngStr} (${transportMode}) = ${cached.durationMinutes}min`);
         return {
           fromLocation: from,
           toLocation: to,
@@ -69,11 +74,11 @@ export class TravelTimeService {
       console.error("Cache lookup failed:", e);
     }
 
-    // 2. Try OpenRouteService (CAR ONLY)
+    // 2. Try OpenRouteService (CAR ONLY - KILL WALKING ORS CALLS)
     if (this.ORS_API_KEY && transportMode === 'car') {
       try {
-        console.log(`🌐 Requesting ORS (driving-car) for ${fLat},${fLng} to ${tLat},${tLng}`);
-        const result = await this.fetchORSRoute(from, to, 'driving-car');
+        console.log(`🌐 Requesting ORS (driving-car) for ${fLatStr},${fLngStr} to ${tLatStr},${tLngStr}`);
+        const result = await this.fetchORSRoute({ lat: fLatNum, lng: fLngNum }, { lat: tLatNum, lng: tLngNum }, 'driving-car');
         
         if (result) {
           const durationMinutes = result.durationMinutes;
@@ -83,10 +88,10 @@ export class TravelTimeService {
 
           await storage.saveTravelTime({
             branchId,
-            fromLat: fLat,
-            fromLng: fLng,
-            toLat: tLat,
-            toLng: tLng,
+            fromLat: fLatStr,
+            fromLng: fLngStr,
+            toLat: tLatStr,
+            toLng: tLngStr,
             transportMode: 'car',
             durationMinutes,
             distanceMeters: Math.round(distanceMeters),
@@ -108,7 +113,7 @@ export class TravelTimeService {
     }
 
     // 3. Fallback/Approximation (Walking & Public use Haversine × 1.2 + Fixed Penalty)
-    const rawDistanceKm = this.calculateHaversineDistance(from, to);
+    const rawDistanceKm = this.calculateHaversineDistance({ lat: fLatNum, lng: fLngNum }, { lat: tLatNum, lng: tLngNum });
     // Apply 1.2 multiplier for road distance approximation
     const distanceKm = rawDistanceKm * 1.2;
     let travelTimeMinutes: number;
@@ -119,8 +124,8 @@ export class TravelTimeService {
       travelTimeMinutes = Math.max(2, Math.round((distanceKm / speedKmh) * 60));
       console.log(`⚠️ Fallback Haversine (car, ${speedKmh}km/h): ${travelTimeMinutes} min for ${distanceKm.toFixed(2)} km (incl 1.2x factor)`);
     } else {
-      // Walking and Public now both use public transport approximation
-      // Fixed 15 min penalty for public/walking wait/overhead + 20km/h speed
+      // Walking and Public now both use public transport approximation (NO FOOT-WALKING ORS CALLS)
+      // Formula: (Distance / 20km/h) * 60 + 15 min fixed penalty
       const baseTime = (distanceKm / 20) * 60;
       const fixedPenalty = 15;
       travelTimeMinutes = Math.max(5, Math.round(baseTime + fixedPenalty));
@@ -132,10 +137,10 @@ export class TravelTimeService {
     try {
       await storage.saveTravelTime({
         branchId,
-        fromLat: fLat,
-        fromLng: fLng,
-        toLat: tLat,
-        toLng: tLng,
+        fromLat: fLatStr,
+        fromLng: fLngStr,
+        toLat: tLatStr,
+        toLng: tLngStr,
         transportMode,
         durationMinutes: travelTimeMinutes,
         distanceMeters: Math.round(distanceKm * 1000),
@@ -152,16 +157,6 @@ export class TravelTimeService {
       travelTimeMinutes,
       feasible: travelTimeMinutes <= this.maxTravelMinutes,
       penaltyScore: this.calculatePenalty(travelTimeMinutes) + penaltyBonus
-    };
-  }
-
-    return {
-      fromLocation: from,
-      toLocation: to,
-      distanceKm: Math.round(distanceKm * 100) / 100,
-      travelTimeMinutes,
-      feasible: travelTimeMinutes <= this.maxTravelMinutes,
-      penaltyScore: this.calculatePenalty(travelTimeMinutes)
     };
   }
 
