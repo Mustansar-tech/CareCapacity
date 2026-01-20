@@ -520,8 +520,7 @@ function assignVisitToBestEmployee(
       ? matchScore.score + GH_SCORE_BONUS
       : matchScore.score;
 
-    // CRITICAL: Penalize if employee already has a visit at this exact time
-    // This prevents same-time assignments unless it's multiple care
+    // STRICT: Reject if visit overlaps with ANY existing visit
     const hasConflictingVisit = schedule.assignedVisits.some(v => {
       const vStart = timeToMinutes(v.startTime);
       const vEnd = timeToMinutes(v.endTime);
@@ -529,11 +528,12 @@ function assignVisitToBestEmployee(
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
       // Strict overlap check: No overlapping visits allowed
+      // If a visit ends at the same time another starts, it's NOT an overlap
       return (visitStart < vEnd && visitEnd > vStart);
     });
 
     if (hasConflictingVisit) {
-      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
+      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit overlapping with ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
       continue; // Strictly skip this employee
     }
 
