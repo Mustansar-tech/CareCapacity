@@ -493,27 +493,32 @@ function assignVisitToBestEmployee(
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     if (!matchScore || matchScore.score <= 0) continue;
 
-    // VERIFY CHRONOLOGICAL ORDER FOR THIS INSERTION INDEX
     const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
-    let isChronologicallyValid = true;
 
-    if (matchScore.insertionIndex > 0) {
-      const prevVisit = schedule.assignedVisits[matchScore.insertionIndex - 1];
-      if (timeToMinutes(prevVisit.startTime) > visitStartMinInternal) isChronologicallyValid = false;
-    }
-    if (isChronologicallyValid && matchScore.insertionIndex < schedule.assignedVisits.length) {
-      const nextVisit = schedule.assignedVisits[matchScore.insertionIndex];
-      if (timeToMinutes(nextVisit.startTime) < visitStartMinInternal) isChronologicallyValid = false;
+    // Verify this insertion doesn't overlap with neighbors
+    let insertionIndex = 0;
+    while (insertionIndex < schedule.assignedVisits.length && 
+           timeToMinutes(schedule.assignedVisits[insertionIndex].startTime) <= visitStartMinInternal) {
+      insertionIndex++;
     }
 
-    if (!isChronologicallyValid) {
-      // If insertion index from scoreVisitMatch is invalid, try to find the correct index manually
-      let correctIndex = 0;
-      while (correctIndex < schedule.assignedVisits.length && timeToMinutes(schedule.assignedVisits[correctIndex].startTime) < visitStartMinInternal) {
-        correctIndex++;
+    if (insertionIndex > 0) {
+      const prev = schedule.assignedVisits[insertionIndex - 1];
+      if (timeToMinutes(prev.endTime) > visitStartMinInternal) {
+        console.log(`⚠️ CHRONOLOGICAL OVERLAP (PREV): ${schedule.employeeName} at ${prev.endTime} overlaps new visit at ${adjustedVisit.startTime}`);
+        continue;
       }
-      (matchScore as any).insertionIndex = correctIndex;
     }
+    if (insertionIndex < schedule.assignedVisits.length) {
+      const next = schedule.assignedVisits[insertionIndex];
+      if (visitStartMinInternal + adjustedVisit.durationMinutes > timeToMinutes(next.startTime)) {
+        console.log(`⚠️ CHRONOLOGICAL OVERLAP (NEXT): ${schedule.employeeName} at ${adjustedVisit.endTime} overlaps next visit at ${next.startTime}`);
+        continue;
+      }
+    }
+
+    // Update matchScore with the correctly calculated insertion index
+    (matchScore as any).insertionIndex = insertionIndex;
 
     // Add GH bonus to prioritize guaranteed hours employees
     let finalScore = isGHEmployee(schedule.employeeName)
@@ -529,8 +534,8 @@ function assignVisitToBestEmployee(
       const visitEnd = timeToMinutes(adjustedVisit.endTime);
 
       // Same client check: Prevent same employee serving same client multiple times per day
-      // unless it's a double-up/secondary care (which we already filter/handle differently)
-      if (v.clientName === adjustedVisit.clientName) {
+      // UNLESS they are exactly same time (multiple care / double-up)
+      if (v.clientName === adjustedVisit.clientName && vStart !== visitStart) {
         return true;
       }
 
