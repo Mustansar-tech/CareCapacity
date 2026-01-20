@@ -78,11 +78,11 @@ export function scoreVisitMatch(
     }
 
     const travelFrom = prevVisit
-      ? getTravelMinutes({ lat: prevVisit.lat, lng: prevVisit.lng }, { lat: visit.lat, lng: visit.lng }, mode)
+      ? getTravelMinutes({ lat: prevVisit.lat, lng: prevVisit.lng }, { lat: visit.lat, lng: visit.lng }, mode, visit.start)
       : 0;
 
     const travelTo = nextVisit
-      ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode)
+      ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode, visit.end)
       : 0;
 
     const gap = calculateInsertionGap(
@@ -132,7 +132,8 @@ export function scoreVisitMatch(
     const travel = getTravelMinutes(
       { lat: visits[i].lat, lng: visits[i].lng },
       { lat: visits[i + 1].lat, lng: visits[i + 1].lng },
-      mode
+      mode,
+      visits[i].end // Use end time of current visit as travel start
     );
     currentTravel += travel;
   }
@@ -144,7 +145,8 @@ export function scoreVisitMatch(
     const oldDirect = getTravelMinutes(
       { lat: visits[bestIndex - 1].lat, lng: visits[bestIndex - 1].lng },
       { lat: visits[bestIndex].lat, lng: visits[bestIndex].lng },
-      mode
+      mode,
+      visits[bestIndex - 1].end // Use end time of previous visit
     );
     newTravel -= oldDirect;
   }
@@ -181,7 +183,8 @@ export function scoreVisitMatch(
     const distFromHome = getTravelMinutes(
       { lat: homeLat, lng: homeLng },
       { lat: visit.lat, lng: visit.lng },
-      mode
+      mode,
+      visit.start // Use visit start time for congestion
     );
 
     // Score based on distance - no hard limit, just preference
@@ -192,7 +195,8 @@ export function scoreVisitMatch(
     const distToHome = getTravelMinutes(
       { lat: visit.lat, lng: visit.lng },
       { lat: homeLat, lng: homeLng },
-      mode
+      mode,
+      visit.end // Use visit end time for congestion
     );
 
     // Score based on distance - no hard limit, just preference

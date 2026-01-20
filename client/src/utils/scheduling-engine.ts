@@ -552,7 +552,8 @@ function assignVisitToBestEmployee(
       const distFromHome = getTravelMinutes(
         { lat: schedule.homeLat, lng: schedule.homeLng },
         { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
-        schedule.transportMode
+        schedule.transportMode,
+        visitStartMinInternal // Pass start time for congestion multiplier
       );
       if (distFromHome < 15) { // Within 15 minutes of home
         finalScore += 0.2; // Bonus for starting near home
@@ -589,12 +590,14 @@ function assignVisitToBestEmployee(
 
   // For first visit, ensure we calculate travel from home
   let actualTravelTimeBefore = best.travelFromPrev;
+  const visitStartMinForTravel = timeToMinutes(best.adjustedVisit.startTime);
   if (best.insertionIndex === 0) {
     // First visit - calculate from home location
     actualTravelTimeBefore = getTravelMinutes(
       { lat: schedule.homeLat, lng: schedule.homeLng },
       { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
-      schedule.transportMode
+      schedule.transportMode,
+      visitStartMinForTravel // Pass start time for congestion multiplier
     );
     console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
   } else {
@@ -609,12 +612,14 @@ function assignVisitToBestEmployee(
       const travelToHome = getTravelMinutes(
         { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
         { lat: schedule.homeLat, lng: schedule.homeLng },
-        schedule.transportMode
+        schedule.transportMode,
+        prevEndMin // Use previous visit end time for travel home
       );
       const travelFromHome = getTravelMinutes(
         { lat: schedule.homeLat, lng: schedule.homeLng },
         { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
-        schedule.transportMode
+        schedule.transportMode,
+        visitStartMinForTravel // Use visit start time for travel from home
       );
 
       actualTravelTimeBefore = travelFromHome;
@@ -676,26 +681,30 @@ function assignVisitToBestEmployee(
     // After sorting, we need to ensure the travel times reflect the new order
     // especially for the visit we just inserted and its neighbors
     schedule.assignedVisits.forEach((v, idx) => {
+      const vStartMin = timeToMinutes(v.startTime);
       if (idx === 0) {
         v.travelTimeBefore = getTravelMinutes(
           { lat: schedule.homeLat, lng: schedule.homeLng },
           { lat: v.lat || 0, lng: v.lng || 0 },
-          schedule.transportMode
+          schedule.transportMode,
+          vStartMin // Pass start time for congestion multiplier
         );
       } else {
         const prev = schedule.assignedVisits[idx - 1];
-        const gap = timeToMinutes(v.startTime) - timeToMinutes(prev.endTime);
+        const gap = vStartMin - timeToMinutes(prev.endTime);
         if (gap >= 90) {
           v.travelTimeBefore = getTravelMinutes(
             { lat: schedule.homeLat, lng: schedule.homeLng },
             { lat: v.lat || 0, lng: v.lng || 0 },
-            schedule.transportMode
+            schedule.transportMode,
+            vStartMin // Pass start time for congestion multiplier
           );
         } else {
           v.travelTimeBefore = getTravelMinutes(
             { lat: prev.lat || 0, lng: prev.lng || 0 },
             { lat: v.lat || 0, lng: v.lng || 0 },
-            schedule.transportMode
+            schedule.transportMode,
+            vStartMin // Pass start time for congestion multiplier
           );
         }
       }
