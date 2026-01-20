@@ -62,7 +62,14 @@ const TIME_FLEXIBILITY_MINUTES = 5; // Reduced from 10 to 5
 const RELAXED_TIME_TOLERANCE = 10; // Reduced from 15 to 10
 
 // GH (Guaranteed Hours) bonus for prioritization
-const GH_SCORE_BONUS = 0.1;
+const GH_SCORE_BONUS = 0.45;
+
+// Maximum daily care hours per CP (excluding travel/waiting)
+const MAX_DAILY_CARE_HOURS = 9;
+const MAX_DAILY_CARE_MINUTES = MAX_DAILY_CARE_HOURS * 60;
+
+// Evening bonus for GH staff
+const GH_EVENING_BONUS = 0.35; 
 
 // Scoring weights (optimized for MAXIMUM CAPACITY UTILIZATION)
 // GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
@@ -77,10 +84,6 @@ const WEIGHTS = {
 function isGHEmployee(employeeName: string): boolean {
   return employeeName.toUpperCase().includes('(GH)');
 }
-
-// Maximum daily care hours per CP (excluding travel/waiting)
-const MAX_DAILY_CARE_HOURS = 9;
-const MAX_DAILY_CARE_MINUTES = MAX_DAILY_CARE_HOURS * 60;
 
 // Employee's daily schedule
 interface EmployeeDaySchedule {
@@ -563,8 +566,8 @@ function assignVisitToBestEmployee(
     // Add evening visit bonus for GH employees (helps fill their hours)
     const isEveningVisit = visitStartMinInternal >= 1020; // After 5pm
     if (isGHEmployee(schedule.employeeName) && isEveningVisit) {
-      finalScore += 0.2; // Extra bonus for evening visits to GH employees
-      console.log(`🌙 EVENING BONUS: ${schedule.employeeName} gets +0.2 for evening visit ${adjustedVisit.clientName}`);
+      finalScore += GH_EVENING_BONUS; // Increased bonus
+      console.log(`🌙 EVENING GH BONUS: ${schedule.employeeName} gets +${GH_EVENING_BONUS} for evening visit ${adjustedVisit.clientName}`);
     }
     candidates.push({
       employeeName: schedule.employeeName,
