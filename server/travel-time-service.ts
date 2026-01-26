@@ -26,10 +26,12 @@ export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
   
   // Mode-specific average speeds (km/h) and minimums (minutes)
-  private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
-    car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5 },
-    walking: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }, // Treated as public transport proxy
-    public: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }
+  // Note: For 'walking' and 'public', we prefer ORS foot-walking API for accurate path routing
+  // The haversine fallback uses these speeds only when ORS is unavailable
+  private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number; orsProfile: string }> = {
+    car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5, orsProfile: 'driving-car' },
+    walking: { speedKmh: 4.5, overheadMinutes: 0, minMinutes: 3, orsProfile: 'foot-walking' }, // Real walking speed ~4.5 km/h
+    public: { speedKmh: 4.5, overheadMinutes: 15, minMinutes: 10, orsProfile: 'foot-walking' } // Walking + bus wait/travel overhead
   };
 
   private readonly maxTravelMinutes: number;
@@ -88,20 +90,23 @@ export class TravelTimeService {
         };
       }
       
-      if (cached && cached.source === 'haversine' && this.ORS_API_KEY) {
-        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously haversine)`);
+      if (cached && (cached.source === 'haversine' || cached.source === 'heuristic') && this.ORS_API_KEY) {
+        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously ${cached.source})`);
       }
     } catch (e) {
       console.error("Cache lookup failed:", e);
     }
 
-    // 2. Try OpenRouteService
+    // 2. Try OpenRouteService - Use ORS for ALL modes now
+    // For cars: driving-car profile
+    // For walking/public: foot-walking profile (accurate paths along real roads/paths)
     if (this.ORS_API_KEY) {
       try {
-        const orsMode = transportMode === 'walking' ? 'foot-walking' : 
-                        transportMode === 'public' ? 'driving-car' : 'driving-car';
-        console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
-        const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
+        const config = this.MODE_CONFIG[transportMode] || this.MODE_CONFIG.car;
+        const orsProfile = config.orsProfile;
+        
+        console.log(`🌐 Requesting ORS (${orsProfile}) for ${transportMode}: ${fromLat},${fromLng} to ${toLat},${toLng}`);
+        const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsProfile}`, {
           method: 'POST',
           headers: {
             'Authorization': this.ORS_API_KEY,
@@ -116,15 +121,27 @@ export class TravelTimeService {
           const data = await response.json();
           const durationSeconds = data.routes[0].summary.duration;
           const distanceMeters = data.routes[0].summary.distance;
-          let durationMinutes = Math.max(2, Math.round(durationSeconds / 60)); // Minimum 2 min
+          let durationMinutes = Math.max(config.minMinutes, Math.round(durationSeconds / 60));
 
-          // Add 10-minute public transport overhead (walking to/from stops, waiting)
+          // Add public transport overhead (walking to bus stop, waiting, bus travel time estimate)
+          // For public transport users: ORS gives walking time, we add 15 min for bus wait + travel
           if (transportMode === 'public') {
-            durationMinutes += 10;
-            console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
+            const walkingTime = durationMinutes;
+            // Estimate: if walking > 20 min, assume they'll take a bus which saves ~40% of walk time but adds 10 min wait
+            if (walkingTime > 20) {
+              const busTimeSaved = Math.round(walkingTime * 0.4);
+              durationMinutes = walkingTime - busTimeSaved + 10; // Walking time - time saved + bus wait
+              console.log(`🚌 Public transport estimate: ${walkingTime}min walk -> ${durationMinutes}min (bus saves ${busTimeSaved}min, +10min wait)`);
+            } else {
+              // Short distance - just walk with small overhead for flexibility
+              durationMinutes += 5;
+              console.log(`🚶 Short distance, walking with 5min buffer: ${durationMinutes} min`);
+            }
+          } else if (transportMode === 'walking') {
+            console.log(`🚶 ORS foot-walking: ${durationMinutes} min for ${(distanceMeters/1000).toFixed(2)} km`);
+          } else {
+            console.log(`🚗 ORS driving: ${durationMinutes} min for ${(distanceMeters/1000).toFixed(2)} km`);
           }
-
-          console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
           await storage.saveTravelTime({
             branchId,
