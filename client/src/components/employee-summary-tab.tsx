@@ -39,7 +39,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
       availability: acc.availability + emp.availability,
       unavailability: acc.unavailability + emp.unavailability,
       scheduledHours: acc.scheduledHours + emp.scheduledHours,
-      difference: acc.difference + emp.difference,
+      difference: acc.difference + (emp.difference > 0 ? emp.difference : 0),
     }),
     { availability: 0, unavailability: 0, scheduledHours: 0, difference: 0 }
   );
@@ -105,24 +105,12 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
               <div className="text-sm text-blue-600 dark:text-blue-400">Total Scheduled Hours</div>
             </CardContent>
           </Card>
-          <Card className={`bg-gradient-to-br ${
-            totals.difference >= 0 
-              ? 'from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50 border-green-200 dark:border-green-800' 
-              : 'from-amber-50 to-orange-50 dark:from-amber-950/50 dark:to-orange-950/50 border-amber-200 dark:border-amber-800'
-          }`}>
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50 border-green-200 dark:border-green-800">
             <CardContent className="p-4 text-center">
-              <div className={`text-2xl font-bold ${
-                totals.difference >= 0 
-                  ? 'text-green-700 dark:text-green-300' 
-                  : 'text-amber-700 dark:text-amber-300'
-              }`}>
-                {totals.difference > 0 ? '+' : ''}{totals.difference.toFixed(1)}
+              <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                +{totals.difference.toFixed(1)}
               </div>
-              <div className={`text-sm ${
-                totals.difference >= 0 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-amber-600 dark:text-amber-400'
-              }`}>
+              <div className="text-sm text-green-600 dark:text-green-400">
                 Capacity
               </div>
             </CardContent>
