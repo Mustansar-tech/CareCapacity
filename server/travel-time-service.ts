@@ -1,9 +1,12 @@
 /**
  * Travel Time Service for Route Optimization
- * Calculates travel times between locations using OpenRouteService with haversine fallback
+ * Calculates travel times between locations using:
+ * - OpenRouteService for driving and walking routes
+ * - NaPTAN + ORS for multi-modal public transport (walk → bus → walk)
  */
 
 import { storage } from "./storage";
+import { naptanService } from "./naptan-service";
 
 export interface Location {
   lat: number;
@@ -123,19 +126,46 @@ export class TravelTimeService {
           const distanceMeters = data.routes[0].summary.distance;
           let durationMinutes = Math.max(config.minMinutes, Math.round(durationSeconds / 60));
 
-          // Add public transport overhead (walking to bus stop, waiting, bus travel time estimate)
-          // For public transport users: ORS gives walking time, we add 15 min for bus wait + travel
+          // For public transport: use NaPTAN to find actual bus stops and calculate multi-modal route
           if (transportMode === 'public') {
-            const walkingTime = durationMinutes;
-            // Estimate: if walking > 20 min, assume they'll take a bus which saves ~40% of walk time but adds 10 min wait
-            if (walkingTime > 20) {
-              const busTimeSaved = Math.round(walkingTime * 0.4);
-              durationMinutes = walkingTime - busTimeSaved + 10; // Walking time - time saved + bus wait
-              console.log(`🚌 Public transport estimate: ${walkingTime}min walk -> ${durationMinutes}min (bus saves ${busTimeSaved}min, +10min wait)`);
-            } else {
-              // Short distance - just walk with small overhead for flexibility
-              durationMinutes += 5;
-              console.log(`🚶 Short distance, walking with 5min buffer: ${durationMinutes} min`);
+            const pureWalkingMinutes = durationMinutes;
+            
+            // Try to find a transit route using NaPTAN
+            try {
+              const transitRoute = await naptanService.findBestTransitRoute(from, to, 800);
+              
+              if (transitRoute && transitRoute.originStop && transitRoute.destinationStop) {
+                // Calculate walking times to/from stops using ORS walking speed (5 km/h average)
+                const walkToStopMinutes = Math.round((transitRoute.walkToStopMeters / 1000) / 5 * 60);
+                const walkFromStopMinutes = Math.round((transitRoute.walkFromStopMeters / 1000) / 5 * 60);
+                const busMinutes = transitRoute.estimatedTransitMinutes;
+                
+                const multiModalMinutes = walkToStopMinutes + busMinutes + walkFromStopMinutes;
+                
+                // Use transit if it saves time vs pure walking
+                if (multiModalMinutes < pureWalkingMinutes) {
+                  durationMinutes = multiModalMinutes;
+                  console.log(`🚌 NaPTAN multi-modal: Walk ${walkToStopMinutes}min → ${transitRoute.originStop.commonName} → Bus ${busMinutes}min → ${transitRoute.destinationStop.commonName} → Walk ${walkFromStopMinutes}min = ${durationMinutes}min (saved ${pureWalkingMinutes - multiModalMinutes}min vs walking)`);
+                } else {
+                  // Walking is faster, just add small buffer
+                  durationMinutes = pureWalkingMinutes + 3;
+                  console.log(`🚶 Walking faster than transit: ${durationMinutes}min (transit would be ${multiModalMinutes}min)`);
+                }
+              } else {
+                // No bus stops found nearby - use walking with buffer
+                durationMinutes = pureWalkingMinutes + 5;
+                console.log(`🚶 No nearby stops, walking with buffer: ${durationMinutes}min`);
+              }
+            } catch (transitError) {
+              // Fallback: estimate based on walking time
+              if (pureWalkingMinutes > 20) {
+                const busTimeSaved = Math.round(pureWalkingMinutes * 0.4);
+                durationMinutes = pureWalkingMinutes - busTimeSaved + 10;
+                console.log(`🚌 Estimated transit (NaPTAN unavailable): ${durationMinutes}min`);
+              } else {
+                durationMinutes = pureWalkingMinutes + 5;
+                console.log(`🚶 Short distance walking: ${durationMinutes}min`);
+              }
             }
           } else if (transportMode === 'walking') {
             console.log(`🚶 ORS foot-walking: ${durationMinutes} min for ${(distanceMeters/1000).toFixed(2)} km`);
