@@ -138,7 +138,7 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                 <TableHead className="text-center font-semibold">Desired Hours</TableHead>
                 <TableHead className="text-center font-semibold">Unavailability</TableHead>
                 <TableHead className="text-center font-semibold">Scheduled Hours</TableHead>
-                <TableHead className="text-center font-semibold">Capacity</TableHead>
+                <TableHead className="text-center font-semibold">Difference</TableHead>
                 {/* Hidden columns - Free Windows and Cancelled Visits */}
                 {false && <TableHead className="text-center font-semibold">Free Windows</TableHead>}
                 {false && <TableHead className="text-center font-semibold">Cancelled Visits</TableHead>}
@@ -172,23 +172,18 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center" data-testid={`text-difference-${index}`}>
-                    {employee.difference > 0 ? (
-                      <Badge 
-                        variant="secondary" 
-                        className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
-                      >
-                        +{employee.difference.toFixed(1)}h
-                      </Badge>
-                    ) : employee.difference === 0 ? (
-                      <Badge 
-                        variant="secondary" 
-                        className="bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
-                      >
-                        0.0h
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400 text-xs">Full</span>
-                    )}
+                    <Badge 
+                      variant="secondary" 
+                      className={
+                        employee.difference === 0
+                          ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
+                          : employee.difference > 0 
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                          : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+                      }
+                    >
+                      {employee.difference > 0 ? '+' : ''}{employee.difference.toFixed(1)}h
+                    </Badge>
                   </TableCell>
                   {/* Hidden columns - Free Windows and Cancelled Visits */}
                   {false && <TableCell className="text-center" data-testid={`text-free-windows-${index}`}>
@@ -216,8 +211,8 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          <p><strong>Capacity</strong> = Availability - Unavailability - Scheduled Hours</p>
-          <p>Positive values indicate excess capacity where more visits can be scheduled.</p>
+          <p><strong>Difference</strong> = Availability - Unavailability - Scheduled Hours</p>
+          <p>Positive values indicate excess capacity, negative values indicate potential shortages.</p>
         </div>
       </CardContent>
     </Card>
