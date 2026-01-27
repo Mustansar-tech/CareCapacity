@@ -55,6 +55,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
+  const [isGenerated, setIsGenerated] = useState(false);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -239,6 +240,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     },
     onSuccess: async (result) => {
       setWeeklySchedule(result);
+      setIsGenerated(true);
 
       // Save to database
       try {
@@ -287,10 +289,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           employeesUtilized: 0,
         },
       });
+      setIsGenerated(true);
     } else if (!savedSchedule && !isLoadingVisits) {
       // No saved schedule for this week - clear the state
       console.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule(null);
+      setIsGenerated(false);
     }
   }, [savedSchedule, weekStart, weekEnd, isLoadingVisits]);
 
@@ -342,7 +346,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
         <Button
           onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending || allWeekVisits.length === 0}
+          disabled={generateMutation.isPending || allWeekVisits.length === 0 || isGenerated}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           data-testid="button-generate-weekly"
         >
