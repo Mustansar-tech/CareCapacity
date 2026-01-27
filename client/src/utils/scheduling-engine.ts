@@ -14,6 +14,15 @@ import {
   type EmployeeRun,
   type Visit as ScoringVisit
 } from './scheduling-scoring';
+import {
+  isWithinWalkingProximity,
+  scoreWalkerMatch,
+  getWalkableVisits,
+  haversineDistance,
+  WALKING_TRAVEL_DISPLAY_MINUTES,
+  type WalkerCandidate,
+  type VisitWithLocation
+} from './walker-proximity';
 
 // Office visit keywords to exclude
 const OFFICE_VISIT_KEYWORDS = [
@@ -403,6 +412,203 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
   }
 
   return true;
+}
+
+// ============================================================================
+// WALKER-FIRST PROXIMITY-BASED ASSIGNMENT
+// ============================================================================
+// Walking employees use PROXIMITY RULES instead of travel time calculations.
+// This is a deliberate design choice for reliability:
+// - Walk times are highly variable (terrain, weather, fitness)
+// - Public transport APIs are unreliable without live data
+// - Walkers realistically serve only their local area
+//
+// PROXIMITY RULES:
+// - Same postcode sector = definitely walkable
+// - Within 1.5km = likely walkable (~15 min walk)
+// - Outside these bounds = not suitable for walkers
+// ============================================================================
+
+function tryAssignVisitToWalker(
+  visit: ClientVisit,
+  walkerSchedules: EmployeeDaySchedule[],
+  assignedVisitIds: Set<string>,
+  weeklyUsedMap: Map<string, number>,
+  visitEmployeeAssignments: Map<string, Set<string>>
+): { success: boolean; employeeName?: string; reason?: string } {
+  // Skip if already assigned
+  if (assignedVisitIds.has(visit.id)) {
+    return { success: false, reason: 'Already assigned' };
+  }
+
+  // Skip if no location data
+  if (!visit.lat || !visit.lng) {
+    return { success: false, reason: 'No location data' };
+  }
+
+  // Check multiple care constraints
+  const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+  const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+
+  // Convert visit to walker-compatible format
+  const walkerVisit: VisitWithLocation = {
+    id: visit.id,
+    clientName: visit.clientName,
+    lat: Number(visit.lat),
+    lng: Number(visit.lng),
+    postcode: (visit as any).postcode,
+    startTime: visit.startTime,
+    endTime: visit.endTime,
+    durationMinutes: visit.durationMinutes,
+    date: visit.date,
+  };
+
+  // Score each walker for this visit
+  const candidates: Array<{
+    schedule: EmployeeDaySchedule;
+    score: number;
+    distanceKm: number;
+  }> = [];
+
+  for (const schedule of walkerSchedules) {
+    // Skip if already assigned to this time slot
+    if (alreadyAssignedEmployees.has(schedule.employeeName)) continue;
+
+    // Check gender preference match
+    if (!isGenderMatch(schedule.gender, visit.clientName)) continue;
+
+    // Check capacity constraints
+    const newDailyCare = schedule.usedCapacityMinutes + visit.durationMinutes;
+    if (newDailyCare > MAX_DAILY_CARE_MINUTES) continue;
+    if (wouldExceedCapacity(schedule, visit.durationMinutes)) continue;
+
+    // Check if visit fits in any window
+    const visitStartMin = timeToMinutes(visit.startTime);
+    const visitEndMin = timeToMinutes(visit.endTime);
+    const fitsWindow = schedule.windows.some(w =>
+      visitStartMin >= w.start - 5 && visitEndMin <= w.end + 5
+    );
+    if (!fitsWindow) continue;
+
+    // Create walker candidate
+    const walkerCandidate: WalkerCandidate = {
+      employeeName: schedule.employeeName,
+      homeLat: schedule.homeLat,
+      homeLng: schedule.homeLng,
+      homePostcode: (schedule as any).homePostcode,
+      date: schedule.date,
+      capacityMinutes: schedule.totalCapacityMinutes,
+      usedMinutes: schedule.usedCapacityMinutes,
+      weeklyContractedMinutes: schedule.weeklyContractedMinutes,
+      weeklyUsedMinutes: schedule.weeklyUsedMinutes,
+    };
+
+    // Check proximity using walker rules (NOT travel time)
+    if (!isWithinWalkingProximity(walkerCandidate, walkerVisit)) continue;
+
+    // Score the match
+    const score = scoreWalkerMatch(walkerCandidate, walkerVisit);
+    if (score <= 0) continue;
+
+    const distanceKm = haversineDistance(
+      schedule.homeLat,
+      schedule.homeLng,
+      walkerVisit.lat,
+      walkerVisit.lng
+    );
+
+    candidates.push({ schedule, score, distanceKm });
+  }
+
+  if (candidates.length === 0) {
+    return { success: false, reason: 'No walkers within proximity' };
+  }
+
+  // Sort by score descending (closest/best matches first)
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+
+  // Check chronological order if walker already has visits
+  const visitStartMin = timeToMinutes(visit.startTime);
+  if (best.schedule.assignedVisits.length > 0) {
+    // Find correct insertion index
+    let insertionIndex = 0;
+    for (let i = 0; i < best.schedule.assignedVisits.length; i++) {
+      const existingStart = timeToMinutes(best.schedule.assignedVisits[i].startTime);
+      if (visitStartMin > existingStart) {
+        insertionIndex = i + 1;
+      }
+    }
+
+    // Check if insertion would break chronological order
+    if (insertionIndex > 0) {
+      const prevVisit = best.schedule.assignedVisits[insertionIndex - 1];
+      const prevEndMin = timeToMinutes(prevVisit.endTime);
+      if (visitStartMin < prevEndMin) {
+        return { success: false, reason: 'Would overlap with existing visit' };
+      }
+    }
+    if (insertionIndex < best.schedule.assignedVisits.length) {
+      const nextVisit = best.schedule.assignedVisits[insertionIndex];
+      const visitEndMin = timeToMinutes(visit.endTime);
+      const nextStartMin = timeToMinutes(nextVisit.startTime);
+      if (visitEndMin > nextStartMin) {
+        return { success: false, reason: 'Would overlap with next visit' };
+      }
+    }
+
+    // Also check if consecutive visits are walkable
+    if (insertionIndex > 0) {
+      const prevVisit = best.schedule.assignedVisits[insertionIndex - 1];
+      const distFromPrev = haversineDistance(
+        prevVisit.lat || best.schedule.homeLat,
+        prevVisit.lng || best.schedule.homeLng,
+        walkerVisit.lat,
+        walkerVisit.lng
+      );
+      if (distFromPrev > 1.5) {
+        return { success: false, reason: 'Too far from previous visit for walker' };
+      }
+    }
+  }
+
+  // Create assigned visit
+  const assignedVisit: AssignedVisit = {
+    id: visit.id,
+    clientName: visit.clientName,
+    startTime: visit.startTime,
+    endTime: visit.endTime,
+    durationMinutes: visit.durationMinutes,
+    lat: visit.lat,
+    lng: visit.lng,
+    travelTimeBefore: WALKING_TRAVEL_DISPLAY_MINUTES, // Fixed display time for walkers
+    score: best.score,
+  };
+
+  // Insert in chronological order
+  let insertIdx = 0;
+  for (let i = 0; i < best.schedule.assignedVisits.length; i++) {
+    if (timeToMinutes(best.schedule.assignedVisits[i].startTime) < visitStartMin) {
+      insertIdx = i + 1;
+    }
+  }
+  best.schedule.assignedVisits.splice(insertIdx, 0, assignedVisit);
+
+  // Update tracking
+  best.schedule.usedCapacityMinutes += visit.durationMinutes;
+  best.schedule.weeklyUsedMinutes += visit.durationMinutes;
+  weeklyUsedMap.set(best.schedule.employeeName, best.schedule.weeklyUsedMinutes);
+  assignedVisitIds.add(visit.id);
+
+  // Track for multiple care
+  if (!visitEmployeeAssignments.has(visitKey)) {
+    visitEmployeeAssignments.set(visitKey, new Set());
+  }
+  visitEmployeeAssignments.get(visitKey)!.add(best.schedule.employeeName);
+
+  console.log(`🚶 WALKER ASSIGNED: ${best.schedule.employeeName} → ${visit.clientName} (${best.distanceKm.toFixed(2)}km, score: ${best.score.toFixed(2)})`);
+
+  return { success: true, employeeName: best.schedule.employeeName };
 }
 
 // Try to assign a visit to the best employee
@@ -918,11 +1124,13 @@ export function generateWeeklySchedule(
     schedulesByDate[date] = dayEmployees.map(emp => {
       const windows = parseTimeWindows(emp.timeWindows);
       // Normalize transport mode to allowed values
+      // IMPORTANT: 'walking' is kept as separate mode for proximity-based scheduling
+      // Walkers use proximity rules (same postcode or ≤1.5km), NOT travel time calculations
       let mode: 'car' | 'walking' | 'public' = 'car';
       if (emp.transportMode) {
         const modeLower = emp.transportMode.toLowerCase();
         if (modeLower.includes('walk')) {
-          mode = 'public';
+          mode = 'walking'; // Keep walkers separate - they use proximity logic
         } else if (modeLower.includes('public') || modeLower.includes('bus') || modeLower.includes('train')) {
           mode = 'public';
         } else if (modeLower.includes('car')) {
@@ -993,8 +1201,63 @@ export function generateWeeklySchedule(
     });
   }
 
+  // ============================================================================
+  // PHASE 0: WALKER-FIRST ASSIGNMENT (Proximity-based)
+  // ============================================================================
+  // Walking employees are assigned FIRST using proximity rules, NOT travel times.
+  // This ensures walkers get local visits they can realistically serve.
+  // Visits not assigned to walkers will fall through to car/public transport employees.
+  // ============================================================================
+  
+  // Count walkers across all dates
+  let totalWalkers = 0;
+  let walkerAssignments = 0;
+  
+  for (const date of weekDates) {
+    const allSchedules = schedulesByDate[date] || [];
+    const walkerSchedules = allSchedules.filter(s => s.transportMode === 'walking');
+    totalWalkers += walkerSchedules.length;
+  }
+  
+  if (totalWalkers > 0) {
+    console.log(`\n🚶 WALKER-FIRST PHASE: ${totalWalkers} walking employees across ${weekDates.length} days`);
+    console.log('   Walkers use PROXIMITY rules (same postcode or ≤1.5km), NOT travel time calculations.');
+    
+    for (const visit of sortedVisits) {
+      const allSchedules = schedulesByDate[visit.date] || [];
+      const walkerSchedules = allSchedules.filter(s => s.transportMode === 'walking');
+      
+      if (walkerSchedules.length === 0) continue;
+      
+      const result = tryAssignVisitToWalker(
+        visit,
+        walkerSchedules,
+        assignedVisitIds,
+        weeklyUsedMap,
+        visitEmployeeAssignments
+      );
+      
+      if (result.success) {
+        walkerAssignments++;
+      }
+    }
+    
+    console.log(`🚶 Walker phase complete: ${walkerAssignments} visits assigned to walkers`);
+    console.log(`   Remaining ${sortedVisits.length - walkerAssignments} visits will be assigned to car/public transport employees.\n`);
+  }
+
+  // ============================================================================
+  // PHASE 1-2: CAR/PUBLIC TRANSPORT ASSIGNMENT (Travel-time based)
+  // ============================================================================
+  // Non-walker employees handle remaining visits using travel time calculations.
+  // GH employees are prioritized to fill their contracted hours.
+  // ============================================================================
+
   // First pass: Assign each visit prioritizing GH employees
   for (const visit of sortedVisits) {
+    // Skip if already assigned by walker phase
+    if (assignedVisitIds.has(visit.id)) continue;
+    
     const employeeSchedules = schedulesByDate[visit.date] || [];
 
     if (employeeSchedules.length === 0) {
@@ -1007,10 +1270,13 @@ export function generateWeeklySchedule(
     const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
 
     // Filter out employees already assigned to this exact time slot
-    const availableSchedules = employeeSchedules.filter(s => !alreadyAssignedEmployees.has(s.employeeName));
+    // Also filter out walkers (they only get proximity-based assignments)
+    const availableSchedules = employeeSchedules.filter(s => 
+      !alreadyAssignedEmployees.has(s.employeeName) && s.transportMode !== 'walking'
+    );
 
     if (availableSchedules.length === 0) {
-      unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot (multiple care)' });
+      unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot (multiple care) or only walkers available' });
       continue;
     }
 
@@ -1033,7 +1299,7 @@ export function generateWeeklySchedule(
       result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
     }
 
-    // Phase 2: If not assigned to GH employee, try all employees
+    // Phase 2: If not assigned to GH employee, try all (non-walker) employees
     if (!result.success) {
       result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
     }
