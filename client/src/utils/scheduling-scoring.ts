@@ -77,13 +77,19 @@ export function scoreVisitMatch(
       continue; // Cannot insert here - would break chronology
     }
 
+    // Calculate travel from previous visit OR from home if first visit
     const travelFrom = prevVisit
       ? getTravelMinutes({ lat: prevVisit.lat, lng: prevVisit.lng }, { lat: visit.lat, lng: visit.lng }, mode, visit.start)
-      : 0;
+      : getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode, visit.start);
 
     const travelTo = nextVisit
       ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode, visit.end)
-      : 0;
+      : getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: homeLat, lng: homeLng }, mode, visit.end);
+    
+    // STRICT 60-MINUTE LIMIT: Skip if travel exceeds limit
+    if (travelFrom > 60 || travelTo > 60) {
+      continue; // Cannot use this insertion point - travel too long
+    }
 
     const gap = calculateInsertionGap(
       visit,

@@ -498,8 +498,22 @@ function assignVisitToBestEmployee(
 
     // STRICT TRAVEL LIMIT: Do not assign if travel from previous OR to next exceeds 60 minutes
     if (matchScore.travelFromPrev > 60 || matchScore.travelToNext > 60) {
-      console.log(`⚠️ STRICT TRAVEL LIMIT: ${schedule.employeeName} travel exceeds 60m limit (${matchScore.travelFromPrev}m or ${matchScore.travelToNext}m)`);
+      console.log(`⚠️ STRICT TRAVEL LIMIT: ${schedule.employeeName} travel exceeds 60m limit (from=${matchScore.travelFromPrev}m, to=${matchScore.travelToNext}m)`);
       continue;
+    }
+    
+    // Additional check: For first visit, verify travel from HOME doesn't exceed 60 minutes
+    if (schedule.assignedVisits.length === 0) {
+      const travelFromHome = getTravelMinutes(
+        { lat: schedule.homeLat, lng: schedule.homeLng },
+        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+        schedule.transportMode,
+        timeToMinutes(adjustedVisit.startTime)
+      );
+      if (travelFromHome > 60) {
+        console.log(`⚠️ STRICT HOME TRAVEL LIMIT: ${schedule.employeeName} home travel ${travelFromHome}m exceeds 60m limit`);
+        continue;
+      }
     }
 
     const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
@@ -625,6 +639,12 @@ function assignVisitToBestEmployee(
       visitStartMinForTravel // Pass start time for congestion multiplier
     );
     console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
+    
+    // FINAL SAFETY CHECK: Reject if travel from home exceeds 60 minutes
+    if (actualTravelTimeBefore > 60) {
+      console.log(`❌ REJECTED: Travel from home (${actualTravelTimeBefore}min) exceeds 60 minute limit`);
+      return { success: false, reason: `Travel from home (${actualTravelTimeBefore}min) exceeds 60 minute limit` };
+    }
   } else {
     // Check if there's a large gap (90+ minutes) suggesting a home break
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
