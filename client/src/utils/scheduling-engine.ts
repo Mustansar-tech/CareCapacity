@@ -515,11 +515,6 @@ function assignVisitToBestEmployee(
         timeToMinutes(prev.endTime)
       );
 
-      if (travelFromPrev > 60) {
-        console.log(`⚠️ TRAVEL TOO LONG (PREV): ${schedule.employeeName} would need ${travelFromPrev}min (max 60min)`);
-        continue;
-      }
-
       if (timeToMinutes(prev.endTime) + travelFromPrev > visitStartMinInternal) {
         console.log(`⚠️ TRAVEL INFEASIBILITY (PREV): ${schedule.employeeName} needs ${travelFromPrev}min but only has ${visitStartMinInternal - timeToMinutes(prev.endTime)}min gap`);
         continue;
@@ -534,11 +529,6 @@ function assignVisitToBestEmployee(
         schedule.transportMode,
         visitStartMinInternal + adjustedVisit.durationMinutes
       );
-
-      if (travelToNext > 60) {
-        console.log(`⚠️ TRAVEL TOO LONG (NEXT): ${schedule.employeeName} would need ${travelToNext}min (max 60min)`);
-        continue;
-      }
 
       if (visitStartMinInternal + adjustedVisit.durationMinutes + travelToNext > timeToMinutes(next.startTime)) {
         console.log(`⚠️ TRAVEL INFEASIBILITY (NEXT): ${schedule.employeeName} needs ${travelToNext}min but only has ${timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes)}min gap`);
@@ -573,24 +563,18 @@ function assignVisitToBestEmployee(
 
     // Add early visit bonus for first visits (prioritize starting early and near home)
     if (schedule.assignedVisits.length === 0) {
-      const travelFromHome = getTravelMinutes(
-        { lat: schedule.homeLat, lng: schedule.homeLng },
-        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
-        schedule.transportMode,
-        visitStartMinInternal
-      );
-
-      if (travelFromHome > 60) {
-        console.log(`⚠️ TRAVEL FROM HOME TOO LONG: ${schedule.employeeName} would need ${travelFromHome}min (max 60min)`);
-        continue;
-      }
-
       // First visit - bonus for early morning (before 10am)
       if (visitStartMinInternal < 600) { // Before 10am
         finalScore += 0.3; // Strong bonus for early starts
       }
       // Also bonus for proximity to home (already in matchScore but emphasize it)
-      if (travelFromHome < 15) { // Within 15 minutes of home
+      const distFromHome = getTravelMinutes(
+        { lat: schedule.homeLat, lng: schedule.homeLng },
+        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+        schedule.transportMode,
+        visitStartMinInternal // Pass start time for congestion multiplier
+      );
+      if (distFromHome < 15) { // Within 15 minutes of home
         finalScore += 0.2; // Bonus for starting near home
       }
     }
@@ -611,22 +595,9 @@ function assignVisitToBestEmployee(
     });
   }
 
-  // For the return journey home
-  const lastVisit = schedule.assignedVisits[schedule.assignedVisits.length - 1];
-  if (lastVisit) {
-    const travelToHome = getTravelMinutes(
-      { lat: lastVisit.lat || 0, lng: lastVisit.lng || 0 },
-      { lat: schedule.homeLat, lng: schedule.homeLng },
-      schedule.transportMode,
-      timeToMinutes(lastVisit.endTime)
-    );
-
-    if (travelToHome > 60) {
-      console.log(`⚠️ TRAVEL TO HOME TOO LONG: ${schedule.employeeName} would need ${travelToHome}min (max 60min)`);
-      // We don't 'continue' here because it's the last step, but in a real scheduler 
-      // we might want to reject this last visit if it makes the commute home too long.
-      // For now, let's keep it but ideally we should have checked this before final assignment.
-    }
+  // No feasible employees
+  if (candidates.length === 0) {
+    return { success: false, reason: 'No feasible employee (capacity/window/travel constraints)' };
   }
 
   // Sort by score descending and pick the best

@@ -87,20 +87,21 @@ export function calculateTravelTime(
   let minTravelMinutes: number;
   
   if (mode === 'car') {
-    const speedKmh = 32.5; // Restored to original realistic speed
+    const speedKmh = 20; // Reduced from 32.5 to 20 km/h to make travel times more realistic/conservative
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
   } else if (mode === 'public' || mode === 'walking') {
     // Treat both non-car modes as public transport proxy
-    const speedKmh = 25; 
+    // Speed reduced from 25km/h to 12km/h for more realistic public transport movement
+    const speedKmh = 12; 
     // Fixed 10 minute buffer as requested
     const fixedOverheadMinutes = 10; 
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     // Lower minimum for better flexibility
     minTravelMinutes = 10;
   } else {
-    // Default to car
-    baseTravelMinutes = (roadDistanceKm / 32.5) * 60;
+    // Default to car with lower speed
+    baseTravelMinutes = (roadDistanceKm / 20) * 60;
     minTravelMinutes = 5;
   }
   
@@ -110,7 +111,7 @@ export function calculateTravelTime(
   
   // Enforce maximum travel time of 60 minutes
   const finalMinutes = Math.max(minTravelMinutes, Math.round(adjustedMinutes));
-  return finalMinutes;
+  return Math.min(finalMinutes, MAX_TRAVEL_TIME_MINUTES);
 }
 
 // Calculate travel time between two locations (with memoization)
