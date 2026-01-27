@@ -75,8 +75,8 @@ const GH_EVENING_BONUS = 0.35;
 // GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
 const WEIGHTS = {
   tightness: 0.05,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
-  travelAdded: 0.30,    // Moderate weight - travel matters but not critical
-  windowSlack: 0.50,    // HIGHEST weight - if it fits in window, assign it
+  travelAdded: 0.50,    // Increased weight - travel matters more to keep it under 60m
+  windowSlack: 0.30,    // Reduced weight - balance with travel
   homeProximity: 0.15,  // Prefer routes near home
 };
 

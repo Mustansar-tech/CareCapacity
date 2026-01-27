@@ -57,7 +57,7 @@ export class TravelTimeService {
     return Math.max(config.minMinutes, Math.round(adjustedMinutes));
   }
 
-  constructor(maxTravelMinutes: number = 20, softLimitMinutes?: number) {
+  constructor(maxTravelMinutes: number = 60, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
@@ -123,6 +123,9 @@ export class TravelTimeService {
             durationMinutes += 10;
             console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
           }
+
+          // Cap at 60 minutes
+          durationMinutes = Math.min(durationMinutes, 60);
 
           console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 

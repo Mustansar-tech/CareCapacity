@@ -1,7 +1,7 @@
 // Scheduling utility functions for VRPTW optimization
 
 // Maximum travel time in minutes before a route is considered infeasible
-export const MAX_TRAVEL_TIME_MINUTES = 45;
+export const MAX_TRAVEL_TIME_MINUTES = 60;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
@@ -109,8 +109,9 @@ export function calculateTravelTime(
   const congestionMultiplier = getTimeOfDayMultiplier(startTimeMinutes);
   const adjustedMinutes = baseTravelMinutes * congestionMultiplier;
   
-  // Enforce minimum travel time
-  return Math.max(minTravelMinutes, Math.round(adjustedMinutes));
+  // Enforce maximum travel time of 60 minutes
+  const finalMinutes = Math.max(minTravelMinutes, Math.round(adjustedMinutes));
+  return Math.min(finalMinutes, MAX_TRAVEL_TIME_MINUTES);
 }
 
 // Calculate travel time between two locations (with memoization)
