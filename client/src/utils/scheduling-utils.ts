@@ -103,9 +103,9 @@ export function calculateTravelTime(
   const congestionMultiplier = getTimeOfDayMultiplier(startTimeMinutes);
   const adjustedMinutes = baseTravelMinutes * congestionMultiplier;
   
-  // Enforce maximum travel time of 60 minutes
+  // Return actual travel time (do NOT cap - scheduling engine will reject if > 60)
   const finalMinutes = Math.max(minTravelMinutes, Math.round(adjustedMinutes));
-  return Math.min(finalMinutes, MAX_TRAVEL_TIME_MINUTES);
+  return finalMinutes;
 }
 
 // Calculate travel time between two locations (with memoization)
