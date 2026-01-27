@@ -92,8 +92,8 @@ export function calculateTravelTime(
     minTravelMinutes = 5;
   } else if (mode === 'public' || mode === 'walking') {
     // Treat both non-car modes as public transport proxy
-    // Increased speed to 15km/h for more realistic public transit movement
-    const speedKmh = 15; 
+    // Speed increased to 25km/h for more realistic public transport movement
+    const speedKmh = 25; 
     // Fixed 10 minute buffer as requested
     const fixedOverheadMinutes = 10; 
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
