@@ -92,8 +92,8 @@ export function calculateTravelTime(
     minTravelMinutes = 5;
   } else if (mode === 'public' || mode === 'walking') {
     // Treat both non-car modes as public transport proxy
-    // Normal walking speed is ~5km/h, let's use 6km/h to be slightly faster for public transit
-    const speedKmh = 6; 
+    // Increased speed to 15km/h for more realistic public transit movement
+    const speedKmh = 15; 
     // Fixed 10 minute buffer as requested
     const fixedOverheadMinutes = 10; 
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
