@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueries } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,14 +55,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
-  const [isGenerated, setIsGenerated] = useState(false);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
 
-  // Generate week dates array (Mon-Sun) - memoized to prevent unnecessary recalculation
-  const weekDates = useMemo(() => {
+  // Generate week dates array (Mon-Sun)
+  const weekDates = (() => {
     const dates: string[] = [];
     const start = new Date(weekStart + 'T00:00:00.000Z');
     for (let i = 0; i < 7; i++) {
@@ -71,35 +70,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       dates.push(date.toISOString().split('T')[0]);
     }
     return dates;
-  }, [weekStart]);
+  })();
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  // Create a unique processing fingerprint based on data content
-  // This changes whenever new files are processed, ensuring cache invalidation
-  const processingFingerprint = useMemo(() => {
-    if (!data) return null;
-    // Combine multiple indicators that change when data is processed
-    const kpisHash = `${data.kpis?.netCapacitySum || 0}-${data.kpis?.totalClientRequired || 0}`;
-    const summaryCount = data.dailySummary?.length || 0;
-    const firstDate = data.dailySummary?.[0]?.date || 'none';
-    return `${kpisHash}-${summaryCount}-${firstDate}`;
-  }, [data?.kpis?.netCapacitySum, data?.kpis?.totalClientRequired, data?.dailySummary?.length, data?.dailySummary?.[0]?.date]);
-
-  // Reset state and invalidate caches when data changes (new files processed)
-  useEffect(() => {
-    if (processingFingerprint) {
-      // Data has been updated - reset schedule state and invalidate visit caches
-      setIsGenerated(false);
-      setWeeklySchedule(null);
-      // Invalidate all visit queries so fresh data is fetched
-      weekDates.forEach(date => {
-        queryClient.invalidateQueries({ queryKey: ['/api/visits', date] });
-      });
-      // Also invalidate the weekly schedule query
-      queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
-    }
-  }, [processingFingerprint, weekStart]); // Trigger on fingerprint change (more reliable)
 
   // Fetch locations
   const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
@@ -112,21 +85,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
 
-  // Use useQueries hook (TanStack Query v5) to fetch visits for all days
-  // This is the correct way to dynamically generate multiple queries
-  const visitQueries = useQueries({
-    queries: weekDates.map(date => ({
-      queryKey: ['/api/visits', date] as const,
-      enabled: !!data,
-      staleTime: 10 * 60 * 1000, // 10 minutes cache - prevent reloading on tab switch
-      gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
-      refetchOnMount: false, // Don't refetch when component mounts
-      refetchOnWindowFocus: false, // Don't refetch on window focus
-    })),
-  });
+  // Fetch visits for each day of the week
+  const visitQueries = weekDates.map(date => 
+    useQuery<ClientVisit[]>({
+      queryKey: ['/api/visits', date],
+      enabled: !!data && weekDates.length > 0,
+    })
+  );
 
   const isLoadingVisits = visitQueries.some(q => q.isLoading);
-  const allWeekVisits = visitQueries.flatMap(q => (q.data as ClientVisit[]) || []);
+  const allWeekVisits = visitQueries.flatMap(q => q.data || []);
 
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
@@ -271,7 +239,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     },
     onSuccess: async (result) => {
       setWeeklySchedule(result);
-      setIsGenerated(true);
 
       // Save to database
       try {
@@ -320,12 +287,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           employeesUtilized: 0,
         },
       });
-      setIsGenerated(true);
     } else if (!savedSchedule && !isLoadingVisits) {
       // No saved schedule for this week - clear the state
       console.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule(null);
-      setIsGenerated(false);
     }
   }, [savedSchedule, weekStart, weekEnd, isLoadingVisits]);
 
@@ -377,7 +342,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
         <Button
           onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending || allWeekVisits.length === 0 || isGenerated}
+          disabled={generateMutation.isPending || allWeekVisits.length === 0}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           data-testid="button-generate-weekly"
         >

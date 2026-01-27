@@ -141,8 +141,6 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization>({
     queryKey: ['/api/run-optimization', optimizationDate],
     queryFn: () => fetch(`/api/run-optimization/${optimizationDate}`).then(res => res.json()),
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
-    gcTime: 10 * 60 * 1000,
   });
 
   // Run optimization mutation
@@ -240,18 +238,9 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
 
   // Available dates from data
   const availableDates = data?.dailySummary?.map(day => day.date) || [];
-  const hasProcessedData = availableDates.length > 0;
 
   return (
     <div className="space-y-6">
-      {!hasProcessedData && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            No processed visit data found. Please go to the Data Management tab and upload/process your Excel files first.
-          </AlertDescription>
-        </Alert>
-      )}
       {/* Header Card */}
       <Card className="glass">
         <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
@@ -389,7 +378,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
             <div className="flex gap-2 sm:items-end">
               <Button
                 onClick={handleOptimizeRuns}
-                disabled={optimizeMutation.isPending || !hasProcessedData}
+                disabled={optimizeMutation.isPending}
                 className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white"
               >
                 {optimizeMutation.isPending ? (

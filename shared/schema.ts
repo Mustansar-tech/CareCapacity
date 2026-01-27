@@ -222,7 +222,6 @@ export interface ProcessingResult {
   dailySummary: DailySummaryRecord[];
   employeesByDate: Record<string, EmployeeDailyDetail[]>;
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>;
-  visitsByDate?: Record<string, ClientVisit[]>;
   warnings?: string[];
   // Geographical data for scheduling optimization
   employeeLocations?: Array<{
