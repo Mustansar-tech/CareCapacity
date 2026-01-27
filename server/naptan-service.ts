@@ -113,7 +113,7 @@ class NaptanService {
   /**
    * Fetch stops from NaPTAN API for a given area
    */
-  private async fetchStopsForArea(atcoCode: string): Promise<NaptanStop[]> {
+  private async fetchStopsForArea(atcoCode: string, retryCount: number = 0): Promise<NaptanStop[]> {
     // Check cache first
     const cached = naptanCache.get(atcoCode);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -121,7 +121,9 @@ class NaptanService {
     }
     
     try {
-      console.log(`🚏 Fetching NaPTAN stops for area ${atcoCode}...`);
+      // Add a small jittered delay to avoid hitting the API too hard at once
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 800));
+
       const response = await fetch(
         `${this.API_BASE}/access-nodes?atcoAreaCodes=${atcoCode}&dataFormat=json`,
         {
@@ -131,8 +133,14 @@ class NaptanService {
         }
       );
       
+      if (response.status === 429 && retryCount < 2) {
+        console.warn(`⏳ NaPTAN Rate limit for area ${atcoCode}, waiting 3s...`);
+        await new Promise(resolve => setTimeout(resolve, 3000 * (retryCount + 1)));
+        return this.fetchStopsForArea(atcoCode, retryCount + 1);
+      }
+
       if (!response.ok) {
-        console.error(`NaPTAN API error: ${response.status}`);
+        console.error(`NaPTAN API error: ${response.status} for area ${atcoCode}`);
         return [];
       }
       

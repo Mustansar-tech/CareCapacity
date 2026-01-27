@@ -157,20 +157,20 @@ export class TravelTimeService {
                 
                 const multiModalMinutes = walkToStopMinutes + busMinutes + walkFromStopMinutes;
                 
-                // Use transit if it's within a reasonable factor of walking (buses are rarely faster than walking for very short trips due to overhead)
-                // But for longer trips, we definitely want transit
-                if (multiModalMinutes < pureWalkingMinutes || pureWalkingMinutes > 30) {
+                // Use transit if it's within a reasonable factor of walking
+                if (multiModalMinutes < pureWalkingMinutes || pureWalkingMinutes > 20) {
                   durationMinutes = multiModalMinutes;
-                  console.log(`🚌 NaPTAN multi-modal: Walk ${walkToStopMinutes}min → ${transitRoute.originStop.commonName} → Bus ${busMinutes}min → ${transitRoute.destinationStop.commonName} → Walk ${walkFromStopMinutes}min = ${durationMinutes}min (Walking would be ${pureWalkingMinutes}min)`);
+                  console.log(`🚌 NaPTAN multi-modal: Walk ${walkToStopMinutes}min → ${transitRoute.originStop.commonName} → Bus ${busMinutes}min → ${transitRoute.destinationStop.commonName} → Walk ${walkFromStopMinutes}min = ${durationMinutes}min`);
                 } else {
                   // Walking is significantly faster for this specific short trip
-                  durationMinutes = pureWalkingMinutes + 5;
-                  console.log(`🚶 Walking faster than transit for short trip: ${durationMinutes}min (transit would be ${multiModalMinutes}min)`);
+                  durationMinutes = pureWalkingMinutes + 2;
+                  console.log(`🚶 Walking faster than transit for short trip: ${durationMinutes}min`);
                 }
               } else {
-                // No bus stops found nearby - fallback to walking with transit overhead
-                durationMinutes = Math.round(pureWalkingMinutes * 0.8) + 15;
-                console.log(`🚶 No nearby stops found, using walking+overhead estimate: ${durationMinutes}min`);
+                // No bus stops found nearby - fallback to a more realistic public transport estimate
+                // If it's a long walk, it likely takes a while by bus too
+                durationMinutes = Math.round(pureWalkingMinutes * 0.7) + 12;
+                console.log(`🚶 No nearby stops found, using public transport estimate: ${durationMinutes}min`);
               }
             } catch (transitError) {
               console.warn(`⚠️ NaPTAN routing failed:`, transitError);
