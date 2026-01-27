@@ -154,8 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/process', upload.fields([
     { name: 'availability', maxCount: 1 },
     { name: 'guaranteed', maxCount: 1 },
-    { name: 'cgData', maxCount: 1 },
-    { name: 'holidays', maxCount: 1 }  // Optional holiday export file
+    { name: 'cgData', maxCount: 1 }
   ]), async (req, res) => {
     try {
       console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
@@ -192,9 +191,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const availabilityFile = files.availability[0];
       const guaranteedFile = files.guaranteed[0];
       const cgDataFile = files.cgData[0];
-      const holidaysFile = files.holidays ? files.holidays[0] : null; // Optional
-
-      console.log(`📅 Holiday file: ${holidaysFile ? holidaysFile.originalname : 'NOT PROVIDED'}`);
 
       // Validate file names (allowing for browser download numbers like (2), (3))
       const expectedNames = {
@@ -233,8 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guaranteedFile.buffer,
         cgDataFile.buffer,
         undefined, // ghWorkbookBuffer (not needed here)
-        requestedBranchId,  // Pass branchId for proper branch scoping
-        holidaysFile?.buffer  // Pass optional holiday export buffer
+        requestedBranchId  // Pass branchId for proper branch scoping
       );
 
       // Validate detected branch matches requested branch

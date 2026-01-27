@@ -302,7 +302,6 @@ interface ParsedAvailabilityRow extends AvailabilityRow {
 // ====== SHEET NAMES (EXACT MATCH TO WORKING IMPLEMENTATION) ======
 const AVAIL_SHEET = "CAREGiver Availability";
 const GUAR_SHEET = "Data";
-const HOLIDAY_SHEET_KEYWORDS = ["holiday", "vacation", "leave"];
 
 // Client name column priorities for guaranteed hours data
 const CLIENT_COLS = [
@@ -338,16 +337,6 @@ function getCGSheetName(wb: any): string {
   // Try likely names first
   const preferred = ["Data", "Employees", "CG Data", "Master", "Sheet1"];
   for (const n of preferred) if (wb.SheetNames.includes(n)) return n;
-
-  // Scan for holiday export sheet
-  for (const name of wb.SheetNames) {
-    const sheet = wb.Sheets[name];
-    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 0, blankrows: false }) as any;
-    const header = (rows?.[0] ?? []).map((c: any) => String(c ?? "").trim().toLowerCase());
-    if (header.includes("caregiver name") && header.includes("type") && header.includes("hours")) {
-      return name;
-    }
-  }
 
   // Fallback: scan for a sheet that has name + weekly-hours-ish columns
   for (const name of wb.SheetNames) {
@@ -403,13 +392,12 @@ function canonicalStatus(raw: any): string {
     return "Other Unavailable";
   if (s.includes("pre-agreed")) return "Pre-Agreed Appointment";
 
-  // day-killers - handle formats like "24 Holiday", "Holiday", "annual leave", etc.
-  if (s.includes("holiday") || s.includes("annual leave") || s.includes("vacation") || 
-      s.includes("al ") || s === "al" || s.endsWith(" al")) return "Holiday";
-  if (s.includes("sick") || s.includes("illness")) return "Sick";
+  // day-killers
+  if (s.startsWith("holiday")) return "Holiday";
+  if (s.startsWith("sick")) return "Sick";
   if (s.includes("maternity") || s.includes("paternity"))
     return "Maternity/Paternity";
-  if (s.includes("compassion") || s.includes("bereavement")) return "Compassionate Leave";
+  if (s.includes("compassion")) return "Compassionate Leave";
 
   if (s.includes("ad-hoc") || s.includes("adhoc")) return "Ad-hoc";
   return raw ?? "";
@@ -1109,7 +1097,6 @@ export async function parseExcelFiles(
   cgDataBuffer: Buffer,
   ghWorkbookBuffer?: Buffer, // NEW: Add raw GH workbook buffer
   branchId?: string, // NEW: Add branchId for branch-scoped parsing
-  holidaysBuffer?: Buffer, // NEW: Optional separate holiday export file
 ): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
@@ -1410,21 +1397,8 @@ export async function parseExcelFiles(
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
 
-      // Use canonicalStatus to determine if this is a leave entry - check multiple source fields
-      // This ensures consistency with how status is used later in the pipeline
-      const typeStatus = canonicalStatus(row.Type);
-      const statusStatus = canonicalStatus(row.Status);
-      const notesStatus = canonicalStatus(row.Notes);
-      
-      // Check if any of the canonical statuses indicate leave/holiday
-      const LEAVE_STATUSES = ["Holiday", "Sick", "Maternity/Paternity", "Compassionate Leave"];
-      const isHolidayEntry = LEAVE_STATUSES.includes(typeStatus) || 
-                             LEAVE_STATUSES.includes(statusStatus) || 
-                             LEAVE_STATUSES.includes(notesStatus);
-      const detectedStatus = typeStatus !== (row.Type ?? "") ? typeStatus : 
-                            (statusStatus !== (row.Status ?? "") ? statusStatus : notesStatus);
-
-      // Handle multi-day entries differently based on type
+      // CRITICAL FIX: Reject entries where start and end dates differ
+      // This prevents incorrectly including dates when availability spans multiple days
       if (row["End Date"]) {
         try {
           const parsedEndDate = parseDate(row["End Date"]);
@@ -1432,76 +1406,11 @@ export async function parseExcelFiles(
           const endDateStr = format(parsedEndDate, "yyyy-MM-dd");
 
           if (startDateStr !== endDateStr) {
-            // For HOLIDAYS/LEAVE: Expand multi-day entries into individual daily entries
-            if (isHolidayEntry) {
-              // Calculate total days (inclusive: end - start + 1)
-              const msPerDay = 1000 * 60 * 60 * 24;
-              const totalDays = Math.round((parsedEndDate.getTime() - parsedStartDate.getTime()) / msPerDay) + 1;
-              const maxDays = 60;
-              const daysToProcess = Math.min(totalDays, maxDays);
-              
-              if (totalDays > maxDays) {
-                console.log(`⚠️ WARNING: Multi-day holiday for ${empName} spans ${totalDays} days (${startDateStr} to ${endDateStr}). Truncating to ${maxDays} days.`);
-                warnings.push(`Availability row ${index + 1} (${empName}): Holiday range truncated from ${totalDays} to ${maxDays} days.`);
-              }
-              
-              console.log(`📅 EXPANDING multi-day ${detectedStatus} for ${empName}: ${startDateStr} to ${endDateStr} (${daysToProcess} days)`);
-              
-              // Determine hours per day:
-              // If row.Hours represents TOTAL hours across the range, divide by day count
-              // If Hours is 24 or missing, assume full-day leave per day
-              let hoursPerDay = 24; // Default to full day
-              const rawHours = row.Hours !== undefined && row.Hours !== null ? Number(row.Hours) : 0;
-              
-              if (rawHours > 0) {
-                // Check if Hours is likely total (> 24) or per-day (≤ 24)
-                if (rawHours > 24) {
-                  // Total hours across range - divide by day count
-                  hoursPerDay = Math.round((rawHours / totalDays) * 100) / 100;
-                  console.log(`  📊 Hours ${rawHours} appears to be total; dividing by ${totalDays} days = ${hoursPerDay}h/day`);
-                } else {
-                  // Hours ≤ 24 likely represents per-day hours
-                  hoursPerDay = rawHours;
-                }
-              }
-              
-              // Create an entry for each day in the date range
-              let currentDate = new Date(parsedStartDate);
-              let daysProcessed = 0;
-              
-              // Log truncation details if applicable
-              if (totalDays > maxDays) {
-                const truncatedEndDate = new Date(parsedStartDate);
-                truncatedEndDate.setDate(truncatedEndDate.getDate() + maxDays - 1);
-                console.log(`  ⚠️ Omitting dates from ${format(truncatedEndDate, "yyyy-MM-dd")} to ${endDateStr}`);
-              }
-              
-              while (daysProcessed < daysToProcess) {
-                const dateStr = format(currentDate, "yyyy-MM-dd");
-                console.log(`  📅 Creating ${detectedStatus} entry for ${empName} on ${dateStr} (${hoursPerDay}h)`);
-                
-                // Set row.Type to the detected canonical status for downstream consistency
-                validatedAvailability.push({
-                  ...row,
-                  Type: detectedStatus, // Use canonical status for consistency
-                  parsedDate: new Date(currentDate),
-                  calculatedHours: hoursPerDay,
-                  "Time Window(s)": "", // No time windows for leave
-                });
-                
-                // Move to next day
-                currentDate.setDate(currentDate.getDate() + 1);
-                daysProcessed++;
-              }
-              return; // Skip the normal processing since we've already added the entries
-            } else {
-              // For non-holiday entries, reject multi-day entries as before
-              console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} differs from end date ${endDateStr} - multi-day entries not supported`);
-              warnings.push(
-                `Availability row ${index + 1} (${empName}): Rejected - start date (${startDateStr}) differs from end date (${endDateStr}). Multi-day availability entries are not supported.`,
-              );
-              return;
-            }
+            console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} differs from end date ${endDateStr} - multi-day entries not supported`);
+            warnings.push(
+              `Availability row ${index + 1} (${empName}): Rejected - start date (${startDateStr}) differs from end date (${endDateStr}). Multi-day availability entries are not supported.`,
+            );
+            return;
           }
         } catch (endDateError) {
           console.log(`⚠️ Could not parse end date for ${empName}, continuing with start date validation`);
