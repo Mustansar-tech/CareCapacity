@@ -86,18 +86,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
 
-  // Fetch visits for each day of the week
-  const visitQueries = weekDates.map(date => 
-    useQuery<ClientVisit[]>({
-      queryKey: ['/api/visits', date],
-      enabled: !!data && weekDates.length > 0,
-      staleTime: 5 * 60 * 1000, // 5 minutes cache
-      gcTime: 10 * 60 * 1000,
-    })
-  );
-
-  const isLoadingVisits = visitQueries.some(q => q.isLoading);
-  const allWeekVisits = visitQueries.flatMap(q => q.data || []);
+  // Use processed data from props instead of fetching from /api/visits
+  const allWeekVisits = (data?.visitsByDate ? Object.values(data.visitsByDate).flat() : []) as ClientVisit[];
+  const isLoadingVisits = false; // Data is already available in props
 
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
