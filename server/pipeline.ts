@@ -302,6 +302,7 @@ interface ParsedAvailabilityRow extends AvailabilityRow {
 // ====== SHEET NAMES (EXACT MATCH TO WORKING IMPLEMENTATION) ======
 const AVAIL_SHEET = "CAREGiver Availability";
 const GUAR_SHEET = "Data";
+const HOLIDAY_SHEET_KEYWORDS = ["holiday", "vacation", "leave"];
 
 // Client name column priorities for guaranteed hours data
 const CLIENT_COLS = [
@@ -337,6 +338,16 @@ function getCGSheetName(wb: any): string {
   // Try likely names first
   const preferred = ["Data", "Employees", "CG Data", "Master", "Sheet1"];
   for (const n of preferred) if (wb.SheetNames.includes(n)) return n;
+
+  // Scan for holiday export sheet
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 0, blankrows: false }) as any;
+    const header = (rows?.[0] ?? []).map((c: any) => String(c ?? "").trim().toLowerCase());
+    if (header.includes("caregiver name") && header.includes("type") && header.includes("hours")) {
+      return name;
+    }
+  }
 
   // Fallback: scan for a sheet that has name + weekly-hours-ish columns
   for (const name of wb.SheetNames) {
@@ -393,8 +404,8 @@ function canonicalStatus(raw: any): string {
   if (s.includes("pre-agreed")) return "Pre-Agreed Appointment";
 
   // day-killers
-  if (s.startsWith("holiday")) return "Holiday";
-  if (s.startsWith("sick")) return "Sick";
+  if (s.startsWith("holiday") || s.includes("holiday") || s.includes("annual leave") || s.includes("vacation")) return "Holiday";
+  if (s.startsWith("sick") || s.includes("sick")) return "Sick";
   if (s.includes("maternity") || s.includes("paternity"))
     return "Maternity/Paternity";
   if (s.includes("compassion")) return "Compassionate Leave";
