@@ -1,12 +1,9 @@
 /**
  * Travel Time Service for Route Optimization
- * Calculates travel times between locations using:
- * - OpenRouteService for driving and walking routes
- * - NaPTAN + ORS for multi-modal public transport (walk → bus → walk)
+ * Calculates travel times between locations using OpenRouteService with haversine fallback
  */
 
 import { storage } from "./storage";
-import { naptanService } from "./naptan-service";
 
 export interface Location {
   lat: number;
@@ -29,20 +26,15 @@ export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
   
   // Mode-specific average speeds (km/h) and minimums (minutes)
-  // Note: For 'walking' and 'public', we prefer ORS foot-walking API for accurate path routing
-  // The haversine fallback uses these speeds only when ORS is unavailable
-  private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number; orsProfile: string }> = {
-    car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5, orsProfile: 'driving-car' },
-    walking: { speedKmh: 4.5, overheadMinutes: 0, minMinutes: 5, orsProfile: 'foot-walking' }, // Real walking speed ~4.5 km/h, min 5 mins
-    public: { speedKmh: 4.5, overheadMinutes: 15, minMinutes: 10, orsProfile: 'foot-walking' } // Walking + bus wait/travel overhead
+  private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
+    car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5 },
+    walking: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }, // Treated as public transport proxy
+    public: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }
   };
 
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
-  
-  // Rate limiting delay (ms)
-  private readonly RATE_LIMIT_DELAY = 1500; // 1.5s between requests if hitting limits
   
   // Get time-of-day congestion multiplier
   private getTimeOfDayMultiplier(startTimeMinutes?: number): number {
@@ -74,8 +66,7 @@ export class TravelTimeService {
     branchId: string,
     from: Location,
     to: Location,
-    transportMode: TransportMode = "car",
-    retryCount: number = 0
+    transportMode: TransportMode = "car"
   ): Promise<TravelMatrix> {
     const fromLat = from.lat.toString();
     const fromLng = from.lng.toString();
@@ -97,27 +88,20 @@ export class TravelTimeService {
         };
       }
       
-      if (cached && (cached.source === 'haversine' || cached.source === 'heuristic') && this.ORS_API_KEY) {
-        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously ${cached.source})`);
+      if (cached && cached.source === 'haversine' && this.ORS_API_KEY) {
+        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously haversine)`);
       }
     } catch (e) {
       console.error("Cache lookup failed:", e);
     }
 
-    // 2. Try OpenRouteService - Use ORS for ALL modes now
-    // For cars: driving-car profile
-    // For walking/public: foot-walking profile (accurate paths along real roads/paths)
+    // 2. Try OpenRouteService
     if (this.ORS_API_KEY) {
       try {
-        const config = this.MODE_CONFIG[transportMode] || this.MODE_CONFIG.car;
-        const orsProfile = config.orsProfile;
-        
-        console.log(`🌐 Requesting ORS (${orsProfile}) for ${transportMode}: ${fromLat},${fromLng} to ${toLat},${toLng}`);
-        
-        // Add a small artificial delay to help with rate limiting
-        await new Promise(resolve => setTimeout(resolve, 250));
-
-        const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsProfile}`, {
+        const orsMode = transportMode === 'walking' ? 'foot-walking' : 
+                        transportMode === 'public' ? 'driving-car' : 'driving-car';
+        console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
+        const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
           method: 'POST',
           headers: {
             'Authorization': this.ORS_API_KEY,
@@ -128,67 +112,19 @@ export class TravelTimeService {
           })
         });
 
-        if (response.status === 429 && retryCount < 2) {
-          console.warn(`⏳ ORS Rate limit exceeded (attempt ${retryCount + 1}), waiting ${this.RATE_LIMIT_DELAY}ms...`);
-          await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY * (retryCount + 1)));
-          return this.calculateTravelTime(branchId, from, to, transportMode, retryCount + 1);
-        }
-
         if (response.ok) {
           const data = await response.json();
           const durationSeconds = data.routes[0].summary.duration;
           const distanceMeters = data.routes[0].summary.distance;
-          let durationMinutes = Math.max(config.minMinutes, Math.round(durationSeconds / 60));
+          let durationMinutes = Math.max(2, Math.round(durationSeconds / 60)); // Minimum 2 min
 
-          // For public transport: use NaPTAN to find actual bus stops and calculate multi-modal route
+          // Add 10-minute public transport overhead (walking to/from stops, waiting)
           if (transportMode === 'public') {
-            const pureWalkingMinutes = durationMinutes;
-            
-            // Try to find a transit route using NaPTAN
-            try {
-              console.log(`🚌 Searching NaPTAN for ${fromLat},${fromLng} to ${toLat},${toLng}...`);
-              const transitRoute = await naptanService.findBestTransitRoute(from, to, 1000); // Increased radius to 1km
-              
-              if (transitRoute && transitRoute.originStop && transitRoute.destinationStop) {
-                // Calculate walking times to/from stops using ORS walking speed (4.5 km/h average)
-                const walkToStopMinutes = Math.round((transitRoute.walkToStopMeters / 1000) / 4.5 * 60);
-                const walkFromStopMinutes = Math.round((transitRoute.walkFromStopMeters / 1000) / 4.5 * 60);
-                const busMinutes = transitRoute.estimatedTransitMinutes;
-                
-                const multiModalMinutes = walkToStopMinutes + busMinutes + walkFromStopMinutes;
-                
-                // Use transit if it's within a reasonable factor of walking
-                if (multiModalMinutes < pureWalkingMinutes || pureWalkingMinutes > 20) {
-                  durationMinutes = multiModalMinutes;
-                  console.log(`🚌 NaPTAN multi-modal: Walk ${walkToStopMinutes}min → ${transitRoute.originStop.commonName} → Bus ${busMinutes}min → ${transitRoute.destinationStop.commonName} → Walk ${walkFromStopMinutes}min = ${durationMinutes}min`);
-                } else {
-                  // Walking is significantly faster for this specific short trip
-                  durationMinutes = pureWalkingMinutes + 2;
-                  console.log(`🚶 Walking faster than transit for short trip: ${durationMinutes}min`);
-                }
-              } else {
-                // No bus stops found nearby - fallback to a more realistic public transport estimate
-                // If it's a long walk, it likely takes a while by bus too
-                durationMinutes = Math.round(pureWalkingMinutes * 0.7) + 12;
-                console.log(`🚶 No nearby stops found, using public transport estimate: ${durationMinutes}min`);
-              }
-            } catch (transitError) {
-              console.warn(`⚠️ NaPTAN routing failed:`, transitError);
-              // Fallback: estimate based on walking time
-              if (pureWalkingMinutes > 20) {
-                const busTimeSaved = Math.round(pureWalkingMinutes * 0.4);
-                durationMinutes = pureWalkingMinutes - busTimeSaved + 10;
-                console.log(`🚌 Estimated transit (NaPTAN unavailable): ${durationMinutes}min`);
-              } else {
-                durationMinutes = pureWalkingMinutes + 5;
-                console.log(`🚶 Short distance walking fallback: ${durationMinutes}min`);
-              }
-            }
-          } else if (transportMode === 'walking') {
-            console.log(`🚶 ORS foot-walking: ${durationMinutes} min for ${(distanceMeters/1000).toFixed(2)} km`);
-          } else {
-            console.log(`🚗 ORS driving: ${durationMinutes} min for ${(distanceMeters/1000).toFixed(2)} km`);
+            durationMinutes += 10;
+            console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
           }
+
+          console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
           await storage.saveTravelTime({
             branchId,
