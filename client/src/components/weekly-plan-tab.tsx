@@ -87,7 +87,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   );
 
   // Use processed data from props instead of fetching from /api/visits
-  const allWeekVisits = (data?.visitsByDate ? Object.values(data.visitsByDate).flat() : []) as ClientVisit[];
+  const allWeekVisits = (data && (data as any).visitsByDate ? Object.values((data as any).visitsByDate).flat() : []) as ClientVisit[];
   const isLoadingVisits = false; // Data is already available in props
 
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
