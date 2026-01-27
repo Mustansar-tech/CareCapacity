@@ -1410,12 +1410,19 @@ export async function parseExcelFiles(
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
 
-      // Check if this is a holiday/leave entry - these can span multiple days
-      const rowType = String(row.Type || "").toLowerCase();
-      const isHolidayEntry = rowType.includes("holiday") || rowType.includes("vacation") || 
-                             rowType.includes("annual leave") || rowType.includes("sick") ||
-                             rowType.includes("maternity") || rowType.includes("paternity") ||
-                             rowType.includes("compassion");
+      // Use canonicalStatus to determine if this is a leave entry - check multiple source fields
+      // This ensures consistency with how status is used later in the pipeline
+      const typeStatus = canonicalStatus(row.Type);
+      const statusStatus = canonicalStatus(row.Status);
+      const notesStatus = canonicalStatus(row.Notes);
+      
+      // Check if any of the canonical statuses indicate leave/holiday
+      const LEAVE_STATUSES = ["Holiday", "Sick", "Maternity/Paternity", "Compassionate Leave"];
+      const isHolidayEntry = LEAVE_STATUSES.includes(typeStatus) || 
+                             LEAVE_STATUSES.includes(statusStatus) || 
+                             LEAVE_STATUSES.includes(notesStatus);
+      const detectedStatus = typeStatus !== (row.Type ?? "") ? typeStatus : 
+                            (statusStatus !== (row.Status ?? "") ? statusStatus : notesStatus);
 
       // Handle multi-day entries differently based on type
       if (row["End Date"]) {
@@ -1427,25 +1434,64 @@ export async function parseExcelFiles(
           if (startDateStr !== endDateStr) {
             // For HOLIDAYS/LEAVE: Expand multi-day entries into individual daily entries
             if (isHolidayEntry) {
-              console.log(`📅 EXPANDING multi-day holiday for ${empName}: ${startDateStr} to ${endDateStr} (Type: ${row.Type})`);
+              // Calculate total days (inclusive: end - start + 1)
+              const msPerDay = 1000 * 60 * 60 * 24;
+              const totalDays = Math.round((parsedEndDate.getTime() - parsedStartDate.getTime()) / msPerDay) + 1;
+              const maxDays = 60;
+              const daysToProcess = Math.min(totalDays, maxDays);
+              
+              if (totalDays > maxDays) {
+                console.log(`⚠️ WARNING: Multi-day holiday for ${empName} spans ${totalDays} days (${startDateStr} to ${endDateStr}). Truncating to ${maxDays} days.`);
+                warnings.push(`Availability row ${index + 1} (${empName}): Holiday range truncated from ${totalDays} to ${maxDays} days.`);
+              }
+              
+              console.log(`📅 EXPANDING multi-day ${detectedStatus} for ${empName}: ${startDateStr} to ${endDateStr} (${daysToProcess} days)`);
+              
+              // Determine hours per day:
+              // If row.Hours represents TOTAL hours across the range, divide by day count
+              // If Hours is 24 or missing, assume full-day leave per day
+              let hoursPerDay = 24; // Default to full day
+              const rawHours = row.Hours !== undefined && row.Hours !== null ? Number(row.Hours) : 0;
+              
+              if (rawHours > 0) {
+                // Check if Hours is likely total (> 24) or per-day (≤ 24)
+                if (rawHours > 24) {
+                  // Total hours across range - divide by day count
+                  hoursPerDay = Math.round((rawHours / totalDays) * 100) / 100;
+                  console.log(`  📊 Hours ${rawHours} appears to be total; dividing by ${totalDays} days = ${hoursPerDay}h/day`);
+                } else {
+                  // Hours ≤ 24 likely represents per-day hours
+                  hoursPerDay = rawHours;
+                }
+              }
               
               // Create an entry for each day in the date range
               let currentDate = new Date(parsedStartDate);
-              const endDate = new Date(parsedEndDate);
+              let daysProcessed = 0;
               
-              while (currentDate <= endDate) {
+              // Log truncation details if applicable
+              if (totalDays > maxDays) {
+                const truncatedEndDate = new Date(parsedStartDate);
+                truncatedEndDate.setDate(truncatedEndDate.getDate() + maxDays - 1);
+                console.log(`  ⚠️ Omitting dates from ${format(truncatedEndDate, "yyyy-MM-dd")} to ${endDateStr}`);
+              }
+              
+              while (daysProcessed < daysToProcess) {
                 const dateStr = format(currentDate, "yyyy-MM-dd");
-                console.log(`  📅 Creating holiday entry for ${empName} on ${dateStr}`);
+                console.log(`  📅 Creating ${detectedStatus} entry for ${empName} on ${dateStr} (${hoursPerDay}h)`);
                 
+                // Set row.Type to the detected canonical status for downstream consistency
                 validatedAvailability.push({
                   ...row,
+                  Type: detectedStatus, // Use canonical status for consistency
                   parsedDate: new Date(currentDate),
-                  calculatedHours: 24, // Full day holiday
-                  "Time Window(s)": "", // No time windows for holidays
+                  calculatedHours: hoursPerDay,
+                  "Time Window(s)": "", // No time windows for leave
                 });
                 
                 // Move to next day
                 currentDate.setDate(currentDate.getDate() + 1);
+                daysProcessed++;
               }
               return; // Skip the normal processing since we've already added the entries
             } else {
