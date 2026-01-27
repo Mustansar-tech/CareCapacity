@@ -79,29 +79,23 @@ export function calculateTravelTime(
   const roadDistanceKm = distanceKm * 1.2;
   
   // Mode-specific speeds and minimums
-  // Car: 32.5 km/h avg (30-35 range), min 5 min
-  // Non-driver (public): 10 km/h effective to account for transfers and wait times, min 25 min overhead
-  // Walking: avoid as main mode, but support at 4 km/h
+  // Car: 20 km/h avg (conservative for urban areas), min 5 min
+  // Non-driver (public): 12 km/h effective, min 10 min
   
   let baseTravelMinutes: number;
   let minTravelMinutes: number;
   
   if (mode === 'car') {
-    const speedKmh = 20; // Reduced from 32.5 to 20 km/h to make travel times more realistic/conservative
+    const speedKmh = 18; // Slightly reduced further to ensure travel times are realistic and conservative
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
   } else if (mode === 'public' || mode === 'walking') {
-    // Treat both non-car modes as public transport proxy
-    // Speed reduced from 25km/h to 12km/h for more realistic public transport movement
-    const speedKmh = 12; 
-    // Fixed 10 minute buffer as requested
+    const speedKmh = 10; // Slightly reduced further
     const fixedOverheadMinutes = 10; 
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
-    // Lower minimum for better flexibility
     minTravelMinutes = 10;
   } else {
-    // Default to car with lower speed
-    baseTravelMinutes = (roadDistanceKm / 20) * 60;
+    baseTravelMinutes = (roadDistanceKm / 18) * 60;
     minTravelMinutes = 5;
   }
   

@@ -496,6 +496,12 @@ function assignVisitToBestEmployee(
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     if (!matchScore || matchScore.score <= 0) continue;
 
+    // STRICT TRAVEL LIMIT: Do not assign if travel from previous OR to next exceeds 60 minutes
+    if (matchScore.travelFromPrev > 60 || matchScore.travelToNext > 60) {
+      console.log(`⚠️ STRICT TRAVEL LIMIT: ${schedule.employeeName} travel exceeds 60m limit (${matchScore.travelFromPrev}m or ${matchScore.travelToNext}m)`);
+      continue;
+    }
+
     const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
 
     // Verify this insertion doesn't overlap with neighbors
