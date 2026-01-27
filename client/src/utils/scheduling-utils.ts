@@ -90,14 +90,10 @@ export function calculateTravelTime(
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
   } else if (mode === 'public' || mode === 'walking') {
-    // Real-world walking: average person walks ~5km/h, but with gear/fatigue/stops ~4km/h is realistic
-    // For care workers carrying equipment, 4 km/h is a good conservative estimate
-    const speedKmh = 4; 
-    // 3 minute overhead for getting ready, locking up, etc.
-    const fixedOverheadMinutes = 3; 
+    const speedKmh = 10; // Slightly reduced further
+    const fixedOverheadMinutes = 10; 
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
-    // Walkers need at least 5 minutes between visits
-    minTravelMinutes = 5;
+    minTravelMinutes = 10;
   } else {
     baseTravelMinutes = (roadDistanceKm / 18) * 60;
     minTravelMinutes = 5;
