@@ -909,11 +909,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const batchResults = await Promise.all(
           batch.map(async (pair: { from: any; to: any; transportMode?: string }) => {
             try {
-              // Normalize transport mode
+              // Normalize transport mode: User wants all walkers to use public transport
               let mode = (pair.transportMode || 'car').toLowerCase();
-              if (mode.includes('walk')) mode = 'walking';
-              else if (mode.includes('public') || mode.includes('bus') || mode.includes('train')) mode = 'public';
-              else if (mode !== 'car' && mode !== 'walking' && mode !== 'public') mode = 'car';
+              if (mode.includes('walk') || mode.includes('public') || mode.includes('bus') || mode.includes('train')) {
+                mode = 'public';
+              } else if (mode !== 'car' && mode !== 'walking' && mode !== 'public') {
+                mode = 'car';
+              }
               
               const result = await travelService.calculateTravelTime(
                 resolvedBranchId,

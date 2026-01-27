@@ -247,7 +247,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         const clientLocations = visitsWithLocations.filter(v => v.lat && v.lng);
         
         for (const emp of nonCarEmployees) {
-          const mode: 'walking' | 'public' = emp.transportMode!.toLowerCase().includes('walk') ? 'walking' : 'public';
+          // All non-car employees (walkers) use public transport in reality
+          const mode: 'public' = 'public';
           
           // Add home -> client pairs
           for (const visit of clientLocations) {

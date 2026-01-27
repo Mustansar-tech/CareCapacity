@@ -146,31 +146,34 @@ export class TravelTimeService {
             
             // Try to find a transit route using NaPTAN
             try {
-              const transitRoute = await naptanService.findBestTransitRoute(from, to, 800);
+              console.log(`🚌 Searching NaPTAN for ${fromLat},${fromLng} to ${toLat},${toLng}...`);
+              const transitRoute = await naptanService.findBestTransitRoute(from, to, 1000); // Increased radius to 1km
               
               if (transitRoute && transitRoute.originStop && transitRoute.destinationStop) {
-                // Calculate walking times to/from stops using ORS walking speed (5 km/h average)
-                const walkToStopMinutes = Math.round((transitRoute.walkToStopMeters / 1000) / 5 * 60);
-                const walkFromStopMinutes = Math.round((transitRoute.walkFromStopMeters / 1000) / 5 * 60);
+                // Calculate walking times to/from stops using ORS walking speed (4.5 km/h average)
+                const walkToStopMinutes = Math.round((transitRoute.walkToStopMeters / 1000) / 4.5 * 60);
+                const walkFromStopMinutes = Math.round((transitRoute.walkFromStopMeters / 1000) / 4.5 * 60);
                 const busMinutes = transitRoute.estimatedTransitMinutes;
                 
                 const multiModalMinutes = walkToStopMinutes + busMinutes + walkFromStopMinutes;
                 
-                // Use transit if it saves time vs pure walking
-                if (multiModalMinutes < pureWalkingMinutes) {
+                // Use transit if it's within a reasonable factor of walking (buses are rarely faster than walking for very short trips due to overhead)
+                // But for longer trips, we definitely want transit
+                if (multiModalMinutes < pureWalkingMinutes || pureWalkingMinutes > 30) {
                   durationMinutes = multiModalMinutes;
-                  console.log(`🚌 NaPTAN multi-modal: Walk ${walkToStopMinutes}min → ${transitRoute.originStop.commonName} → Bus ${busMinutes}min → ${transitRoute.destinationStop.commonName} → Walk ${walkFromStopMinutes}min = ${durationMinutes}min (saved ${pureWalkingMinutes - multiModalMinutes}min vs walking)`);
+                  console.log(`🚌 NaPTAN multi-modal: Walk ${walkToStopMinutes}min → ${transitRoute.originStop.commonName} → Bus ${busMinutes}min → ${transitRoute.destinationStop.commonName} → Walk ${walkFromStopMinutes}min = ${durationMinutes}min (Walking would be ${pureWalkingMinutes}min)`);
                 } else {
-                  // Walking is faster, just add small buffer
-                  durationMinutes = pureWalkingMinutes + 3;
-                  console.log(`🚶 Walking faster than transit: ${durationMinutes}min (transit would be ${multiModalMinutes}min)`);
+                  // Walking is significantly faster for this specific short trip
+                  durationMinutes = pureWalkingMinutes + 5;
+                  console.log(`🚶 Walking faster than transit for short trip: ${durationMinutes}min (transit would be ${multiModalMinutes}min)`);
                 }
               } else {
-                // No bus stops found nearby - use walking with buffer
-                durationMinutes = pureWalkingMinutes + 5;
-                console.log(`🚶 No nearby stops, walking with buffer: ${durationMinutes}min`);
+                // No bus stops found nearby - fallback to walking with transit overhead
+                durationMinutes = Math.round(pureWalkingMinutes * 0.8) + 15;
+                console.log(`🚶 No nearby stops found, using walking+overhead estimate: ${durationMinutes}min`);
               }
             } catch (transitError) {
+              console.warn(`⚠️ NaPTAN routing failed:`, transitError);
               // Fallback: estimate based on walking time
               if (pureWalkingMinutes > 20) {
                 const busTimeSaved = Math.round(pureWalkingMinutes * 0.4);
@@ -178,7 +181,7 @@ export class TravelTimeService {
                 console.log(`🚌 Estimated transit (NaPTAN unavailable): ${durationMinutes}min`);
               } else {
                 durationMinutes = pureWalkingMinutes + 5;
-                console.log(`🚶 Short distance walking: ${durationMinutes}min`);
+                console.log(`🚶 Short distance walking fallback: ${durationMinutes}min`);
               }
             }
           } else if (transportMode === 'walking') {
