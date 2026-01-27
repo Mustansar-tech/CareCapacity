@@ -124,9 +124,6 @@ export class TravelTimeService {
             console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
           }
 
-          // Cap at 60 minutes
-          durationMinutes = Math.min(durationMinutes, 60);
-
           console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
           await storage.saveTravelTime({
