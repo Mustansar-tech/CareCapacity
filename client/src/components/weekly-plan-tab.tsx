@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,8 +61,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
 
-  // Generate week dates array (Mon-Sun)
-  const weekDates = (() => {
+  // Generate week dates array (Mon-Sun) - memoized to prevent unnecessary recalculation
+  const weekDates = useMemo(() => {
     const dates: string[] = [];
     const start = new Date(weekStart + 'T00:00:00.000Z');
     for (let i = 0; i < 7; i++) {
@@ -71,9 +71,35 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       dates.push(date.toISOString().split('T')[0]);
     }
     return dates;
-  })();
+  }, [weekStart]);
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  // Create a unique processing fingerprint based on data content
+  // This changes whenever new files are processed, ensuring cache invalidation
+  const processingFingerprint = useMemo(() => {
+    if (!data) return null;
+    // Combine multiple indicators that change when data is processed
+    const kpisHash = `${data.kpis?.netCapacitySum || 0}-${data.kpis?.totalClientRequired || 0}`;
+    const summaryCount = data.dailySummary?.length || 0;
+    const firstDate = data.dailySummary?.[0]?.date || 'none';
+    return `${kpisHash}-${summaryCount}-${firstDate}`;
+  }, [data?.kpis?.netCapacitySum, data?.kpis?.totalClientRequired, data?.dailySummary?.length, data?.dailySummary?.[0]?.date]);
+
+  // Reset state and invalidate caches when data changes (new files processed)
+  useEffect(() => {
+    if (processingFingerprint) {
+      // Data has been updated - reset schedule state and invalidate visit caches
+      setIsGenerated(false);
+      setWeeklySchedule(null);
+      // Invalidate all visit queries so fresh data is fetched
+      weekDates.forEach(date => {
+        queryClient.invalidateQueries({ queryKey: ['/api/visits', date] });
+      });
+      // Also invalidate the weekly schedule query
+      queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
+    }
+  }, [processingFingerprint, weekStart]); // Trigger on fingerprint change (more reliable)
 
   // Fetch locations
   const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
@@ -86,9 +112,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
 
-  // Use processed data from props instead of fetching from /api/visits
-  const allWeekVisits = (data && (data as any).visitsByDate ? Object.values((data as any).visitsByDate).flat() : []) as ClientVisit[];
-  const isLoadingVisits = false; // Data is already available in props
+  // Use useQueries hook (TanStack Query v5) to fetch visits for all days
+  // This is the correct way to dynamically generate multiple queries
+  const visitQueries = useQueries({
+    queries: weekDates.map(date => ({
+      queryKey: ['/api/visits', date] as const,
+      enabled: !!data,
+      staleTime: 10 * 60 * 1000, // 10 minutes cache - prevent reloading on tab switch
+      gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
+      refetchOnMount: false, // Don't refetch when component mounts
+      refetchOnWindowFocus: false, // Don't refetch on window focus
+    })),
+  });
+
+  const isLoadingVisits = visitQueries.some(q => q.isLoading);
+  const allWeekVisits = visitQueries.flatMap(q => (q.data as ClientVisit[]) || []);
 
   // Calculate weekly hours and net capacity from daily availability across all days employee appears
   const employeeWeeklyHoursMap = new Map<string, number>();
