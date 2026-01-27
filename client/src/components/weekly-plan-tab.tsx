@@ -241,7 +241,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       if (nonCarEmployees.length > 0 && visitsWithLocations.length > 0) {
         console.log(`🚌 Pre-computing travel times for ${nonCarEmployees.length} non-car employees...`);
         
-        // Generate pairs for prefetching: employee home -> each client location
+        // Generate pairs for prefetching: ONLY employee home -> each client location
+        // We skip the O(N^2) client-to-client pairs as they are too many for ORS free tier
         const travelPairs: Array<{ from: { lat: number; lng: number }; to: { lat: number; lng: number }; transportMode: 'walking' | 'public' }> = [];
         const clientLocations = visitsWithLocations.filter(v => v.lat && v.lng);
         
@@ -255,23 +256,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               to: { lat: visit.lat!, lng: visit.lng! },
               transportMode: mode
             });
-          }
-          
-          // Add client -> client pairs for route continuity (bidirectional)
-          for (let i = 0; i < clientLocations.length; i++) {
-            for (let j = 0; j < clientLocations.length; j++) {
-              if (i !== j) {
-                travelPairs.push({
-                  from: { lat: clientLocations[i].lat!, lng: clientLocations[i].lng! },
-                  to: { lat: clientLocations[j].lat!, lng: clientLocations[j].lng! },
-                  transportMode: mode
-                });
-              }
-            }
-          }
-          
-          // Also add client -> home pairs (return trips)
-          for (const visit of clientLocations) {
+            
+            // Also add client -> home pairs (return trips)
             travelPairs.push({
               from: { lat: visit.lat!, lng: visit.lng! },
               to: { lat: emp.homeLat!, lng: emp.homeLng! },

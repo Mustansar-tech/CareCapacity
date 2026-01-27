@@ -74,7 +74,8 @@ export class TravelTimeService {
     branchId: string,
     from: Location,
     to: Location,
-    transportMode: TransportMode = "car"
+    transportMode: TransportMode = "car",
+    retryCount: number = 0
   ): Promise<TravelMatrix> {
     const fromLat = from.lat.toString();
     const fromLng = from.lng.toString();
@@ -114,7 +115,7 @@ export class TravelTimeService {
         console.log(`🌐 Requesting ORS (${orsProfile}) for ${transportMode}: ${fromLat},${fromLng} to ${toLat},${toLng}`);
         
         // Add a small artificial delay to help with rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 250));
 
         const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsProfile}`, {
           method: 'POST',
@@ -127,11 +128,10 @@ export class TravelTimeService {
           })
         });
 
-        if (response.status === 429) {
-          console.warn(`⏳ ORS Rate limit exceeded, waiting ${this.RATE_LIMIT_DELAY}ms...`);
-          await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY));
-          // Retry once
-          return this.calculateTravelTime(branchId, from, to, transportMode);
+        if (response.status === 429 && retryCount < 2) {
+          console.warn(`⏳ ORS Rate limit exceeded (attempt ${retryCount + 1}), waiting ${this.RATE_LIMIT_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY * (retryCount + 1)));
+          return this.calculateTravelTime(branchId, from, to, transportMode, retryCount + 1);
         }
 
         if (response.ok) {

@@ -896,11 +896,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const travelService = new TravelTimeService(45, 30);
       
       // Process with concurrency limiting to avoid overwhelming ORS API
-      const CONCURRENCY_LIMIT = 10;
+      const CONCURRENCY_LIMIT = 3; // Reduced from 10 to 3 to stay within free tier limits
       const results: any[] = [];
       
       for (let i = 0; i < pairs.length; i += CONCURRENCY_LIMIT) {
         const batch = pairs.slice(i, i + CONCURRENCY_LIMIT);
+        
+        // Add a delay between batches to respect ORS rate limits (40 requests per minute)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
         const batchResults = await Promise.all(
           batch.map(async (pair: { from: any; to: any; transportMode?: string }) => {
             try {
