@@ -80,7 +80,7 @@ export function calculateTravelTime(
   
   // Mode-specific speeds and minimums
   // Car: 32.5 km/h avg (30-35 range), min 5 min
-  // Non-driver (public): 15 km/h effective + 12 min overhead, min 15 min
+  // Non-driver (public): 10 km/h effective to account for transfers and wait times, min 25 min overhead
   // Walking: avoid as main mode, but support at 4 km/h
   
   let baseTravelMinutes: number;
@@ -92,10 +92,13 @@ export function calculateTravelTime(
     minTravelMinutes = 5;
   } else if (mode === 'public' || mode === 'walking') {
     // Treat both non-car modes as public transport proxy
-    const speedKmh = 15; // Effective speed including waits
-    const fixedOverheadMinutes = 12; // Walking to/from stops, waiting
+    // Reduce effective speed to 10km/h (very realistic for city transit with stops)
+    const speedKmh = 10; 
+    // Increase fixed overhead to 25 minutes (walking to stop, waiting for bus/train, walking to client)
+    const fixedOverheadMinutes = 25; 
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
-    minTravelMinutes = 15;
+    // Set a higher floor for public transport travel
+    minTravelMinutes = 30;
   } else {
     // Default to car
     baseTravelMinutes = (roadDistanceKm / 32.5) * 60;

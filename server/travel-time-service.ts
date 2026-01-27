@@ -28,9 +28,9 @@ export class TravelTimeService {
   // Mode-specific average speeds (km/h) and minimums (minutes)
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
     car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5 },
-    walking: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }, // Treated as public transport proxy
-    public: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }
-  };
+    walking: { speedKmh: 20, overheadMinutes: 12, minMinutes: 15 }, // Treated as public transport proxy
+    public: { speedKmh:20 , overheadMinutes: 12, minMinutes: 15 }
+  }
 
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
