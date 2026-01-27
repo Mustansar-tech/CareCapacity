@@ -86,16 +86,24 @@ export function calculateTravelTime(
   let minTravelMinutes: number;
   
   if (mode === 'car') {
-    const speedKmh = 18; // Slightly reduced further to ensure travel times are realistic and conservative
+    // Car: ~32 km/h avg for urban UK driving (accounts for traffic lights, turns, parking)
+    // This gives realistic times: 5km = ~10min, 10km = ~20min
+    const speedKmh = 32;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
-  } else if (mode === 'public' || mode === 'walking') {
-    const speedKmh = 10; // Slightly reduced further
-    const fixedOverheadMinutes = 10; 
+  } else if (mode === 'public') {
+    // Public transport: slower due to waiting, walking to stops, indirect routes
+    const speedKmh = 15;
+    const fixedOverheadMinutes = 10; // Waiting/walking time
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 10;
+  } else if (mode === 'walking') {
+    // Walking: ~5 km/h average walking speed
+    const speedKmh = 5;
+    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
+    minTravelMinutes = 5;
   } else {
-    baseTravelMinutes = (roadDistanceKm / 18) * 60;
+    baseTravelMinutes = (roadDistanceKm / 32) * 60;
     minTravelMinutes = 5;
   }
   

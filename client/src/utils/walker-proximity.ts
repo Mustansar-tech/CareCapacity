@@ -17,10 +17,12 @@
 import type { ClientVisit } from "@shared/schema";
 
 // Maximum walking distance in kilometers
-const MAX_WALKING_DISTANCE_KM = 1.5;
+// 4km = approx 45-50 min walk at average pace
+const MAX_WALKING_DISTANCE_KM = 4;
 
 // Fixed walking travel time for display (actual time not calculated)
-export const WALKING_TRAVEL_DISPLAY_MINUTES = 15;
+// Using average for 4km walk
+export const WALKING_TRAVEL_DISPLAY_MINUTES = 45;
 
 export interface WalkerCandidate {
   employeeName: string;
