@@ -1,10 +1,98 @@
 // Scheduling utility functions for VRPTW optimization
+import { apiRequest } from "@/lib/queryClient";
 
 // Maximum travel time in minutes before a route is considered infeasible
 export const MAX_TRAVEL_TIME_MINUTES = 45;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
+
+// Server-computed travel time cache for ORS/NaPTAN-based calculations
+const serverTravelTimeCache = new Map<string, number>();
+
+// Flag to indicate whether to prefer server travel times
+let useServerTravelTimes = false;
+
+// Generate cache key for travel time lookups
+function makeTravelCacheKey(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  mode: string
+): string {
+  return `${Number(from.lat).toFixed(4)},${Number(from.lng).toFixed(4)}-${Number(to.lat).toFixed(4)},${Number(to.lng).toFixed(4)}-${mode}`;
+}
+
+// Pre-fetch travel times from server for walkers/public transport users
+// This calls the server's ORS/NaPTAN-based travel time API
+export async function prefetchServerTravelTimes(
+  branchId: string,
+  pairs: Array<{
+    from: { lat: number; lng: number };
+    to: { lat: number; lng: number };
+    transportMode: 'walking' | 'public';
+  }>
+): Promise<void> {
+  if (pairs.length === 0) return;
+
+  console.log(`🚌 Pre-fetching ${pairs.length} travel times from server (ORS/NaPTAN)...`);
+
+  try {
+    // Batch requests in chunks of 50 to avoid overwhelming the server
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < pairs.length; i += BATCH_SIZE) {
+      const batch = pairs.slice(i, i + BATCH_SIZE);
+      
+      const response = await apiRequest('POST', '/api/routing/travel-time-batch', {
+        pairs: batch.map(p => ({
+          from: { lat: p.from.lat.toString(), lng: p.from.lng.toString() },
+          to: { lat: p.to.lat.toString(), lng: p.to.lng.toString() },
+          transportMode: p.transportMode
+        })),
+        branchId
+      });
+
+      const data = await response.json() as { results: Array<{ from: any; to: any; travelTimeMinutes: number | null; transportMode: string }> };
+      
+      // Store results in cache
+      for (const result of data.results) {
+        if (result.travelTimeMinutes !== null) {
+          const key = makeTravelCacheKey(
+            { lat: parseFloat(result.from.lat), lng: parseFloat(result.from.lng) },
+            { lat: parseFloat(result.to.lat), lng: parseFloat(result.to.lng) },
+            result.transportMode
+          );
+          serverTravelTimeCache.set(key, result.travelTimeMinutes);
+        }
+      }
+      
+      console.log(`📦 Cached ${batch.length} travel times from server (batch ${Math.floor(i / BATCH_SIZE) + 1})`);
+    }
+
+    useServerTravelTimes = true;
+    console.log(`✅ Server travel time cache populated with ${serverTravelTimeCache.size} entries`);
+  } catch (error) {
+    console.error('❌ Failed to prefetch server travel times:', error);
+    useServerTravelTimes = false;
+  }
+}
+
+// Clear server travel time cache
+export function clearServerTravelCache(): void {
+  serverTravelTimeCache.clear();
+  useServerTravelTimes = false;
+}
+
+// Get travel time from server cache if available
+function getServerCachedTravelTime(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  mode: string
+): number | null {
+  if (!useServerTravelTimes) return null;
+  const key = makeTravelCacheKey(from, to, mode);
+  const cached = serverTravelTimeCache.get(key);
+  return cached !== undefined ? cached : null;
+}
 
 // Convert HH:mm to minutes since midnight
 // For overnight visits (e.g., 22:00-02:00), end time wraps to next day
@@ -111,7 +199,8 @@ export function calculateTravelTime(
 }
 
 // Calculate travel time between two locations (with memoization)
-// Uses heuristic: Haversine × 1.2 road factor, mode-specific speeds, time-of-day multipliers
+// For walking/public modes: uses server-cached ORS/NaPTAN times if available
+// Fallback: Haversine × 1.2 road factor, mode-specific speeds, time-of-day multipliers
 export function getTravelMinutes(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
@@ -136,11 +225,23 @@ export function getTravelMinutes(
     return 0;
   }
 
+  // For walking/public modes, check server cache first (ORS/NaPTAN-based accurate times)
+  if (mode === 'walking' || mode === 'public') {
+    const serverCached = getServerCachedTravelTime(
+      { lat: fromLat, lng: fromLng },
+      { lat: toLat, lng: toLng },
+      mode
+    );
+    if (serverCached !== null) {
+      return serverCached;
+    }
+  }
+
   // Create cache key with rounded coordinates, mode, and time band for better hit rate
   const timeBand = startTimeMinutes !== undefined ? Math.floor(startTimeMinutes / 60) : 'offpeak';
   const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}-${timeBand}`;
   
-  // Check cache first
+  // Check local cache
   const cached = travelTimeCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;

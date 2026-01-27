@@ -231,6 +231,74 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         }
       });
 
+      // Pre-fetch travel times for walkers/public transport from server (ORS/NaPTAN)
+      const nonCarEmployees = employeesWithLocations.filter(emp => 
+        emp.transportMode && ['walking', 'public', 'public transport', 'bus', 'train'].some(m => 
+          emp.transportMode!.toLowerCase().includes(m)
+        ) && emp.homeLat && emp.homeLng
+      );
+
+      if (nonCarEmployees.length > 0 && visitsWithLocations.length > 0) {
+        console.log(`🚌 Pre-computing travel times for ${nonCarEmployees.length} non-car employees...`);
+        
+        // Generate pairs for prefetching: employee home -> each client location
+        const travelPairs: Array<{ from: { lat: number; lng: number }; to: { lat: number; lng: number }; transportMode: 'walking' | 'public' }> = [];
+        const clientLocations = visitsWithLocations.filter(v => v.lat && v.lng);
+        
+        for (const emp of nonCarEmployees) {
+          const mode: 'walking' | 'public' = emp.transportMode!.toLowerCase().includes('walk') ? 'walking' : 'public';
+          
+          // Add home -> client pairs
+          for (const visit of clientLocations) {
+            travelPairs.push({
+              from: { lat: emp.homeLat!, lng: emp.homeLng! },
+              to: { lat: visit.lat!, lng: visit.lng! },
+              transportMode: mode
+            });
+          }
+          
+          // Add client -> client pairs for route continuity (bidirectional)
+          for (let i = 0; i < clientLocations.length; i++) {
+            for (let j = 0; j < clientLocations.length; j++) {
+              if (i !== j) {
+                travelPairs.push({
+                  from: { lat: clientLocations[i].lat!, lng: clientLocations[i].lng! },
+                  to: { lat: clientLocations[j].lat!, lng: clientLocations[j].lng! },
+                  transportMode: mode
+                });
+              }
+            }
+          }
+          
+          // Also add client -> home pairs (return trips)
+          for (const visit of clientLocations) {
+            travelPairs.push({
+              from: { lat: visit.lat!, lng: visit.lng! },
+              to: { lat: emp.homeLat!, lng: emp.homeLng! },
+              transportMode: mode
+            });
+          }
+        }
+
+        // Deduplicate pairs
+        const uniquePairs = Array.from(
+          new Map(travelPairs.map(p => [
+            `${p.from.lat.toFixed(4)},${p.from.lng.toFixed(4)}-${p.to.lat.toFixed(4)},${p.to.lng.toFixed(4)}-${p.transportMode}`,
+            p
+          ])).values()
+        );
+
+        console.log(`📍 Fetching ${uniquePairs.length} unique travel time pairs from server...`);
+        
+        try {
+          const { prefetchServerTravelTimes } = await import('@/utils/scheduling-utils');
+          const currentBranchId = localStorage.getItem('selectedBranchId') || '';
+          await prefetchServerTravelTimes(currentBranchId, uniquePairs);
+        } catch (err) {
+          console.warn('⚠️ Server travel time prefetch failed, using heuristic calculations:', err);
+        }
+      }
+
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
 
       console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
