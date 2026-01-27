@@ -141,6 +141,8 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization>({
     queryKey: ['/api/run-optimization', optimizationDate],
     queryFn: () => fetch(`/api/run-optimization/${optimizationDate}`).then(res => res.json()),
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    gcTime: 10 * 60 * 1000,
   });
 
   // Run optimization mutation

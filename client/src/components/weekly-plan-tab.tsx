@@ -91,6 +91,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     useQuery<ClientVisit[]>({
       queryKey: ['/api/visits', date],
       enabled: !!data && weekDates.length > 0,
+      staleTime: 5 * 60 * 1000, // 5 minutes cache
+      gcTime: 10 * 60 * 1000,
     })
   );
 
