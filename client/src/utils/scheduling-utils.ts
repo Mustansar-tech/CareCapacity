@@ -98,10 +98,12 @@ export function calculateTravelTime(
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 10;
   } else if (mode === 'walking') {
-    // Walking: ~5 km/h average walking speed
-    const speedKmh = 5;
+    // Walking: ~3 km/h conservative walking speed (no peak time rules applied)
+    const speedKmh = 3;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
+    // Return early - walkers don't get congestion multiplier
+    return Math.max(minTravelMinutes, Math.round(baseTravelMinutes));
   } else {
     baseTravelMinutes = (roadDistanceKm / 32) * 60;
     minTravelMinutes = 5;

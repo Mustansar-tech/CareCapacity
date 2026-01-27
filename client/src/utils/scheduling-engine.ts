@@ -572,8 +572,8 @@ function tryAssignVisitToWalker(
         return { success: false, reason: 'Too far from previous visit for walker (>4km)' };
       }
       
-      // Calculate walking time: distance * 1.2 road factor / 5 km/h * 60 min
-      const walkTimeFromPrev = Math.ceil((distFromPrev * 1.2 / 5) * 60);
+      // Calculate walking time: distance * 1.2 road factor / 3 km/h * 60 min (no peak time rules for walkers)
+      const walkTimeFromPrev = Math.ceil((distFromPrev * 1.2 / 3) * 60);
       const prevEndMin = timeToMinutes(prevVisit.endTime);
       const gapMinutes = visitStartMin - prevEndMin;
       
@@ -603,14 +603,14 @@ function tryAssignVisitToWalker(
         walkerVisit.lat,
         walkerVisit.lng
       );
-      actualWalkTime = Math.ceil((distFromPrev * 1.2 / 5) * 60);
+      actualWalkTime = Math.ceil((distFromPrev * 1.2 / 3) * 60); // 3 km/h, no peak time rules
     } else {
       // First visit - walk from home
-      actualWalkTime = Math.ceil((best.distanceKm * 1.2 / 5) * 60);
+      actualWalkTime = Math.ceil((best.distanceKm * 1.2 / 3) * 60); // 3 km/h, no peak time rules
     }
   } else {
     // First visit - walk from home
-    actualWalkTime = Math.ceil((best.distanceKm * 1.2 / 5) * 60);
+    actualWalkTime = Math.ceil((best.distanceKm * 1.2 / 3) * 60); // 3 km/h, no peak time rules
   }
 
   // Create assigned visit with actual calculated walk time
