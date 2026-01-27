@@ -499,6 +499,7 @@ function assignVisitToBestEmployee(
     const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
 
     // Verify this insertion doesn't overlap with neighbors
+    // ALSO check if travel time is feasible within the gap
     let insertionIndex = 0;
     while (insertionIndex < schedule.assignedVisits.length && 
            timeToMinutes(schedule.assignedVisits[insertionIndex].startTime) <= visitStartMinInternal) {
@@ -507,15 +508,30 @@ function assignVisitToBestEmployee(
 
     if (insertionIndex > 0) {
       const prev = schedule.assignedVisits[insertionIndex - 1];
-      if (timeToMinutes(prev.endTime) > visitStartMinInternal) {
-        console.log(`⚠️ CHRONOLOGICAL OVERLAP (PREV): ${schedule.employeeName} at ${prev.endTime} overlaps new visit at ${adjustedVisit.startTime}`);
+      const travelFromPrev = getTravelMinutes(
+        { lat: prev.lat || 0, lng: prev.lng || 0 },
+        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+        schedule.transportMode,
+        timeToMinutes(prev.endTime)
+      );
+
+      if (timeToMinutes(prev.endTime) + travelFromPrev > visitStartMinInternal) {
+        console.log(`⚠️ TRAVEL INFEASIBILITY (PREV): ${schedule.employeeName} needs ${travelFromPrev}min but only has ${visitStartMinInternal - timeToMinutes(prev.endTime)}min gap`);
         continue;
       }
     }
+
     if (insertionIndex < schedule.assignedVisits.length) {
       const next = schedule.assignedVisits[insertionIndex];
-      if (visitStartMinInternal + adjustedVisit.durationMinutes > timeToMinutes(next.startTime)) {
-        console.log(`⚠️ CHRONOLOGICAL OVERLAP (NEXT): ${schedule.employeeName} at ${adjustedVisit.endTime} overlaps next visit at ${next.startTime}`);
+      const travelToNext = getTravelMinutes(
+        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+        { lat: next.lat || 0, lng: next.lng || 0 },
+        schedule.transportMode,
+        visitStartMinInternal + adjustedVisit.durationMinutes
+      );
+
+      if (visitStartMinInternal + adjustedVisit.durationMinutes + travelToNext > timeToMinutes(next.startTime)) {
+        console.log(`⚠️ TRAVEL INFEASIBILITY (NEXT): ${schedule.employeeName} needs ${travelToNext}min but only has ${timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes)}min gap`);
         continue;
       }
     }
