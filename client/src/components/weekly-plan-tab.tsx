@@ -604,7 +604,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                        const mode = transportMode.includes('car') ? 'car' : 'public';
+                                        // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
+                                        const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                         const currentEndMin = timeToMinutes(currentVisit.endTime);
                                         const nextStartMin = timeToMinutes(nextVisit.startTime);
 
@@ -614,7 +615,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             { lat: currentVisit.lat, lng: currentVisit.lng },
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                             mode,
-                                            currentEndMin // Use current visit end time for congestion
+                                            currentEndMin // Use current visit end time for congestion (only for cars)
                                           );
                                         }
 
@@ -624,7 +625,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                             { lat: nextVisit.lat, lng: nextVisit.lng },
                                             mode,
-                                            nextStartMin // Use next visit start time for congestion
+                                            nextStartMin // Use next visit start time for congestion (only for cars)
                                           );
                                         }
                                       }
@@ -685,14 +686,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                  const mode = transportMode.includes('car') ? 'car' : 'public';
+                                  // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
+                                  const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                   const lastVisitEndMin = timeToMinutes(lastVisit.endTime);
 
                                   travelToHome = getTravelMinutes(
                                     { lat: lastVisit.lat, lng: lastVisit.lng },
                                     { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                     mode,
-                                    lastVisitEndMin // Use last visit end time for congestion
+                                    lastVisitEndMin // Use last visit end time for congestion (only for cars)
                                   );
                                 }
 
