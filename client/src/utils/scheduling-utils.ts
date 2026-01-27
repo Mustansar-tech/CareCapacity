@@ -37,8 +37,8 @@ export async function prefetchServerTravelTimes(
   console.log(`🚌 Pre-fetching ${pairs.length} travel times from server (ORS/NaPTAN)...`);
 
   try {
-    // Batch requests in chunks of 50 to avoid overwhelming the server
-    const BATCH_SIZE = 50;
+    // Batch requests in chunks of 20 to avoid overwhelming the server and ORS API limits
+    const BATCH_SIZE = 20;
     for (let i = 0; i < pairs.length; i += BATCH_SIZE) {
       const batch = pairs.slice(i, i + BATCH_SIZE);
       
@@ -66,6 +66,11 @@ export async function prefetchServerTravelTimes(
       }
       
       console.log(`📦 Cached ${batch.length} travel times from server (batch ${Math.floor(i / BATCH_SIZE) + 1})`);
+      
+      // Add a delay between batches to respect ORS rate limits (40 requests per minute)
+      if (i + BATCH_SIZE < pairs.length) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
 
     useServerTravelTimes = true;

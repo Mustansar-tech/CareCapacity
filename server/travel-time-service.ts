@@ -33,13 +33,16 @@ export class TravelTimeService {
   // The haversine fallback uses these speeds only when ORS is unavailable
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number; orsProfile: string }> = {
     car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5, orsProfile: 'driving-car' },
-    walking: { speedKmh: 4.5, overheadMinutes: 0, minMinutes: 3, orsProfile: 'foot-walking' }, // Real walking speed ~4.5 km/h
+    walking: { speedKmh: 4.5, overheadMinutes: 0, minMinutes: 5, orsProfile: 'foot-walking' }, // Real walking speed ~4.5 km/h, min 5 mins
     public: { speedKmh: 4.5, overheadMinutes: 15, minMinutes: 10, orsProfile: 'foot-walking' } // Walking + bus wait/travel overhead
   };
 
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
+  
+  // Rate limiting delay (ms)
+  private readonly RATE_LIMIT_DELAY = 1500; // 1.5s between requests if hitting limits
   
   // Get time-of-day congestion multiplier
   private getTimeOfDayMultiplier(startTimeMinutes?: number): number {
@@ -109,6 +112,10 @@ export class TravelTimeService {
         const orsProfile = config.orsProfile;
         
         console.log(`🌐 Requesting ORS (${orsProfile}) for ${transportMode}: ${fromLat},${fromLng} to ${toLat},${toLng}`);
+        
+        // Add a small artificial delay to help with rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsProfile}`, {
           method: 'POST',
           headers: {
@@ -119,6 +126,13 @@ export class TravelTimeService {
             coordinates: [[from.lng, from.lat], [to.lng, to.lat]]
           })
         });
+
+        if (response.status === 429) {
+          console.warn(`⏳ ORS Rate limit exceeded, waiting ${this.RATE_LIMIT_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY));
+          // Retry once
+          return this.calculateTravelTime(branchId, from, to, transportMode);
+        }
 
         if (response.ok) {
           const data = await response.json();
