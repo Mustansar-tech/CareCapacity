@@ -163,12 +163,29 @@ export class AutoScheduler {
 
     let unassignedVisits: SchedulingVisit[] = [];
 
-    // First pass: Assign visits using standard constraints
+    // Separate GH employees (with contracted hours) from non-GH employees (ad-hoc)
+    const ghEmployeeSchedules = new Map<string, any>();
+    const nonGhEmployeeSchedules = new Map<string, any>();
+    
+    for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
+      if (schedule.employee.contractedDailyHours > 0) {
+        ghEmployeeSchedules.set(empName, schedule);
+      } else {
+        nonGhEmployeeSchedules.set(empName, schedule);
+      }
+    }
+    
+    console.log(`\n📊 GH PRIORITY MODE:`);
+    console.log(`   GH employees: ${ghEmployeeSchedules.size}`);
+    console.log(`   Non-GH (ad-hoc) employees: ${nonGhEmployeeSchedules.size}`);
+
+    // PHASE 1: Assign visits to GH employees FIRST (fill their guaranteed hours)
+    console.log(`\n🎯 PHASE 1: Filling GH employees first...`);
     for (const visit of prioritizedVisits) {
-      const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
+      const bestAssignment = await this.findBestEmployeeForVisit(visit, ghEmployeeSchedules);
 
       if (bestAssignment) {
-        const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
+        const schedule = ghEmployeeSchedules.get(bestAssignment.employeeName)!;
         const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
         schedule.visits.push(scheduledVisit);
 
@@ -176,21 +193,54 @@ export class AutoScheduler {
         schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
         schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
 
-        console.log(`✅ Assigned ${visit.clientName} to ${bestAssignment.employeeName} (score: ${bestAssignment.score.toFixed(2)})`);
+        // Also update in main schedules map
+        employeeSchedules.set(bestAssignment.employeeName, schedule);
+
+        console.log(`✅ [GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName} (score: ${bestAssignment.score.toFixed(2)})`);
       } else {
         unassignedVisits.push(visit);
-        console.log(`❌ Could not assign ${visit.clientName} - no suitable employee found`);
       }
     }
+    
+    console.log(`📊 Phase 1 results: ${prioritizedVisits.length - unassignedVisits.length} assigned to GH, ${unassignedVisits.length} remaining`);
 
-    // Second pass: Try to assign remaining visits with relaxed travel constraints (+5 minutes)
-    if (unassignedVisits.length > 0) {
-      console.log(`🔄 Second pass: attempting to allocate ${unassignedVisits.length} unassigned visits with relaxed constraints`);
+    // PHASE 2: Try to assign remaining visits to non-GH employees
+    if (unassignedVisits.length > 0 && nonGhEmployeeSchedules.size > 0) {
+      console.log(`\n🔄 PHASE 2: Filling non-GH employees with ${unassignedVisits.length} remaining visits...`);
 
-      const secondPassUnassigned: SchedulingVisit[] = [];
+      const phase2Unassigned: SchedulingVisit[] = [];
 
       for (const visit of unassignedVisits) {
-        // Temporarily increase travel limits by 5 minutes for second pass
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, nonGhEmployeeSchedules);
+
+        if (bestAssignment) {
+          const schedule = nonGhEmployeeSchedules.get(bestAssignment.employeeName)!;
+          const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
+          schedule.visits.push(scheduledVisit);
+          schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
+          schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
+          
+          // Also update in main schedules map
+          employeeSchedules.set(bestAssignment.employeeName, schedule);
+          
+          console.log(`✅ [Non-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
+        } else {
+          phase2Unassigned.push(visit);
+        }
+      }
+
+      unassignedVisits = phase2Unassigned;
+      console.log(`📊 Phase 2 results: ${unassignedVisits.length} still unassigned`);
+    }
+
+    // PHASE 3: Try to assign remaining visits with relaxed travel constraints (+5 minutes)
+    if (unassignedVisits.length > 0) {
+      console.log(`\n🔄 PHASE 3: Relaxed constraints for ${unassignedVisits.length} remaining visits...`);
+
+      const phase3Unassigned: SchedulingVisit[] = [];
+
+      for (const visit of unassignedVisits) {
+        // Temporarily increase travel limits by 5 minutes
         Array.from(employeeSchedules.values()).forEach(schedule => {
           schedule.employee.maxTravelPerVisit += 5;
         });
@@ -208,14 +258,14 @@ export class AutoScheduler {
           schedule.visits.push(scheduledVisit);
           schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
           schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
-          console.log(`✅ [Second pass] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
+          console.log(`✅ [Relaxed] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
-          secondPassUnassigned.push(visit);
+          phase3Unassigned.push(visit);
         }
       }
 
-      unassignedVisits = secondPassUnassigned;
-      console.log(`📊 Second pass results: ${unassignedVisits.length} still unassigned`);
+      unassignedVisits = phase3Unassigned;
+      console.log(`📊 Phase 3 results: ${unassignedVisits.length} still unassigned`);
     }
 
     // Build final schedule
@@ -707,21 +757,26 @@ export class AutoScheduler {
   ): number {
     let score = 0;
 
-    // Factor 1: Minimize travel time (35% weight) - score based, not constraint
+    // PRIORITY 1: GH (Guaranteed Hours) employees get TOP priority (40% weight)
+    // GH employees have contractedDailyHours > 0, non-GH (ad-hoc) have 0
+    const isGHEmployee = employee.contractedDailyHours > 0;
+    const ghPriorityScore = isGHEmployee ? 1.0 : 0.0;
+    score += ghPriorityScore * 0.40;
+
+    // Factor 2: Minimize travel time (25% weight) - score based, not constraint
     // Use 40 minutes as reference for total travel (20 min each direction)
     const totalTravel = travelToPrev + travelToNext;
     const travelScore = Math.max(0, 1 - totalTravel / 40);
-    score += travelScore * 0.35;
+    score += travelScore * 0.25;
 
-    // Factor 2: Time window preference (30% weight)
+    // Factor 3: Time window preference (15% weight)
     // Remove time-of-day penalties - evening visits are just as valid
-    // This ensures GH employees can be scheduled for evening visits
     const timePreferenceScore = visit.preferredStartTime 
       ? Math.max(0, 1 - Math.abs(visit.startTime - visit.preferredStartTime) / 180) // 3-hour tolerance for flexibility
       : 0.7; // Default higher score - all times are acceptable
-    score += timePreferenceScore * 0.3;
+    score += timePreferenceScore * 0.15;
 
-    // Factor 3: Employee utilization (30% weight) - prioritize those with more weekly capacity remaining
+    // Factor 4: Employee utilization (15% weight) - for GH employees, prioritize filling their hours
     const weeklyContracted = employee.contractedDailyHours * 5; // Assume 5-day week
     const weeklyRemaining = Math.max(0, weeklyContracted - employee.scheduledHours);
     const dailyRemaining = Math.max(0, employee.contractedDailyHours - (employee.scheduledHours % employee.contractedDailyHours));
@@ -730,13 +785,13 @@ export class AutoScheduler {
     const capacityScore = weeklyRemaining > 0 && dailyRemaining > 0 ? 
       Math.min(weeklyRemaining / weeklyContracted, dailyRemaining / employee.contractedDailyHours) : 0;
 
-    score += capacityScore * 0.3;
+    score += capacityScore * 0.15;
 
-    // Factor 4: Route efficiency - prefer middle insertions over start/end (10% weight)
+    // Factor 5: Route efficiency - prefer middle insertions over start/end (5% weight)
     const routeEfficiencyScore = totalVisits > 0 
       ? 1 - Math.abs((insertionIndex / totalVisits) - 0.5) * 2
       : 1;
-    score += routeEfficiencyScore * 0.1;
+    score += routeEfficiencyScore * 0.05;
 
     return score;
   }
