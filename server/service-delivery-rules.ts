@@ -168,16 +168,10 @@ export function applyServiceRules(demandBuffer: Buffer): {
 
   // 5) RULES: remove cancellations and excluded service types
   // Excluded service types (office hours, night shifts, secondary care, shadowing, on-call, live in care)
+  // Note: Night shifts are now INCLUDED to show in Daily Capacity Summary
   const EXCLUDED_TYPES = [
     'office hours',
     'office',
-    'nights - sleep in',
-    'sleep in',
-    'nights - waking nights',
-    'waking nights',
-    'night',
-    'overnight',
-    'sleepover',
     'multiple care (secondary)',
     'secondary',
     '(secondary)',

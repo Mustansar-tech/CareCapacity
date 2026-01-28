@@ -65,10 +65,15 @@ function parseTimeWindows(windowsStr: string): TimeInterval[] {
     const parts = window.split('-');
     if (parts.length === 2) {
       const start = timeToMinutes(parts[0].trim());
-      const end = timeToMinutes(parts[1].trim());
+      let end = timeToMinutes(parts[1].trim());
       
-      // Clip to same day (00:00–24:00) and ignore invalid intervals
-      if (start >= 0 && end > start && end <= 24 * 60) {
+      // Handle overnight windows (e.g., 22:00-07:00)
+      if (end < start) {
+        end += 24 * 60;
+      }
+      
+      // Ignore invalid intervals
+      if (start >= 0 && end > start) {
         intervals.push({ start, end });
       }
     }

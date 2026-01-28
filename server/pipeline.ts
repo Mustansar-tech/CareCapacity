@@ -1153,17 +1153,10 @@ export async function parseExcelFiles(
   console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
 
   // Apply SAME filtering rules as service-delivery-rules.ts for consistency
-  // This ensures demand calculation matches the Hours by Service Type logic
+  // Note: Night shifts are now INCLUDED for capacity display
   const EXCLUDED_TYPES = [
     'office hours',
     'office',
-    'nights - sleep in',
-    'sleep in',
-    'nights - waking nights',
-    'waking nights',
-    'night',
-    'overnight',
-    'sleepover',
     'multiple care (secondary)',
     'secondary',
     '(secondary)',
@@ -1554,10 +1547,9 @@ export async function parseExcelFiles(
       // Check for dummy/planning-only rows (often have keywords in name)
       const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
 
-      // Note: Night shifts are NOW INCLUDED in daily capacity view
+      // Note: Night shifts are now INCLUDED to show in Daily Capacity Summary
       // They are only excluded from auto-scheduling (in scheduling-engine.ts)
-      // const isNightShift logic removed to allow night workers in capacity
-
+      
       if (!isCancelOk || isSecondary) {
         filteredSecondaryCount++;
         return;
