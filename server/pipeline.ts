@@ -1601,30 +1601,79 @@ export async function parseExcelFiles(
     actualDates.add(dateStr);
   });
 
-  // Get dates from guaranteed hours data
+  // Get dates from guaranteed hours data - ONLY use START date
+  // This prevents overnight visits from adding spillover dates
   validatedGuaranteed.forEach((row) => {
     try {
       // Use the same robust timestamp resolution as the filtering
-      const { start, end } = resolveServiceTimestamps(row);
-      if (!start || !end) return;
+      const { start } = resolveServiceTimestamps(row);
+      if (!start) return;
 
       const startDate = parseGuaranteedDate(start);
-      const endDate = parseGuaranteedDate(end);
-
-      // Add all dates in the service period
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        const dateStr = format(current, "yyyy-MM-dd");
-        actualDates.add(dateStr);
-        current.setDate(current.getDate() + 1);
-      }
+      // Only add the START date - overnight visits count on their start date
+      const dateStr = format(startDate, "yyyy-MM-dd");
+      actualDates.add(dateStr);
     } catch (error) {
       // Skip invalid dates
     }
   });
 
   // Create weekday to actual dates mapping
-  const actualDatesArray = Array.from(actualDates).sort();
+  let actualDatesArray = Array.from(actualDates).sort();
+  
+  // Determine the core reporting week (7 consecutive days)
+  // If we have more than 7 dates, find the core week and filter out spillover dates
+  if (actualDatesArray.length > 7) {
+    console.log(`\n🔍 DETECTING WEEK BOUNDARY (${actualDatesArray.length} dates found):`);
+    
+    // Find the 7-day window with the most data coverage
+    // Strategy: Take the last 7 dates as the "core" week (most recent complete week)
+    // This handles cases where overnight visits from previous day spill into the data
+    const sortedDates = [...actualDatesArray].sort();
+    
+    // Check if first date is a spillover from overnight shift
+    // A spillover date is typically 1 day before a contiguous 7-day block
+    if (sortedDates.length > 7) {
+      const firstDate = new Date(sortedDates[0]);
+      const secondDate = new Date(sortedDates[1]);
+      const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+      
+      // Calculate if there's exactly 7 days from second to last date
+      const daysBetweenSecondAndLast = Math.round(
+        (lastDate.getTime() - secondDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      // Check if first date is exactly 1 day before second date (spillover candidate)
+      const daysBetweenFirstAndSecond = Math.round(
+        (secondDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      if (daysBetweenFirstAndSecond === 1 && daysBetweenSecondAndLast === 6) {
+        // First date is a spillover - remove it
+        console.log(`  ⚠️ Detected spillover date: ${sortedDates[0]} (removed)`);
+        console.log(`  ✅ Core week: ${sortedDates[1]} to ${sortedDates[sortedDates.length - 1]}`);
+        actualDatesArray = sortedDates.slice(1);
+        
+        // Also remove this date from actualDates set for consistency
+        actualDates.delete(sortedDates[0]);
+      } else if (sortedDates.length === 8) {
+        // If we have exactly 8 dates, check if last date is spillover (overnight ending next day)
+        const secondToLastDate = new Date(sortedDates[sortedDates.length - 2]);
+        const daysBetweenFirstAndSecondToLast = Math.round(
+          (secondToLastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        if (daysBetweenFirstAndSecondToLast === 6) {
+          // Last date is spillover - remove it
+          console.log(`  ⚠️ Detected spillover date: ${sortedDates[sortedDates.length - 1]} (removed)`);
+          console.log(`  ✅ Core week: ${sortedDates[0]} to ${sortedDates[sortedDates.length - 2]}`);
+          actualDatesArray = sortedDates.slice(0, -1);
+          actualDates.delete(sortedDates[sortedDates.length - 1]);
+        }
+      }
+    }
+  }
+  
   const weekdayToActualDates: Record<string, string[]> = {
     Monday: [],
     Tuesday: [],
@@ -1890,8 +1939,77 @@ export async function processCapacityData(
     }
   });
 
+  // Determine core week boundary from guaranteed hours data (actual scheduled work)
+  // This prevents overnight visits from previous days from adding spillover dates
+  const coreWeekDates = new Set<string>();
+  guaranteed.forEach((row) => {
+    try {
+      const { start } = resolveServiceTimestamps(row);
+      if (!start) return;
+      const startDate = parseGuaranteedDate(start);
+      const dateStr = format(startDate, "yyyy-MM-dd");
+      coreWeekDates.add(dateStr);
+    } catch (error) {
+      // Skip invalid dates
+    }
+  });
+  
+  // Also add dates from availability (but will filter spillover after)
+  availability.forEach((row) => {
+    if (row.parsedDate) {
+      const dateStr = format(row.parsedDate, "yyyy-MM-dd");
+      coreWeekDates.add(dateStr);
+    }
+  });
+  
+  // Detect and remove spillover dates (dates outside the 7-day core week)
+  let coreWeekArray = Array.from(coreWeekDates).sort();
+  const spilloverDatesRemoved: string[] = [];
+  
+  if (coreWeekArray.length > 7) {
+    console.log(`\n🔍 DETECTING WEEK BOUNDARY in processCapacityData (${coreWeekArray.length} dates found):`);
+    
+    // Check if first date is a spillover from overnight shift
+    if (coreWeekArray.length > 7) {
+      const firstDate = new Date(coreWeekArray[0]);
+      const secondDate = new Date(coreWeekArray[1]);
+      const lastDate = new Date(coreWeekArray[coreWeekArray.length - 1]);
+      
+      const daysBetweenSecondAndLast = Math.round(
+        (lastDate.getTime() - secondDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      const daysBetweenFirstAndSecond = Math.round(
+        (secondDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      if (daysBetweenFirstAndSecond === 1 && daysBetweenSecondAndLast === 6) {
+        console.log(`  ⚠️ Detected spillover date: ${coreWeekArray[0]} (will be excluded)`);
+        console.log(`  ✅ Core week: ${coreWeekArray[1]} to ${coreWeekArray[coreWeekArray.length - 1]}`);
+        spilloverDatesRemoved.push(coreWeekArray[0]);
+        coreWeekDates.delete(coreWeekArray[0]);
+        coreWeekArray = coreWeekArray.slice(1);
+      } else if (coreWeekArray.length === 8) {
+        const secondToLastDate = new Date(coreWeekArray[coreWeekArray.length - 2]);
+        const daysBetweenFirstAndSecondToLast = Math.round(
+          (secondToLastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        if (daysBetweenFirstAndSecondToLast === 6) {
+          console.log(`  ⚠️ Detected spillover date: ${coreWeekArray[coreWeekArray.length - 1]} (will be excluded)`);
+          console.log(`  ✅ Core week: ${coreWeekArray[0]} to ${coreWeekArray[coreWeekArray.length - 2]}`);
+          spilloverDatesRemoved.push(coreWeekArray[coreWeekArray.length - 1]);
+          coreWeekDates.delete(coreWeekArray[coreWeekArray.length - 1]);
+          coreWeekArray = coreWeekArray.slice(0, -1);
+        }
+      }
+    }
+  }
+  
   // Step 2: Filter availability data to ONLY include master employees (EXACT MATCH TO WORKING IMPLEMENTATION)
+  // Also filter to only include dates within the core week (exclude spillover dates)
   const availabilityFiltered: any[] = [];
+  let spilloverDatesSkipped = 0;
   availability.forEach((row, i) => {
     try {
       const name = row["CAREGiver Name"];
@@ -1910,6 +2028,14 @@ export async function processCapacityData(
       }
 
       const parsedDate = row.parsedDate; // Already parsed
+      const dateStr = format(parsedDate, "yyyy-MM-dd");
+      
+      // Filter out dates that are outside the core week (spillover dates)
+      if (!coreWeekDates.has(dateStr)) {
+        spilloverDatesSkipped++;
+        return;
+      }
+      
       const hrs =
         row.Hours !== undefined && row.Hours !== null
           ? Number(row.Hours)
@@ -1931,6 +2057,10 @@ export async function processCapacityData(
       warnings.push(`Availability row ${i + 1}: ${e.message || "error"}`);
     }
   });
+  
+  if (spilloverDatesSkipped > 0) {
+    console.log(`  🔸 Filtered ${spilloverDatesSkipped} availability records from spillover dates: ${spilloverDatesRemoved.join(', ')}`);
+  }
 
   console.log(
     `📊 Availability filtered: ${availabilityFiltered.length} rows (only master employees)`,
