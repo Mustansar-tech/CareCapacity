@@ -889,7 +889,8 @@ function hoursBetween(startTime: any, endTime: any): number {
     let diffHours =
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
 
-    // Handle overnight shifts
+    // Handle overnight shifts - if end is earlier than start or on next day
+    // We want the total duration (e.g. 22:00 to 07:00 = 9 hours)
     if (diffHours < 0) {
       diffHours += 24.0;
     }
@@ -2691,14 +2692,10 @@ export async function processCapacityData(
 
             // If employee has both day and night on same date, only use day windows
             let processedWindows = allWindows;
-            if (hasNightWindow && hasDayWindow) {
-              processedWindows = allWindows.filter(w => {
-                const [start] = w.split('-').map(t => t.trim());
-                const startHour = parseInt(start.split(':')[0]);
-                return startHour >= 6 && startHour < 22; // Keep only day windows
-              });
-              console.log(`📊 ${employeeName} on ${dateStr}: Has both day and night - using day windows only`);
-            }
+            
+            // USER REQUEST: Always count the whole night window on the start date
+            // The logic below that was filtering night windows when day windows were present is removed
+            // to ensure night workers (22-07) are fully counted on the 26th.
 
             const filteredAvailability = processedWindows.join(', ');
 
