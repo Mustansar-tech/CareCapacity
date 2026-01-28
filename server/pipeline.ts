@@ -1488,8 +1488,6 @@ export async function parseExcelFiles(
       const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
       const lowerType = String(serviceType).toLowerCase();
 
-      // Rule: Office hours, Training, Shadowing, and Internal work MUST be included in scheduled totals
-      // even if they are from "Dummy" clients or planning-only rows.
       const isOfficeHours = lowerType && (
         lowerType.includes('office') ||
         lowerType.includes('training') ||
@@ -1500,6 +1498,9 @@ export async function parseExcelFiles(
         lowerType.includes('admin')
       );
 
+      // Night shifts are NOW INCLUDED for both capacity AND scheduled hours
+      // (Filtering handled by EXCLUDED_TYPES at higher level)
+      
       // For office hours/shadowing: only require employee name and timestamps
       // For regular visits: require all numeric fields
       const empName = row["Actual Employee Name"] || row["Planned Employee Name"];
@@ -3361,16 +3362,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
 
-      // ALLOW night visits (sleep in, waking night, etc.)
-      const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
-      if (serviceType) {
-        const lowerType = String(serviceType).toLowerCase();
-        // REMOVED night shifts from exclusion list for scheduling
-        const excludedTypes = ['office hours', 'multiple care (secondary)', 'secondary'];
-        if (excludedTypes.some(excluded => lowerType.includes(excluded))) {
-          continue;
-        }
-      }
+  // ALLOW night visits (sleep in, waking night, etc.)
+  const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
+  if (serviceType) {
+    const lowerType = String(serviceType).toLowerCase();
+    // REMOVED night shifts from exclusion list for scheduling
+    const excludedTypes = ['office hours', 'multiple care (secondary)', 'secondary', 'training', 'shadowing'];
+    if (excludedTypes.some(excluded => lowerType.includes(excluded))) {
+      continue;
+    }
+  }
 
       // Use the prioritized client name column
       const clientName = pickCol(row, CLIENT_COLS);
