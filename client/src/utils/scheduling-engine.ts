@@ -90,8 +90,11 @@ const WEIGHTS = {
 };
 
 // Check if employee has Guaranteed Hours (GH in name)
+// Matches patterns like: (GH), (30GH), (37.5GH), (16GH), (GH 30), etc.
 function isGHEmployee(employeeName: string): boolean {
-  return employeeName.toUpperCase().includes('(GH)');
+  const upper = employeeName.toUpperCase();
+  // Match any pattern with GH and optionally numbers: (30GH), (GH), (37.5GH), (GH 30), etc.
+  return /\(\d*\.?\d*\s*GH\s*\d*\.?\d*\)/.test(upper) || upper.includes('(GH)');
 }
 
 // Employee's daily schedule
