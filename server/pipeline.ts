@@ -484,9 +484,16 @@ function windowListToPairs(windows: string[]): Array<[number, number]> {
   for (const w of windows || []) {
     const [a, b] = (w || "").split("-").map((s) => (s || "").trim());
     if (a && b) {
-      const s = toMin(a);
-      const e = toMin(b);
-      if (Number.isFinite(s) && Number.isFinite(e) && e > s) out.push([s, e]);
+      let s = toMin(a);
+      let e = toMin(b);
+      // Handle overnight windows (e.g., 22:00-07:00)
+      if (Number.isFinite(s) && Number.isFinite(e)) {
+        if (e <= s) {
+          // Overnight window - add 24 hours to end time
+          e += 24 * 60;
+        }
+        out.push([s, e]);
+      }
     }
   }
   return out;
