@@ -3361,11 +3361,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
 
-      // Skip excluded service types (office hours, night shifts, secondary care)
+      // ALLOW night visits (sleep in, waking night, etc.)
       const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
       if (serviceType) {
         const lowerType = String(serviceType).toLowerCase();
-        const excludedTypes = ['office hours', 'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'multiple care (secondary)', 'secondary'];
+        // REMOVED night shifts from exclusion list for scheduling
+        const excludedTypes = ['office hours', 'multiple care (secondary)', 'secondary'];
         if (excludedTypes.some(excluded => lowerType.includes(excluded))) {
           continue;
         }
@@ -3409,8 +3410,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
                 duration * 60000);
 
               // Convert to minutes since midnight for optimizer
+              // Handle overnight shifts by allowing endMinutes to exceed 1440
               const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
-              const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+              let endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+              
+              if (endDate.getTime() > startDate.getTime() && (endDate.getDate() !== startDate.getDate() || endDate.getMonth() !== startDate.getMonth())) {
+                const dayDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                if (dayDiff >= 1 || (endDate.getHours() * 60 + endDate.getMinutes() < startMinutes)) {
+                   endMinutes += 1440;
+                }
+              }
 
               const visitData = {
                 branchId: branchId, // <<< ADDED: Pass branchId to saveVisit
