@@ -723,19 +723,17 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
-    // CRITICAL: Reject multi-day visits (overnight/spanning multiple dates)
+    // INCLUDE overnight/multi-day visits - count them on the START date
+    // User requirement: 22:00-07:00 and 20:00-08:00 should be counted fully on start date
+    const date = format(parseDate(start), "yyyy-MM-dd");
+    
     if (start && end) {
-      const startDate = format(parseDate(start), "yyyy-MM-dd");
       const endDate = format(parseDate(end), "yyyy-MM-dd");
-
-      if (startDate !== endDate) {
+      if (date !== endDate) {
         const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-        console.log(`🚫 REJECTING multi-day scheduled visit: ${empName} - starts ${startDate}, ends ${endDate} (crosses midnight)`);
-        continue; // Skip this visit entirely from scheduled hours
+        console.log(`✅ INCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (counting on start date)`);
       }
     }
-
-    const date = format(parseDate(start), "yyyy-MM-dd");
 
     const empName = pickCol(g, EMPLOYEE_NAME_COLS);
     const name = normalizeName(empName);
