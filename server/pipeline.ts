@@ -2329,9 +2329,13 @@ export async function processCapacityData(
     demandMap.set(dateStr, row["Required Client Hours"]);
   });
 
+  // User requested to skip Jan 25 (Sunday) as the week originally starts on Jan 26
+  const SKIP_DATE = "2026-01-25";
+
   const dailySummary: DailySummaryRecord[] = Array.from(
     dailySummaryMap.entries(),
   )
+    .filter(([date]) => date !== SKIP_DATE) // Skip the first date as requested
     .map(([date, summary]) => {
       const clientRequired = demandMap.get(date) || 0;
       const gap =
