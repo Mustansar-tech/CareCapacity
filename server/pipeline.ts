@@ -1449,15 +1449,8 @@ export async function parseExcelFiles(
               const startTime = match[1].padStart(5, "0");
               const endTime = match[2].padStart(5, "0");
 
-              // Skip overnight windows (end time earlier than start time means crosses midnight)
-              const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
-              const endMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
-
-              if (endMinutes < startMinutes) {
-                console.log(`🚫 Skipping overnight availability window for ${empName}: ${startTime}-${endTime} (crosses midnight)`);
-                return null;
-              }
-
+              // Include night shifts for daily capacity display
+              // Overnight windows crossing midnight are still valid for capacity tracking
               return `${startTime}-${endTime}`;
             }
             return null;
@@ -1469,18 +1462,9 @@ export async function parseExcelFiles(
         // Fallback to buildTimeWindow if raw string parsing fails
         const builtWindow = buildTimeWindow(row);
 
-        // Check if built window is overnight
+        // Include night shifts for daily capacity display
         if (builtWindow) {
-          const [start, end] = builtWindow.split('-');
-          const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1]);
-          const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1]);
-
-          if (endMinutes < startMinutes) {
-            console.log(`🚫 Skipping overnight availability window for ${empName}: ${builtWindow} (crosses midnight)`);
-            timeWindows = "";
-          } else {
-            timeWindows = builtWindow;
-          }
+          timeWindows = builtWindow;
         }
       }
 
@@ -2693,24 +2677,38 @@ export async function processCapacityData(
         let freeWindows = "";
         try {
           if (availabilityWindows) {
-            // CRITICAL: Filter out any overnight windows before processing
-            const filteredAvailability = availabilityWindows
+            // Include ALL windows including night shifts for capacity display
+            // But if employee has BOTH day AND night on same date, show 0 for night
+            const allWindows = availabilityWindows
               .split(',')
               .map(w => w.trim())
-              .filter(w => {
-                if (!w || !w.includes('-')) return false;
-                const [start, end] = w.split('-').map(t => t.trim());
-                const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1]);
-                const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1]);
+              .filter(w => w && w.includes('-'));
 
-                // Reject if end time is before start time (overnight)
-                if (endMinutes < startMinutes) {
-                  console.log(`🚫 REJECTING overnight availability window for ${employeeName} on ${dateStr}: ${w}`);
-                  return false;
-                }
-                return true;
-              })
-              .join(', ');
+            // Check if there are both day and night windows
+            const hasNightWindow = allWindows.some(w => {
+              const [start] = w.split('-').map(t => t.trim());
+              const startHour = parseInt(start.split(':')[0]);
+              return startHour >= 22 || startHour < 6; // Night = 22:00-06:00
+            });
+            
+            const hasDayWindow = allWindows.some(w => {
+              const [start] = w.split('-').map(t => t.trim());
+              const startHour = parseInt(start.split(':')[0]);
+              return startHour >= 6 && startHour < 22; // Day = 06:00-22:00
+            });
+
+            // If employee has both day and night on same date, only use day windows
+            let processedWindows = allWindows;
+            if (hasNightWindow && hasDayWindow) {
+              processedWindows = allWindows.filter(w => {
+                const [start] = w.split('-').map(t => t.trim());
+                const startHour = parseInt(start.split(':')[0]);
+                return startHour >= 6 && startHour < 22; // Keep only day windows
+              });
+              console.log(`📊 ${employeeName} on ${dateStr}: Has both day and night - using day windows only`);
+            }
+
+            const filteredAvailability = processedWindows.join(', ');
 
             if (filteredAvailability) {
               const capacityResult = computeCapacityWindows(
