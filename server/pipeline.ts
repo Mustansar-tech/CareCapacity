@@ -2298,11 +2298,27 @@ export async function processCapacityData(
       let netCapacity: number;
 
       if (hasDayKiller || (hasTimeKiller && timeKillerIsAllDay)) {
-        // Full-day absence → zero capacity
-        // For full-day absences (Holiday, Sick, etc.), use contracted daily hours
-        // This ensures holidays count as full contracted hours, not raw availability hours
-        finalHours = daily > 0 ? daily : Math.min(agg.hoursRaw || 0.0, daily);
-        netCapacity = 0.0;
+        // Handle partial vs full-day absences (e.g., half-day holiday vs full-day)
+        const rawHours = agg.hoursRaw || 0.0;
+        
+        // A partial absence is detected when:
+        // 1. We have contracted daily hours AND raw hours recorded
+        // 2. Raw hours are at most 75% of contracted daily (clearly partial, not just rounding)
+        // This catches half-day holidays (50%) while treating near-full-day (95%) as full
+        const isPartialAbsence = daily > 0 && rawHours > 0 && rawHours <= (daily * 0.75);
+        
+        if (isPartialAbsence) {
+          // Partial absence (e.g., half-day holiday): use actual hours recorded
+          // Remaining hours are still available for work
+          finalHours = rawHours;
+          netCapacity = Math.max(daily - rawHours, 0);
+        } else {
+          // Full-day absence or near-full-day (>75% of contracted hours)
+          // Use contracted daily hours to avoid rounding discrepancies
+          // This ensures 4.75h recorded for a 5h contracted day counts as 5h
+          finalHours = daily > 0 ? daily : rawHours;
+          netCapacity = 0.0;
+        }
       } else if (highestPriorityStatus === "Partial Availability") {
         // Keep capacity on partial blocker days
         finalHours = Math.max(daily - totalLeaveCapped, 0.0);
