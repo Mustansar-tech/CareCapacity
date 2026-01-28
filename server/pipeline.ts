@@ -2299,7 +2299,9 @@ export async function processCapacityData(
 
       if (hasDayKiller || (hasTimeKiller && timeKillerIsAllDay)) {
         // Full-day absence → zero capacity
-        finalHours = Math.min(agg.hoursRaw || 0.0, daily);
+        // For full-day absences (Holiday, Sick, etc.), use contracted daily hours
+        // This ensures holidays count as full contracted hours, not raw availability hours
+        finalHours = daily > 0 ? daily : Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
       } else if (highestPriorityStatus === "Partial Availability") {
         // Keep capacity on partial blocker days
