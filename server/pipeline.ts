@@ -1554,17 +1554,11 @@ export async function parseExcelFiles(
       // Check for dummy/planning-only rows (often have keywords in name)
       const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
 
-      const isNightShift = lowerType && (() => {
-        const nightKeywords = [
-          'nights - sleep in',
-          'sleep in',
-          'nights - waking nights',
-          'waking nights'
-        ];
-        return nightKeywords.some(excluded => lowerType.includes(excluded));
-      })();
+      // Note: Night shifts are NOW INCLUDED in daily capacity view
+      // They are only excluded from auto-scheduling (in scheduling-engine.ts)
+      // const isNightShift logic removed to allow night workers in capacity
 
-      if (!isCancelOk || isSecondary || (isNightShift && !isOfficeHours)) {
+      if (!isCancelOk || isSecondary) {
         filteredSecondaryCount++;
         return;
       }
