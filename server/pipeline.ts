@@ -2208,17 +2208,30 @@ export async function processCapacityData(
     });
     const totalLeaveCapped = Math.min(totalLeaveRaw, daily);
 
-    // Day-killer short-circuit
+    // Day-killer short-circuit (with partial holiday detection)
     let hasDayKiller = false;
     let dayKillerStatus = "";
     let dayKillerPriority = 999;
+    let hasPartialDayKiller = false;
+    let partialDayKillerStatus = "";
 
-    statusAgg.forEach((_agg, status) => {
+    statusAgg.forEach((agg, status) => {
       if (DAY_KILLERS.has(status)) {
         const p = STATUS_PRIORITY[status] || 999;
-        if (p < dayKillerPriority) {
-          dayKillerPriority = p;
-          dayKillerStatus = status;
+        // Check if this day-killer has specific time windows (partial holiday)
+        const hasTimeWindows = agg.windows && agg.windows.length > 0 && agg.windows.some(w => w.trim() !== "");
+        
+        if (hasTimeWindows) {
+          // This is a PARTIAL day-killer (e.g., partial holiday)
+          // Treat it like a time-killer instead
+          hasPartialDayKiller = true;
+          partialDayKillerStatus = status;
+        } else {
+          // Full-day killer with no specific windows
+          if (p < dayKillerPriority) {
+            dayKillerPriority = p;
+            dayKillerStatus = status;
+          }
         }
       }
     });
@@ -2243,12 +2256,31 @@ export async function processCapacityData(
       0,
     );
 
-    const blockerPairs: Array<[number, number]> = [];
+    // Separate blocker pairs by type for accurate hour attribution
+    const timeKillerPairs: Array<[number, number]> = [];
     statusAgg.forEach((_agg, status) => {
       if (TIME_KILLERS.has(status))
-        blockerPairs.push(...windowListToPairs(_agg.windows));
+        timeKillerPairs.push(...windowListToPairs(_agg.windows));
     });
+    
+    // Partial day-killer windows (e.g., partial holidays) - tracked separately
+    let partialDayKillerPairs: Array<[number, number]> = [];
+    if (hasPartialDayKiller && partialDayKillerStatus) {
+      const partialAgg = statusAgg.get(partialDayKillerStatus);
+      if (partialAgg?.windows) {
+        partialDayKillerPairs = windowListToPairs(partialAgg.windows);
+      }
+    }
+    
+    // Merge all blockers for window subtraction (availability calculation)
+    const blockerPairs: Array<[number, number]> = [...timeKillerPairs, ...partialDayKillerPairs];
     const mergedBlockers = mergeIntervals(blockerPairs, 0);
+    
+    // Calculate hours for each blocker type separately (for accurate attribution)
+    const mergedTimeKillers = mergeIntervals(timeKillerPairs, 0);
+    const mergedPartialDayKillers = mergeIntervals(partialDayKillerPairs, 0);
+    const timeKillerHours = mergedTimeKillers.reduce((sum, [start, end]) => sum + (end - start) / 60, 0);
+    const partialDayKillerHours = mergedPartialDayKillers.reduce((sum, [start, end]) => sum + (end - start) / 60, 0);
 
     // Use contracted daily minutes for the all-day heuristic
     const contractedDailyMin = Math.round(
@@ -2263,17 +2295,31 @@ export async function processCapacityData(
     let highestPriority = 999;
 
     if (hasDayKiller) {
+      // Full-day killer (no time windows)
       highestPriorityStatus = dayKillerStatus;
       highestPriority = dayKillerPriority;
-    } else if (hasTimeKiller) {
+    } else if (hasTimeKiller || hasPartialDayKiller) {
+      // Time-killer OR partial day-killer (e.g., partial holiday)
       if (timeKillerIsAllDay || !hasAvailableStatus) {
         // Treat like day-level absence if all-day OR no explicit availability
-        highestPriorityStatus = "Other Unavailable";
-        highestPriority = STATUS_PRIORITY["Other Unavailable"] || 5;
+        // For partial holidays that cover all day, use the original status
+        if (hasPartialDayKiller && timeKillerIsAllDay) {
+          highestPriorityStatus = partialDayKillerStatus;
+          highestPriority = STATUS_PRIORITY[partialDayKillerStatus] || 5;
+        } else {
+          highestPriorityStatus = "Other Unavailable";
+          highestPriority = STATUS_PRIORITY["Other Unavailable"] || 5;
+        }
       } else {
         // Partial blocker AND has availability record
-        highestPriorityStatus = "Partial Availability";
-        highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
+        // Use "Partial Holiday" for partial day-killers, otherwise "Partial Availability"
+        if (hasPartialDayKiller) {
+          highestPriorityStatus = `Partial ${partialDayKillerStatus}`;
+          highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
+        } else {
+          highestPriorityStatus = "Partial Availability";
+          highestPriority = STATUS_PRIORITY["Partial Availability"] || 6;
+        }
       }
     } else {
       // No blockers → pick best remaining (usually Available)
@@ -2297,16 +2343,32 @@ export async function processCapacityData(
       let finalHours: number;
       let netCapacity: number;
 
-      if (hasDayKiller || (hasTimeKiller && timeKillerIsAllDay)) {
+      // Calculate total blocked hours from all blockers
+      const totalBlockedHours = mergedBlockers.reduce((sum, [start, end]) => sum + (end - start) / 60, 0);
+      
+      if (hasDayKiller || ((hasTimeKiller || hasPartialDayKiller) && timeKillerIsAllDay)) {
         // Full-day absence → zero capacity
         // For full-day absences (Holiday, Sick, etc.), use contracted daily hours
         // This ensures holidays count as full contracted hours, not raw availability hours
         finalHours = daily > 0 ? daily : Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
-      } else if (highestPriorityStatus === "Partial Availability") {
-        // Keep capacity on partial blocker days
-        finalHours = Math.max(daily - totalLeaveCapped, 0.0);
-        netCapacity = finalHours;
+      } else if (highestPriorityStatus.startsWith("Partial ")) {
+        // Partial blocker (Partial Availability, Partial Holiday, Partial Sick, etc.)
+        // Use the specific blocker hours based on the status type
+        let statusBlockedHours: number;
+        if (highestPriorityStatus === "Partial Availability") {
+          // For partial availability, use time-killer hours only
+          statusBlockedHours = Math.min(timeKillerHours, daily);
+        } else if (highestPriorityStatus.startsWith("Partial ")) {
+          // For partial day-killers (Partial Holiday, Partial Sick, etc.)
+          // Use only the partial day-killer hours for attribution
+          statusBlockedHours = Math.min(partialDayKillerHours, daily);
+        } else {
+          statusBlockedHours = Math.min(totalBlockedHours, daily);
+        }
+        finalHours = statusBlockedHours; // Hours attributed to the partial leave
+        // Net capacity = contracted hours minus ALL blocked hours (holidays + other blockers)
+        netCapacity = Math.max(daily - Math.min(totalBlockedHours, daily), 0.0);
       } else if (highestPriorityStatus === "Available") {
         finalHours = Math.max(daily - totalLeaveCapped, 0.0);
         netCapacity = finalHours;
@@ -2422,14 +2484,19 @@ export async function processCapacityData(
           bestRecord = record;
         }
 
+        // Check if this is a partial status (has remaining capacity)
+        const isPartialStatus = record.status.startsWith("Partial ");
+        
         if (
           record.status !== "Available" &&
-          record.status !== "Partial Availability"
+          !isPartialStatus
         ) {
+          // Full-day unavailable status (Holiday, Sick, etc.)
           hasUnavailableStatus = true;
           totalUnavailableHours += record.hours;
-        } else if (record.status === "Partial Availability") {
-          // Partial availability adds to unavailable hours but doesn't mark as fully unavailable
+        } else if (isPartialStatus) {
+          // Partial statuses (Partial Availability, Partial Holiday, etc.)
+          // Add to unavailable hours but don't mark as fully unavailable
           totalUnavailableHours += record.hours;
         }
       });
@@ -2437,11 +2504,12 @@ export async function processCapacityData(
       // Use the best record's net capacity
       summary.netCapacity += bestRecord.netCapacity;
 
-      // Apply status priority logic with proper handling of partial availability
+      // Apply status priority logic with proper handling of partial availability and partial holidays
       if (hasUnavailableStatus) {
         // Count unavailable hours by status type
         records.forEach((record) => {
-          if (record.status === "Holiday") {
+          if (record.status === "Holiday" || record.status === "Partial Holiday") {
+            // Both full and partial holidays contribute to holiday hours
             summary.holidays += record.hours;
           } else if (
             [
@@ -2450,18 +2518,27 @@ export async function processCapacityData(
               "Compassionate Leave",
               "Other Unavailable",
               "Pre-Agreed Appointment",
+              "Partial Sick",
+              "Partial Maternity/Paternity",
+              "Partial Compassionate Leave",
             ].includes(record.status)
           ) {
             summary.unavailability += record.hours;
           }
         });
       } else {
-        // Count available hours and partial availability hours
+        // Count available hours and partial availability/partial holiday hours
         records.forEach((record) => {
           if (record.status === "Available") {
             summary.availableHours += record.hours;
           } else if (record.status === "Partial Availability") {
             // Partial availability contributes to unavailability hours
+            summary.unavailability += record.hours;
+          } else if (record.status === "Partial Holiday") {
+            // Partial holidays contribute to holiday hours
+            summary.holidays += record.hours;
+          } else if (record.status.startsWith("Partial ")) {
+            // Other partial statuses (Partial Sick, etc.) contribute to unavailability
             summary.unavailability += record.hours;
           }
         });
@@ -2728,9 +2805,13 @@ export async function processCapacityData(
       // Scheduled hours already set from lookup - don't overwrite
 
       // Track all status types separately, then consolidate at the end
+      // Check if this is a partial status (has remaining capacity)
+      const isPartialStatus = emp.status.startsWith("Partial ");
+      
       if (emp.status === "Available") {
         empData.hasAvailableStatus = true;
-      } else if (emp.status === "Partial Availability") {
+      } else if (isPartialStatus) {
+        // Partial statuses (Partial Availability, Partial Holiday, etc.)
         empData.hasPartialAvailability = true;
         empData.unavailabilityHours += emp.hours;
       } else {
