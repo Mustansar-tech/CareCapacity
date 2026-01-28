@@ -196,7 +196,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
   // Log the filtering process with HOURS breakdown
   const totalFiltered = normalized.length - filtered.length;
   console.log(
-    `🔍 SERVICE TYPE FILTERING: Excluded ${totalFiltered} rows (secondary care, night shifts, office hours) from ${normalized.length} normalized rows`,
+    `🔍 SERVICE TYPE FILTERING: Excluded ${totalFiltered} rows (secondary care, office hours) from ${normalized.length} normalized rows`,
   );
 
   // Show breakdown of what was filtered WITH HOURS
@@ -206,35 +206,13 @@ export function applyServiceRules(demandBuffer: Buffer): {
   });
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (r.duration || 0), 0);
 
+  // Night shifts are now INCLUDED - logging only for transparency
   const nightRows = normalized.filter(row => {
     const st = norm(row.serviceType);
     return st.includes("night") || st.includes("sleep in") || st.includes("waking") || st.includes("sleepover") || st.includes("overnight");
   });
   const nightHours = nightRows.reduce((sum, r) => sum + (r.duration || 0), 0);
-
-  const officeRows = normalized.filter(row => {
-    const st = norm(row.serviceType);
-    return st.includes("office");
-  });
-  const officeHours = officeRows.reduce((sum, r) => sum + (r.duration || 0), 0);
-
-  const shadowingRows = normalized.filter(row => {
-    const st = norm(row.serviceType);
-    return st.includes("shadowing");
-  });
-  const shadowingHours = shadowingRows.reduce((sum, r) => sum + (r.duration || 0), 0);
-
-  const onCallRows = normalized.filter(row => {
-    const st = norm(row.serviceType);
-    return st.includes("on-call") || st.includes("on call");
-  });
-  const onCallHours = onCallRows.reduce((sum, r) => sum + (r.duration || 0), 0);
-
-  console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
-  console.log(`  ❌ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h)`);
-  console.log(`  ❌ Office hours: ${officeRows.length} rows (${Math.round(officeHours * 100) / 100}h)`);
-  console.log(`  ❌ Shadowing: ${shadowingRows.length} rows (${Math.round(shadowingHours * 100) / 100}h)`);
-  console.log(`  ❌ On-Call: ${onCallRows.length} rows (${Math.round(onCallHours * 100) / 100}h)`);
+  console.log(`  ✅ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h) - INCLUDED for reporting`);
 
 
   // 6) Aggregate outputs

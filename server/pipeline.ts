@@ -1552,9 +1552,18 @@ export async function parseExcelFiles(
 
       // Note: Night shifts are now INCLUDED to show in Daily Capacity Summary
       // They are only excluded from auto-scheduling (in scheduling-engine.ts)
+      // Even if cancelled, we might want to see them in the capacity view if requested, 
+      // but usually cancellation = remove. Keeping cancellation check.
       
-      if (!isCancelOk || isSecondary) {
+      if (isSecondary) {
         filteredSecondaryCount++;
+        return;
+      }
+      
+      // Night shifts skip isSecondary but pass through to validatedGuaranteed
+      // so they can be summed into scheduledHoursMap.
+      
+      if (!isCancelOk) {
         return;
       }
       

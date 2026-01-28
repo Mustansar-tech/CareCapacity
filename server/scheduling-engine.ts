@@ -1,4 +1,4 @@
-// Service types to exclude (including secondary care, office hours, and night shifts)
+// Service types to exclude ONLY for auto-scheduling
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
   'office',
@@ -6,6 +6,9 @@ const EXCLUDED_SERVICE_TYPES = [
   'sleep in',
   'nights - waking nights',
   'waking nights',
+  'night',
+  'overnight',
+  'sleepover',
   'multiple care (secondary)',
   'secondary',
   '(secondary)'
