@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { parse, format, addDays } from "date-fns";
+import { parse, format, addDays, differenceInDays } from "date-fns";
 import {
   buildTimeWindow,
   parseGuaranteedDate,
@@ -1390,18 +1390,19 @@ export async function parseExcelFiles(
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
 
-      // CRITICAL FIX: Reject entries where start and end dates differ
-      // This prevents incorrectly including dates when availability spans multiple days
+      // ALLOW night shifts (start and end dates differ by 1 day)
       if (row["End Date"]) {
         try {
           const parsedEndDate = parseDate(row["End Date"]);
           const startDateStr = format(parsedStartDate, "yyyy-MM-dd");
           const endDateStr = format(parsedEndDate, "yyyy-MM-dd");
 
-          if (startDateStr !== endDateStr) {
-            console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} differs from end date ${endDateStr} - multi-day entries not supported`);
+          const diffInDays = Math.abs(differenceInDays(parsedEndDate, parsedStartDate));
+
+          if (diffInDays > 1) {
+            console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} and end date ${endDateStr} differ by ${diffInDays} days - only single or overnight shifts supported`);
             warnings.push(
-              `Availability row ${index + 1} (${empName}): Rejected - start date (${startDateStr}) differs from end date (${endDateStr}). Multi-day availability entries are not supported.`,
+              `Availability row ${index + 1} (${empName}): Rejected - dates differ by ${diffInDays} days. Only single or overnight shifts are supported.`,
             );
             return;
           }
