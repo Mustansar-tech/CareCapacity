@@ -25,7 +25,7 @@ import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 import { useBranch } from "@/contexts/BranchContext";
-import { PPAutomation } from "@/components/PPAutomation";
+import { PPAutomation, PPSyncButton } from "@/components/PPAutomation";
 
 
 
@@ -119,7 +119,7 @@ export default function Dashboard() {
 
   // Clear processed data if it doesn't match current branch
   useEffect(() => {
-    if (latestData && latestData.branchId !== selectedBranchId) {
+    if (latestData && (latestData as any).branchId !== selectedBranchId) {
       console.log('🧹 Clearing stale data from different branch');
       setProcessedData(null);
       setFilteredData(null);
@@ -129,7 +129,7 @@ export default function Dashboard() {
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
     // Only auto-load if data belongs to current branch
-    if (latestData && !processedData && !selectedWeekId && latestData.branchId === selectedBranchId) {
+    if (latestData && !processedData && !selectedWeekId && (latestData as any).branchId === selectedBranchId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -359,17 +359,21 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-2xl animate-fade-in">
-        {/* Compact Upload Toggle - Shows when no data is loaded */}
+        {/* Data Load Options - Shows when no data is loaded */}
         {!processedData && (
-          <div className="mb-6 animate-fade-in">
+          <div className="mb-6 animate-fade-in flex flex-wrap gap-3">
+            <PPSyncButton 
+              branchId={selectedBranchId ?? undefined} 
+              onProcessComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/capacity'] })} 
+            />
             <Button
               onClick={() => setShowUploadPanel(!showUploadPanel)}
               variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6"
+              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-4"
               data-testid="toggle-upload-panel"
             >
               <Upload className="w-4 h-4 mr-2" />
-              {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+              {showUploadPanel ? 'Hide Manual Upload' : 'Upload Files Manually'}
             </Button>
           </div>
         )}
@@ -566,12 +570,6 @@ export default function Dashboard() {
         </Card>
         )}
 
-        {/* People Planner Automation Section */}
-        {!processedData && showUploadPanel && (
-          <div className="mb-6">
-            <PPAutomation />
-          </div>
-        )}
 
         {/* Results Tabs - Always show when data exists */}
         {processedData && (
@@ -892,16 +890,20 @@ export default function Dashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6 animate-fade-in" data-testid="content-overview">
-            {/* Compact Upload Toggle in Overview */}
-            <div className="mb-6">
+            {/* Data Load Options in Overview */}
+            <div className="mb-6 flex flex-wrap gap-3">
+              <PPSyncButton 
+                branchId={selectedBranchId ?? undefined} 
+                onProcessComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/capacity'] })} 
+              />
               <Button
                 onClick={() => setShowUploadPanel(!showUploadPanel)}
                 variant="outline"
-                className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6 w-full md:w-auto"
+                className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-4"
                 data-testid="toggle-upload-panel-overview"
               >
                 <Upload className="w-4 h-4 mr-2" />
-                {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+                {showUploadPanel ? 'Hide Manual Upload' : 'Upload Files Manually'}
               </Button>
             </div>
 
