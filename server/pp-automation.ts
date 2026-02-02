@@ -92,19 +92,28 @@ class PeoplePlannerAutomation {
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      const loginForm = this.page.locator('form').filter({
-        has: this.page.locator('input[type="password"]')
-      });
+      // Anchor on the password field directly - ignore the form element
+      const passwordInput = this.page.locator('input[type="password"]');
+      await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
 
-      await loginForm.waitFor({ state: 'visible', timeout: 30000 });
+      // Find the username input - exclude hidden cookie search fields
+      const usernameInput = this.page.locator('input[type="text"]').filter({
+        hasNot: this.page.locator('#vendor-search-handler')
+      }).last();
 
-      const usernameInput = loginForm.locator('input[type="text"]');
       await usernameInput.fill(credentials.username);
-
-      const passwordInput = loginForm.locator('input[type="password"]');
       await passwordInput.fill(credentials.password);
 
-      await loginForm.locator('input[type="submit"], button').first().click();
+      // Submit by clicking the login button or pressing Enter
+      const loginButton = this.page.locator('input[type="submit"], button').filter({
+        hasText: /login/i
+      }).first();
+      
+      if (await loginButton.isVisible()) {
+        await loginButton.click();
+      } else {
+        await passwordInput.press('Enter');
+      }
 
       // Step 4: Verify dashboard loads
       await this.page.waitForSelector('text=Dashboard', { timeout: 30000 });
