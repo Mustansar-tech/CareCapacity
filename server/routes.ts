@@ -6,7 +6,7 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
-import { PeoplePlannerAutomation, formatDateForPP, getAvailableBranches, type PPCredentials, type PPExportConfig } from './pp-automation';
+import { PeoplePlannerAutomation, formatDateForPP, getAvailableBranches, type PPExportConfig } from './pp-automation';
 
 /**
  * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)
@@ -1456,27 +1456,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Run PP automation to download exports
+  // Run PP automation to download exports (Windows Edge persistent context)
   app.post('/api/pp-automation/export', async (req, res) => {
     try {
-      const { branchName, weekStartDate, weekEndDate } = req.body;
+      const { branchName, weekStartDate, weekEndDate, edgeProfilePath } = req.body;
 
       if (!branchName || !weekStartDate || !weekEndDate) {
         return res.status(400).json({ 
           message: 'Missing required fields: branchName, weekStartDate, weekEndDate' 
-        });
-      }
-
-      // Get credentials from environment/secrets
-      const credentials: PPCredentials = {
-        clientId: process.env.PP_CLIENT_ID || '',
-        username: process.env.PP_USERNAME || '',
-        password: process.env.PP_PASSWORD || '',
-      };
-
-      if (!credentials.clientId || !credentials.username || !credentials.password) {
-        return res.status(400).json({ 
-          message: 'People Planner credentials not configured. Please set PP_CLIENT_ID, PP_USERNAME, and PP_PASSWORD.' 
         });
       }
 
@@ -1485,12 +1472,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         branchName,
         startDate: formatDateForPP(weekStartDate),
         endDate: formatDateForPP(weekEndDate),
+        edgeProfilePath: edgeProfilePath || undefined,
       };
 
       console.log(`🤖 Starting PP automation for ${branchName} (${config.startDate} - ${config.endDate})`);
+      console.log('📝 Using Windows Edge persistent context (no login required)');
 
       const automation = new PeoplePlannerAutomation();
-      const result = await automation.runFullExport(credentials, config);
+      const result = await automation.runFullExport(config);
+
+      if (result.requiresManualLogin) {
+        console.log('⚠️ Manual login required - session expired');
+        return res.status(401).json({
+          success: false,
+          message: 'Manual login required. Please open Edge, log into People Planner, then try again.',
+          requiresManualLogin: true,
+        });
+      }
+
+      if (result.invalidSession) {
+        console.log('❌ Invalid session - blocked environment');
+        return res.status(403).json({
+          success: false,
+          message: 'Invalid session or blocked environment. This automation requires Windows with Microsoft Edge.',
+          invalidSession: true,
+        });
+      }
 
       if (result.success) {
         console.log('✅ PP automation completed successfully');
@@ -1536,12 +1543,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(f => f.endsWith('.xlsx'))
         .map(f => {
           const stats = fs.statSync(path.join(downloadDir, f));
+          let exportType = 'unknown';
+          if (f.includes('CG Data Export')) exportType = 'cgDataExport';
+          else if (f.includes('Care Pro Guaranteed Hours') || f.includes('Visits')) exportType = 'careProGuaranteedHours';
+          else if (f.includes('Availability')) exportType = 'availabilityExport';
+          
           return {
-            id: Buffer.from(f).toString('base64'), // Safe file identifier
+            id: Buffer.from(f).toString('base64'),
             name: f,
             size: stats.size,
             downloadedAt: stats.mtime.toISOString(),
-            exportType: f.includes('Visits') ? 'visits' : f.includes('Caregivers') ? 'caregivers' : f.includes('Availability') ? 'availability' : 'unknown',
+            exportType,
           };
         })
         .sort((a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime());
