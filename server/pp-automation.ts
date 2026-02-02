@@ -89,15 +89,25 @@ class PeoplePlannerAutomation {
 
       // Step 2: Select People Planner Account portal
       console.log('🔗 Selecting account portal...');
-      await this.page.click('text=Sign in with Access People Planner Account');
+      const ppTile = this.page.locator('div', {
+        hasText: 'Access People Planner'
+      });
+      await ppTile.waitFor({ state: 'visible', timeout: 30000 });
+      await ppTile.click();
       await this.page.waitForLoadState('networkidle');
+      await this.page.waitForTimeout(1500);
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
       // Target by type and index for ASP.NET pages
-      await this.page.locator('input[type="text"]').first().fill(credentials.username);
-      await this.page.locator('input[type="password"]').first().fill(credentials.password);
-      await this.page.locator('input[type="submit"], button:has-text("Login")').first().click();
+      const usernameInput = this.page.locator('input[type="text"]').first();
+      await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+      await usernameInput.fill(credentials.username);
+
+      const passwordInput = this.page.locator('input[type="password"]').first();
+      await passwordInput.fill(credentials.password);
+
+      await this.page.locator('input[type="submit"], button').first().click();
       await this.page.waitForLoadState('networkidle');
 
       // Step 4: Verify dashboard loads
