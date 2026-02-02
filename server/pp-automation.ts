@@ -98,14 +98,17 @@ class PeoplePlannerAutomation {
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      const usernameInput = this.page.locator('input[type="text"]').first();
-      const passwordInput = this.page.locator('input[type="password"]').first();
+      // Use label-anchored selection to find inputs reliably on legacy Access pages
+      const userCodeLabel = this.page.locator('text=User code');
+      await userCodeLabel.waitFor({ state: 'visible', timeout: 30000 });
+      
+      const usernameInput = this.page.locator('text=User code').locator('xpath=following::input[1]');
+      const passwordInput = this.page.locator('text=Password').locator('xpath=following::input[1]');
 
-      await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
       await usernameInput.fill(credentials.username);
       await passwordInput.fill(credentials.password);
 
-      // Submit by pressing Enter or clicking the login button
+      // Submit by pressing Enter on password field
       await passwordInput.press('Enter');
 
       // Step 4: Verify dashboard loads

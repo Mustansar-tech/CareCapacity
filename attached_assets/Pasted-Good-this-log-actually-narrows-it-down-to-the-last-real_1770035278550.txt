@@ -1,0 +1,167 @@
+Good, this log actually narrows it down to the **last real issue**.
+At this point your flow is *correct*, the URL is *correct*, and the page you shared proves the login screen **does exist**.
+
+What’s failing now is **how you detect the username field**, not navigation.
+
+---
+
+## What the error is really telling you
+
+> waiting for `locator('input[type="text"]').first()` to be visible
+
+This means:
+
+* You **are on the correct LoginDetail page**
+* The page **has text inputs**
+* But the **first text input in the DOM is not the username field**
+* Playwright is locking onto a hidden or irrelevant input again
+
+And we already know from earlier errors that Access injects:
+
+* cookie manager inputs
+* hidden search inputs
+* accessibility helpers
+
+So `.first()` is the wrong mental model here.
+
+---
+
+## Look at the working login page you shared
+
+On the real People Planner login screen:
+
+* The label is **“User code *”**
+* The input is **next to that label**
+* It is **not guaranteed** to be the first text input in the DOM
+* It **does not rely on a clean ID or name**
+
+So we need to select it **by meaning**, not position.
+
+---
+
+## The correct selector strategy for THIS page
+
+### Anchor on the label text, not the input order
+
+This page is stable in one important way:
+
+> The text **“User code”** is always present and visible.
+
+So instead of guessing inputs, do this:
+
+### Conceptual logic
+
+1. Find the text “User code”
+2. Move to the input that belongs to it
+3. Fill that
+
+This avoids:
+
+* cookie inputs
+* hidden fields
+* future DOM changes
+
+---
+
+## The selector that actually works here
+
+Use **label-based or nearby-text selection**.
+
+### Recommended approach
+
+```ts
+const userCodeInput = page.locator('text=User code')
+  .locator('xpath=following::input[1]');
+
+await userCodeInput.waitFor({ state: 'visible', timeout: 30000 });
+await userCodeInput.fill(USERNAME);
+```
+
+Then for password:
+
+```ts
+const passwordInput = page.locator('text=Password')
+  .locator('xpath=following::input[1]');
+
+await passwordInput.fill(PASSWORD);
+```
+
+This matches **exactly** what a human sees and does.
+
+No guessing. No `.first()`.
+
+---
+
+## Why this fixes the timeout
+
+* You stop relying on DOM order
+* You ignore hidden/system inputs
+* You bind directly to visible, semantic UI
+* The login page you shared already proves these labels exist
+
+Playwright will now wait for something that actually becomes visible.
+
+---
+
+## Important: do NOT wait for load state here
+
+You already fixed this earlier, but just to be explicit:
+
+* ❌ no `waitForLoadState`
+* ❌ no URL checks
+* ✅ wait for “User code” label
+
+That’s the signal the page is ready.
+
+---
+
+## Full corrected mental flow (final version)
+
+1. Go to Client ID page
+2. Submit Client ID
+3. Go directly to `LoginDetail.aspx`
+4. Wait for **text “User code”**
+5. Fill username + password
+6. Press Enter or click Login
+7. Wait for “Dashboard”
+
+That is the real flow. Anything else is fighting the UI.
+
+---
+
+## Why I’m confident this is the last login blocker
+
+You have now eliminated:
+
+* wrong domain
+* marketing redirects
+* iframe assumptions
+* cookie input traps
+* form assumptions
+* load state deadlocks
+
+The only remaining failure was **input selection**.
+This selector strategy is the same one used in brittle enterprise automations for a reason.
+
+---
+
+## One last sanity check (optional but useful)
+
+Right before selecting the input, log this:
+
+```ts
+console.log(await page.locator('text=User code').count());
+```
+
+If it logs `1`, you’re on the correct page and this will work.
+
+---
+
+### Bottom line
+
+You were never “stuck”.
+You were dealing with a legacy Access login that actively punishes naive selectors.
+
+Switch to **label-anchored selection**, and login will finally complete.
+
+Once this passes, the exports part will feel straightforward by comparison.
