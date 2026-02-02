@@ -78,39 +78,33 @@ class PeoplePlannerAutomation {
       
       // Step 1: Client ID login
       console.log('👤 Entering Client ID...');
-      // Target first text input inside the form (ASP.NET WebForms safe)
       const clientIdInput = this.page.locator('form input[type="text"]').first();
       await clientIdInput.waitFor({ state: 'visible', timeout: 30000 });
       await clientIdInput.fill(credentials.clientId);
       
-      // Submit with the first submit button/input in the form
       await this.page.locator('form input[type="submit"], form button').first().click();
-      await this.page.waitForLoadState('networkidle');
 
       // Step 2: Select People Planner Account portal
       console.log('🔗 Selecting account portal...');
       const tiles = this.page.getByRole('link');
       await tiles.first().waitFor({ state: 'visible', timeout: 30000 });
       await tiles.first().click();
-      await this.page.waitForLoadState('networkidle');
-      await this.page.waitForTimeout(1500);
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      // Scope to the login form to avoid hidden cookie manager inputs
       const loginForm = this.page.locator('form').filter({
         has: this.page.locator('input[type="password"]')
       });
 
+      await loginForm.waitFor({ state: 'visible', timeout: 30000 });
+
       const usernameInput = loginForm.locator('input[type="text"]');
-      await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
       await usernameInput.fill(credentials.username);
 
       const passwordInput = loginForm.locator('input[type="password"]');
       await passwordInput.fill(credentials.password);
 
       await loginForm.locator('input[type="submit"], button').first().click();
-      await this.page.waitForLoadState('networkidle');
 
       // Step 4: Verify dashboard loads
       await this.page.waitForSelector('text=Dashboard', { timeout: 30000 });
