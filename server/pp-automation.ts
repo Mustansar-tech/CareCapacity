@@ -86,46 +86,27 @@ class PeoplePlannerAutomation {
 
       // Step 2: Select People Planner Account portal
       console.log('🔗 Selecting account portal...');
-      const tiles = this.page.getByRole('link');
-      await tiles.first().waitFor({ state: 'visible', timeout: 30000 });
-      await tiles.first().click();
-
-      await this.page.waitForTimeout(1500);
-      const currentUrl = this.page.url();
-      console.log('Current URL after portal selection:', currentUrl);
-
-      if (currentUrl.includes('peopleplanner.com') && !currentUrl.includes('.biz')) {
-        console.log('⚠️ Redirected to marketing site, forcing navigation back to app...');
-        await this.page.goto(
-          'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/Login.aspx',
-          { waitUntil: 'domcontentloaded' }
-        );
-      }
+      
+      // We've discovered that the portal tile can redirect to marketing sites.
+      // Instead of clicking the tile, we'll force navigation to the real login page
+      // to bypass the marketing redirect logic.
+      console.log('🚀 Bypassing portal tile and navigating directly to login endpoint...');
+      await this.page.goto(
+        'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/LoginDetail.aspx',
+        { waitUntil: 'domcontentloaded' }
+      );
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      // Anchor on the password field directly - ignore the form element
-      const passwordInput = this.page.locator('input[type="password"]');
-      await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
+      const usernameInput = this.page.locator('input[type="text"]').first();
+      const passwordInput = this.page.locator('input[type="password"]').first();
 
-      // Find the username input - exclude hidden cookie search fields
-      const usernameInput = this.page.locator('input[type="text"]').filter({
-        hasNot: this.page.locator('#vendor-search-handler')
-      }).last();
-
+      await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
       await usernameInput.fill(credentials.username);
       await passwordInput.fill(credentials.password);
 
-      // Submit by clicking the login button or pressing Enter
-      const loginButton = this.page.locator('input[type="submit"], button').filter({
-        hasText: /login/i
-      }).first();
-      
-      if (await loginButton.isVisible()) {
-        await loginButton.click();
-      } else {
-        await passwordInput.press('Enter');
-      }
+      // Submit by pressing Enter or clicking the login button
+      await passwordInput.press('Enter');
 
       // Step 4: Verify dashboard loads
       await this.page.waitForSelector('text=Dashboard', { timeout: 30000 });
