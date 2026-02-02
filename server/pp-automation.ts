@@ -1,4 +1,4 @@
-import { firefox, Browser, Page } from 'playwright';
+import { chromium, Browser, Page } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 
@@ -57,10 +57,9 @@ class PeoplePlannerAutomation {
   }
 
   async initialize(): Promise<void> {
-    // Use Firefox instead of Chromium - some enterprise sites block headless Chrome
-    // but allow Firefox through their bot protection
-    this.browser = await firefox.launch({
+    this.browser = await chromium.launch({
       headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
     const context = await this.browser.newContext({
@@ -68,8 +67,6 @@ class PeoplePlannerAutomation {
     });
     
     this.page = await context.newPage();
-    // Firefox specific setup
-    await this.page.setViewportSize({ width: 1280, height: 800 });
   }
 
   async login(credentials: PPCredentials): Promise<boolean> {
@@ -77,88 +74,45 @@ class PeoplePlannerAutomation {
 
     try {
       console.log('🌐 Navigating to login page...');
-      // Use a slightly longer timeout and direct navigation
-      await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx', { 
-        waitUntil: 'domcontentloaded',
-        timeout: 60000 
-      });
+      await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx', { waitUntil: 'domcontentloaded' });
       
       // Step 1: Client ID login
       console.log('👤 Entering Client ID...');
-      // Target the exact ID for the Client ID field in Firefox
-      const clientIdInput = this.page.locator('#txtAccountID');
-      
-      // Give Firefox a moment for layout
-      await this.page.waitForTimeout(2000);
-      
+      const clientIdInput = this.page.locator('form input[type="text"]').first();
       await clientIdInput.waitFor({ state: 'visible', timeout: 30000 });
       await clientIdInput.fill(credentials.clientId);
       
-      // Click submit and wait for the redirect
-      await Promise.all([
-        this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
-        this.page.locator('input[type="submit"], button').first().click()
-      ]);
+      await this.page.locator('form input[type="submit"], form button').first().click();
 
-      // Give it a moment to handle the initial redirect
-      await this.page.waitForTimeout(2000);
+      // Step 2: Select People Planner Account portal
+      console.log('🔗 Selecting account portal...');
       
-      const currentUrl = this.page.url();
-      console.log('After Client ID URL:', currentUrl);
-
-      // Step 2: Ensure we are on the correct login page
-      // Access sometimes redirects to a portal or marketing site
-      if (currentUrl.includes('theaccessgroup.com') || !currentUrl.includes('LoginDetail.aspx')) {
-        console.log('🚀 Forcing navigation to real login endpoint...');
-        await this.page.goto(
-          'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/LoginDetail.aspx',
-          { waitUntil: 'domcontentloaded' }
-        );
-      }
+      // We've discovered that the portal tile can redirect to marketing sites.
+      // Instead of clicking the tile, we'll force navigation to the real login page
+      // to bypass the marketing redirect logic.
+      console.log('🚀 Bypassing portal tile and navigating directly to login endpoint...');
+      await this.page.goto(
+        'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/LoginDetail.aspx',
+        { waitUntil: 'domcontentloaded' }
+      );
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
+      // Use label-anchored selection to find inputs reliably on legacy Access pages
+      const userCodeLabel = this.page.locator('text=User code');
+      await userCodeLabel.waitFor({ state: 'visible', timeout: 30000 });
       
-      // Give Firefox a moment to paint the page
-      await this.page.waitForTimeout(2000);
-      
-      // Take a screenshot for debugging
-      const debugScreenshotPath = path.join(process.cwd(), 'downloads', 'firefox-login-detail.png');
-      await this.page.screenshot({ path: debugScreenshotPath, fullPage: true });
-      console.log(`📸 Screenshot saved to ${debugScreenshotPath}`);
-
-      const passwordInput = this.page.locator('input[type="password"]');
-      await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
-
-      // Find the username input - excluding hidden cookie/search fields
-      const usernameInput = this.page.locator('input[type="text"]').filter({
-        hasNot: this.page.locator('#vendor-search-handler')
-      }).last();
+      const usernameInput = this.page.locator('text=User code').locator('xpath=following::input[1]');
+      const passwordInput = this.page.locator('text=Password').locator('xpath=following::input[1]');
 
       await usernameInput.fill(credentials.username);
       await passwordInput.fill(credentials.password);
 
       // Submit by pressing Enter on password field
-      await Promise.all([
-        this.page.waitForNavigation({ waitUntil: 'networkidle', timeout: 60000 }).catch(() => {}),
-        passwordInput.press('Enter')
-      ]);
+      await passwordInput.press('Enter');
 
-      // Step 4: Verify login success
-      console.log('⏳ Waiting for dashboard...');
-      try {
-        // Look for the home page URL or the Dashboard text
-        await Promise.race([
-          this.page.waitForURL(/Home\/Home\.aspx/, { timeout: 30000 }),
-          this.page.waitForSelector('text=Dashboard', { timeout: 30000 })
-        ]);
-      } catch (err) {
-        console.log('⚠️ URL/Selector check timed out, checking for Dashboard text directly...');
-        await this.page.waitForSelector('text=Dashboard', { timeout: 15000 });
-      }
-      
-      console.log('✅ Successfully logged into People Planner');
-      return true;
+      // Step 4: Verify dashboard loads
+      await this.page.waitForSelector('text=Dashboard', { timeout: 30000 });
       
       console.log('✅ Successfully logged into People Planner');
       return true;
