@@ -72,20 +72,11 @@ class PeoplePlannerAutomation {
     return `C:/Users/${username}/AppData/Local/Microsoft/Edge/User Data`;
   }
 
-  async initialize(edgeProfilePath?: string): Promise<{ success: boolean; error?: string }> {
-    const profilePath = edgeProfilePath || this.getDefaultEdgeProfilePath();
+  async initialize(): Promise<{ success: boolean; error?: string }> {
+    console.log('🌐 Launching Edge browser...');
     
-    console.log(`🌐 Launching Edge with persistent profile: ${profilePath}`);
-    
-    if (!fs.existsSync(profilePath)) {
-      return {
-        success: false,
-        error: `Edge profile not found at ${profilePath}. Please ensure Edge is installed and has been used at least once.`,
-      };
-    }
-
     try {
-      this.context = await chromium.launchPersistentContext(profilePath, {
+      this.context = await chromium.launchPersistentContext('', {
         channel: 'msedge',
         headless: false,
         acceptDownloads: true,
@@ -96,26 +87,19 @@ class PeoplePlannerAutomation {
         ],
       });
 
+      // 🔒 HARD BLOCK: close any extra pages (like about:blank) immediately
+      this.context.on('page', async (new_page) => {
+        const pages = this.context?.pages() || [];
+        if (pages.length > 1) {
+          await new_page.close().catch(() => {});
+        }
+      });
+
       this.page = this.context.pages()[0] || await this.context.newPage();
       console.log('✅ Edge browser launched successfully');
       return { success: true };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      if (errorMessage.includes('Target page, context or browser has been closed')) {
-        return {
-          success: false,
-          error: 'Edge browser was closed unexpectedly. Please try again.',
-        };
-      }
-      
-      if (errorMessage.includes('user data directory is already in use')) {
-        return {
-          success: false,
-          error: 'Edge is already running. Please close all Edge windows and try again.',
-        };
-      }
-
       return {
         success: false,
         error: `Failed to launch Edge: ${errorMessage}`,
@@ -130,12 +114,13 @@ class PeoplePlannerAutomation {
 
     try {
       console.log('🔍 Navigating to People Planner...');
+      // Using domcontentloaded to prevent redirect freeze often seen with the debugger
       await this.page.goto('https://www.peopleplanner.biz/', { 
         waitUntil: 'domcontentloaded',
-        timeout: 30000,
+        timeout: 45000,
       });
 
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(3000);
 
       const currentUrl = this.page.url();
       console.log(`📍 Current URL: ${currentUrl}`);
