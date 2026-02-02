@@ -97,15 +97,19 @@ class PeoplePlannerAutomation {
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      // Target by type and index for ASP.NET pages
-      const usernameInput = this.page.locator('input[type="text"]').first();
+      // Scope to the login form to avoid hidden cookie manager inputs
+      const loginForm = this.page.locator('form').filter({
+        has: this.page.locator('input[type="password"]')
+      });
+
+      const usernameInput = loginForm.locator('input[type="text"]');
       await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
       await usernameInput.fill(credentials.username);
 
-      const passwordInput = this.page.locator('input[type="password"]').first();
+      const passwordInput = loginForm.locator('input[type="password"]');
       await passwordInput.fill(credentials.password);
 
-      await this.page.locator('input[type="submit"], button').first().click();
+      await loginForm.locator('input[type="submit"], button').first().click();
       await this.page.waitForLoadState('networkidle');
 
       // Step 4: Verify dashboard loads
