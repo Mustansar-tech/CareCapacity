@@ -6,7 +6,6 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
-import { PeoplePlannerAutomation, formatDateForPP, getAvailableBranches, type PPCredentials, type PPExportConfig } from './pp-automation';
 
 /**
  * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)

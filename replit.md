@@ -65,10 +65,10 @@ The application is designed for care home scheduling teams and business developm
 - **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types, custom travel limits, and employee exclusions.
 - **Weekly Contracted Hours (Net Capacity):** Integrates guaranteed hours from the master employee file to calculate and display net capacity, used for weekly constraint enforcement.
 
-### Data Privacy & Retention
+### Technical Limitations & Discoveries
 
-- **Configurable Retention:** Default 3-month data retention with user-controlled cleanup options and historical data browsing.
-- **Data Governance:** Secure session management, environment-based configuration, automatic cleanup scheduling, and compliance-ready audit trails.
+- **People Planner Automation:** It was discovered that People Planner actively blocks automated and headless browsers (Chromium and Firefox) in cloud environments like Replit. The login process requires a real browser environment that supports legacy Internet Explorer compatibility checks. As a result, direct browser automation for syncing data is currently unsupported in the cloud-hosted version of the dashboard.
+- **Recommended Workflow:** Users should manually export the required files from People Planner and upload them to the dashboard for processing. Future automation would require a dedicated local agent running on a Windows machine with a real browser (Edge in IE-mode).
 
 ## External Dependencies
 
