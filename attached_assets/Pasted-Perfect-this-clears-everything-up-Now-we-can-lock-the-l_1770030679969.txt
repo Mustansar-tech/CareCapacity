@@ -1,0 +1,314 @@
+Perfect, this clears everything up. Now we can lock the logic **exactly** to what People Planner actually does and what your dashboard expects. I’ll explain it cleanly, screen by screen, with the reasoning baked in. No fluff, no generic scraping talk.
+
+I’ll also align each export **explicitly** to the three files in your new panel:
+
+* **CG Data Export.xlsx** (master)
+* **Care Pro Guaranteed Hours.xlsx**
+* **Availability Export.xlsx**
+
+---
+
+## Big picture first (so the logic makes sense)
+
+Your automation replaces this entire manual flow:
+
+1. Go to People Planner
+2. Run three different exports
+3. Download three Excel files
+4. Upload them into your dashboard
+
+Instead, the automation will:
+
+* Download those same three exports
+* Save them with **exact filenames**
+* Put them in a known location
+* Let your dashboard process them automatically
+
+So the **contract** between automation and dashboard is purely file-based.
+
+---
+
+## Export 1: **Visits Export**
+
+➡️ Feeds **Care Pro Guaranteed Hours.xlsx**
+➡️ **Dates required**
+
+### Why this export exists
+
+This export is the only one that gives you **visit-level, date-bound data**. That’s why dates are mandatory here.
+
+---
+
+### Navigation logic (from your screenshot)
+
+Path used in People Planner:
+
+```
+Reports
+  → Scheduling
+      → Exports
+          → Visits
+```
+
+Important correction (based on your screenshot):
+You select **Exports**, not Reports, for Visits.
+
+---
+
+### On the Visits Export screen
+
+#### What the automation must do (and why)
+
+1. **Select Franchise (branch)**
+
+   * This scopes the data correctly.
+   * Area stays default. Never touched.
+
+2. **Set Start Date and End Date**
+
+   * Required by the form.
+   * Dates come from your dashboard context.
+
+3. **Export Type = Excel**
+
+   * Always fixed.
+   * No branching logic here.
+
+4. **Export Template**
+
+   * You select the specific template from the dropdown.
+   * This template guarantees column structure.
+
+5. **Trigger export and wait for download**
+
+---
+
+### Logical mapping
+
+* People Planner export type: **Visits Export**
+* Dates: **Required**
+* Template: **Your chosen Visits template**
+* Saved filename (forced by automation):
+
+**`Care Pro Guaranteed Hours.xlsx`**
+
+Even if People Planner names the file differently, Playwright overwrites it.
+
+---
+
+## Export 2: **CAREGiver Export**
+
+➡️ Feeds **CG Data Export.xlsx (Master)**
+➡️ **No dates**
+
+This one is very important.
+
+---
+
+### Why this export is your “Master”
+
+From your screenshot:
+
+* The **CAREGiver Export**
+* With template **CG Data Export**
+* Produces your core caregiver reference data
+
+That is why:
+
+* No dates are required
+* This file becomes your master CG dataset
+
+---
+
+### Navigation logic
+
+```
+Reports
+  → CAREGivers
+      → Exports
+          → CAREGivers
+```
+
+---
+
+### On the CAREGiver Export screen
+
+#### What the automation does
+
+1. **Select Franchise (branch)**
+
+   * Always required.
+   * Area remains default.
+
+2. **Status = Active**
+
+   * Default and correct.
+   * No need to change unless your business rules change.
+
+3. **Export Type = Excel**
+
+   * Fixed.
+
+4. **Export Template = “CG Data Export”**
+
+   * This is critical.
+   * This template defines the schema your dashboard relies on.
+
+5. **No dates are set**
+
+   * The form doesn’t require them.
+   * Automation must not try to fill date fields.
+
+6. **Trigger export and download**
+
+---
+
+### Logical mapping
+
+* People Planner export: **CAREGiver Export**
+* Dates: **Not used**
+* Template: **CG Data Export**
+* Saved filename:
+
+**`CG Data Export.xlsx`**
+
+This is the **Master** file in your dashboard UI.
+
+---
+
+## Export 3: **Availability Export**
+
+➡️ Feeds **Availability Export.xlsx**
+➡️ **Dates required**
+
+---
+
+### Why this export exists
+
+Availability is time-based. Your dashboard needs to know who is available **within a date range**, not historically.
+
+That’s why:
+
+* Dates are mandatory
+* CAREGiver checkboxes exist, but you leave them as default (all selected)
+
+---
+
+### Navigation logic
+
+```
+Reports
+  → CAREGivers
+      → Exports
+          → CAREGiver Availability
+```
+
+---
+
+### On the Availability Export screen
+
+#### What the automation does
+
+1. **Set Start Date and End Date**
+
+   * Required.
+   * Uses the same date range as Visits (usually).
+
+2. **Select Franchise (branch)**
+
+   * Required.
+   * Area stays default.
+
+3. **Do NOT touch CAREGiver list**
+
+   * Defaults to all selected.
+   * Automation should not click these.
+
+4. **Export Type = Excel**
+
+   * Fixed.
+
+5. **Export Template**
+
+   * Select your predefined Availability template.
+
+6. **Trigger export and download**
+
+---
+
+### Logical mapping
+
+* People Planner export: **Availability Export**
+* Dates: **Required**
+* Template: **Availability template**
+* Saved filename:
+
+**`Availability Export.xlsx`**
+
+---
+
+## Final mapping table (this is the key)
+
+| Dashboard file                 | People Planner screen               | Template selected     | Dates required |
+| ------------------------------ | ----------------------------------- | --------------------- | -------------- |
+| CG Data Export.xlsx            | CAREGivers → Exports → CAREGivers   | CG Data Export        | ❌ No           |
+| Care Pro Guaranteed Hours.xlsx | Scheduling → Exports → Visits       | Visits template       | ✅ Yes          |
+| Availability Export.xlsx       | CAREGivers → Exports → Availability | Availability template | ✅ Yes          |
+
+This table is the **truth source** for the automation.
+
+---
+
+## How the automation thinks (logic flow)
+
+For each branch:
+
+1. Log in once
+2. Download CG Data Export (no dates)
+3. Download Visits export (with dates)
+4. Download Availability export (with dates)
+5. Save all files with fixed names
+6. Exit
+
+No branching. No guessing.
+
+---
+
+## How your dashboard should now behave
+
+Instead of “Choose File”:
+
+* Show file status:
+
+  * Present / Missing
+  * Last updated time
+* Enable:
+
+  * Process Files
+  * Clear Data
+
+Your backend simply checks:
+
+* Are all three files present?
+* Are they recent?
+* Do headers match expected schema?
+
+If yes → process.
+
+---
+
+## Why this design is solid
+
+* Matches real People Planner behavior
+* Matches your screenshots exactly
+* Keeps automation dumb and predictable
+* Keeps dashboard logic clean
+* Easy to explain to auditors or management
+
+If you want, next I can:
+
+* Write this as a short internal design doc
+* Convert this logic into one clean Playwright class
+* Help you redesign the dashboard panel UX around “automated imports”
+
+But at this point, you now have the **final, accurate logic** tied directly to the real screens you use.

@@ -1,0 +1,197 @@
+Good, that simplifies it further. I’ll lock this down to exactly what you do in reality, no extra steps, no unnecessary selections.
+
+I’m going to describe this as the final, minimal Playwright flow that matches your usage.
+
+GLOBAL RULES (based on what you said)
+
+Area is never touched (leave default)
+
+Branch (Franchise) is selected
+
+Dates are set only when required
+
+Export Type is always Excel
+
+Export Template is always selected from dropdown
+
+Nothing else is changed
+
+Playwright should do only these things.
+
+SCREEN 1 – Client ID login
+page.goto("https://www.peopleplanner.biz/Security/login.aspx")
+page.fill("input[name='ClientID']", CLIENT_ID)
+page.click("button:has-text('Login')")
+page.wait_for_load_state("networkidle")
+
+SCREEN 2 – Portal selection
+page.click("text='Sign in with Access People Planner Account')")
+page.wait_for_load_state("networkidle")
+
+SCREEN 3 – Username / password
+page.fill("input[name='UserCode']", USERNAME)
+page.fill("input[name='Password']", PASSWORD)
+page.click("button:has-text('Login')")
+page.wait_for_load_state("networkidle")
+
+SCREEN 4 – Dashboard
+
+Sanity check only:
+
+page.wait_for_selector("text='Dashboard'")
+
+SCREEN 5 – Open Reports
+page.click("text='Reports')")
+page.wait_for_load_state("networkidle")
+
+SCREEN 6 – Visits Exports (correct path)
+
+Path:
+
+Reports
+ └── Scheduling
+      └── Exports
+           └── Visits
+
+page.hover("text='Scheduling')")
+page.hover("text='Exports')")
+page.click("text='Visits')")
+page.wait_for_load_state("networkidle")
+
+SCREEN 7 – Visits Export (exact actions only)
+1️⃣ Select export template
+page.select_option(
+    "select[name='ExportTemplate']",
+    VISITS_TEMPLATE_NAME
+)
+
+2️⃣ Select branch (Franchise)
+page.select_option(
+    "select[name='Franchise']",
+    BRANCH_NAME
+)
+
+3️⃣ Set dates (only if required)
+page.fill("input[name='StartDate']", start_date)
+page.fill("input[name='EndDate']", end_date)
+
+4️⃣ Export type (always Excel)
+page.select_option("select[name='ExportType']", "Excel")
+
+5️⃣ Download
+with page.expect_download() as download_info:
+    page.click("img[alt='Export']")
+
+download = download_info.value
+download.save_as(
+    f"visits_{branch}_{start_date}_{end_date}.xlsx"
+)
+
+SCREEN 8 – CAREGivers Export
+
+Path:
+
+Reports
+ └── CAREGivers
+      └── Exports
+           └── CAREGivers
+
+page.click("text='Reports')")
+page.hover("text='CAREGivers')")
+page.hover("text='Exports')")
+page.click("text='CAREGivers')")
+page.wait_for_load_state("networkidle")
+
+Actions (only what you really do)
+page.select_option(
+    "select[name='ExportTemplate']",
+    CAREGIVER_TEMPLATE_NAME
+)
+
+page.select_option(
+    "select[name='Franchise']",
+    BRANCH_NAME
+)
+
+page.select_option("select[name='ExportType']", "Excel")
+
+Download
+with page.expect_download() as download_info:
+    page.click("img[alt='Export']")
+
+download = download_info.value
+download.save_as(f"caregivers_{branch}.xlsx")
+
+SCREEN 9 – CAREGiver Availability Export
+
+Path:
+
+Reports
+ └── CAREGivers
+      └── Exports
+           └── CAREGiver Availability
+
+page.click("text='Reports')")
+page.hover("text='CAREGivers')")
+page.hover("text='Exports')")
+page.click("text='CAREGiver Availability')")
+page.wait_for_load_state("networkidle")
+
+Actions
+page.select_option(
+    "select[name='ExportTemplate']",
+    AVAILABILITY_TEMPLATE_NAME
+)
+
+page.select_option(
+    "select[name='Franchise']",
+    BRANCH_NAME
+)
+
+page.fill("input[name='StartDate']", start_date)
+page.fill("input[name='EndDate']", end_date)
+
+page.select_option("select[name='ExportType']", "Excel")
+
+Download
+with page.expect_download() as download_info:
+    page.click("img[alt='Export']")
+
+download = download_info.value
+download.save_as(
+    f"availability_{branch}_{start_date}_{end_date}.xlsx"
+)
+
+WHAT PLAYWRIGHT DOES NOT DO (IMPORTANT)
+
+❌ Does not touch Area
+
+❌ Does not change Type/Status
+
+❌ Does not select carers
+
+❌ Does not open Upload Template
+
+❌ Does not guess anything
+
+❌ Does not scrape tables
+
+It behaves like a careful human who knows exactly what to click.
+
+FINAL FLOW (ONE LINE)
+Login → Reports → Scheduling Exports → Visits (Excel + Template)
+→ Reports → CAREGivers Exports → CAREGivers (Excel + Template)
+→ Reports → CAREGivers Exports → Availability (Excel + Template)
+
+
+This is now fully aligned with your real usage.
+
+If you want next, I can turn this into:
+
+One reusable Playwright class
+
+Branch loop
+
+Full script with retries and logging
+
+But this answer now reflects exactly what you do on screen, nothing more.
