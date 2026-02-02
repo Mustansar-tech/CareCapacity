@@ -77,7 +77,11 @@ class PeoplePlannerAutomation {
 
     try {
       console.log('🌐 Navigating to login page...');
-      await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx', { waitUntil: 'domcontentloaded' });
+      // Use a slightly longer timeout and direct navigation
+      await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx', { 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 
+      });
       
       // Step 1: Client ID login
       console.log('👤 Entering Client ID...');
@@ -85,12 +89,16 @@ class PeoplePlannerAutomation {
       const clientIdInput = this.page.locator('#txtAccountID');
       
       // Give Firefox a moment for layout
-      await this.page.waitForTimeout(1000);
+      await this.page.waitForTimeout(2000);
       
       await clientIdInput.waitFor({ state: 'visible', timeout: 30000 });
       await clientIdInput.fill(credentials.clientId);
       
-      await this.page.locator('input[type="submit"], button').first().click();
+      // Click submit and wait for the redirect
+      await Promise.all([
+        this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
+        this.page.locator('input[type="submit"], button').first().click()
+      ]);
 
       // Give it a moment to handle the initial redirect
       await this.page.waitForTimeout(2000);
@@ -99,6 +107,7 @@ class PeoplePlannerAutomation {
       console.log('After Client ID URL:', currentUrl);
 
       // Step 2: Ensure we are on the correct login page
+      // Access sometimes redirects to a portal or marketing site
       if (currentUrl.includes('theaccessgroup.com') || !currentUrl.includes('LoginDetail.aspx')) {
         console.log('🚀 Forcing navigation to real login endpoint...');
         await this.page.goto(
@@ -111,7 +120,7 @@ class PeoplePlannerAutomation {
       console.log('🔐 Entering credentials...');
       
       // Give Firefox a moment to paint the page
-      await this.page.waitForTimeout(1000);
+      await this.page.waitForTimeout(2000);
       
       // Take a screenshot for debugging
       const debugScreenshotPath = path.join(process.cwd(), 'downloads', 'firefox-login-detail.png');
@@ -130,15 +139,21 @@ class PeoplePlannerAutomation {
       await passwordInput.fill(credentials.password);
 
       // Submit by pressing Enter on password field
-      await passwordInput.press('Enter');
+      await Promise.all([
+        this.page.waitForNavigation({ waitUntil: 'networkidle', timeout: 60000 }).catch(() => {}),
+        passwordInput.press('Enter')
+      ]);
 
       // Step 4: Verify login success
       console.log('⏳ Waiting for dashboard...');
       try {
-        await this.page.waitForURL(/Home\/Home\.aspx/, { timeout: 30000 });
-        await this.page.waitForSelector('text=Dashboard', { timeout: 15000 });
+        // Look for the home page URL or the Dashboard text
+        await Promise.race([
+          this.page.waitForURL(/Home\/Home\.aspx/, { timeout: 30000 }),
+          this.page.waitForSelector('text=Dashboard', { timeout: 30000 })
+        ]);
       } catch (err) {
-        console.log('⚠️ URL redirect check timed out, checking for Dashboard text directly...');
+        console.log('⚠️ URL/Selector check timed out, checking for Dashboard text directly...');
         await this.page.waitForSelector('text=Dashboard', { timeout: 15000 });
       }
       
