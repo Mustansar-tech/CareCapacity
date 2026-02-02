@@ -86,30 +86,34 @@ class PeoplePlannerAutomation {
 
       // Step 2: Select People Planner Account portal
       console.log('🔗 Selecting account portal...');
-      
-      // We've discovered that the portal tile can redirect to marketing sites.
-      // Instead of clicking the tile, we'll force navigation to the real login page
-      // to bypass the marketing redirect logic.
-      console.log('🚀 Bypassing portal tile and navigating directly to login endpoint...');
-      await this.page.goto(
-        'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/LoginDetail.aspx',
-        { waitUntil: 'domcontentloaded' }
-      );
+      const tiles = this.page.getByRole('link');
+      await tiles.first().waitFor({ state: 'visible', timeout: 30000 });
+      await tiles.first().click();
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      // Use label-anchored selection to find inputs reliably on legacy Access pages
-      const userCodeLabel = this.page.locator('text=User code');
-      await userCodeLabel.waitFor({ state: 'visible', timeout: 30000 });
-      
-      const usernameInput = this.page.locator('text=User code').locator('xpath=following::input[1]');
-      const passwordInput = this.page.locator('text=Password').locator('xpath=following::input[1]');
+      // Anchor on the password field directly - ignore the form element
+      const passwordInput = this.page.locator('input[type="password"]');
+      await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
+
+      // Find the username input - exclude hidden cookie search fields
+      const usernameInput = this.page.locator('input[type="text"]').filter({
+        hasNot: this.page.locator('#vendor-search-handler')
+      }).last();
 
       await usernameInput.fill(credentials.username);
       await passwordInput.fill(credentials.password);
 
-      // Submit by pressing Enter on password field
-      await passwordInput.press('Enter');
+      // Submit by clicking the login button or pressing Enter
+      const loginButton = this.page.locator('input[type="submit"], button').filter({
+        hasText: /login/i
+      }).first();
+      
+      if (await loginButton.isVisible()) {
+        await loginButton.click();
+      } else {
+        await passwordInput.press('Enter');
+      }
 
       // Step 4: Verify dashboard loads
       await this.page.waitForSelector('text=Dashboard', { timeout: 30000 });
