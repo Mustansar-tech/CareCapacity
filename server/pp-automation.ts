@@ -1,4 +1,4 @@
-import { chromium, Browser, Page } from 'playwright';
+import { firefox, Browser, Page } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 
@@ -57,9 +57,10 @@ class PeoplePlannerAutomation {
   }
 
   async initialize(): Promise<void> {
-    this.browser = await chromium.launch({
+    // Use Firefox instead of Chromium - some enterprise sites block headless Chrome
+    // but allow Firefox through their bot protection
+    this.browser = await firefox.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
     const context = await this.browser.newContext({
