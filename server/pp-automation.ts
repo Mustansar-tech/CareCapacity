@@ -73,17 +73,29 @@ class PeoplePlannerAutomation {
     if (!this.page) throw new Error('Browser not initialized');
 
     try {
+      console.log('🌐 Navigating to login page...');
+      await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx', { waitUntil: 'domcontentloaded' });
+      
+      // Target the main login iframe
+      const frame = this.page.frameLocator('iframe').first();
+
       // Step 1: Client ID login
-      await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx');
-      await this.page.fill('input[name="ClientID"], input#ClientID', credentials.clientId);
-      await this.page.click('button:has-text("Login"), input[type="submit"]');
+      console.log('👤 Entering Client ID...');
+      const clientIdSelector = 'input[name="ClientID"], input#ClientID';
+      await frame.locator(clientIdSelector).waitFor({ state: 'visible', timeout: 30000 });
+      await frame.fill(clientIdSelector, credentials.clientId);
+      
+      const loginButtonSelector = 'button:has-text("Login"), input[type="submit"]';
+      await frame.click(loginButtonSelector);
       await this.page.waitForLoadState('networkidle');
 
       // Step 2: Select People Planner Account portal
+      console.log('🔗 Selecting account portal...');
       await this.page.click('text=Sign in with Access People Planner Account');
       await this.page.waitForLoadState('networkidle');
 
       // Step 3: Username/password login
+      console.log('🔐 Entering credentials...');
       await this.page.fill('input[name="UserCode"], input#UserCode', credentials.username);
       await this.page.fill('input[name="Password"], input#Password', credentials.password);
       await this.page.click('button:has-text("Login"), input[value="Login"]');
@@ -96,6 +108,11 @@ class PeoplePlannerAutomation {
       return true;
     } catch (error) {
       console.error('❌ Login failed:', error);
+      if (this.page) {
+        const screenshotPath = path.join(process.cwd(), 'downloads', 'pp-login-failure.png');
+        await this.page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(`📸 Screenshot saved to ${screenshotPath}`);
+      }
       return false;
     }
   }
