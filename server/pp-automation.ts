@@ -90,6 +90,18 @@ class PeoplePlannerAutomation {
       await tiles.first().waitFor({ state: 'visible', timeout: 30000 });
       await tiles.first().click();
 
+      await this.page.waitForTimeout(1500);
+      const currentUrl = this.page.url();
+      console.log('Current URL after portal selection:', currentUrl);
+
+      if (currentUrl.includes('peopleplanner.com') && !currentUrl.includes('.biz')) {
+        console.log('⚠️ Redirected to marketing site, forcing navigation back to app...');
+        await this.page.goto(
+          'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/Login.aspx',
+          { waitUntil: 'domcontentloaded' }
+        );
+      }
+
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
       // Anchor on the password field directly - ignore the form element
