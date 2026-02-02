@@ -1,0 +1,242 @@
+Good move 👍
+Trying Firefox is exactly the right next step here.
+
+Let’s reset the situation calmly and do this **cleanly**, without fighting ghosts from Chromium.
+
+---
+
+## What changes when you switch to Firefox (important)
+
+Firefox behaves differently from Chromium in three ways that matter for People Planner:
+
+1. **Much less aggressive about hidden inputs**
+2. **Cookie / consent overlays behave better**
+3. **Access login pages render more reliably headless**
+
+So yes, this is a sensible pivot.
+
+But you must change **how you launch and how you wait**. If you just swap `chromium` → `firefox` and keep the same selectors, you’ll still get timeouts.
+
+---
+
+## Step 1: Launch Firefox correctly
+
+### Use this exactly (don’t overthink it)
+
+```ts
+import { firefox } from 'playwright';
+
+const browser = await firefox.launch({
+  headless: true,   // keep headless for now
+});
+```
+
+Do **not** pass Chromium flags.
+Do **not** reuse launch args.
+
+---
+
+## Step 2: Context setup (very important)
+
+Firefox is stricter about viewport and permissions.
+
+```ts
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 800 },
+  ignoreHTTPSErrors: true,
+});
+
+const page = await context.newPage();
+```
+
+This alone fixes a lot of “hidden but present” issues.
+
+---
+
+## Step 3: Client ID page (Firefox-safe version)
+
+Your last error told us the truth:
+
+* `#txtAccountID` exists
+* It starts hidden
+* It later becomes visible
+
+So we **wait for visibility of the exact ID**, not generic inputs.
+
+### Use this exact logic
+
+```ts
+await page.goto(
+  'https://www.peopleplanner.biz/Security/login.aspx',
+  { waitUntil: 'domcontentloaded' }
+);
+
+const clientIdInput = page.locator('#txtAccountID');
+
+// Firefox sometimes needs an explicit wait for layout
+await page.waitForTimeout(1000);
+
+await clientIdInput.waitFor({
+  state: 'visible',
+  timeout: 30000
+});
+
+await clientIdInput.fill(CLIENT_ID);
+
+await page.locator('input[type="submit"], button').first().click();
+```
+
+No `.first()` on inputs.
+No iframe logic.
+No load-state waits.
+
+---
+
+## Step 4: Portal redirect handling (still required)
+
+Firefox will still sometimes go to marketing.
+
+Immediately after submit:
+
+```ts
+await page.waitForTimeout(1500);
+
+const url = page.url();
+console.log('After Client ID URL:', url);
+
+if (url.includes('theaccessgroup.com')) {
+  await page.goto(
+    'https://servicea064-appgrp13.peopleplanner.biz/Common/Security/LoginDetail.aspx',
+    { waitUntil: 'domcontentloaded' }
+  );
+}
+```
+
+This stays exactly the same.
+
+---
+
+## Step 5: Username / password page (Firefox version)
+
+On **this page**, Firefox usually exposes the inputs cleanly.
+
+Do **not** wait for text labels first.
+Wait for the **password field**, but scoped carefully.
+
+### Use this:
+
+```ts
+// Give Firefox a moment to paint
+await page.waitForTimeout(1000);
+
+const passwordInput = page.locator('input[type="password"]');
+await passwordInput.waitFor({ state: 'visible', timeout: 30000 });
+
+// Username is usually the text input near it
+const usernameInput = page
+  .locator('input[type="text"]')
+  .filter({ hasNot: page.locator('#vendor-search-handler') })
+  .last();
+
+await usernameInput.fill(USERNAME);
+await passwordInput.fill(PASSWORD);
+
+// Submit
+await passwordInput.press('Enter');
+```
+
+This avoids:
+
+* cookie vendor inputs
+* hidden system fields
+* form assumptions
+
+---
+
+## Step 6: Confirm login success (Firefox-friendly)
+
+Instead of waiting for “Dashboard” text immediately, do this:
+
+```ts
+await page.waitForURL(/Home\/Home\.aspx/, { timeout: 30000 });
+```
+
+Firefox handles URL changes more consistently here.
+
+Then optionally:
+
+```ts
+await page.waitForSelector('text=Dashboard', { timeout: 15000 });
+```
+
+---
+
+## Very important debugging step (do this once)
+
+Right after navigating to `LoginDetail.aspx`, add:
+
+```ts
+await page.screenshot({ path: 'firefox-login-detail.png', fullPage: true });
+```
+
+If that screenshot shows the **username/password form**, you are done.
+Selectors will work.
+
+If it’s still blank:
+
+* then Access is blocking **headless browsers entirely**
+* and only non-headless will work
+
+But Firefox gives you a real chance here.
+
+---
+
+## What NOT to do now
+
+* ❌ Don’t mix Chromium selectors with Firefox assumptions
+* ❌ Don’t use `waitForLoadState` after clicks
+* ❌ Don’t rely on `.first()` for inputs
+* ❌ Don’t chase labels yet
+
+---
+
+## Honest expectation setting
+
+From experience with Access products:
+
+* Chromium headless ❌ often fails
+* Firefox headless ⚠️ works ~60–70% of the time
+* Firefox non-headless ✅ almost always works
+
+So if Firefox headless still struggles, the conclusion is clear and defensible.
+
+---
+
+## If you want the fastest confirmation
+
+Try **one run** with:
+
+```ts
+const browser = await firefox.launch({ headless: false });
+```
+
+If it logs in instantly, you have absolute proof that:
+
+* your logic is correct
+* headless is the only blocker
+
+That’s gold for decision-making.
+
+---
+
+## Bottom line
+
+Switching to Firefox is the right call.
+But it only helps if you also:
+
+* target exact IDs
+* wait for visibility, not presence
+* stop using generic selectors
+* accept that Access is hostile to headless automation
+
+If you want, paste your **current Firefox login function** and I’ll review it line by line and trim it down to the minimum that will work.
