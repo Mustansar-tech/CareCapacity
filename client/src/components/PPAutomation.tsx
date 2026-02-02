@@ -305,8 +305,8 @@ export function PPAutomation() {
           <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
         </div>
         <div>
-          <h3 className="font-semibold">Sync from People Planner</h3>
-          <p className="text-sm text-muted-foreground">Download and process data automatically</p>
+          <h3 className="font-semibold">Import from People Planner</h3>
+          <p className="text-sm text-muted-foreground">Export files manually, then upload to process</p>
         </div>
       </div>
       <PPAutomationContent />
