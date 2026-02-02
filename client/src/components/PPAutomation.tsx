@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, Download, RefreshCw, Bot, CheckCircle, Clock, AlertTriangle, Monitor, ExternalLink } from 'lucide-react';
+import { Calendar, Download, RefreshCw, Bot, CheckCircle, Clock, AlertTriangle, Key, ExternalLink } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import {
   Dialog,
@@ -24,13 +24,11 @@ interface PPExportResult {
   success: boolean;
   message: string;
   files?: {
-    cgDataExport?: string;
-    careProGuaranteedHours?: string;
-    availabilityExport?: string;
+    visits?: string;
+    caregivers?: string;
+    availability?: string;
   };
   errors?: string[];
-  requiresManualLogin?: boolean;
-  invalidSession?: boolean;
 }
 
 interface PPFile {
@@ -38,7 +36,7 @@ interface PPFile {
   name: string;
   size: number;
   downloadedAt: string;
-  exportType: 'cgDataExport' | 'careProGuaranteedHours' | 'availabilityExport' | 'unknown';
+  exportType: 'visits' | 'caregivers' | 'availability' | 'unknown';
 }
 
 interface PPAutomationStatus {
@@ -124,8 +122,6 @@ export function PPSyncButton({ branchId, branchName, onProcessComplete }: PPAuto
 function PPAutomationContent({ branchId, branchName, onProcessComplete }: { branchId?: string; branchName?: string; onProcessComplete?: () => void }) {
   const [selectedBranch, setSelectedBranch] = useState<string>(branchName || '');
   const [selectedWeek, setSelectedWeek] = useState<string>('0');
-  const [loginRequired, setLoginRequired] = useState(false);
-  const [invalidSession, setInvalidSession] = useState(false);
   const { toast } = useToast();
 
   const { data: branches, isLoading: loadingBranches } = useQuery<PPBranch[]>({
@@ -157,24 +153,9 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
   const exportMutation = useMutation({
     mutationFn: async ({ branchName, weekStartDate, weekEndDate }: { branchName: string; weekStartDate: string; weekEndDate: string }) => {
       const response = await apiRequest('POST', '/api/pp-automation/export', { branchName, weekStartDate, weekEndDate });
-      const data = await response.json() as PPExportResult;
-      
-      if (data.requiresManualLogin) {
-        setLoginRequired(true);
-        throw new Error('Manual login required');
-      }
-      
-      if (data.invalidSession) {
-        setInvalidSession(true);
-        throw new Error('Invalid session or blocked environment');
-      }
-      
-      return data;
+      return await response.json() as PPExportResult;
     },
     onSuccess: (data) => {
-      setLoginRequired(false);
-      setInvalidSession(false);
-      
       if (data.success) {
         toast({
           title: 'Download Complete',
@@ -190,23 +171,17 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
       refetchStatus();
     },
     onError: (error: Error) => {
-      if (!loginRequired && !invalidSession) {
-        toast({
-          title: 'Download Failed',
-          description: error.message || 'Failed to download files from People Planner',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Download Failed',
+        description: error.message || 'Failed to download files from People Planner',
+        variant: 'destructive',
+      });
     },
   });
 
   const processMutation = useMutation({
-    mutationFn: async ({ cgDataFileId, hoursFileId, availabilityFileId }: { cgDataFileId: string; hoursFileId: string; availabilityFileId: string }) => {
-      const response = await apiRequest('POST', '/api/pp-automation/process', { 
-        visitsFileId: hoursFileId, 
-        caregiversFileId: cgDataFileId, 
-        availabilityFileId 
-      });
+    mutationFn: async ({ visitsFileId, caregiversFileId, availabilityFileId }: { visitsFileId: string; caregiversFileId: string; availabilityFileId: string }) => {
+      const response = await apiRequest('POST', '/api/pp-automation/process', { visitsFileId, caregiversFileId, availabilityFileId });
       return await response.json();
     },
     onSuccess: () => {
@@ -228,9 +203,6 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
   });
 
   const handleExport = () => {
-    setLoginRequired(false);
-    setInvalidSession(false);
-    
     if (!selectedBranch) {
       toast({
         title: 'Select Branch',
@@ -254,68 +226,35 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
   const matchedBranch = branches?.find(b => b.name === selectedBranch);
 
   const recentFiles = status?.files?.slice(0, 6) || [];
-  const cgDataFile = recentFiles.find(f => f.exportType === 'cgDataExport');
-  const hoursFile = recentFiles.find(f => f.exportType === 'careProGuaranteedHours');
-  const availabilityFile = recentFiles.find(f => f.exportType === 'availabilityExport');
-  const canProcess = cgDataFile && hoursFile && availabilityFile;
+  const visitsFile = recentFiles.find(f => f.exportType === 'visits');
+  const caregiversFile = recentFiles.find(f => f.exportType === 'caregivers');
+  const availabilityFile = recentFiles.find(f => f.exportType === 'availability');
+  const canProcess = visitsFile && caregiversFile && availabilityFile;
 
   return (
     <div className="space-y-4">
-      {/* Windows Edge Requirement Notice */}
-      <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+      {/* Step 1: Credentials Check */}
+      <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
         <div className="flex items-start gap-3">
-          <Monitor className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <Key className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
           <div className="space-y-2 flex-1">
-            <p className="font-medium text-blue-800 dark:text-blue-200">Windows Edge Required</p>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              This feature uses your existing Edge browser session. Before syncing:
+            <p className="font-medium text-amber-800 dark:text-amber-200">Setup Required</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              To use this feature, add your People Planner login details to your project's Secrets:
             </p>
-            <ul className="text-sm text-blue-700 dark:text-blue-300 list-disc ml-4 space-y-1">
-              <li>Open Microsoft Edge on Windows</li>
-              <li>Log into People Planner manually</li>
-              <li>Close all Edge windows before running automation</li>
+            <ul className="text-sm text-amber-700 dark:text-amber-300 list-disc ml-4 space-y-1">
+              <li><code className="bg-amber-100 dark:bg-amber-800 px-1 rounded">PP_CLIENT_ID</code> - Your client ID (e.g., CARE123)</li>
+              <li><code className="bg-amber-100 dark:bg-amber-800 px-1 rounded">PP_USERNAME</code> - Your login email</li>
+              <li><code className="bg-amber-100 dark:bg-amber-800 px-1 rounded">PP_PASSWORD</code> - Your password</li>
             </ul>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              Find these in the Secrets tab (lock icon) in your Replit project sidebar.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Login Required Warning */}
-      {loginRequired && (
-        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="space-y-2 flex-1">
-              <p className="font-medium text-amber-800 dark:text-amber-200">Manual Login Required</p>
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                Your People Planner session has expired. Please:
-              </p>
-              <ol className="text-sm text-amber-700 dark:text-amber-300 list-decimal ml-4 space-y-1">
-                <li>Open Microsoft Edge</li>
-                <li>Go to peopleplanner.biz and log in</li>
-                <li>Close Edge completely</li>
-                <li>Try syncing again</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invalid Session / Environment Warning */}
-      {invalidSession && (
-        <div className="p-4 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-            <div className="space-y-2 flex-1">
-              <p className="font-medium text-red-800 dark:text-red-200">Environment Not Supported</p>
-              <p className="text-sm text-red-700 dark:text-red-300">
-                This automation requires Windows with Microsoft Edge installed. Linux environments and headless browsers are blocked by People Planner.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Step 1: Select Branch */}
+      {/* Step 2: Select Branch */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <span className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-xs font-bold text-purple-600">1</span>
@@ -340,7 +279,7 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
         )}
       </div>
 
-      {/* Step 2: Select Week */}
+      {/* Step 3: Select Week */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <span className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-xs font-bold text-purple-600">2</span>
@@ -364,7 +303,7 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
         </div>
       </div>
 
-      {/* Step 3: Download Button */}
+      {/* Step 4: Download Button */}
       <div className="space-y-2">
         <Label className="text-sm font-medium flex items-center gap-2">
           <span className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-xs font-bold text-purple-600">3</span>
@@ -397,7 +336,7 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
             <span className="text-sm font-medium">Automation running...</span>
           </div>
           <p className="text-xs text-blue-500 mt-1">
-            Opening Edge browser and downloading 3 export files. Please wait.
+            Logging into People Planner and downloading 3 export files. Please wait.
           </p>
         </div>
       )}
@@ -416,9 +355,7 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
                 <CheckCircle className="w-3 h-3 text-green-500" />
                 <span className="truncate flex-1 font-mono">{file.name}</span>
                 <span className="text-muted-foreground">
-                  {file.exportType === 'cgDataExport' ? 'CG Data' : 
-                   file.exportType === 'careProGuaranteedHours' ? 'Guaranteed Hours' : 
-                   file.exportType === 'availabilityExport' ? 'Availability' : 'Unknown'}
+                  {file.exportType}
                 </span>
               </div>
             ))}
@@ -427,8 +364,8 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
           {canProcess ? (
             <Button
               onClick={() => processMutation.mutate({
-                cgDataFileId: cgDataFile.id,
-                hoursFileId: hoursFile.id,
+                visitsFileId: visitsFile.id,
+                caregiversFileId: caregiversFile.id,
                 availabilityFileId: availabilityFile.id,
               })}
               disabled={processMutation.isPending}
@@ -450,7 +387,7 @@ function PPAutomationContent({ branchId, branchName, onProcessComplete }: { bran
           ) : (
             <div className="text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              Missing required exports. Need: CG Data Export, Care Pro Guaranteed Hours, and Availability Export.
+              Missing required exports. Need: Visits, Caregivers, and Availability files.
             </div>
           )}
         </div>
