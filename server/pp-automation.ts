@@ -89,11 +89,9 @@ class PeoplePlannerAutomation {
 
       // Step 2: Select People Planner Account portal
       console.log('🔗 Selecting account portal...');
-      const ppTile = this.page.locator('div', {
-        hasText: 'Access People Planner'
-      });
-      await ppTile.waitFor({ state: 'visible', timeout: 30000 });
-      await ppTile.click();
+      const tiles = this.page.getByRole('link');
+      await tiles.first().waitFor({ state: 'visible', timeout: 30000 });
+      await tiles.first().click();
       await this.page.waitForLoadState('networkidle');
       await this.page.waitForTimeout(1500);
 
