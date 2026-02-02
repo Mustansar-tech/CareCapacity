@@ -25,6 +25,7 @@ import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 import { useBranch } from "@/contexts/BranchContext";
+import { PPAutomation } from "@/components/PPAutomation";
 
 
 
@@ -563,6 +564,13 @@ export default function Dashboard() {
           </div>
         </CardContent>
         </Card>
+        )}
+
+        {/* People Planner Automation Section */}
+        {!processedData && showUploadPanel && (
+          <div className="mb-6">
+            <PPAutomation />
+          </div>
         )}
 
         {/* Results Tabs - Always show when data exists */}

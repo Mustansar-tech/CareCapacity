@@ -6,6 +6,7 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
+import { PeoplePlannerAutomation, formatDateForPP, getAvailableBranches, type PPCredentials, type PPExportConfig } from './pp-automation';
 
 /**
  * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)
@@ -1435,6 +1436,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ 
         message,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ============================================
+  // People Planner Automation Endpoints
+  // ============================================
+
+  // Get available branches for PP automation
+  app.get('/api/pp-automation/branches', (_req, res) => {
+    try {
+      const branches = getAvailableBranches();
+      res.json(branches);
+    } catch (error) {
+      console.error('Error getting PP branches:', error);
+      res.status(500).json({ message: 'Failed to get branches' });
+    }
+  });
+
+  // Run PP automation to download exports
+  app.post('/api/pp-automation/export', async (req, res) => {
+    try {
+      const { branchName, weekStartDate, weekEndDate } = req.body;
+
+      if (!branchName || !weekStartDate || !weekEndDate) {
+        return res.status(400).json({ 
+          message: 'Missing required fields: branchName, weekStartDate, weekEndDate' 
+        });
+      }
+
+      // Get credentials from environment/secrets
+      const credentials: PPCredentials = {
+        clientId: process.env.PP_CLIENT_ID || '',
+        username: process.env.PP_USERNAME || '',
+        password: process.env.PP_PASSWORD || '',
+      };
+
+      if (!credentials.clientId || !credentials.username || !credentials.password) {
+        return res.status(400).json({ 
+          message: 'People Planner credentials not configured. Please set PP_CLIENT_ID, PP_USERNAME, and PP_PASSWORD.' 
+        });
+      }
+
+      // Format dates for People Planner (DD/MM/YYYY)
+      const config: PPExportConfig = {
+        branchName,
+        startDate: formatDateForPP(weekStartDate),
+        endDate: formatDateForPP(weekEndDate),
+      };
+
+      console.log(`🤖 Starting PP automation for ${branchName} (${config.startDate} - ${config.endDate})`);
+
+      const automation = new PeoplePlannerAutomation();
+      const result = await automation.runFullExport(credentials, config);
+
+      if (result.success) {
+        console.log('✅ PP automation completed successfully');
+        res.json({
+          success: true,
+          message: 'Exports downloaded successfully',
+          files: result.files,
+        });
+      } else {
+        console.log('⚠️ PP automation completed with errors:', result.errors);
+        res.status(500).json({
+          success: false,
+          message: 'Some exports failed',
+          files: result.files,
+          errors: result.errors,
+        });
+      }
+    } catch (error) {
+      console.error('❌ PP automation error:', error);
+      res.status(500).json({ 
+        message: 'Automation failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get automation status/history
+  app.get('/api/pp-automation/status', async (req, res) => {
+    try {
+      const branchId = req.query.branchId as string;
+      
+      // Check if we have recent downloads for this branch
+      const downloadDir = path.join(process.cwd(), 'downloads', 'pp-exports');
+      
+      if (!fs.existsSync(downloadDir)) {
+        return res.json({ 
+          hasRecentDownloads: false,
+          files: [] 
+        });
+      }
+
+      const files = fs.readdirSync(downloadDir)
+        .filter(f => f.endsWith('.xlsx'))
+        .map(f => {
+          const stats = fs.statSync(path.join(downloadDir, f));
+          return {
+            id: Buffer.from(f).toString('base64'), // Safe file identifier
+            name: f,
+            size: stats.size,
+            downloadedAt: stats.mtime.toISOString(),
+            exportType: f.includes('Visits') ? 'visits' : f.includes('Caregivers') ? 'caregivers' : f.includes('Availability') ? 'availability' : 'unknown',
+          };
+        })
+        .sort((a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime());
+
+      res.json({
+        hasRecentDownloads: files.length > 0,
+        files: files.slice(0, 10), // Return last 10 files
+      });
+    } catch (error) {
+      console.error('Error getting PP automation status:', error);
+      res.status(500).json({ message: 'Failed to get automation status' });
+    }
+  });
+
+  // Process downloaded PP files into the dashboard pipeline
+  app.post('/api/pp-automation/process', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const { visitsFileId, caregiversFileId, availabilityFileId } = req.body;
+
+      if (!visitsFileId || !caregiversFileId || !availabilityFileId) {
+        return res.status(400).json({ 
+          message: 'Missing required file IDs: visitsFileId, caregiversFileId, availabilityFileId' 
+        });
+      }
+
+      // Decode file IDs to filenames (base64 encoded)
+      const downloadDir = path.join(process.cwd(), 'downloads', 'pp-exports');
+      
+      const visitsFileName = Buffer.from(visitsFileId, 'base64').toString();
+      const caregiversFileName = Buffer.from(caregiversFileId, 'base64').toString();
+      const availabilityFileName = Buffer.from(availabilityFileId, 'base64').toString();
+
+      // Validate filenames are safe (no path traversal)
+      const isValidFileName = (name: string) => {
+        return name.endsWith('.xlsx') && !name.includes('/') && !name.includes('\\') && !name.includes('..');
+      };
+
+      if (!isValidFileName(visitsFileName) || !isValidFileName(caregiversFileName) || !isValidFileName(availabilityFileName)) {
+        return res.status(400).json({ message: 'Invalid file identifiers' });
+      }
+
+      // Build safe paths within downloads directory
+      const visitsPath = path.join(downloadDir, visitsFileName);
+      const caregiversPath = path.join(downloadDir, caregiversFileName);
+      const availabilityPath = path.join(downloadDir, availabilityFileName);
+
+      // Verify files exist
+      if (!fs.existsSync(visitsPath) || !fs.existsSync(caregiversPath) || !fs.existsSync(availabilityPath)) {
+        return res.status(400).json({ message: 'One or more files not found in downloads' });
+      }
+
+      // Read the downloaded files
+      const availabilityBuffer = fs.readFileSync(availabilityPath);
+      const guaranteedBuffer = fs.readFileSync(visitsPath);
+      const cgDataBuffer = fs.readFileSync(caregiversPath);
+
+      console.log(`📂 Processing PP automation files for branch ${branchId}`);
+
+      // Process through the existing pipeline
+      const parseResult = await parseExcelFiles(
+        availabilityBuffer,
+        guaranteedBuffer,
+        cgDataBuffer,
+        guaranteedBuffer, // ghWorkbookBuffer
+        branchId
+      );
+
+      // Store the guaranteed buffer for later scheduling use
+      setLatestGuaranteedBuffer(branchId, guaranteedBuffer);
+
+      // Store files in database for persistence
+      const crypto = await import('crypto');
+      
+      await storage.saveBranchUpload({
+        branchId,
+        uploadType: 'availability',
+        fileBuffer: availabilityBuffer.toString('base64'),
+        originalFileName: path.basename(availabilityPath),
+        fileSize: availabilityBuffer.length,
+        sha256: crypto.createHash('sha256').update(availabilityBuffer).digest('hex'),
+      });
+
+      await storage.saveBranchUpload({
+        branchId,
+        uploadType: 'guaranteedHours',
+        fileBuffer: guaranteedBuffer.toString('base64'),
+        originalFileName: path.basename(visitsPath),
+        fileSize: guaranteedBuffer.length,
+        sha256: crypto.createHash('sha256').update(guaranteedBuffer).digest('hex'),
+      });
+
+      await storage.saveBranchUpload({
+        branchId,
+        uploadType: 'cgData',
+        fileBuffer: cgDataBuffer.toString('base64'),
+        originalFileName: path.basename(caregiversPath),
+        fileSize: cgDataBuffer.length,
+        sha256: crypto.createHash('sha256').update(cgDataBuffer).digest('hex'),
+      });
+
+      // Process capacity data
+      const result = await processCapacityData(
+        parseResult.availability,
+        parseResult.guaranteed,
+        parseResult.demand,
+        parseResult.cgData,
+        { ghWorkbookBuffer: guaranteedBuffer, branchId }
+      );
+
+      // Get week boundaries from the first date in daily summary
+      const firstDate = result.dailySummary[0]?.date;
+      const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
+
+      // Save to history
+      await storage.saveCapacityAnalysis({
+        branchId,
+        weekStartDate: weekStart,
+        weekEndDate: weekEnd,
+        kpis: result.kpis,
+        dailySummary: result.dailySummary,
+        employeesByDate: result.employeesByDate,
+        employeeSummaryByDate: result.employeeSummaryByDate || {},
+        warnings: result.warnings || [],
+      });
+
+      console.log(`✅ PP automation files processed successfully for branch ${branchId}`);
+
+      res.json({
+        success: true,
+        message: 'Files processed successfully',
+        result,
+      });
+    } catch (error) {
+      console.error('❌ Error processing PP automation files:', error);
+      res.status(500).json({ 
+        message: 'Failed to process files',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
