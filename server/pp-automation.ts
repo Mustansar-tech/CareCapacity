@@ -76,17 +76,15 @@ class PeoplePlannerAutomation {
       console.log('🌐 Navigating to login page...');
       await this.page.goto('https://www.peopleplanner.biz/Security/login.aspx', { waitUntil: 'domcontentloaded' });
       
-      // Target the main login iframe
-      const frame = this.page.frameLocator('iframe').first();
-
       // Step 1: Client ID login
       console.log('👤 Entering Client ID...');
-      const clientIdSelector = 'input[name="ClientID"], input#ClientID';
-      await frame.locator(clientIdSelector).waitFor({ state: 'visible', timeout: 30000 });
-      await frame.fill(clientIdSelector, credentials.clientId);
+      // Target first text input inside the form (ASP.NET WebForms safe)
+      const clientIdInput = this.page.locator('form input[type="text"]').first();
+      await clientIdInput.waitFor({ state: 'visible', timeout: 30000 });
+      await clientIdInput.fill(credentials.clientId);
       
-      const loginButtonSelector = 'button:has-text("Login"), input[type="submit"]';
-      await frame.click(loginButtonSelector);
+      // Submit with the first submit button/input in the form
+      await this.page.locator('form input[type="submit"], form button').first().click();
       await this.page.waitForLoadState('networkidle');
 
       // Step 2: Select People Planner Account portal
@@ -96,9 +94,10 @@ class PeoplePlannerAutomation {
 
       // Step 3: Username/password login
       console.log('🔐 Entering credentials...');
-      await this.page.fill('input[name="UserCode"], input#UserCode', credentials.username);
-      await this.page.fill('input[name="Password"], input#Password', credentials.password);
-      await this.page.click('button:has-text("Login"), input[value="Login"]');
+      // Target by type and index for ASP.NET pages
+      await this.page.locator('input[type="text"]').first().fill(credentials.username);
+      await this.page.locator('input[type="password"]').first().fill(credentials.password);
+      await this.page.locator('input[type="submit"], button:has-text("Login")').first().click();
       await this.page.waitForLoadState('networkidle');
 
       // Step 4: Verify dashboard loads
