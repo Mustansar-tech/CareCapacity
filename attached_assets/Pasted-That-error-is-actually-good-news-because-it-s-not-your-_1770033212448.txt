@@ -1,0 +1,107 @@
+That error is actually good news because it’s not your automation logic failing. Chromium is crashing before it even starts.
+
+### What the error really means
+
+Playwright tried to launch its bundled headless Chromium, but the Replit runtime is missing a Linux system library:
+
+* `libxkbcommon.so.0` (package name usually `libxkbcommon0`)
+
+Because the browser process dies instantly, Playwright then throws:
+
+* `Target page, context or browser has been closed`
+
+So fix the missing library and the rest of your script should start running.
+
+---
+
+## Fix on Replit (the right way)
+
+On Replit you usually don’t install system libs with `apt-get`. The reliable way is to add them to **replit.nix**.
+
+### 1) Edit `replit.nix`
+
+Add the missing package, plus a few common Playwright browser deps (otherwise you’ll fix one and hit the next one).
+
+Use something like this:
+
+```nix
+{ pkgs }: {
+  deps = [
+    pkgs.python311
+    pkgs.nodejs_20
+
+    # Playwright / Chromium runtime deps
+    pkgs.libxkbcommon
+    pkgs.xorg.libX11
+    pkgs.xorg.libXcomposite
+    pkgs.xorg.libXdamage
+    pkgs.xorg.libXext
+    pkgs.xorg.libXfixes
+    pkgs.xorg.libXrandr
+    pkgs.xorg.libxcb
+    pkgs.glib
+    pkgs.nss
+    pkgs.nspr
+    pkgs.atk
+    pkgs.cairo
+    pkgs.pango
+    pkgs.expat
+    pkgs.fontconfig
+    pkgs.freetype
+    pkgs.gdk-pixbuf
+    pkgs.dbus
+    pkgs.mesa
+    pkgs.alsa-lib
+    pkgs.cups
+  ];
+}
+```
+
+### 2) Rebuild the Repl
+
+After saving `replit.nix`, Replit will rebuild the environment. If it doesn’t automatically, use the “Rebuild” option or restart the repl.
+
+### 3) Reinstall Playwright browsers (important)
+
+Once the environment has the libs, run:
+
+**Python:**
+
+```bash
+python -m playwright install chromium
+```
+
+(or `python -m playwright install`)
+
+---
+
+## Quick sanity check
+
+Run this simple test in the shell:
+
+```bash
+python -c "from playwright.sync_api import sync_playwright; 
+p=sync_playwright().start(); 
+b=p.chromium.launch(headless=True); 
+b.close(); 
+p.stop(); 
+print('OK')"
+```
+
+If that prints `OK`, your PP automation should stop throwing the crash error.
+
+---
+
+## If you still get another missing library
+
+That’s normal the first time on minimal Linux images. You’ll see a similar message but with a different `.so` file. Just paste it to me and I’ll tell you exactly which `pkgs.` entry to add.
+
+---
+
+## Why this happened on Replit
+
+Replit containers are slim. Playwright ships the browser binary, but the OS still needs the shared libraries to run it. Locally you already have them, on Replit you often don’t.
+
+---
+
+If you paste your current `replit.nix` (even just the deps list), I’ll adjust it to match your exact runtime (Node vs Python, versions) so you don’t over-install stuff.
