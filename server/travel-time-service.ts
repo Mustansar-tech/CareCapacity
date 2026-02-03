@@ -26,10 +26,12 @@ export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
   
   // Mode-specific average speeds (km/h) and minimums (minutes)
+  // Walkers are treated as public transport users (bus/train mix), NOT pedestrians
+  // This gives realistic times matching how care teams actually travel
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
     car: { speedKmh: 32.5, overheadMinutes: 0, minMinutes: 5 },
-    walking: { speedKmh: 20, overheadMinutes: 12, minMinutes: 15 }, // Treated as public transport proxy
-    public: { speedKmh:20 , overheadMinutes: 12, minMinutes: 15 }
+    walking: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }, // Public transport proxy: 15km/h + 12min overhead
+    public: { speedKmh: 15, overheadMinutes: 12, minMinutes: 15 }
   }
 
   private readonly maxTravelMinutes: number;
@@ -76,8 +78,13 @@ export class TravelTimeService {
     // 1. Check Cache
     try {
       const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
-      // Only return cached value if it's from ORS, or if we don't have an API key to refresh it
-      if (cached && (cached.source === 'ors' || !this.ORS_API_KEY)) {
+      
+      // For walkers: bypass ORS-sourced cache entries (they use unrealistic foot-walking times)
+      // Only use heuristic-sourced cache for walkers
+      if (cached && transportMode === 'walking' && cached.source === 'ors') {
+        console.log(`🚶 Bypassing ORS cache for walker - using heuristic for realistic public transport estimate`);
+        // Fall through to heuristic calculation
+      } else if (cached && (cached.source === 'ors' || cached.source === 'heuristic' || !this.ORS_API_KEY)) {
         return {
           fromLocation: from,
           toLocation: to,
@@ -95,11 +102,11 @@ export class TravelTimeService {
       console.error("Cache lookup failed:", e);
     }
 
-    // 2. Try OpenRouteService
-    if (this.ORS_API_KEY) {
+    // 2. Try OpenRouteService (skip for walkers - use heuristic for realistic public transport estimate)
+    // Walkers don't use pure walking routes; they use bus/train/lifts, so heuristic is more accurate
+    if (this.ORS_API_KEY && transportMode !== 'walking') {
       try {
-        const orsMode = transportMode === 'walking' ? 'foot-walking' : 
-                        transportMode === 'public' ? 'driving-car' : 'driving-car';
+        const orsMode = transportMode === 'public' ? 'driving-car' : 'driving-car';
         console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
         const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
           method: 'POST',

@@ -98,11 +98,14 @@ export function calculateTravelTime(
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 10;
   } else if (mode === 'walking') {
-    // Walking: ~3 km/h conservative walking speed (no peak time rules applied)
-    const speedKmh = 3;
-    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
-    minTravelMinutes = 5;
-    // Return early - walkers don't get congestion multiplier
+    // Walkers are treated as public transport users (bus/train/lift mix), NOT pedestrians
+    // This matches real-world UK care where "walkers" rarely walk entire routes
+    // Formula: Haversine × 1.2 road factor, 15 km/h avg speed, 12 min overhead, 15 min minimum
+    const speedKmh = 15;
+    const fixedOverheadMinutes = 12; // Waiting, connections, walking to/from stops
+    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
+    minTravelMinutes = 15;
+    // Return early - walkers don't get congestion multiplier (public transport is steadier)
     return Math.max(minTravelMinutes, Math.round(baseTravelMinutes));
   } else {
     baseTravelMinutes = (roadDistanceKm / 32) * 60;
