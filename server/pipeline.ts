@@ -3633,11 +3633,23 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
         if (visitStart) {
           try {
-            const visitDate = format(parseDate(visitStart), "yyyy-MM-dd");
-            // Calculate duration, default to 60 minutes if end time is missing
-            const duration = visitEnd ?
-              Math.round((parseDate(visitEnd).getTime() - parseDate(visitStart).getTime()) / (1000 * 60)) :
+            const startDate = parseDate(visitStart);
+            const visitDate = format(startDate, "yyyy-MM-dd");
+            
+            // Calculate end date and duration
+            const endDate = visitEnd ? parseDate(visitEnd) : null;
+            const duration = endDate ?
+              Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60)) :
               60;
+
+            // CRITICAL: Reject overnight/multi-day visits completely (crosses midnight)
+            if (endDate) {
+              const endDateStr = format(endDate, "yyyy-MM-dd");
+              if (visitDate !== endDateStr) {
+                console.log(`🚫 REJECTING overnight visit in extractAndStoreGeographicalData: ${clientName} starts ${visitDate} ends ${endDateStr} - crosses midnight boundary`);
+                continue; // Skip this visit entirely
+              }
+            }
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
 
@@ -3645,31 +3657,20 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             const clientLocation = await storage.getClientLocationByName(branchId, clientName);
 
             if (clientLocation && !visitsMap.has(visitKey)) {
-              // Extract time windows for VRPTW optimizer
-              const startDate = parseDate(visitStart);
-              // Ensure end date is valid, default to start date + duration if missing
-              const endDate = visitEnd ? parseDate(visitEnd) : new Date(startDate.getTime() +
-                duration * 60000);
-
               // Convert to minutes since midnight for optimizer
-              // Handle overnight shifts by allowing endMinutes to exceed 1440
               const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
-              let endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
-              
-              if (endDate.getTime() > startDate.getTime() && (endDate.getDate() !== startDate.getDate() || endDate.getMonth() !== startDate.getMonth())) {
-                const dayDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                if (dayDiff >= 1 || (endDate.getHours() * 60 + endDate.getMinutes() < startMinutes)) {
-                   endMinutes += 1440;
-                }
-              }
+              let endMinutes = endDate ? endDate.getHours() * 60 + endDate.getMinutes() : startMinutes + duration;
 
+              // Calculate fallback end date for formatting if original was missing
+              const effectiveEndDate = endDate || new Date(startDate.getTime() + duration * 60000);
+              
               const visitData = {
                 branchId: branchId, // <<< ADDED: Pass branchId to saveVisit
                 clientId: clientLocation.id,
                 date: visitDate,
                 durationMinutes: Math.max(duration, 15), // Minimum 15 minutes duration
                 preferredStartTime: visitStart,
-                preferredEndTime: visitEnd || format(endDate, "yyyy-MM-dd HH:mm:ss"), // Use formatted end date if original was missing
+                preferredEndTime: visitEnd || format(effectiveEndDate, "yyyy-MM-dd HH:mm:ss"), // Use formatted end date if original was missing
                 serviceType: serviceType,
                 priority: 1, // Default priority
                 // Additional fields for VRPTW optimizer
