@@ -730,15 +730,16 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       continue;
     }
 
-    // INCLUDE overnight/multi-day visits - count them on the START date
-    // User requirement: 22:00-07:00 and 20:00-08:00 should be counted fully on start date
+    // EXCLUDE overnight/multi-day visits from totals
+    // User requirement: Night visits should not be included in totals or scheduling
     const date = format(parseDate(start), "yyyy-MM-dd");
     
     if (start && end) {
       const endDate = format(parseDate(end), "yyyy-MM-dd");
       if (date !== endDate) {
         const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-        console.log(`✅ INCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (counting on start date)`);
+        console.log(`🚫 EXCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (night/multi-day excluded)`);
+        continue; // Skip this visit entirely
       }
     }
 
@@ -1192,8 +1193,8 @@ export async function parseExcelFiles(
     .replace(/\s+/g, ' ')      // Normalize spaces
     .trim();
 
-  // EXCLUDE CANCELLED, SECONDARY, OFFICE, TRAINING, AND SHADOWING
-  // Keep night shifts in Client Required calculation as requested
+  // EXCLUDE CANCELLED, SECONDARY, OFFICE, TRAINING, SHADOWING, AND NIGHT SHIFTS
+  // Night shifts are EXCLUDED from Client Required calculation
   const DEMAND_EXCLUDED_TYPES = [
     'multiple care (secondary)',
     'secondary',
@@ -1203,7 +1204,14 @@ export async function parseExcelFiles(
     'office hours',
     'office',
     'training',
-    'shadowing'
+    'shadowing',
+    'nights - sleep in',
+    'sleep in',
+    'nights - waking nights',
+    'waking nights',
+    'night',
+    'overnight',
+    'sleepover'
   ];
 
   const isExcludedType = DEMAND_EXCLUDED_TYPES.some(excluded =>
@@ -1235,7 +1243,7 @@ export async function parseExcelFiles(
 
   console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
   console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
-  console.log(`  ✅ Night shifts: NOW INCLUDED in demand calculation`);
+  console.log(`  ❌ Night shifts: EXCLUDED from demand calculation`);
   console.log(`  ❌ Office hours, Training, Shadowing: EXCLUDED as requested`);
 
   // Group by weekday and sum duration
@@ -1396,7 +1404,7 @@ export async function parseExcelFiles(
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
 
-      // ALLOW night shifts (start and end dates differ by 1 day)
+      // EXCLUDE multi-day availability (dates differ by more than 0 days = overnight/multi-day)
       if (row["End Date"]) {
         try {
           const parsedEndDate = parseDate(row["End Date"]);
@@ -1405,10 +1413,11 @@ export async function parseExcelFiles(
 
           const diffInDays = Math.abs(differenceInDays(parsedEndDate, parsedStartDate));
 
-          if (diffInDays > 1) {
-            console.log(`🚫 REJECTING availability for ${empName}: Start date ${startDateStr} and end date ${endDateStr} differ by ${diffInDays} days - only single or overnight shifts supported`);
+          // Reject ALL multi-day entries (including overnight = 1 day difference)
+          if (diffInDays >= 1) {
+            console.log(`🚫 REJECTING multi-day availability for ${empName}: Start ${startDateStr}, End ${endDateStr} (${diffInDays} day(s) - overnight/multi-day excluded)`);
             warnings.push(
-              `Availability row ${index + 1} (${empName}): Rejected - dates differ by ${diffInDays} days. Only single or overnight shifts are supported.`,
+              `Availability row ${index + 1} (${empName}): Rejected - multi-day availability (${diffInDays} day(s)). Only same-day availability is supported.`,
             );
             return;
           }
@@ -1504,12 +1513,24 @@ export async function parseExcelFiles(
         lowerType.includes('admin')
       );
 
-      // Night shifts are NOW INCLUDED for both capacity AND scheduled hours
-      // (Filtering handled by EXCLUDED_TYPES at higher level)
-      
       // For office hours/shadowing: only require employee name and timestamps
       // For regular visits: require all numeric fields
       const empName = row["Actual Employee Name"] || row["Planned Employee Name"];
+      
+      // Night shifts are EXCLUDED from both capacity AND scheduled hours
+      // Check if this is a night shift entry and exclude it
+      const isNightShift = lowerType && (
+        lowerType.includes('night') ||
+        lowerType.includes('sleep in') ||
+        lowerType.includes('waking') ||
+        lowerType.includes('overnight') ||
+        lowerType.includes('sleepover')
+      );
+      
+      if (isNightShift) {
+        console.log(`🚫 EXCLUDING night shift from capacity: ${empName} - ${serviceType}`);
+        return; // Skip night shift entries
+      }
       const payHours = Number(row["Actual Pay Rate Hours"]) || 0;
       
       // Debug logging for Chloe's shadowing entries
@@ -1555,18 +1576,15 @@ export async function parseExcelFiles(
       // Check for dummy/planning-only rows (often have keywords in name)
       const clientName = (pickCol(row, CLIENT_COLS) || "").toLowerCase();
 
-      // Note: Night shifts are now INCLUDED to show in Daily Capacity Summary
-      // They are only excluded from auto-scheduling (in scheduling-engine.ts)
-      // Even if cancelled, we might want to see them in the capacity view if requested, 
-      // but usually cancellation = remove. Keeping cancellation check.
+      // Note: Night shifts are EXCLUDED from Daily Capacity Summary and scheduling
+      // Cancellation check remains in place
       
       if (isSecondary) {
         filteredSecondaryCount++;
         return;
       }
       
-      // Night shifts skip isSecondary but pass through to validatedGuaranteed
-      // so they can be summed into scheduledHoursMap.
+      // Night shifts are filtered out above, secondary care is filtered here
       
       if (!isCancelOk) {
         return;
@@ -2897,34 +2915,28 @@ export async function processCapacityData(
         let freeWindows = "";
         try {
           if (availabilityWindows) {
-            // Include ALL windows including night shifts for capacity display
-            // But if employee has BOTH day AND night on same date, show 0 for night
+            // EXCLUDE night windows from capacity display
+            // Only include day windows (06:00-22:00)
             const allWindows = availabilityWindows
               .split(',')
               .map(w => w.trim())
               .filter(w => w && w.includes('-'));
 
-            // Check if there are both day and night windows
-            const hasNightWindow = allWindows.some(w => {
-              const [start] = w.split('-').map(t => t.trim());
-              const startHour = parseInt(start.split(':')[0]);
-              return startHour >= 22 || startHour < 6; // Night = 22:00-06:00
-            });
-            
-            const hasDayWindow = allWindows.some(w => {
+            // Filter to only day windows (start hour between 06:00 and 22:00)
+            const dayWindows = allWindows.filter(w => {
               const [start] = w.split('-').map(t => t.trim());
               const startHour = parseInt(start.split(':')[0]);
               return startHour >= 6 && startHour < 22; // Day = 06:00-22:00
             });
-
-            // If employee has both day and night on same date, only use day windows
-            let processedWindows = allWindows;
             
-            // USER REQUEST: Always count the whole night window on the start date
-            // The logic below that was filtering night windows when day windows were present is removed
-            // to ensure night workers (22-07) are fully counted on the 26th.
+            // Check if employee has ONLY night windows (no day availability)
+            if (dayWindows.length === 0 && allWindows.length > 0) {
+              console.log(`🚫 EXCLUDING night-only employee from capacity: ${employeeName} on ${dateStr}`);
+              // Return null to mark for filtering - they only have night availability
+              return null;
+            }
 
-            const filteredAvailability = processedWindows.join(', ');
+            const filteredAvailability = dayWindows.join(', ');
 
             if (filteredAvailability) {
               const capacityResult = computeCapacityWindows(
@@ -2992,7 +3004,7 @@ export async function processCapacityData(
 
         return summaryRecord;
       },
-    );
+    ).filter((record): record is NonNullable<typeof record> => record !== null);
   });
 
   // === ALL VISIT DATA EXTRACTION NOW MOVED TO extractAndStoreGeographicalData ===
@@ -3590,12 +3602,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       // Skip cancelled entries
       if (!isCancellationBlank(row["Cancellation Description"])) continue;
 
-  // ALLOW night visits (sleep in, waking night, etc.)
+  // EXCLUDE night visits (sleep in, waking night, etc.) from scheduling
   const serviceType = row["Actual Service Type Description"] || row["Service Type Description"] || "";
   if (serviceType) {
     const lowerType = String(serviceType).toLowerCase();
-    // REMOVED night shifts from exclusion list for scheduling
-    const excludedTypes = ['office hours', 'multiple care (secondary)', 'secondary', 'training', 'shadowing'];
+    // Night shifts EXCLUDED from scheduling
+    const excludedTypes = ['office hours', 'multiple care (secondary)', 'secondary', 'training', 'shadowing',
+      'nights - sleep in', 'sleep in', 'nights - waking nights', 'waking nights', 'night', 'overnight', 'sleepover'];
     if (excludedTypes.some(excluded => lowerType.includes(excluded))) {
       continue;
     }
