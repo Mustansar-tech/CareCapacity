@@ -333,28 +333,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background scroll-modern" data-testid="dashboard-container">
-      {/* Global Navigation Bar */}
-      <nav className="sticky top-0 z-50 w-full border-b border-card-border bg-background/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-lg h-16 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-md cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => setActiveTab("overview")}
-            title="Go to Overview"
-          >
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-sm">
-              <BarChart3 className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <h1 className="font-display text-xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent hidden sm:block">
-              Care Capacity Dashboard
-            </h1>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            {/* Branch selector or other global items can go here if needed */}
-          </div>
-        </div>
-      </nav>
-
       {/* Hero Section with Modern Layout - Only show on Overview tab */}
       {activeTab === "overview" && (
         <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
@@ -382,6 +360,27 @@ export default function Dashboard() {
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed" data-testid="dashboard-description">
                 Intelligent workforce capacity analysis for optimal care scheduling and resource management
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Conditional Header for non-overview tabs */}
+      {activeTab !== "overview" && (
+        <div className="max-w-7xl mx-auto px-lg pt-8 animate-fade-in">
+          <div 
+            className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity w-fit"
+            onClick={() => setActiveTab("overview")}
+            title="Return to Overview"
+          >
+            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-md">
+              <BarChart3 className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h2 className="font-display text-2xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                Care Capacity Dashboard
+              </h2>
+              <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-secondary rounded-full"></div>
             </div>
           </div>
         </div>
