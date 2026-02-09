@@ -75,11 +75,11 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             className="relative"
           >
             <div className="absolute inset-0 bg-white/20 rounded-3xl blur-xl scale-110" />
-            <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-16 shadow-2xl">
+            <div className="relative p-16">
               <img
                 src={homeInsteadLogo}
                 alt="Care Capacity Dashboard"
-                className="h-56 w-auto object-contain"
+                className="h-64 w-64 object-contain rounded-full shadow-2xl"
               />
             </div>
           </motion.div>

@@ -64,12 +64,12 @@ function Navigation() {
         <div className="flex items-center justify-between">
           {/* Logo Section */}
           <Link href="/" className="group" data-testid="link-home">
-            <div className="flex items-center gap-3 transition-all duration-300 hover:scale-105">
+            <div className="flex items-center gap-4 transition-all duration-300 hover:scale-105">
               <div className="relative">
                 <img 
                   src={homeInsteadLogo} 
                   alt="Care Capacity Dashboard" 
-                  className="h-20 w-auto object-contain"
+                  className="h-20 w-20 object-contain rounded-full"
                 />
               </div>
               <div className="hidden sm:block">
