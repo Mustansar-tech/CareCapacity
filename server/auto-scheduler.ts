@@ -790,24 +790,30 @@ export class AutoScheduler {
   ): number {
     let score = 0;
 
-    // PRIORITY 1: GH (Guaranteed Hours) employees get TOP priority (40% weight)
+    // PRIORITY 1: GH (Guaranteed Hours) employees get TOP priority (50% weight)
     // GH employees have contractedDailyHours > 0, non-GH (ad-hoc) have 0
     const isGHEmployee = employee.contractedDailyHours > 0;
-    const ghPriorityScore = isGHEmployee ? 1.0 : 0.0;
-    score += ghPriorityScore * 0.40;
+    const isMale = employee.gender?.toLowerCase() === 'male';
+    
+    // EXTREME weight for Male GH to ensure they are picked first for every visit they can do
+    let ghPriorityScore = 0;
+    if (isGHEmployee) {
+      ghPriorityScore = isMale ? 1.0 : 0.6; // Male GH gets absolute top score
+    }
+    
+    score += ghPriorityScore * 0.50; // Increased weight from 0.40 to 0.50
 
-    // Factor 2: Minimize travel time (25% weight) - score based, not constraint
+    // Factor 2: Minimize travel time (20% weight) - reduced weight to prioritize GH filling
     // Use 40 minutes as reference for total travel (20 min each direction)
     const totalTravel = travelToPrev + travelToNext;
     const travelScore = Math.max(0, 1 - totalTravel / 40);
-    score += travelScore * 0.25;
+    score += travelScore * 0.20; // Reduced from 0.25 to 0.20
 
-    // Factor 3: Time window preference (15% weight)
-    // Remove time-of-day penalties - evening visits are just as valid
+    // Factor 3: Time window preference (10% weight)
     const timePreferenceScore = visit.preferredStartTime 
-      ? Math.max(0, 1 - Math.abs(visit.startTime - visit.preferredStartTime) / 180) // 3-hour tolerance for flexibility
-      : 0.7; // Default higher score - all times are acceptable
-    score += timePreferenceScore * 0.15;
+      ? Math.max(0, 1 - Math.abs(visit.startTime - visit.preferredStartTime) / 180)
+      : 0.7;
+    score += timePreferenceScore * 0.10; // Reduced from 0.15 to 0.10
 
     // Factor 4: Employee utilization (15% weight) - for GH employees, prioritize filling their hours
     const weeklyContracted = employee.contractedDailyHours * 5; // Assume 5-day week
