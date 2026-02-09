@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
+import homeInsteadLogo from "@/assets/logo.png";
 
 interface SplashScreenProps {
   onComplete: () => void;
