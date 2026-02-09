@@ -7,32 +7,27 @@ import { parseExcelFiles, processCapacityData, generateExcelExport } from './pip
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
 
+import { logger } from "./logger";
+
 /**
  * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)
- * Validates that the branch exists in the database
- * Provides backward compatibility via DEFAULT_BRANCH_ID env var
  */
 async function resolveBranch(req: Request): Promise<string> {
-  // Extract branchId from query (GET) or body (POST/PUT/DELETE)
   const branchId = req.query.branchId as string || req.body?.branchId as string;
-
-  // Fallback to default branch if configured (for backward compatibility during transition)
   const defaultBranchId = process.env.DEFAULT_BRANCH_ID;
   const resolvedBranchId = branchId || defaultBranchId;
 
   if (!resolvedBranchId) {
-    throw new Error('branchId is required. Provide it as a query parameter (GET) or in request body (POST/PUT/DELETE)');
+    throw new Error('branchId is required');
   }
 
-  // Validate branch exists
   const branch = await storage.getBranchById(resolvedBranchId);
   if (!branch) {
     throw new Error(`Branch with ID '${resolvedBranchId}' not found`);
   }
 
-  // Log for metrics (to identify legacy callers using fallback)
   if (!branchId && defaultBranchId) {
-    console.log(`⚠️  Request to ${req.method} ${req.path} using DEFAULT_BRANCH_ID fallback: ${defaultBranchId}`);
+    logger.warn(`Request using DEFAULT_BRANCH_ID fallback`, { defaultBranchId, path: req.path });
   }
 
   return resolvedBranchId;
@@ -118,22 +113,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Health check endpoint for monitoring
   app.get('/health', async (_req, res) => {
-    const { checkDatabaseHealth } = await import('./db');
-    const dbHealthy = await checkDatabaseHealth();
-    
-    const health = {
-      status: dbHealthy ? 'healthy' : 'degraded',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      database: dbHealthy ? 'connected' : 'disconnected',
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
-      }
-    };
+    try {
+      const { checkDatabaseHealth } = await import('./db');
+      const dbHealthy = await checkDatabaseHealth();
+      
+      const health = {
+        status: dbHealthy ? 'healthy' : 'degraded',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: dbHealthy ? 'connected' : 'disconnected'
+      };
 
-    const statusCode = dbHealthy ? 200 : 503;
-    res.status(statusCode).json(health);
+      res.status(dbHealthy ? 200 : 503).json(health);
+    } catch (error) {
+      logger.error('Health check failed', error);
+      res.status(500).json({ status: 'error' });
+    }
   });
 
   // GET /api/branches - Get all available branches
