@@ -68,8 +68,8 @@ function Navigation() {
               <div className="relative">
                 <img 
                   src={homeInsteadLogo} 
-                  alt="Home Instead" 
-                  className="h-12 w-auto object-contain"
+                  alt="Care Capacity Dashboard" 
+                  className="h-16 w-auto object-contain"
                 />
               </div>
               <div className="hidden sm:block">
