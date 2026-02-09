@@ -758,9 +758,10 @@ export class AutoScheduler {
         : 0;
 
       // Check if insertion is feasible with scheduling buffer
-      const BUFFER = 2; // Reduced buffer to allow tighter scheduling of visits
-      const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev : visit.startTime;
-      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext : visit.endTime + 10; // Allow 10min overflow for end of shift
+      // Buffer between visits (15 minutes as requested)
+      const buffer = this.bufferTime;
+      const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
+      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10; // Allow 10min overflow for end of shift
 
       // Allow "travel time extra": if travel time exceeds gap by up to 5 minutes, still allow it
       // This effectively "compresses" the visit or shifts it slightly to make it fit.
@@ -848,7 +849,7 @@ export class AutoScheduler {
     const travelTimeBefore = assignment.score > 0 ? (assignment as any).travelTimeBefore || 0 : 0;
 
     const actualStartTime = prevVisit 
-      ? Math.max(visit.startTime - 15, prevVisit.actualEndTime + travelTimeBefore - 15) // Allow 15min earlier start or compression
+      ? Math.max(visit.startTime - 15, prevVisit.actualEndTime + travelTimeBefore + this.bufferTime - 15) // Use requested buffer, allow 15min earlier start or compression
       : visit.startTime;
 
     return {
