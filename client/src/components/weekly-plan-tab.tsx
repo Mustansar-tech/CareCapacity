@@ -236,7 +236,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       clientLogger.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
 
-      return result;
+      // Ensure reason is mapped to unallocatedReason to satisfy type safety
+      const typedResult: WeeklyScheduleData = {
+        assignments: result.assignments,
+        unallocated: result.unallocated.map((v: any) => ({
+          ...v,
+          unallocatedReason: v.reason || v.unallocatedReason || "Not optimal for this run"
+        })),
+        metrics: result.metrics
+      };
+
+      return typedResult;
     },
     onSuccess: async (result) => {
       setWeeklySchedule(result);
@@ -270,7 +280,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Load schedule for the current week being viewed
   const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<any>({
-    queryKey: ['/api/weekly-schedule', weekStart, data?.dailySummary?.[0]?.branchId], // Added branchId to query key
+    queryKey: ['/api/weekly-schedule', weekStart, (data as any)?.branchId], // Access branchId safely
     enabled: !!data && !!weekStart,
   });
 

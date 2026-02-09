@@ -339,11 +339,19 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto px-lg py-3xl">
             <div className="text-center">
               <div className="inline-flex items-center gap-md mb-lg animate-scale-in">
-                <div className="w-16 h-16 rounded-2xl gradient-primary elevation-3 flex items-center justify-center">
+                <div 
+                  className="w-16 h-16 rounded-2xl gradient-primary elevation-3 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => setActiveTab("overview")}
+                  title="Go to Overview"
+                >
                   <BarChart3 className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2" data-testid="dashboard-title">
+                  <h1 
+                    className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2 cursor-pointer" 
+                    data-testid="dashboard-title"
+                    onClick={() => setActiveTab("overview")}
+                  >
                     Care Capacity Dashboard
                   </h1>
                   <div className="w-24 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full mx-auto"></div>
