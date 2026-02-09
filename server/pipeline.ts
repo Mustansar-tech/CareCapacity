@@ -1256,6 +1256,19 @@ export async function parseExcelFiles(
     if (!plannedStart) return;
 
     const startDate = parseDate(plannedStart);
+    const plannedEnd = row["Planned End Date And Time"];
+    
+    // EXCLUDE overnight/midnight-crossing visits from demand (Client Required)
+    if (plannedEnd) {
+      const endDate = parseDate(plannedEnd);
+      if (format(startDate, "yyyy-MM-dd") !== format(endDate, "yyyy-MM-dd")) {
+        if (demandRows.indexOf(row) < 10) {
+          console.log(`  🚫 EXCLUDING overnight visit from demand: ${row["Actual Employee Name"]} starts ${format(startDate, "yyyy-MM-dd HH:mm")} ends ${format(endDate, "yyyy-MM-dd HH:mm")}`);
+        }
+        return;
+      }
+    }
+
     const weekdayName = weekdayNames[startDate.getDay()];
 
     // Use PLANNED DURATION column as primary source
