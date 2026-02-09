@@ -69,7 +69,7 @@ function Navigation() {
                 <img 
                   src={homeInsteadLogo} 
                   alt="Care Capacity Dashboard" 
-                  className="h-16 w-auto object-contain"
+                  className="h-20 w-auto object-contain"
                 />
               </div>
               <div className="hidden sm:block">
