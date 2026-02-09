@@ -128,7 +128,7 @@ interface AssignedVisit {
 
 interface WeeklyScheduleResult {
   assignments: Record<string, Record<string, AssignedVisit[]>>; // date -> employee -> visits
-  unallocated: Array<ClientVisit & { unallocatedReason?: string; reason?: string }>;
+  unallocated: Array<ClientVisit & { reason: string }>;
   metrics: {
     totalVisitsAssigned: number;
     totalVisitsUnallocated: number;

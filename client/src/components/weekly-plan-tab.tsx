@@ -42,7 +42,7 @@ interface AssignedVisit {
 
 interface WeeklyScheduleData {
   assignments: Record<string, Record<string, AssignedVisit[]>>; // date -> employee -> visits
-  unallocated: Array<ClientVisit & { unallocatedReason?: string; reason?: string }>; // Updated property name
+  unallocated: Array<ClientVisit & { unallocatedReason: string }>; // Updated property name
   metrics: {
     totalVisitsAssigned: number;
     totalVisitsUnallocated: number;
@@ -270,7 +270,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Load schedule for the current week being viewed
   const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<any>({
-    queryKey: ['/api/weekly-schedule', weekStart, (data?.dailySummary as any)?.[0]?.branchId], // Added branchId to query key
+    queryKey: ['/api/weekly-schedule', weekStart, data?.dailySummary?.[0]?.branchId], // Added branchId to query key
     enabled: !!data && !!weekStart,
   });
 
@@ -809,8 +809,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 shrink-0">
                                   Not optimal
                                 </Badge>
-                                <p className="text-[10px] text-muted-foreground italic line-clamp-2" title={visit.unallocatedReason || visit.reason}>
-                                  {visit.unallocatedReason || visit.reason || "No reason provided"}
+                                <p className="text-[10px] text-muted-foreground italic line-clamp-2" title={visit.unallocatedReason}>
+                                  {visit.unallocatedReason}
                                 </p>
                               </div>
                             </div>

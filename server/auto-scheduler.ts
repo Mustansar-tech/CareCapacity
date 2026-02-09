@@ -70,7 +70,6 @@ interface SchedulingVisit {
   serviceType: string;
   preferredStartTime?: number;
   preferredEndTime?: number;
-  unallocatedReason?: string;
 }
 
 interface ScheduledVisit extends SchedulingVisit {
@@ -207,7 +206,7 @@ export class AutoScheduler {
         employeeSchedules.set(bestAssignment.employeeName, schedule);
         // Removed debug log for better privacy in production
       } else {
-        unassignedVisits.push({ ...visit, unallocatedReason: "Could not fit in male GH schedule" });
+        unassignedVisits.push(visit);
       }
     }
 
@@ -230,7 +229,7 @@ export class AutoScheduler {
           employeeSchedules.set(bestAssignment.employeeName, schedule);
           logger.debug(`[Other-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
-          phase1_5Unassigned.push({ ...visit, unallocatedReason: visit.unallocatedReason || "Could not fit in other GH schedule" });
+          phase1_5Unassigned.push(visit);
         }
       }
       unassignedVisits = phase1_5Unassigned;
@@ -259,7 +258,7 @@ export class AutoScheduler {
           
           logger.debug(`[Non-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
-          phase2Unassigned.push({ ...visit, unallocatedReason: visit.unallocatedReason || "Could not fit in non-GH schedule" });
+          phase2Unassigned.push(visit);
         }
       }
 
@@ -296,7 +295,7 @@ export class AutoScheduler {
           schedule.visits.push(scheduledVisit);
           logger.debug(`[EXTREME] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
-          phase4Unassigned.push({ ...visit, unallocatedReason: visit.unallocatedReason || "No suitable staff found within travel distance" });
+          phase4Unassigned.push(visit);
         }
       }
       unassignedVisits = phase4Unassigned;
