@@ -1,7 +1,8 @@
 // Scheduling utility functions for VRPTW optimization
 
 // Maximum travel time in minutes before a route is considered infeasible
-export const MAX_TRAVEL_TIME_MINUTES = 60;
+// Set to 400 to effectively remove the limit and maximize visit coverage
+export const MAX_TRAVEL_TIME_MINUTES = 400;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
@@ -86,23 +87,21 @@ export function calculateTravelTime(
   let minTravelMinutes: number;
   
   if (mode === 'car') {
-    // Car: ~32 km/h avg for urban UK driving (accounts for traffic lights, turns, parking)
-    // This gives realistic times: 5km = ~10min, 10km = ~20min
-    const speedKmh = 32;
+    // Car: 34 km/h avg for urban UK driving (aligned with server-side config)
+    const speedKmh = 34;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
   } else if (mode === 'public') {
-    // Public transport: slower due to waiting, walking to stops, indirect routes
+    // Public transport: 15 km/h with 15 min overhead (aligned with server-side config)
     const speedKmh = 15;
-    const fixedOverheadMinutes = 10; // Waiting/walking time
+    const fixedOverheadMinutes = 15;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
-    minTravelMinutes = 10;
+    minTravelMinutes = 15;
   } else if (mode === 'walking') {
     // Walkers are treated as public transport users (bus/train/lift mix), NOT pedestrians
-    // This matches real-world UK care where "walkers" rarely walk entire routes
-    // Formula: Haversine × 1.2 road factor, 15 km/h avg speed, 12 min overhead, 15 min minimum
+    // Formula: Haversine × 1.2 road factor, 15 km/h avg speed, 15 min overhead, 15 min minimum
     const speedKmh = 15;
-    const fixedOverheadMinutes = 12; // Waiting, connections, walking to/from stops
+    const fixedOverheadMinutes = 15;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 15;
     // Return early - walkers don't get congestion multiplier (public transport is steadier)
@@ -262,8 +261,10 @@ export function isInsertionFeasible(
     return true; // Evening visits are always feasible for capacity filling
   }
 
-  // Check time constraint with previous visit (only check if there's enough time to travel)
+  // Check time constraint with previous visit (with 15-minute compression allowance)
   // ALLOW LARGE GAPS - employee can have free time
+  const COMPRESSION_ALLOWANCE = 15; // Allow visits even if travel slightly exceeds gap
+  
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
       { lat: prevVisit.lat, lng: prevVisit.lng },
@@ -271,14 +272,12 @@ export function isInsertionFeasible(
       mode
     );
 
-    if (prevVisit.end + travelFromPrev > visit.start) {
-      return false; // Not enough time to travel from previous visit
+    if (prevVisit.end + travelFromPrev > visit.start + COMPRESSION_ALLOWANCE) {
+      return false; // Not enough time even with compression
     }
-
-    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
-  // Check time constraint with next visit (only check if there's enough time to travel)
+  // Check time constraint with next visit (with 15-minute compression allowance)
   // ALLOW LARGE GAPS - employee can have free time
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
@@ -287,11 +286,9 @@ export function isInsertionFeasible(
       mode
     );
 
-    if (visit.end + travelToNext > nextVisit.start) {
-      return false; // Not enough time to travel to next visit
+    if (visit.end + travelToNext > nextVisit.start + COMPRESSION_ALLOWANCE) {
+      return false; // Not enough time even with compression
     }
-
-    // REMOVED: No penalty for large gaps - they're acceptable
   }
 
   return true; // Visit is feasible - gaps are OK

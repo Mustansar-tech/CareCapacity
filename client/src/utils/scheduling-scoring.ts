@@ -37,14 +37,13 @@ export interface MatchScore {
   gap: number;
 }
 
-// Scoring weights (optimized for MAXIMUM CAPACITY UTILIZATION)
-// GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
-// EVENING VISITS ARE GOOD - helps fill GH employee contracted hours
+// Scoring weights (optimized for MAXIMUM VISIT COVERAGE)
+// Prioritize filling as many visits as possible over travel efficiency
 const WEIGHTS = {
-  tightness: 0.02,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
-  travelAdded: 0.15,    // Reduced to prioritize capacity
-  windowSlack: 0.50,    // HIGHEST weight - if it fits in window, assign it
-  homeProximity: 0.33,  // INCREASED - ensure local anchor visits for GH staff
+  tightness: 0.10,      // Some weight for tight scheduling
+  travelAdded: 0.25,    // Reduced - travel distance matters less than coverage
+  windowSlack: 0.40,    // High weight - prefer visits that fit well in windows
+  homeProximity: 0.25,  // Prefer routes near home but don't reject far ones
 };
 
 // Calculate score for a candidate visit insertion
@@ -153,9 +152,9 @@ export function scoreVisitMatch(
   }
 
   const travelAdded = newTravel - currentTravel;
-  // Score based on travel added - use 60 minutes as reference (more lenient)
+  // Score based on travel added - use 120 minutes as reference (very lenient to maximize coverage)
   // Longer travel is acceptable if it helps utilize capacity
-  const travelAddedScore = Math.max(0, 1 - (travelAdded / 60));
+  const travelAddedScore = Math.max(0, 1 - (travelAdded / 120));
 
   // 3. Window slack score (prefer visits that use window time efficiently)
   // Find the tightest window that contains this visit
@@ -189,8 +188,8 @@ export function scoreVisitMatch(
     );
 
     // Score based on distance - no hard limit, just preference
-    // Use 60 minutes as reference point for scoring (very long travel gets low score)
-    homeProximityScore = Math.max(0, 1 - (distFromHome / 60));
+    // Use 120 minutes as reference point for scoring (very lenient to maximize coverage)
+    homeProximityScore = Math.max(0, 1 - (distFromHome / 120));
   } else if (bestIndex === visits.length) {
     // Last visit - prefer close to home
     const distToHome = getTravelMinutes(
@@ -201,8 +200,8 @@ export function scoreVisitMatch(
     );
 
     // Score based on distance - no hard limit, just preference
-    // Use 60 minutes as reference point for scoring (very long travel gets low score)
-    homeProximityScore = Math.max(0, 1 - (distToHome / 60));
+    // Use 120 minutes as reference point for scoring (very lenient to maximize coverage)
+    homeProximityScore = Math.max(0, 1 - (distToHome / 120));
   }
 
   // Calculate weighted total score

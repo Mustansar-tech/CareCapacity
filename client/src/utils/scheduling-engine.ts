@@ -65,10 +65,10 @@ const EXCLUDED_SERVICE_TYPES = [
 const MIN_WINDOW_DURATION = 0;
 
 // Time flexibility tolerance (minutes) - allows visits to be slightly outside windows
-const TIME_FLEXIBILITY_MINUTES = 5; // Reduced from 10 to 5
+const TIME_FLEXIBILITY_MINUTES = 10; // Increased to allow more flexibility
 
 // Relaxed pass tolerances
-const RELAXED_TIME_TOLERANCE = 10; // Reduced from 15 to 10
+const RELAXED_TIME_TOLERANCE = 20; // Increased for maximum coverage
 
 // GH (Guaranteed Hours) bonus for prioritization
 const GH_SCORE_BONUS = 0.45;
@@ -80,13 +80,13 @@ const MAX_DAILY_CARE_MINUTES = MAX_DAILY_CARE_HOURS * 60;
 // Evening bonus for GH staff
 const GH_EVENING_BONUS = 0.35; 
 
-// Scoring weights (optimized for MAXIMUM CAPACITY UTILIZATION)
-// GAPS ARE ACCEPTABLE - prioritize filling employee hours over tight scheduling
+// Scoring weights (optimized for MAXIMUM VISIT COVERAGE)
+// Prioritize filling as many visits as possible over travel efficiency
 const WEIGHTS = {
-  tightness: 0.05,      // MINIMAL weight - gaps are perfectly fine, focus on capacity
-  travelAdded: 0.50,    // Increased weight - travel matters more to keep it under 60m
-  windowSlack: 0.30,    // Reduced weight - balance with travel
-  homeProximity: 0.15,  // Prefer routes near home
+  tightness: 0.10,      // Some weight for tight scheduling
+  travelAdded: 0.25,    // Reduced - travel distance matters less than coverage
+  windowSlack: 0.40,    // High weight - prefer visits that fit well in windows
+  homeProximity: 0.25,  // Prefer routes near home but don't reject far ones
 };
 
 // Check if employee has Guaranteed Hours (GH in name)
@@ -747,25 +747,8 @@ function assignVisitToBestEmployee(
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
     if (!matchScore || matchScore.score <= 0) continue;
 
-    // STRICT TRAVEL LIMIT: Do not assign if travel from previous OR to next exceeds 60 minutes
-    if (matchScore.travelFromPrev > 60 || matchScore.travelToNext > 60) {
-      console.log(`⚠️ STRICT TRAVEL LIMIT: ${schedule.employeeName} travel exceeds 60m limit (from=${matchScore.travelFromPrev}m, to=${matchScore.travelToNext}m)`);
-      continue;
-    }
-    
-    // Additional check: For first visit, verify travel from HOME doesn't exceed 60 minutes
-    if (schedule.assignedVisits.length === 0) {
-      const travelFromHome = getTravelMinutes(
-        { lat: schedule.homeLat, lng: schedule.homeLng },
-        { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
-        schedule.transportMode,
-        timeToMinutes(adjustedVisit.startTime)
-      );
-      if (travelFromHome > 60) {
-        console.log(`⚠️ STRICT HOME TRAVEL LIMIT: ${schedule.employeeName} home travel ${travelFromHome}m exceeds 60m limit`);
-        continue;
-      }
-    }
+    // Travel limit removed - no hard cap on travel time to maximize visit coverage
+    // Travel time is still factored into scoring (closer = higher score) but won't reject
 
     const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
 
@@ -777,6 +760,10 @@ function assignVisitToBestEmployee(
       insertionIndex++;
     }
 
+    // Travel feasibility checks with 15-minute compression allowance
+    // Allow visits even if travel slightly exceeds the gap (employee can leave a bit early or arrive a bit late)
+    const TRAVEL_COMPRESSION_ALLOWANCE = 15; // minutes of flexibility
+
     if (insertionIndex > 0) {
       const prev = schedule.assignedVisits[insertionIndex - 1];
       const travelFromPrev = getTravelMinutes(
@@ -786,8 +773,8 @@ function assignVisitToBestEmployee(
         timeToMinutes(prev.endTime)
       );
 
-      if (timeToMinutes(prev.endTime) + travelFromPrev > visitStartMinInternal) {
-        console.log(`⚠️ TRAVEL INFEASIBILITY (PREV): ${schedule.employeeName} needs ${travelFromPrev}min but only has ${visitStartMinInternal - timeToMinutes(prev.endTime)}min gap`);
+      const gap = visitStartMinInternal - timeToMinutes(prev.endTime);
+      if (travelFromPrev > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
         continue;
       }
     }
@@ -801,8 +788,8 @@ function assignVisitToBestEmployee(
         visitStartMinInternal + adjustedVisit.durationMinutes
       );
 
-      if (visitStartMinInternal + adjustedVisit.durationMinutes + travelToNext > timeToMinutes(next.startTime)) {
-        console.log(`⚠️ TRAVEL INFEASIBILITY (NEXT): ${schedule.employeeName} needs ${travelToNext}min but only has ${timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes)}min gap`);
+      const gap = timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes);
+      if (travelToNext > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
         continue;
       }
     }
@@ -891,11 +878,7 @@ function assignVisitToBestEmployee(
     );
     console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
     
-    // FINAL SAFETY CHECK: Reject if travel from home exceeds 60 minutes
-    if (actualTravelTimeBefore > 60) {
-      console.log(`❌ REJECTED: Travel from home (${actualTravelTimeBefore}min) exceeds 60 minute limit`);
-      return { success: false, reason: `Travel from home (${actualTravelTimeBefore}min) exceeds 60 minute limit` };
-    }
+    // Travel limit removed - allow any travel distance to maximize visit coverage
   } else {
     // Check if there's a large gap (90+ minutes) suggesting a home break
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
@@ -1611,6 +1594,70 @@ export function generateWeeklySchedule(
       }
     }
     remainingUnallocated = finalUnallocated;
+  }
+
+  // Fifth pass: DESPERATION - allow unknown-gender employees to serve gendered clients
+  // and use maximum time flexibility (30 min tolerance)
+  if (remainingUnallocated.length > 0) {
+    console.log(`\n🔄 FIFTH PASS (DESPERATION): Attempting ${remainingUnallocated.length} visits with gender relaxation`);
+    const fifthPassUnallocated: Array<ClientVisit & { reason: string }> = [];
+    
+    for (const visit of remainingUnallocated) {
+      const employeeSchedules = schedulesByDate[visit.date] || [];
+      
+      const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+      const alreadyAssigned = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+      
+      // Allow ANY employee except those with explicit gender mismatch
+      // Unknown gender employees CAN now serve gendered clients in desperation
+      const availableEmployees = employeeSchedules.filter(s => {
+        if (alreadyAssigned.has(s.employeeName)) return false;
+        
+        // Only reject explicit mismatches (male serving female-only client or vice versa)
+        const preference = getClientGenderPreference(visit.clientName);
+        if (preference && s.gender) {
+          const empGender = s.gender.toLowerCase();
+          if (preference === 'female' && (empGender === 'male' || empGender === 'm')) return false;
+          if (preference === 'male' && (empGender === 'female' || empGender === 'f')) return false;
+        }
+        // Allow unknown gender employees through
+        
+        // Check daily limit
+        const newCare = s.usedCapacityMinutes + visit.durationMinutes;
+        if (newCare > MAX_DAILY_CARE_MINUTES + 60) return false; // Allow 1 hour over daily limit
+        
+        return true;
+      });
+      
+      if (availableEmployees.length === 0) {
+        fifthPassUnallocated.push({ ...visit, reason: 'No compatible employee available (all passes exhausted)' });
+        continue;
+      }
+      
+      const relaxedVisit = { ...visit, _relaxedPass: true } as any;
+      
+      // GH-first even in desperation
+      const ghSchedules5 = availableEmployees.filter(s => isGHEmployee(s.employeeName));
+      
+      let result = ghSchedules5.length > 0
+        ? assignVisitToBestEmployee(relaxedVisit, ghSchedules5, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+        : { success: false };
+      
+      if (!result.success) {
+        result = assignVisitToBestEmployee(relaxedVisit, availableEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
+      
+      if (result.success && result.employeeName) {
+        if (!visitEmployeeAssignments.has(visitKey)) visitEmployeeAssignments.set(visitKey, new Set());
+        visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+        console.log(`✅ [Desperation] Assigned ${visit.clientName} to ${result.employeeName}`);
+      } else {
+        fifthPassUnallocated.push({ ...visit, reason: 'Could not fit in any schedule after all passes' });
+      }
+    }
+    
+    remainingUnallocated = fifthPassUnallocated;
+    console.log(`📊 Fifth pass results: ${remainingUnallocated.length} still unallocated`);
   }
 
   // Update unallocated with only the visits that couldn't be assigned in any pass

@@ -280,10 +280,13 @@ export class AutoScheduler {
       const phase4Unassigned: SchedulingVisit[] = [];
       for (const visit of unassignedVisits) {
         // Boost travel allowances even further for final attempt
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules, { 
-          relaxedTravel: true, 
-          extraAllowance: 30, // Allow up to 30 mins extra travel compression
-          earlyStart: 20      // Allow up to 20 mins early start
+        // Use all employees with boosted travel limits for maximum coverage
+        Array.from(employeeSchedules.values()).forEach(schedule => {
+          schedule.employee.maxTravelPerVisit += 30;
+        });
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
+        Array.from(employeeSchedules.values()).forEach(schedule => {
+          schedule.employee.maxTravelPerVisit -= 30;
         });
         if (bestAssignment) {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
@@ -760,9 +763,9 @@ export class AutoScheduler {
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10; // Allow 10min overflow for end of shift
 
-      // Allow "travel time extra": if travel time exceeds gap by up to 5 minutes, still allow it
+      // Allow "travel time extra": if travel time exceeds gap by up to 15 minutes, still allow it
       // This effectively "compresses" the visit or shifts it slightly to make it fit.
-      const maxCompression = 5; 
+      const maxCompression = 15; 
       if (earliestStart + visit.durationMinutes <= latestEnd + maxCompression) {
         // Calculate score based on multiple factors
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
@@ -800,11 +803,11 @@ export class AutoScheduler {
     
     score += ghPriorityScore * 0.70; // Increased weight from 0.50 to 0.70
 
-    // Factor 2: Minimize travel time (10% weight) - drastically reduced weight to prioritize GH filling
-    // Use 40 minutes as reference for total travel (20 min each direction)
+    // Factor 2: Minimize travel time (10% weight) - reduced weight to maximize coverage
+    // Use 120 minutes as reference for total travel (very lenient)
     const totalTravel = travelToPrev + travelToNext;
-    const travelScore = Math.max(0, 1 - totalTravel / 40);
-    score += travelScore * 0.10; // Reduced from 0.20 to 0.10
+    const travelScore = Math.max(0, 1 - totalTravel / 120);
+    score += travelScore * 0.10;
 
     // Factor 3: Time window preference (5% weight)
     const timePreferenceScore = visit.preferredStartTime 
