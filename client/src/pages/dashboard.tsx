@@ -333,6 +333,28 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background scroll-modern" data-testid="dashboard-container">
+      {/* Global Navigation Bar */}
+      <nav className="sticky top-0 z-50 w-full border-b border-card-border bg-background/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-lg h-16 flex items-center justify-between">
+          <div 
+            className="flex items-center gap-md cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setActiveTab("overview")}
+            title="Go to Overview"
+          >
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-sm">
+              <BarChart3 className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <h1 className="font-display text-xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent hidden sm:block">
+              Care Capacity Dashboard
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Branch selector or other global items can go here if needed */}
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section with Modern Layout - Only show on Overview tab */}
       {activeTab === "overview" && (
         <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
