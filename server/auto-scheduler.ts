@@ -265,39 +265,36 @@ export class AutoScheduler {
       console.log(`📊 Phase 2 results: ${unassignedVisits.length} still unassigned`);
     }
 
-    // PHASE 3: Try to assign remaining visits with relaxed travel constraints (+5 minutes)
+    // ALLOWANCE 1: "Travel Compression" (Extra 15 mins)
+    // If travel time exceeds the gap by up to 15 minutes, we "compress" it
+    // by allowing the visit to start slightly late or the previous one to finish slightly late
+    const TRAVEL_EXTRA_ALLOWANCE = 15; 
+    
+    // ALLOWANCE 2: "Early Start" (Extra 15 mins)
+    // We allow visits to start up to 15 minutes before their planned time if it helps fit them in
+    const EARLY_START_ALLOWANCE = 15;
+
+    // Phase 4: Extreme relaxation for remaining unallocated visits
     if (unassignedVisits.length > 0) {
-      console.log(`\n🔄 PHASE 3: Relaxed constraints for ${unassignedVisits.length} remaining visits...`);
-
-      const phase3Unassigned: SchedulingVisit[] = [];
-
+      console.log(`\n🚨 PHASE 4: EXTREME RELAXATION for ${unassignedVisits.length} remaining visits...`);
+      const phase4Unassigned: SchedulingVisit[] = [];
       for (const visit of unassignedVisits) {
-        // Temporarily increase travel limits by 5 minutes
-        Array.from(employeeSchedules.values()).forEach(schedule => {
-          schedule.employee.maxTravelPerVisit += 5;
+        // Boost travel allowances even further for final attempt
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules, { 
+          relaxedTravel: true, 
+          extraAllowance: 30, // Allow up to 30 mins extra travel compression
+          earlyStart: 20      // Allow up to 20 mins early start
         });
-
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
-
-        // Restore original limits
-        Array.from(employeeSchedules.values()).forEach(schedule => {
-          schedule.employee.maxTravelPerVisit -= 5;
-        });
-
         if (bestAssignment) {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
           const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
           schedule.visits.push(scheduledVisit);
-          schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
-          schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
-          console.log(`✅ [Relaxed] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
+          console.log(`✅ [EXTREME] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
-          phase3Unassigned.push(visit);
+          phase4Unassigned.push(visit);
         }
       }
-
-      unassignedVisits = phase3Unassigned;
-      console.log(`📊 Phase 3 results: ${unassignedVisits.length} still unassigned`);
+      unassignedVisits = phase4Unassigned;
     }
 
     // Build final schedule
