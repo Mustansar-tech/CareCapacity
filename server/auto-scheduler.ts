@@ -103,7 +103,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
 
   constructor() {
-    this.travelService = new TravelTimeService(20, 15); // 20min max, 15min soft limit
+    this.travelService = new TravelTimeService(400, 300); // 400min max, 300min soft limit to remove constraints
     this.bufferTime = 12; // Reverted from 15 back to 12 minutes
   }
 
@@ -403,8 +403,8 @@ export class AutoScheduler {
                               emp.transportMode?.toLowerCase().includes('walk') ? 'public' : 'car') as any;
 
         // Set travel limits based on transport mode for better allocation
-        // 40 minutes for public transport (account for overhead)
-        const maxTravel = transportMode === 'car' ? 25 : 40; 
+        // 400 minutes to effectively remove the limit as requested
+        const maxTravel = 400; 
 
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;
