@@ -49,11 +49,15 @@ class Logger {
   }
 
   info(message: string, meta?: any) {
-    console.log(this.formatMessage(LogLevel.INFO, message, meta));
+    if (process.env.NODE_ENV !== 'production' || LogLevel.INFO === LogLevel.ERROR) {
+       console.log(this.formatMessage(LogLevel.INFO, message, meta));
+    }
   }
 
   warn(message: string, meta?: any) {
-    console.warn(this.formatMessage(LogLevel.WARN, message, meta));
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(this.formatMessage(LogLevel.WARN, message, meta));
+    }
   }
 
   error(message: string, error?: Error | any, meta?: any) {
