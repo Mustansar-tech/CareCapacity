@@ -69,7 +69,7 @@ function Navigation() {
                 <img 
                   src={homeInsteadLogo} 
                   alt="Home Instead" 
-                  className="h-8 w-auto object-contain"
+                  className="h-12 w-auto object-contain"
                 />
               </div>
               <div className="hidden sm:block">
