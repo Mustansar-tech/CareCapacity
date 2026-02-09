@@ -42,7 +42,7 @@ interface AssignedVisit {
 
 interface WeeklyScheduleData {
   assignments: Record<string, Record<string, AssignedVisit[]>>; // date -> employee -> visits
-  unallocated: Array<ClientVisit & { reason: string }>;
+  unallocated: Array<ClientVisit & { unallocatedReason: string }>; // Updated property name
   metrics: {
     totalVisitsAssigned: number;
     totalVisitsUnallocated: number;
@@ -269,10 +269,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   });
 
   // Load schedule for the current week being viewed
-  const { data: savedSchedule } = useQuery<any>({
-    queryKey: ['/api/weekly-schedule', weekStart],
+  const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<any>({
+    queryKey: ['/api/weekly-schedule', weekStart, data?.dailySummary?.[0]?.branchId], // Added branchId to query key
     enabled: !!data && !!weekStart,
   });
+
+  // Clear state when data/branch changes or week changes
+  useEffect(() => {
+    clientLogger.log("🧹 Data or week changed - clearing local schedule state");
+    setWeeklySchedule(null);
+    setSelectedEmployee(null);
+  }, [data, weekStart]);
 
   useEffect(() => {
     if (savedSchedule?.scheduleData) {
@@ -288,12 +295,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           employeesUtilized: 0,
         },
       });
-    } else if (!savedSchedule && !isLoadingVisits) {
+    } else if (!isFetchingSchedule) {
       // No saved schedule for this week - clear the state
       clientLogger.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule(null);
     }
-  }, [savedSchedule, weekStart, weekEnd, isLoadingVisits]);
+  }, [savedSchedule, weekStart, weekEnd, isFetchingSchedule]);
 
   if (!data) {
     return (

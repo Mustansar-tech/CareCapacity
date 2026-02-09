@@ -204,7 +204,7 @@ export class AutoScheduler {
         schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
 
         employeeSchedules.set(bestAssignment.employeeName, schedule);
-        logger.debug(`[Male-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
+        // Removed debug log for better privacy in production
       } else {
         unassignedVisits.push(visit);
       }
