@@ -104,7 +104,10 @@ export class AutoScheduler {
 
   constructor() {
     this.travelService = new TravelTimeService(20, 15); // 20min max, 15min soft limit
+    this.bufferTime = 15; // Increased from 12 to 15 minutes as requested
   }
+
+  private bufferTime: number;
 
   /**
    * Automatically schedule visits for a given date
@@ -163,46 +166,75 @@ export class AutoScheduler {
 
     let unassignedVisits: SchedulingVisit[] = [];
 
-    // Separate GH employees (with contracted hours) from non-GH employees (ad-hoc)
-    const ghEmployeeSchedules = new Map<string, any>();
+    // Separate employees by GH status and gender
+    const maleGhEmployeeSchedules = new Map<string, any>();
+    const femaleOtherGhEmployeeSchedules = new Map<string, any>();
     const nonGhEmployeeSchedules = new Map<string, any>();
     
     for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
-      if (schedule.employee.contractedDailyHours > 0) {
-        ghEmployeeSchedules.set(empName, schedule);
+      const isGh = schedule.employee.contractedDailyHours > 0;
+      const isMale = schedule.employee.gender?.toLowerCase() === 'male';
+
+      if (isGh && isMale) {
+        maleGhEmployeeSchedules.set(empName, schedule);
+      } else if (isGh) {
+        femaleOtherGhEmployeeSchedules.set(empName, schedule);
       } else {
         nonGhEmployeeSchedules.set(empName, schedule);
       }
     }
     
-    console.log(`\n📊 GH PRIORITY MODE:`);
-    console.log(`   GH employees: ${ghEmployeeSchedules.size}`);
+    console.log(`\n📊 GH PRIORITY MODE (MALE FIRST):`);
+    console.log(`   Male GH employees: ${maleGhEmployeeSchedules.size}`);
+    console.log(`   Other GH employees: ${femaleOtherGhEmployeeSchedules.size}`);
     console.log(`   Non-GH (ad-hoc) employees: ${nonGhEmployeeSchedules.size}`);
 
-    // PHASE 1: Assign visits to GH employees FIRST (fill their guaranteed hours)
-    console.log(`\n🎯 PHASE 1: Filling GH employees first...`);
+    // PHASE 1: Assign visits to Male GH employees FIRST
+    console.log(`\n🎯 PHASE 1: Filling MALE GH employees first...`);
     for (const visit of prioritizedVisits) {
-      const bestAssignment = await this.findBestEmployeeForVisit(visit, ghEmployeeSchedules);
+      const bestAssignment = await this.findBestEmployeeForVisit(visit, maleGhEmployeeSchedules);
 
       if (bestAssignment) {
-        const schedule = ghEmployeeSchedules.get(bestAssignment.employeeName)!;
+        const schedule = maleGhEmployeeSchedules.get(bestAssignment.employeeName)!;
         const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
         schedule.visits.push(scheduledVisit);
 
-        // Update employee's current location and time
         schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
         schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
 
-        // Also update in main schedules map
         employeeSchedules.set(bestAssignment.employeeName, schedule);
-
-        console.log(`✅ [GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName} (score: ${bestAssignment.score.toFixed(2)})`);
+        console.log(`✅ [Male-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
       } else {
         unassignedVisits.push(visit);
       }
     }
+
+    // PHASE 1.5: Assign remaining visits to other GH employees
+    if (unassignedVisits.length > 0) {
+      console.log(`\n🎯 PHASE 1.5: Filling OTHER GH employees...`);
+      const phase1_5Unassigned: SchedulingVisit[] = [];
+      
+      for (const visit of unassignedVisits) {
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, femaleOtherGhEmployeeSchedules);
+
+        if (bestAssignment) {
+          const schedule = femaleOtherGhEmployeeSchedules.get(bestAssignment.employeeName)!;
+          const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
+          schedule.visits.push(scheduledVisit);
+
+          schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
+          schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
+
+          employeeSchedules.set(bestAssignment.employeeName, schedule);
+          console.log(`✅ [Other-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
+        } else {
+          phase1_5Unassigned.push(visit);
+        }
+      }
+      unassignedVisits = phase1_5Unassigned;
+    }
     
-    console.log(`📊 Phase 1 results: ${prioritizedVisits.length - unassignedVisits.length} assigned to GH, ${unassignedVisits.length} remaining`);
+    console.log(`📊 GH Phases results: ${unassignedVisits.length} remaining after all GH priority`);
 
     // PHASE 2: Try to assign remaining visits to non-GH employees
     if (unassignedVisits.length > 0 && nonGhEmployeeSchedules.size > 0) {
