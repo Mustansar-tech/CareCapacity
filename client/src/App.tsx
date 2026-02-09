@@ -60,26 +60,30 @@ function Navigation() {
   
   return (
     <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
-      <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-3 shadow-2xl">
+      <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-2 shadow-2xl">
         <div className="flex items-center justify-between">
           {/* Logo Section */}
-          <Link href="/" className="group" data-testid="link-home">
-            <div className="flex items-center gap-3 transition-all duration-300 hover:scale-105">
-              <div className="relative">
-                <img 
-                  src={homeInsteadLogo} 
-                  alt="Care Capacity Dashboard" 
-                  className="h-20 w-20 rounded-full object-cover border-2 border-white/20 shadow-lg"
-                />
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-sm font-display font-semibold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent animate-gradient">
-                  Care Capacity Dashboard
-                </div>
-                <div className="text-xs text-muted-foreground">Workforce Intelligence</div>
-              </div>
+          <div 
+            className="flex items-center gap-3 cursor-pointer group transition-all duration-300 hover:scale-102"
+            onClick={() => {
+              const event = new CustomEvent('navigate-to-overview');
+              window.dispatchEvent(event);
+            }}
+          >
+            <div className="relative">
+              <img 
+                src={homeInsteadLogo} 
+                alt="Care Capacity Dashboard" 
+                className="h-16 w-16 rounded-full object-cover border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
+              />
             </div>
-          </Link>
+            <div className="hidden sm:block">
+              <div className="text-base font-display font-bold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent">
+                Care Capacity Dashboard
+              </div>
+              <div className="text-xs text-muted-foreground font-medium opacity-80">Workforce Intelligence</div>
+            </div>
+          </div>
 
           {/* Branch Selector & Controls */}
           <div className="flex items-center gap-4">

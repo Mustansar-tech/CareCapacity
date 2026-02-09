@@ -91,6 +91,19 @@ export default function Dashboard() {
 
   const { toast } = useToast();
 
+  // Listen for global reset event from the navigation logo
+  useEffect(() => {
+    const handleReset = () => {
+      clientLogger.log('🏠 Navigation logo clicked - returning to overview');
+      setActiveTab("overview");
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.addEventListener('navigate-to-overview', handleReset);
+    return () => window.removeEventListener('navigate-to-overview', handleReset);
+  }, []);
+
   // Query to get all historical weeks for the dropdown
   const { data: allHistoryData } = useQuery<any[]>({
     queryKey: ['/api/history'],
@@ -336,58 +349,19 @@ export default function Dashboard() {
       {/* Hero Section with Modern Layout - Only show on Overview tab */}
       {activeTab === "overview" && (
         <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
-          <div className="max-w-7xl mx-auto px-lg py-3xl">
-            <div className="text-center">
-              <div className="inline-flex items-center gap-md mb-lg animate-scale-in">
-                <div 
-                  className="w-16 h-16 rounded-2xl gradient-primary elevation-3 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
-                  onClick={() => setActiveTab("overview")}
-                  title="Go to Overview"
-                >
-                  <BarChart3 className="w-8 h-8 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 
-                    className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2 cursor-pointer" 
-                    data-testid="dashboard-title"
-                    onClick={() => setActiveTab("overview")}
-                  >
-                    Care Capacity Dashboard
-                  </h1>
-                  <div className="w-24 h-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full mx-auto"></div>
-                </div>
-              </div>
-              <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed" data-testid="dashboard-description">
-                Intelligent workforce capacity analysis for optimal care scheduling and resource management
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Conditional Header for non-overview tabs */}
-      {activeTab !== "overview" && (
-        <div className="max-w-7xl mx-auto px-lg pt-8 animate-fade-in">
-          <div 
-            className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity w-fit"
-            onClick={() => setActiveTab("overview")}
-            title="Return to Overview"
-          >
-            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-md">
-              <BarChart3 className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h2 className="font-display text-2xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-                Care Capacity Dashboard
-              </h2>
-              <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-secondary rounded-full"></div>
-            </div>
+          <div className="max-w-7xl mx-auto px-lg py-3xl text-center">
+            <h1 className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2">
+              Welcome to Care Capacity Dashboard
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Intelligent workforce capacity analysis for optimal care scheduling and resource management
+            </p>
           </div>
         </div>
       )}
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-lg py-2xl animate-fade-in">
+      <div className="max-w-7xl mx-auto px-lg py-12 animate-fade-in">
         {/* Compact Upload Toggle - Shows when no data is loaded */}
         {!processedData && (
           <div className="mb-6 animate-fade-in">
