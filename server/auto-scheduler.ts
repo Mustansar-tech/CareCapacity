@@ -104,7 +104,7 @@ export class AutoScheduler {
 
   constructor() {
     this.travelService = new TravelTimeService(20, 15); // 20min max, 15min soft limit
-    this.bufferTime = 15; // Increased from 12 to 15 minutes as requested
+    this.bufferTime = 12; // Reverted from 15 back to 12 minutes
   }
 
   private bufferTime: number;
