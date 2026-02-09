@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { SplashScreen } from "@/components/SplashScreen";
-import homeInsteadLogo from "@assets/Screenshot 2025-09-23 154530_1758642491375.png";
+import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ErrorInfo, ReactNode, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
