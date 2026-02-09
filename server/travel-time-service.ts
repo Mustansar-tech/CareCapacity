@@ -59,8 +59,8 @@ export class TravelTimeService {
     return Math.max(config.minMinutes, Math.round(adjustedMinutes));
   }
 
-  constructor(maxTravelMinutes: number = 60, softLimitMinutes?: number) {
-    this.maxTravelMinutes = maxTravelMinutes;
+  constructor(maxTravelMinutes: number = 300, softLimitMinutes?: number) {
+    this.maxTravelMinutes = maxTravelMinutes; // Increased from 60 to 300 minutes to effectively remove the limit
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
 

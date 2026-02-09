@@ -790,7 +790,7 @@ export class AutoScheduler {
   ): number {
     let score = 0;
 
-    // PRIORITY 1: GH (Guaranteed Hours) employees get TOP priority (50% weight)
+    // PRIORITY 1: GH (Guaranteed Hours) employees get TOP priority (70% weight)
     // GH employees have contractedDailyHours > 0, non-GH (ad-hoc) have 0
     const isGHEmployee = employee.contractedDailyHours > 0;
     const isMale = employee.gender?.toLowerCase() === 'male';
@@ -798,22 +798,22 @@ export class AutoScheduler {
     // EXTREME weight for Male GH to ensure they are picked first for every visit they can do
     let ghPriorityScore = 0;
     if (isGHEmployee) {
-      ghPriorityScore = isMale ? 1.0 : 0.6; // Male GH gets absolute top score
+      ghPriorityScore = isMale ? 1.0 : 0.4; // Male GH gets absolute top score, Female GH significantly lower
     }
     
-    score += ghPriorityScore * 0.50; // Increased weight from 0.40 to 0.50
+    score += ghPriorityScore * 0.70; // Increased weight from 0.50 to 0.70
 
-    // Factor 2: Minimize travel time (20% weight) - reduced weight to prioritize GH filling
+    // Factor 2: Minimize travel time (10% weight) - drastically reduced weight to prioritize GH filling
     // Use 40 minutes as reference for total travel (20 min each direction)
     const totalTravel = travelToPrev + travelToNext;
     const travelScore = Math.max(0, 1 - totalTravel / 40);
-    score += travelScore * 0.20; // Reduced from 0.25 to 0.20
+    score += travelScore * 0.10; // Reduced from 0.20 to 0.10
 
-    // Factor 3: Time window preference (10% weight)
+    // Factor 3: Time window preference (5% weight)
     const timePreferenceScore = visit.preferredStartTime 
       ? Math.max(0, 1 - Math.abs(visit.startTime - visit.preferredStartTime) / 180)
       : 0.7;
-    score += timePreferenceScore * 0.10; // Reduced from 0.15 to 0.10
+    score += timePreferenceScore * 0.05; // Reduced from 0.10 to 0.05
 
     // Factor 4: Employee utilization (15% weight) - for GH employees, prioritize filling their hours
     const weeklyContracted = employee.contractedDailyHours * 5; // Assume 5-day week
