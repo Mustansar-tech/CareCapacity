@@ -127,7 +127,7 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
               Powered by
             </p>
             <p className="text-white/60 text-sm font-semibold mt-1">
-              Home Instead Senior Care
+              Care Capacity Intelligence
             </p>
           </motion.div>
         </div>
