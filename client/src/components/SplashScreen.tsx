@@ -75,11 +75,11 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             className="relative"
           >
             <div className="absolute inset-0 bg-white/20 rounded-3xl blur-xl scale-110" />
-            <div className="relative p-16">
+            <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-14 shadow-2xl">
               <img
                 src={homeInsteadLogo}
                 alt="Care Capacity Dashboard"
-                className="h-64 w-64 object-contain rounded-full shadow-2xl"
+                className="h-40 w-auto object-contain"
               />
             </div>
           </motion.div>
@@ -127,7 +127,7 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
               Powered by
             </p>
             <p className="text-white/60 text-sm font-semibold mt-1">
-              Home Instead Senior Care
+              Care Capacity Dashboard
             </p>
           </motion.div>
         </div>
