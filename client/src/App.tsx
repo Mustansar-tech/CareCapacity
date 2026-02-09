@@ -69,7 +69,7 @@ function Navigation() {
                 <img 
                   src={homeInsteadLogo} 
                   alt="Care Capacity Dashboard" 
-                  className="h-20 w-20 object-contain rounded-full"
+                  className="h-14 w-14 object-contain rounded-full shadow-lg border-2 border-white/20"
                 />
               </div>
               <div className="hidden sm:block">

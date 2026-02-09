@@ -127,7 +127,7 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
               Powered by
             </p>
             <p className="text-white/60 text-sm font-semibold mt-1">
-              Care Capacity Dashboard
+              Home Instead Senior Care
             </p>
           </motion.div>
         </div>
