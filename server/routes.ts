@@ -9,6 +9,15 @@ import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schem
 
 import { logger } from "./logger";
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+function safeErrorMessage(error: unknown, fallback: string): string {
+  if (!isProduction) {
+    return error instanceof Error ? error.message : fallback;
+  }
+  return fallback;
+}
+
 /**
  * Resolves branchId from request query (GET) or body (POST/PUT/DELETE)
  */
@@ -41,16 +50,16 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: (_req, file, cb) => {
-    console.log(`📂 File upload attempt: "${file.originalname}" with MIME type: "${file.mimetype}"`);
+    logger.debug('File upload attempt', { fileName: file.originalname, mimeType: file.mimetype });
 
     if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
         file.mimetype === 'application/vnd.ms-excel' ||
         file.originalname.toLowerCase().endsWith('.xlsx') ||
         file.originalname.toLowerCase().endsWith('.xls')) {
-      console.log(`✅ File accepted: "${file.originalname}"`);
+      logger.debug('File accepted', { fileName: file.originalname });
       cb(null, true);
     } else {
-      console.log(`❌ File rejected: "${file.originalname}" - MIME: "${file.mimetype}"`);
+      logger.warn('File rejected', { fileName: file.originalname, mimeType: file.mimetype });
       cb(new Error(`Only Excel files are allowed. Got MIME type: ${file.mimetype}`));
     }
   }
@@ -64,38 +73,38 @@ const guaranteedBufferByBranch: Map<string, Buffer> = new Map();
 
 // Setter function for guaranteedBufferByBranch
 function setLatestGuaranteedBuffer(branchId: string, buffer: Buffer): void {
-  console.log(`📦 STORING GH buffer for branch ${branchId}: ${buffer.length} bytes`);
-  console.log(`📦 Current branches in map BEFORE set: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
+  logger.debug('Storing GH buffer', { branchId, bytes: buffer.length });
+  logger.debug('Branches in map before set', { branches: Array.from(guaranteedBufferByBranch.keys()) });
   guaranteedBufferByBranch.set(branchId, buffer);
-  console.log(`📦 Current branches in map AFTER set: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
-  console.log(`📦 Verification - can retrieve?: ${guaranteedBufferByBranch.has(branchId)}`);
+  logger.debug('Branches in map after set', { branches: Array.from(guaranteedBufferByBranch.keys()) });
+  logger.debug('GH buffer verification', { branchId, canRetrieve: guaranteedBufferByBranch.has(branchId) });
 }
 
 // Getter function for guaranteedBufferByBranch (checks in-memory cache + database fallback)
 export async function getLatestGuaranteedBuffer(branchId: string): Promise<Buffer | null> {
-  console.log(`📦 RETRIEVING GH buffer for branch ${branchId}`);
-  console.log(`📦 Available branches in map: ${Array.from(guaranteedBufferByBranch.keys()).join(', ')}`);
+  logger.debug('Retrieving GH buffer', { branchId });
+  logger.debug('Available branches in map', { branches: Array.from(guaranteedBufferByBranch.keys()) });
 
   // Check in-memory cache first
   let buffer = guaranteedBufferByBranch.get(branchId) || null;
 
   if (!buffer) {
     // Fallback to database
-    console.log(`📦 Not in memory - checking database...`);
+    logger.debug('GH buffer not in memory, checking database', { branchId });
     try {
       const upload = await storage.getLatestBranchUpload(branchId, 'guaranteedHours');
       if (upload) {
         buffer = Buffer.from(upload.fileBuffer, 'base64');
         // Hydrate the cache
         guaranteedBufferByBranch.set(branchId, buffer);
-        console.log(`📦 Retrieved from database and cached (${buffer.length} bytes)`);
+        logger.debug('Retrieved GH buffer from database and cached', { branchId, bytes: buffer.length });
       }
     } catch (dbError) {
-      console.error(`❌ Failed to retrieve GH buffer from database:`, dbError);
+      logger.error('Failed to retrieve GH buffer from database', dbError);
     }
   }
 
-  console.log(`📦 Final result: ${buffer ? `${buffer.length} bytes` : 'NULL'}`);
+  logger.debug('GH buffer retrieval result', { branchId, bytes: buffer ? buffer.length : 0, found: !!buffer });
   return buffer;
 }
 
@@ -137,10 +146,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branches = await storage.getAllBranches();
       res.json(branches);
     } catch (error) {
-      console.error('Error fetching branches:', error);
+      logger.error('Error fetching branches', error);
       res.status(500).json({ 
         message: 'Failed to fetch branches',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: safeErrorMessage(error, 'Unknown error')
       });
     }
   });
@@ -152,12 +161,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { name: 'cgData', maxCount: 1 }
   ]), async (req, res) => {
     try {
-      console.log(`🚀 ===== NEW FILE UPLOAD REQUEST RECEIVED =====`);
+      logger.info('New file upload request received');
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       const requestedBranchId = req.body.branchId; // Branch ID from frontend
 
-      console.log(`📋 Files received:`, files ? Object.keys(files) : 'No files');
-      console.log(`🏢 Requested branch ID:`, requestedBranchId || 'NONE');
+      logger.info('Files received', { fields: files ? Object.keys(files) : 'No files' });
+      logger.info('Requested branch ID', { branchId: requestedBranchId || 'NONE' });
 
       // Validate that all three files are present
       if (!files.availability || !files.guaranteed || !files.cgData) {
@@ -181,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`✅ Branch validated: ${branch.displayName} (${branch.name})`);
+      logger.info('Branch validated', { displayName: branch.displayName, name: branch.name });
 
       const availabilityFile = files.availability[0];
       const guaranteedFile = files.guaranteed[0];
@@ -198,25 +207,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedGuaranteedName = normalizeFileName(guaranteedFile.originalname);
       const normalizedCgDataName = normalizeFileName(cgDataFile.originalname);
 
-      console.log(`📁 File name validation:`);
-      console.log(`  Availability: "${availabilityFile.originalname}" -> "${normalizedAvailabilityName}"`);
-      console.log(`  Guaranteed: "${guaranteedFile.originalname}" -> "${normalizedGuaranteedName}"`);
-      console.log(`  CG Data: "${cgDataFile.originalname}" -> "${normalizedCgDataName}"`);
-      console.log(`  Expected: ${JSON.stringify(expectedNames)}`);
+      logger.debug('File name validation', {
+        availability: { original: availabilityFile.originalname, normalized: normalizedAvailabilityName },
+        guaranteed: { original: guaranteedFile.originalname, normalized: normalizedGuaranteedName },
+        cgData: { original: cgDataFile.originalname, normalized: normalizedCgDataName },
+        expected: expectedNames
+      });
 
       if (normalizedAvailabilityName !== expectedNames.availability ||
           normalizedGuaranteedName !== expectedNames.guaranteed ||
           normalizedCgDataName !== expectedNames.cgData) {
-        console.log(`❌ FILE VALIDATION FAILED:`);
-        console.log(`  Availability check: ${normalizedAvailabilityName} === ${expectedNames.availability} ? ${normalizedAvailabilityName === expectedNames.availability}`);
-        console.log(`  CG Data check: ${normalizedCgDataName} === ${expectedNames.cgData} ? ${normalizedCgDataName === expectedNames.cgData}`);
-        console.log(`  Guaranteed check: ${normalizedGuaranteedName} === ${expectedNames.guaranteed} ? ${normalizedGuaranteedName === expectedNames.guaranteed}`);
+        logger.warn('File validation failed', {
+          availabilityMatch: normalizedAvailabilityName === expectedNames.availability,
+          cgDataMatch: normalizedCgDataName === expectedNames.cgData,
+          guaranteedMatch: normalizedGuaranteedName === expectedNames.guaranteed
+        });
         return res.status(400).json({
           message: `File names must be: "${expectedNames.availability}", "${expectedNames.guaranteed}", "${expectedNames.cgData}" (browser download numbers like (2) are allowed)`
         });
       }
 
-      console.log(`✅ FILE VALIDATION PASSED - Proceeding to parsing...`);
+      logger.info('File validation passed, proceeding to parsing');
 
       // Parse Excel files including CG Data Export - pass branchId for branch-scoped parsing
       const parsedData = await parseExcelFiles(
@@ -236,10 +247,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       } else {
-        console.log(`⚠️  No branch detected in Excel files - proceeding with selected branch: ${branch.displayName}`);
+        logger.warn('No branch detected in Excel files, proceeding with selected branch', { displayName: branch.displayName });
       }
 
-      console.log(`✅ Branch validation complete - processing data for: ${branch.displayName}`);
+      logger.info('Branch validation complete, processing data', { displayName: branch.displayName });
 
       // Process the data with CG Data as master employee list
       const result = await processCapacityData(
@@ -266,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Store Guaranteed Hours buffer per branch for visit extraction (in-memory + database)
       setLatestGuaranteedBuffer(requestedBranchId, guaranteedFile.buffer);
-      console.log(`✅ Stored Guaranteed Hours buffer in memory (${guaranteedFile.buffer.length} bytes) for branch ${requestedBranchId}`);
+      logger.info('Stored Guaranteed Hours buffer in memory', { bytes: guaranteedFile.buffer.length, branchId: requestedBranchId });
 
       // Persist to database for cross-restart/cross-branch reliability
       try {
@@ -278,9 +289,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fileSize: guaranteedFile.buffer.length,
           sha256: null, // Could add crypto.createHash('sha256').update(buffer).digest('hex') if needed
         });
-        console.log(`✅ Persisted Guaranteed Hours buffer to database for branch ${requestedBranchId}`);
+        logger.info('Persisted Guaranteed Hours buffer to database', { branchId: requestedBranchId });
       } catch (dbError) {
-        console.error('⚠️  Failed to persist GH buffer to database:', dbError);
+        logger.error('Failed to persist GH buffer to database', dbError);
         // Don't fail the request if database persistence fails - in-memory cache still works
       }
 
@@ -289,7 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       fs.writeFileSync(exportPath, exportBuffer);
 
       // Clear old visits data before processing new data
-      console.log(`🧹 Clearing old visits data for branch ${branch.displayName}...`);
+      logger.info('Clearing old visits data', { displayName: branch.displayName });
       await storage.clearAllVisits(requestedBranchId);
 
       // Persist processed data to database with derived week boundaries
@@ -299,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const firstDate = result.dailySummary[0].date;
           const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
 
-          console.log(`💾 Persisting analysis for week: ${weekStart} to ${weekEnd} (Branch: ${branch.displayName})`);
+          logger.info('Persisting analysis for week', { weekStart, weekEnd, displayName: branch.displayName });
 
           // Save to database (will upsert if week already exists per branch)
           await storage.saveCapacityAnalysis({
@@ -313,34 +324,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             warnings: result.warnings || [],
           });
 
-          console.log(`✅ Analysis persisted successfully for week ${weekStart} (Branch: ${branch.name})`);
+          logger.info('Analysis persisted successfully', { weekStart, branchName: branch.name });
         } else {
-          console.log(`⚠️  No daily summary data to persist`);
+          logger.warn('No daily summary data to persist');
         }
       } catch (persistError) {
-        console.error('⚠️  Failed to persist analysis to database:', persistError);
+        logger.error('Failed to persist analysis to database', persistError);
         // Don't fail the request if persistence fails
       }
 
-      console.log(`✅ PIPELINE COMPLETE for branch ${requestedBranchId}`);
-      console.log(`   - Client locations should now be geocoded and stored`);
-      console.log(`   - Employee locations should now be geocoded and stored`);
-      console.log(`   - Visits data is ready for scheduling tab`);
+      logger.info('Pipeline complete', {
+        branchId: requestedBranchId,
+        clientLocationsGeocoded: true,
+        employeeLocationsGeocoded: true,
+        visitsReady: true
+      });
 
       res.json(result);
 
     } catch (error) {
-      console.error('Processing error:', error);
-      console.error('Error type:', (error as any)?.constructor?.name);
-      console.error('Error message:', (error as any)?.message);
-      console.error('Error stack:', (error as any)?.stack);
-
-      if (error && typeof error === 'object') {
-        console.error('Error details:', JSON.stringify(error, null, 2));
-      }
+      logger.error('Processing error', error, {
+        errorType: (error as any)?.constructor?.name,
+        errorMessage: (error as any)?.message
+      });
 
       res.status(500).json({
-        message: error instanceof Error ? error.message : 'Internal processing error'
+        message: safeErrorMessage(error, 'Internal processing error')
       });
     }
   });
@@ -359,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(latestExportBuffer);
 
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error', error);
       res.status(500).json({
         message: 'Failed to export data'
       });
@@ -371,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { date } = req.params;
       const branchId = await resolveBranch(req); // Resolve branchId for buffer lookup
-      console.log(`📋 Extracting client visits from Guaranteed Hours Excel for ${date} (Branch: ${branchId})`);
+      logger.debug('Extracting client visits from Guaranteed Hours Excel', { date, branchId });
 
       const guaranteedBuffer = await getLatestGuaranteedBuffer(branchId);
       if (!guaranteedBuffer) {
@@ -384,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const visits = await extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate, branchId, storage);
       res.json(visits);
     } catch (error) {
-      console.error("Error extracting visits:", error);
+      logger.error('Error extracting visits', error);
       res.status(500).json({ error: "Failed to extract visits" });
     }
   });
@@ -403,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      console.log(`📅 Fetching visits for branch ${branchId} from ${startDate} to ${endDate}`);
+      logger.debug('Fetching visits', { branchId, startDate, endDate });
 
       const visits = await storage.listVisitsBetween(
         branchId,
@@ -411,10 +420,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         String(endDate)
       );
 
-      console.log(`✅ Found ${visits.length} visits for the date range`);
+      logger.debug('Found visits for date range', { count: visits.length });
       res.json(visits);
     } catch (error) {
-      console.error('Error fetching visits:', error);
+      logger.error('Error fetching visits', error);
       res.status(500).json({ message: 'Failed to fetch visits' });
     }
   });
@@ -429,14 +438,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Date is required" });
       }
 
-      console.log(`📅 Generating schedule for ${date} (branch: ${branchId})`);
+      logger.info('Generating schedule for day', { date, branchId });
 
       const { autoScheduler } = await import("./auto-scheduler");
       const schedule = await autoScheduler.scheduleDay(date, branchId); // Pass branchId
 
       res.json(schedule);
     } catch (error) {
-      console.error("Error auto-scheduling day:", error);
+      logger.error('Error auto-scheduling day', error);
       res.status(500).json({ error: "Failed to auto-schedule day" });
     }
   });
@@ -451,14 +460,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Start date is required" });
       }
 
-      console.log(`📅 Generating schedule for week starting ${startDate} (branch: ${branchId})`);
+      logger.info('Generating schedule for week', { startDate, branchId });
 
       const { autoScheduler } = await import("./auto-scheduler");
       const weekSchedule = await autoScheduler.scheduleWeek(startDate, branchId); // Pass branchId
 
       res.json(weekSchedule);
     } catch (error) {
-      console.error("Error auto-scheduling week:", error);
+      logger.error('Error auto-scheduling week', error);
       res.status(500).json({ error: "Failed to auto-schedule week" });
     }
   });
@@ -474,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(weekSchedule);
     } catch (error) {
-      console.error("Error getting weekly schedule:", error);
+      logger.error('Error getting weekly schedule', error);
       res.status(500).json({ error: "Failed to get weekly schedule" });
     }
   });
@@ -489,16 +498,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Date is required' });
       }
 
-      console.log(`🤖 Starting run optimization for ${date} (branch: ${branchId})`);
+      logger.info('Starting run optimization', { date, branchId });
       const { autoScheduler } = await import("./auto-scheduler");
       const result = await autoScheduler.scheduleDay(date, branchId); // Pass branchId
 
       res.json(result);
     } catch (error) {
-      console.error('Run optimization error:', error);
+      logger.error('Run optimization error', error);
       res.status(500).json({ 
         error: 'Run optimization failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: safeErrorMessage(error, 'An error occurred')
       });
     }
   });
@@ -513,15 +522,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Date is required' });
       }
 
-      console.log(`🚗 Starting route optimization for ${date} (Branch: ${branchId})`);
+      logger.info('Starting route optimization', { date, branchId });
 
       // Get available employees for the date
       const employees = await getAvailableEmployeesForDate(branchId, date);
-      console.log(`👥 Found ${employees.length} available employees`);
+      logger.debug('Found available employees', { count: employees.length });
 
       // Get unassigned visits for the date  
       const visits = await getUnassignedVisitsForDate(branchId, date);
-      console.log(`📋 Found ${visits.length} visits to schedule`);
+      logger.debug('Found visits to schedule', { count: visits.length });
 
       if (employees.length === 0 || visits.length === 0) {
         return res.json({
@@ -543,10 +552,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(optimizedSchedule);
     } catch (error) {
-      console.error('Auto-scheduling error:', error);
+      logger.error('Auto-scheduling error', error);
       res.status(500).json({ 
         error: 'Auto-scheduling failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: safeErrorMessage(error, 'An error occurred')
       });
     }
   });
@@ -558,8 +567,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analyses = await storage.getLatestWeeksAnalyses(branchId, 8);
       res.json(analyses);
     } catch (error) {
-      console.error('History fetch error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch historical data';
+      logger.error('History fetch error', error);
+      const message = safeErrorMessage(error, 'Failed to fetch historical data');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -577,8 +586,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(analysis);
     } catch (error) {
-      console.error('Latest history fetch error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch latest data';
+      logger.error('Latest history fetch error', error);
+      const message = safeErrorMessage(error, 'Failed to fetch latest data');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -602,8 +611,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analyses = await storage.getCapacityAnalysesByDateRange(branchId, startDate, endDate);
       res.json(analyses);
     } catch (error) {
-      console.error('Date range fetch error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch data for date range';
+      logger.error('Date range fetch error', error);
+      const message = safeErrorMessage(error, 'Failed to fetch data for date range');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -629,8 +638,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cutoffMonths: months
       });
     } catch (error) {
-      console.error('Cleanup error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to cleanup old data';
+      logger.error('Cleanup error', error);
+      const message = safeErrorMessage(error, 'Failed to cleanup old data');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -668,8 +677,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newestAnalysis: allAnalyses.length > 0 ? allAnalyses[0]?.uploadedAt : null
       });
     } catch (error) {
-      console.error('Cleanup preview error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to preview cleanup';
+      logger.error('Cleanup preview error', error);
+      const message = safeErrorMessage(error, 'Failed to preview cleanup');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -685,12 +694,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate branchId - required for proper cache isolation
       if (!branchId) {
-        console.warn(`⚠️ geocode-batch called without branchId - cache lookups may not work correctly`);
+        logger.warn('geocode-batch called without branchId, cache lookups may not work correctly');
       }
 
       // OPTIMIZATION: Process unique postcodes in parallel for 70-80% faster geocoding
       const uniquePostcodes = Array.from(new Set(postcodes as string[]));
-      console.log(`🚀 Parallel geocoding ${uniquePostcodes.length} unique postcodes (from ${postcodes.length} total) for branch ${branchId || 'UNKNOWN'}...`);
+      logger.info('Parallel geocoding postcodes', { uniqueCount: uniquePostcodes.length, totalCount: postcodes.length, branchId: branchId || 'UNKNOWN' });
 
       // CACHE VERIFICATION: Check which postcodes are already cached
       const cacheChecks = await Promise.all(
@@ -716,15 +725,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const uncachedPostcodes = cacheChecks.filter(c => !c.cached).map(c => c.postcode);
 
-      console.log(`📊 Cache stats: ${cachedResults.length} cached, ${uncachedPostcodes.length} need geocoding`);
+      logger.debug('Geocoding cache stats', { cached: cachedResults.length, uncached: uncachedPostcodes.length });
 
       // Process all uncached postcodes in parallel using Promise.all
       const postcodePromises = uncachedPostcodes.map(async (postcode) => {
         try {
-          console.log(`🔍 Geocoding postcode: "${postcode}"`);
+          logger.debug('Geocoding postcode', { postcode });
           const geocodeResult = await geocodeWithFallback(postcode, storage, branchId);
           if (geocodeResult && geocodeResult.lat && geocodeResult.lng) {
-            console.log(`✅ Geocoded "${postcode}" -> ${geocodeResult.lat}, ${geocodeResult.lng}`);
+            logger.debug('Geocoded postcode successfully', { postcode, lat: geocodeResult.lat, lng: geocodeResult.lng });
             return {
               ...geocodeResult,
               input: postcode,
@@ -734,7 +743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lng: Number(geocodeResult.lng)
             };
           } else {
-            console.log(`❌ Failed to geocode "${postcode}" - no coordinates`);
+            logger.warn('Failed to geocode postcode, no coordinates returned', { postcode });
             return {
               query: postcode,
               input: postcode,
@@ -746,7 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
           }
         } catch (error) {
-          console.log(`❌ Error geocoding "${postcode}":`, error);
+          logger.error('Error geocoding postcode', error, { postcode });
           return {
             query: postcode,
             input: postcode,
@@ -776,7 +785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ results });
     } catch (error) {
-      console.error('Geocoding error:', error);
+      logger.error('Geocoding error', error);
       res.status(500).json({ message: 'Geocoding failed' });
     }
   });
@@ -830,7 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(matrix);
     } catch (error) {
-      console.error('Distance matrix error:', error);
+      logger.error('Distance matrix error', error);
       res.status(500).json({ message: 'Distance matrix calculation failed' });
     }
   });
@@ -871,8 +880,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ optimizedRoutes });
     } catch (error) {
-      console.error('Route optimization error:', error);
-      const message = error instanceof Error ? error.message : 'Route optimization failed';
+      logger.error('Route optimization error', error);
+      const message = safeErrorMessage(error, 'Route optimization failed');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -899,8 +908,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(plansWithStops);
     } catch (error) {
-      console.error('Get route plans error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get route plans';
+      logger.error('Get route plans error', error);
+      const message = safeErrorMessage(error, 'Failed to get route plans');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -913,8 +922,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const locations = await storage.getAllEmployeeLocations(branchId);
       res.json(locations);
     } catch (error) {
-      console.error('Get employee locations error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get employee locations';
+      logger.error('Get employee locations error', error);
+      const message = safeErrorMessage(error, 'Failed to get employee locations');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -927,8 +936,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const locations = await storage.getAllClientLocations(branchId);
       res.json(locations);
     } catch (error) {
-      console.error('Get client locations error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get client locations';
+      logger.error('Get client locations error', error);
+      const message = safeErrorMessage(error, 'Failed to get client locations');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ message });
     }
@@ -940,11 +949,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/cleanup/routes-visits', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      console.log(`🧹 Starting cleanup of routes and visits data for branch ${branchId}...`);
+      logger.info('Starting cleanup of routes and visits data', { branchId });
 
       const result = await storage.clearRoutesAndVisits(branchId);
 
-      console.log(`✅ Cleanup complete: ${result.routePlansDeleted} route plans, ${result.routeStopsDeleted} route stops, ${result.visitsDeleted} visits deleted`);
+      logger.info('Cleanup complete', { routePlansDeleted: result.routePlansDeleted, routeStopsDeleted: result.routeStopsDeleted, visitsDeleted: result.visitsDeleted });
 
       res.json({
         message: 'Routes and visits data cleaned successfully',
@@ -952,12 +961,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
     } catch (error) {
-      console.error('Cleanup error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to cleanup routes and visits data';
+      logger.error('Cleanup error', error);
+      const message = safeErrorMessage(error, 'Failed to cleanup routes and visits data');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ 
         message, 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+        details: safeErrorMessage(error, 'An error occurred') 
       });
     }
   });
@@ -970,7 +979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return analyses[0] as ProcessingResult;
     } catch (error) {
-      console.error('Error getting processing results:', error);
+      logger.error('Error getting processing results', error);
       return null;
     }
   }
@@ -1004,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         });
     } catch (error) {
-      console.error('Error getting available employees:', error);
+      logger.error('Error getting available employees', error);
       return [];
     }
   }
@@ -1032,13 +1041,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
     } catch (error) {
-      console.error('Error getting unassigned visits:', error);
+      logger.error('Error getting unassigned visits', error);
       return [];
     }
   }
 
   async function optimizeRoutesForDay(date: string, employees: any[], visits: any[], settings: any) {
-    console.log(`🔄 Optimizing routes for ${date} with ${employees.length} employees and ${visits.length} visits`);
+    logger.info('Optimizing routes', { date, employeeCount: employees.length, visitCount: visits.length });
 
     // Simple greedy algorithm - assign visits to minimize total travel time
     const employeeSchedules = employees.map(emp => ({ ...emp, visits: [] }));
@@ -1325,10 +1334,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(savedSchedule);
     } catch (error) {
-      console.error('Error generating weekly schedule:', error);
+      logger.error('Error generating weekly schedule', error);
       res.status(500).json({ 
         message: 'Failed to generate weekly schedule',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: safeErrorMessage(error, 'Unknown error')
       });
     }
   });
@@ -1347,12 +1356,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clients
       });
     } catch (error) {
-      console.error('Error fetching locations:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch location data';
+      logger.error('Error fetching locations', error);
+      const message = safeErrorMessage(error, 'Failed to fetch location data');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ 
         error: message,
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: safeErrorMessage(error, 'An error occurred')
       });
     }
   });
@@ -1369,12 +1378,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(latestSchedule);
     } catch (error) {
-      console.error('Error fetching latest weekly schedule:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch weekly schedule';
+      logger.error('Error fetching latest weekly schedule', error);
+      const message = safeErrorMessage(error, 'Failed to fetch weekly schedule');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ 
         message,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: safeErrorMessage(error, 'Unknown error')
       });
     }
   });
@@ -1394,12 +1403,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(schedule);
     } catch (error) {
-      console.error('Error fetching weekly schedule:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch weekly schedule';
+      logger.error('Error fetching weekly schedule', error);
+      const message = safeErrorMessage(error, 'Failed to fetch weekly schedule');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ 
         message,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: safeErrorMessage(error, 'Unknown error')
       });
     }
   });
@@ -1425,12 +1434,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(savedSchedule);
     } catch (error) {
-      console.error('Error saving weekly schedule:', error);
-      const message = error instanceof Error ? error.message : 'Failed to save weekly schedule';
+      logger.error('Error saving weekly schedule', error);
+      const message = safeErrorMessage(error, 'Failed to save weekly schedule');
       const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
       res.status(statusCode).json({ 
         message,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: safeErrorMessage(error, 'Unknown error')
       });
     }
   });

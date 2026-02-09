@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { logger } from './logger';
 import { parse, format, addDays, differenceInDays } from "date-fns";
 import {
   buildTimeWindow,
@@ -135,7 +136,7 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
       }
     }
   } catch (err) {
-    console.log(`🔄 Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
+    logger.debug(`Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
   }
 
   // Step 3: Try postcode district (first part)
@@ -185,7 +186,7 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
         }
       }
     } catch (err) {
-      console.log(`🔄 District geocoding failed for ${district}, trying area fallback...`);
+      logger.debug(`District geocoding failed for ${district}, trying area fallback...`);
     }
   }
 
@@ -203,7 +204,7 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
 
   const fallback = fallbackLocations[prefix];
   if (fallback) {
-    console.log(`📍 Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
+    logger.debug(`Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
 
     // Cache the fallback to avoid repeated lookups
     await storage.saveGeocode({
@@ -225,7 +226,7 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
   }
 
   // Step 5: Ultimate fallback to Edinburgh city center
-  console.log(`📍 Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
+  logger.debug(`Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
   return {
     query: normalizedPostcode,
     type: 'postcode',
@@ -725,7 +726,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       // Debug: log when we skip due to no start time
       const empName = pickCol(g, EMPLOYEE_NAME_COLS);
       if (empName && (empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
-        console.log(`⚠️ SKIPPING entry for ${empName} - no start timestamp (Actual, Planned, or SR)`);
+        logger.debug(`SKIPPING entry for ${empName} - no start timestamp (Actual, Planned, or SR)`);
       }
       continue;
     }
@@ -738,7 +739,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       const endDate = format(parseDate(end), "yyyy-MM-dd");
       if (date !== endDate) {
         const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-        console.log(`🚫 EXCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (night/multi-day excluded)`);
+        logger.debug(`EXCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (night/multi-day excluded)`);
         continue; // Skip this visit entirely
       }
     }
@@ -756,7 +757,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
         const calculatedDuration = hoursBetween(start, end);
         if (calculatedDuration > 0 && calculatedDuration < 24) {
           pay = calculatedDuration;
-          console.log(`🏢 CALCULATED DURATION for office hours: ${pay}h (from timestamps)`);
+          logger.debug(`CALCULATED DURATION for office hours: ${pay}h (from timestamps)`);
         }
       } catch (e) {
         // Could not calculate duration, keep pay as 0
@@ -769,12 +770,12 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     // Debug: Log office hours entries being added to scheduled totals
     if (isOfficeHours && pay > 0) {
-      console.log(`🏢 DEBUG: Including office hours in scheduled total:`);
-      console.log(`  Employee: ${g["Actual Employee Name"]} (normalized: ${name})`);
-      console.log(`  Service Type: ${serviceType}`);
-      console.log(`  Date: ${date}`);
-      console.log(`  Pay Hours: ${pay}`);
-      console.log(`  Map Key: ${name}|${date}`);
+      logger.debug(`DEBUG: Including office hours in scheduled total:`);
+      logger.debug(`  Employee: ${g["Actual Employee Name"]} (normalized: ${name})`);
+      logger.debug(`  Service Type: ${serviceType}`);
+      logger.debug(`  Date: ${date}`);
+      logger.debug(`  Pay Hours: ${pay}`);
+      logger.debug(`  Map Key: ${name}|${date}`);
     }
 
     // Debug specific employee entries (case-insensitive)
@@ -784,16 +785,16 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
         empName.toLowerCase().includes("mcclymont") ||
         empName.toLowerCase().includes("makala"))
     ) {
-      console.log(`🔍 EMPLOYEE DEBUG - Processing entry:`);
-      console.log(`  Original Name: ${empName}`);
-      console.log(`  Normalized Name: ${name}`);
-      console.log(`  Picked Start: ${start}`);
-      console.log(`  Parsed Date: ${date}`);
-      console.log(`  Raw Pay Hours: ${payRaw}`);
-      console.log(`  Parsed Pay Hours: ${pay}`);
-      console.log(`  Service Type: ${serviceType}`);
-      console.log(`  Cancellation: "${cancelRaw}"`);
-      console.log(`  isOfficeHours: ${isOfficeHours}`);
+      logger.debug(`EMPLOYEE DEBUG - Processing entry:`);
+      logger.debug(`  Original Name: ${empName}`);
+      logger.debug(`  Normalized Name: ${name}`);
+      logger.debug(`  Picked Start: ${start}`);
+      logger.debug(`  Parsed Date: ${date}`);
+      logger.debug(`  Raw Pay Hours: ${payRaw}`);
+      logger.debug(`  Parsed Pay Hours: ${pay}`);
+      logger.debug(`  Service Type: ${serviceType}`);
+      logger.debug(`  Cancellation: "${cancelRaw}"`);
+      logger.debug(`  isOfficeHours: ${isOfficeHours}`);
     }
 
     if (name && date && pay > 0) {
@@ -803,42 +804,42 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       ghMap.set(key, newTotal);
 
       if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
-        console.log(
-          `  ✅ Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        logger.debug(
+          `  Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
       }
 
       // Also log for office hours to verify they're being added
       if (isOfficeHours) {
-        console.log(
-          `  🏢 Office hours added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        logger.debug(
+          `  Office hours added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
       }
     } else {
       if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
-        console.log(`  ❌ Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
+        logger.debug(`  Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
       }
     }
   }
 
-  console.log(`\n🔍 SCHEDULED HOURS FILTERING SUMMARY:`);
-  console.log(`  📊 Total guaranteed hours entries: ${totalProcessed}`);
-  console.log(`  ❌ Filtered cancelled entries: ${filteredCancelled}`);
-  console.log(
-    `  ❌ Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
+  logger.debug(`\nSCHEDULED HOURS FILTERING SUMMARY:`);
+  logger.debug(`  Total guaranteed hours entries: ${totalProcessed}`);
+  logger.debug(`  Filtered cancelled entries: ${filteredCancelled}`);
+  logger.debug(
+    `  Filtered "Multiple Care (Secondary)": ${filteredSecondary}`,
   );
-  console.log(
-    `  ❌ Filtered "Live In Care (SC)": ${filteredLiveInCare}`,
+  logger.debug(
+    `  Filtered "Live In Care (SC)": ${filteredLiveInCare}`,
   );
-  console.log(
-    `  ✅ Office hours included in totals: ${officeHoursIncluded}`,
+  logger.debug(
+    `  Office hours included in totals: ${officeHoursIncluded}`,
   );
-  console.log(
-    `  ✅ Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
+  logger.debug(
+    `  Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
   // Debug: Show final scheduled hours for Chloe and Makala
-  console.log(`\n🔍 FINAL SCHEDULED HOURS MAP (Debug entries):`);
+  logger.debug(`\nFINAL SCHEDULED HOURS MAP (Debug entries):`);
   Array.from(ghMap.entries()).forEach(([key, hours]) => {
     if (
       key.toLowerCase().includes("chloe") ||
@@ -846,10 +847,10 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       key.toLowerCase().includes("makala") ||
       key.toLowerCase().includes("mcewan")
     ) {
-      console.log(`  ${key}: ${hours} hours`);
+      logger.debug(`  ${key}: ${hours} hours`);
     }
   });
-  console.log(`=========================================\n`);
+  logger.debug(`=========================================\n`);
 
   return ghMap;
 }
@@ -1112,9 +1113,9 @@ export async function parseExcelFiles(
   warnings: string[];
   detectedBranch: string | null; // Add detectedBranch to the return type
 }> {
-  console.log(`\n🚨 ===== PARSING EXCEL FILES FUNCTION STARTED =====`);
-  console.log(
-    `🔧 Buffer lengths: availability=${availabilityBuffer?.length}, guaranteed=${guaranteedBuffer?.length}, cgData=${cgDataBuffer?.length}`,
+  logger.debug(`\n===== PARSING EXCEL FILES FUNCTION STARTED =====`);
+  logger.debug(
+    `Buffer lengths: availability=${availabilityBuffer?.length}, guaranteed=${guaranteedBuffer?.length}, cgData=${cgDataBuffer?.length}`,
   );
   const warnings: string[] = [];
 
@@ -1133,7 +1134,7 @@ export async function parseExcelFiles(
 
   // Parse Care Pro Guaranteed Hours.xlsx
   const guaranteedWorkbook = XLSX.read(guaranteedBuffer);
-  console.log(`📊 Guaranteed workbook sheets available:`, guaranteedWorkbook.SheetNames);
+  logger.debug(`Guaranteed workbook sheets available:`, guaranteedWorkbook.SheetNames);
   
   const guaranteedSheetName = GUAR_SHEET;
   if (!guaranteedWorkbook.SheetNames.includes(guaranteedSheetName)) {
@@ -1149,15 +1150,15 @@ export async function parseExcelFiles(
     defval: "", // Same as CG Data parsing - handle missing cells gracefully
   });
   
-  console.log(`📊 Guaranteed Hours sheet parsed: ${guaranteedData.length} rows found`);
-  console.log(`🏢 Branch context: ${branchId || 'NO BRANCH ID'}`);
+  logger.debug(`Guaranteed Hours sheet parsed: ${guaranteedData.length} rows found`);
+  logger.debug(`Branch context: ${branchId || 'NO BRANCH ID'}`);
   if (guaranteedData.length > 0) {
-    console.log(`📊 First row columns:`, Object.keys(guaranteedData[0]).slice(0, 15));
-    console.log(`📊 First row sample:`, JSON.stringify(guaranteedData[0]).substring(0, 400));
+    logger.debug(`First row columns:`, Object.keys(guaranteedData[0]).slice(0, 15));
+    logger.debug(`First row sample:`, JSON.stringify(guaranteedData[0]).substring(0, 400));
   }
 
   // === Calculate demand from Guaranteed Hours data ===
-  console.log(`🔧 Calculating demand from Guaranteed Hours data...`);
+  logger.debug(`Calculating demand from Guaranteed Hours data...`);
 
   // Apply SAME filtering rules as service-delivery-rules.ts for consistency
   // Note: Night shifts are now INCLUDED for capacity display
@@ -1225,8 +1226,8 @@ export async function parseExcelFiles(
 
   // Log filtering breakdown (same detail as service-delivery-rules.ts)
   const totalFiltered = guaranteedData.length - demandRows.length;
-  console.log(
-    `🔍 DEMAND FILTERING (INCLUSIVE): Excluded ${totalFiltered} rows from ${guaranteedData.length} total Guaranteed Hours entries`,
+  logger.debug(
+    `DEMAND FILTERING (INCLUSIVE): Excluded ${totalFiltered} rows from ${guaranteedData.length} total Guaranteed Hours entries`,
   );
 
   // Show breakdown by exclusion type WITH HOURS
@@ -1241,10 +1242,10 @@ export async function parseExcelFiles(
   );
   const secondaryHours = secondaryRows.reduce((sum, r) => sum + (Number(r["Planned Duration"]) || 0), 0);
 
-  console.log(`  ❌ Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
-  console.log(`  ❌ Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
-  console.log(`  ❌ Night shifts: EXCLUDED from demand calculation`);
-  console.log(`  ❌ Office hours, Training, Shadowing: EXCLUDED as requested`);
+  logger.debug(`  Cancelled: ${cancelledRows.length} rows (${Math.round(cancelledHours * 100) / 100}h)`);
+  logger.debug(`  Secondary care: ${secondaryRows.length} rows (${Math.round(secondaryHours * 100) / 100}h)`);
+  logger.debug(`  Night shifts: EXCLUDED from demand calculation`);
+  logger.debug(`  Office hours, Training, Shadowing: EXCLUDED as requested`);
 
   // Group by weekday and sum duration
   const hoursByWeekday = new Map<string, number>();
@@ -1263,7 +1264,7 @@ export async function parseExcelFiles(
       const endDate = parseDate(plannedEnd);
       if (format(startDate, "yyyy-MM-dd") !== format(endDate, "yyyy-MM-dd")) {
         if (demandRows.indexOf(row) < 10) {
-          console.log(`  🚫 EXCLUDING overnight visit from demand: ${row["Actual Employee Name"]} starts ${format(startDate, "yyyy-MM-dd HH:mm")} ends ${format(endDate, "yyyy-MM-dd HH:mm")}`);
+          logger.debug(`  EXCLUDING overnight visit from demand: ${row["Actual Employee Name"]} starts ${format(startDate, "yyyy-MM-dd HH:mm")} ends ${format(endDate, "yyyy-MM-dd HH:mm")}`);
         }
         return;
       }
@@ -1296,14 +1297,14 @@ export async function parseExcelFiles(
     // Debug: Log first 10 entries to verify fractional hours are being captured
     const currentTotal = hoursByWeekday.get(weekdayName) || 0;
     if (demandRows.indexOf(row) < 10) {
-      console.log(`  📊 Row ${demandRows.indexOf(row) + 1}: ${weekdayName} - ${duration}h from "${foundColumn}" (running total: ${currentTotal + duration}h)`);
+      logger.debug(`  Row ${demandRows.indexOf(row) + 1}: ${weekdayName} - ${duration}h from "${foundColumn}" (running total: ${currentTotal + duration}h)`);
     }
 
     // If no duration found in preferred columns, this visit won't count toward demand
     if (duration > 0) {
       hoursByWeekday.set(weekdayName, currentTotal + duration);
     } else if (demandRows.indexOf(row) < 10) {
-      console.log(`  ⚠️ Row ${demandRows.indexOf(row) + 1}: NO DURATION FOUND - checked columns: ${durationCols.join(", ")}`);
+      logger.debug(`  Row ${demandRows.indexOf(row) + 1}: NO DURATION FOUND - checked columns: ${durationCols.join(", ")}`);
     }
   });
 
@@ -1311,8 +1312,8 @@ export async function parseExcelFiles(
     .map(({0: weekday, 1: hours}) => ({ weekday, hours: Math.round(hours * 100) / 100 }))
     .sort((a, b) => a.weekday.localeCompare(b.weekday));
 
-  console.log(`📊 Calculated demand from Guaranteed Hours:`, hoursByWeekdayArray);
-  console.log(`📊 Total demand rows after filtering: ${demandRows.length}`);
+  logger.debug(`Calculated demand from Guaranteed Hours:`, hoursByWeekdayArray);
+  logger.debug(`Total demand rows after filtering: ${demandRows.length}`);
 
   // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
   const cgDataWorkbook = XLSX.read(cgDataBuffer);
@@ -1322,12 +1323,12 @@ export async function parseExcelFiles(
     defval: "",
   });
 
-  console.log(`🔍 CG Data sheet names available:`, cgDataWorkbook.SheetNames);
-  console.log(`🔍 Using sheet: "${cgDataSheetName}"`);
-  console.log(`🔍 Raw CG Data rows: ${cgRowsRaw.length}`);
+  logger.debug(`CG Data sheet names available:`, cgDataWorkbook.SheetNames);
+  logger.debug(`Using sheet: "${cgDataSheetName}"`);
+  logger.debug(`Raw CG Data rows: ${cgRowsRaw.length}`);
   if (cgRowsRaw.length > 0) {
-    console.log(`🔍 First raw CG Data row:`, cgRowsRaw[0]);
-    console.log(`🔍 Available columns:`, Object.keys(cgRowsRaw[0]));
+    logger.debug(`First raw CG Data row:`, cgRowsRaw[0]);
+    logger.debug(`Available columns:`, Object.keys(cgRowsRaw[0]));
   }
 
   // Build name from CAREGiver Name OR First+Last; accept multiple weekly-hours aliases
@@ -1380,11 +1381,11 @@ export async function parseExcelFiles(
     })
     .filter((r) => r["CAREGiver Name"] && r["Weekly Hours"] > 0);
 
-  console.log(
-    `📊 CG Data: ${cgRowsRaw.length} rows → ${cgData.length} employees with weekly hours (sheet: ${cgDataSheetName})`,
+  logger.debug(
+    `CG Data: ${cgRowsRaw.length} rows → ${cgData.length} employees with weekly hours (sheet: ${cgDataSheetName})`,
   );
   if (cgData.length > 0) {
-    console.log(`🔍 First processed CG Data row:`, cgData[0]);
+    logger.debug(`First processed CG Data row:`, cgData[0]);
 
     // Show gender extraction stats for debugging
     const genderStats = cgData.reduce((acc, emp) => {
@@ -1392,7 +1393,7 @@ export async function parseExcelFiles(
       acc[g] = (acc[g] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    console.log(`👥 Gender distribution:`, genderStats);
+    logger.debug(`Gender distribution:`, genderStats);
 
     // Show sample employees with their Title and Gender
     const samplesWithGender = cgData.slice(0, 5).map(emp => ({
@@ -1400,9 +1401,9 @@ export async function parseExcelFiles(
       title: emp.Title,
       gender: emp.Gender || "unknown"
     }));
-    console.log(`👤 Sample employees (Title → Gender):`, samplesWithGender);
+    logger.debug(`Sample employees (Title → Gender):`, samplesWithGender);
   } else {
-    console.log(`❌ No valid CG Data rows found - check column names and data`);
+    logger.debug(`No valid CG Data rows found - check column names and data`);
   }
 
   // Process availability data
@@ -1428,14 +1429,14 @@ export async function parseExcelFiles(
 
           // Reject ALL multi-day entries (including overnight = 1 day difference)
           if (diffInDays >= 1) {
-            console.log(`🚫 REJECTING multi-day availability for ${empName}: Start ${startDateStr}, End ${endDateStr} (${diffInDays} day(s) - overnight/multi-day excluded)`);
+            logger.debug(`REJECTING multi-day availability for ${empName}: Start ${startDateStr}, End ${endDateStr} (${diffInDays} day(s) - overnight/multi-day excluded)`);
             warnings.push(
               `Availability row ${index + 1} (${empName}): Rejected - multi-day availability (${diffInDays} day(s)). Only same-day availability is supported.`,
             );
             return;
           }
         } catch (endDateError) {
-          console.log(`⚠️ Could not parse end date for ${empName}, continuing with start date validation`);
+          logger.debug(`Could not parse end date for ${empName}, continuing with start date validation`);
         }
       }
 
@@ -1541,19 +1542,19 @@ export async function parseExcelFiles(
       );
       
       if (isNightShift) {
-        console.log(`🚫 EXCLUDING night shift from capacity: ${empName} - ${serviceType}`);
+        logger.debug(`EXCLUDING night shift from capacity: ${empName} - ${serviceType}`);
         return; // Skip night shift entries
       }
       const payHours = Number(row["Actual Pay Rate Hours"]) || 0;
       
       // Debug logging for Chloe's shadowing entries
       if (empName && (String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont"))) {
-        console.log(`🔍 CHLOE VALIDATION CHECK (row ${index + 1}):`);
-        console.log(`  Service Type: "${serviceType}"`);
-        console.log(`  isOfficeHours: ${isOfficeHours}`);
-        console.log(`  Employee Name: "${empName}"`);
-        console.log(`  Pay Hours Raw: "${row["Actual Pay Rate Hours"]}" -> ${payHours}`);
-        console.log(`  Start: "${start}", End: "${end}"`);
+        logger.debug(`CHLOE VALIDATION CHECK (row ${index + 1}):`);
+        logger.debug(`  Service Type: "${serviceType}"`);
+        logger.debug(`  isOfficeHours: ${isOfficeHours}`);
+        logger.debug(`  Employee Name: "${empName}"`);
+        logger.debug(`  Pay Hours Raw: "${row["Actual Pay Rate Hours"]}" -> ${payHours}`);
+        logger.debug(`  Start: "${start}", End: "${end}"`);
       }
 
       if (isOfficeHours) {
@@ -1605,7 +1606,7 @@ export async function parseExcelFiles(
       
       // Debug: Log when Chloe's shadowing entry passes validation
       if (empName && (String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont"))) {
-        console.log(`  ✅ CHLOE ROW ${index + 1} PASSED VALIDATION - adding to validatedGuaranteed`);
+        logger.debug(`  CHLOE ROW ${index + 1} PASSED VALIDATION - adding to validatedGuaranteed`);
       }
 
       validatedGuaranteed.push(row);
@@ -1616,8 +1617,8 @@ export async function parseExcelFiles(
     }
   });
 
-  console.log(
-    `🔍 SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`,
+  logger.debug(
+    `SECONDARY CLIENT FILTERING: Excluded ${filteredSecondaryCount} rows with service descriptions from ${guaranteedData.length} total Care Pro entries`,
   );
 
   // === Map calculated demand to actual dates ===
@@ -1655,7 +1656,7 @@ export async function parseExcelFiles(
   // Determine the core reporting week (7 consecutive days)
   // If we have more than 7 dates, find the core week and filter out spillover dates
   if (actualDatesArray.length > 7) {
-    console.log(`\n🔍 DETECTING WEEK BOUNDARY (${actualDatesArray.length} dates found):`);
+    logger.debug(`\nDETECTING WEEK BOUNDARY (${actualDatesArray.length} dates found):`);
     
     // Find the 7-day window with the most data coverage
     // Strategy: Take the last 7 dates as the "core" week (most recent complete week)
@@ -1681,8 +1682,8 @@ export async function parseExcelFiles(
       
       if (daysBetweenFirstAndSecond === 1 && daysBetweenSecondAndLast === 6) {
         // First date is a spillover - remove it
-        console.log(`  ⚠️ Detected spillover date: ${sortedDates[0]} (removed)`);
-        console.log(`  ✅ Core week: ${sortedDates[1]} to ${sortedDates[sortedDates.length - 1]}`);
+        logger.debug(`  Detected spillover date: ${sortedDates[0]} (removed)`);
+        logger.debug(`  Core week: ${sortedDates[1]} to ${sortedDates[sortedDates.length - 1]}`);
         actualDatesArray = sortedDates.slice(1);
         
         // Also remove this date from actualDates set for consistency
@@ -1696,8 +1697,8 @@ export async function parseExcelFiles(
         
         if (daysBetweenFirstAndSecondToLast === 6) {
           // Last date is spillover - remove it
-          console.log(`  ⚠️ Detected spillover date: ${sortedDates[sortedDates.length - 1]} (removed)`);
-          console.log(`  ✅ Core week: ${sortedDates[0]} to ${sortedDates[sortedDates.length - 2]}`);
+          logger.debug(`  Detected spillover date: ${sortedDates[sortedDates.length - 1]} (removed)`);
+          logger.debug(`  Core week: ${sortedDates[0]} to ${sortedDates[sortedDates.length - 2]}`);
           actualDatesArray = sortedDates.slice(0, -1);
           actualDates.delete(sortedDates[sortedDates.length - 1]);
         }
@@ -1732,27 +1733,27 @@ export async function parseExcelFiles(
     }
   });
 
-  console.log(`\n📅 ACTUAL DATES FOUND IN FILES:`);
-  console.log(`  Total unique dates: ${actualDatesArray.length}`);
-  console.log(
+  logger.debug(`\nACTUAL DATES FOUND IN FILES:`);
+  logger.debug(`  Total unique dates: ${actualDatesArray.length}`);
+  logger.debug(
     `  Date range: ${actualDatesArray[0]} to ${actualDatesArray[actualDatesArray.length - 1]}`,
   );
 
-  console.log(`\n📅 WEEKDAY TO ACTUAL DATES MAPPING:`);
+  logger.debug(`\nWEEKDAY TO ACTUAL DATES MAPPING:`);
   Object.entries(weekdayToActualDates).forEach(([weekday, dates]) => {
-    console.log(
+    logger.debug(
       `  ${weekday}: ${dates.length > 0 ? dates.join(", ") : "No dates found"}`,
     );
   });
-  console.log(`================================\n`);
+  logger.debug(`================================\n`);
 
   // Map weekday hours to actual dates from the files
   hoursByWeekdayArray.forEach(({ weekday, hours }) => {
     const actualDatesForWeekday = weekdayToActualDates[weekday] || [];
 
     if (actualDatesForWeekday.length === 0) {
-      console.log(
-        `⚠️  No actual dates found for ${weekday} (${hours}h) - skipping`,
+      logger.debug(
+        ` No actual dates found for ${weekday} (${hours}h) - skipping`,
       );
       return;
     }
@@ -1765,7 +1766,7 @@ export async function parseExcelFiles(
         : hours;
 
     actualDatesForWeekday.forEach((dateStr) => {
-      console.log(`🔄 Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr}`);
+      logger.debug(`Mapping: ${weekday} (${hoursPerDate}h) -> ${dateStr}`);
       validatedDemand.push({
         Date: dateStr,
         "Required Client Hours": hoursPerDate,
@@ -1778,16 +1779,16 @@ export async function parseExcelFiles(
   const mondayHours =
     hoursByWeekdayArray.find(({ weekday }) => weekday === "Monday")?.hours || 0;
 
-  console.log(`\n📊 ===== DEMAND CALCULATION SUMMARY =====`);
-  console.log(
-    `✅ Calculated from ${demandRows.length} Guaranteed Hours entries`,
+  logger.debug(`\n===== DEMAND CALCULATION SUMMARY =====`);
+  logger.debug(
+    `Calculated from ${demandRows.length} Guaranteed Hours entries`,
   );
-  console.log(`📈 Monday hours: ${mondayHours}`);
-  console.log(`📈 Total hours: ${totalHours}`);
-  console.log(`=======================================\n`);
+  logger.debug(`Monday hours: ${mondayHours}`);
+  logger.debug(`Total hours: ${totalHours}`);
+  logger.debug(`=======================================\n`);
 
   // === BRANCH EXTRACTION AND VALIDATION ===
-  console.log(`\n🏢 ===== BRANCH DETECTION =====`);
+  logger.debug(`\n===== BRANCH DETECTION =====`);
 
   const branchesDetected = new Set<string>();
 
@@ -1795,39 +1796,39 @@ export async function parseExcelFiles(
   if (cgRowsRaw.length > 0) {
     const sampleBranches = cgRowsRaw.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
     sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
-    console.log(`📄 CG Data sample branches: ${sampleBranches.join(", ")}`);
+    logger.debug(`CG Data sample branches: ${sampleBranches.join(", ")}`);
   }
 
   // Extract from Guaranteed Hours
   if (guaranteedData.length > 0) {
     const sampleBranches = guaranteedData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
     sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
-    console.log(`📄 Guaranteed Hours sample branches: ${sampleBranches.join(", ")}`);
+    logger.debug(`Guaranteed Hours sample branches: ${sampleBranches.join(", ")}`);
   }
 
   // Extract from Availability
   if (availabilityData.length > 0) {
     const sampleBranches = availabilityData.slice(0, 5).map(row => extractBranchFromRow(row)).filter(Boolean);
     sampleBranches.forEach(b => b && branchesDetected.add(normalizeBranchName(b)));
-    console.log(`📄 Availability sample branches: ${sampleBranches.join(", ")}`);
+    logger.debug(`Availability sample branches: ${sampleBranches.join(", ")}`);
   }
 
   const detectedBranches = Array.from(branchesDetected);
-  console.log(`✅ Detected branches: ${detectedBranches.join(", ")}`);
+  logger.debug(`Detected branches: ${detectedBranches.join(", ")}`);
 
   let detectedBranch: string | null = null;
   if (detectedBranches.length === 0) {
-    warnings.push("⚠️ No branch information found in Excel files. Branch column may be missing.");
-    console.log(`⚠️ WARNING: No branch detected - files may be missing branch column`);
+    warnings.push("No branch information found in Excel files. Branch column may be missing.");
+    logger.debug(`WARNING: No branch detected - files may be missing branch column`);
   } else if (detectedBranches.length > 1) {
-    warnings.push(`⚠️ Multiple branches detected: ${detectedBranches.join(", ")}. Files may be mixed.`);
-    console.log(`⚠️ WARNING: Multiple branches detected - potential data mixing!`);
+    warnings.push(`Multiple branches detected: ${detectedBranches.join(", ")}. Files may be mixed.`);
+    logger.debug(`WARNING: Multiple branches detected - potential data mixing!`);
     detectedBranch = detectedBranches[0]; // Use the first detected branch as a fallback
   } else {
     detectedBranch = detectedBranches[0];
   }
-  console.log(`🏢 Final detected branch: ${detectedBranch || "NONE"}`);
-  console.log(`=======================================\n`);
+  logger.debug(`Final detected branch: ${detectedBranch || "NONE"}`);
+  logger.debug(`=======================================\n`);
 
   return {
     availability: validatedAvailability,
@@ -1851,42 +1852,42 @@ export async function processCapacityData(
   const branchId = options?.branchId;
 
   // REVOLUTIONARY CHANGE: Start with CG Data as master employee list
-  console.log(`\n🚀 ===== USING CG DATA AS MASTER EMPLOYEE LIST =====`);
-  console.log(`📊 Total employees in CG Data: ${cgData.length}`);
+  logger.debug(`\n🚀 ===== USING CG DATA AS MASTER EMPLOYEE LIST =====`);
+  logger.debug(`Total employees in CG Data: ${cgData.length}`);
 
   // Log sample CG Data entries
   if (cgData.length > 0) {
-    console.log(`📋 Sample CG Data entries:`);
+    logger.debug(`Sample CG Data entries:`);
     cgData.slice(0, 3).forEach((emp, idx) => {
-      console.log(
+      logger.debug(
         `  ${idx + 1}. ${emp["CAREGiver Name"]} - ${emp["Weekly Hours"]} hours/week`,
       );
     });
   }
 
   // Debug: Check what demand data we received from filtering
-  console.log(`\n===== RECEIVED DEMAND DATA =====`);
+  logger.debug(`\n===== RECEIVED DEMAND DATA =====`);
   let totalDemandHours = 0;
   demand.forEach((row) => {
-    console.log(`  - ${row.Date}: ${row["Required Client Hours"]} hours`);
+    logger.debug(`  - ${row.Date}: ${row["Required Client Hours"]} hours`);
     totalDemandHours += row["Required Client Hours"];
   });
-  console.log(
-    `📊 TOTAL DEMAND HOURS FROM FILTERING: ${Math.round(totalDemandHours * 100) / 100} (Expected: 400.33)`,
+  logger.debug(
+    `TOTAL DEMAND HOURS FROM FILTERING: ${Math.round(totalDemandHours * 100) / 100} (Expected: 400.33)`,
   );
-  console.log(`================================\n`);
+  logger.debug(`================================\n`);
 
   // Build scheduled hours lookup from guaranteed hours data (using exact logic from attached file)
-  console.log(`\n🔍 DEBUG: About to call buildScheduledHoursLookup with ${guaranteed.length} guaranteed rows`);
+  logger.debug(`\nDEBUG: About to call buildScheduledHoursLookup with ${guaranteed.length} guaranteed rows`);
 
   // Debug: Check if office hours exist in the data
   const officeRows = guaranteed.filter(row => {
     const serviceType = (row["Actual Service Type Description"] || "").toString().toLowerCase();
     return serviceType.includes("office");
   });
-  console.log(`🏢 DEBUG: Found ${officeRows.length} office hours rows in guaranteed data`);
+  logger.debug(`DEBUG: Found ${officeRows.length} office hours rows in guaranteed data`);
   if (officeRows.length > 0) {
-    console.log(`🏢 DEBUG: Sample office hours rows:`, officeRows.slice(0, 3).map(r => ({
+    logger.debug(`DEBUG: Sample office hours rows:`, officeRows.slice(0, 3).map(r => ({
       employee: r["Actual Employee Name"],
       serviceType: r["Actual Service Type Description"],
       hours: r["Actual Pay Rate Hours"]
@@ -1896,39 +1897,39 @@ export async function processCapacityData(
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
 
   // VERIFICATION: Show what's in the scheduled hours map
-  console.log(`\n📊 SCHEDULED HOURS MAP VERIFICATION:`);
-  console.log(`  Total entries in map: ${scheduledHoursMap.size}`);
+  logger.debug(`\nSCHEDULED HOURS MAP VERIFICATION:`);
+  logger.debug(`  Total entries in map: ${scheduledHoursMap.size}`);
   
   // Show first 10 entries
   let count = 0;
   for (const [key, hours] of Array.from(scheduledHoursMap.entries())) {
     if (count < 10) {
-      console.log(`  ${key}: ${hours}h`);
+      logger.debug(`  ${key}: ${hours}h`);
       count++;
     }
   }
-  console.log(`=========================================\n`);
+  logger.debug(`=========================================\n`);
 
   // Debug: Check what's actually in the guaranteed hours data
   if (guaranteed.length > 0) {
-    console.log("=== GUARANTEED HOURS DEBUGGING ===");
-    console.log("First row raw data:", guaranteed[0]);
-    console.log(
+    logger.debug("=== GUARANTEED HOURS DEBUGGING ===");
+    logger.debug("First row raw data:", guaranteed[0]);
+    logger.debug(
       "Service Start Date raw:",
       guaranteed[0]["Service Requirement Start Date And Time"],
     );
-    console.log(
+    logger.debug(
       "Service End Date raw:",
       guaranteed[0]["Service Requirement End Date And Time"],
     );
   }
 
   // Debug CG Data to see what's actually there
-  console.log(`🔍 CG Data debugging:`);
-  console.log(`  - Total CG Data rows: ${cgData.length}`);
+  logger.debug(`CG Data debugging:`);
+  logger.debug(`  - Total CG Data rows: ${cgData.length}`);
   if (cgData.length > 0) {
-    console.log(`  - First row keys:`, Object.keys(cgData[0]));
-    console.log(`  - First row:`, cgData[0]);
+    logger.debug(`  - First row keys:`, Object.keys(cgData[0]));
+    logger.debug(`  - First row:`, cgData[0]);
   }
 
   // Step 1: Create master employee list from CG Data (EXACT MATCH TO WORKING IMPLEMENTATION)
@@ -1948,11 +1949,11 @@ export async function processCapacityData(
       gender: row.gender,
     }));
 
-  console.log(
-    `📋 Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`,
+  logger.debug(
+    `Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`,
   );
   if (masterEmployees.length > 0) {
-    console.log(`  - Sample employee:`, masterEmployees[0]);
+    logger.debug(`  - Sample employee:`, masterEmployees[0]);
   }
 
   // Create master employee map for fast lookup
@@ -1998,7 +1999,7 @@ export async function processCapacityData(
   const spilloverDatesRemoved: string[] = [];
   
   if (coreWeekArray.length > 7) {
-    console.log(`\n🔍 DETECTING WEEK BOUNDARY in processCapacityData (${coreWeekArray.length} dates found):`);
+    logger.debug(`\nDETECTING WEEK BOUNDARY in processCapacityData (${coreWeekArray.length} dates found):`);
     
     // Check if first date is a spillover from overnight shift
     if (coreWeekArray.length > 7) {
@@ -2015,8 +2016,8 @@ export async function processCapacityData(
       );
       
       if (daysBetweenFirstAndSecond === 1 && daysBetweenSecondAndLast === 6) {
-        console.log(`  ⚠️ Detected spillover date: ${coreWeekArray[0]} (will be excluded)`);
-        console.log(`  ✅ Core week: ${coreWeekArray[1]} to ${coreWeekArray[coreWeekArray.length - 1]}`);
+        logger.debug(`  Detected spillover date: ${coreWeekArray[0]} (will be excluded)`);
+        logger.debug(`  Core week: ${coreWeekArray[1]} to ${coreWeekArray[coreWeekArray.length - 1]}`);
         spilloverDatesRemoved.push(coreWeekArray[0]);
         coreWeekDates.delete(coreWeekArray[0]);
         coreWeekArray = coreWeekArray.slice(1);
@@ -2027,8 +2028,8 @@ export async function processCapacityData(
         );
         
         if (daysBetweenFirstAndSecondToLast === 6) {
-          console.log(`  ⚠️ Detected spillover date: ${coreWeekArray[coreWeekArray.length - 1]} (will be excluded)`);
-          console.log(`  ✅ Core week: ${coreWeekArray[0]} to ${coreWeekArray[coreWeekArray.length - 2]}`);
+          logger.debug(`  Detected spillover date: ${coreWeekArray[coreWeekArray.length - 1]} (will be excluded)`);
+          logger.debug(`  Core week: ${coreWeekArray[0]} to ${coreWeekArray[coreWeekArray.length - 2]}`);
           spilloverDatesRemoved.push(coreWeekArray[coreWeekArray.length - 1]);
           coreWeekDates.delete(coreWeekArray[coreWeekArray.length - 1]);
           coreWeekArray = coreWeekArray.slice(0, -1);
@@ -2090,11 +2091,11 @@ export async function processCapacityData(
   });
   
   if (spilloverDatesSkipped > 0) {
-    console.log(`  🔸 Filtered ${spilloverDatesSkipped} availability records from spillover dates: ${spilloverDatesRemoved.join(', ')}`);
+    logger.debug(`  🔸 Filtered ${spilloverDatesSkipped} availability records from spillover dates: ${spilloverDatesRemoved.join(', ')}`);
   }
 
-  console.log(
-    `📊 Availability filtered: ${availabilityFiltered.length} rows (only master employees)`,
+  logger.debug(
+    `Availability filtered: ${availabilityFiltered.length} rows (only master employees)`,
   );
 
   // Step 3: Create allAvailabilityWithMatching for compatibility with existing pipeline
@@ -2612,16 +2613,16 @@ export async function processCapacityData(
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // Step 9: Calculate KPIs
-  console.log(`\n===== DAILY SUMMARY CLIENT REQUIRED BREAKDOWN =====`);
+  logger.debug(`\n===== DAILY SUMMARY CLIENT REQUIRED BREAKDOWN =====`);
   let totalClientRequired = 0;
   dailySummary.forEach((d) => {
-    console.log(`  - ${d.date}: ${d.clientRequired} hours`);
+    logger.debug(`  - ${d.date}: ${d.clientRequired} hours`);
     totalClientRequired += d.clientRequired;
   });
-  console.log(
-    `📊 TOTAL CLIENT REQUIRED FROM DAILY SUMMARY: ${Math.round(totalClientRequired * 100) / 100}`,
+  logger.debug(
+    `TOTAL CLIENT REQUIRED FROM DAILY SUMMARY: ${Math.round(totalClientRequired * 100) / 100}`,
   );
-  console.log(`==================================================\n`);
+  logger.debug(`==================================================\n`);
 
   const kpis = {
     netCapacitySum:
@@ -2659,13 +2660,13 @@ export async function processCapacityData(
     const gender = masterEmployee?.gender || "";
 
     // Debug: Always log for debugging
-    console.log(`📝 Adding to employeesByDate[${record.date}]: ${record.employeeName}`);
-    console.log(`  - Normalized name: "${empNormalizedName}"`);
-    console.log(`  - Master employee found: ${masterEmployee ? 'YES' : 'NO'}`);
+    logger.debug(`📝 Adding to employeesByDate[${record.date}]: ${record.employeeName}`);
+    logger.debug(`  - Normalized name: "${empNormalizedName}"`);
+    logger.debug(`  - Master employee found: ${masterEmployee ? 'YES' : 'NO'}`);
     if (masterEmployee) {
-      console.log(`  - Master employee gender: "${masterEmployee.gender}"`);
+      logger.debug(`  - Master employee gender: "${masterEmployee.gender}"`);
     }
-    console.log(`  - Final gender value: "${gender || 'EMPTY'}"`);
+    logger.debug(`  - Final gender value: "${gender || 'EMPTY'}"`);
 
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
@@ -2681,22 +2682,22 @@ export async function processCapacityData(
   });
 
   // Debug: Verify gender is stored in employeesByDate (CRITICAL for auto-scheduler)
-  console.log(`\n🔍 VERIFYING GENDER IN employeesByDate (for auto-scheduler):`);
+  logger.debug(`\nVERIFYING GENDER IN employeesByDate (for auto-scheduler):`);
   const sampleDate = Object.keys(employeesByDate)[0];
   if (sampleDate && employeesByDate[sampleDate]) {
     const sampleEmployees = employeesByDate[sampleDate].slice(0, 10);
-    console.log(`  Checking ${sampleEmployees.length} employees on ${sampleDate}:`);
+    logger.debug(`  Checking ${sampleEmployees.length} employees on ${sampleDate}:`);
     sampleEmployees.forEach((emp: any) => {
-      console.log(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
+      logger.debug(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
     });
 
     // Count how many have gender data
     const withGender = sampleEmployees.filter((e: any) => e.gender).length;
-    console.log(`  ✅ ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
+    logger.debug(`  ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
 
     // Show the actual object structure that will be saved
     if (sampleEmployees.length > 0) {
-      console.log(`  📦 Sample object structure:`, JSON.stringify(sampleEmployees[0], null, 2));
+      logger.debug(`  📦 Sample object structure:`, JSON.stringify(sampleEmployees[0], null, 2));
     }
   }
 
@@ -2709,8 +2710,8 @@ export async function processCapacityData(
       if (emp.gender) employeesWithGender++;
     });
   });
-  console.log(`  📊 TOTAL GENDER COVERAGE: ${employeesWithGender}/${totalEmployees} employees (${Math.round(employeesWithGender/totalEmployees*100)}%)`);
-  console.log(`=========================================\n`);
+  logger.debug(`  TOTAL GENDER COVERAGE: ${employeesWithGender}/${totalEmployees} employees (${Math.round(employeesWithGender/totalEmployees*100)}%)`);
+  logger.debug(`=========================================\n`);
 
   // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
   // Build adhoc windows map once for reuse in employee summary calculation
@@ -2776,7 +2777,7 @@ export async function processCapacityData(
 
   Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
     // Extract cancelled visits for this specific date
-    console.log(`\n🚫 EXTRACTING CANCELLED VISITS FOR ${dateStr}...`);
+    logger.debug(`\nEXTRACTING CANCELLED VISITS FOR ${dateStr}...`);
     const cancelledVisitsForDate = options?.ghWorkbookBuffer
       ? extractCancelledWindowsFromGHWorkbook(
           options.ghWorkbookBuffer,
@@ -2784,8 +2785,8 @@ export async function processCapacityData(
           60,
         )
       : new Map<string, string>();
-    console.log(
-      `📊 Found ${cancelledVisitsForDate.size} employees with cancelled visits on ${dateStr}`,
+    logger.debug(
+      `Found ${cancelledVisitsForDate.size} employees with cancelled visits on ${dateStr}`,
     );
 
     // Group employees by name and consolidate their data
@@ -2810,11 +2811,11 @@ export async function processCapacityData(
         const scheduleKey = `${empNormalized}|${dateStr}`;
         const scheduledHoursFromLookup = scheduledHoursMap.get(scheduleKey) || 0;
 
-        console.log(`📊 Employee summary for ${emp.employeeName} on ${dateStr}:`);
-        console.log(`  - Normalized: ${empNormalized}`);
-        console.log(`  - Lookup key: ${scheduleKey}`);
-        console.log(`  - Scheduled hours from lookup: ${scheduledHoursFromLookup}`);
-        console.log(`  - Scheduled hours from emp object: ${emp.scheduledHours || 0}`);
+        logger.debug(`Employee summary for ${emp.employeeName} on ${dateStr}:`);
+        logger.debug(`  - Normalized: ${empNormalized}`);
+        logger.debug(`  - Lookup key: ${scheduleKey}`);
+        logger.debug(`  - Scheduled hours from lookup: ${scheduledHoursFromLookup}`);
+        logger.debug(`  - Scheduled hours from emp object: ${emp.scheduledHours || 0}`);
 
         employeeMap.set(key, {
           contractedDailyHours: emp.contractedDailyHours,
@@ -2944,7 +2945,7 @@ export async function processCapacityData(
             
             // Check if employee has ONLY night windows (no day availability)
             if (dayWindows.length === 0 && allWindows.length > 0) {
-              console.log(`🚫 EXCLUDING night-only employee from capacity: ${employeeName} on ${dateStr}`);
+              logger.debug(`EXCLUDING night-only employee from capacity: ${employeeName} on ${dateStr}`);
               // Return null to mark for filtering - they only have night availability
               return null;
             }
@@ -2971,7 +2972,7 @@ export async function processCapacityData(
             }
           }
         } catch (error) {
-          console.warn(
+          logger.warn(
             `Error calculating free windows for ${employeeName} on ${dateStr}:`,
             error,
           );
@@ -2992,7 +2993,7 @@ export async function processCapacityData(
 
         // CRITICAL: Log gender assignment for debugging
         if (!gender) {
-          console.log(`⚠️ SUMMARY: ${employeeName} on ${dateStr} - NO GENDER (normalized: ${empNormalized})`);
+          logger.debug(`SUMMARY: ${employeeName} on ${dateStr} - NO GENDER (normalized: ${empNormalized})`);
         }
 
         const summaryRecord = {
@@ -3012,7 +3013,7 @@ export async function processCapacityData(
 
         // Debug logging to verify scheduled hours are being set
         if (empData.scheduledHours > 0) {
-          console.log(`✅ SUMMARY RECORD with scheduled hours: ${employeeName} on ${dateStr} = ${empData.scheduledHours}h`);
+          logger.debug(`SUMMARY RECORD with scheduled hours: ${employeeName} on ${dateStr} = ${empData.scheduledHours}h`);
         }
 
         return summaryRecord;
@@ -3066,13 +3067,13 @@ export async function processCapacityData(
     storage
       .saveCapacityAnalysis(analysisData)
       .then(() => {
-        console.log("Successfully saved capacity analysis to database");
+        logger.debug("Successfully saved capacity analysis to database");
       })
       .catch((error) => {
-        console.error("Error saving to database:", error);
+        logger.error("Error saving to database:", error);
       });
   } catch (error) {
-    console.error("Error preparing database save:", error);
+    logger.error("Error preparing database save:", error);
     // Don't throw - still return the result even if save fails
   }
 
@@ -3080,7 +3081,7 @@ export async function processCapacityData(
   if (branchId) {
     await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer); // Pass raw GH workbook buffer
   } else {
-    console.log(`⚠️ WARNING: No branchId provided - skipping geographical data extraction`);
+    logger.debug(`WARNING: No branchId provided - skipping geographical data extraction`);
   }
 
   // Retrieve geographical data to include in the result
@@ -3107,9 +3108,9 @@ export async function processCapacityData(
       lng: cli.lng ? Number(cli.lng) : undefined,
     }));
 
-    console.log(`📍 Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result`);
+    logger.debug(`Including ${resultWithLocations.employeeLocations.length} employee locations and ${resultWithLocations.clientLocations.length} client locations in result`);
   } catch (error) {
-    console.error('❌ Error retrieving geographical data:', error);
+    logger.error('Error retrieving geographical data:', error);
     // Don't throw - return result without location data
   }
 
@@ -3118,12 +3119,12 @@ export async function processCapacityData(
 
 // Extract and store geographical data for route optimization
 async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[], branchId?: string, ghWorkbookBuffer?: Buffer) { // Added ghWorkbookBuffer parameter
-  console.log(`🗺️ EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
-  console.log(`📊 CG Data rows to process: ${cgData.length}`);
-  console.log(`🏢 Branch ID: ${branchId || 'NONE'}`);
+  logger.debug(`EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
+  logger.debug(`CG Data rows to process: ${cgData.length}`);
+  logger.debug(`Branch ID: ${branchId || 'NONE'}`);
 
   if (!branchId) {
-    console.log(`⚠️  WARNING: No branchId provided - geographical data will not be saved to database`);
+    logger.debug(` WARNING: No branchId provided - geographical data will not be saved to database`);
     return;
   }
 
@@ -3132,7 +3133,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     const employeeLocationsMap = new Map<string, any>();
     const employeesToGeocode: any[] = [];
 
-    console.log(`🔄 Starting to iterate through ${cgData.length} CG Data rows...`);
+    logger.debug(`Starting to iterate through ${cgData.length} CG Data rows...`);
     for (const row of cgData) {
       const employeeName = row["CAREGiver Name"];
       const postcode = row["PostCode"];
@@ -3149,7 +3150,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         gender = "female";
       }
 
-      console.log(`  👤 ${employeeName}: Title="${title}" -> Gender="${gender || "unknown"}"`);
+      logger.debug(`  ${employeeName}: Title="${title}" -> Gender="${gender || "unknown"}"`);
 
       if (employeeName && postcode) {
         const normalizedTransport = toTransportMode(transportMode);
@@ -3159,7 +3160,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
         if (existing && existing.homeLat && existing.homeLng) {
           // Already geocoded - update with gender if missing
-          console.log(`✅ Cache hit for ${employeeName} - using existing coordinates`);
+          logger.debug(`Cache hit for ${employeeName} - using existing coordinates`);
           const locationData = {
             branchId, // Required for data isolation
             employeeName,
@@ -3173,12 +3174,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
           // Update database if gender is missing
           if (gender && !existing.gender) {
-            console.log(`  🔄 Updating gender for ${employeeName}: ${gender}`);
+            logger.debug(`  Updating gender for ${employeeName}: ${gender}`);
             await storage.upsertEmployeeLocation(locationData);
           }
         } else {
           // Need to geocode
-          console.log(`📍 Cache miss for ${employeeName} - needs geocoding`);
+          logger.debug(`Cache miss for ${employeeName} - needs geocoding`);
           const locationData = {
             branchId, // Required for data isolation
             employeeName,
@@ -3192,11 +3193,11 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       }
     }
 
-    console.log(`👥 Employee locations: ${employeeLocationsMap.size} total (${employeesToGeocode.length} need geocoding, ${employeeLocationsMap.size - employeesToGeocode.length} cached)`);
+    logger.debug(`Employee locations: ${employeeLocationsMap.size} total (${employeesToGeocode.length} need geocoding, ${employeeLocationsMap.size - employeesToGeocode.length} cached)`);
 
     // Geocode only new employee locations
     if (employeesToGeocode.length > 0) {
-      console.log(`🔍 Geocoding ${employeesToGeocode.length} new employee postcodes...`);
+      logger.debug(`Geocoding ${employeesToGeocode.length} new employee postcodes...`);
       for (const locationData of employeesToGeocode) {
         try {
           const geocoded = await geocodeWithFallback(locationData.homePostcode, storage, branchId);
@@ -3204,16 +3205,16 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           if (geocoded && geocoded.lat && geocoded.lng) {
             locationData.homeLat = geocoded.lat;
             locationData.homeLng = geocoded.lng;
-            console.log(`✅ Successfully geocoded ${locationData.employeeName}`);
+            logger.debug(`Successfully geocoded ${locationData.employeeName}`);
           } else {
-            console.log(`❌ Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
+            logger.debug(`Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
           }
         } catch (err) {
-          console.log(`❌ Error geocoding ${locationData.employeeName}: ${err}`);
+          logger.debug(`Error geocoding ${locationData.employeeName}: ${err}`);
         }
       }
     } else {
-      console.log(`⚡ All employee locations already cached - skipping geocoding API calls`);
+      logger.debug(`All employee locations already cached - skipping geocoding API calls`);
     }
 
     // Store all employee locations (cached + newly geocoded)
@@ -3224,7 +3225,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     // Extract client locations from Care Pro Guaranteed Hours
     // CRITICAL FIX: Use the RAW workbook buffer to extract client locations
     // because guaranteedData has already been filtered for scheduling
-    console.log(`🔍 Extracting client locations from raw GH Excel workbook`);
+    logger.debug(`Extracting client locations from raw GH Excel workbook`);
 
     const clientLocationsMap = new Map<string, {
       branchId: string;
@@ -3263,7 +3264,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           headers.forEach((h, i) => (o[h] = r[i]));
           return o;
         });
-        console.log(`📋 Parsed ${rawGHRows.length} raw GH rows for client location extraction`);
+        logger.debug(`Parsed ${rawGHRows.length} raw GH rows for client location extraction`);
       }
     }
 
@@ -3295,7 +3296,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
       if (serviceLocationAddress && typeof serviceLocationAddress === 'string') {
         const addressStr = serviceLocationAddress.trim();
-        console.log(`🔍 DEBUG: Processing address for ${clientName}: "${addressStr}"`);
+        logger.debug(`DEBUG: Processing address for ${clientName}: "${addressStr}"`);
 
         // Enhanced UK postcode pattern matching - more comprehensive patterns
         const postcodePatterns = [
@@ -3311,7 +3312,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         for (const pattern of postcodePatterns) {
           postcodeMatch = addressStr.match(pattern);
           if (postcodeMatch) {
-            console.log(`🔍 DEBUG: Postcode pattern matched: ${pattern} -> "${postcodeMatch[1]}"`);
+            logger.debug(`DEBUG: Postcode pattern matched: ${pattern} -> "${postcodeMatch[1]}"`);
             break;
           }
         }
@@ -3320,7 +3321,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           postcode = normalisePostcode(postcodeMatch[1]);
           // Remove postcode from address line and clean up
           addressLine = addressStr.replace(postcodeMatch[0], "").trim().replace(/,\s*$/, "").replace(/\s+/g, " ");
-          console.log(`✅ DEBUG: Extracted postcode "${postcode}" from address, remaining: "${addressLine}"`);
+          logger.debug(`DEBUG: Extracted postcode "${postcode}" from address, remaining: "${addressLine}"`);
         } else {
           // Try manual parsing for common patterns like "Street, City, Region POSTCODE"
           const parts = addressStr.split(',').map(p => p.trim());
@@ -3333,18 +3334,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             if (simplePostcodeCheck.test(lastPart)) {
               postcode = normalisePostcode(lastPart);
               addressLine = parts.slice(0, -1).join(', ');
-              console.log(`✅ DEBUG: Manual postcode extraction: "${postcode}" from "${lastPart}", address: "${addressLine}"`);
+              logger.debug(`DEBUG: Manual postcode extraction: "${postcode}" from "${lastPart}", address: "${addressLine}"`);
             } else if (simplePostcodeCheck.test(secondLastPart)) {
               postcode = normalisePostcode(secondLastPart);
               addressLine = parts.slice(0, -2).join(', ') + (parts.length > 2 ? ', ' + parts[parts.length - 1] : '');
-              console.log(`✅ DEBUG: Manual postcode extraction from second-last: "${postcode}", address: "${addressLine}"`);
+              logger.debug(`DEBUG: Manual postcode extraction from second-last: "${postcode}", address: "${addressLine}"`);
             } else {
               addressLine = addressStr;
-              console.log(`❌ DEBUG: Manual parsing failed, no postcode pattern found in parts: ${JSON.stringify(parts)}`);
+              logger.debug(`DEBUG: Manual parsing failed, no postcode pattern found in parts: ${JSON.stringify(parts)}`);
             }
           } else {
             addressLine = addressStr;
-            console.log(`❌ DEBUG: No postcode found in address: "${addressStr}" for client: ${clientName}`);
+            logger.debug(`DEBUG: No postcode found in address: "${addressStr}" for client: ${clientName}`);
           }
         }
       }
@@ -3365,7 +3366,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
         // Log if we have a client but no address data (helps debug missing client locations)
         if (!addressLine && !postcode) {
-          console.log(`⚠️ Client "${clientKey}" has no address or postcode - will save without geocoding`);
+          logger.debug(`Client "${clientKey}" has no address or postcode - will save without geocoding`);
         }
 
         // Check if client already has geocoded coordinates
@@ -3386,10 +3387,10 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           // Only add to geocoding queue if we have address data AND not already geocoded
           if (addressLine || postcode) {
             if (!existingClient?.lat || !existingClient?.lng) {
-              console.log(`📍 Cache miss for client "${clientKey}" - needs geocoding`);
+              logger.debug(`Cache miss for client "${clientKey}" - needs geocoding`);
               clientsToGeocode.push(clientData);
             } else {
-              console.log(`✅ Cache hit for client "${clientKey}" - using existing coordinates`);
+              logger.debug(`Cache hit for client "${clientKey}" - using existing coordinates`);
             }
           }
         } else {
@@ -3405,14 +3406,14 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       }
     }
 
-    console.log(`🏠 Client locations: ${clientLocationsMap.size} total (${clientsToGeocode.length} need geocoding, ${clientLocationsMap.size - clientsToGeocode.length} cached)`);
+    logger.debug(`Client locations: ${clientLocationsMap.size} total (${clientsToGeocode.length} need geocoding, ${clientLocationsMap.size - clientsToGeocode.length} cached)`);
 
     // Store client locations
     for (const locationData of Array.from(clientLocationsMap.values())) {
       await storage.upsertClientLocation(locationData);
     }
 
-    console.log(`🗺️ Starting enhanced batch geocoding for locations...`);
+    logger.debug(`Starting enhanced batch geocoding for locations...`);
 
     // Build reverse lookup for employees by postcode (so we can map geocoder results back)
     const employeeByPostcode = new Map<string, string[]>();
@@ -3461,7 +3462,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           body: JSON.stringify({ postcodes: employeePostcodes, addresses: [], branchId: branchId }), // Pass branchId here
         });
         if (!res.ok) {
-          console.log("⚠️ Employee geocoding failed:", await res.text());
+          logger.debug("Employee geocoding failed:", await res.text());
         } else {
           const payload = await res.json(); // expect { results: [{ input, lat, lng, success, ...}] }
           const results = payload?.results ?? [];
@@ -3485,13 +3486,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             }
           }
           if (saved > 0) {
-            console.log(`✅ Employee geocoding saved for ${saved} new records`);
+            logger.debug(`Employee geocoding saved for ${saved} new records`);
           } else {
-            console.log(`✅ Employee geocoding: All ${employeeLocationsMap.size} employees already geocoded (using cached coordinates)`);
+            logger.debug(`Employee geocoding: All ${employeeLocationsMap.size} employees already geocoded (using cached coordinates)`);
           }
         }
       } catch (err) {
-        console.log("⚠️ Employee geocoding error:", err);
+        logger.debug("Employee geocoding error:", err);
       }
     }
 
@@ -3502,9 +3503,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       .filter(v => v.address || v.postcode);
 
     if (clientAddresses.length > 0) {
-      console.log(`🌍 Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached):`);
+      logger.debug(`Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached):`);
       clientAddresses.slice(0, 10).forEach((addr, i) => {
-        console.log(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
+        logger.debug(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
       });
 
       try {
@@ -3514,7 +3515,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           branchId: branchId, // Pass branchId here
         };
 
-        console.log(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
+        logger.debug(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
 
         const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
           method: "POST",
@@ -3522,7 +3523,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           body: JSON.stringify(requestBody),
         });
         if (!res.ok) {
-          console.log("⚠️ Client geocoding failed:", await res.text());
+          logger.debug("Client geocoding failed:", await res.text());
         } else {
           const payload = await res.json(); // expect { results: [{ address, postcode, lat, lng, success }] }
           const results = payload?.results ?? [];
@@ -3530,10 +3531,10 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
           let failed = 0;
 
           for (const r of results) {
-            console.log(`🔍 GEOCODING RESULT: ${JSON.stringify(r)}`);
+            logger.debug(`GEOCODING RESULT: ${JSON.stringify(r)}`);
 
             if (!r?.lat || !r?.lng || !Number.isFinite(Number(r.lat)) || !Number.isFinite(Number(r.lng))) {
-              console.log(`❌ Invalid coordinates for query: ${r?.query || 'unknown'}`);
+              logger.debug(`Invalid coordinates for query: ${r?.query || 'unknown'}`);
               failed++;
               continue;
             }
@@ -3547,9 +3548,9 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
               const candidates = clientByPostcode.get(pc);
               if (candidates && candidates.length > 0) {
                 clientName = candidates[0]; // Take first match
-                console.log(`🔄 Found client via postcode match: ${clientName} (postcode: ${pc})`);
+                logger.debug(`Found client via postcode match: ${clientName} (postcode: ${pc})`);
                 if (candidates.length > 1) {
-                  console.log(`⚠️ Multiple clients found for postcode ${pc}:`, candidates);
+                  logger.debug(`Multiple clients found for postcode ${pc}:`, candidates);
                 }
               }
             }
@@ -3559,13 +3560,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
               // Try exact address match
               clientName = clientByAddress.get(addr);
               if (clientName) {
-                console.log(`🔄 Found client via address match: ${clientName}`);
+                logger.debug(`Found client via address match: ${clientName}`);
               } else {
                 // Try partial address matching
                 for (const [mapAddr, mapClientName] of Array.from(clientByAddress.entries())) {
                   if (addr.includes(mapAddr) || mapAddr.includes(addr)) {
                     clientName = mapClientName;
-                    console.log(`🔄 Found client via partial address match: ${clientName}`);
+                    logger.debug(`Found client via partial address match: ${clientName}`);
                     break;
                   }
                 }
@@ -3573,12 +3574,12 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             }
 
             if (!clientName) {
-              console.log(`❌ No client found for geocoding result - Query: "${r.query}", Postcode: "${pc}"`);
+              logger.debug(`No client found for geocoding result - Query: "${r.query}", Postcode: "${pc}"`);
               failed++;
               continue;
             }
 
-            console.log(`✅ SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
+            logger.debug(`SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
 
             await storage.upsertClientLocation({
               branchId: branchId!, // Required branch ID for data isolation
@@ -3591,25 +3592,25 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             saved++;
           }
 
-          console.log(`📊 Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results`);
+          logger.debug(`Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results`);
           if (saved > 0) {
-            console.log(`✅ Client geocoding saved for ${saved} new records`);
+            logger.debug(`Client geocoding saved for ${saved} new records`);
           } else {
-            console.log(`⚠️ No client locations were successfully geocoded this time`);
+            logger.debug(`No client locations were successfully geocoded this time`);
           }
         }
       } catch (err) {
-        console.log("⚠️ Client geocoding error:", err);
+        logger.debug("Client geocoding error:", err);
       }
     } else {
-      console.log(`⚡ All client locations already cached - skipping geocoding API calls`);
+      logger.debug(`All client locations already cached - skipping geocoding API calls`);
     }
 
     // Extract visit data for route optimization using Planned Start/End Date And Time
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>(); // Group visits by date for optimization
 
-    console.log(`🔍 DEBUG: Processing visit data from ${rawGHRows.length} raw GH rows`); // Use rawGHRows here
+    logger.debug(`DEBUG: Processing visit data from ${rawGHRows.length} raw GH rows`); // Use rawGHRows here
 
     for (const row of rawGHRows) { // Iterate over rawGHRows
       // Skip cancelled entries
@@ -3659,7 +3660,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             if (endDate) {
               const endDateStr = format(endDate, "yyyy-MM-dd");
               if (visitDate !== endDateStr) {
-                console.log(`🚫 REJECTING overnight visit in extractAndStoreGeographicalData: ${clientName} starts ${visitDate} ends ${endDateStr} - crosses midnight boundary`);
+                logger.debug(`REJECTING overnight visit in extractAndStoreGeographicalData: ${clientName} starts ${visitDate} ends ${endDateStr} - crosses midnight boundary`);
                 continue; // Skip this visit entirely
               }
             }
@@ -3704,13 +3705,13 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
               }
               visitsByDate.get(visitDate)!.push(visitData);
 
-              console.log(`🔍 DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
+              logger.debug(`DEBUG: Added visit ${clientName} on ${visitDate} at ${startMinutes}-${endMinutes} minutes`);
             } else if (!clientLocation) {
-              console.log(`🔍 DEBUG: Client location not found for ${clientName}, skipping visit.`);
+              logger.debug(`DEBUG: Client location not found for ${clientName}, skipping visit.`);
             }
           } catch (dateError) {
             // Skip visits with invalid dates
-            console.warn(`Skipping visit with invalid date: ${visitStart}`);
+            logger.warn(`Skipping visit with invalid date: ${visitStart}`);
           }
         }
       }
@@ -3724,18 +3725,18 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       serviceTypeSummary.set(serviceType, (serviceTypeSummary.get(serviceType) || 0) + durationHours);
     }
 
-    console.log(`\n📊 ===== VISIT EXTRACTION SERVICE TYPE SUMMARY =====`);
-    console.log(`📅 Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
-    console.log(`\n📋 Total Hours by Service Type:`);
+    logger.debug(`\n===== VISIT EXTRACTION SERVICE TYPE SUMMARY =====`);
+    logger.debug(`Found ${visitsMap.size} visits across ${visitsByDate.size} dates for route optimization`);
+    logger.debug(`\nTotal Hours by Service Type:`);
 
     // Sort by hours (descending) for easier reading
     const sortedServiceTypes = Array.from(serviceTypeSummary.entries())
       .sort((a, b) => b[1] - a[1]);
 
     sortedServiceTypes.forEach(([serviceType, hours]) => {
-      console.log(`  • ${serviceType}: ${Math.round(hours * 100) / 100} hours`);
+      logger.debug(`  ${serviceType}: ${Math.round(hours * 100) / 100} hours`);
     });
-    console.log(`====================================================\n`);
+    logger.debug(`====================================================\n`);
 
     // Store visit data
     for (const visitData of Array.from(visitsMap.values())) {
@@ -3745,19 +3746,19 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     // Log final geocoding statistics
     const empLocs = branchId && storage.getAllEmployeeLocations ? await storage.getAllEmployeeLocations(branchId) : [];
     const cliLocs = branchId && storage.getAllClientLocations ? await storage.getAllClientLocations(branchId) : [];
-    console.log(`📍 After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
-    console.log(`📍 After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
+    logger.debug(`After geocode: employees with coords = ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
+    logger.debug(`After geocode: clients with coords = ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
 
-    console.log(`✅ Geographical data extraction complete!`);
-    console.log(`\n🎯 SUMMARY FOR BRANCH ${branchId}:`);
-    console.log(`   📍 Employee locations stored: ${empLocs.length}`);
-    console.log(`   📍 Client locations stored: ${cliLocs.length}`);
-    console.log(`   📍 Employees with coordinates: ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
-    console.log(`   📍 Clients with coordinates: ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
-    console.log(`\n✅ You can now use the Scheduling tab - client visits will have coordinates\n`);
+    logger.debug(`Geographical data extraction complete!`);
+    logger.debug(`\nSUMMARY FOR BRANCH ${branchId}:`);
+    logger.debug(`   Employee locations stored: ${empLocs.length}`);
+    logger.debug(`   Client locations stored: ${cliLocs.length}`);
+    logger.debug(`   Employees with coordinates: ${empLocs.filter(e=>Number.isFinite(Number(e.homeLat))&&Number.isFinite(Number(e.homeLng))).length}/${empLocs.length}`);
+    logger.debug(`   Clients with coordinates: ${cliLocs.filter(c=>Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))).length}/${cliLocs.length}`);
+    logger.debug(`\nYou can now use the Scheduling tab - client visits will have coordinates\n`);
 
   } catch (error) {
-    console.error('❌ Error extracting geographical data:', error);
+    logger.error('Error extracting geographical data:', error);
   }
 }
 
@@ -3911,11 +3912,11 @@ export async function generateExcelExport(
     const sheet = XLSX.utils.aoa_to_sheet(aoa);
     XLSX.utils.book_append_sheet(workbook, sheet, "EmployeeFit");
   } catch (e) {
-    console.log("EmployeeFit generation skipped:", e);
+    logger.debug("EmployeeFit generation skipped:", e);
   }
 
   // Heatmap tabs excluded from export as per user request
-  console.log("Heatmap sheets excluded from Excel export");
+  logger.debug("Heatmap sheets excluded from Excel export");
 
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }

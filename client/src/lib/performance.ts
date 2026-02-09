@@ -1,3 +1,4 @@
+import { clientLogger } from '@/lib/logger';
 
 export class PerformanceMonitor {
   private static marks: Map<string, number> = new Map();
@@ -9,7 +10,7 @@ export class PerformanceMonitor {
   static measure(label: string, startMark: string) {
     const start = this.marks.get(startMark);
     if (!start) {
-      console.warn(`Performance mark "${startMark}" not found`);
+      clientLogger.warn(`Performance mark "${startMark}" not found`);
       return;
     }
 
@@ -19,7 +20,7 @@ export class PerformanceMonitor {
       // Send to analytics service
       this.sendMetric(label, duration);
     } else {
-      console.log(`⏱️ ${label}: ${duration.toFixed(2)}ms`);
+      clientLogger.log(`⏱️ ${label}: ${duration.toFixed(2)}ms`);
     }
 
     this.marks.delete(startMark);
@@ -29,7 +30,7 @@ export class PerformanceMonitor {
   private static sendMetric(label: string, duration: number) {
     // TODO: Send to monitoring service (Google Analytics, Mixpanel, etc.)
     if (duration > 1000) {
-      console.warn(`Slow operation detected: ${label} took ${duration.toFixed(2)}ms`);
+      clientLogger.warn(`Slow operation detected: ${label} took ${duration.toFixed(2)}ms`);
     }
   }
 
@@ -49,7 +50,7 @@ export class PerformanceMonitor {
             pageLoad: perfData.loadEventEnd - perfData.fetchStart
           };
 
-          console.log('📊 Page Load Metrics:', metrics);
+          clientLogger.log('📊 Page Load Metrics:', metrics);
 
           if (import.meta.env.PROD) {
             // Send to analytics

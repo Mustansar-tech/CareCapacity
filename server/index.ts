@@ -3,17 +3,17 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { generalLimiter } from "./rate-limiter";
 import { securityHeaders } from "./security";
+import { logger } from "./logger";
 
+const isProduction = process.env.NODE_ENV === 'production';
 const app = express();
 
-// Security headers
 app.use(securityHeaders);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
-// Apply rate limiting in production
-if (process.env.NODE_ENV === 'production') {
+if (isProduction) {
   app.use('/api', generalLimiter.middleware);
   log('Rate limiting enabled for production');
 }
@@ -21,26 +21,11 @@ if (process.env.NODE_ENV === 'production') {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
+      const logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       log(logLine);
     }
   });
@@ -53,13 +38,15 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const internalMessage = err.message || "Internal Server Error";
 
-    // Log error for debugging but don't rethrow - that would crash the server
-    
-    console.error(`[ERROR] ${status}: ${message}`, err.stack || err);
+    logger.error(`HTTP ${status}: ${internalMessage}`, err);
 
-    res.status(status).json({ message });
+    const clientMessage = isProduction
+      ? (status >= 500 ? "Internal Server Error" : "Request failed")
+      : internalMessage;
+
+    res.status(status).json({ message: clientMessage });
   });
 
   // importantly only setup vite in development and after

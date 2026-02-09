@@ -4,6 +4,7 @@
  */
 
 import { storage } from "./storage";
+import { logger } from './logger';
 
 export interface Location {
   lat: number;
@@ -82,7 +83,7 @@ export class TravelTimeService {
       // For walkers: bypass ORS-sourced cache entries (they use unrealistic foot-walking times)
       // Only use heuristic-sourced cache for walkers
       if (cached && transportMode === 'walking' && cached.source === 'ors') {
-        console.log(`🚶 Bypassing ORS cache for walker - using heuristic for realistic public transport estimate`);
+        logger.debug(`Bypassing ORS cache for walker - using heuristic for realistic public transport estimate`);
         // Fall through to heuristic calculation
       } else if (cached && (cached.source === 'ors' || cached.source === 'heuristic' || !this.ORS_API_KEY)) {
         return {
@@ -96,10 +97,10 @@ export class TravelTimeService {
       }
       
       if (cached && cached.source === 'haversine' && this.ORS_API_KEY) {
-        console.log(`🔄 Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously haversine)`);
+        logger.debug(`Refreshing travel time cache for ${fromLat},${fromLng} to ${toLat},${toLng} (previously haversine)`);
       }
     } catch (e) {
-      console.error("Cache lookup failed:", e);
+      logger.error("Cache lookup failed:", e);
     }
 
     // 2. Try OpenRouteService (skip for walkers - use heuristic for realistic public transport estimate)
@@ -107,7 +108,7 @@ export class TravelTimeService {
     if (this.ORS_API_KEY && transportMode !== 'walking') {
       try {
         const orsMode = transportMode === 'public' ? 'driving-car' : 'driving-car';
-        console.log(`🌐 Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
+        logger.debug(`Requesting ORS (${orsMode}) for ${fromLat},${fromLng} to ${toLat},${toLng}`);
         const response = await fetch(`https://api.openrouteservice.org/v2/directions/${orsMode}`, {
           method: 'POST',
           headers: {
@@ -128,11 +129,11 @@ export class TravelTimeService {
           // Add 10-minute public transport overhead (walking to/from stops, waiting)
           if (transportMode === 'public') {
             durationMinutes += 10;
-            console.log(`🚌 Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
+            logger.debug(`Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
           }
 
           // Do NOT cap - return real travel time (scheduling engine will reject if > 60)
-          console.log(`✅ ORS result: ${durationMinutes} min, ${distanceMeters} m`);
+          logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
           await storage.saveTravelTime({
             branchId,
@@ -156,10 +157,10 @@ export class TravelTimeService {
           };
         } else {
           const errorText = await response.text();
-          console.error(`❌ ORS API Error (${response.status}):`, errorText);
+          logger.error(`ORS API Error (${response.status}):`, errorText);
         }
       } catch (error) {
-        console.error("ORS API Exception, falling back to Haversine:", error);
+        logger.error("ORS API Exception, falling back to Haversine:", error);
       }
     }
 
@@ -168,7 +169,7 @@ export class TravelTimeService {
     const travelTimeMinutes = this.calculateHeuristicTravelTime(distanceKm, transportMode);
     const config = this.MODE_CONFIG[transportMode] || this.MODE_CONFIG.car;
 
-    console.log(`⚠️ Heuristic fallback (${transportMode}, ${config.speedKmh}km/h): ${travelTimeMinutes} min for ${(distanceKm * this.ROAD_FACTOR).toFixed(2)} km road distance`);
+    logger.debug(`Heuristic fallback (${transportMode}, ${config.speedKmh}km/h): ${travelTimeMinutes} min for ${(distanceKm * this.ROAD_FACTOR).toFixed(2)} km road distance`);
 
     // Cache the fallback result (using road distance)
     const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
@@ -185,7 +186,7 @@ export class TravelTimeService {
         source: 'heuristic'
       });
     } catch (e) {
-      console.error("Cache save failed:", e);
+      logger.error("Cache save failed:", e);
     }
 
     return {
@@ -305,7 +306,7 @@ async function getLocationCoordinates(branchId: string, name: string, type: 'cli
     }
     return null;
   } catch (error) {
-    console.error(`Error getting location for ${type} ${name}:`, error);
+    logger.error(`Error getting location for ${type} ${name}:`, error);
     return null;
   }
 }
@@ -323,7 +324,7 @@ export async function calculateTravelTime(
     const travelMatrix = await travelTimeService.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode);
     return travelMatrix.travelTimeMinutes;
   } catch (error) {
-    console.error(`Error calculating travel time:`, error);
+    logger.error(`Error calculating travel time:`, error);
     return 0;
   }
 }

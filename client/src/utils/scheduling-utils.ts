@@ -1,4 +1,5 @@
 // Scheduling utility functions for VRPTW optimization
+import { clientLogger } from '@/lib/logger';
 
 // Maximum travel time in minutes before a route is considered infeasible
 // Set to 400 to effectively remove the limit and maximize visit coverage
@@ -137,7 +138,7 @@ export function getTravelMinutes(
   // Validate coordinates
   if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) ||
       !Number.isFinite(toLat) || !Number.isFinite(toLng)) {
-    console.warn(`Invalid coordinates: from(${from.lat}, ${from.lng}) to(${to.lat}, ${to.lng})`);
+    clientLogger.warn(`Invalid coordinates: from(${from.lat}, ${from.lng}) to(${to.lat}, ${to.lng})`);
     return 0;
   }
 
@@ -211,7 +212,7 @@ export function parseTimeWindows(windows: string | string[]): TimeWindow[] {
     })
     .filter((w): w is TimeWindow => w !== null);
 
-  console.log(`📋 Parsed "${windows}" into ${parsed.length} time windows:`,
+  clientLogger.log(`📋 Parsed "${windows}" into ${parsed.length} time windows:`,
     parsed.map(w => `${minutesToTime(w.start)}-${minutesToTime(w.end)}`).join(', '));
 
   return parsed;

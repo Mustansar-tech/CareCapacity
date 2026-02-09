@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import { TravelTimeService } from "./travel-time-service";
+import { logger } from './logger';
 
 type EmployeeDetail = {
   employeeName: string;
@@ -122,7 +123,7 @@ export async function buildEmployeeFitRows(
             );
             travelMin = travelMatrix.travelTimeMinutes;
           } catch (err) {
-            console.log(`⚠️ Travel time calculation failed for ${emp.employeeName} -> ${c.clientName}, using fallback`);
+            logger.debug('Travel time calculation failed, using fallback', { employee: emp.employeeName, client: c.clientName });
           }
         }
 

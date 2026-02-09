@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { clientLogger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 
@@ -41,7 +42,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   }, [selectedBranchId, branches]);
 
   const setSelectedBranchId = (branchId: string) => {
-    console.log(`🔄 Branch changed from ${selectedBranchId} to ${branchId} - invalidating all cached data`);
+    clientLogger.log(`🔄 Branch changed from ${selectedBranchId} to ${branchId} - invalidating all cached data`);
     
     setSelectedBranchIdState(branchId);
     localStorage.setItem('selectedBranchId', branchId);
@@ -55,7 +56,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
       }
     });
     
-    console.log(`✅ All queries invalidated - components will now refetch data for branch: ${branchId}`);
+    clientLogger.log(`✅ All queries invalidated - components will now refetch data for branch: ${branchId}`);
   };
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId) || null;

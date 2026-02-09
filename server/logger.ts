@@ -1,4 +1,3 @@
-
 import { Request } from 'express';
 
 export enum LogLevel {
@@ -15,6 +14,8 @@ interface LogContext {
   [key: string]: any;
 }
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 class Logger {
   private context: LogContext = {};
 
@@ -22,7 +23,7 @@ class Logger {
     this.context = { ...this.context, ...context };
   }
 
-  private formatMessage(level: LogLevel, message: string, meta?: any) {
+  private formatMessage(level: LogLevel, message: string, meta?: any): string {
     const timestamp = new Date().toISOString();
     const logEntry = {
       timestamp,
@@ -32,55 +33,50 @@ class Logger {
       ...meta
     };
 
-    if (process.env.NODE_ENV === 'production') {
-      // JSON format for log aggregation services (Datadog, CloudWatch, etc.)
+    if (isProduction) {
       return JSON.stringify(logEntry);
     } else {
-      // Human-readable format for development
       const metaStr = meta ? `\n${JSON.stringify(meta, null, 2)}` : '';
       return `[${timestamp}] ${level.toUpperCase()}: ${message}${metaStr}`;
     }
   }
 
   debug(message: string, meta?: any) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProduction) {
       console.debug(this.formatMessage(LogLevel.DEBUG, message, meta));
     }
   }
 
   info(message: string, meta?: any) {
-    if (process.env.NODE_ENV !== 'production' || LogLevel.INFO === LogLevel.ERROR) {
-       console.log(this.formatMessage(LogLevel.INFO, message, meta));
+    if (!isProduction) {
+      console.log(this.formatMessage(LogLevel.INFO, message, meta));
     }
   }
 
   warn(message: string, meta?: any) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(this.formatMessage(LogLevel.WARN, message, meta));
-    }
+    console.warn(this.formatMessage(LogLevel.WARN, message, meta));
   }
 
   error(message: string, error?: Error | any, meta?: any) {
     const errorMeta = error instanceof Error ? {
       errorMessage: error.message,
-      errorStack: error.stack,
+      errorStack: isProduction ? undefined : error.stack,
       errorName: error.name,
       ...meta
-    } : { error, ...meta };
+    } : { error: isProduction ? String(error) : error, ...meta };
 
     console.error(this.formatMessage(LogLevel.ERROR, message, errorMeta));
   }
 
-  // Request logging helper
   logRequest(req: Request, duration: number, statusCode: number) {
-    this.info('HTTP Request', {
-      method: req.method,
-      path: req.path,
-      duration: `${duration}ms`,
-      statusCode,
-      ip: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    if (!isProduction) {
+      this.info('HTTP Request', {
+        method: req.method,
+        path: req.path,
+        duration: `${duration}ms`,
+        statusCode
+      });
+    }
   }
 }
 

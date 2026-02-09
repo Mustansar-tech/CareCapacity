@@ -65,6 +65,15 @@ The application is designed for care home scheduling teams and business developm
 - **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types, custom travel limits, and employee exclusions.
 - **Weekly Contracted Hours (Net Capacity):** Integrates guaranteed hours from the master employee file to calculate and display net capacity, used for weekly constraint enforcement.
 
+### Production Security (Feb 2026)
+
+- **Structured Logging:** All server files use centralized `server/logger.ts` that suppresses debug/info output in production, formats as JSON for log aggregation, and strips stack traces from error logs. All client files use `client/src/lib/logger.ts` that suppresses ALL console output in production.
+- **Safe Error Responses:** API error responses use `safeErrorMessage()` helper to prevent internal error messages, stack traces, and file paths from reaching clients in production. The global error handler returns generic messages for all error status codes in production.
+- **Request Logging Sanitized:** API request middleware no longer captures or logs response body content, preventing sensitive data leakage in server logs.
+- **Security Headers:** X-Frame-Options, X-Content-Type-Options, XSS Protection, HSTS (production), CSP, Referrer-Policy, and Permissions-Policy all configured.
+- **Rate Limiting:** Applied to all `/api` routes in production mode.
+- **Input Sanitization:** XSS vector removal via `sanitizeInput()` utility.
+
 ### Data Privacy & Retention
 
 - **Configurable Retention:** Default 3-month data retention with user-controlled cleanup options and historical data browsing.

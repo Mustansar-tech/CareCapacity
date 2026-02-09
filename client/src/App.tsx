@@ -27,7 +27,9 @@ class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("App Error:", error, errorInfo);
+    if (!import.meta.env.PROD) {
+      console.error("App Error:", error, errorInfo);
+    }
   }
 
   render() {

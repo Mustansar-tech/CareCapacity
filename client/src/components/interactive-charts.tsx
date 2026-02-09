@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { clientLogger } from '@/lib/logger';
 import { format, parseISO } from "date-fns";
 import type { ProcessingResult } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +57,7 @@ export function InteractiveCharts({ data, onDateSelect, onEmployeeSelect: _ }: I
           displayDate = format(parseISO(day.date), 'MMM dd');
         }
       } catch (error) {
-        console.warn('Date formatting error for:', day.date, error);
+        clientLogger.warn('Date formatting error for:', day.date, error);
         displayDate = day.date || 'Unknown';
       }
       

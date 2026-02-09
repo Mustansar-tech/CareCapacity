@@ -1,6 +1,7 @@
 // Extract real client visit times directly from Guaranteed Hours Excel file
 import * as XLSX from 'xlsx';
 import { startOfDay, endOfDay, format as fmt, addMinutes, parse as parseDate, format } from 'date-fns';
+import { logger } from './logger';
 
 const START_COLS = [
   'Planned Start Date And Time',  // Primary column as requested
@@ -180,14 +181,14 @@ export async function extractClientVisitsFromGHExcel(
   let headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
   
   if (headerIdx < 0) {
-    console.log("❌ ERROR: No valid header row found in Excel file");
+    logger.debug("ERROR: No valid header row found in Excel file");
     headerIdx = 0; // Last resort fallback
   }
 
-  console.log(`📋 GH rows2d length: ${rows2d.length}`);
-  console.log(`📋 Header row detected at index ${headerIdx}`);
-  console.log(`📋 Detected header cells:`, rows2d[headerIdx]?.slice(0, 10));
-  console.log(`📋 Next 3 data rows:`, rows2d.slice(headerIdx + 1, headerIdx + 4).map(r => r.slice(0, 5)));
+  logger.debug(`GH rows2d length: ${rows2d.length}`);
+  logger.debug(`Header row detected at index ${headerIdx}`);
+  logger.debug(`Detected header cells:`, rows2d[headerIdx]?.slice(0, 10));
+  logger.debug(`Next 3 data rows:`, rows2d.slice(headerIdx + 1, headerIdx + 4).map(r => r.slice(0, 5)));
 
   const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
   const data = rows2d.slice(headerIdx + 1).map(r => {
@@ -206,8 +207,8 @@ export async function extractClientVisitsFromGHExcel(
   // Log detected columns for debugging (case-insensitive)
   const firstRow = data[0];
   if (firstRow) {
-    console.log(`📋 Detected columns in Excel file:`);
-    Object.keys(firstRow).forEach(col => console.log(`   - "${col}"`));
+    logger.debug(`Detected columns in Excel file:`);
+    Object.keys(firstRow).forEach(col => logger.debug(`   - "${col}"`));
   }
 
   for (const row of data) {
@@ -225,7 +226,7 @@ export async function extractClientVisitsFromGHExcel(
     // These are EXCLUDED from scheduling but INCLUDED in scheduled hours totals
     const clientNameLower = clientName.toLowerCase();
     if (clientNameLower.includes('office') || clientNameLower.includes('visit, office')) {
-      console.log(`🚫 Excluding office visit from scheduling: "${clientName}"`);
+      logger.debug(`Excluding office visit from scheduling: "${clientName}"`);
       continue;
     }
 
@@ -240,7 +241,7 @@ export async function extractClientVisitsFromGHExcel(
       );
 
       if (isExcluded) {
-        console.log(`🚫 Excluding by service type: "${serviceTypeRaw}" for ${clientName}`);
+        logger.debug(`Excluding by service type: "${serviceTypeRaw}" for ${clientName}`);
         continue;
       }
     }
@@ -307,7 +308,7 @@ export async function extractClientVisitsFromGHExcel(
           // CRITICAL: Reject overnight visits completely (crosses midnight)
           const crossesMidnight = format(startDateTime, "yyyy-MM-dd") !== format(endDateTime, "yyyy-MM-dd");
           if (crossesMidnight) {
-            console.log(`🚫 REJECTING overnight visit: ${clientName} starts ${format(startDateTime, "yyyy-MM-dd HH:mm")} ends ${format(endDateTime, "yyyy-MM-dd HH:mm")} - crosses midnight boundary`);
+            logger.debug(`REJECTING overnight visit: ${clientName} starts ${format(startDateTime, "yyyy-MM-dd HH:mm")} ends ${format(endDateTime, "yyyy-MM-dd HH:mm")} - crosses midnight boundary`);
             continue; // Skip this visit entirely
           }
 
@@ -360,14 +361,14 @@ export async function extractClientVisitsFromGHExcel(
           visitsMap.set(visitKey, visitData as ExcelClientVisit);
           
           if (counter > 1) {
-            console.log(`👥 Multiple care visit detected: ${clientName} @ ${startTimeStr}-${endTimeStr} (CP ${counter})`);
+            logger.debug(`Multiple care visit detected: ${clientName} @ ${startTimeStr}-${endTimeStr} (CP ${counter})`);
           }
           
           if (!clientLocation) {
-            console.log(`⚠️ Visit extracted without coordinates: ${clientName} - needs geocoding during data upload`);
+            logger.debug(`Visit extracted without coordinates: ${clientName} - needs geocoding during data upload`);
           }
         } catch (error) {
-          console.error(`Error processing row for client "${clientName}":`, error);
+          logger.error(`Error processing row for client "${clientName}":`, error);
           // Continue to the next row even if one fails
         }
       }
@@ -377,6 +378,6 @@ export async function extractClientVisitsFromGHExcel(
   // Convert Map values back to an array
   const finalVisits = Array.from(visitsMap.values());
 
-  console.log(`📋 Extracted ${finalVisits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);
+  logger.debug(`Extracted ${finalVisits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);
   return finalVisits;
 }

@@ -1,31 +1,35 @@
-
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+const isProduction = import.meta.env.PROD;
 
 class ClientLogger {
-  private isProd = import.meta.env.PROD;
-
-  debug(message: string, ...args: any[]) {
-    if (!this.isProd) {
-      console.debug(`[DEBUG] ${message}`, ...args);
+  debug(...args: any[]) {
+    if (!isProduction) {
+      console.debug(...args);
     }
   }
 
-  info(message: string, ...args: any[]) {
-    if (!this.isProd) {
-      console.log(`[INFO] ${message}`, ...args);
+  info(...args: any[]) {
+    if (!isProduction) {
+      console.log(...args);
     }
   }
 
-  warn(message: string, ...args: any[]) {
-    if (!this.isProd) {
-      console.warn(`[WARN] ${message}`, ...args);
+  log(...args: any[]) {
+    if (!isProduction) {
+      console.log(...args);
     }
   }
 
-  error(message: string, ...args: any[]) {
-    // Errors are always logged but could be sent to an error tracking service
-    console.error(`[ERROR] ${message}`, ...args);
+  warn(...args: any[]) {
+    if (!isProduction) {
+      console.warn(...args);
+    }
+  }
+
+  error(...args: any[]) {
+    if (!isProduction) {
+      console.error(...args);
+    }
   }
 }
 
-export const logger = new ClientLogger();
+export const clientLogger = new ClientLogger();

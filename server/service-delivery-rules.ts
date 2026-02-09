@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { logger } from './logger';
 
 /** Column synonyms so we can map by name, not position */
 const SERVICE_COL_SYNONYMS = {
@@ -195,9 +196,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
 
   // Log the filtering process with HOURS breakdown
   const totalFiltered = normalized.length - filtered.length;
-  console.log(
-    `🔍 SERVICE TYPE FILTERING: Excluded ${totalFiltered} rows (secondary care, office hours) from ${normalized.length} normalized rows`,
-  );
+  logger.debug('Service type filtering', { excludedRows: totalFiltered, totalNormalized: normalized.length });
 
   // Show breakdown of what was filtered WITH HOURS
   const secondaryRows = normalized.filter(row => {
@@ -212,7 +211,7 @@ export function applyServiceRules(demandBuffer: Buffer): {
     return st.includes("night") || st.includes("sleep in") || st.includes("waking") || st.includes("sleepover") || st.includes("overnight");
   });
   const nightHours = nightRows.reduce((sum, r) => sum + (r.duration || 0), 0);
-  console.log(`  ✅ Night shifts: ${nightRows.length} rows (${Math.round(nightHours * 100) / 100}h) - INCLUDED for reporting`);
+  logger.debug('Night shifts included for reporting', { rows: nightRows.length, hours: Math.round(nightHours * 100) / 100 });
 
 
   // 6) Aggregate outputs

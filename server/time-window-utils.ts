@@ -121,7 +121,7 @@ export function parseGuaranteedDate(value: unknown): Date {
       return lastTry;
     }
   } catch (error) {
-    console.error('Error parsing date:', value, error);
+    // Date parsing failed silently - returns epoch fallback
   }
 
   // Return epoch date if all parsing fails

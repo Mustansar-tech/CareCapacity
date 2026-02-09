@@ -1,4 +1,5 @@
 // VRPTW Weekly Scheduling Engine with proper constraints
+import { clientLogger } from '@/lib/logger';
 import type { ClientVisit, EmployeeLocation } from "@shared/schema";
 import {
   timeToMinutes,
@@ -213,19 +214,19 @@ function wouldExceedCapacity(
   // Check against weekly contracted hours first (with 30-minute tolerance to reduce wastage)
   const WEEKLY_TOLERANCE_MINUTES = 30; // Allow 0.5h over contracted hours
   if (newWeeklyTotal > schedule.weeklyContractedMinutes + WEEKLY_TOLERANCE_MINUTES) {
-    console.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h + 0.5h buffer)`);
+    clientLogger.log(`⚠️ ${schedule.employeeName}: Would exceed weekly hours (${(newWeeklyTotal/60).toFixed(1)}h > ${(schedule.weeklyContractedMinutes/60).toFixed(1)}h + 0.5h buffer)`);
     return true;
   }
 
   // Check against 9-hour daily limit
   if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
-    console.log(`⚠️ ${schedule.employeeName}: Would exceed 9-hour daily limit (${newTotalCareTime}min > ${MAX_DAILY_CARE_MINUTES}min)`);
+    clientLogger.log(`⚠️ ${schedule.employeeName}: Would exceed 9-hour daily limit (${newTotalCareTime}min > ${MAX_DAILY_CARE_MINUTES}min)`);
     return true;
   }
 
   // Check against available daily capacity
   if (newTotalCareTime > schedule.totalCapacityMinutes) {
-    console.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
+    clientLogger.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
     return true;
   }
 
@@ -270,7 +271,7 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[], tole
     // For overnight visits, check if the visit fits across the day boundary
     visitEnd = timeToMinutes(visit.endTime, true); // Add 24 hours
 
-    console.log(`🌙 Checking overnight visit fit: ${visit.clientName} ${visitStart}min to ${visitEnd}min`);
+    clientLogger.log(`🌙 Checking overnight visit fit: ${visit.clientName} ${visitStart}min to ${visitEnd}min`);
 
     // Check if employee has availability that can accommodate the overnight visit
     const hasLateWindow = windows.some(w => w.end >= visitStart && w.end >= 1380); // Works late (after 11pm)
@@ -280,7 +281,7 @@ function adjustVisitToFitWindows(visit: ClientVisit, windows: TimeWindow[], tole
       return visit; // Can accommodate overnight visit
     }
 
-    console.log(`⚠️ ${visit.clientName}: Overnight visit doesn't fit (needs late + early availability)`);
+    clientLogger.log(`⚠️ ${visit.clientName}: Overnight visit doesn't fit (needs late + early availability)`);
     return null;
   }
 
@@ -338,7 +339,7 @@ function toScoringVisit(visit: ClientVisit): ScoringVisit {
   if (crossesMidnight) {
     // Add 24 hours to end time to represent next day
     endMin = timeToMinutes(visit.endTime, true);
-    console.log(`🌙 Overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} → ${startMin}min to ${endMin}min (crosses midnight)`);
+    clientLogger.log(`🌙 Overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} → ${startMin}min to ${endMin}min (crosses midnight)`);
   }
 
   return {
@@ -395,7 +396,7 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
   if (!preference) return true; // No preference, any gender is OK
 
   if (!employeeGender) {
-    console.log(`⚠️ STRICT: Employee has no gender data - cannot serve ${clientName} (requires ${preference})`);
+    clientLogger.log(`⚠️ STRICT: Employee has no gender data - cannot serve ${clientName} (requires ${preference})`);
     return false; // STRICT: Reject when employee gender is unknown but client has preference
   }
 
@@ -405,12 +406,12 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
   const isMale = empGenderLower === 'male' || empGenderLower === 'm';
 
   if (preference === 'female') {
-    if (!isFemale) console.log(`⚠️ Gender mismatch: Employee (${empGenderLower}) cannot serve ${clientName} (requires female)`);
+    if (!isFemale) clientLogger.log(`⚠️ Gender mismatch: Employee (${empGenderLower}) cannot serve ${clientName} (requires female)`);
     return isFemale;
   }
 
   if (preference === 'male') {
-    if (!isMale) console.log(`⚠️ Gender mismatch: Employee (${empGenderLower}) cannot serve ${clientName} (requires male)`);
+    if (!isMale) clientLogger.log(`⚠️ Gender mismatch: Employee (${empGenderLower}) cannot serve ${clientName} (requires male)`);
     return isMale;
   }
 
@@ -651,7 +652,7 @@ function tryAssignVisitToWalker(
   }
   visitEmployeeAssignments.get(visitKey)!.add(best.schedule.employeeName);
 
-  console.log(`🚶 WALKER ASSIGNED: ${best.schedule.employeeName} → ${visit.clientName} (${best.distanceKm.toFixed(2)}km, score: ${best.score.toFixed(2)})`);
+  clientLogger.log(`🚶 WALKER ASSIGNED: ${best.schedule.employeeName} → ${visit.clientName} (${best.distanceKm.toFixed(2)}km, score: ${best.score.toFixed(2)})`);
 
   return { success: true, employeeName: best.schedule.employeeName };
 }
@@ -689,7 +690,7 @@ function assignVisitToBestEmployee(
   for (const schedule of employeeSchedules) {
     // Check gender preference match
     if (!isGenderMatch(schedule.gender, originalVisit.clientName)) {
-      console.log(`⚠️ Gender mismatch: ${schedule.employeeName} (${schedule.gender || 'unknown'}) cannot serve ${originalVisit.clientName}`);
+      clientLogger.log(`⚠️ Gender mismatch: ${schedule.employeeName} (${schedule.gender || 'unknown'}) cannot serve ${originalVisit.clientName}`);
       continue; // Skip this employee - gender doesn't match client preference
     }
     
@@ -815,7 +816,7 @@ function assignVisitToBestEmployee(
     });
 
     if (existingVisitConflict) {
-      console.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
+      clientLogger.log(`⚠️ STRICT TIME CONFLICT: ${schedule.employeeName} already has visit at ${adjustedVisit.startTime}-${adjustedVisit.endTime}`);
       continue; // Strictly skip this employee
     }
 
@@ -841,7 +842,7 @@ function assignVisitToBestEmployee(
     const isEveningVisit = visitStartMinInternal >= 1020; // After 5pm
     if (isGHEmployee(schedule.employeeName) && isEveningVisit) {
       finalScore += GH_EVENING_BONUS; // Increased bonus
-      console.log(`🌙 EVENING GH BONUS: ${schedule.employeeName} gets +${GH_EVENING_BONUS} for evening visit ${adjustedVisit.clientName}`);
+      clientLogger.log(`🌙 EVENING GH BONUS: ${schedule.employeeName} gets +${GH_EVENING_BONUS} for evening visit ${adjustedVisit.clientName}`);
     }
     candidates.push({
       employeeName: schedule.employeeName,
@@ -876,7 +877,7 @@ function assignVisitToBestEmployee(
       schedule.transportMode,
       visitStartMinForTravel // Pass start time for congestion multiplier
     );
-    console.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
+    clientLogger.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
     
     // Travel limit removed - allow any travel distance to maximize visit coverage
   } else {
@@ -902,7 +903,7 @@ function assignVisitToBestEmployee(
       );
 
       actualTravelTimeBefore = travelFromHome;
-      console.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
+      clientLogger.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
     }
   }
 
@@ -927,7 +928,7 @@ function assignVisitToBestEmployee(
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
     const prevStartMin = timeToMinutes(prevVisit.startTime);
     if (prevStartMin > visitStartMin) {
-      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) after ${prevVisit.clientName} (${prevVisit.startTime})`);
+      clientLogger.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) after ${prevVisit.clientName} (${prevVisit.startTime})`);
       return { success: false, reason: 'Would break chronological order (previous visit starts later)' };
     }
   }
@@ -937,17 +938,17 @@ function assignVisitToBestEmployee(
     const nextVisit = schedule.assignedVisits[best.insertionIndex];
     const nextStartMin = timeToMinutes(nextVisit.startTime);
     if (nextStartMin < visitStartMin) {
-      console.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) before ${nextVisit.clientName} (${nextVisit.startTime})`);
+      clientLogger.error(`❌ CHRONOLOGICAL ERROR: Cannot insert ${assignedVisit.clientName} (${assignedVisit.startTime}) before ${nextVisit.clientName} (${nextVisit.startTime})`);
       return { success: false, reason: 'Would break chronological order (next visit starts earlier)' };
     }
   }
 
   // Debug logging for travel time
   if (best.insertionIndex === 0) {
-    console.log(`✅ FIRST visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from home`);
+    clientLogger.log(`✅ FIRST visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from home`);
   } else {
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
-    console.log(`✅ Visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from ${prevVisit.clientName}`);
+    clientLogger.log(`✅ Visit ${best.employeeName} → ${assignedVisit.clientName} @ ${assignedVisit.startTime}: ${assignedVisit.travelTimeBefore}min from ${prevVisit.clientName}`);
   }
 
     // Insert at the correct position
@@ -1008,7 +1009,7 @@ function assignVisitToBestEmployee(
   const careHoursUsed = (schedule.usedCapacityMinutes / 60).toFixed(1);
   const weeklyHoursUsed = (schedule.weeklyUsedMinutes / 60).toFixed(1);
   const weeklyContracted = (schedule.weeklyContractedMinutes / 60).toFixed(1);
-  console.log(`📊 ${best.employeeName}: ${careHoursUsed}h/${MAX_DAILY_CARE_HOURS}h daily | ${weeklyHoursUsed}h/${weeklyContracted}h weekly`);
+  clientLogger.log(`📊 ${best.employeeName}: ${careHoursUsed}h/${MAX_DAILY_CARE_HOURS}h daily | ${weeklyHoursUsed}h/${weeklyContracted}h weekly`);
 
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
@@ -1032,7 +1033,7 @@ export function generateWeeklySchedule(
 ): WeeklyScheduleResult {
   // Input validation
   if (!visits || !Array.isArray(visits)) {
-    console.error('❌ Invalid visits input - expected array');
+    clientLogger.error('❌ Invalid visits input - expected array');
     return {
       assignments: {},
       unallocated: [],
@@ -1046,7 +1047,7 @@ export function generateWeeklySchedule(
   }
 
   if (!employees || !Array.isArray(employees)) {
-    console.error('❌ Invalid employees input - expected array');
+    clientLogger.error('❌ Invalid employees input - expected array');
     return {
       assignments: {},
       unallocated: visits.map(v => ({ ...v, reason: 'No employees available' })),
@@ -1060,7 +1061,7 @@ export function generateWeeklySchedule(
   }
 
   if (!weekDates || !Array.isArray(weekDates) || weekDates.length === 0) {
-    console.error('❌ Invalid weekDates input - expected non-empty array');
+    clientLogger.error('❌ Invalid weekDates input - expected non-empty array');
     return {
       assignments: {},
       unallocated: visits.map(v => ({ ...v, reason: 'No valid dates provided' })),
@@ -1078,38 +1079,38 @@ export function generateWeeklySchedule(
   const filteredVisits = visits.filter(visit => {
     // Skip office visits
     if (isOfficeVisit(visit.clientName)) {
-      console.log(`🚫 Excluding office visit: ${visit.clientName}`);
+      clientLogger.log(`🚫 Excluding office visit: ${visit.clientName}`);
       return false;
     }
 
     // Skip secondary multiple care visits
     if (isSecondaryMultipleCare(visit.serviceType || '')) {
-      console.log(`🚫 Excluding secondary multiple care visit: ${visit.clientName} (${visit.serviceType})`);
+      clientLogger.log(`🚫 Excluding secondary multiple care visit: ${visit.clientName} (${visit.serviceType})`);
       return false;
     }
 
     // Skip excluded service types
     if (isExcludedServiceType(visit.serviceType || '')) {
-      console.log(`🚫 Excluding visit with excluded service type: ${visit.clientName} (${visit.serviceType})`);
+      clientLogger.log(`🚫 Excluding visit with excluded service type: ${visit.clientName} (${visit.serviceType})`);
       return false;
     }
 
     // Skip overnight visits (start date ≠ end date)
     if ((visit as any).crossesMidnight) {
-      console.log(`🚫 Excluding overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} (crosses midnight)`);
+      clientLogger.log(`🚫 Excluding overnight visit: ${visit.clientName} ${visit.startTime}-${visit.endTime} (crosses midnight)`);
       return false;
     }
 
     // Skip if no location data
     if (!visit.lat || !visit.lng) {
-      console.log(`🚫 Excluding visit without location: ${visit.clientName}`);
+      clientLogger.log(`🚫 Excluding visit without location: ${visit.clientName}`);
       return false;
     }
 
     return true;
   });
 
-  console.log(`📊 Filtered visits: ${visits.length} → ${filteredVisits.length} (excluded ${visits.length - filteredVisits.length} visits)`);
+  clientLogger.log(`📊 Filtered visits: ${visits.length} → ${filteredVisits.length} (excluded ${visits.length - filteredVisits.length} visits)`);
 
   // Identify multiple care visits (same client, date, time = needs 2 CPs)
   const multipleCareGroups = new Map<string, ClientVisit[]>();
@@ -1124,9 +1125,9 @@ export function generateWeeklySchedule(
   // Log multiple care visits
   const multipleCareKeys = Array.from(multipleCareGroups.entries()).filter(([_, visits]) => visits.length > 1);
   if (multipleCareKeys.length > 0) {
-    console.log(`👥 Found ${multipleCareKeys.length} multiple care visits (need 2 CPs):`);
+    clientLogger.log(`👥 Found ${multipleCareKeys.length} multiple care visits (need 2 CPs):`);
     multipleCareKeys.forEach(([key, visits]) => {
-      console.log(`   ${visits[0].clientName} @ ${visits[0].startTime}-${visits[0].endTime} (${visits.length} CPs needed)`);
+      clientLogger.log(`   ${visits[0].clientName} @ ${visits[0].startTime}-${visits[0].endTime} (${visits.length} CPs needed)`);
     });
   }
 
@@ -1177,7 +1178,7 @@ export function generateWeeklySchedule(
 
       // Log gender data for debugging
       if (!gender) {
-        console.log(`⚠️ CLIENT SCHEDULER: No gender data for ${emp.employeeName}`);
+        clientLogger.log(`⚠️ CLIENT SCHEDULER: No gender data for ${emp.employeeName}`);
       }
 
       return {
@@ -1219,13 +1220,13 @@ export function generateWeeklySchedule(
     return (b.priority || 1) - (a.priority || 1);
   });
 
-  console.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
+  clientLogger.log(`📅 Sorted ${sortedVisits.length} visits chronologically by start time`);
 
   // Log first 5 visits to verify chronological order
   if (sortedVisits.length > 0) {
-    console.log('📋 First 5 visits in chronological order:');
+    clientLogger.log('📋 First 5 visits in chronological order:');
     sortedVisits.slice(0, 5).forEach((v, i) => {
-      console.log(`  ${i + 1}. ${v.clientName} @ ${v.startTime}-${v.endTime}`);
+      clientLogger.log(`  ${i + 1}. ${v.clientName} @ ${v.startTime}-${v.endTime}`);
     });
   }
 
@@ -1248,8 +1249,8 @@ export function generateWeeklySchedule(
   }
   
   if (totalWalkers > 0) {
-    console.log(`\n🚶 WALKER-FIRST PHASE: ${totalWalkers} walking employees across ${weekDates.length} days`);
-    console.log('   Walkers use PROXIMITY rules (same postcode or ≤1.5km), NOT travel time calculations.');
+    clientLogger.log(`\n🚶 WALKER-FIRST PHASE: ${totalWalkers} walking employees across ${weekDates.length} days`);
+    clientLogger.log('   Walkers use PROXIMITY rules (same postcode or ≤1.5km), NOT travel time calculations.');
     
     for (const visit of sortedVisits) {
       const allSchedules = schedulesByDate[visit.date] || [];
@@ -1270,8 +1271,8 @@ export function generateWeeklySchedule(
       }
     }
     
-    console.log(`🚶 Walker phase complete: ${walkerAssignments} visits assigned to walkers`);
-    console.log(`   Remaining ${sortedVisits.length - walkerAssignments} visits will be assigned to car/public transport employees.\n`);
+    clientLogger.log(`🚶 Walker phase complete: ${walkerAssignments} visits assigned to walkers`);
+    clientLogger.log(`   Remaining ${sortedVisits.length - walkerAssignments} visits will be assigned to car/public transport employees.\n`);
   }
 
   // ============================================================================
@@ -1339,7 +1340,7 @@ export function generateWeeklySchedule(
         const usedPct = schedule.weeklyContractedMinutes > 0 
           ? ((schedule.weeklyUsedMinutes / schedule.weeklyContractedMinutes) * 100).toFixed(0)
           : '0';
-        console.log(`✅ GH ASSIGNED: ${result.employeeName} → ${visit.clientName} (${usedPct}% of contracted hours used)`);
+        clientLogger.log(`✅ GH ASSIGNED: ${result.employeeName} → ${visit.clientName} (${usedPct}% of contracted hours used)`);
       }
     }
 
@@ -1352,7 +1353,7 @@ export function generateWeeklySchedule(
 
       // Log multiple care assignments
       if (alreadyAssignedEmployees.size > 0) {
-        console.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
+        clientLogger.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
       }
     } else {
       unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
@@ -1361,7 +1362,7 @@ export function generateWeeklySchedule(
 
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)
-  console.log(`\n🔄 SECOND PASS: Attempting to allocate ${unallocated.length} unallocated visits (sorted by duration)`);
+  clientLogger.log(`\n🔄 SECOND PASS: Attempting to allocate ${unallocated.length} unallocated visits (sorted by duration)`);
   
   // CRITICAL: Sort second pass visits chronologically first, then by duration
   // This maintains chronological insertion order to prevent CHRONOLOGICAL ERRORs
@@ -1421,12 +1422,12 @@ export function generateWeeklySchedule(
     }
   }
 
-  console.log(`📊 Second pass results: ${unallocated.length - remainingUnallocated.length} assigned, ${remainingUnallocated.length} still unallocated`);
+  clientLogger.log(`📊 Second pass results: ${unallocated.length - remainingUnallocated.length} assigned, ${remainingUnallocated.length} still unallocated`);
 
   // Third pass: RELAXED rules with geographic clustering
   // Group unallocated visits by location clusters and try to fit them with relaxed constraints
   if (remainingUnallocated.length > 0) {
-    console.log(`\n🔄 THIRD PASS (RELAXED): Attempting ${remainingUnallocated.length} visits with relaxed time windows (+15min tolerance)`);
+    clientLogger.log(`\n🔄 THIRD PASS (RELAXED): Attempting ${remainingUnallocated.length} visits with relaxed time windows (+15min tolerance)`);
     
     const thirdPassUnallocated: Array<ClientVisit & { reason: string }> = [];
     
@@ -1474,19 +1475,19 @@ export function generateWeeklySchedule(
           visitEmployeeAssignments.set(visitKey, new Set());
         }
         visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
-        console.log(`✅ [Relaxed] Assigned ${visit.clientName} to ${result.employeeName}`);
+        clientLogger.log(`✅ [Relaxed] Assigned ${visit.clientName} to ${result.employeeName}`);
       } else {
         thirdPassUnallocated.push(visit);
       }
     }
     
     remainingUnallocated = thirdPassUnallocated;
-    console.log(`📊 Third pass results: ${clusteredVisits.length - remainingUnallocated.length} assigned, ${remainingUnallocated.length} still unallocated`);
+    clientLogger.log(`📊 Third pass results: ${clusteredVisits.length - remainingUnallocated.length} assigned, ${remainingUnallocated.length} still unallocated`);
   }
 
   // Fourth pass: Try employees with ANY remaining capacity (very relaxed)
   if (remainingUnallocated.length > 0) {
-    console.log(`\n🔄 FOURTH PASS (MAXIMUM EFFORT): Attempting ${remainingUnallocated.length} visits`);
+    clientLogger.log(`\n🔄 FOURTH PASS (MAXIMUM EFFORT): Attempting ${remainingUnallocated.length} visits`);
     
     const fourthPassUnallocated: Array<ClientVisit & { reason: string }> = [];
     
@@ -1544,19 +1545,19 @@ export function generateWeeklySchedule(
           visitEmployeeAssignments.set(visitKey, new Set());
         }
         visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
-        console.log(`✅ [Maximum effort] Assigned ${visit.clientName} to ${result.employeeName}`);
+        clientLogger.log(`✅ [Maximum effort] Assigned ${visit.clientName} to ${result.employeeName}`);
       } else {
         fourthPassUnallocated.push({ ...visit, reason: result.reason || 'Could not fit in any schedule' });
       }
     }
     
     remainingUnallocated = fourthPassUnallocated;
-    console.log(`📊 Fourth pass results: ${remainingUnallocated.length} still unallocated`);
+    clientLogger.log(`📊 Fourth pass results: ${remainingUnallocated.length} still unallocated`);
   }
 
   // Final Pass: Chronological retry for anything remaining
   if (remainingUnallocated.length > 0) {
-    console.log(`\n🔄 FINAL CHRONOLOGICAL PASS: Attempting ${remainingUnallocated.length} visits`);
+    clientLogger.log(`\n🔄 FINAL CHRONOLOGICAL PASS: Attempting ${remainingUnallocated.length} visits`);
     const finalUnallocated: Array<ClientVisit & { reason: string }> = [];
     const sortedFinal = [...remainingUnallocated].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
     
@@ -1599,7 +1600,7 @@ export function generateWeeklySchedule(
   // Fifth pass: DESPERATION - allow unknown-gender employees to serve gendered clients
   // and use maximum time flexibility (30 min tolerance)
   if (remainingUnallocated.length > 0) {
-    console.log(`\n🔄 FIFTH PASS (DESPERATION): Attempting ${remainingUnallocated.length} visits with gender relaxation`);
+    clientLogger.log(`\n🔄 FIFTH PASS (DESPERATION): Attempting ${remainingUnallocated.length} visits with gender relaxation`);
     const fifthPassUnallocated: Array<ClientVisit & { reason: string }> = [];
     
     for (const visit of remainingUnallocated) {
@@ -1650,14 +1651,14 @@ export function generateWeeklySchedule(
       if (result.success && result.employeeName) {
         if (!visitEmployeeAssignments.has(visitKey)) visitEmployeeAssignments.set(visitKey, new Set());
         visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
-        console.log(`✅ [Desperation] Assigned ${visit.clientName} to ${result.employeeName}`);
+        clientLogger.log(`✅ [Desperation] Assigned ${visit.clientName} to ${result.employeeName}`);
       } else {
         fifthPassUnallocated.push({ ...visit, reason: 'Could not fit in any schedule after all passes' });
       }
     }
     
     remainingUnallocated = fifthPassUnallocated;
-    console.log(`📊 Fifth pass results: ${remainingUnallocated.length} still unallocated`);
+    clientLogger.log(`📊 Fifth pass results: ${remainingUnallocated.length} still unallocated`);
   }
 
   // Update unallocated with only the visits that couldn't be assigned in any pass
@@ -1713,7 +1714,7 @@ export function generateWeeklySchedule(
   const averageTravelTimePerVisit = visitCount > 0 ? Math.round(totalTravelTime / visitCount) : 0;
 
   // GH UTILIZATION SUMMARY
-  console.log(`\n📊 === GH UTILIZATION SUMMARY ===`);
+  clientLogger.log(`\n📊 === GH UTILIZATION SUMMARY ===`);
   let totalGHContracted = 0;
   let totalGHUsed = 0;
   const ghEmployeeStats: Array<{name: string; contracted: number; used: number; pct: number}> = [];
@@ -1739,13 +1740,13 @@ export function generateWeeklySchedule(
   ghEmployeeStats.sort((a, b) => b.pct - a.pct);
   ghEmployeeStats.forEach(stat => {
     const status = stat.pct >= 90 ? '✅' : stat.pct >= 70 ? '⚠️' : '❌';
-    console.log(`  ${status} ${stat.name}: ${(stat.used/60).toFixed(1)}h / ${(stat.contracted/60).toFixed(1)}h (${stat.pct.toFixed(0)}%)`);
+    clientLogger.log(`  ${status} ${stat.name}: ${(stat.used/60).toFixed(1)}h / ${(stat.contracted/60).toFixed(1)}h (${stat.pct.toFixed(0)}%)`);
   });
   
   const overallGHPct = totalGHContracted > 0 ? (totalGHUsed / totalGHContracted) * 100 : 0;
-  console.log(`\n  TOTAL GH: ${(totalGHUsed/60).toFixed(1)}h / ${(totalGHContracted/60).toFixed(1)}h (${overallGHPct.toFixed(0)}% utilization)`);
-  console.log(`  GH LOSS: ${((totalGHContracted - totalGHUsed)/60).toFixed(1)}h unfilled`);
-  console.log(`============================\n`);
+  clientLogger.log(`\n  TOTAL GH: ${(totalGHUsed/60).toFixed(1)}h / ${(totalGHContracted/60).toFixed(1)}h (${overallGHPct.toFixed(0)}% utilization)`);
+  clientLogger.log(`  GH LOSS: ${((totalGHContracted - totalGHUsed)/60).toFixed(1)}h unfilled`);
+  clientLogger.log(`============================\n`);
 
   return {
     assignments,
@@ -1758,7 +1759,7 @@ export function generateWeeklySchedule(
     },
   };
   } catch (error) {
-    console.error('❌ Fatal error in generateWeeklySchedule:', error);
+    clientLogger.error('❌ Fatal error in generateWeeklySchedule:', error);
     return {
       assignments: {},
       unallocated: visits.map(v => ({ 

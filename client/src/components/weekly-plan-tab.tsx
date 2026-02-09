@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
-      console.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
+      clientLogger.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
 
       // Prepare employee data with locations and weekly hours
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
@@ -222,18 +223,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         };
       });
 
-      console.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
+      clientLogger.log(`📊 Processing ${visitsWithLocations.length} visits with ${employeesWithLocations.length} employee-day combinations`);
 
       // Log gender data for debugging purposes
       employeesWithLocations.forEach(emp => {
         if (!emp.gender) {
-          console.warn(`⚠️ Missing gender for ${emp.employeeName} on ${emp.date} - Check employee data and location data.`);
+          clientLogger.warn(`⚠️ Missing gender for ${emp.employeeName} on ${emp.date} - Check employee data and location data.`);
         }
       });
 
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
 
-      console.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
+      clientLogger.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
 
       return result;
     },
@@ -257,7 +258,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           description: `Assigned ${result.metrics.totalVisitsAssigned} visits across ${result.metrics.employeesUtilized} employees`,
         });
       } catch (error) {
-        console.error('Failed to save schedule:', error);
+        clientLogger.error('Failed to save schedule:', error);
         toast({
           title: "Schedule Generated",
           description: `Assigned ${result.metrics.totalVisitsAssigned} visits (save failed)`,
@@ -276,7 +277,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   useEffect(() => {
     if (savedSchedule?.scheduleData) {
       // Reconstruct weekly schedule from saved data for this specific week
-      console.log(`📅 Loading saved schedule for week ${weekStart} to ${weekEnd}`);
+      clientLogger.log(`📅 Loading saved schedule for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule({
         assignments: savedSchedule.scheduleData as Record<string, Record<string, AssignedVisit[]>>,
         unallocated: savedSchedule.unallocatedVisits || [],
@@ -289,7 +290,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
     } else if (!savedSchedule && !isLoadingVisits) {
       // No saved schedule for this week - clear the state
-      console.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
+      clientLogger.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule(null);
     }
   }, [savedSchedule, weekStart, weekEnd, isLoadingVisits]);

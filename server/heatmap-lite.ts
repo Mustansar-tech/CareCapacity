@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import { TravelTimeService } from "./travel-time-service";
+import { logger } from './logger';
 
 const travelService = new TravelTimeService(30, 15); // 30min max, 15min soft limit
 
@@ -133,7 +134,7 @@ export async function buildHeatmapMatrixLite(
             );
             t = travelMatrix.travelTimeMinutes;
           } catch (err) {
-            console.log(`⚠️ Travel time calculation failed for ${empName} -> ${c.clientName}, using fallback`);
+            logger.debug('Travel time calculation failed, using fallback', { employee: empName, client: c.clientName });
           }
         }
         

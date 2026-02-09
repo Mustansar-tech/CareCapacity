@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,7 @@ export default function Dashboard() {
 
   // Clear processed data when branch changes
   useEffect(() => {
-    console.log('🧹 Branch changed - clearing all processed data');
+    clientLogger.log('🧹 Branch changed - clearing all processed data');
     setProcessedData(null);
     setFilteredData(null);
     setSelectedWeekId(null);
@@ -118,8 +119,8 @@ export default function Dashboard() {
 
   // Clear processed data if it doesn't match current branch
   useEffect(() => {
-    if (latestData && latestData.branchId !== selectedBranchId) {
-      console.log('🧹 Clearing stale data from different branch');
+    if (latestData && (latestData as any).branchId !== selectedBranchId) {
+      clientLogger.log('🧹 Clearing stale data from different branch');
       setProcessedData(null);
       setFilteredData(null);
     }
@@ -128,7 +129,7 @@ export default function Dashboard() {
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
     // Only auto-load if data belongs to current branch
-    if (latestData && !processedData && !selectedWeekId && latestData.branchId === selectedBranchId) {
+    if (latestData && !processedData && !selectedWeekId && (latestData as any).branchId === selectedBranchId) {
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary as any,
@@ -173,7 +174,7 @@ export default function Dashboard() {
         setFilteredData(null); // Clear any filters
       }
     } catch (error) {
-      console.error('Error loading selected week:', error);
+      clientLogger.error('Error loading selected week:', error);
       toast({
         variant: "destructive",
         title: "Error Loading Week",
@@ -230,7 +231,7 @@ export default function Dashboard() {
       });
     },
     onError: (error: any) => {
-      console.error('Processing error:', error);
+      clientLogger.error('Processing error:', error);
       let errorTitle = "Processing Failed";
       let errorDescription = "An unknown error occurred.";
 
@@ -308,7 +309,7 @@ export default function Dashboard() {
       });
 
     } catch (error) {
-      console.error('Export error:', error);
+      clientLogger.error('Export error:', error);
       toast({
         variant: "destructive",
         title: "Export Failed",
@@ -866,7 +867,7 @@ export default function Dashboard() {
               <InteractiveCharts
                 data={filteredData || processedData}
                 onDateSelect={setSelectedDate}
-                onEmployeeSelect={(employee) => console.log('Selected employee:', employee)}
+                onEmployeeSelect={(employee) => clientLogger.log('Selected employee:', employee)}
               />
               <DataQualityPanel
                 data={filteredData || processedData}
@@ -1091,7 +1092,7 @@ export default function Dashboard() {
                                   const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString('en-GB');
                                   return ` (${startDate} - ${endDate})`;
                                 } catch (error) {
-                                  console.error('Error formatting latest week dates:', error);
+                                  clientLogger.error('Error formatting latest week dates:', error);
                                   return '';
                                 }
                               })()}
@@ -1108,7 +1109,7 @@ export default function Dashboard() {
                                   </SelectItem>
                                 );
                               } catch (error) {
-                                console.error('Error rendering week option:', error);
+                                clientLogger.error('Error rendering week option:', error);
                                 return null;
                               }
                             }).filter(Boolean)}
@@ -1123,7 +1124,7 @@ export default function Dashboard() {
                               const monthYear = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
                               return monthYear;
                             } catch (error) {
-                              console.error('Error formatting month year:', error);
+                              clientLogger.error('Error formatting month year:', error);
                               return '';
                             }
                           })()}

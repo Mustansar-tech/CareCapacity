@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 // Service types to exclude ONLY for auto-scheduling
 const EXCLUDED_SERVICE_TYPES = [
   'office hours',
@@ -35,13 +37,13 @@ function processVisits(visits: Visit[]): Visit[] {
   const filteredVisits = visits.filter(visit => {
     // Skip office visits
     if (visit.clientName && isOfficeVisit(visit.clientName)) {
-      console.log(`🚫 Excluding office visit: ${visit.clientName}`);
+      logger.debug('Excluding office visit', { clientName: visit.clientName });
       return false;
     }
 
     // Skip excluded service types (office hours, night shifts, secondary care)
     if (isExcludedServiceType(visit.serviceType || '')) {
-      console.log(`🚫 Excluding service type: ${visit.clientName} (${visit.serviceType})`);
+      logger.debug('Excluding service type', { clientName: visit.clientName, serviceType: visit.serviceType });
       return false;
     }
 

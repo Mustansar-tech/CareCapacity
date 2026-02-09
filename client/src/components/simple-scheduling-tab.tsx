@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { clientLogger } from '@/lib/logger';
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,9 +77,9 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                          selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'walking';
 
     if (empLocation?.homeLat && empLocation?.homeLng) {
-      console.log(`✅ Using geocoded location for ${selectedEmployee}: ${empLat}, ${empLng}`);
+      clientLogger.log(`✅ Using geocoded location for ${selectedEmployee}: ${empLat}, ${empLng}`);
     } else {
-      console.warn(`⚠️ Missing location data for ${selectedEmployee}, using default coordinates`);
+      clientLogger.warn(`⚠️ Missing location data for ${selectedEmployee}, using default coordinates`);
     }
 
     return {
@@ -113,7 +114,7 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
           const clientLng = clientLocation?.lng ?? -3.1883;
 
           if (!clientLocation?.lat || !clientLocation?.lng) {
-            console.warn(`Missing location data for ${v.clientName} or ${selectedEmployee}`);
+            clientLogger.warn(`Missing location data for ${v.clientName} or ${selectedEmployee}`);
           }
 
           return {
@@ -390,9 +391,9 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                             !Number.isFinite(clientLat) || !Number.isFinite(clientLng) ||
                             (empLat === 0 && empLng === 0) || (clientLat === 0 && clientLng === 0)) {
 
-                          console.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
-                          console.warn(`  Employee coords: ${empLat}, ${empLng} (from ${empLocationData ? 'employeeLocations' : 'employeeSummary'})`);
-                          console.warn(`  Client coords: ${clientLat}, ${clientLng} (from ${clientLocationData ? 'clientLocations' : 'not found'})`);
+                          clientLogger.warn(`Missing location data for ${visit.clientName} or ${selectedEmployee}`);
+                          clientLogger.warn(`  Employee coords: ${empLat}, ${empLng} (from ${empLocationData ? 'employeeLocations' : 'employeeSummary'})`);
+                          clientLogger.warn(`  Client coords: ${clientLat}, ${clientLng} (from ${clientLocationData ? 'clientLocations' : 'not found'})`);
 
                           // Show placeholder with "No location data" message
                           return (
@@ -446,10 +447,10 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                             visit.start // Pass visit start time for congestion multiplier
                           );
 
-                          console.log(`🔍 Frontend travel calc: ${selectedEmployee} -> ${visit.clientName}: ${travelMinutes}min`);
-                          console.log(`  Emp coords: ${empLocation.lat}, ${empLocation.lng}`);
-                          console.log(`  Client coords: ${clientLocationCoords.lat}, ${clientLocationCoords.lng}`);
-                          console.log(`  Transport mode: ${transportMode}`);
+                          clientLogger.log(`🔍 Frontend travel calc: ${selectedEmployee} -> ${visit.clientName}: ${travelMinutes}min`);
+                          clientLogger.log(`  Emp coords: ${empLocation.lat}, ${empLocation.lng}`);
+                          clientLogger.log(`  Client coords: ${clientLocationCoords.lat}, ${clientLocationCoords.lng}`);
+                          clientLogger.log(`  Transport mode: ${transportMode}`);
 
                         return (
                           <Card key={idx}>
