@@ -226,6 +226,9 @@ export default function Dashboard() {
         setSelectedDate(data.dailySummary[0].date);
       }
 
+      // Redirect to overview tab after processing
+      setActiveTab("overview");
+
       // Clear file inputs after successful processing
       setFiles({
         availability: null,
@@ -326,11 +329,9 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-12 animate-fade-in">
-
         {/* Results Tabs - Always show when data exists */}
         {processedData && (
           <div>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger
