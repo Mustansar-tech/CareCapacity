@@ -75,20 +75,16 @@ export function calculateTravelTime(
   mode: 'car' | 'walking' | 'public',
   startTimeMinutes?: number
 ): number {
-  // Apply road distance inflation (straight-line × 1.2 for UK roads)
-  const roadDistanceKm = distanceKm * 1.2;
-  
-  // Mode-specific speeds and minimums
-  // Car: 20 km/h avg (conservative for urban areas), min 5 min
-  // Non-driver (public): 12 km/h effective, min 10 min
+  // Apply road distance inflation (straight-line × 1.4 for UK/Scottish roads - winding routes, lochs, one-way systems)
+  const roadDistanceKm = distanceKm * 1.4;
   
   let baseTravelMinutes: number;
   let minTravelMinutes: number;
   
   if (mode === 'car') {
-    const speedKmh = 37;
+    const speedKmh = 25; // realistic avg for care delivery: residential areas, parking, walking to door
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
-    minTravelMinutes = 5;
+    minTravelMinutes = 10; // minimum 10 min including parking and door-to-door
   } else if (mode === 'public') {
     // Public transport: 15 km/h with 15 min overhead (aligned with server-side config)
     const speedKmh = 15;
@@ -97,7 +93,7 @@ export function calculateTravelTime(
     minTravelMinutes = 15;
   } else if (mode === 'walking') {
     // Walkers are treated as public transport users (bus/train/lift mix), NOT pedestrians
-    // Formula: Haversine × 1.2 road factor, 15 km/h avg speed, 15 min overhead, 15 min minimum
+    // Formula: Haversine × 1.4 road factor (already applied above), 15 km/h avg speed, 15 min overhead, 15 min minimum
     const speedKmh = 15;
     const fixedOverheadMinutes = 15;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
@@ -105,8 +101,8 @@ export function calculateTravelTime(
     // Return early - walkers don't get congestion multiplier (public transport is steadier)
     return Math.max(minTravelMinutes, Math.round(baseTravelMinutes));
   } else {
-    baseTravelMinutes = (roadDistanceKm / 32) * 60;
-    minTravelMinutes = 5;
+    baseTravelMinutes = (roadDistanceKm / 25) * 60;
+    minTravelMinutes = 10;
   }
   
   // Apply time-of-day congestion multiplier

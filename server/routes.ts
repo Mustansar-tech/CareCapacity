@@ -1255,14 +1255,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const distance = R * c;
 
-    // Convert to travel time based on mode
-    const speeds = {
-      car: 37,      // km/h
-      walking: 4.5, // km/h
-    };
-
-    const speed = speeds[mode as keyof typeof speeds] || speeds.car;
-    return Math.max(1, Math.round((distance / speed) * 60));
+    // Apply road factor (1.4 for UK/Scottish winding roads)
+    const roadDistance = distance * 1.4;
+    
+    if (mode === 'walking' || mode === 'public') {
+      const baseMins = (roadDistance / 15) * 60 + 15; // 15 km/h + 15 min overhead
+      return Math.max(15, Math.round(baseMins));
+    }
+    
+    return Math.max(10, Math.round((roadDistance / 25) * 60)); // car: 25 km/h, min 10 min
   }
 
 
