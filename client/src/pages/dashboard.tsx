@@ -330,7 +330,7 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-12 animate-fade-in">
         {/* Results Tabs - Always show when data exists */}
-        {processedData && (
+        {(processedData || isLoadingLatest) ? (
           <div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -1099,11 +1099,80 @@ export default function Dashboard() {
           <TabsContent value="schedules" className="space-y-6 animate-fade-in" data-testid="content-schedules">
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
-
-          </Tabs>
-          </div>
-        )}
+        </Tabs>
       </div>
-    </div>
-  );
+    ) : (
+      <div className="animate-fade-in">
+        <Card className="material-card hover-lift elevation-2 max-w-4xl mx-auto" data-testid="upload-section">
+          <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+                <Upload className="w-4 h-4 text-white" />
+              </div>
+              <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                Upload New Data
+              </span>
+              {isLoadingLatest && (
+                <div className="flex items-center gap-2 ml-4">
+                  <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                  <span className="text-sm text-blue-600 font-normal">Loading latest data...</span>
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-center mb-8">
+              <p className="text-muted-foreground mb-6">Upload your care capacity exports to begin the analysis</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
+                  <h3 className="font-semibold mb-1">Availability</h3>
+                  <p className="text-xs text-muted-foreground">Staff availability and shift preferences</p>
+                </div>
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
+                  <h3 className="font-semibold mb-1">Guaranteed</h3>
+                  <p className="text-xs text-muted-foreground">Contracted hours and employee data</p>
+                </div>
+                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <h3 className="font-semibold mb-1">CG Data</h3>
+                  <p className="text-xs text-muted-foreground">Master employee list and weekly hours</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+              <div className="space-y-2">
+                <Label htmlFor="availability-file-init" className="text-sm font-medium">Availability Export</Label>
+                <Input id="availability-file-init" type="file" accept=".xlsx,.xls" onChange={handleFileChange('availability')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="guaranteed-file-init" className="text-sm font-medium">Guaranteed Hours</Label>
+                <Input id="guaranteed-file-init" type="file" accept=".xlsx,.xls" onChange={handleFileChange('guaranteed')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cgdata-file-init" className="text-sm font-medium">CG Data Export</Label>
+                <Input id="cgdata-file-init" type="file" accept=".xlsx,.xls" onChange={handleFileChange('cgData')} />
+              </div>
+            </div>
+
+            <Button
+              onClick={handleProcessFiles}
+              disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
+              className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white shadow-lg h-12 text-lg"
+            >
+              {isProcessing || processMutation.isPending ? (
+                <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
+              ) : (
+                <><FileSpreadsheet className="w-4 h-4 mr-2" /> Start Analysis</>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )}
+  </div>
+</div>
+);
 }
