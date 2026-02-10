@@ -2631,49 +2631,29 @@ export async function processCapacityData(
       // Use the best record's net capacity
       summary.netCapacity += bestRecord.netCapacity;
 
-      // Apply status priority logic with proper handling of partial availability and partial holidays
-      if (hasUnavailableStatus) {
-        // Count unavailable hours by status type
-        records.forEach((record) => {
-          if (record.status === "Holiday" || record.status === "Partial Holiday") {
-            // Both full and partial holidays contribute to holiday hours
-            summary.holidays += record.hours;
-          } else if (record.status === "Sick" || record.status === "Partial Sick") {
-            // Sickness separate card
-            summary.sickness += record.hours;
-          } else if (
-            [
-              "Maternity/Paternity",
-              "Compassionate Leave",
-              "Other Unavailable",
-              "Pre-Agreed Appointment",
-              "Partial Maternity/Paternity",
-              "Partial Compassionate Leave",
-            ].includes(record.status)
-          ) {
-            summary.unavailability += record.hours;
-          }
-        });
-      } else {
-        // Count available hours and partial availability/partial holiday hours
-        records.forEach((record) => {
-          if (record.status === "Available") {
-            summary.availableHours += record.hours;
-          } else if (record.status === "Partial Availability") {
-            // Partial availability contributes to unavailability hours
-            summary.unavailability += record.hours;
-          } else if (record.status === "Partial Holiday") {
-            // Partial holidays contribute to holiday hours
-            summary.holidays += record.hours;
-          } else if (record.status === "Partial Sick") {
-            // Partial sick contributes to sickness hours
-            summary.sickness += record.hours;
-          } else if (record.status.startsWith("Partial ")) {
-            // Other partial statuses (Partial Sick, etc.) contribute to unavailability
-            summary.unavailability += record.hours;
-          }
-        });
-      }
+      // Desired Hours = total contracted daily hours for ALL employees (baseline before deductions)
+      summary.availableHours += bestRecord.contractedDailyHours;
+
+      // Categorize absence hours by type
+      records.forEach((record) => {
+        if (record.status === "Holiday" || record.status === "Partial Holiday") {
+          summary.holidays += record.hours;
+        } else if (record.status === "Sick" || record.status === "Partial Sick") {
+          summary.sickness += record.hours;
+        } else if (
+          [
+            "Maternity/Paternity",
+            "Compassionate Leave",
+            "Other Unavailable",
+            "Pre-Agreed Appointment",
+            "Partial Maternity/Paternity",
+            "Partial Compassionate Leave",
+            "Partial Availability",
+          ].includes(record.status)
+        ) {
+          summary.unavailability += record.hours;
+        }
+      });
 
       const empNorm = normalizeName(_employeeName);
       const schedKey = `${empNorm}|${date}`;
