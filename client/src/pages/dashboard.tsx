@@ -11,15 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon, Sparkles
+  Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
 import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
-import { InteractiveCharts } from "@/components/interactive-charts";
-import { AISuggestions } from "@/components/ai-suggestions";
-import { DataQualityPanel } from "@/components/data-quality-panel";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
@@ -297,40 +294,6 @@ export default function Dashboard() {
 
   }, [files, toast, processMutation, selectedBranchId]);
 
-  // Download export
-  const handleExport = useCallback(async () => {
-    try {
-      const response = await fetch('/api/export');
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Export failed');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'capacity_dashboard.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Export Successful",
-        description: "Capacity dashboard exported successfully."
-      });
-
-    } catch (error) {
-      clientLogger.error('Export error:', error);
-      toast({
-        variant: "destructive",
-        title: "Export Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred"
-      });
-    }
-  }, [toast]);
 
   // Get selected day details - use filtered data if available, otherwise processed data
   const selectedDayDetailsRaw = selectedDate && (filteredData || processedData)?.employeesByDate[selectedDate] || [];
@@ -617,22 +580,6 @@ export default function Dashboard() {
               Schedules
             </TabsTrigger>
             <TabsTrigger
-              value="ai-suggestions"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-ai-suggestions"
-            >
-              <LightBulbIcon className="w-4 h-4 mr-2" />
-              AI Insights
-            </TabsTrigger>
-            <TabsTrigger
-              value="charts"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-charts"
-            >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger
               value="ai-chat"
               className="data-[state=active]:bg-violet-600 data-[state=active]:text-white dark:data-[state=active]:bg-violet-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-ai-chat"
@@ -858,27 +805,6 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
 
-          {/* AI Suggestions Tab */}
-          <TabsContent value="ai-suggestions" data-testid="content-ai-suggestions">
-            <AISuggestions
-              data={filteredData || processedData}
-            />
-          </TabsContent>
-
-          {/* Interactive Charts Tab with Data Quality */}
-          <TabsContent value="charts" data-testid="content-charts">
-            <div className="space-y-6">
-              <InteractiveCharts
-                data={filteredData || processedData}
-                onDateSelect={setSelectedDate}
-                onEmployeeSelect={(employee) => clientLogger.log('Selected employee:', employee)}
-              />
-              <DataQualityPanel
-                data={filteredData || processedData}
-                warnings={warnings}
-              />
-            </div>
-          </TabsContent>
 
           {/* AI Chat Tab */}
           <TabsContent value="ai-chat" data-testid="content-ai-chat">
@@ -1298,78 +1224,6 @@ export default function Dashboard() {
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
-          {/* Export Tab */}
-          <TabsContent value="export" className="space-y-6 animate-fade-in" data-testid="content-export">
-            <Card className="glass hover-lift">
-              <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                      <Download className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-                      Export Data
-                    </span>
-                  </div>
-                  <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-                    {(() => {
-                      const data = filteredData || processedData;
-                      if (!data.dailySummary || data.dailySummary.length === 0) return 'No data';
-                      const startDate = new Date(data.dailySummary[0].date);
-                      const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date);
-                      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-                    })()}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <p className="text-gray-600 dark:text-gray-300 mb-6" data-testid="export-description">
-                  Download the processed capacity data as a comprehensive Excel file with detailed analysis sheets:
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"> {/* Changed to 2 columns for less crowded layout */}
-                  <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-blue-900 dark:text-blue-100">Cleaned Data</div>
-                      <div className="text-sm text-blue-700 dark:text-blue-300">All processed employee records with capacity calculations</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-emerald-900 dark:text-emerald-100">Daily Summary</div>
-                      <div className="text-sm text-emerald-700 dark:text-emerald-300">Daily aggregated capacity metrics and KPIs</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-purple-900 dark:text-purple-100">Employee Details</div>
-                      <div className="text-sm text-purple-700 dark:text-purple-300">Detailed employee breakdown by date and assignments</div>
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleExport}
-                  className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg"
-                  disabled={isProcessing}
-                  data-testid="button-export"
-                >
-                  {isProcessing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Excel file...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Download capacity_dashboard.xlsx
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
           </Tabs>
           </div>
         )}
