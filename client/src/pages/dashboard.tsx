@@ -1102,17 +1102,17 @@ export default function Dashboard() {
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                      <Users className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
+                    <span className="text-gray-700 dark:text-gray-300">Total Desired Hours</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-desired-hours-sum">
                     {(filteredData || processedData)?.kpis.netCapacitySum}h
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Weekly capacity</div>
                 </CardContent>
               </Card>
 
