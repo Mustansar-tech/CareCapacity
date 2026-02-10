@@ -871,6 +871,73 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   return ghMap;
 }
 
+function buildClientScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
+  const ghMap = new Map<string, number>();
+
+  const CLIENT_EXCLUDED_TYPES = [
+    'multiple care (secondary)',
+    'secondary',
+    '(secondary)',
+    'oncall',
+    'on call',
+    'office hours',
+    'office',
+    'training',
+    'shadowing',
+    'nights - sleep in',
+    'sleep in',
+    'nights - waking nights',
+    'waking nights',
+    'night',
+    'overnight',
+    'sleepover'
+  ];
+
+  for (const g of guaranteed || []) {
+    const cancelRaw = pickCol(g, CANCEL_COLS);
+    if (!isCancellationBlank(cancelRaw)) continue;
+
+    const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
+    if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
+    if (isLiveInCare(serviceTypeRaw)) continue;
+
+    const serviceType = serviceTypeRaw || "";
+    const normalizedServiceType = String(serviceType)
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const isExcludedType = CLIENT_EXCLUDED_TYPES.some(excluded =>
+      normalizedServiceType.includes(excluded.replace(/[^\w\s]/g, '').replace(/\s+/g, ' '))
+    );
+    if (isExcludedType) continue;
+
+    const { start, end } = resolveServiceTimestamps(g);
+    if (!start) continue;
+
+    const date = format(parseDate(start), "yyyy-MM-dd");
+
+    if (start && end) {
+      const endDate = format(parseDate(end), "yyyy-MM-dd");
+      if (date !== endDate) continue;
+    }
+
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    const name = normalizeName(empName);
+
+    const payRaw = pickCol(g, PAY_HOURS_COLS);
+    let pay = Number(payRaw) || 0;
+
+    if (name && date && pay > 0) {
+      const key = `${name}|${date}`;
+      ghMap.set(key, (ghMap.get(key) || 0) + pay);
+    }
+  }
+
+  return ghMap;
+}
+
 function getScheduledHoursForEmployeeAndDate(
   scheduledHoursMap: Map<string, number>,
   employeeName: string,
@@ -1911,6 +1978,7 @@ export async function processCapacityData(
   }
 
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
+  const clientScheduledHoursMap = buildClientScheduledHoursLookup(guaranteed);
 
   // VERIFICATION: Show what's in the scheduled hours map
   logger.debug(`\nSCHEDULED HOURS MAP VERIFICATION:`);
@@ -2198,6 +2266,7 @@ export async function processCapacityData(
       empName,
       date,
     );
+    const clientScheduledHrs = getScheduledHoursForEmployeeAndDate(clientScheduledHoursMap, empName, date);
 
     // Deduplicate identical windows per status (like your Python dd logic)
     const deduplicatedRows = new Map<string, (typeof group)[0]>();
@@ -2456,7 +2525,9 @@ export async function processCapacityData(
         date,
         status: highestPriorityStatus,
         timeWindows: windowsStr,
-        scheduledHours: Math.round(totalScheduledHours * 100) / 100, // Total scheduled hours for this employee on this date
+        scheduledHours: Math.round(totalScheduledHours * 100) / 100,
+        clientScheduledHours: Math.round(clientScheduledHrs * 100) / 100,
+        otherScheduledHours: Math.round((totalScheduledHours - clientScheduledHrs) * 100) / 100,
         hours: Math.round(finalHours * 100) / 100,
         netCapacity: Math.round(netCapacity * 100) / 100,
         notes:
@@ -2485,6 +2556,9 @@ export async function processCapacityData(
       unavailability: number;
       holidays: number;
       sickness: number;
+      scheduledHours: number;
+      clientScheduledHours: number;
+      otherScheduledHours: number;
     }
   >();
 
@@ -2517,6 +2591,9 @@ export async function processCapacityData(
         unavailability: 0,
         holidays: 0,
         sickness: 0,
+        scheduledHours: 0,
+        clientScheduledHours: 0,
+        otherScheduledHours: 0,
       });
     }
 
@@ -2597,6 +2674,14 @@ export async function processCapacityData(
           }
         });
       }
+
+      const empNorm = normalizeName(_employeeName);
+      const schedKey = `${empNorm}|${date}`;
+      const empScheduled = scheduledHoursMap.get(schedKey) || 0;
+      const empClientScheduled = clientScheduledHoursMap.get(schedKey) || 0;
+      summary.scheduledHours += empScheduled;
+      summary.clientScheduledHours += empClientScheduled;
+      summary.otherScheduledHours += Math.max(0, empScheduled - empClientScheduled);
     });
   });
 
@@ -2626,6 +2711,9 @@ export async function processCapacityData(
         unavailability: Math.round(summary.unavailability * 100) / 100,
         holidays: Math.round(summary.holidays * 100) / 100,
         sickness: Math.round(summary.sickness * 100) / 100,
+        scheduledHours: Math.round(summary.scheduledHours * 100) / 100,
+        clientScheduledHours: Math.round(summary.clientScheduledHours * 100) / 100,
+        otherScheduledHours: Math.round(summary.otherScheduledHours * 100) / 100,
         clientRequired: Math.round(clientRequired * 100) / 100,
         gap,
         status: (gap >= 0 ? "Sufficient" : "Shortage") as
@@ -2675,6 +2763,10 @@ export async function processCapacityData(
     totalScheduledHoursSum:
       Math.round(dailySummary.reduce((sum, d) => sum + (d as any).scheduledHours, 0) * 100) /
       100,
+    clientScheduledHoursSum:
+      Math.round(dailySummary.reduce((sum, d) => sum + (d as any).clientScheduledHours, 0) * 100) / 100,
+    otherScheduledHoursSum:
+      Math.round(dailySummary.reduce((sum, d) => sum + (d as any).otherScheduledHours, 0) * 100) / 100,
   };
 
   // Step 10: Build employees by date for drilldown

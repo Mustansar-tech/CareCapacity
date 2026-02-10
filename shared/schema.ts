@@ -172,6 +172,8 @@ export interface CleanedEmployeeRecord {
   status: string;
   timeWindows: string;
   scheduledHours: number;
+  clientScheduledHours: number;
+  otherScheduledHours: number;
   hours: number;
   netCapacity: number;
   notes: string;

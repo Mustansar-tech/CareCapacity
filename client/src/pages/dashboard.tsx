@@ -1218,20 +1218,37 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-scheduled-total">
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
                       <FileSpreadsheet className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-gray-700 dark:text-gray-300">Scheduled</span>
+                    <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent mb-1" data-testid="text-scheduled-sum">
-                    {((filteredData || processedData)?.kpis as any).totalScheduledHoursSum || 0}h
+                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
+                    {((filteredData || processedData)?.kpis as any).clientScheduledHoursSum || 0}h
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly hours</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Client visit hours</div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center">
+                      <FileSpreadsheet className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
+                    {((filteredData || processedData)?.kpis as any).otherScheduledHoursSum || 0}h
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Office, training, other</div>
                 </CardContent>
               </Card>
 
