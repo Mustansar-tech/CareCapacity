@@ -104,7 +104,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
 
   constructor() {
-    this.travelService = new TravelTimeService(45, 38); // Capped at 45min max, 38min soft limit
+    this.travelService = new TravelTimeService(45, 38); // Strict 45min cap for ALL travel including home
     this.bufferTime = 12; 
   }
 
@@ -302,8 +302,20 @@ export class AutoScheduler {
     }
 
     // Build final schedule
-    const finalEmployees = Array.from(employeeSchedules.values()).map(schedule => {
-      const totalTravelTime = schedule.visits.reduce((sum, v) => sum + v.travelTimeBefore + v.travelTimeAfter, 0);
+    const finalEmployeesRaw = await Promise.all(Array.from(employeeSchedules.values()).map(async schedule => {
+      // Calculate travel back home from the last visit
+      let travelBackHome = 0;
+      if (schedule.visits.length > 0) {
+        const lastVisit = schedule.visits[schedule.visits.length - 1];
+        travelBackHome = await (this as any).calculateTravelTime(
+          branchId,
+          lastVisit.clientName,
+          schedule.employee.employeeName,
+          schedule.employee.transportMode
+        );
+      }
+
+      const totalTravelTime = schedule.visits.reduce((sum, v) => sum + v.travelTimeBefore, 0) + travelBackHome;
       const totalWorkTime = schedule.visits.reduce((sum, v) => sum + v.durationMinutes, 0);
       const utilizationPercent = schedule.employee.contractedDailyHours > 0 
         ? Math.round((totalWorkTime / 60) / schedule.employee.contractedDailyHours * 100)
@@ -317,7 +329,9 @@ export class AutoScheduler {
         utilizationPercent,
         freeTimeSlots: this.calculateFreeTimeSlots(schedule),
       };
-    });
+    }));
+
+    const finalEmployees = finalEmployeesRaw;
 
     const totalAssigned = finalEmployees.reduce((sum, emp) => sum + emp.visits.length, 0);
     const totalTravelTime = finalEmployees.reduce((sum, emp) => sum + emp.totalTravelTime, 0);
@@ -761,6 +775,13 @@ export class AutoScheduler {
       // Check if insertion is feasible with scheduling buffer
       // Buffer between visits (15 minutes as requested)
       const buffer = this.bufferTime;
+      
+      // Strict 45-minute travel limit for ALL segments including home travel
+      const MAX_TRAVEL_ALLOWED = 45;
+      if (travelToPrev > MAX_TRAVEL_ALLOWED || (nextVisit && travelToNext > MAX_TRAVEL_ALLOWED)) {
+        continue; // Skip - travel time exceeds 45-minute limit
+      }
+
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10; // Allow 10min overflow for end of shift
 
