@@ -104,11 +104,13 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
 
   constructor() {
-    this.travelService = new TravelTimeService(400, 300); // 400min max, 300min soft limit to remove constraints
-    this.bufferTime = 12; // Reverted from 15 back to 12 minutes
+    this.travelService = new TravelTimeService(45, 35);
+    this.bufferTime = 12;
+    this.maxTravelCapMinutes = 45;
   }
 
   private bufferTime: number;
+  private maxTravelCapMinutes: number;
 
   /**
    * Automatically schedule visits for a given date
@@ -275,20 +277,12 @@ export class AutoScheduler {
     // We allow visits to start up to 15 minutes before their planned time if it helps fit them in
     const EARLY_START_ALLOWANCE = 15;
 
-    // Phase 4: Extreme relaxation for remaining unallocated visits
+    // Phase 4: Final attempt for remaining unallocated visits (still respecting 45-min travel cap)
     if (unassignedVisits.length > 0) {
-      logger.debug(`\nPHASE 4: EXTREME RELAXATION for ${unassignedVisits.length} remaining visits...`);
+      logger.debug(`\nPHASE 4: FINAL ATTEMPT for ${unassignedVisits.length} remaining visits (45-min travel cap enforced)...`);
       const phase4Unassigned: SchedulingVisit[] = [];
       for (const visit of unassignedVisits) {
-        // Boost travel allowances even further for final attempt
-        // Use all employees with boosted travel limits for maximum coverage
-        Array.from(employeeSchedules.values()).forEach(schedule => {
-          schedule.employee.maxTravelPerVisit += 30;
-        });
         const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
-        Array.from(employeeSchedules.values()).forEach(schedule => {
-          schedule.employee.maxTravelPerVisit -= 30;
-        });
         if (bestAssignment) {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
           const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
@@ -403,9 +397,7 @@ export class AutoScheduler {
         const transportMode = (emp.transportMode?.toLowerCase().includes('car') ? 'car' : 
                               emp.transportMode?.toLowerCase().includes('walk') ? 'public' : 'car') as any;
 
-        // Set travel limits based on transport mode for better allocation
-        // 400 minutes to effectively remove the limit as requested
-        const maxTravel = 400; 
+        const maxTravel = this.maxTravelCapMinutes;
 
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;
@@ -701,7 +693,6 @@ export class AutoScheduler {
         logger.debug(`   ${empName}: gender="${employee.gender}" MATCHES required "${clientGenderPref}" - checking availability...`);
       }
 
-      // Calculate travel time for scoring (no hard limit)
       const travelTime = await (this as any).calculateTravelTime(
         "default",
         employee.employeeName,
@@ -709,7 +700,13 @@ export class AutoScheduler {
         employee.transportMode
       );
 
-      // Find best insertion point and calculate score
+      // Hard 45-minute travel cap: skip this employee if home-to-visit exceeds cap
+      if (travelTime > this.maxTravelCapMinutes && schedule.visits.length === 0) {
+        logger.debug(`   ${empName}: REJECTED - home-to-visit travel (${travelTime.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        continue;
+      }
+
+      // Find best insertion point and calculate score (cap enforced inside)
       const insertion = await this.findBestInsertionPoint(visit, schedule);
 
       if (insertion && insertion.score > bestScore) {
@@ -758,14 +755,34 @@ export class AutoScheduler {
         )
         : 0;
 
-      // Check if insertion is feasible with scheduling buffer
-      // Buffer between visits (15 minutes as requested)
+      // HARD 45-MINUTE TRAVEL CAP: reject any leg exceeding the cap
+      if (travelToPrev > this.maxTravelCapMinutes) {
+        logger.debug(`   Insertion ${i}: REJECTED - travel from previous (${travelToPrev.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        continue;
+      }
+      if (travelToNext > this.maxTravelCapMinutes) {
+        logger.debug(`   Insertion ${i}: REJECTED - travel to next (${travelToNext.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        continue;
+      }
+
+      // Also check return-home travel if this would be the last visit
+      if (!nextVisit) {
+        const travelHome = await (this as any).calculateTravelTime(
+          "default",
+          visit.clientName,
+          employee.employeeName,
+          employee.transportMode
+        );
+        if (travelHome > this.maxTravelCapMinutes) {
+          logger.debug(`   Insertion ${i}: REJECTED - return home travel (${travelHome.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+          continue;
+        }
+      }
+
       const buffer = this.bufferTime;
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
-      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10; // Allow 10min overflow for end of shift
+      const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10;
 
-      // Allow "travel time extra": if travel time exceeds gap by up to 15 minutes, still allow it
-      // This effectively "compresses" the visit or shifts it slightly to make it fit.
       const maxCompression = 15; 
       if (earliestStart + visit.durationMinutes <= latestEnd + maxCompression) {
         // Calculate score based on multiple factors
