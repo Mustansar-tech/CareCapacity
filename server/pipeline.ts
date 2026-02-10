@@ -2515,6 +2515,7 @@ export async function processCapacityData(
         netCapacity: 0,
         unavailability: 0,
         holidays: 0,
+        sickness: 0,
       });
     }
 
@@ -2559,14 +2560,15 @@ export async function processCapacityData(
           if (record.status === "Holiday" || record.status === "Partial Holiday") {
             // Both full and partial holidays contribute to holiday hours
             summary.holidays += record.hours;
+          } else if (record.status === "Sick" || record.status === "Partial Sick") {
+            // Sickness separate card
+            summary.sickness += record.hours;
           } else if (
             [
-              "Sick",
               "Maternity/Paternity",
               "Compassionate Leave",
               "Other Unavailable",
               "Pre-Agreed Appointment",
-              "Partial Sick",
               "Partial Maternity/Paternity",
               "Partial Compassionate Leave",
             ].includes(record.status)
@@ -2585,6 +2587,9 @@ export async function processCapacityData(
           } else if (record.status === "Partial Holiday") {
             // Partial holidays contribute to holiday hours
             summary.holidays += record.hours;
+          } else if (record.status === "Partial Sick") {
+            // Partial sick contributes to sickness hours
+            summary.sickness += record.hours;
           } else if (record.status.startsWith("Partial ")) {
             // Other partial statuses (Partial Sick, etc.) contribute to unavailability
             summary.unavailability += record.hours;
@@ -2619,6 +2624,7 @@ export async function processCapacityData(
         netCapacity: Math.round(summary.netCapacity * 100) / 100,
         unavailability: Math.round(summary.unavailability * 100) / 100,
         holidays: Math.round(summary.holidays * 100) / 100,
+        sickness: Math.round(summary.sickness * 100) / 100,
         clientRequired: Math.round(clientRequired * 100) / 100,
         gap,
         status: (gap >= 0 ? "Sufficient" : "Shortage") as
@@ -2657,6 +2663,9 @@ export async function processCapacityData(
       ) / 100,
     holidaysSum:
       Math.round(dailySummary.reduce((sum, d) => sum + d.holidays, 0) * 100) /
+      100,
+    sicknessSum:
+      Math.round(dailySummary.reduce((sum, d) => sum + (d as any).sickness, 0) * 100) /
       100,
   };
 
