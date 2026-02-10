@@ -263,22 +263,30 @@ function toTransportMode(raw: string | null | undefined): 'car' | 'walking' | 'p
 
 // Leave types and priority (1=highest, 7=lowest like your Python code)
 const LEAVE_TYPES = [
+  "AWOL",
+  "Educational Commitment",
+  "Jury Service",
   "Maternity/Paternity",
   "Sick",
   "Holiday",
   "Compassionate Leave",
+  "Dependant Leave",
   "Other Unavailable",
   "Pre-Agreed Appointment",
 ];
 const STATUS_PRIORITY: Record<string, number> = {
-  "Maternity/Paternity": 1,
-  Sick: 2,
-  Holiday: 3,
-  "Compassionate Leave": 4,
-  "Other Unavailable": 5,
-  "Partial Availability": 6, // ← NEW (not in LEAVE_TYPES)
-  Available: 7,
-  "Ad-hoc": 7, // NEW
+  "AWOL": 1,
+  "Maternity/Paternity": 2,
+  "Educational Commitment": 3,
+  "Jury Service": 3,
+  "Sick": 4,
+  "Holiday": 5,
+  "Compassionate Leave": 6,
+  "Dependant Leave": 6,
+  "Other Unavailable": 7,
+  "Partial Availability": 8, // ← NEW (not in LEAVE_TYPES)
+  Available: 9,
+  "Ad-hoc": 9, // NEW
 };
 
 // Day-level vs time-slice leave
@@ -287,6 +295,10 @@ const DAY_KILLERS = new Set<string>([
   "Sick",
   "Maternity/Paternity",
   "Compassionate Leave",
+  "AWOL",
+  "Jury Service",
+  "Educational Commitment",
+  "Dependant Leave",
 ]);
 
 const TIME_KILLERS = new Set<string>([
@@ -399,6 +411,10 @@ function canonicalStatus(raw: any): string {
   if (s.includes("maternity") || s.includes("paternity"))
     return "Maternity/Paternity";
   if (s.includes("compassion")) return "Compassionate Leave";
+  if (s.includes("awol")) return "AWOL";
+  if (s.includes("dependant")) return "Dependant Leave";
+  if (s.includes("education") || s.includes("commitment")) return "Educational Commitment";
+  if (s.includes("jury")) return "Jury Service";
 
   if (s.includes("ad-hoc") || s.includes("adhoc")) return "Ad-hoc";
   return raw ?? "";
