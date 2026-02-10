@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { z } from "zod";
@@ -9,10 +9,8 @@ import {
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { logger } from "./logger";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-});
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 const createConversationSchema = z.object({
   title: z.string().min(1).max(200).default("New Chat"),
@@ -273,22 +271,25 @@ export function registerAIRoutes(app: Express): void {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const stream = anthropic.messages.stream({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4096,
-        system: fullSystemPrompt,
-        messages: chatMessages,
+      const chat = model.startChat({
+        history: chatMessages.slice(0, -1).map(m => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+        generationConfig: {
+          maxOutputTokens: 4096,
+        },
+        systemInstruction: fullSystemPrompt,
       });
 
+      const result = await chat.sendMessageStream(chatMessages[chatMessages.length - 1].content);
       let fullResponse = "";
 
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          const text = event.delta.text;
-          if (text) {
-            fullResponse += text;
-            res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-          }
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        if (chunkText) {
+          fullResponse += chunkText;
+          res.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
         }
       }
 
