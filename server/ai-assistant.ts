@@ -259,30 +259,35 @@ export function registerAIRoutes(app: Express): void {
         content: m.content,
       }));
 
-      const effectiveBranchId = branchId || conversation.branchId;
-      let branchContext = "";
-      if (effectiveBranchId) {
-        branchContext = await gatherBranchContext(effectiveBranchId);
-      }
+    const effectiveBranchId = branchId || conversation.branchId;
+    let branchContext = "";
+    if (effectiveBranchId) {
+      branchContext = await gatherBranchContext(effectiveBranchId);
+    }
 
-      const fullSystemPrompt = SYSTEM_PROMPT + (branchContext ? `\n\n## CURRENT DASHBOARD DATA\n${branchContext}` : "");
+    const fullSystemPrompt = SYSTEM_PROMPT + (branchContext ? `\n\n## CURRENT DASHBOARD DATA\n${branchContext}` : "");
 
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
+    // Use a model instance with the specific system instruction for this request
+    const modelWithContext = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash",
+      systemInstruction: fullSystemPrompt
+    });
 
-      const chat = model.startChat({
-        history: chatMessages.slice(0, -1).map(m => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
-        generationConfig: {
-          maxOutputTokens: 4096,
-        },
-        systemInstruction: fullSystemPrompt,
-      });
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
 
-      const result = await chat.sendMessageStream(chatMessages[chatMessages.length - 1].content);
+    const chat = modelWithContext.startChat({
+      history: chatMessages.slice(0, -1).map(m => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      generationConfig: {
+        maxOutputTokens: 4096,
+      },
+    });
+
+    const result = await chat.sendMessageStream(chatMessages[chatMessages.length - 1].content);
       let fullResponse = "";
 
       for await (const chunk of result.stream) {
