@@ -30,9 +30,9 @@ export class TravelTimeService {
   // Walkers are treated as public transport users (bus/train mix), NOT pedestrians
   // This gives realistic times matching how care teams actually travel
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
-    car: { speedKmh: 34, overheadMinutes: 0, minMinutes: 5 }, // Increased speed slightly from 32.5 to 34 km/h
-    walking: { speedKmh: 15, overheadMinutes: 15, minMinutes: 15 }, // Increased overhead from 12 to 15 min for walkers
-    public: { speedKmh: 15, overheadMinutes: 15, minMinutes: 15 } // Increased overhead from 12 to 15 min for public transport
+    car: { speedKmh: 42, overheadMinutes: 0, minMinutes: 5 }, // Increased speed from 34 to 42 km/h for more realistic car travel
+    walking: { speedKmh: 15, overheadMinutes: 15, minMinutes: 15 }, 
+    public: { speedKmh: 15, overheadMinutes: 15, minMinutes: 15 } 
   }
 
   private readonly maxTravelMinutes: number;
@@ -43,8 +43,8 @@ export class TravelTimeService {
   private getTimeOfDayMultiplier(startTimeMinutes?: number): number {
     if (startTimeMinutes === undefined) return 1.0;
     const hours = startTimeMinutes / 60;
-    if (hours >= 7 && hours < 9.5) return 1.3;      // Morning peak
-    if (hours >= 15.5 && hours < 18.5) return 1.25; // School run / evening
+    if (hours >= 7 && hours < 9.5) return 1.25;      // Reduced multiplier slightly
+    if (hours >= 15.5 && hours < 18.5) return 1.2; // Reduced multiplier slightly
     return 1.0; // Off-peak
   }
   
@@ -60,9 +60,9 @@ export class TravelTimeService {
     return Math.max(config.minMinutes, Math.round(adjustedMinutes));
   }
 
-  constructor(maxTravelMinutes: number = 300, softLimitMinutes?: number) {
-    this.maxTravelMinutes = maxTravelMinutes; // Increased from 60 to 300 minutes to effectively remove the limit
-    this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
+  constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
+    this.maxTravelMinutes = maxTravelMinutes; // Capped at 45 minutes as per user request
+    this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.85); // Tighter soft limit
   }
 
   async calculateTravelTime(
