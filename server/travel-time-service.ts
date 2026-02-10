@@ -132,8 +132,13 @@ export class TravelTimeService {
             logger.debug(`Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
           }
 
-          // Do NOT cap - return real travel time (scheduling engine will reject if > 60)
+          // Do NOT cap - return real travel time (scheduling engine will reject if > 45)
           logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
+
+          // CRITICAL: Force hard cap check before returning from ORS
+          if (durationMinutes > this.maxTravelMinutes) {
+            logger.warn(`ORS travel time ${durationMinutes} exceeds cap of ${this.maxTravelMinutes} - marking infeasible`);
+          }
 
           await storage.saveTravelTime({
             branchId,

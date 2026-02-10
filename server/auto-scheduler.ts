@@ -193,7 +193,7 @@ export class AutoScheduler {
     // PHASE 1: Assign visits to Male GH employees FIRST
     logger.debug(`\nPHASE 1: Filling MALE GH employees first...`);
     for (const visit of prioritizedVisits) {
-      const bestAssignment = await this.findBestEmployeeForVisit(visit, maleGhEmployeeSchedules);
+      const bestAssignment = await this.findBestEmployeeForVisit(visit, maleGhEmployeeSchedules, branchId);
 
       if (bestAssignment) {
         const schedule = maleGhEmployeeSchedules.get(bestAssignment.employeeName)!;
@@ -204,7 +204,6 @@ export class AutoScheduler {
         schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
 
         employeeSchedules.set(bestAssignment.employeeName, schedule);
-        // Removed debug log for better privacy in production
       } else {
         unassignedVisits.push(visit);
       }
@@ -216,7 +215,7 @@ export class AutoScheduler {
       const phase1_5Unassigned: SchedulingVisit[] = [];
       
       for (const visit of unassignedVisits) {
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, femaleOtherGhEmployeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, femaleOtherGhEmployeeSchedules, branchId);
 
         if (bestAssignment) {
           const schedule = femaleOtherGhEmployeeSchedules.get(bestAssignment.employeeName)!;
@@ -244,7 +243,7 @@ export class AutoScheduler {
       const phase2Unassigned: SchedulingVisit[] = [];
 
       for (const visit of unassignedVisits) {
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, nonGhEmployeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, nonGhEmployeeSchedules, branchId);
 
         if (bestAssignment) {
           const schedule = nonGhEmployeeSchedules.get(bestAssignment.employeeName)!;
@@ -253,7 +252,6 @@ export class AutoScheduler {
           schedule.currentLocation = { lat: visit.clientLat, lng: visit.clientLng };
           schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
           
-          // Also update in main schedules map
           employeeSchedules.set(bestAssignment.employeeName, schedule);
           
           logger.debug(`[Non-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
@@ -266,26 +264,16 @@ export class AutoScheduler {
       logger.debug(`Phase 2 results: ${unassignedVisits.length} still unassigned`);
     }
 
-    // ALLOWANCE 1: "Travel Compression" (Extra 15 mins)
-    // If travel time exceeds the gap by up to 15 minutes, we "compress" it
-    // by allowing the visit to start slightly late or the previous one to finish slightly late
-    const TRAVEL_EXTRA_ALLOWANCE = 15; 
-    
-    // ALLOWANCE 2: "Early Start" (Extra 15 mins)
-    // We allow visits to start up to 15 minutes before their planned time if it helps fit them in
-    const EARLY_START_ALLOWANCE = 15;
-
     // Phase 4: Extreme relaxation for remaining unallocated visits
     if (unassignedVisits.length > 0) {
       logger.debug(`\nPHASE 4: EXTREME RELAXATION for ${unassignedVisits.length} remaining visits...`);
       const phase4Unassigned: SchedulingVisit[] = [];
       for (const visit of unassignedVisits) {
         // Boost travel allowances even further for final attempt
-        // Use all employees with boosted travel limits for maximum coverage
         Array.from(employeeSchedules.values()).forEach(schedule => {
           schedule.employee.maxTravelPerVisit += 30;
         });
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules, branchId);
         Array.from(employeeSchedules.values()).forEach(schedule => {
           schedule.employee.maxTravelPerVisit -= 30;
         });
@@ -672,7 +660,8 @@ export class AutoScheduler {
 
   private async findBestEmployeeForVisit(
     visit: SchedulingVisit, 
-    employeeSchedules: Map<string, any>
+    employeeSchedules: Map<string, any>,
+    branchId: string
   ): Promise<{ employeeName: string; score: number; insertionIndex: number } | null> {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
@@ -717,14 +706,14 @@ export class AutoScheduler {
 
       // Calculate travel time for scoring (no hard limit)
       const travelTime = await (this as any).calculateTravelTime(
-        "default",
+        branchId,
         employee.employeeName,
         visit.clientName,
         employee.transportMode
       );
 
       // Find best insertion point and calculate score
-      const insertion = await this.findBestInsertionPoint(visit, schedule);
+      const insertion = await this.findBestInsertionPoint(visit, schedule, branchId);
 
       if (insertion && insertion.score > bestScore) {
         bestScore = insertion.score;
@@ -739,49 +728,49 @@ export class AutoScheduler {
     return bestMatch;
   }
 
-  private async findBestInsertionPoint(visit: SchedulingVisit, schedule: any): Promise<{ index: number; score: number } | null> {
+  private async findBestInsertionPoint(visit: SchedulingVisit, schedule: any, branchId: string): Promise<{ index: number; score: number } | null> {
     const employee = schedule.employee;
     const visits = schedule.visits;
 
     let bestInsertion: { index: number; score: number } | null = null;
     let bestScore = -1;
 
-    // Try inserting at each possible position
     for (let i = 0; i <= visits.length; i++) {
       const prevVisit = i > 0 ? visits[i - 1] : null;
       const nextVisit = i < visits.length ? visits[i] : null;
 
       // Calculate travel times
-      const prevLocation = prevVisit 
-        ? { lat: prevVisit.clientLat, lng: prevVisit.clientLng }
-        : { lat: employee.homeLat, lng: employee.homeLng };
+      const prevLocationName = prevVisit ? prevVisit.clientName : employee.employeeName;
 
       const travelToPrev = await (this as any).calculateTravelTime(
-        "default",
-        employee.employeeName,
+        branchId,
+        prevLocationName,
         visit.clientName,
         employee.transportMode
       );
 
       const travelToNext = nextVisit 
         ? await (this as any).calculateTravelTime(
-          "default",
+          branchId,
           visit.clientName,
           nextVisit.clientName,
           employee.transportMode
         )
         : 0;
 
-      // Check if insertion is feasible with scheduling buffer
-      // Buffer between visits (15 minutes as requested)
-      const buffer = this.bufferTime;
-      
       // Strict 45-minute travel limit for ALL segments including home travel
       const MAX_TRAVEL_ALLOWED = 45;
-      if (travelToPrev > MAX_TRAVEL_ALLOWED || (nextVisit && travelToNext > MAX_TRAVEL_ALLOWED)) {
-        continue; // Skip - travel time exceeds 45-minute limit
+      if (travelToPrev > MAX_TRAVEL_ALLOWED) {
+        logger.debug(`   ${employee.employeeName}: travelToPrev ${travelToPrev} > ${MAX_TRAVEL_ALLOWED}`);
+        continue; 
+      }
+      if (nextVisit && travelToNext > MAX_TRAVEL_ALLOWED) {
+        logger.debug(`   ${employee.employeeName}: travelToNext ${travelToNext} > ${MAX_TRAVEL_ALLOWED}`);
+        continue;
       }
 
+      // Buffer between visits (15 minutes as requested)
+      const buffer = this.bufferTime;
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10; // Allow 10min overflow for end of shift
 
