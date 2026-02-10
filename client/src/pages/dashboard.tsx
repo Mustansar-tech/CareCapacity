@@ -1099,7 +1099,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-desired-total">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1182,6 +1182,22 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-200 dark:shadow-none">
+                      <Target className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
+                    {((filteredData || processedData)?.kpis as any).capacityAfterSchedulingSum || 0}h
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Weekly scheduling surplus</div>
+                </CardContent>
+              </Card>
               </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <Card className="glass hover-lift animate-scale-in" data-testid="card-unavailability">

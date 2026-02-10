@@ -2747,6 +2747,8 @@ export async function processCapacityData(
       Math.round(dailySummary.reduce((sum, d) => sum + (d as any).clientScheduledHours, 0) * 100) / 100,
     otherScheduledHoursSum:
       Math.round(dailySummary.reduce((sum, d) => sum + (d as any).otherScheduledHours, 0) * 100) / 100,
+    capacityAfterSchedulingSum:
+      Math.round(dailySummary.reduce((sum, d) => sum + (d.netCapacity - d.clientRequired), 0) * 100) / 100,
   };
 
   // Step 10: Build employees by date for drilldown

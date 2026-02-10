@@ -222,6 +222,11 @@ export interface ProcessingResult {
     gapSum: number;
     unavailabilitySum: number;
     holidaysSum: number;
+    sicknessSum: number;
+    totalScheduledHoursSum: number;
+    clientScheduledHoursSum: number;
+    otherScheduledHoursSum: number;
+    capacityAfterSchedulingSum: number;
   };
   dailySummary: DailySummaryRecord[];
   employeesByDate: Record<string, EmployeeDailyDetail[]>;
