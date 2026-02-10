@@ -1257,7 +1257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Convert to travel time based on mode
     const speeds = {
-      car: 40,      // km/h
+      car: 37,      // km/h
       walking: 4.5, // km/h
     };
 

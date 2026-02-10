@@ -76,7 +76,6 @@ export function scoreVisitMatch(
       continue; // Cannot insert here - would break chronology
     }
 
-    // Calculate travel from previous visit (0 if first visit in the run)
     const travelFrom = prevVisit
       ? getTravelMinutes({ lat: prevVisit.lat, lng: prevVisit.lng }, { lat: visit.lat, lng: visit.lng }, mode, visit.start)
       : 0;
@@ -84,6 +83,10 @@ export function scoreVisitMatch(
     const travelTo = nextVisit
       ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode, visit.end)
       : 0;
+
+    if (travelFrom > MAX_TRAVEL_TIME_MINUTES || travelTo > MAX_TRAVEL_TIME_MINUTES) {
+      continue;
+    }
 
     const gap = calculateInsertionGap(
       visit,
@@ -179,29 +182,31 @@ export function scoreVisitMatch(
   let homeProximityScore = 0.5; // default for middle visits
 
   if (bestIndex === 0 || (visits.length === 0)) {
-    // First visit - prefer close to home
     const distFromHome = getTravelMinutes(
       { lat: homeLat, lng: homeLng },
       { lat: visit.lat, lng: visit.lng },
       mode,
-      visit.start // Use visit start time for congestion
+      visit.start
     );
 
-    // Score based on distance - no hard limit, just preference
-    // Use 120 minutes as reference point for scoring (very lenient to maximize coverage)
-    homeProximityScore = Math.max(0, 1 - (distFromHome / 120));
+    if (distFromHome > MAX_TRAVEL_TIME_MINUTES) {
+      return null;
+    }
+
+    homeProximityScore = Math.max(0, 1 - (distFromHome / MAX_TRAVEL_TIME_MINUTES));
   } else if (bestIndex === visits.length) {
-    // Last visit - prefer close to home
     const distToHome = getTravelMinutes(
       { lat: visit.lat, lng: visit.lng },
       { lat: homeLat, lng: homeLng },
       mode,
-      visit.end // Use visit end time for congestion
+      visit.end
     );
 
-    // Score based on distance - no hard limit, just preference
-    // Use 120 minutes as reference point for scoring (very lenient to maximize coverage)
-    homeProximityScore = Math.max(0, 1 - (distToHome / 120));
+    if (distToHome > MAX_TRAVEL_TIME_MINUTES) {
+      return null;
+    }
+
+    homeProximityScore = Math.max(0, 1 - (distToHome / MAX_TRAVEL_TIME_MINUTES));
   }
 
   // Calculate weighted total score

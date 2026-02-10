@@ -1,9 +1,7 @@
 // Scheduling utility functions for VRPTW optimization
 import { clientLogger } from '@/lib/logger';
 
-// Maximum travel time in minutes before a route is considered infeasible
-// Set to 400 to effectively remove the limit and maximize visit coverage
-export const MAX_TRAVEL_TIME_MINUTES = 400;
+export const MAX_TRAVEL_TIME_MINUTES = 45;
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
@@ -88,8 +86,7 @@ export function calculateTravelTime(
   let minTravelMinutes: number;
   
   if (mode === 'car') {
-    // Car: 34 km/h avg for urban UK driving (aligned with server-side config)
-    const speedKmh = 34;
+    const speedKmh = 37;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
   } else if (mode === 'public') {
@@ -116,7 +113,6 @@ export function calculateTravelTime(
   const congestionMultiplier = getTimeOfDayMultiplier(startTimeMinutes);
   const adjustedMinutes = baseTravelMinutes * congestionMultiplier;
   
-  // Return actual travel time (do NOT cap - scheduling engine will reject if > 60)
   const finalMinutes = Math.max(minTravelMinutes, Math.round(adjustedMinutes));
   return finalMinutes;
 }
@@ -236,8 +232,8 @@ export function fitsInWindow(
   return windows.some(w => visitStart >= w.start && visitEnd <= w.end);
 }
 
-// Check if inserting a visit between two existing visits is feasible
-// VERY LENIENT - allows large gaps, focuses on physical feasibility
+const MAX_TRAVEL_CAP_MINUTES = 45;
+
 export function isInsertionFeasible(
   visit: { start: number; end: number },
   prevVisit: { end: number; lat: number; lng: number } | null,
@@ -246,25 +242,15 @@ export function isInsertionFeasible(
   windows: TimeWindow[],
   mode: 'car' | 'walking' | 'public' = 'car'
 ): boolean {
-  // LENIENT window check - allow if visit has ANY overlap with windows
   const hasWindowOverlap = windows.some(w => visit.start < w.end && visit.end > w.start);
 
-  // If no overlap at all, check if within working hours (6am-10pm / 22:00)
-  const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320; // 6am to 10pm
+  const isWithinWorkingHours = visit.start >= 360 && visit.end <= 1320;
 
   if (!hasWindowOverlap && !isWithinWorkingHours) {
-    return false; // Visit completely outside reasonable time
+    return false;
   }
 
-  // Special allowance for evening visits (5pm-10pm) - critical for GH capacity
-  const isEveningVisit = visit.start >= 1020 && visit.end <= 1320; // 5pm to 10pm
-  if (isEveningVisit) {
-    return true; // Evening visits are always feasible for capacity filling
-  }
-
-  // Check time constraint with previous visit (with 15-minute compression allowance)
-  // ALLOW LARGE GAPS - employee can have free time
-  const COMPRESSION_ALLOWANCE = 15; // Allow visits even if travel slightly exceeds gap
+  const COMPRESSION_ALLOWANCE = 15;
   
   if (prevVisit) {
     const travelFromPrev = getTravelMinutes(
@@ -273,13 +259,15 @@ export function isInsertionFeasible(
       mode
     );
 
+    if (travelFromPrev > MAX_TRAVEL_CAP_MINUTES) {
+      return false;
+    }
+
     if (prevVisit.end + travelFromPrev > visit.start + COMPRESSION_ALLOWANCE) {
-      return false; // Not enough time even with compression
+      return false;
     }
   }
 
-  // Check time constraint with next visit (with 15-minute compression allowance)
-  // ALLOW LARGE GAPS - employee can have free time
   if (nextVisit) {
     const travelToNext = getTravelMinutes(
       visitLocation,
@@ -287,12 +275,16 @@ export function isInsertionFeasible(
       mode
     );
 
+    if (travelToNext > MAX_TRAVEL_CAP_MINUTES) {
+      return false;
+    }
+
     if (visit.end + travelToNext > nextVisit.start + COMPRESSION_ALLOWANCE) {
-      return false; // Not enough time even with compression
+      return false;
     }
   }
 
-  return true; // Visit is feasible - gaps are OK
+  return true;
 }
 
 // Calculate the gap/slack when inserting a visit

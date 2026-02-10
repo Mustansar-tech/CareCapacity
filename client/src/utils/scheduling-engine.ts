@@ -774,6 +774,10 @@ function assignVisitToBestEmployee(
         timeToMinutes(prev.endTime)
       );
 
+      if (travelFromPrev > 45) {
+        continue;
+      }
+
       const gap = visitStartMinInternal - timeToMinutes(prev.endTime);
       if (travelFromPrev > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
         continue;
@@ -788,6 +792,10 @@ function assignVisitToBestEmployee(
         schedule.transportMode,
         visitStartMinInternal + adjustedVisit.durationMinutes
       );
+
+      if (travelToNext > 45) {
+        continue;
+      }
 
       const gap = timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes);
       if (travelToNext > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
@@ -820,21 +828,21 @@ function assignVisitToBestEmployee(
       continue; // Strictly skip this employee
     }
 
-    // Add early visit bonus for first visits (prioritize starting early and near home)
     if (schedule.assignedVisits.length === 0) {
-      // First visit - bonus for early morning (before 10am)
-      if (visitStartMinInternal < 600) { // Before 10am
-        finalScore += 0.3; // Strong bonus for early starts
-      }
-      // Also bonus for proximity to home (already in matchScore but emphasize it)
       const distFromHome = getTravelMinutes(
         { lat: schedule.homeLat, lng: schedule.homeLng },
         { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
         schedule.transportMode,
-        visitStartMinInternal // Pass start time for congestion multiplier
+        visitStartMinInternal
       );
-      if (distFromHome < 15) { // Within 15 minutes of home
-        finalScore += 0.2; // Bonus for starting near home
+      if (distFromHome > 45) {
+        continue;
+      }
+      if (visitStartMinInternal < 600) {
+        finalScore += 0.3;
+      }
+      if (distFromHome < 15) {
+        finalScore += 0.2;
       }
     }
 
@@ -879,7 +887,10 @@ function assignVisitToBestEmployee(
     );
     clientLogger.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
     
-    // Travel limit removed - allow any travel distance to maximize visit coverage
+    if (actualTravelTimeBefore > 45) {
+      clientLogger.log(`❌ REJECTED: Home-to-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap for ${best.adjustedVisit.clientName}`);
+      return { success: false, reason: `Home-to-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap` };
+    }
   } else {
     // Check if there's a large gap (90+ minutes) suggesting a home break
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
@@ -904,7 +915,21 @@ function assignVisitToBestEmployee(
 
       actualTravelTimeBefore = travelFromHome;
       clientLogger.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
+
+      if (travelFromHome > 45) {
+        clientLogger.log(`❌ REJECTED: Home-return travel ${travelFromHome}min exceeds 45-min cap for ${best.adjustedVisit.clientName}`);
+        return { success: false, reason: `Home-return travel ${travelFromHome}min exceeds 45-min cap` };
+      }
+      if (travelToHome > 45) {
+        clientLogger.log(`❌ REJECTED: Visit-to-home travel ${travelToHome}min exceeds 45-min cap`);
+        return { success: false, reason: `Visit-to-home travel ${travelToHome}min exceeds 45-min cap` };
+      }
     }
+  }
+
+  if (actualTravelTimeBefore > 45) {
+    clientLogger.log(`❌ REJECTED: Between-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap for ${best.adjustedVisit.clientName}`);
+    return { success: false, reason: `Between-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap` };
   }
 
   // Create assigned visit using adjusted times
