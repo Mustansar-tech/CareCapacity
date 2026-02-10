@@ -117,8 +117,11 @@ function normalizeFileName(fileName: string): string {
 
 // Import shared geocoding function from pipeline
 import { geocodeWithFallback } from './pipeline';
+import { registerAIRoutes } from './ai-assistant';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  registerAIRoutes(app);
 
   // Health check endpoint for monitoring
   app.get('/health', async (_req, res) => {

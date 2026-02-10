@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Upload, Download, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Lightbulb as LightBulbIcon, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
@@ -25,6 +25,7 @@ import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
+import { AIChat } from "@/components/ai-chat";
 import { useBranch } from "@/contexts/BranchContext";
 
 
@@ -631,6 +632,14 @@ export default function Dashboard() {
               <TrendingUp className="w-4 h-4 mr-2" />
               Analytics
             </TabsTrigger>
+            <TabsTrigger
+              value="ai-chat"
+              className="data-[state=active]:bg-violet-600 data-[state=active]:text-white dark:data-[state=active]:bg-violet-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-ai-chat"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Chat
+            </TabsTrigger>
           </TabsList>
 
           {/* Daily Capacity Tab */}
@@ -869,6 +878,11 @@ export default function Dashboard() {
                 warnings={warnings}
               />
             </div>
+          </TabsContent>
+
+          {/* AI Chat Tab */}
+          <TabsContent value="ai-chat" data-testid="content-ai-chat">
+            <AIChat />
           </TabsContent>
 
           {/* BD Matrix Tab */}
