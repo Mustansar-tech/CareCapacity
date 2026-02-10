@@ -1255,8 +1255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const distance = R * c;
 
-    // Apply road factor (1.4 for UK/Scottish winding roads)
-    const roadDistance = distance * 1.4;
+    // Apply road factor (1.2 for UK roads)
+    const roadDistance = distance * 1.2;
     
     if (mode === 'walking' || mode === 'public') {
       const baseMins = (roadDistance / 15) * 60 + 15; // 15 km/h + 15 min overhead

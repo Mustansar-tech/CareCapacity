@@ -23,8 +23,8 @@ export interface TravelMatrix {
 export type TransportMode = "car" | "walking" | "public";
 
 export class TravelTimeService {
-  // Road distance inflation factor (Haversine × 1.4 for UK/Scottish roads - winding routes, lochs, one-way systems)
-  private readonly ROAD_FACTOR = 1.4;
+  // Road distance inflation factor (Haversine × 1.2 for UK roads)
+  private readonly ROAD_FACTOR = 1.2;
   
   // Mode-specific average speeds (km/h) and minimums (minutes)
   // Walkers are treated as public transport users (bus/train mix), NOT pedestrians

@@ -75,8 +75,8 @@ export function calculateTravelTime(
   mode: 'car' | 'walking' | 'public',
   startTimeMinutes?: number
 ): number {
-  // Apply road distance inflation (straight-line × 1.4 for UK/Scottish roads - winding routes, lochs, one-way systems)
-  const roadDistanceKm = distanceKm * 1.4;
+  // Apply road distance inflation (straight-line × 1.2 for UK roads)
+  const roadDistanceKm = distanceKm * 1.2;
   
   let baseTravelMinutes: number;
   let minTravelMinutes: number;
