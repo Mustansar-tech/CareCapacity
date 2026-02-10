@@ -2652,6 +2652,10 @@ export async function processCapacityData(
       Math.round(
         dailySummary.reduce((sum, d) => sum + d.netCapacity, 0) * 100,
       ) / 100,
+    totalDesiredHoursSum:
+      Math.round(
+        dailySummary.reduce((sum, d) => sum + d.availableHours, 0) * 100,
+      ) / 100,
     clientRequiredSum:
       Math.round(
         dailySummary.reduce((sum, d) => sum + d.clientRequired, 0) * 100,
