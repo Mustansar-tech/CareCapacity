@@ -226,9 +226,6 @@ export default function Dashboard() {
         setSelectedDate(data.dailySummary[0].date);
       }
 
-      // Redirect to overview tab after processing
-      setActiveTab("overview");
-
       // Clear file inputs after successful processing
       setFiles({
         availability: null,
@@ -329,9 +326,217 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-lg py-12 animate-fade-in">
+        {/* Compact Upload Toggle - Shows when no data is loaded */}
+        {!processedData && (
+          <div className="mb-6 animate-fade-in">
+            <Button
+              onClick={() => setShowUploadPanel(!showUploadPanel)}
+              variant="outline"
+              className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6"
+              data-testid="toggle-upload-panel"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+            </Button>
+          </div>
+        )}
+
+        {/* Upload Section - Collapsible */}
+        {!processedData && showUploadPanel && (
+          <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
+        <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
+          <CardTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+              <Upload className="w-4 h-4 text-white" />
+            </div>
+            <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+              Upload Files
+            </span>
+            {isLoadingLatest && (
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-sm text-blue-600">Loading latest data...</span>
+              </div>
+            )}
+            {latestDataError && (
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500" />
+                <span className="text-sm text-orange-600">No previous data found</span>
+              </div>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Show intro cards only when no data exists */}
+          {!processedData && (
+            <div className="text-center mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
+                  <h3 className="font-semibold mb-2">Availability Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Employee availability and shift preferences</p>
+                </div>
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
+                  <h3 className="font-semibold mb-2">Care Pro Guaranteed Hours</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Contracted hours and employee data</p>
+                </div>
+                {/* Client Demand intro card removed */}
+                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                  <h3 className="font-semibold mb-2">CG Data Export</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6"> {/* Changed grid columns to 3 */}
+            {/* Availability Export */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                  <Users className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <Label htmlFor="availability-file" className="text-[11px] font-medium truncate">
+                  Availability
+                </Label>
+              </div>
+              <Input
+                id="availability-file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange('availability')}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all duration-200"
+                data-testid="input-availability-file"
+              />
+              {files.availability && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-availability-selected">
+                    {files.availability.name}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Guaranteed Hours */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                  <Clock className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <Label htmlFor="guaranteed-file" className="text-[11px] font-medium truncate">
+                  Guaranteed
+                </Label>
+              </div>
+              <Input
+                id="guaranteed-file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange('guaranteed')}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all duration-200"
+                data-testid="input-guaranteed-file"
+              />
+              {files.guaranteed && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-guaranteed-selected">
+                    {files.guaranteed.name}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* CG Data Export - NEW MASTER EMPLOYEE LIST */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                  <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
+                  CG Data
+                  <span className="ml-1 px-0.5 py-0.5 text-[9px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
+                    Master
+                  </span>
+                </Label>
+              </div>
+              <Input
+                id="cgdata-file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange('cgData')}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-all duration-200"
+                data-testid="input-cgdata-file"
+              />
+              {files.cgData && (
+                <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-cgdata-selected">
+                    {files.cgData.name}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={handleProcessFiles}
+              // Update disabled condition to reflect 3 files
+              disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
+              className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              data-testid="button-process"
+            >
+              {isProcessing || processMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Process Files
+                </>
+              )}
+            </Button>
+            {processedData && (
+              <Button
+                onClick={() => {
+                  setProcessedData(null);
+                  setFilteredData(null);
+                  setSelectedDate(null);
+                  setFiles({
+                    availability: null,
+                    guaranteed: null,
+                    demand: null, // Keep demand in state for reset, though not used
+                    cgData: null
+                  });
+                  // Clear file inputs
+                  const inputs = document.querySelectorAll('input[type="file"]') as NodeListOf<HTMLInputElement>;
+                  inputs.forEach(input => { input.value = ''; });
+                  toast({
+                    title: "Data Cleared",
+                    description: "Dashboard has been reset. Upload new files to process."
+                  });
+                }}
+                variant="outline"
+                className="flex items-center gap-2"
+                data-testid="button-clear"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </CardContent>
+        </Card>
+        )}
+
         {/* Results Tabs - Always show when data exists */}
-        {(processedData || isLoadingLatest) ? (
+        {processedData && (
           <div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
           <TabsList className="grid w-full grid-cols-7 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger
@@ -382,88 +587,7 @@ export default function Dashboard() {
               <Sparkles className="w-4 h-4 mr-2" />
               AI Chat
             </TabsTrigger>
-            <TabsTrigger
-              value="upload"
-              className="data-[state=active]:bg-slate-800 data-[state=active]:text-white dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
-              data-testid="tab-upload"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload
-            </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="upload" className="space-y-6 animate-fade-in" data-testid="content-upload">
-            <Card className="material-card hover-lift elevation-2" data-testid="upload-section">
-              <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
-                    <Upload className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-                    Upload New Data
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-center mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
-                      <h3 className="font-semibold mb-2">Availability Export</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Employee availability and shift preferences</p>
-                    </div>
-                    <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                      <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
-                      <h3 className="font-semibold mb-2">Care Pro Guaranteed Hours</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Contracted hours and employee data</p>
-                    </div>
-                    <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                      <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
-                      <h3 className="font-semibold mb-2">CG Data Export</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                  {/* Availability Export */}
-                  <div className="space-y-2">
-                    <Label htmlFor="availability-file-tab" className="text-sm font-medium">Availability Export</Label>
-                    <Input id="availability-file-tab" type="file" accept=".xlsx,.xls" onChange={handleFileChange('availability')} />
-                    {files.availability && <p className="text-xs text-green-600 font-medium">✓ {files.availability.name}</p>}
-                  </div>
-
-                  {/* Guaranteed Hours */}
-                  <div className="space-y-2">
-                    <Label htmlFor="guaranteed-file-tab" className="text-sm font-medium">Guaranteed Hours</Label>
-                    <Input id="guaranteed-file-tab" type="file" accept=".xlsx,.xls" onChange={handleFileChange('guaranteed')} />
-                    {files.guaranteed && <p className="text-xs text-green-600 font-medium">✓ {files.guaranteed.name}</p>}
-                  </div>
-
-                  {/* CG Data Export */}
-                  <div className="space-y-2">
-                    <Label htmlFor="cgdata-file-tab" className="text-sm font-medium">CG Data Export</Label>
-                    <Input id="cgdata-file-tab" type="file" accept=".xlsx,.xls" onChange={handleFileChange('cgData')} />
-                    {files.cgData && <p className="text-xs text-green-600 font-medium">✓ {files.cgData.name}</p>}
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <Button
-                    onClick={handleProcessFiles}
-                    disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-emerald-600 text-white shadow-lg"
-                  >
-                    {isProcessing || processMutation.isPending ? (
-                      <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
-                    ) : (
-                      <><FileSpreadsheet className="w-4 h-4 mr-2" /> Process and Update Data</>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Daily Capacity Tab */}
           <TabsContent value="daily-capacity" className="space-y-6 animate-fade-in" data-testid="content-daily-capacity">
@@ -1099,80 +1223,11 @@ export default function Dashboard() {
           <TabsContent value="schedules" className="space-y-6 animate-fade-in" data-testid="content-schedules">
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
-        </Tabs>
-      </div>
-    ) : (
-      <div className="animate-fade-in">
-        <Card className="material-card hover-lift elevation-2 max-w-4xl mx-auto" data-testid="upload-section">
-          <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
-            <CardTitle className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
-                <Upload className="w-4 h-4 text-white" />
-              </div>
-              <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-                Upload New Data
-              </span>
-              {isLoadingLatest && (
-                <div className="flex items-center gap-2 ml-4">
-                  <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-                  <span className="text-sm text-blue-600 font-normal">Loading latest data...</span>
-                </div>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-center mb-8">
-              <p className="text-muted-foreground mb-6">Upload your care capacity exports to begin the analysis</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
-                  <h3 className="font-semibold mb-1">Availability</h3>
-                  <p className="text-xs text-muted-foreground">Staff availability and shift preferences</p>
-                </div>
-                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
-                  <h3 className="font-semibold mb-1">Guaranteed</h3>
-                  <p className="text-xs text-muted-foreground">Contracted hours and employee data</p>
-                </div>
-                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
-                  <h3 className="font-semibold mb-1">CG Data</h3>
-                  <p className="text-xs text-muted-foreground">Master employee list and weekly hours</p>
-                </div>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-              <div className="space-y-2">
-                <Label htmlFor="availability-file-init" className="text-sm font-medium">Availability Export</Label>
-                <Input id="availability-file-init" type="file" accept=".xlsx,.xls" onChange={handleFileChange('availability')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="guaranteed-file-init" className="text-sm font-medium">Guaranteed Hours</Label>
-                <Input id="guaranteed-file-init" type="file" accept=".xlsx,.xls" onChange={handleFileChange('guaranteed')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cgdata-file-init" className="text-sm font-medium">CG Data Export</Label>
-                <Input id="cgdata-file-init" type="file" accept=".xlsx,.xls" onChange={handleFileChange('cgData')} />
-              </div>
-            </div>
-
-            <Button
-              onClick={handleProcessFiles}
-              disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
-              className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white shadow-lg h-12 text-lg"
-            >
-              {isProcessing || processMutation.isPending ? (
-                <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
-              ) : (
-                <><FileSpreadsheet className="w-4 h-4 mr-2" /> Start Analysis</>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+          </Tabs>
+          </div>
+        )}
       </div>
-    )}
-  </div>
-</div>
-);
+    </div>
+  );
 }
