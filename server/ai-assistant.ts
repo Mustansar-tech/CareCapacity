@@ -267,9 +267,9 @@ export function registerAIRoutes(app: Express): void {
 
     const fullSystemPrompt = SYSTEM_PROMPT + (branchContext ? `\n\n## CURRENT DASHBOARD DATA\n${branchContext}` : "");
 
-    // Use a model instance with the specific system instruction for this request
+    // Use gemini-1.5-flash which has higher free tier quotas
     const modelWithContext = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       systemInstruction: fullSystemPrompt
     });
 
