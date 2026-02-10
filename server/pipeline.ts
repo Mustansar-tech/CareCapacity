@@ -2484,6 +2484,7 @@ export async function processCapacityData(
       netCapacity: number;
       unavailability: number;
       holidays: number;
+      sickness: number;
     }
   >();
 

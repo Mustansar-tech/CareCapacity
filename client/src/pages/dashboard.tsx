@@ -1177,7 +1177,24 @@ export default function Dashboard() {
                   <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
                     {(filteredData || processedData)?.kpis.unavailabilitySum}h
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Sick leave & appointments</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Scheduled appointments</div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass hover-lift animate-scale-in" data-testid="card-sickness">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-700 dark:text-gray-300">Sickness</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
+                    {((filteredData || processedData)?.kpis as any).sicknessSum || 0}h
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly sickness</div>
                 </CardContent>
               </Card>
 
