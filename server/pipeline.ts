@@ -2668,6 +2668,9 @@ export async function processCapacityData(
     sicknessSum:
       Math.round(dailySummary.reduce((sum, d) => sum + (d as any).sickness, 0) * 100) /
       100,
+    totalScheduledHoursSum:
+      Math.round(dailySummary.reduce((sum, d) => sum + (d as any).scheduledHours, 0) * 100) /
+      100,
   };
 
   // Step 10: Build employees by date for drilldown
