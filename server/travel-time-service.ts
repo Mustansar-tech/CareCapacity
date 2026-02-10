@@ -30,7 +30,7 @@ export class TravelTimeService {
   // Walkers are treated as public transport users (bus/train mix), NOT pedestrians
   // This gives realistic times matching how care teams actually travel
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
-    car: { speedKmh: 35, overheadMinutes: 0, minMinutes: 10 },
+    car: { speedKmh: 35, overheadMinutes: 0, minMinutes: 5 },
     walking: { speedKmh: 15, overheadMinutes: 15, minMinutes: 15 }, // Increased overhead from 12 to 15 min for walkers
     public: { speedKmh: 15, overheadMinutes: 15, minMinutes: 15 } // Increased overhead from 12 to 15 min for public transport
   }

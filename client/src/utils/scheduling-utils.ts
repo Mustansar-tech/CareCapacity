@@ -84,7 +84,7 @@ export function calculateTravelTime(
   if (mode === 'car') {
     const speedKmh = 35; // avg for care delivery including residential areas, parking, walking to door
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
-    minTravelMinutes = 10; // minimum 10 min including parking and door-to-door
+    minTravelMinutes = 5;
   } else if (mode === 'public') {
     // Public transport: 15 km/h with 15 min overhead (aligned with server-side config)
     const speedKmh = 15;
@@ -102,7 +102,7 @@ export function calculateTravelTime(
     return Math.max(minTravelMinutes, Math.round(baseTravelMinutes));
   } else {
     baseTravelMinutes = (roadDistanceKm / 35) * 60;
-    minTravelMinutes = 10;
+    minTravelMinutes = 5;
   }
   
   // Apply time-of-day congestion multiplier

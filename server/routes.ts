@@ -1263,7 +1263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return Math.max(15, Math.round(baseMins));
     }
     
-    return Math.max(10, Math.round((roadDistance / 35) * 60)); // car: 35 km/h, min 10 min
+    return Math.max(5, Math.round((roadDistance / 35) * 60)); // car: 35 km/h, min 5 min
   }
 
 
