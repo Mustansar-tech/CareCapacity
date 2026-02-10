@@ -1092,14 +1092,14 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             {isProcessing || processMutation.isPending ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <MetricCardSkeleton key={i} />
                 ))}
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-desired-total">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1183,7 +1183,7 @@ export default function Dashboard() {
               </Card>
 
               </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <Card className="glass hover-lift animate-scale-in" data-testid="card-unavailability">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
