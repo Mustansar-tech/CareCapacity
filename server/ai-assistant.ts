@@ -277,7 +277,7 @@ export function registerAIRoutes(app: Express): void {
       res.setHeader("Connection", "keep-alive");
 
       const stream = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: chatMessages as any,
         stream: true,
       });
