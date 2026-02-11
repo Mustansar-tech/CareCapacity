@@ -651,7 +651,12 @@ export default function Dashboard() {
                           data-testid={`row-daily-summary-${index}`}
                         >
                           <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
-                            {new Date(day.date).toLocaleDateString("en-GB")}
+                            {(() => {
+                              const d = new Date(day.date);
+                              const weekday = d.toLocaleDateString("en-GB", { weekday: 'short' });
+                              const dateStr = d.toLocaleDateString("en-GB", { day: '2-digit', month: '2-digit' });
+                              return `${weekday} ${dateStr}`;
+                            })()}
                           </TableCell>
 
                           {/* Hidden column - Available */}
