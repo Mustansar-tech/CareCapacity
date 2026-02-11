@@ -556,6 +556,14 @@ export default function Dashboard() {
               Daily View
             </TabsTrigger>
             <TabsTrigger
+              value="employee-summary"
+              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              data-testid="tab-employee-summary"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Summary
+            </TabsTrigger>
+            <TabsTrigger
               value="bd-matrix"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
               data-testid="tab-bd-matrix"
@@ -615,82 +623,69 @@ export default function Dashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-center">Net Capacity</TableHead>
-                        <TableHead className="text-center">Client Required</TableHead>
-                        <TableHead className="text-center">Total Desired Hours</TableHead>
-                        <TableHead className="text-center">Unavailability</TableHead>
-                        <TableHead className="text-center">Sickness</TableHead>
-                        <TableHead className="text-center">Holidays</TableHead>
-                        <TableHead className="text-center">Scheduled</TableHead>
+                        <TableHead></TableHead>
+                        <TableHead data-testid="header-date">Date</TableHead>
+                        {/* Hidden column - Available */}
+                        {false && <TableHead data-testid="header-available">Available</TableHead>}
+                        <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
+                        <TableHead data-testid="header-required">Client Required</TableHead>
+                        <TableHead data-testid="header-gap">Gap</TableHead>
+                        <TableHead data-testid="header-status">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(filteredData || processedData)?.dailySummary?.map((day, index) => {
-                        const dayEmpSummary = (filteredData || processedData)?.employeeSummaryByDate?.[day.date] || [];
-                        const totalDesired = dayEmpSummary.reduce((acc, emp) => acc + (emp.availability || 0), 0);
-                        const unavailability = dayEmpSummary.reduce((acc, emp) => acc + (emp.unavailability || 0), 0);
-                        const scheduled = dayEmpSummary.reduce((acc, emp) => acc + (emp.scheduledHours || 0), 0);
-                        const sickness = (filteredData || processedData)?.kpis?.sicknessSum || 0; // Fallback or logic for daily sickness if available
-                        const holidays = day.holidays || 0;
+                      {(filteredData || processedData)?.dailySummary?.map((day, index) => (
+                        <TableRow
+                          key={day.date}
+                          className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 interactive ${
+                            selectedDate === day.date
+                              ? "bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-gradient-to-b border-blue-500"
+                              : ""
+                          }`}
+                          onClick={() => setSelectedDate(day.date)}
+                          data-testid={`row-daily-summary-${index}`}
+                        >
+                          <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
+                            {new Date(day.date).toLocaleDateString("en-GB")}
+                          </TableCell>
 
-                        return (
-                          <TableRow
-                            key={day.date}
-                            className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 interactive ${
-                              selectedDate === day.date
-                                ? "bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-gradient-to-b border-blue-500"
-                                : ""
-                            }`}
-                            onClick={() => setSelectedDate(day.date)}
-                            data-testid={`row-daily-summary-${index}`}
-                          >
-                            <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
-                              {new Date(day.date).toLocaleDateString("en-GB")}
-                            </TableCell>
+                          {/* Hidden column - Available */}
+                          {false && <TableCell data-testid={`cell-available-${index}`}>
+                            {fmtH(day.availableHours)}
+                          </TableCell>}
 
-                            <TableCell className="text-center">
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                                {Math.round(day.netCapacity * 100) / 100}h
-                              </Badge>
-                            </TableCell>
+                          {/* Net Capacity */}
+                          <TableCell data-testid={`cell-net-capacity-${index}`}>
+                            {fmtH(day.netCapacity)}
+                          </TableCell>
 
-                            <TableCell className="text-center">
-                              {Math.round(day.clientRequired * 100) / 100}h
-                            </TableCell>
+                          {/* Client Required */}
+                          <TableCell data-testid={`cell-client-required-${index}`}>
+                            {fmtH(day.clientRequired)}
+                          </TableCell>
 
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                {Math.round(totalDesired * 100) / 100}h
-                              </Badge>
-                            </TableCell>
+                          {/* Gap */}
+                          <TableCell data-testid={`cell-gap-${index}`}>
+                            <Badge
+                              variant={day.gap >= 0 ? "default" : "destructive"}
+                              className={`${
+                                day.gap >= 0
+                                  ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                  : "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                              }`}
+                            >
+                              {fmtSignedH(day.gap)}
+                            </Badge>
+                          </TableCell>
 
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                {Math.round(unavailability * 100) / 100}h
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                {typeof sickness === 'number' ? Math.round(sickness * 100) / 100 : 0}h
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                {Math.round(holidays * 100) / 100}h
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                {Math.round(scheduled * 100) / 100}h
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }) || []}
+                          {/* Status: use backend field */}
+                          <TableCell data-testid={`cell-status-${index}`}>
+                            <Badge className={statusBadge(day.status)}>
+                              {day.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )) || []}
                     </TableBody>
                   </Table>
                 )}
