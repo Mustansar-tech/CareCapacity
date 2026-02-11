@@ -2559,6 +2559,7 @@ export async function processCapacityData(
       scheduledHours: number;
       clientScheduledHours: number;
       otherScheduledHours: number;
+      capacityAfterScheduling: number;
     }
   >();
 
@@ -2594,6 +2595,7 @@ export async function processCapacityData(
         scheduledHours: 0,
         clientScheduledHours: 0,
         otherScheduledHours: 0,
+        capacityAfterScheduling: 0,
       });
     }
 
@@ -2662,6 +2664,7 @@ export async function processCapacityData(
       summary.scheduledHours += empScheduled;
       summary.clientScheduledHours += empClientScheduled;
       summary.otherScheduledHours += Math.max(0, empScheduled - empClientScheduled);
+      summary.capacityAfterScheduling += Math.max(0, bestRecord.netCapacity - empScheduled);
     });
   });
 
@@ -2694,6 +2697,7 @@ export async function processCapacityData(
         scheduledHours: Math.round(summary.scheduledHours * 100) / 100,
         clientScheduledHours: Math.round(summary.clientScheduledHours * 100) / 100,
         otherScheduledHours: Math.round(summary.otherScheduledHours * 100) / 100,
+        capacityAfterScheduling: Math.round(summary.capacityAfterScheduling * 100) / 100,
         clientRequired: Math.round(clientRequired * 100) / 100,
         gap,
         status: (gap >= 0 ? "Sufficient" : "Shortage") as
@@ -2748,7 +2752,7 @@ export async function processCapacityData(
     otherScheduledHoursSum:
       Math.round(dailySummary.reduce((sum, d) => sum + (d as any).otherScheduledHours, 0) * 100) / 100,
     capacityAfterSchedulingSum:
-      Math.round(dailySummary.reduce((sum, d) => sum + (d.netCapacity - d.clientRequired), 0) * 100) / 100,
+      Math.round(dailySummary.reduce((sum, d) => sum + (d as any).capacityAfterScheduling, 0) * 100) / 100,
   };
 
   // Step 10: Build employees by date for drilldown
