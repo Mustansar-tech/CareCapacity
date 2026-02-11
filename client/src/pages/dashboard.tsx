@@ -1384,7 +1384,7 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 8. Capacity After Scheduling */}
+                {/* 8. Capacity Gap */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1399,7 +1399,7 @@ export default function Dashboard() {
                           <TrendingDown className="w-4 h-4 text-white" />
                         )}
                       </div>
-                      <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                      <span className="text-gray-700 dark:text-gray-300">Capacity Gap</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
