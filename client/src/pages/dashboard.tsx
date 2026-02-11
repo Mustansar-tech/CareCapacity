@@ -59,7 +59,7 @@ const renderStatusBadge = (status: string) => {
   } else if (status.includes("Holiday")) {
     badgeClass = "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200";
   } else if (status.includes("Sickness") || status.includes("Sick")) {
-    badgeClass = "bg-black text-white dark:bg-gray-900 dark:text-gray-100 border-gray-800";
+    badgeClass = "bg-slate-700 text-white dark:bg-slate-800 dark:text-gray-100 border-slate-600";
   } else if (status.includes("Day-Killer")) {
     badgeClass = "bg-red-600 text-white dark:bg-red-900 dark:text-red-100 border-red-700";
   } else {
@@ -708,7 +708,7 @@ export default function Dashboard() {
 
                           {/* Sickness */}
                           <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
-                            <Badge variant="secondary" className="bg-black text-white dark:bg-gray-950 dark:text-gray-100 border-gray-800">
+                            <Badge variant="secondary" className="bg-slate-700 text-white dark:bg-slate-800 dark:text-gray-100 border-slate-600">
                               {fmtH(day.sickness ?? 0)}
                             </Badge>
                           </TableCell>
@@ -879,7 +879,7 @@ export default function Dashboard() {
                                     ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
                                     : (emp.netCapacity - emp.scheduledHours) > 0 
                                     ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
-                                    : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
+                                    : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
                                 }
                               >
                                 {Math.round((emp.netCapacity - emp.scheduledHours) * 100) / 100}h
