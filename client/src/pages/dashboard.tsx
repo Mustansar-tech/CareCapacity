@@ -648,34 +648,23 @@ export default function Dashboard() {
                 ) : (
                   <TooltipProvider delayDuration={200}>
                   <div className="w-full overflow-x-auto">
-                    <Table className="min-w-[1100px] table-fixed">
-                      <colgroup>
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '9%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '8%' }} />
-                        <col style={{ width: '11%' }} />
-                      </colgroup>
-                      <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
-                        <TableRow>
-                          <TableHead data-testid="header-date" className="text-left">Date</TableHead>
-                          <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
-                          <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
-                          <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
-                          <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
-                          <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
-                          <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
-                          <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
-                          <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
-                          <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    <div className="w-full overflow-x-auto">
+                      <Table className="min-w-[1100px] table-fixed">
+                        <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
+                          <TableRow>
+                            <TableHead data-testid="header-date" className="w-[140px] text-left">Date</TableHead>
+                            <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
+                            <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
+                            <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
+                            <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
+                            <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
+                            <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
+                            <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
+                            <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
+                            <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                         {(filteredData || processedData)?.dailySummary?.map((day, index) => (
                           <TableRow
                             key={day.date}
@@ -691,7 +680,7 @@ export default function Dashboard() {
                             onClick={() => setSelectedDate(day.date)}
                             data-testid={`row-daily-summary-${index}`}
                           >
-                            <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
+                            <TableCell className="w-[140px] font-medium" data-testid={`cell-date-${index}`}>
                               {(() => {
                                 const d = new Date(day.date);
                                 const weekday = d.toLocaleDateString("en-GB", { weekday: 'short' });
