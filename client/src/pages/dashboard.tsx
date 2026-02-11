@@ -673,7 +673,7 @@ export default function Dashboard() {
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                {(day as any).sickness?.toFixed(2) || "0h"}
+                                {typeof sickness === 'number' ? sickness.toFixed(2) : "0h"}
                               </Badge>
                             </TableCell>
 
