@@ -51,9 +51,21 @@ const renderStatusBadge = (status: string) => {
       </Badge>
     );
   }
-  // default styling for everything else
+  
+  // Custom styling based on status content
+  let badgeClass = "glass-card font-medium";
+  if (status.includes("Available")) {
+    badgeClass = "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-green-200";
+  } else if (status.includes("Holiday")) {
+    badgeClass = "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200";
+  } else if (status.includes("Sickness")) {
+    badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-red-200";
+  } else if (status.includes("Day-Killer")) {
+    badgeClass = "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200";
+  }
+
   return (
-    <Badge variant="outline" className="glass-card" data-testid="badge-status-default">
+    <Badge variant="outline" className={badgeClass} data-testid="badge-status-default">
       {status}
     </Badge>
   );

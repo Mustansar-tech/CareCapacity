@@ -207,19 +207,19 @@ export function FlexibleTimeWindow({
   if (compact && parsedWindows.length > 2) {
     return (
       <div className={`flex items-center gap-1 ${className}`}>
-        <Badge variant="outline" className="text-xs px-2 py-0.5" data-testid="time-window-compact-0">
+        <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-100" data-testid="time-window-compact-0">
           {parsedWindows[0].start}-{parsedWindows[0].end}
         </Badge>
         <Popover>
           <PopoverTrigger asChild>
-            <Badge variant="secondary" className="text-xs px-2 py-0.5 cursor-pointer" data-testid="time-window-more">
+            <Badge variant="secondary" className="text-xs px-2 py-0.5 cursor-pointer bg-blue-100 text-blue-800" data-testid="time-window-more">
               +{parsedWindows.length - 1} more
             </Badge>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" data-testid="time-window-popover">
             <div className="space-y-1">
               {parsedWindows.slice(1).map((window, index) => (
-                <Badge key={window.id || `more-${index}`} variant="outline" className="text-xs block" data-testid={`time-window-more-${index + 1}`}>
+                <Badge key={window.id || `more-${index}`} variant="outline" className="text-xs block border-blue-100 bg-blue-50/50" data-testid={`time-window-more-${index + 1}`}>
                   {window.start}-{window.end} {formatDuration(window.start, window.end)}
                 </Badge>
               ))}
@@ -246,13 +246,13 @@ export function FlexibleTimeWindow({
       {parsedWindows.map((window, index) => (
         <Badge 
           key={window.id || index} 
-          variant="outline" 
-          className="text-xs px-2 py-0.5 whitespace-nowrap"
+          variant="secondary" 
+          className="text-xs px-2 py-0.5 whitespace-nowrap bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-100"
           data-testid={`time-window-${index}`}
         >
           <Clock className="w-3 h-3 mr-1" />
           {window.start}-{window.end}
-          <span className="ml-1 text-gray-500">
+          <span className="ml-1 text-blue-600/70 dark:text-blue-400/70">
             {formatDuration(window.start, window.end)}
           </span>
         </Badge>
