@@ -627,6 +627,7 @@ export default function Dashboard() {
                         <TableHead data-testid="header-date" className="w-[120px]">Date</TableHead>
                         {/* Hidden column - Available */}
                         {false && <TableHead data-testid="header-available">Available</TableHead>}
+                        <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
                         <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
                         <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
                         <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
@@ -634,6 +635,7 @@ export default function Dashboard() {
                         <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
                         <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
                         <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
+                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -656,6 +658,11 @@ export default function Dashboard() {
                           {false && <TableCell data-testid={`cell-available-${index}`}>
                             {fmtH(day.availableHours)}
                           </TableCell>}
+
+                          {/* Desired Hours */}
+                          <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
+                            {fmtH(day.availableHours ?? 0)}
+                          </TableCell>
 
                           {/* Net Capacity */}
                           <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
@@ -690,6 +697,11 @@ export default function Dashboard() {
                           {/* Holidays */}
                           <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
                             {fmtH(day.holidays ?? 0)}
+                          </TableCell>
+
+                          {/* Capacity After Scheduling */}
+                          <TableCell className="text-right" data-testid={`cell-capacity-after-scheduling-${index}`}>
+                            {fmtH(Math.round((day.netCapacity - day.clientRequired) * 100) / 100)}
                           </TableCell>
                         </TableRow>
                       )) || []}
