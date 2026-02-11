@@ -76,6 +76,9 @@ export class TravelTimeService {
     const toLat = to.lat.toString();
     const toLng = to.lng.toString();
 
+    // Determine the max travel time for this specific request
+    const currentMaxTravel = (transportMode === 'walking' || transportMode === 'public') ? 60 : this.maxTravelMinutes;
+
     // 1. Check Cache
     try {
       const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
@@ -91,7 +94,7 @@ export class TravelTimeService {
           toLocation: to,
           distanceKm: (cached.distanceMeters || 0) / 1000,
           travelTimeMinutes: cached.durationMinutes,
-          feasible: cached.durationMinutes <= this.maxTravelMinutes,
+          feasible: cached.durationMinutes <= currentMaxTravel,
           penaltyScore: this.calculatePenalty(cached.durationMinutes)
         };
       }
@@ -152,7 +155,7 @@ export class TravelTimeService {
             toLocation: to,
             distanceKm: distanceMeters / 1000,
             travelTimeMinutes: durationMinutes,
-            feasible: durationMinutes <= this.maxTravelMinutes,
+            feasible: durationMinutes <= currentMaxTravel,
             penaltyScore: this.calculatePenalty(durationMinutes)
           };
         } else {
@@ -194,7 +197,7 @@ export class TravelTimeService {
       toLocation: to,
       distanceKm: Math.round(roadDistanceKm * 100) / 100,
       travelTimeMinutes,
-      feasible: travelTimeMinutes <= this.maxTravelMinutes,
+      feasible: travelTimeMinutes <= currentMaxTravel,
       penaltyScore: this.calculatePenalty(travelTimeMinutes)
     };
   }
