@@ -2775,8 +2775,6 @@ export async function processCapacityData(
     }
     logger.debug(`  - Final gender value: "${gender || 'EMPTY'}"`);
 
-    const transportMode = masterEmployee?.transportMode || "";
-
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
       status: record.status,
@@ -2786,8 +2784,7 @@ export async function processCapacityData(
       hours: record.hours,
       netCapacity: record.netCapacity,
       notes: record.notes,
-      gender: gender,
-      transportMode: transportMode,
+      gender: gender, // Gender from master employee list (derived from Title)
     });
   });
 
@@ -2860,13 +2857,12 @@ export async function processCapacityData(
         employeeName: display,
         status: "Ad-hoc",
         timeWindows: windows,
-        contractedDailyHours: 0,
+        contractedDailyHours: 0, // <- as requested
         scheduledHours: Math.round(schedHoursRaw * 100) / 100,
-        hours: 0,
-        netCapacity: 0,
+        hours: 0, // not counted toward availability
+        netCapacity: 0, // do not inflate capacity
         notes: "Scheduled (no availability record for this day)",
         gender: gender,
-        transportMode: masterEmployee?.transportMode || "",
       });
 
       // mark as present to avoid duplicates if multiple keys flow in
