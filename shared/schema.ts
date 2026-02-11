@@ -204,7 +204,8 @@ export interface EmployeeDailyDetail {
   hours: number;
   netCapacity: number;
   notes: string;
-  gender?: string; // Gender derived from title (e.g., "male", "female")
+  gender?: string;
+  transportMode?: string;
 }
 
 export interface EmployeeSummaryRecord {
