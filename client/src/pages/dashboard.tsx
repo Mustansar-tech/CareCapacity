@@ -714,7 +714,7 @@ export default function Dashboard() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger className="cursor-help">Capacity After Scheduling</TooltipTrigger>
-                              <TooltipContent>Unallocated carer capacity after all scheduled visits (Client + Other)</TooltipContent>
+                              <TooltipContent>Net Capacity minus Client Scheduled hours</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
@@ -797,19 +797,24 @@ export default function Dashboard() {
                           {/* Capacity After Scheduling */}
                           <TableCell className="text-right" data-testid={`cell-capacity-after-scheduling-${index}`}>
                             {(() => {
-                              const val = (day as any).capacityAfterScheduling ?? 0;
+                              const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
+                              const sum = employees.reduce((acc, emp) => {
+                                const val = emp.netCapacity - emp.scheduledHours;
+                                return acc + (val > 0 ? val : 0);
+                              }, 0);
+                              const roundedSum = Math.round(sum * 100) / 100;
                               return (
                                 <Badge 
                                   variant="secondary" 
                                   className={
-                                    val === 0
+                                    roundedSum === 0
                                       ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
-                                      : val > 0 
+                                      : roundedSum > 0 
                                       ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
                                       : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
                                   }
                                 >
-                                  {fmtH(val)}
+                                  {fmtH(roundedSum)}
                                 </Badge>
                               );
                             })()}
@@ -1409,7 +1414,17 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
-                      {(filteredData || processedData)?.kpis.capacityAfterSchedulingSum}h
+                      {(() => {
+                        const sum = (filteredData || processedData)?.dailySummary.reduce((acc, day) => {
+                          const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
+                          const daySum = employees.reduce((acc, emp) => {
+                            const val = emp.netCapacity - emp.scheduledHours;
+                            return acc + (val > 0 ? val : 0);
+                          }, 0);
+                          return acc + daySum;
+                        }, 0) || 0;
+                        return Math.round(sum * 100) / 100;
+                      })()}h
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
                   </CardContent>
