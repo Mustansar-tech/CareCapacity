@@ -652,7 +652,6 @@ export default function Dashboard() {
                       <TableRow>
                         <TableHead className="w-[40px] px-2"></TableHead>
                         <TableHead data-testid="header-date" className="w-[120px] text-left">Date</TableHead>
-                        {false && <TableHead data-testid="header-available">Available</TableHead>}
                         <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
                         <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
                         <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
@@ -695,10 +694,6 @@ export default function Dashboard() {
                               return `${weekday} ${dateStr}`;
                             })()}
                           </TableCell>
-
-                          {false && <TableCell data-testid={`cell-available-${index}`}>
-                            {fmtH(day.availableHours)}
-                          </TableCell>}
 
                           <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
                             <Tooltip>
