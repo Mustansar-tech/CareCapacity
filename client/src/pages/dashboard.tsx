@@ -686,6 +686,14 @@ export default function Dashboard() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
+                        <TableHead data-testid="header-client-required" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Client Required</TooltipTrigger>
+                              <TooltipContent>Total hours required by clients (demand)</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
                         <TableHead data-testid="header-client-scheduled" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
@@ -765,6 +773,12 @@ export default function Dashboard() {
                           <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
                             <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100">
                               {fmtH(day.netCapacity)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
+                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100">
+                              {fmtH((day as any).clientRequired ?? 0)}
                             </Badge>
                           </TableCell>
 
