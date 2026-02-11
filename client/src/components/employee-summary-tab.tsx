@@ -44,6 +44,11 @@ export function EmployeeSummaryTab({ data, selectedDate, availableDates, onDateC
     { availability: 0, unavailability: 0, scheduledHours: 0, difference: 0 }
   );
 
+  // The Difference column in the table shows: Contracted - Unavailability - Scheduled
+  // The summary KPI card above (Capacity) should reflect the SUM of all positive differences
+  // to show "True available capacity" rather than a net balance that hides shortages.
+
+
   return (
     <Card className="h-full backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-t-lg">
