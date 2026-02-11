@@ -782,10 +782,10 @@ export default function Dashboard() {
                             </Select>
                           </TableHead>
                           <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
-                          <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling">Capacity After Scheduling</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center">Desired Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center">Difference</TableHead>
                           <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -808,17 +808,34 @@ export default function Dashboard() {
                                 editable={false}
                               />
                             </TableCell>
-                            <TableCell data-testid={`drilldown-contracted-daily-${index}`}>
-                              {emp.contractedDailyHours}h
+                            <TableCell className="text-center" data-testid={`drilldown-contracted-daily-${index}`}>
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                {emp.contractedDailyHours}h
+                              </Badge>
                             </TableCell>
-                            <TableCell data-testid={`drilldown-net-capacity-${index}`}>
-                              {emp.netCapacity}h
+                            <TableCell className="text-center" data-testid={`drilldown-net-capacity-${index}`}>
+                              <Badge variant="secondary" className="bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-100 dark:border-red-900">
+                                {emp.netCapacity}h
+                              </Badge>
                             </TableCell>
-                            <TableCell data-testid={`drilldown-scheduled-hours-${index}`}>
-                              {emp.scheduledHours}h
+                            <TableCell className="text-center" data-testid={`drilldown-scheduled-hours-${index}`}>
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                {emp.scheduledHours}h
+                              </Badge>
                             </TableCell>
-                            <TableCell data-testid={`drilldown-capacity-after-scheduling-${index}`}>
-                              {Math.round((emp.netCapacity - emp.scheduledHours) * 100) / 100}h
+                            <TableCell className="text-center" data-testid={`drilldown-capacity-after-scheduling-${index}`}>
+                              <Badge 
+                                variant="secondary" 
+                                className={
+                                  (emp.netCapacity - emp.scheduledHours) === 0
+                                    ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
+                                    : (emp.netCapacity - emp.scheduledHours) > 0 
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                                    : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+                                }
+                              >
+                                {Math.round((emp.netCapacity - emp.scheduledHours) * 100) / 100}h
+                              </Badge>
                             </TableCell>
                             <TableCell data-testid={`drilldown-notes-${index}`}>
                               {emp.notes}
