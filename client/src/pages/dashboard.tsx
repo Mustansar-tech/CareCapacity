@@ -25,6 +25,13 @@ import BDMatrix from "@/pages/bd-matrix";
 
 
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 // Helper formatting functions
 const fmtH = (hours: number): string => `${hours}h`;
 const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
@@ -628,18 +635,88 @@ export default function Dashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[40px]"></TableHead>
-                        <TableHead data-testid="header-date" className="w-[120px]">Date</TableHead>
+                        <TableHead data-testid="header-date" className="w-[120px]">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Date</TooltipTrigger>
+                              <TooltipContent>Date of the capacity summary</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
                         {/* Hidden column - Available */}
                         {false && <TableHead data-testid="header-available">Available</TableHead>}
-                        <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
-                        <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
-                        <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
-                        <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
-                        <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
-                        <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
-                        <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
-                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
+                        <TableHead data-testid="header-desired-hours" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Desired Hours</TooltipTrigger>
+                              <TooltipContent>Total hours employees want to work based on availability</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-net-capacity" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Net Capacity</TooltipTrigger>
+                              <TooltipContent>Total guaranteed hours minus unavailability and sickness</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-required" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Client Required</TooltipTrigger>
+                              <TooltipContent>Total care hours requested by clients</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-unavailability" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Unavailability</TooltipTrigger>
+                              <TooltipContent>Hours lost due to appointments, meetings, etc.</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-sickness" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Sickness</TooltipTrigger>
+                              <TooltipContent>Hours lost due to reported sickness</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-client-scheduled" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Client Scheduled</TooltipTrigger>
+                              <TooltipContent>Total hours currently scheduled for clients</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-other-scheduled" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Other Scheduled</TooltipTrigger>
+                              <TooltipContent>Non-client hours scheduled (e.g. admin, training)</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-holidays" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Holidays</TooltipTrigger>
+                              <TooltipContent>Hours lost due to annual leave</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Difference</TooltipTrigger>
+                              <TooltipContent>Net Capacity minus Client Scheduled hours</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
