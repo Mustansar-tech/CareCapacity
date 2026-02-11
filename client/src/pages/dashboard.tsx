@@ -647,10 +647,10 @@ export default function Dashboard() {
                   <TableSkeleton rows={7} />
                 ) : (
                   <TooltipProvider delayDuration={200}>
-                  <Table className="w-full">
+                  <Table className="w-full table-fixed">
                     <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
                       <TableRow>
-                        <TableHead data-testid="header-date" className="text-left">Date</TableHead>
+                        <TableHead data-testid="header-date" className="w-[140px] text-left">Date</TableHead>
                         <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
                         <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
                         <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
@@ -678,7 +678,7 @@ export default function Dashboard() {
                           onClick={() => setSelectedDate(day.date)}
                           data-testid={`row-daily-summary-${index}`}
                         >
-                          <TableCell className="font-medium" data-testid={`cell-date-${index}`}>
+                          <TableCell className="w-[140px] font-medium" data-testid={`cell-date-${index}`}>
                             {(() => {
                               const d = new Date(day.date);
                               const weekday = d.toLocaleDateString("en-GB", { weekday: 'short' });
