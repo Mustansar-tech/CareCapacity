@@ -57,7 +57,7 @@ const renderStatusBadge = (status: string) => {
   } else if (status.includes("Holiday")) {
     badgeClass = "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200";
   } else if (status.includes("Sickness") || status.includes("Sick")) {
-    badgeClass = "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300";
+    badgeClass = "bg-slate-700 text-white dark:bg-slate-800 dark:text-gray-100 border-slate-600";
   } else if (status.includes("Day-Killer")) {
     badgeClass = "bg-red-600 text-white dark:bg-red-900 dark:text-red-100 border-red-700";
   } else {
@@ -698,7 +698,7 @@ export default function Dashboard() {
 
                           {/* Sickness */}
                           <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
-                            <Badge variant="secondary" className="bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300">
+                            <Badge variant="secondary" className="bg-slate-700 text-white dark:bg-slate-800 dark:text-gray-100 border-slate-600">
                               {fmtH(day.sickness ?? 0)}
                             </Badge>
                           </TableCell>
