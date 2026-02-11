@@ -654,22 +654,6 @@ export default function Dashboard() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
-                        <TableHead data-testid="header-net-capacity" className="text-right">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger className="cursor-help">Net Capacity</TooltipTrigger>
-                              <TooltipContent>Total guaranteed hours minus unavailability and sickness</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableHead>
-                        <TableHead data-testid="header-required" className="text-right">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger className="cursor-help">Client Required</TooltipTrigger>
-                              <TooltipContent>Total care hours requested by clients</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableHead>
                         <TableHead data-testid="header-unavailability" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
@@ -686,6 +670,22 @@ export default function Dashboard() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
+                        <TableHead data-testid="header-holidays" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Holidays</TooltipTrigger>
+                              <TooltipContent>Hours lost due to annual leave</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
+                        <TableHead data-testid="header-net-capacity" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Net Capacity</TooltipTrigger>
+                              <TooltipContent>Total guaranteed hours minus unavailability and sickness</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
                         <TableHead data-testid="header-client-scheduled" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
@@ -699,14 +699,6 @@ export default function Dashboard() {
                             <Tooltip>
                               <TooltipTrigger className="cursor-help">Other Scheduled</TooltipTrigger>
                               <TooltipContent>Non-client hours scheduled (e.g. admin, training)</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableHead>
-                        <TableHead data-testid="header-holidays" className="text-right">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger className="cursor-help">Holidays</TooltipTrigger>
-                              <TooltipContent>Hours lost due to annual leave</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
@@ -746,59 +738,45 @@ export default function Dashboard() {
                             {fmtH(day.availableHours)}
                           </TableCell>}
 
-                          {/* Desired Hours */}
                           <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
                             <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-100">
                               {fmtH(day.availableHours ?? 0)}
                             </Badge>
                           </TableCell>
 
-                          {/* Net Capacity */}
-                          <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
-                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100">
-                              {fmtH(day.netCapacity)}
-                            </Badge>
-                          </TableCell>
-
-                          {/* Client Required */}
-                          <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
-                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100">
-                              {fmtH(day.clientRequired)}
-                            </Badge>
-                          </TableCell>
-
-                          {/* Unavailability */}
                           <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
                             <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200">
                               {fmtH(day.unavailability ?? 0)}
                             </Badge>
                           </TableCell>
 
-                          {/* Sickness */}
                           <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
                             <Badge variant="secondary" className="bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300">
                               {fmtH(day.sickness ?? 0)}
                             </Badge>
                           </TableCell>
 
-                          {/* Client Scheduled */}
+                          <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200">
+                              {fmtH(day.holidays ?? 0)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
+                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100">
+                              {fmtH(day.netCapacity)}
+                            </Badge>
+                          </TableCell>
+
                           <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200">
                               {fmtH(day.clientScheduledHours ?? 0)}
                             </Badge>
                           </TableCell>
 
-                          {/* Other Scheduled */}
                           <TableCell className="text-right" data-testid={`cell-other-scheduled-${index}`}>
                             <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200">
                               {fmtH(day.otherScheduledHours ?? 0)}
-                            </Badge>
-                          </TableCell>
-
-                          {/* Holidays */}
-                          <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
-                            <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200">
-                              {fmtH(day.holidays ?? 0)}
                             </Badge>
                           </TableCell>
 
@@ -1265,12 +1243,13 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* 1. Desired Hours */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-desired-total">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
-                        <Users className="w-4 h-4 text-white" />
+                        <Clock className="w-4 h-4 text-white" />
                       </div>
                       <span className="text-gray-700 dark:text-gray-300">Desired Hours</span>
                     </CardTitle>
@@ -1283,189 +1262,164 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                      <Users className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
-                    {(filteredData || processedData)?.kpis.netCapacitySum}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Client Required</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
-                    {(filteredData || processedData)?.kpis.clientRequiredSum}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Demand hours</div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
-                        ? 'bg-gradient-to-br from-green-500 to-green-600'
-                        : 'bg-gradient-to-br from-red-500 to-red-600'
-                    }`}>
-                      {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
-                        <TrendingUp className="w-4 h-4 text-white" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4 text-white" />
-                      )}
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Capacity Gap</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-3xl font-bold mb-1 ${
-                    ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
-                      ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent'
-                      : 'bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent'
-                  }`} data-testid="text-capacity-gap-sum">
-                    {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? 'Surplus capacity' : 'Shortage'}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-200 dark:shadow-none">
-                      <Target className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
-                  </CardTitle>
-                </CardHeader>
+                {/* 2. Unavailability */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-unavailability">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
+                        <AlertTriangle className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Unavailability</span>
+                    </CardTitle>
+                  </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
-                      {(() => {
-                        const data = filteredData || processedData;
-                        if (!data?.dailySummary || !data?.employeesByDate) return "0h";
-                        
-                        let totalWeeklySurplus = 0;
-                        data.dailySummary.forEach(day => {
-                          const employees = data.employeesByDate[day.date] || [];
-                          const dailySurplus = employees.reduce((acc, emp) => {
-                            const val = emp.netCapacity - emp.scheduledHours;
-                            return acc + (val > 0 ? val : 0);
-                          }, 0);
-                          totalWeeklySurplus += dailySurplus;
-                        });
-                        
-                        return fmtH(Math.round(totalWeeklySurplus * 100) / 100);
-                      })()}
+                    <div className="text-3xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
+                      {(filteredData || processedData)?.kpis.unavailabilitySum}h
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly surplus capacity</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Weekly unavailability</div>
                   </CardContent>
-              </Card>
+                </Card>
 
+                {/* 3. Sickness */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-sickness">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
+                        <AlertTriangle className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Sickness</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
+                      {(filteredData || processedData)?.kpis.sicknessSum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Weekly sickness</div>
+                  </CardContent>
+                </Card>
+
+                {/* 4. Holidays */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-holidays">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                        <Calendar className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Holidays</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
+                      {(filteredData || processedData)?.kpis.holidaysSum || 0}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Weekly annual leave</div>
+                  </CardContent>
+                </Card>
+
+                {/* 5. Net Capacity */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                        <Users className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
+                      {(filteredData || processedData)?.kpis.netCapacitySum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
+                  </CardContent>
+                </Card>
+
+                {/* 6. Client Scheduled */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
+                      {(filteredData || processedData)?.kpis.clientScheduledSum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Total hours scheduled</div>
+                  </CardContent>
+                </Card>
+
+                {/* 7. Other Scheduled */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
+                        <Clock className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
+                      {(filteredData || processedData)?.kpis.otherScheduledSum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
+                  </CardContent>
+                </Card>
+
+                {/* 8. Capacity After Scheduling */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
+                          ? 'bg-gradient-to-br from-green-500 to-green-600'
+                          : 'bg-gradient-to-br from-red-500 to-red-600'
+                      }`}>
+                        {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
+                          <TrendingUp className="w-4 h-4 text-white" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-3xl font-bold mb-1 ${
+                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
+                        ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent'
+                        : 'bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent'
+                    }`} data-testid="text-capacity-gap-sum">
+                      {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? 'Surplus capacity' : 'Shortage'}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 9. Client Required */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Client Required</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
+                      {(filteredData || processedData)?.kpis.clientRequiredSum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Demand hours</div>
+                  </CardContent>
+                </Card>
               </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-unavailability">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                      <AlertTriangle className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Unavailability</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
-                    {(filteredData || processedData)?.kpis.unavailabilitySum}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Scheduled appointments</div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-sickness">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Sickness</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
-                    {((filteredData || processedData)?.kpis as any).sicknessSum || 0}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly sickness</div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
-                      <FileSpreadsheet className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
-                    {((filteredData || processedData)?.kpis as any).clientScheduledHoursSum || 0}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Client visit hours</div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center">
-                      <FileSpreadsheet className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
-                    {((filteredData || processedData)?.kpis as any).otherScheduledHoursSum || 0}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Office, training, other</div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover-lift animate-scale-in" data-testid="card-holidays">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-gray-700 dark:text-gray-300">Holidays</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
-                    {(filteredData || processedData)?.kpis.holidaysSum}h
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Scheduled time off</div>
-                </CardContent>
-              </Card>
                 </div>
               </div>
             )}
