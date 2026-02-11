@@ -651,7 +651,7 @@ export default function Dashboard() {
                     <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
                       <TableRow>
                         <TableHead className="w-[40px] px-2"></TableHead>
-                        <TableHead data-testid="header-date" className="w-[120px]">Date</TableHead>
+                        <TableHead data-testid="header-date" className="w-[120px] text-left">Date</TableHead>
                         {false && <TableHead data-testid="header-available">Available</TableHead>}
                         <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
                         <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
