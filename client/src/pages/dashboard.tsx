@@ -650,7 +650,6 @@ export default function Dashboard() {
                   <Table className="table-fixed w-full">
                     <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
                       <TableRow>
-                        <TableHead className="w-[40px] px-2 text-center align-middle"></TableHead>
                         <TableHead data-testid="header-date" className="w-[120px] text-left">Date</TableHead>
                         <TableHead data-testid="header-desired-hours" className="w-[100px] text-right">Desired Hours</TableHead>
                         <TableHead data-testid="header-net-capacity" className="w-[100px] text-right">Net Capacity</TableHead>
@@ -679,13 +678,6 @@ export default function Dashboard() {
                           onClick={() => setSelectedDate(day.date)}
                           data-testid={`row-daily-summary-${index}`}
                         >
-                          <TableCell className="w-[40px] px-2 text-center align-middle">
-                            {selectedDate === day.date ? (
-                              <span className="text-blue-500 text-xs">&#9660;</span>
-                            ) : (
-                              <span className="text-gray-400 text-xs">&#9654;</span>
-                            )}
-                          </TableCell>
                           <TableCell className="w-[120px] font-medium" data-testid={`cell-date-${index}`}>
                             {(() => {
                               const d = new Date(day.date);
