@@ -12,9 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Sparkles
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Sparkles,
+  Info, Car, Accessibility
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { ProcessingResult } from "@shared/schema";
 import { EmployeeSummaryTab } from "@/components/employee-summary-tab";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
@@ -28,8 +35,8 @@ import { useBranch } from "@/contexts/BranchContext";
 
 
 // Helper formatting functions
-const fmtH = (hours: number): string => `${hours}h`;
-const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
+const fmtH = (hours: number): string => `${Math.round(hours * 100) / 100}h`;
+const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${Math.round(hours * 100) / 100}h`;
 const statusBadge = (status: string): string => {
   return status === 'Sufficient'
     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
@@ -627,15 +634,141 @@ export default function Dashboard() {
                         <TableHead data-testid="header-date" className="w-[120px]">Date</TableHead>
                         {/* Hidden column - Available */}
                         {false && <TableHead data-testid="header-available">Available</TableHead>}
-                        <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
-                        <TableHead data-testid="header-net-capacity" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Client Required</TableHead>
-                        <TableHead data-testid="header-unavailability" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Unavailability</TableHead>
-                        <TableHead data-testid="header-sickness" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Sickness</TableHead>
-                        <TableHead data-testid="header-client-scheduled" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Client Scheduled</TableHead>
-                        <TableHead data-testid="header-other-scheduled" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Other Scheduled</TableHead>
-                        <TableHead data-testid="header-holidays" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Holidays</TableHead>
-                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Capacity After Scheduling</TableHead>
+                        <TableHead data-testid="header-desired-hours" className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            Desired Hours
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Total contracted daily hours for all employees</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-net-capacity" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Net Capacity
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Contracted hours minus holidays, sickness, and other blockers</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-required" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Client Required
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Total hours needed for client visits</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-unavailability" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Unavailability
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Hours blocked by non-care activities (training, office, etc.)</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-sickness" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Sickness
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Total employee hours lost to sickness</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-client-scheduled" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Client Scheduled
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Total hours already allocated to client visits</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-other-scheduled" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Other Scheduled
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Office work, training, and other non-client tasks</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-holidays" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Holidays
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Total employee hours on leave</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
+                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+                          <div className="flex items-center justify-end gap-1">
+                            Capacity After Scheduling
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Sum of positive gaps where employees have free time after visits</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -671,7 +804,7 @@ export default function Dashboard() {
 
                           {/* Net Capacity */}
                           <TableCell 
-                            className={`text-right ${day.netCapacity < day.clientRequired ? 'text-red-600 dark:text-red-400 font-semibold bg-red-50/50 dark:bg-red-900/10' : ''}`} 
+                            className={`text-right ${day.netCapacity < day.clientRequired ? 'text-red-600 dark:text-red-400 font-semibold bg-red-50/50 dark:bg-red-900/10' : 'text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50/50 dark:bg-emerald-900/10'}`} 
                             data-testid={`cell-net-capacity-${index}`}
                           >
                             {fmtH(day.netCapacity)}
@@ -681,6 +814,19 @@ export default function Dashboard() {
                           <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
                             {fmtH(day.clientRequired)}
                           </TableCell>
+
+                          {/* Gap Highlight */}
+                          {(() => {
+                            const gap = day.netCapacity - day.clientRequired;
+                            if (gap > 0) {
+                              return (
+                                <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50/50 dark:bg-emerald-900/10" data-testid={`cell-gap-highlight-${index}`}>
+                                  +{fmtH(gap)}
+                                </TableCell>
+                              );
+                            }
+                            return null;
+                          })()}
 
                           {/* Unavailability */}
                           <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
@@ -764,8 +910,8 @@ export default function Dashboard() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead data-testid="drilldown-header-employee" className="sticky top-0 bg-white z-10">Employee</TableHead>
-                          <TableHead data-testid="drilldown-header-status" className="sticky top-0 bg-white z-10">
+                          <TableHead data-testid="drilldown-header-employee" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Employee</TableHead>
+                          <TableHead data-testid="drilldown-header-status" className="sticky top-0 bg-white dark:bg-gray-800 z-10">
                             <Select
                               value={statusFilter.length === 1 ? statusFilter[0] : "all"}
                               onValueChange={(value) => {
@@ -794,12 +940,12 @@ export default function Dashboard() {
                               </SelectContent>
                             </Select>
                           </TableHead>
-                          <TableHead data-testid="drilldown-header-time-window" className="sticky top-0 bg-white z-10">Time Window(s)</TableHead>
-                          <TableHead data-testid="drilldown-header-contracted-daily" className="sticky top-0 bg-white z-10">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-net-capacity" className="sticky top-0 bg-white z-10">Net Capacity</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours" className="sticky top-0 bg-white z-10">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="sticky top-0 bg-white z-10">Capacity After Scheduling</TableHead>
-                          <TableHead data-testid="drilldown-header-notes" className="sticky top-0 bg-white z-10">Notes</TableHead>
+                          <TableHead data-testid="drilldown-header-time-window" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Time Window(s)</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Desired Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Capacity After Scheduling</TableHead>
+                          <TableHead data-testid="drilldown-header-notes" className="sticky top-0 bg-white dark:bg-gray-800 z-10">Notes</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -819,8 +965,30 @@ export default function Dashboard() {
                                 <span className={getGenderColorClass(emp.gender)}>
                                   {emp.employeeName}
                                 </span>
-                                {(emp as any).transportMode === "Car" && <div title="Car Driver" className="text-blue-500"><Clock className="w-3.5 h-3.5" /></div>}
-                                {(emp as any).transportMode === "Walker" && <div title="Walker" className="text-emerald-500"><Users className="w-3.5 h-3.5" /></div>}
+                                {(emp as any).transportMode === "Car" && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <div className="text-blue-500"><Car className="w-3.5 h-3.5" /></div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Car Driver</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                                {(emp as any).transportMode === "Walker" && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <div className="text-emerald-500"><Accessibility className="w-3.5 h-3.5" /></div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Walker</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell data-testid={`drilldown-status-${index}`}>
