@@ -687,7 +687,7 @@ export default function Dashboard() {
 
                           {/* Net Capacity */}
                           <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
-                            <Badge variant="secondary" className="bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-100">
+                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100">
                               {fmtH(day.netCapacity)}
                             </Badge>
                           </TableCell>
@@ -862,7 +862,7 @@ export default function Dashboard() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center" data-testid={`drilldown-net-capacity-${index}`}>
-                              <Badge variant="secondary" className="bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-100 dark:border-red-900">
+                              <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-100 dark:border-amber-900">
                                 {emp.netCapacity}h
                               </Badge>
                             </TableCell>
@@ -879,7 +879,7 @@ export default function Dashboard() {
                                     ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
                                     : (emp.netCapacity - emp.scheduledHours) > 0 
                                     ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
-                                    : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+                                    : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
                                 }
                               >
                                 {Math.round((emp.netCapacity - emp.scheduledHours) * 100) / 100}h
@@ -1218,14 +1218,14 @@ export default function Dashboard() {
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
                       <Users className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
                     {(filteredData || processedData)?.kpis.netCapacitySum}h
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
