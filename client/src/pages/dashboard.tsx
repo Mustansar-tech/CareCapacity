@@ -53,15 +53,17 @@ const renderStatusBadge = (status: string) => {
   }
   
   // Custom styling based on status content
-  let badgeClass = "glass-card font-medium";
+  let badgeClass = "font-medium shadow-sm";
   if (status.includes("Available")) {
     badgeClass = "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-green-200";
   } else if (status.includes("Holiday")) {
     badgeClass = "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200";
-  } else if (status.includes("Sickness")) {
+  } else if (status.includes("Sickness") || status.includes("Sick")) {
     badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-red-200";
   } else if (status.includes("Day-Killer")) {
     badgeClass = "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200";
+  } else {
+    badgeClass = "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200";
   }
 
   return (
@@ -678,42 +680,58 @@ export default function Dashboard() {
 
                           {/* Desired Hours */}
                           <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
-                            {fmtH(day.availableHours ?? 0)}
+                            <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-100">
+                              {fmtH(day.availableHours ?? 0)}
+                            </Badge>
                           </TableCell>
 
                           {/* Net Capacity */}
                           <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
-                            {fmtH(day.netCapacity)}
+                            <Badge variant="secondary" className="bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-100">
+                              {fmtH(day.netCapacity)}
+                            </Badge>
                           </TableCell>
 
                           {/* Client Required */}
                           <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
-                            {fmtH(day.clientRequired)}
+                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100">
+                              {fmtH(day.clientRequired)}
+                            </Badge>
                           </TableCell>
 
                           {/* Unavailability */}
                           <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
-                            {fmtH(day.unavailability ?? 0)}
+                            <Badge variant="secondary" className="bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-100">
+                              {fmtH(day.unavailability ?? 0)}
+                            </Badge>
                           </TableCell>
 
                           {/* Sickness */}
                           <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
-                            {fmtH(day.sickness ?? 0)}
+                            <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-red-200">
+                              {fmtH(day.sickness ?? 0)}
+                            </Badge>
                           </TableCell>
 
                           {/* Client Scheduled */}
                           <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
-                            {fmtH(day.clientScheduledHours ?? 0)}
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200">
+                              {fmtH(day.clientScheduledHours ?? 0)}
+                            </Badge>
                           </TableCell>
 
                           {/* Other Scheduled */}
                           <TableCell className="text-right" data-testid={`cell-other-scheduled-${index}`}>
-                            {fmtH(day.otherScheduledHours ?? 0)}
+                            <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200">
+                              {fmtH(day.otherScheduledHours ?? 0)}
+                            </Badge>
                           </TableCell>
 
                           {/* Holidays */}
                           <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
-                            {fmtH(day.holidays ?? 0)}
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200">
+                              {fmtH(day.holidays ?? 0)}
+                            </Badge>
                           </TableCell>
 
                           {/* Capacity After Scheduling */}
@@ -724,7 +742,21 @@ export default function Dashboard() {
                                 const val = emp.netCapacity - emp.scheduledHours;
                                 return acc + (val > 0 ? val : 0);
                               }, 0);
-                              return fmtH(Math.round(sum * 100) / 100);
+                              const roundedSum = Math.round(sum * 100) / 100;
+                              return (
+                                <Badge 
+                                  variant="secondary" 
+                                  className={
+                                    roundedSum === 0
+                                      ? "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300"
+                                      : roundedSum > 0 
+                                      ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                                      : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+                                  }
+                                >
+                                  {fmtH(roundedSum)}
+                                </Badge>
+                              );
                             })()}
                           </TableCell>
                         </TableRow>
