@@ -647,122 +647,124 @@ export default function Dashboard() {
                   <TableSkeleton rows={7} />
                 ) : (
                   <TooltipProvider delayDuration={200}>
-                  <Table className="w-full table-fixed">
-                    <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
-                      <TableRow>
-                        <TableHead data-testid="header-date" className="w-[140px] text-left">Date</TableHead>
-                        <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
-                        <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
-                        <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
-                        <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
-                        <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
-                        <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
-                        <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
-                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(filteredData || processedData)?.dailySummary?.map((day, index) => (
-                        <TableRow
-                          key={day.date}
-                          className={`cursor-pointer transition-all duration-200 interactive ${
-                            selectedDate === day.date
-                              ? "bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-blue-500"
-                              : day.netCapacity < day.clientRequired
-                              ? "bg-red-50/50 dark:bg-red-950/15 hover:bg-red-100/60 dark:hover:bg-red-950/25"
-                              : day.netCapacity > day.clientRequired
-                              ? "bg-green-50/40 dark:bg-green-950/10 hover:bg-green-100/50 dark:hover:bg-green-950/20"
-                              : "hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                          }`}
-                          onClick={() => setSelectedDate(day.date)}
-                          data-testid={`row-daily-summary-${index}`}
-                        >
-                          <TableCell className="w-[140px] font-medium" data-testid={`cell-date-${index}`}>
-                            {(() => {
-                              const d = new Date(day.date);
-                              const weekday = d.toLocaleDateString("en-GB", { weekday: 'short' });
-                              const dateStr = d.toLocaleDateString("en-GB", { day: '2-digit', month: '2-digit' });
-                              return `${weekday} ${dateStr}`;
-                            })()}
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.availableHours ?? 0)}</span></TooltipTrigger>
-                              <TooltipContent>Total contracted daily hours for all employees</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.netCapacity)}</span></TooltipTrigger>
-                              <TooltipContent>Desired Hours minus Unavailability, Sickness and Holidays</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.clientRequired)}</span></TooltipTrigger>
-                              <TooltipContent>Total scheduled client visit hours for the day</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className={`cursor-help ${(day.unavailability ?? 0) > 0 ? 'text-orange-600 dark:text-orange-400 font-medium' : ''}`}>{fmtH(day.unavailability ?? 0)}</span></TooltipTrigger>
-                              <TooltipContent>Hours lost to appointments and other blockers</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className={`cursor-help ${(day.sickness ?? 0) > 0 ? 'text-red-600 dark:text-red-400 font-medium' : ''}`}>{fmtH(day.sickness ?? 0)}</span></TooltipTrigger>
-                              <TooltipContent>Total hours lost to staff sickness</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.clientScheduledHours ?? 0)}</span></TooltipTrigger>
-                              <TooltipContent>Hours scheduled for client care visits</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-other-scheduled-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.otherScheduledHours ?? 0)}</span></TooltipTrigger>
-                              <TooltipContent>Office, training, and other non-client scheduled hours</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
-                            <Tooltip>
-                              <TooltipTrigger asChild><span className={`cursor-help ${(day.holidays ?? 0) > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}`}>{fmtH(day.holidays ?? 0)}</span></TooltipTrigger>
-                              <TooltipContent>Total hours lost to holidays and annual leave</TooltipContent>
-                            </Tooltip>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-capacity-after-scheduling-${index}`}>
-                            {(() => {
-                              const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
-                              const sum = employees.reduce((acc, emp) => {
-                                const val = emp.netCapacity - emp.scheduledHours;
-                                return acc + (val > 0 ? val : 0);
-                              }, 0);
-                              const val = Math.round(sum * 100) / 100;
-                              return (
-                                <Tooltip>
-                                  <TooltipTrigger asChild><span className={`cursor-help font-medium ${val > 0 ? 'text-green-600 dark:text-green-400' : ''}`}>{fmtH(val)}</span></TooltipTrigger>
-                                  <TooltipContent>Sum of positive (Net Capacity - Scheduled Hours) per employee</TooltipContent>
-                                </Tooltip>
-                              );
-                            })()}
-                          </TableCell>
+                  <div className="w-full overflow-x-auto">
+                    <Table className="min-w-[1100px] table-fixed">
+                      <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
+                        <TableRow>
+                          <TableHead data-testid="header-date" className="w-[140px] text-left">Date</TableHead>
+                          <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
+                          <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
+                          <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
+                          <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
+                          <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
+                          <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
+                          <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
+                          <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
+                          <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
                         </TableRow>
-                      )) || []}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {(filteredData || processedData)?.dailySummary?.map((day, index) => (
+                          <TableRow
+                            key={day.date}
+                            className={`cursor-pointer transition-all duration-200 interactive ${
+                              selectedDate === day.date
+                                ? "bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-900/30 dark:to-emerald-900/30 border-l-4 border-blue-500"
+                                : day.netCapacity < day.clientRequired
+                                ? "bg-red-50/50 dark:bg-red-950/15 hover:bg-red-100/60 dark:hover:bg-red-950/25"
+                                : day.netCapacity > day.clientRequired
+                                ? "bg-green-50/40 dark:bg-green-950/10 hover:bg-green-100/50 dark:hover:bg-green-950/20"
+                                : "hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            }`}
+                            onClick={() => setSelectedDate(day.date)}
+                            data-testid={`row-daily-summary-${index}`}
+                          >
+                            <TableCell className="w-[140px] font-medium" data-testid={`cell-date-${index}`}>
+                              {(() => {
+                                const d = new Date(day.date);
+                                const weekday = d.toLocaleDateString("en-GB", { weekday: 'short' });
+                                const dateStr = d.toLocaleDateString("en-GB", { day: '2-digit', month: '2-digit' });
+                                return `${weekday} ${dateStr}`;
+                              })()}
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.availableHours ?? 0)}</span></TooltipTrigger>
+                                <TooltipContent>Total contracted daily hours for all employees</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.netCapacity)}</span></TooltipTrigger>
+                                <TooltipContent>Desired Hours minus Unavailability, Sickness and Holidays</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.clientRequired)}</span></TooltipTrigger>
+                                <TooltipContent>Total scheduled client visit hours for the day</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className={`cursor-help ${(day.unavailability ?? 0) > 0 ? 'text-orange-600 dark:text-orange-400 font-medium' : ''}`}>{fmtH(day.unavailability ?? 0)}</span></TooltipTrigger>
+                                <TooltipContent>Hours lost to appointments and other blockers</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className={`cursor-help ${(day.sickness ?? 0) > 0 ? 'text-red-600 dark:text-red-400 font-medium' : ''}`}>{fmtH(day.sickness ?? 0)}</span></TooltipTrigger>
+                                <TooltipContent>Total hours lost to staff sickness</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.clientScheduledHours ?? 0)}</span></TooltipTrigger>
+                                <TooltipContent>Hours scheduled for client care visits</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-other-scheduled-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className="cursor-help">{fmtH(day.otherScheduledHours ?? 0)}</span></TooltipTrigger>
+                                <TooltipContent>Office, training, and other non-client scheduled hours</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
+                              <Tooltip>
+                                <TooltipTrigger asChild><span className={`cursor-help ${(day.holidays ?? 0) > 0 ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}`}>{fmtH(day.holidays ?? 0)}</span></TooltipTrigger>
+                                <TooltipContent>Total hours lost to holidays and annual leave</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+
+                            <TableCell className="text-right" data-testid={`cell-capacity-after-scheduling-${index}`}>
+                              {(() => {
+                                const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
+                                const sum = employees.reduce((acc, emp) => {
+                                  const val = emp.netCapacity - emp.scheduledHours;
+                                  return acc + (val > 0 ? val : 0);
+                                }, 0);
+                                const val = Math.round(sum * 100) / 100;
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild><span className={`cursor-help font-medium ${val > 0 ? 'text-green-600 dark:text-green-400' : ''}`}>{fmtH(val)}</span></TooltipTrigger>
+                                    <TooltipContent>Sum of positive (Net Capacity - Scheduled Hours) per employee</TooltipContent>
+                                  </Tooltip>
+                                );
+                              })()}
+                            </TableCell>
+                          </TableRow>
+                        )) || []}
+                      </TableBody>
+                    </Table>
+                  </div>
                   </TooltipProvider>
                 )}
 
