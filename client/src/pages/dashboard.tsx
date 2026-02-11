@@ -648,8 +648,7 @@ export default function Dashboard() {
                 ) : (
                   <TooltipProvider delayDuration={200}>
                   <div className="w-full overflow-x-auto">
-                    <div className="w-full overflow-x-auto">
-                      <Table className="min-w-[1100px] table-fixed">
+                    <Table className="min-w-[1100px] table-fixed">
                         <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
                           <TableRow>
                             <TableHead data-testid="header-date" className="w-[140px] text-left">Date</TableHead>
