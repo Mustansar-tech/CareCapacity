@@ -628,14 +628,14 @@ export default function Dashboard() {
                         {/* Hidden column - Available */}
                         {false && <TableHead data-testid="header-available">Available</TableHead>}
                         <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
-                        <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
-                        <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
-                        <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
-                        <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
-                        <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
-                        <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
-                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right">Capacity After Scheduling</TableHead>
+                        <TableHead data-testid="header-net-capacity" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Net Capacity</TableHead>
+                        <TableHead data-testid="header-required" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Client Required</TableHead>
+                        <TableHead data-testid="header-unavailability" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Unavailability</TableHead>
+                        <TableHead data-testid="header-sickness" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Sickness</TableHead>
+                        <TableHead data-testid="header-client-scheduled" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Client Scheduled</TableHead>
+                        <TableHead data-testid="header-other-scheduled" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Other Scheduled</TableHead>
+                        <TableHead data-testid="header-holidays" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Holidays</TableHead>
+                        <TableHead data-testid="header-capacity-after-scheduling" className="text-right sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">Capacity After Scheduling</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -670,7 +670,10 @@ export default function Dashboard() {
                           </TableCell>
 
                           {/* Net Capacity */}
-                          <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
+                          <TableCell 
+                            className={`text-right ${day.netCapacity < day.clientRequired ? 'text-red-600 dark:text-red-400 font-semibold bg-red-50/50 dark:bg-red-900/10' : ''}`} 
+                            data-testid={`cell-net-capacity-${index}`}
+                          >
                             {fmtH(day.netCapacity)}
                           </TableCell>
 
@@ -705,7 +708,17 @@ export default function Dashboard() {
                           </TableCell>
 
                           {/* Capacity After Scheduling */}
-                          <TableCell className="text-right" data-testid={`cell-capacity-after-scheduling-${index}`}>
+                          <TableCell 
+                            className={`text-right ${(() => {
+                              const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
+                              const sum = employees.reduce((acc, emp) => {
+                                const val = emp.netCapacity - emp.scheduledHours;
+                                return acc + (val > 0 ? val : 0);
+                              }, 0);
+                              return sum > 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50/50 dark:bg-emerald-900/10' : '';
+                            })()}`} 
+                            data-testid={`cell-capacity-after-scheduling-${index}`}
+                          >
                             {(() => {
                               const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
                               const sum = employees.reduce((acc, emp) => {
@@ -751,8 +764,8 @@ export default function Dashboard() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead data-testid="drilldown-header-employee">Employee</TableHead>
-                          <TableHead data-testid="drilldown-header-status">
+                          <TableHead data-testid="drilldown-header-employee" className="sticky top-0 bg-white z-10">Employee</TableHead>
+                          <TableHead data-testid="drilldown-header-status" className="sticky top-0 bg-white z-10">
                             <Select
                               value={statusFilter.length === 1 ? statusFilter[0] : "all"}
                               onValueChange={(value) => {
@@ -781,22 +794,34 @@ export default function Dashboard() {
                               </SelectContent>
                             </Select>
                           </TableHead>
-                          <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
-                          <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling">Capacity After Scheduling</TableHead>
-                          <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
+                          <TableHead data-testid="drilldown-header-time-window" className="sticky top-0 bg-white z-10">Time Window(s)</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily" className="sticky top-0 bg-white z-10">Desired Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity" className="sticky top-0 bg-white z-10">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours" className="sticky top-0 bg-white z-10">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="sticky top-0 bg-white z-10">Capacity After Scheduling</TableHead>
+                          <TableHead data-testid="drilldown-header-notes" className="sticky top-0 bg-white z-10">Notes</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => {
                           return (
-                          <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
+                          <TableRow 
+                            key={`${emp.employeeName}-${index}`} 
+                            data-testid={`row-drilldown-${index}`}
+                            className={
+                              emp.status === "Sickness" ? "bg-red-50/50 dark:bg-red-900/10" :
+                              emp.status === "Holiday" ? "bg-purple-50/50 dark:bg-purple-900/10" :
+                              ""
+                            }
+                          >
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
-                              <span className={getGenderColorClass(emp.gender)}>
-                                {emp.employeeName}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={getGenderColorClass(emp.gender)}>
+                                  {emp.employeeName}
+                                </span>
+                                {(emp as any).transportMode === "Car" && <div title="Car Driver" className="text-blue-500"><Clock className="w-3.5 h-3.5" /></div>}
+                                {(emp as any).transportMode === "Walker" && <div title="Walker" className="text-emerald-500"><Users className="w-3.5 h-3.5" /></div>}
+                              </div>
                             </TableCell>
                             <TableCell data-testid={`drilldown-status-${index}`}>
                               {renderStatusBadge(emp.status)}
