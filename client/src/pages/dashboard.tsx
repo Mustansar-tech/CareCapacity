@@ -701,7 +701,14 @@ export default function Dashboard() {
 
                           {/* Capacity After Scheduling */}
                           <TableCell className="text-right" data-testid={`cell-capacity-after-scheduling-${index}`}>
-                            {fmtH(Math.round((day.netCapacity - day.clientRequired) * 100) / 100)}
+                            {(() => {
+                              const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
+                              const sum = employees.reduce((acc, emp) => {
+                                const val = emp.netCapacity - emp.scheduledHours;
+                                return acc + (val > 0 ? val : 0);
+                              }, 0);
+                              return fmtH(Math.round(sum * 100) / 100);
+                            })()}
                           </TableCell>
                         </TableRow>
                       )) || []}
@@ -1216,9 +1223,19 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
-                    {((filteredData || processedData)?.kpis as any).capacityAfterSchedulingSum || 0}h
+                    {(() => {
+                      const data = filteredData || processedData;
+                      const date = selectedDate;
+                      if (!data || !date) return "0h";
+                      const employees = data.employeesByDate[date] || [];
+                      const sum = employees.reduce((acc, emp) => {
+                        const val = emp.netCapacity - emp.scheduledHours;
+                        return acc + (val > 0 ? val : 0);
+                      }, 0);
+                      return fmtH(Math.round(sum * 100) / 100);
+                    })()}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Weekly scheduling surplus</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Daily surplus capacity</div>
                 </CardContent>
               </Card>
 
