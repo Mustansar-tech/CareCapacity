@@ -185,10 +185,14 @@ export interface DailySummaryRecord {
   availableHours: number;
   netCapacity: number;
   unavailability: number;
+  sickness: number;
+  clientScheduledHours: number;
+  otherScheduledHours: number;
   holidays: number;
   clientRequired: number;
   gap: number;
   status: "Sufficient" | "Shortage";
+  scheduledHours: number;
 }
 
 export interface EmployeeDailyDetail {

@@ -623,14 +623,17 @@ export default function Dashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead></TableHead>
-                        <TableHead data-testid="header-date">Date</TableHead>
+                        <TableHead className="w-[40px]"></TableHead>
+                        <TableHead data-testid="header-date" className="w-[120px]">Date</TableHead>
                         {/* Hidden column - Available */}
                         {false && <TableHead data-testid="header-available">Available</TableHead>}
-                        <TableHead data-testid="header-net-capacity">Net Capacity</TableHead>
-                        <TableHead data-testid="header-required">Client Required</TableHead>
-                        <TableHead data-testid="header-gap">Gap</TableHead>
-                        <TableHead data-testid="header-status">Status</TableHead>
+                        <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
+                        <TableHead data-testid="header-required" className="text-right">Client Required</TableHead>
+                        <TableHead data-testid="header-unavailability" className="text-right">Unavailability</TableHead>
+                        <TableHead data-testid="header-sickness" className="text-right">Sickness</TableHead>
+                        <TableHead data-testid="header-client-scheduled" className="text-right">Client Scheduled</TableHead>
+                        <TableHead data-testid="header-other-scheduled" className="text-right">Other Scheduled</TableHead>
+                        <TableHead data-testid="header-holidays" className="text-right">Holidays</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -655,34 +658,38 @@ export default function Dashboard() {
                           </TableCell>}
 
                           {/* Net Capacity */}
-                          <TableCell data-testid={`cell-net-capacity-${index}`}>
+                          <TableCell className="text-right" data-testid={`cell-net-capacity-${index}`}>
                             {fmtH(day.netCapacity)}
                           </TableCell>
 
                           {/* Client Required */}
-                          <TableCell data-testid={`cell-client-required-${index}`}>
+                          <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
                             {fmtH(day.clientRequired)}
                           </TableCell>
 
-                          {/* Gap */}
-                          <TableCell data-testid={`cell-gap-${index}`}>
-                            <Badge
-                              variant={day.gap >= 0 ? "default" : "destructive"}
-                              className={`${
-                                day.gap >= 0
-                                  ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
-                                  : "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                              }`}
-                            >
-                              {fmtSignedH(day.gap)}
-                            </Badge>
+                          {/* Unavailability */}
+                          <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
+                            {fmtH(day.unavailability ?? 0)}
                           </TableCell>
 
-                          {/* Status: use backend field */}
-                          <TableCell data-testid={`cell-status-${index}`}>
-                            <Badge className={statusBadge(day.status)}>
-                              {day.status}
-                            </Badge>
+                          {/* Sickness */}
+                          <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
+                            {fmtH(day.sickness ?? 0)}
+                          </TableCell>
+
+                          {/* Client Scheduled */}
+                          <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
+                            {fmtH(day.clientScheduledHours ?? 0)}
+                          </TableCell>
+
+                          {/* Other Scheduled */}
+                          <TableCell className="text-right" data-testid={`cell-other-scheduled-${index}`}>
+                            {fmtH(day.otherScheduledHours ?? 0)}
+                          </TableCell>
+
+                          {/* Holidays */}
+                          <TableCell className="text-right" data-testid={`cell-holidays-${index}`}>
+                            {fmtH(day.holidays ?? 0)}
                           </TableCell>
                         </TableRow>
                       )) || []}
