@@ -760,11 +760,12 @@ export default function Dashboard() {
                         </Button>
                       )}
                     </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-gray-50 dark:bg-gray-800/50">
                         <TableRow>
-                          <TableHead data-testid="drilldown-header-employee">Employee</TableHead>
-                          <TableHead data-testid="drilldown-header-status">
+                          <TableHead data-testid="drilldown-header-employee" className="font-semibold">Employee</TableHead>
+                          <TableHead data-testid="drilldown-header-status" className="font-semibold">
                             <Select
                               value={statusFilter.length === 1 ? statusFilter[0] : "all"}
                               onValueChange={(value) => {
@@ -793,18 +794,21 @@ export default function Dashboard() {
                               </SelectContent>
                             </Select>
                           </TableHead>
-                          <TableHead data-testid="drilldown-header-time-window">Time Window(s)</TableHead>
-                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center">Net Capacity</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center">Difference</TableHead>
-                          <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
+                          <TableHead data-testid="drilldown-header-time-window" className="font-semibold">Time Window(s)</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold">Desired Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center font-semibold">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center font-semibold">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold">Difference</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => {
                           return (
-                          <TableRow key={`${emp.employeeName}-${index}`} data-testid={`row-drilldown-${index}`}>
+                          <TableRow 
+                            key={`${emp.employeeName}-${index}`} 
+                            data-testid={`row-drilldown-${index}`}
+                            className={index % 2 === 0 ? "bg-gray-50/50 dark:bg-gray-800/30" : "bg-white dark:bg-gray-900/30"}
+                          >
                             <TableCell className="font-medium" data-testid={`drilldown-employee-${index}`}>
                               <span className={getGenderColorClass(emp.gender)}>
                                 {emp.employeeName}
@@ -849,20 +853,18 @@ export default function Dashboard() {
                                 {Math.round((emp.netCapacity - emp.scheduledHours) * 100) / 100}h
                               </Badge>
                             </TableCell>
-                            <TableCell data-testid={`drilldown-notes-${index}`}>
-                              {emp.notes}
-                            </TableCell>
                           </TableRow>
                           );
                         }) : (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                               No employee data available for this date
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
                 )}
               </CardContent>
