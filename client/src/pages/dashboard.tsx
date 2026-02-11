@@ -651,41 +651,41 @@ export default function Dashboard() {
 
                             <TableCell className="text-center">
                               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                                {fmtH(day.netCapacity)}
+                                {day.netCapacity.toFixed(1)}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
-                              {fmtH(day.clientRequired)}
+                              {day.clientRequired.toFixed(2)}h
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                {fmtH(totalDesired)}
+                                {totalDesired.toFixed(1)}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                {fmtH(unavailability)}
+                                {unavailability.toFixed(1)}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                {fmtH(day.sickness || 0)}
+                                {(day as any).sickness?.toFixed(2) || "0h"}
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                {fmtH(holidays)}
+                                {holidays.toFixed(1)}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                {fmtH(scheduled)}
+                                {scheduled.toFixed(2)}h
                               </Badge>
                             </TableCell>
                           </TableRow>
