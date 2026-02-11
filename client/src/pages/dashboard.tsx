@@ -682,7 +682,7 @@ export default function Dashboard() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger className="cursor-help">Net Capacity</TooltipTrigger>
-                              <TooltipContent>Total guaranteed hours minus unavailability and sickness</TooltipContent>
+                              <TooltipContent>Total guaranteed hours minus unavailability, sickness and holidays</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
