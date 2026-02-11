@@ -792,12 +792,12 @@ export default function Dashboard() {
                         </Button>
                       )}
                     </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[600px] overflow-y-auto relative">
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[600px] overflow-y-auto relative scroll-modern">
                     <Table>
-                      <TableHeader className="sticky top-[-1px] z-20 bg-gray-50 dark:bg-gray-800 shadow-sm border-b">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead data-testid="drilldown-header-employee" className="font-semibold h-12">Employee</TableHead>
-                          <TableHead data-testid="drilldown-header-status" className="font-semibold h-12">
+                      <TableHeader className="sticky top-0 z-30 bg-gray-50 dark:bg-gray-800 shadow-md">
+                        <TableRow className="hover:bg-transparent border-b-2">
+                          <TableHead data-testid="drilldown-header-employee" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Employee</TableHead>
+                          <TableHead data-testid="drilldown-header-status" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">
                             <Select
                               value={statusFilter.length === 1 ? statusFilter[0] : "all"}
                               onValueChange={(value) => {
@@ -808,7 +808,7 @@ export default function Dashboard() {
                                 }
                               }}
                             >
-                              <SelectTrigger className="h-8 w-[180px] border-dashed">
+                              <SelectTrigger className="h-8 w-[180px] border-dashed bg-white dark:bg-gray-900">
                                 <SelectValue placeholder="Status (Filter)" />
                               </SelectTrigger>
                               <SelectContent>
@@ -826,11 +826,11 @@ export default function Dashboard() {
                               </SelectContent>
                             </Select>
                           </TableHead>
-                          <TableHead data-testid="drilldown-header-time-window" className="font-semibold h-12">Time Window(s)</TableHead>
-                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold h-12">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center font-semibold h-12">Net Capacity</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center font-semibold h-12">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold h-12">Difference</TableHead>
+                          <TableHead data-testid="drilldown-header-time-window" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Time Window(s)</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Desired Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Difference</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
