@@ -773,6 +773,7 @@ export default function Dashboard() {
                           <TableHead data-testid="drilldown-header-contracted-daily">Desired Hours</TableHead>
                           <TableHead data-testid="drilldown-header-net-capacity">Net Capacity</TableHead>
                           <TableHead data-testid="drilldown-header-scheduled-hours">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling">Capacity After Scheduling</TableHead>
                           <TableHead data-testid="drilldown-header-notes">Notes</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -804,6 +805,9 @@ export default function Dashboard() {
                             <TableCell data-testid={`drilldown-scheduled-hours-${index}`}>
                               {emp.scheduledHours}h
                             </TableCell>
+                            <TableCell data-testid={`drilldown-capacity-after-scheduling-${index}`}>
+                              {Math.round((emp.netCapacity - emp.scheduledHours) * 100) / 100}h
+                            </TableCell>
                             <TableCell data-testid={`drilldown-notes-${index}`}>
                               {emp.notes}
                             </TableCell>
@@ -811,7 +815,7 @@ export default function Dashboard() {
                           );
                         }) : (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                               No employee data available for this date
                             </TableCell>
                           </TableRow>
