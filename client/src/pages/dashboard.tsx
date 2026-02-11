@@ -19,6 +19,7 @@ import type { ProcessingResult } from "@shared/schema";
 import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 import { AIChat } from "@/components/ai-chat";
 import { useBranch } from "@/contexts/BranchContext";
+import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
@@ -712,7 +713,7 @@ export default function Dashboard() {
                         <TableHead data-testid="header-capacity-after-scheduling" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
-                              <TooltipTrigger className="cursor-help">Difference</TooltipTrigger>
+                              <TooltipTrigger className="cursor-help">Capacity After Scheduling</TooltipTrigger>
                               <TooltipContent>Net Capacity minus Client Scheduled hours</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -897,7 +898,7 @@ export default function Dashboard() {
                           <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Desired Hours</TableHead>
                           <TableHead data-testid="drilldown-header-net-capacity" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Net Capacity</TableHead>
                           <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Difference</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Capacity After Scheduling</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
