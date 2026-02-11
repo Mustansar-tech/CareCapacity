@@ -651,7 +651,6 @@ export default function Dashboard() {
                     <Table className="min-w-[1100px] table-fixed">
                         <TableHeader className="sticky top-0 z-10 bg-white dark:bg-gray-900">
                           <TableRow>
-                            <TableHead className="w-[40px]"></TableHead>
                             <TableHead data-testid="header-date" className="w-[140px] text-left">Date</TableHead>
                             <TableHead data-testid="header-desired-hours" className="text-right">Desired Hours</TableHead>
                             <TableHead data-testid="header-net-capacity" className="text-right">Net Capacity</TableHead>
@@ -680,7 +679,6 @@ export default function Dashboard() {
                             onClick={() => setSelectedDate(day.date)}
                             data-testid={`row-daily-summary-${index}`}
                           >
-                            <TableCell className="w-[40px] p-0"></TableCell>
                             <TableCell className="w-[140px] font-medium" data-testid={`cell-date-${index}`}>
                               {(() => {
                                 const d = new Date(day.date);
