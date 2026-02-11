@@ -651,41 +651,41 @@ export default function Dashboard() {
 
                             <TableCell className="text-center">
                               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                                {day.netCapacity.toFixed(1)}h
+                                {Math.round(day.netCapacity * 100) / 100}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
-                              {day.clientRequired.toFixed(2)}h
+                              {Math.round(day.clientRequired * 100) / 100}h
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                {totalDesired.toFixed(1)}h
+                                {Math.round(totalDesired * 100) / 100}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                {unavailability.toFixed(1)}h
+                                {Math.round(unavailability * 100) / 100}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                {typeof sickness === 'number' ? sickness.toFixed(2) : "0h"}
+                                {typeof sickness === 'number' ? Math.round(sickness * 100) / 100 : 0}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                {holidays.toFixed(1)}h
+                                {Math.round(holidays * 100) / 100}h
                               </Badge>
                             </TableCell>
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                {scheduled.toFixed(2)}h
+                                {Math.round(scheduled * 100) / 100}h
                               </Badge>
                             </TableCell>
                           </TableRow>
