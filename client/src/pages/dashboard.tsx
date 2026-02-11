@@ -59,9 +59,9 @@ const renderStatusBadge = (status: string) => {
   } else if (status.includes("Holiday")) {
     badgeClass = "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200";
   } else if (status.includes("Sickness") || status.includes("Sick")) {
-    badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-red-200";
+    badgeClass = "bg-black text-white dark:bg-gray-900 dark:text-gray-100 border-gray-800";
   } else if (status.includes("Day-Killer")) {
-    badgeClass = "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200";
+    badgeClass = "bg-red-600 text-white dark:bg-red-900 dark:text-red-100 border-red-700";
   } else {
     badgeClass = "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200";
   }
@@ -701,14 +701,14 @@ export default function Dashboard() {
 
                           {/* Unavailability */}
                           <TableCell className="text-right" data-testid={`cell-unavailability-${index}`}>
-                            <Badge variant="secondary" className="bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-100">
+                            <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200">
                               {fmtH(day.unavailability ?? 0)}
                             </Badge>
                           </TableCell>
 
                           {/* Sickness */}
                           <TableCell className="text-right" data-testid={`cell-sickness-${index}`}>
-                            <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 border-red-200">
+                            <Badge variant="secondary" className="bg-black text-white dark:bg-gray-950 dark:text-gray-100 border-gray-800">
                               {fmtH(day.sickness ?? 0)}
                             </Badge>
                           </TableCell>
