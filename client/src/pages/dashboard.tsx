@@ -1251,13 +1251,13 @@ export default function Dashboard() {
             </Card>
             {isProcessing || processMutation.isPending ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {Array.from({ length: 8 }).map((_, i) => (
+                {Array.from({ length: 10 }).map((_, i) => (
                   <MetricCardSkeleton key={i} />
                 ))}
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {/* 1. Desired Hours */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-desired-total">
                   <CardHeader className="pb-3">
@@ -1384,7 +1384,35 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 8. Capacity Gap */}
+                {/* 8. Capacity After Scheduling */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                        <TrendingUp className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
+                      {(() => {
+                        const sum = (filteredData || processedData)?.dailySummary.reduce((acc, day) => {
+                          const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
+                          const daySum = employees.reduce((acc, emp) => {
+                            const val = emp.netCapacity - emp.scheduledHours;
+                            return acc + (val > 0 ? val : 0);
+                          }, 0);
+                          return acc + daySum;
+                        }, 0) || 0;
+                        return Math.round(sum * 100) / 100;
+                      })()}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
+                  </CardContent>
+                </Card>
+
+                {/* 9. Capacity Gap */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1416,7 +1444,7 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 9. Client Required */}
+                {/* 10. Client Required */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
