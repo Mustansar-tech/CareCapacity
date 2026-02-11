@@ -1378,13 +1378,13 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
-                      {(filteredData || processedData)?.kpis.clientScheduledSum}h
+                      {(filteredData || processedData)?.kpis.clientScheduledHoursSum}h
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Total hours scheduled</div>
                   </CardContent>
                 </Card>
 
-                {/* 7. Other Scheduled */}
+                {/* 8. Other Scheduled */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1396,13 +1396,13 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
-                      {(filteredData || processedData)?.kpis.otherScheduledSum}h
+                      {(filteredData || processedData)?.kpis.otherScheduledHoursSum}h
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
                   </CardContent>
                 </Card>
 
-                {/* 8. Capacity After Scheduling */}
+                {/* 9. Capacity After Scheduling */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1430,7 +1430,7 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 9. Capacity Gap */}
+                {/* 10. Capacity Gap */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
