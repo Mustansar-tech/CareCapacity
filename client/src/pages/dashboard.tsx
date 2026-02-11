@@ -792,12 +792,12 @@ export default function Dashboard() {
                         </Button>
                       )}
                     </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[600px] overflow-y-auto relative">
                     <Table>
-                      <TableHeader className="bg-gray-50 dark:bg-gray-800/50">
+                      <TableHeader className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10 shadow-sm">
                         <TableRow>
-                          <TableHead data-testid="drilldown-header-employee" className="font-semibold">Employee</TableHead>
-                          <TableHead data-testid="drilldown-header-status" className="font-semibold">
+                          <TableHead data-testid="drilldown-header-employee" className="font-semibold bg-gray-50 dark:bg-gray-800">Employee</TableHead>
+                          <TableHead data-testid="drilldown-header-status" className="font-semibold bg-gray-50 dark:bg-gray-800">
                             <Select
                               value={statusFilter.length === 1 ? statusFilter[0] : "all"}
                               onValueChange={(value) => {
@@ -826,11 +826,11 @@ export default function Dashboard() {
                               </SelectContent>
                             </Select>
                           </TableHead>
-                          <TableHead data-testid="drilldown-header-time-window" className="font-semibold">Time Window(s)</TableHead>
-                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold">Desired Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center font-semibold">Net Capacity</TableHead>
-                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center font-semibold">Scheduled Hours</TableHead>
-                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold">Difference</TableHead>
+                          <TableHead data-testid="drilldown-header-time-window" className="font-semibold bg-gray-50 dark:bg-gray-800">Time Window(s)</TableHead>
+                          <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold bg-gray-50 dark:bg-gray-800">Desired Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-net-capacity" className="text-center font-semibold bg-gray-50 dark:bg-gray-800">Net Capacity</TableHead>
+                          <TableHead data-testid="drilldown-header-scheduled-hours" className="text-center font-semibold bg-gray-50 dark:bg-gray-800">Scheduled Hours</TableHead>
+                          <TableHead data-testid="drilldown-header-capacity-after-scheduling" className="text-center font-semibold bg-gray-50 dark:bg-gray-800">Difference</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
