@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { Express, Request, Response } from "express";
 import { db } from "./db";
 import { z } from "zod";
@@ -9,9 +9,9 @@ import {
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { logger } from "./logger";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
 const createConversationSchema = z.object({
@@ -256,11 +256,6 @@ export function registerAIRoutes(app: Express): void {
         .where(eq(messages.conversationId, conversationId))
         .orderBy(messages.createdAt);
 
-      const chatMessages = existingMessages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-
       const effectiveBranchId = branchId || conversation.branchId;
       let branchContext = "";
       if (effectiveBranchId) {
@@ -269,26 +264,31 @@ export function registerAIRoutes(app: Express): void {
 
       const fullSystemPrompt = SYSTEM_PROMPT + (branchContext ? `\n\n## CURRENT DASHBOARD DATA\n${branchContext}` : "");
 
+      const chatMessages = [
+        { role: "system", content: fullSystemPrompt },
+        ...existingMessages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }))
+      ];
+
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      const stream = anthropic.messages.stream({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4096,
-        system: fullSystemPrompt,
-        messages: chatMessages,
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: chatMessages as any,
+        stream: true,
       });
 
       let fullResponse = "";
 
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          const text = event.delta.text;
-          if (text) {
-            fullResponse += text;
-            res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-          }
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content || "";
+        if (text) {
+          fullResponse += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
       }
 
