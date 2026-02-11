@@ -1429,38 +1429,6 @@ export default function Dashboard() {
                     <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
                   </CardContent>
                 </Card>
-
-                {/* 10. Capacity Gap */}
-                <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-gap">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
-                          ? 'bg-gradient-to-br from-green-500 to-green-600'
-                          : 'bg-gradient-to-br from-red-500 to-red-600'
-                      }`}>
-                        {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? (
-                          <TrendingUp className="w-4 h-4 text-white" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 text-white" />
-                        )}
-                      </div>
-                      <span className="text-gray-700 dark:text-gray-300">Capacity Gap</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-3xl font-bold mb-1 ${
-                      ((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0
-                        ? 'bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent'
-                        : 'bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent'
-                    }`} data-testid="text-capacity-gap-sum">
-                      {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? '+' : ''}{(filteredData || processedData)?.kpis.gapSum}h
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {((filteredData || processedData)?.kpis.gapSum ?? 0) >= 0 ? 'Surplus capacity' : 'Shortage'}
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
               </div>
             )}
