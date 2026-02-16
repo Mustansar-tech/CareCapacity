@@ -702,16 +702,11 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    // Early name check for debugging
-    const earlyName = pickCol(g, EMPLOYEE_NAME_COLS);
-    const isChiomaDebug = earlyName && earlyName.toLowerCase().includes("bello");
-
     // Apply robust filters - filter cancelled, secondary care, and live in care (case-insensitive)
     // Office hours MUST be included in scheduled totals
     const cancelRaw = pickCol(g, CANCEL_COLS);
     const cancelOk = isCancellationBlank(cancelRaw);
     if (!cancelOk) {
-      if (isChiomaDebug) logger.info(`CHIOMA FILTERED: cancelled - ${earlyName}, cancel="${cancelRaw}"`);
       filteredCancelled++;
       continue;
     }
@@ -719,20 +714,14 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
     const secondary = isSecondaryMultipleCare(serviceTypeRaw);
     if (secondary) {
-      if (isChiomaDebug) logger.info(`CHIOMA FILTERED: secondary care - ${earlyName}, service="${serviceTypeRaw}"`);
       filteredSecondary++;
       continue;
     }
 
     const liveInCare = isLiveInCare(serviceTypeRaw);
     if (liveInCare) {
-      if (isChiomaDebug) logger.info(`CHIOMA: live-in care visit INCLUDED in scheduled hours - ${earlyName}, service="${serviceTypeRaw}"`);
-      // CRITICAL FIX: Do NOT filter Live-In Care from scheduled hours totals.
-      // Live-In Care employees are real scheduled workers and their hours must count.
-      // They were previously excluded, causing scheduled hours to be undercounted.
-      // Live-In Care is only excluded from the scheduling optimization tab.
       filteredLiveInCare++;
-      // Fall through - don't continue; let the hours be counted
+      continue;
     }
 
     // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
@@ -756,7 +745,7 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // This ensures shadowing/office hours entries with empty Actual fields still get counted
     const { start, end } = resolveServiceTimestamps(g);
     if (!start) {
-      if (isChiomaDebug) logger.info(`CHIOMA FILTERED: no start time - ${earlyName}`);
+      // Debug: log when we skip due to no start time
       const empName = pickCol(g, EMPLOYEE_NAME_COLS);
       if (empName && (empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
         logger.debug(`SKIPPING entry for ${empName} - no start timestamp (Actual, Planned, or SR)`);
@@ -771,7 +760,6 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     if (start && end) {
       const endDate = format(parseDate(end), "yyyy-MM-dd");
       if (date !== endDate) {
-        if (isChiomaDebug) logger.info(`CHIOMA FILTERED: overnight - ${earlyName}, ${date} to ${endDate}`);
         const empName = pickCol(g, EMPLOYEE_NAME_COLS);
         logger.debug(`EXCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (night/multi-day excluded)`);
         continue; // Skip this visit entirely
@@ -780,10 +768,6 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
 
     const empName = pickCol(g, EMPLOYEE_NAME_COLS);
     const name = normalizeName(empName);
-
-    if (empName && empName.toLowerCase().includes("bello")) {
-      logger.info(`CHIOMA DEBUG: Found entry for ${empName}, normalized: ${name}, service: ${serviceTypeRaw}, date: ${date}, cancelRaw: ${cancelRaw}`);
-    }
 
     // Sum only positive/real pay hours
     const payRaw = pickCol(g, PAY_HOURS_COLS);
@@ -915,7 +899,7 @@ function buildClientScheduledHoursLookup(guaranteed: any[]): Map<string, number>
 
     const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
     if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
-    // Live-In Care is now included in scheduled hours - it's real client care
+    if (isLiveInCare(serviceTypeRaw)) continue;
 
     const serviceType = serviceTypeRaw || "";
     const normalizedServiceType = String(serviceType)
