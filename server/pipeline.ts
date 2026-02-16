@@ -2702,11 +2702,15 @@ export async function processCapacityData(
       });
     });
 
+    let adhocTotal = 0;
+    let adhocCount = 0;
     scheduledHoursMap.forEach((schedHours, key) => {
       if (schedHours <= 0) return;
       if (employeesAlreadyCounted.has(key)) return;
 
-      const [_normName, date] = key.split("|");
+      const pipeIdx = key.lastIndexOf("|");
+      if (pipeIdx < 0) return;
+      const date = key.substring(pipeIdx + 1);
       if (!date) return;
 
       if (!dailySummaryMap.has(date)) {
@@ -2728,8 +2732,11 @@ export async function processCapacityData(
       summary.clientScheduledHours += clientSched;
       summary.otherScheduledHours += Math.max(0, schedHours - clientSched);
 
-      logger.debug(`  Ad-hoc scheduled hours added: ${key} => ${schedHours}h (client: ${clientSched}h)`);
+      adhocTotal += schedHours;
+      adhocCount++;
+      logger.debug(`  Ad-hoc scheduled hours added to daily summary: ${key} => ${schedHours}h (client: ${clientSched}h)`);
     });
+    logger.debug(`  TOTAL AD-HOC HOURS ADDED TO DAILY SUMMARY: ${adhocCount} entries, ${Math.round(adhocTotal * 100) / 100}h`);
   }
 
   // Step 8: Merge with client demand
@@ -2902,7 +2909,10 @@ export async function processCapacityData(
     // walk through scheduled map (already uses Actual date bucket)
     Array.from(scheduledHoursMap.entries()).forEach(([key, schedHoursRaw]) => {
       if ((schedHoursRaw || 0) <= 0) return;
-      const [normName, date] = key.split("|");
+      const pipeIdx = key.lastIndexOf("|");
+      if (pipeIdx < 0) return;
+      const normName = key.substring(0, pipeIdx);
+      const date = key.substring(pipeIdx + 1);
       if (!date || !normName) return;
 
       const already = present[date]?.has(normName);
@@ -2918,6 +2928,8 @@ export async function processCapacityData(
         (emp) => emp.normalizedName === normName,
       );
       const gender = masterEmployee?.gender || "";
+
+      logger.debug(`  INJECTING AD-HOC EMPLOYEE: ${display} (norm: ${normName}) on ${date} with ${schedHoursRaw}h scheduled`);
 
       if (!employeesByDate[date]) employeesByDate[date] = [];
       employeesByDate[date].push({
@@ -2937,6 +2949,21 @@ export async function processCapacityData(
       present[date].add(normName);
     });
   }
+
+  logger.debug(`\n===== AD-HOC INJECTION SUMMARY =====`);
+  let totalAdhocInjected = 0;
+  Object.entries(employeesByDate).forEach(([date, emps]) => {
+    const adhocEmps = emps.filter(e => e.status === "Ad-hoc");
+    if (adhocEmps.length > 0) {
+      logger.debug(`  ${date}: ${adhocEmps.length} ad-hoc employees`);
+      adhocEmps.forEach(e => {
+        logger.debug(`    - ${e.employeeName}: ${e.scheduledHours}h`);
+        totalAdhocInjected++;
+      });
+    }
+  });
+  logger.debug(`  TOTAL AD-HOC INJECTED: ${totalAdhocInjected}`);
+  logger.debug(`====================================\n`);
 
   // Re-sort after injection
   Object.values(employeesByDate).forEach((employees) => {
