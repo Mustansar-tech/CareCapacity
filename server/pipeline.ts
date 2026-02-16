@@ -2122,19 +2122,7 @@ export async function processCapacityData(
     }
   }
   
-  // Pre-compute set of employee names with scheduled visits (from GH data)
-  // Used to allow non-CG employees with valid visits through the availability filter
-  const scheduledEmployeeNames = new Set<string>();
-  scheduledHoursMap.forEach((hours, key) => {
-    if (hours <= 0) return;
-    const pipeIdx = key.lastIndexOf("|");
-    if (pipeIdx > 0) {
-      scheduledEmployeeNames.add(key.substring(0, pipeIdx));
-    }
-  });
-  logger.debug(`Pre-computed ${scheduledEmployeeNames.size} unique employee names with scheduled visits`);
-
-  // Step 2: Filter availability data to include master employees AND non-CG employees with scheduled visits
+  // Step 2: Filter availability data to ONLY include master employees (EXACT MATCH TO WORKING IMPLEMENTATION)
   // Also filter to only include dates within the core week (exclude spillover dates)
   const availabilityFiltered: any[] = [];
   let spilloverDatesSkipped = 0;
@@ -2146,17 +2134,9 @@ export async function processCapacityData(
       // Availability matching with improved threshold
       const masterEmployeeKeys = Array.from(masterEmployeeMap.keys());
       const matches = getCloseMatches(normalizedName, masterEmployeeKeys, 0.65);
-      const canonicalKey = matches.length > 0 ? matches[0].choice : normalizedName;
-      const matchedEmployee = matches.length > 0 ? masterEmployeeMap.get(canonicalKey) : null;
-
-      // If not in CG file, check if they have scheduled visits in GH data
-      // If they do, allow them through so their scheduled hours get counted
-      if (!matchedEmployee) {
-        if (!scheduledEmployeeNames.has(normalizedName)) {
-          return; // not in CG and no scheduled visits → safe to drop
-        }
-        logger.debug(`  Allowing non-CG employee through availability filter (has scheduled visits): ${name}`);
-      }
+      if (matches.length === 0) return; // not a CG employee → drop
+      const canonicalKey = matches[0].choice;
+      const matchedEmployee = masterEmployeeMap.get(canonicalKey);
 
       if (!row["Start Date"]) {
         warnings.push(`Availability row ${i + 1}: missing Start Date`);
@@ -2566,28 +2546,6 @@ export async function processCapacityData(
     const bPriority = STATUS_PRIORITY[b.status] || 999;
     return aPriority - bPriority;
   });
-
-  // VERIFICATION: Confirm no employee with valid visits is excluded before aggregation
-  {
-    const employeesInCleanedRecords = new Set<string>();
-    cleanedRecords.forEach(r => employeesInCleanedRecords.add(normalizeName(r.employeeName)));
-    
-    let missingFromCleanedCount = 0;
-    scheduledHoursMap.forEach((hours, key) => {
-      if (hours <= 0) return;
-      const pipeIdx = key.lastIndexOf("|");
-      if (pipeIdx < 0) return;
-      const empNorm = key.substring(0, pipeIdx);
-      if (!employeesInCleanedRecords.has(empNorm)) {
-        missingFromCleanedCount++;
-        logger.debug(`  SCHEDULED-BUT-NOT-IN-AVAILABILITY: ${key} = ${hours}h (will be added via ad-hoc path)`);
-      }
-    });
-    logger.debug(`\n===== PRE-AGGREGATION VERIFICATION =====`);
-    logger.debug(`  Employees in cleaned records: ${employeesInCleanedRecords.size}`);
-    logger.debug(`  Scheduled entries missing from availability: ${missingFromCleanedCount} (these will be caught by ad-hoc second pass)`);
-    logger.debug(`========================================\n`);
-  }
 
   // Step 7: Build Daily Summary (with same consolidation logic as Employee Summary)
   const dailySummaryMap = new Map<
