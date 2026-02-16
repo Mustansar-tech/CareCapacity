@@ -342,12 +342,23 @@ const ADDRESS_COLS_GH = ['Service Location Address', 'Service Requirement Locati
 // Helper: case/space-insensitive column picker
 function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
+  let firstHitValue: any = undefined;
+  let foundAny = false;
   for (const want of names) {
     const target = want.trim().toLowerCase();
     const hit = keys.find((k) => k.trim().toLowerCase() === target);
-    if (hit) return row[hit];
+    if (hit) {
+      const val = row[hit];
+      if (!foundAny) {
+        firstHitValue = val;
+        foundAny = true;
+      }
+      if (val !== undefined && val !== null && String(val).trim() !== "") {
+        return val;
+      }
+    }
   }
-  return undefined;
+  return foundAny ? firstHitValue : undefined;
 }
 
 
