@@ -326,7 +326,13 @@ const CLIENT_COLS = [
 
 // Guaranteed hours data column name aliases (case-insensitive lookup)
 const CANCEL_COLS = ['Cancellation Description'];
-const EMPLOYEE_NAME_COLS = ['Actual Employee Name', 'Employee Name', 'Caregiver Name', 'Care giver Name'];
+const EMPLOYEE_NAME_COLS = [
+  'Actual Employee Name', 
+  'Planned Employee Name',
+  'Employee Name', 
+  'Caregiver Name', 
+  'Care giver Name'
+];
 const START_TIME_COLS = ['Actual Start Date And Time', 'Start Date And Time', 'Planned Start Date And Time', 'Service Requirement Start Date And Time'];
 const END_TIME_COLS = ['Actual End Date And Time', 'End Date And Time', 'Planned End Date And Time', 'Service Requirement End Date And Time'];
 const SERVICE_TYPE_COLS = ['Actual Service Type Description', 'Service Type Description', 'Service Type'];
