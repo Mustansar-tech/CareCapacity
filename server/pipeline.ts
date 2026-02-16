@@ -2690,6 +2690,48 @@ export async function processCapacityData(
     });
   });
 
+  // CRITICAL FIX: Add scheduled hours for ad-hoc employees (those with visits but NO availability record)
+  // The loop above only processes employees from the availability export.
+  // Employees who appear in the Guaranteed Hours file but NOT in the Availability file
+  // are completely missed, causing the scheduled hours total to be undercounted.
+  {
+    const employeesAlreadyCounted = new Set<string>();
+    recordsByDateAndEmployee.forEach((employeeMap, date) => {
+      employeeMap.forEach((_records, empName) => {
+        employeesAlreadyCounted.add(`${normalizeName(empName)}|${date}`);
+      });
+    });
+
+    scheduledHoursMap.forEach((schedHours, key) => {
+      if (schedHours <= 0) return;
+      if (employeesAlreadyCounted.has(key)) return;
+
+      const [_normName, date] = key.split("|");
+      if (!date) return;
+
+      if (!dailySummaryMap.has(date)) {
+        dailySummaryMap.set(date, {
+          availableHours: 0,
+          netCapacity: 0,
+          unavailability: 0,
+          holidays: 0,
+          sickness: 0,
+          scheduledHours: 0,
+          clientScheduledHours: 0,
+          otherScheduledHours: 0,
+        });
+      }
+
+      const summary = dailySummaryMap.get(date)!;
+      const clientSched = clientScheduledHoursMap.get(key) || 0;
+      summary.scheduledHours += schedHours;
+      summary.clientScheduledHours += clientSched;
+      summary.otherScheduledHours += Math.max(0, schedHours - clientSched);
+
+      logger.debug(`  Ad-hoc scheduled hours added: ${key} => ${schedHours}h (client: ${clientSched}h)`);
+    });
+  }
+
   // Step 8: Merge with client demand
   const demandMap = new Map<string, number>();
   demand.forEach((row) => {
