@@ -860,17 +860,11 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     `  Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
 
-  // Debug: Show final scheduled hours for Chloe and Makala
-  logger.debug(`\nFINAL SCHEDULED HOURS MAP (Debug entries):`);
-  Array.from(ghMap.entries()).forEach(([key, hours]) => {
-    if (
-      key.toLowerCase().includes("chloe") ||
-      key.toLowerCase().includes("mcclymont") ||
-      key.toLowerCase().includes("makala") ||
-      key.toLowerCase().includes("mcewan")
-    ) {
-      logger.debug(`  ${key}: ${hours} hours`);
-    }
+  // Debug: Show final scheduled hours for EVERYONE
+  logger.debug(`\nFINAL SCHEDULED HOURS MAP (Full list for verification):`);
+  const sortedEntries = Array.from(ghMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  sortedEntries.forEach(([key, hours]) => {
+    logger.debug(`  ${key}: ${hours} hours`);
   });
   logger.debug(`=========================================\n`);
 
