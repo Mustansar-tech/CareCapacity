@@ -2629,17 +2629,23 @@ export async function processCapacityData(
       });
 
       // Use the best record's net capacity
-      summary.netCapacity += bestRecord.netCapacity;
+      const empNorm = normalizeName(_employeeName);
+      const schedKey = `${empNorm}|${date}`;
+      const empScheduled = scheduledHoursMap.get(schedKey) || 0;
+      const empClientScheduled = clientScheduledHoursMap.get(schedKey) || 0;
 
-      // Desired Hours = total contracted daily hours for ALL employees (baseline before deductions)
-      summary.availableHours += bestRecord.contractedDailyHours;
+      // NET CAPACITY CALCULATION FIX:
+      // Net Capacity = Desired Hours - Holidays - Sickness - Unavailability
+      // We calculate deductions for this specific employee
+      let empHolidays = 0;
+      let empSickness = 0;
+      let empUnavailability = 0;
 
-      // Categorize absence hours by type
       records.forEach((record) => {
         if (record.status === "Holiday" || record.status === "Partial Holiday") {
-          summary.holidays += record.hours;
+          empHolidays += record.hours;
         } else if (record.status === "Sick" || record.status === "Partial Sick") {
-          summary.sickness += record.hours;
+          empSickness += record.hours;
         } else if (
           [
             "Maternity/Paternity",
@@ -2651,14 +2657,21 @@ export async function processCapacityData(
             "Partial Availability",
           ].includes(record.status)
         ) {
-          summary.unavailability += record.hours;
+          empUnavailability += record.hours;
         }
       });
 
-      const empNorm = normalizeName(_employeeName);
-      const schedKey = `${empNorm}|${date}`;
-      const empScheduled = scheduledHoursMap.get(schedKey) || 0;
-      const empClientScheduled = clientScheduledHoursMap.get(schedKey) || 0;
+      const empNetCapacity = Math.max(0, bestRecord.contractedDailyHours - empHolidays - empSickness - empUnavailability);
+      summary.netCapacity += empNetCapacity;
+
+      // Desired Hours = total contracted daily hours for ALL employees (baseline before deductions)
+      summary.availableHours += bestRecord.contractedDailyHours;
+
+      // Categorize absence hours by type for summary display
+      summary.holidays += empHolidays;
+      summary.sickness += empSickness;
+      summary.unavailability += empUnavailability;
+
       summary.scheduledHours += empScheduled;
       summary.clientScheduledHours += empClientScheduled;
       summary.otherScheduledHours += Math.max(0, empScheduled - empClientScheduled);
