@@ -784,6 +784,19 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const payRaw = pickCol(g, PAY_HOURS_COLS);
     let pay = Number(payRaw) || 0;
 
+    // TARGETED DEBUG FOR PRIYANKA CHANDOMAL
+    const adhocCol = String(g["Ad-hoc"] || g["Adhoc"] || g["Ad Hoc Visit"] || "N/A");
+    if (empName && (empName.toLowerCase().includes("priyanka") || empName.toLowerCase().includes("chandomal") || empName.toLowerCase().includes("clare") || empName.toLowerCase().includes("lamden"))) {
+      logger.debug(`[PIPELINE-TRACE] Employee: ${empName}`);
+      logger.debug(`  - Adhoc Flag: ${adhocCol}`);
+      logger.debug(`  - Service Type: ${serviceType}`);
+      logger.debug(`  - Planned Pay Hours: ${g["Planned Pay Rate Hours"] || "N/A"}`);
+      logger.debug(`  - Actual Pay Hours: ${g["Actual Pay Rate Hours"] || "N/A"}`);
+      logger.debug(`  - Final Pay Used: ${pay}`);
+      logger.debug(`  - Normalized Key: ${name}|${date}`);
+      logger.debug(`  - Cancel Status: ${cancelRaw || "BLANK"}`);
+    }
+
     // CRITICAL FIX: For office hours/shadowing, calculate duration from timestamps if pay is 0
     if (isOfficeHours && pay === 0 && start && end) {
       try {
