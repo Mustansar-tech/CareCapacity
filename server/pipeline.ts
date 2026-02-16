@@ -342,23 +342,12 @@ const ADDRESS_COLS_GH = ['Service Location Address', 'Service Requirement Locati
 // Helper: case/space-insensitive column picker
 function pickCol(row: Record<string, any>, names: string[]): any {
   const keys = Object.keys(row);
-  let firstHitValue: any = undefined;
-  let foundAny = false;
   for (const want of names) {
     const target = want.trim().toLowerCase();
     const hit = keys.find((k) => k.trim().toLowerCase() === target);
-    if (hit) {
-      const val = row[hit];
-      if (!foundAny) {
-        firstHitValue = val;
-        foundAny = true;
-      }
-      if (val !== undefined && val !== null && String(val).trim() !== "") {
-        return val;
-      }
-    }
+    if (hit) return row[hit];
   }
-  return foundAny ? firstHitValue : undefined;
+  return undefined;
 }
 
 
@@ -710,35 +699,14 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   let filteredLiveInCare = 0;
   let officeHoursIncluded = 0;
 
-  // Clear trace file at start in project root
-  try { require("fs").writeFileSync("pipeline-trace.log", `=== buildScheduledHoursLookup START - ${new Date().toISOString()} ===\nTotal rows: ${(guaranteed || []).length}\n\n`); } catch (_e) {}
-
   for (const g of guaranteed || []) {
     totalProcessed++;
 
-    const preFilterName = String(g["Actual Employee Name"] || g["Planned Employee Name"] || "").toLowerCase();
-    const isTracedEmployee = preFilterName.includes("priyanka") || preFilterName.includes("chandomal") || preFilterName.includes("lamden") || preFilterName.includes("clare");
-
-    const currentEmpName = pickCol(g, EMPLOYEE_NAME_COLS);
-    const currentName = normalizeName(currentEmpName);
-    const { start: currentStart, end: currentEnd } = resolveServiceTimestamps(g);
-    const currentDate = currentStart ? format(parseDate(currentStart), "yyyy-MM-dd") : null;
-
-    // Log every row for traced employees BEFORE filters
-    if (isTracedEmployee) {
-      try {
-        const rowSummary = `[ROW-TRACE] ${preFilterName} | Service: ${pickCol(g, SERVICE_TYPE_COLS)} | Start: ${currentStart} | Pay: ${pickCol(g, PAY_HOURS_COLS)}\n`;
-        require("fs").appendFileSync("pipeline-trace.log", rowSummary);
-      } catch (_e) {}
-    }
-
     // Apply robust filters - filter cancelled, secondary care, and live in care (case-insensitive)
+    // Office hours MUST be included in scheduled totals
     const cancelRaw = pickCol(g, CANCEL_COLS);
     const cancelOk = isCancellationBlank(cancelRaw);
     if (!cancelOk) {
-      if (isTracedEmployee) {
-        try { require("fs").appendFileSync("pipeline-trace.log", `[FILTERED-CANCELLED] ${preFilterName} - cancelRaw: "${cancelRaw}"\n`); } catch (_e) {}
-      }
       filteredCancelled++;
       continue;
     }
@@ -746,22 +714,21 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
     const secondary = isSecondaryMultipleCare(serviceTypeRaw);
     if (secondary) {
-      if (isTracedEmployee) {
-        try { require("fs").appendFileSync("pipeline-trace.log", `[FILTERED-SECONDARY] ${preFilterName} - serviceType: "${serviceTypeRaw}"\n`); } catch (_e) {}
-      }
       filteredSecondary++;
       continue;
     }
 
     const liveInCare = isLiveInCare(serviceTypeRaw);
     if (liveInCare) {
-      if (isTracedEmployee) {
-        try { require("fs").appendFileSync("pipeline-trace.log", `[FILTERED-LIVEINCARE] ${preFilterName} - serviceType: "${serviceTypeRaw}"\n`); } catch (_e) {}
-      }
       filteredLiveInCare++;
       continue;
     }
 
+    // CRITICAL: Office hours are INCLUDED here - they count toward scheduled totals
+    // This ensures employees show correct scheduled hours including office work
+    // Office hours are only filtered in excel-visit-extractor.ts (for scheduling tab)
+
+    // Track office hours/shadowing for debugging
     const serviceType = serviceTypeRaw || "";
     const lowerServiceType = String(serviceType).toLowerCase();
     const isOfficeHours = lowerServiceType && (
@@ -774,56 +741,48 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       lowerServiceType.includes("admin")
     );
 
-    if (!currentStart) {
-      if (isTracedEmployee) {
-        try { require("fs").appendFileSync("pipeline-trace.log", `[FILTERED-NO-START] ${preFilterName}\n`); } catch (_e) {}
+    // CRITICAL FIX: Use resolveServiceTimestamps to fall back to Planned when Actual is empty
+    // This ensures shadowing/office hours entries with empty Actual fields still get counted
+    const { start, end } = resolveServiceTimestamps(g);
+    if (!start) {
+      // Debug: log when we skip due to no start time
+      const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+      if (empName && (empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+        logger.debug(`SKIPPING entry for ${empName} - no start timestamp (Actual, Planned, or SR)`);
       }
       continue;
     }
 
-    if (currentStart && currentEnd) {
-      const endDate = format(parseDate(currentEnd), "yyyy-MM-dd");
-      if (currentDate !== endDate) {
-        if (isTracedEmployee) {
-          try { require("fs").appendFileSync("pipeline-trace.log", `[FILTERED-OVERNIGHT] ${preFilterName} - starts ${currentDate}, ends ${endDate}\n`); } catch (_e) {}
-        }
-        continue;
+    // EXCLUDE overnight/multi-day visits from totals
+    // User requirement: Night visits should not be included in totals or scheduling
+    const date = format(parseDate(start), "yyyy-MM-dd");
+    
+    if (start && end) {
+      const endDate = format(parseDate(end), "yyyy-MM-dd");
+      if (date !== endDate) {
+        const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+        logger.debug(`EXCLUDING overnight visit: ${empName} - starts ${date}, ends ${endDate} (night/multi-day excluded)`);
+        continue; // Skip this visit entirely
       }
     }
+
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    const name = normalizeName(empName);
 
     // Sum only positive/real pay hours
     const payRaw = pickCol(g, PAY_HOURS_COLS);
     let pay = Number(payRaw) || 0;
 
-    // TARGETED DEBUG FOR PRIYANKA CHANDOMAL - write to file to avoid log truncation
-    const adhocCol = String(g["Ad-hoc"] || g["Adhoc"] || g["Ad Hoc Visit"] || "N/A");
-    if (currentEmpName && (currentEmpName.toLowerCase().includes("priyanka") || currentEmpName.toLowerCase().includes("chandomal") || currentEmpName.toLowerCase().includes("clare") || currentEmpName.toLowerCase().includes("lamden"))) {
-      const traceMsg = [
-        `[PIPELINE-TRACE] Employee: ${currentEmpName}`,
-        `  - Adhoc Flag: ${adhocCol}`,
-        `  - Service Type: ${serviceType}`,
-        `  - Planned Pay Hours: ${g["Planned Pay Rate Hours"] || "N/A"}`,
-        `  - Actual Pay Hours: ${g["Actual Pay Rate Hours"] || "N/A"}`,
-        `  - Final Pay Used: ${pay}`,
-        `  - Normalized Name: ${currentName}`,
-        `  - Normalized Key: ${currentName}|${currentDate}`,
-        `  - Cancel Status: ${cancelRaw || "BLANK"}`,
-        `  - Start: ${currentStart}`,
-        `  - End: ${currentEnd}`,
-        `  - All column keys: ${Object.keys(g).join(", ")}`,
-        `---`,
-      ].join("\n");
-      try { require("fs").appendFileSync("/tmp/pipeline-trace.log", traceMsg + "\n"); } catch (_e) {}
-    }
-
-    if (isOfficeHours && pay === 0 && currentStart && currentEnd) {
+    // CRITICAL FIX: For office hours/shadowing, calculate duration from timestamps if pay is 0
+    if (isOfficeHours && pay === 0 && start && end) {
       try {
-        const calculatedDuration = hoursBetween(currentStart, currentEnd);
+        const calculatedDuration = hoursBetween(start, end);
         if (calculatedDuration > 0 && calculatedDuration < 24) {
           pay = calculatedDuration;
           logger.debug(`CALCULATED DURATION for office hours: ${pay}h (from timestamps)`);
         }
       } catch (e) {
+        // Could not calculate duration, keep pay as 0
       }
     }
 
@@ -831,18 +790,56 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       officeHoursIncluded++;
     }
 
-    if (currentName && currentDate && pay > 0) {
-      const key = `${currentName}|${currentDate}`;
+    // Debug: Log office hours entries being added to scheduled totals
+    if (isOfficeHours && pay > 0) {
+      logger.debug(`DEBUG: Including office hours in scheduled total:`);
+      logger.debug(`  Employee: ${g["Actual Employee Name"]} (normalized: ${name})`);
+      logger.debug(`  Service Type: ${serviceType}`);
+      logger.debug(`  Date: ${date}`);
+      logger.debug(`  Pay Hours: ${pay}`);
+      logger.debug(`  Map Key: ${name}|${date}`);
+    }
+
+    // Debug specific employee entries (case-insensitive)
+    if (
+      empName &&
+      (empName.toLowerCase().includes("chloe") ||
+        empName.toLowerCase().includes("mcclymont") ||
+        empName.toLowerCase().includes("makala"))
+    ) {
+      logger.debug(`EMPLOYEE DEBUG - Processing entry:`);
+      logger.debug(`  Original Name: ${empName}`);
+      logger.debug(`  Normalized Name: ${name}`);
+      logger.debug(`  Picked Start: ${start}`);
+      logger.debug(`  Parsed Date: ${date}`);
+      logger.debug(`  Raw Pay Hours: ${payRaw}`);
+      logger.debug(`  Parsed Pay Hours: ${pay}`);
+      logger.debug(`  Service Type: ${serviceType}`);
+      logger.debug(`  Cancellation: "${cancelRaw}"`);
+      logger.debug(`  isOfficeHours: ${isOfficeHours}`);
+    }
+
+    if (name && date && pay > 0) {
+      const key = `${name}|${date}`;
       const existing = ghMap.get(key) || 0;
       const newTotal = existing + pay;
       ghMap.set(key, newTotal);
 
-      if (isTracedEmployee) {
-        try { require("fs").appendFileSync("pipeline-trace.log", `[MAP-ADD] ${currentName} | date=${currentDate} | pay=${pay} | total=${newTotal}\n`); } catch (_e) {}
+      if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+        logger.debug(
+          `  Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        );
+      }
+
+      // Also log for office hours to verify they're being added
+      if (isOfficeHours) {
+        logger.debug(
+          `  Office hours added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
+        );
       }
     } else {
-      if (isTracedEmployee) {
-        try { require("fs").appendFileSync("pipeline-trace.log", `[MAP-SKIP] ${preFilterName} -> name="${currentName}", date="${currentDate}", pay=${pay}\n`); } catch (_e) {}
+      if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+        logger.debug(`  Skipped: name=${!!name}, date=${!!date}, pay=${pay}`);
       }
     }
   }
@@ -862,25 +859,6 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
   logger.debug(
     `  Valid entries for scheduling: ${totalProcessed - filteredCancelled - filteredSecondary - filteredLiveInCare}`,
   );
-
-  // Write traced-employee summary to file
-  try {
-    const traceSummary = [
-      `\n=== FINAL MAP SUMMARY ===`,
-      `Total entries in map: ${ghMap.size}`,
-      `Filtered cancelled: ${filteredCancelled}`,
-      `Filtered secondary: ${filteredSecondary}`,
-      `Filtered live-in: ${filteredLiveInCare}`,
-      `Office hours included: ${officeHoursIncluded}`,
-    ];
-    for (const [key, hours] of ghMap.entries()) {
-      if (key.includes("priyanka") || key.includes("chandomal") || key.includes("lamden") || key.includes("clare")) {
-        traceSummary.push(`  MAP: ${key} = ${hours}h`);
-      }
-    }
-    traceSummary.push(`=== END ===\n`);
-    require("fs").appendFileSync("pipeline-trace.log", traceSummary.join("\n") + "\n");
-  } catch (_e) {}
 
   // Debug: Show final scheduled hours for EVERYONE
   logger.debug(`\nFINAL SCHEDULED HOURS MAP (Full list for verification):`);
@@ -2046,7 +2024,7 @@ export async function processCapacityData(
       transportMode: row["TransportModeDescription"] || "",
       gender: row["Gender"] || "",
     }))
-    .filter((row) => row.name) // Keep everyone with a name, even if weekly hours are 0
+    .filter((row) => row.name && row.weekly > 0) // Only non-empty names and non-zero hours
     .map((row) => ({
       originalName: row.name,
       normalizedName: normalizeName(row.name),
@@ -2054,6 +2032,13 @@ export async function processCapacityData(
       transportMode: row.transportMode,
       gender: row.gender,
     }));
+
+  logger.debug(
+    `Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`,
+  );
+  if (masterEmployees.length > 0) {
+    logger.debug(`  - Sample employee:`, masterEmployees[0]);
+  }
 
   // Create master employee map for fast lookup
   const masterEmployeeMap = new Map();
@@ -2149,13 +2134,8 @@ export async function processCapacityData(
       // Availability matching with improved threshold
       const masterEmployeeKeys = Array.from(masterEmployeeMap.keys());
       const matches = getCloseMatches(normalizedName, masterEmployeeKeys, 0.65);
-      
-      // CRITICAL CHANGE: Even if not in masterEmployeeMap (missing weekly hours), 
-      // we keep the record for scheduled hours aggregation.
-      // We only skip if the name is completely empty.
-      if (!normalizedName) return;
-
-      const canonicalKey = matches.length > 0 ? matches[0].choice : normalizedName;
+      if (matches.length === 0) return; // not a CG employee → drop
+      const canonicalKey = matches[0].choice;
       const matchedEmployee = masterEmployeeMap.get(canonicalKey);
 
       if (!row["Start Date"]) {
@@ -2230,10 +2210,9 @@ export async function processCapacityData(
     const contractedWeeklyHours = row.matchedEmployee
       ? row.matchedEmployee.weeklyHours
       : 0;
-    
-    // For daily hours, if not in CG data, we use 0 but still allow scheduled hours to show
-    const contractedDailyHours = (row.matchedEmployee && daysAvailable > 0)
-      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100
+    const contractedDailyHours = row.matchedEmployee
+      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) /
+        100
       : 0;
 
     // Safer hours: prefer 'Hours' if present, else compute from time
@@ -2484,11 +2463,11 @@ export async function processCapacityData(
       // Calculate total blocked hours from all blockers
       const totalBlockedHours = mergedBlockers.reduce((sum, [start, end]) => sum + (end - start) / 60, 0);
       
-      // Day-level exclusion only if they have contracted hours to be "killed"
-      // If daily is 0 (ad-hoc), we still show the record for scheduled hours
-      if (daily > 0 && (hasDayKiller || ((hasTimeKiller || hasPartialDayKiller) && timeKillerIsAllDay))) {
+      if (hasDayKiller || ((hasTimeKiller || hasPartialDayKiller) && timeKillerIsAllDay)) {
         // Full-day absence → zero capacity
-        finalHours = daily;
+        // For full-day absences (Holiday, Sick, etc.), use contracted daily hours
+        // This ensures holidays count as full contracted hours, not raw availability hours
+        finalHours = daily > 0 ? daily : Math.min(agg.hoursRaw || 0.0, daily);
         netCapacity = 0.0;
       } else if (highestPriorityStatus.startsWith("Partial ")) {
         // Partial blocker (Partial Availability, Partial Holiday, Partial Sick, etc.)
