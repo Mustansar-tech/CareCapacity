@@ -2661,11 +2661,23 @@ export async function processCapacityData(
         }
       });
 
-      const empNetCapacity = Math.max(0, bestRecord.contractedDailyHours - empHolidays - empSickness - empUnavailability);
+      // CRITICAL FIX: Cap deductions at desired hours for the employee
+      // This prevents unavailability from exceeding the actual contracted time for that day
+      const daily = bestRecord.contractedDailyHours;
+      const totalDeductions = empHolidays + empSickness + empUnavailability;
+      
+      if (totalDeductions > daily && daily > 0) {
+        const ratio = daily / totalDeductions;
+        empHolidays *= ratio;
+        empSickness *= ratio;
+        empUnavailability *= ratio;
+      }
+
+      const empNetCapacity = Math.max(0, daily - empHolidays - empSickness - empUnavailability);
       summary.netCapacity += empNetCapacity;
 
       // Desired Hours = total contracted daily hours for ALL employees (baseline before deductions)
-      summary.availableHours += bestRecord.contractedDailyHours;
+      summary.availableHours += daily;
 
       // Categorize absence hours by type for summary display
       summary.holidays += empHolidays;
