@@ -2846,22 +2846,15 @@ export async function processCapacityData(
   logger.debug(`=========================================\n`);
 
   // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
-  // Also convert employees with blank/empty status to Ad-hoc if they have scheduled hours
   // Build adhoc windows map once for reuse in employee summary calculation
   const adhocWindowsMap = buildAdHocWindowsMap(guaranteed);
   {
     const displayNameMap = buildDisplayNameMap(guaranteed);
 
-    // who already exists per date (normalized) — track which ones have blank status
+    // who already exists per date (normalized)
     const present: Record<string, Set<string>> = {};
-    const blankStatusEmployees: Record<string, Set<string>> = {};
     for (const [date, list] of Object.entries(employeesByDate)) {
       present[date] = new Set(list.map((e) => normalizeName(e.employeeName)));
-      blankStatusEmployees[date] = new Set(
-        list
-          .filter((e) => !e.status || e.status.trim() === "" || e.status === "(blank)")
-          .map((e) => normalizeName(e.employeeName))
-      );
     }
 
     // walk through scheduled map (already uses Actual date bucket)
@@ -2870,35 +2863,8 @@ export async function processCapacityData(
       const [normName, date] = key.split("|");
       if (!date || !normName) return;
 
-      const alreadyPresent = present[date]?.has(normName);
-      const hasBlankStatus = blankStatusEmployees[date]?.has(normName);
-
-      // Skip if they have a real (non-blank) availability status for that day
-      if (alreadyPresent && !hasBlankStatus) return;
-
-      // If they have blank status, convert their existing record to Ad-hoc
-      if (alreadyPresent && hasBlankStatus && employeesByDate[date]) {
-        const existingIdx = employeesByDate[date].findIndex(
-          (e) => normalizeName(e.employeeName) === normName
-        );
-        if (existingIdx >= 0) {
-          const existing = employeesByDate[date][existingIdx];
-          const windows = (adhocWindowsMap.get(key) || [])
-            .map(([s, e]: [number, number]) => `${fromMin(s)}-${fromMin(e)}`)
-            .join("; ");
-          const masterEmployee = masterEmployees.find(
-            (emp) => emp.normalizedName === normName,
-          );
-          existing.status = "Ad-hoc";
-          existing.timeWindows = windows;
-          existing.scheduledHours = Math.round(schedHoursRaw * 100) / 100;
-          existing.hours = 0;
-          existing.netCapacity = 0;
-          existing.notes = "Scheduled (blank availability status)";
-          existing.gender = existing.gender || masterEmployee?.gender || "";
-          return;
-        }
-      }
+      const already = present[date]?.has(normName);
+      if (already) return; // they are in Availability for that day — skip
 
       const display = displayNameMap.get(normName) || normName;
       const windows = (adhocWindowsMap.get(key) || [])
