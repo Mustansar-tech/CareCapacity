@@ -9,10 +9,16 @@ import {
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { logger } from "./logger";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    })
+  : null;
+
+if (!openai) {
+  logger.warn("OpenAI API key not configured — AI assistant features will be disabled");
+}
 
 const createConversationSchema = z.object({
   title: z.string().min(1).max(200).default("New Chat"),
@@ -247,6 +253,10 @@ export function registerAIRoutes(app: Express): void {
       const [conversation] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      if (!openai) {
+        return res.status(503).json({ error: "AI assistant is not available — OpenAI API key is not configured." });
       }
 
       const sanitizedContent = sanitizeText(content);
