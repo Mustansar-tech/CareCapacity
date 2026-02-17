@@ -1650,13 +1650,27 @@ export async function parseExcelFiles(
         }
       } else {
         // Standard validation for regular visits
+        const actualHoursPerWeek = row["Actual Employee Hours Per Week"];
+        const actualPayRateHours = row["Actual Pay Rate Hours"];
+        
         if (
           !row["Actual Employee Name"] ||
-          typeof row["Actual Employee Hours Per Week"] !== "number" ||
-          typeof row["Actual Pay Rate Hours"] !== "number" ||
+          (actualHoursPerWeek !== 0 && !actualHoursPerWeek && typeof actualHoursPerWeek !== "number") ||
+          (actualPayRateHours !== 0 && !actualPayRateHours && typeof actualPayRateHours !== "number") ||
           !start ||
           !end
         ) {
+          // PROACTIVE LOGGING: Why are we skipping this row?
+          if (!empName) {
+            logger.debug(`Guaranteed hours row ${index + 1}: SKIPPED - Missing employee name`);
+          } else if (actualHoursPerWeek !== 0 && !actualHoursPerWeek) {
+            logger.debug(`Guaranteed hours row ${index + 1} (${empName}): SKIPPED - Missing hours per week (Value: ${actualHoursPerWeek})`);
+          } else if (actualPayRateHours !== 0 && !actualPayRateHours) {
+            logger.debug(`Guaranteed hours row ${index + 1} (${empName}): SKIPPED - Missing pay rate hours (Value: ${actualPayRateHours})`);
+          } else {
+            logger.debug(`Guaranteed hours row ${index + 1} (${empName}): SKIPPED - Missing timestamps (Start: ${start}, End: ${end})`);
+          }
+          
           warnings.push(
             `Guaranteed hours row ${index + 1}: Missing or invalid required fields`,
           );
