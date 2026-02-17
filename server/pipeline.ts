@@ -805,7 +805,9 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       empName &&
       (empName.toLowerCase().includes("chloe") ||
         empName.toLowerCase().includes("mcclymont") ||
-        empName.toLowerCase().includes("makala"))
+        empName.toLowerCase().includes("makala") ||
+        empName.toLowerCase().includes("palmer") ||
+        empName.toLowerCase().includes("campbell"))
     ) {
       logger.debug(`EMPLOYEE DEBUG - Processing entry:`);
       logger.debug(`  Original Name: ${empName}`);
@@ -825,7 +827,13 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
       const newTotal = existing + pay;
       ghMap.set(key, newTotal);
 
-      if (empName && (empName.toLowerCase().includes("makala") || empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+      if (empName && (
+        empName.toLowerCase().includes("makala") || 
+        empName.toLowerCase().includes("chloe") || 
+        empName.toLowerCase().includes("mcclymont") ||
+        empName.toLowerCase().includes("palmer") ||
+        empName.toLowerCase().includes("campbell")
+      )) {
         logger.debug(
           `  Added to map: ${key} = ${existing} + ${pay} = ${newTotal}`,
         );
