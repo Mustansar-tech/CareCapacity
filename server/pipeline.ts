@@ -2033,6 +2033,36 @@ export async function processCapacityData(
       gender: row.gender,
     }));
 
+  // NEW: Add employees from Guaranteed Hours who are not in CG Data
+  const existingNames = new Set(masterEmployees.map(e => e.normalizedName));
+  const adhocFromGuaranteed = new Map<string, string>();
+  
+  guaranteed.forEach(row => {
+    const actualName = row["Actual Employee Name"];
+    const plannedName = row["Planned Employee Name"];
+    const name = actualName || plannedName;
+    if (!name) return;
+    const nameStr = name.toString();
+    const norm = normalizeName(nameStr);
+    if (!existingNames.has(norm)) {
+      adhocFromGuaranteed.set(norm, nameStr);
+    }
+  });
+
+  if (adhocFromGuaranteed.size > 0) {
+    logger.debug(`Adding ${adhocFromGuaranteed.size} employees found in Guaranteed Hours but missing from CG Data to master list`);
+    adhocFromGuaranteed.forEach((originalName, norm) => {
+      masterEmployees.push({
+        originalName: originalName,
+        normalizedName: norm,
+        weeklyHours: 0,
+        transportMode: "",
+        gender: "",
+      });
+      existingNames.add(norm);
+    });
+  }
+
   logger.debug(
     `Master employee list created: ${masterEmployees.length} employees from CG Data (with non-zero weekly hours)`,
   );
