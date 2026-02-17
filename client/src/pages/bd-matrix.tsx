@@ -355,23 +355,43 @@ function ClientEnquiryMatcher() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="timeStart">Preferred Start Time *</Label>
-                    <Input
-                      id="timeStart"
-                      type="time"
-                      step="900"
-                      value={timeStart}
-                      onChange={(e) => setTimeStart(e.target.value)}
-                    />
+                    <Select value={timeStart} onValueChange={setTimeStart}>
+                      <SelectTrigger id="timeStart">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 * 4 }).map((_, i) => {
+                          const h = Math.floor(i / 4).toString().padStart(2, '0');
+                          const m = ((i % 4) * 15).toString().padStart(2, '0');
+                          const time = `${h}:${m}`;
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timeEnd">Preferred End Time *</Label>
-                    <Input
-                      id="timeEnd"
-                      type="time"
-                      step="900"
-                      value={timeEnd}
-                      onChange={(e) => setTimeEnd(e.target.value)}
-                    />
+                    <Select value={timeEnd} onValueChange={setTimeEnd}>
+                      <SelectTrigger id="timeEnd">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 * 4 }).map((_, i) => {
+                          const h = Math.floor(i / 4).toString().padStart(2, '0');
+                          const m = ((i % 4) * 15).toString().padStart(2, '0');
+                          const time = `${h}:${m}`;
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
