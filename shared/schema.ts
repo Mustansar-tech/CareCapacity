@@ -591,3 +591,30 @@ export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export const clientEnquiries = pgTable("client_enquiries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  clientName: text("client_name").notNull(),
+  postcode: text("postcode"),
+  genderPreference: text("gender_preference"),
+  requiredDays: jsonb("required_days").notNull(),
+  preferredTimeWindow: jsonb("preferred_time_window").notNull(),
+  visitDurationMinutes: integer("visit_duration_minutes").notNull(),
+  weeklyHoursNeeded: text("weekly_hours_needed"),
+  matchCount: integer("match_count").notNull().default(0),
+  topMatch: text("top_match"),
+  results: jsonb("results"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  branchIdx: index("enquiry_branch_idx").on(table.branchId),
+  createdAtIdx: index("enquiry_created_at_idx").on(table.createdAt),
+}));
+
+export const insertClientEnquirySchema = createInsertSchema(clientEnquiries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertClientEnquiry = z.infer<typeof insertClientEnquirySchema>;
+export type ClientEnquiry = typeof clientEnquiries.$inferSelect;
