@@ -312,18 +312,21 @@ function ClientEnquiryMatcher() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="visitDuration">Visit Duration (minutes) *</Label>
+                    <Label htmlFor="visitDuration">Visit Duration *</Label>
                     <Select value={visitDuration} onValueChange={setVisitDuration}>
-                      <SelectTrigger>
+                      <SelectTrigger id="visitDuration">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="30">30 min</SelectItem>
                         <SelectItem value="45">45 min</SelectItem>
                         <SelectItem value="60">1 hour</SelectItem>
-                        <SelectItem value="75">1h 15min</SelectItem>
-                        <SelectItem value="90">1h 30min</SelectItem>
+                        <SelectItem value="75">1h 15m</SelectItem>
+                        <SelectItem value="90">1.5 hours</SelectItem>
                         <SelectItem value="120">2 hours</SelectItem>
+                        <SelectItem value="180">3 hours</SelectItem>
+                        <SelectItem value="240">4 hours</SelectItem>
+                        <SelectItem value="300">5 hours</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -352,21 +355,43 @@ function ClientEnquiryMatcher() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="timeStart">Preferred Start Time *</Label>
-                    <Input
-                      id="timeStart"
-                      type="time"
-                      value={timeStart}
-                      onChange={(e) => setTimeStart(e.target.value)}
-                    />
+                    <Select value={timeStart} onValueChange={setTimeStart}>
+                      <SelectTrigger id="timeStart">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 * 4 }).map((_, i) => {
+                          const h = Math.floor(i / 4).toString().padStart(2, '0');
+                          const m = ((i % 4) * 15).toString().padStart(2, '0');
+                          const time = `${h}:${m}`;
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timeEnd">Preferred End Time *</Label>
-                    <Input
-                      id="timeEnd"
-                      type="time"
-                      value={timeEnd}
-                      onChange={(e) => setTimeEnd(e.target.value)}
-                    />
+                    <Select value={timeEnd} onValueChange={setTimeEnd}>
+                      <SelectTrigger id="timeEnd">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 24 * 4 }).map((_, i) => {
+                          const h = Math.floor(i / 4).toString().padStart(2, '0');
+                          const m = ((i % 4) * 15).toString().padStart(2, '0');
+                          const time = `${h}:${m}`;
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
