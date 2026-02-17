@@ -1483,6 +1483,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/client-enquiries', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, visitDurationMinutes, weeklyHoursNeeded, matchCount, topMatch, results } = req.body;
+      if (!clientName || !requiredDays || !preferredTimeWindow || !visitDurationMinutes) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      const enquiry = await storage.saveClientEnquiry({
+        branchId,
+        clientName,
+        postcode: postcode || null,
+        genderPreference: genderPreference || null,
+        requiredDays,
+        preferredTimeWindow,
+        visitDurationMinutes: Number(visitDurationMinutes),
+        weeklyHoursNeeded: weeklyHoursNeeded || null,
+        matchCount: matchCount || 0,
+        topMatch: topMatch || null,
+        results: results || null,
+      });
+      res.json(enquiry);
+    } catch (error) {
+      logger.error('Save client enquiry error', error);
+      res.status(500).json({ message: safeErrorMessage(error, 'Failed to save enquiry') });
+    }
+  });
+
+  app.get('/api/client-enquiries', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+      const enquiries = await storage.getClientEnquiries(branchId, limit);
+      res.json(enquiries);
+    } catch (error) {
+      logger.error('Get client enquiries error', error);
+      res.status(500).json({ message: safeErrorMessage(error, 'Failed to fetch enquiries') });
+    }
+  });
+
+  app.delete('/api/client-enquiries/:id', async (req, res) => {
+    try {
+      await storage.deleteClientEnquiry(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Delete client enquiry error', error);
+      res.status(500).json({ message: safeErrorMessage(error, 'Failed to delete enquiry') });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

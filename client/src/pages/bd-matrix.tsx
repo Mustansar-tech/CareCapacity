@@ -8,13 +8,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
-  Search, UserCheck, MapPin, Loader2, Star, ArrowRight
+  Search, UserCheck, MapPin, Loader2, Star, ArrowRight,
+  History, Trash2
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -202,7 +203,45 @@ function ClientEnquiryMatcher() {
   const [visitDuration, setVisitDuration] = useState('60');
   const [weeklyHours, setWeeklyHours] = useState('');
   const [results, setResults] = useState<MatchResult | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
   const { toast } = useToast();
+
+  const historyQuery = useQuery<any[]>({
+    queryKey: ['/api/client-enquiries'],
+    enabled: open,
+  });
+
+  const saveEnquiryMutation = useMutation({
+    mutationFn: async (data: { criteria: any; matchResult: MatchResult }) => {
+      const res = await apiRequest('POST', '/api/client-enquiries', {
+        clientName: data.criteria.clientName,
+        postcode: data.criteria.postcode || null,
+        genderPreference: data.criteria.genderPreference || null,
+        requiredDays: data.criteria.requiredDays,
+        preferredTimeWindow: data.criteria.preferredTimeWindow,
+        visitDurationMinutes: data.criteria.visitDurationMinutes,
+        weeklyHoursNeeded: data.criteria.weeklyHoursNeeded ? String(data.criteria.weeklyHoursNeeded) : null,
+        matchCount: data.matchResult.matches.length,
+        topMatch: data.matchResult.matches[0]?.employeeName || null,
+        results: data.matchResult,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries'] });
+    },
+  });
+
+  const deleteEnquiryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('DELETE', `/api/client-enquiries/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries'] });
+      toast({ title: "Enquiry Deleted", description: "The enquiry has been removed from history." });
+    },
+  });
 
   const matchMutation = useMutation({
     mutationFn: async () => {
@@ -219,6 +258,18 @@ function ClientEnquiryMatcher() {
     },
     onSuccess: (data: MatchResult) => {
       setResults(data);
+      saveEnquiryMutation.mutate({
+        criteria: {
+          clientName,
+          postcode: postcode || undefined,
+          genderPreference,
+          requiredDays: selectedDays,
+          preferredTimeWindow: { start: timeStart, end: timeEnd },
+          visitDurationMinutes: parseInt(visitDuration),
+          weeklyHoursNeeded: weeklyHours ? parseFloat(weeklyHours) : undefined,
+        },
+        matchResult: data,
+      });
     },
     onError: () => {
       toast({
@@ -251,7 +302,7 @@ function ClientEnquiryMatcher() {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setResults(null); }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
         <DialogTrigger asChild>
           <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg">
             <Search className="w-4 h-4 mr-2" />
@@ -262,15 +313,190 @@ function ClientEnquiryMatcher() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-lg">
               <UserCheck className="w-5 h-5 text-purple-600" />
-              Client Enquiry Matcher
+              {showHistory ? 'Enquiry History' : 'Client Enquiry Matcher'}
             </DialogTitle>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Enter client requirements to find the best matching staff members based on availability, gender preference, and capacity.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {showHistory
+                  ? `${historyQuery.data?.length || 0} saved enquiries`
+                  : 'Enter client requirements to find the best matching staff members based on availability, gender preference, and capacity.'}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setResults(null); }}
+                className={showHistory ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700' : ''}
+              >
+                {showHistory ? (
+                  <><Search className="w-4 h-4 mr-1" /> New Search</>
+                ) : (
+                  <><History className="w-4 h-4 mr-1" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
+                )}
+              </Button>
+            </div>
           </DialogHeader>
 
           <ScrollArea className="flex-1 overflow-y-auto pr-2">
-            {!results ? (
+            {showHistory ? (
+              viewingHistoryResult ? (
+                <div className="space-y-4 py-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                        Results for {viewingHistoryResult.criteria?.clientName || viewingHistoryResult.clientName}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {viewingHistoryResult.matches?.length || 0} match{(viewingHistoryResult.matches?.length || 0) !== 1 ? 'es' : ''} found
+                        {viewingHistoryResult.createdAt && (
+                          <> &middot; {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
+                        )}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setViewingHistoryResult(null)}>
+                      <ArrowRight className="w-4 h-4 mr-1 rotate-180" />
+                      Back to History
+                    </Button>
+                  </div>
+
+                  {(viewingHistoryResult.matches?.length || 0) === 0 ? (
+                    <Card className="p-8 text-center border-dashed">
+                      <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Were Found</h4>
+                    </Card>
+                  ) : (
+                    viewingHistoryResult.matches.map((match: any, index: number) => (
+                      <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 text-purple-700 dark:text-purple-300 font-bold text-sm">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <h4 className={`font-semibold ${getGenderColorClass(match.gender)}`}>
+                                  {match.employeeName}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {getMatchTypeBadge(match.matchType)}
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Score: {match.matchScore?.toFixed(0) || 'N/A'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right text-sm">
+                              <div className="font-semibold text-green-600 dark:text-green-400">
+                                {match.remainingCapacity?.toFixed(1) || '?'}h remaining
+                              </div>
+                            </div>
+                          </div>
+                          {match.matchedSlots?.length > 0 && (
+                            <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
+                              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Available Slots:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {match.matchedSlots.map((slot: any, si: number) => (
+                                  <div key={si} className={`text-xs px-2.5 py-1.5 rounded-md border ${
+                                    slot.matchType === 'exact'
+                                      ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300'
+                                      : slot.matchType === 'adjusted-time'
+                                      ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300'
+                                      : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300'
+                                  }`}>
+                                    <span className="font-medium">{slot.dayLabel}</span>
+                                    <span className="mx-1">|</span>
+                                    <span>{slot.availableWindow}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 py-2">
+                  {historyQuery.isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
+                      <span className="text-gray-500">Loading history...</span>
+                    </div>
+                  ) : !historyQuery.data?.length ? (
+                    <Card className="p-8 text-center border-dashed">
+                      <History className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Enquiries Yet</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Run a client match search and it will be saved here automatically.
+                      </p>
+                    </Card>
+                  ) : (
+                    historyQuery.data.map((enquiry: any) => {
+                      const days = Array.isArray(enquiry.requiredDays) ? enquiry.requiredDays : [];
+                      const tw = enquiry.preferredTimeWindow || {};
+                      return (
+                        <Card key={enquiry.id} className="p-3 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                  {enquiry.clientName}
+                                </h4>
+                                {enquiry.matchCount > 0 ? (
+                                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700 text-xs">
+                                    {enquiry.matchCount} match{enquiry.matchCount !== 1 ? 'es' : ''}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">No matches</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <span>{days.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(', ')}</span>
+                                <span>{tw.start || '?'} - {tw.end || '?'}</span>
+                                <span>{enquiry.visitDurationMinutes}min</span>
+                                {enquiry.genderPreference && enquiry.genderPreference !== 'any' && (
+                                  <span className="capitalize">{enquiry.genderPreference}</span>
+                                )}
+                                {enquiry.topMatch && (
+                                  <span className="text-purple-600 dark:text-purple-400">Top: {enquiry.topMatch}</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                {new Date(enquiry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 ml-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const resultData = enquiry.results as MatchResult;
+                                  if (resultData) {
+                                    setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName });
+                                  }
+                                }}
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteEnquiryMutation.mutate(enquiry.id)}
+                                disabled={deleteEnquiryMutation.isPending}
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })
+                  )}
+                </div>
+              )
+            ) : !results ? (
               <div className="space-y-5 py-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

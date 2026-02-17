@@ -24,6 +24,8 @@ import {
   type InsertTravelTimeCache,
   type WeeklySchedule,
   type InsertWeeklySchedule,
+  type ClientEnquiry,
+  type InsertClientEnquiry,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -32,7 +34,7 @@ import {
   employeeLocations, clientLocations, visits, 
   routePlans, routeStops, geocodeCache, 
   weeklySchedules, branchSchedulingPreferences,
-  travelTimeCache
+  travelTimeCache, clientEnquiries
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
@@ -100,6 +102,10 @@ export interface IStorage {
 
   getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference>;
   saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference>;
+
+  saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry>;
+  getClientEnquiries(branchId: string, limit?: number): Promise<ClientEnquiry[]>;
+  deleteClientEnquiry(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -536,6 +542,22 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return result;
   }
+
+  async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
+    const [result] = await db.insert(clientEnquiries).values(enquiry).returning();
+    return result;
+  }
+
+  async getClientEnquiries(branchId: string, limit: number = 50): Promise<ClientEnquiry[]> {
+    return await db.select().from(clientEnquiries)
+      .where(eq(clientEnquiries.branchId, branchId))
+      .orderBy(desc(clientEnquiries.createdAt))
+      .limit(limit);
+  }
+
+  async deleteClientEnquiry(id: string): Promise<void> {
+    await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -692,6 +714,22 @@ export class MemStorage implements IStorage {
     const result: BranchSchedulingPreference = { ...preference, id, updatedAt: new Date(), excludedServiceTypes: preference.excludedServiceTypes || [] };
     this.branchSchedulingPreferences.set(preference.branchId, result);
     return result;
+  }
+
+  async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
+    const [result] = await db.insert(clientEnquiries).values(enquiry).returning();
+    return result;
+  }
+
+  async getClientEnquiries(branchId: string, limit: number = 50): Promise<ClientEnquiry[]> {
+    return await db.select().from(clientEnquiries)
+      .where(eq(clientEnquiries.branchId, branchId))
+      .orderBy(desc(clientEnquiries.createdAt))
+      .limit(limit);
+  }
+
+  async deleteClientEnquiry(id: string): Promise<void> {
+    await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
   }
 }
 
