@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
 
 import { logger } from "./logger";
+import { matchClientEnquiry, type ClientEnquiryCriteria } from "./bdMatcher";
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -1445,6 +1446,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message,
         error: safeErrorMessage(error, 'Unknown error')
       });
+    }
+  });
+
+  app.post('/api/bd-matcher', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const latestData = await storage.getLatestCapacityAnalysis(branchId);
+      if (!latestData) {
+        return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
+      }
+
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, visitDurationMinutes, weeklyHoursNeeded } = req.body;
+
+      if (!clientName || !requiredDays || !preferredTimeWindow || !visitDurationMinutes) {
+        return res.status(400).json({ message: 'Missing required fields: clientName, requiredDays, preferredTimeWindow, visitDurationMinutes' });
+      }
+
+      const criteria: ClientEnquiryCriteria = {
+        clientName,
+        postcode,
+        genderPreference: genderPreference || 'any',
+        requiredDays,
+        preferredTimeWindow,
+        visitDurationMinutes: Number(visitDurationMinutes),
+        weeklyHoursNeeded: weeklyHoursNeeded ? Number(weeklyHoursNeeded) : undefined,
+      };
+
+      const result = matchClientEnquiry(criteria, latestData);
+      res.json(result);
+    } catch (error) {
+      logger.error('BD Matcher error', error);
+      const message = safeErrorMessage(error, 'Failed to match client enquiry');
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
     }
   });
 
