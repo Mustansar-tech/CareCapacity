@@ -745,9 +745,11 @@ function buildScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
     // This ensures shadowing/office hours entries with empty Actual fields still get counted
     const { start, end } = resolveServiceTimestamps(g);
     if (!start) {
-      // Debug: log when we skip due to no start time
       const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-      if (empName && (empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont"))) {
+      if (empName && (
+        empName.toLowerCase().includes("chloe") || empName.toLowerCase().includes("mcclymont") ||
+        empName.toLowerCase().includes("palmer") || empName.toLowerCase().includes("campbell")
+      )) {
         logger.debug(`SKIPPING entry for ${empName} - no start timestamp (Actual, Planned, or SR)`);
       }
       continue;
@@ -1638,14 +1640,22 @@ export async function parseExcelFiles(
       }
       const payHours = Number(row["Actual Pay Rate Hours"]) || 0;
       
-      // Debug logging for Chloe's shadowing entries
-      if (empName && (String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont"))) {
-        logger.debug(`CHLOE VALIDATION CHECK (row ${index + 1}):`);
+      // Debug logging for tracked employees
+      if (empName && (
+        String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont") ||
+        String(empName).toLowerCase().includes("palmer") || String(empName).toLowerCase().includes("campbell")
+      )) {
+        logger.debug(`TRACKED EMPLOYEE VALIDATION CHECK (row ${index + 1}):`);
         logger.debug(`  Service Type: "${serviceType}"`);
         logger.debug(`  isOfficeHours: ${isOfficeHours}`);
-        logger.debug(`  Employee Name: "${empName}"`);
+        logger.debug(`  isNightShift: ${isNightShift}`);
+        logger.debug(`  Actual Employee Name: "${row["Actual Employee Name"]}"`);
+        logger.debug(`  Planned Employee Name: "${row["Planned Employee Name"]}"`);
+        logger.debug(`  empName (resolved): "${empName}"`);
         logger.debug(`  Pay Hours Raw: "${row["Actual Pay Rate Hours"]}" -> ${payHours}`);
+        logger.debug(`  Hours Per Week: "${row["Actual Employee Hours Per Week"]}"`);
         logger.debug(`  Start: "${start}", End: "${end}"`);
+        logger.debug(`  Cancellation: "${row["Cancellation Description"]}"`);
       }
 
       if (isOfficeHours) {
@@ -1658,23 +1668,15 @@ export async function parseExcelFiles(
         }
       } else {
         // Standard validation for regular visits
-        const actualHoursPerWeek = row["Actual Employee Hours Per Week"];
-        const actualPayRateHours = row["Actual Pay Rate Hours"];
-        
+        // Use empName (which falls back to Planned Employee Name) instead of only Actual Employee Name
+        // Pay hours validation is handled downstream by buildScheduledHoursLookup (only adds pay > 0)
         if (
-          !row["Actual Employee Name"] ||
-          (actualHoursPerWeek !== 0 && !actualHoursPerWeek && typeof actualHoursPerWeek !== "number") ||
-          (actualPayRateHours !== 0 && !actualPayRateHours && typeof actualPayRateHours !== "number") ||
+          !empName ||
           !start ||
           !end
         ) {
-          // PROACTIVE LOGGING: Why are we skipping this row?
           if (!empName) {
-            logger.debug(`Guaranteed hours row ${index + 1}: SKIPPED - Missing employee name`);
-          } else if (actualHoursPerWeek !== 0 && !actualHoursPerWeek) {
-            logger.debug(`Guaranteed hours row ${index + 1} (${empName}): SKIPPED - Missing hours per week (Value: ${actualHoursPerWeek})`);
-          } else if (actualPayRateHours !== 0 && !actualPayRateHours) {
-            logger.debug(`Guaranteed hours row ${index + 1} (${empName}): SKIPPED - Missing pay rate hours (Value: ${actualPayRateHours})`);
+            logger.debug(`Guaranteed hours row ${index + 1}: SKIPPED - Missing employee name (Actual: "${row["Actual Employee Name"]}", Planned: "${row["Planned Employee Name"]}")`);
           } else {
             logger.debug(`Guaranteed hours row ${index + 1} (${empName}): SKIPPED - Missing timestamps (Start: ${start}, End: ${end})`);
           }
@@ -1709,9 +1711,11 @@ export async function parseExcelFiles(
         return;
       }
       
-      // Debug: Log when Chloe's shadowing entry passes validation
-      if (empName && (String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont"))) {
-        logger.debug(`  CHLOE ROW ${index + 1} PASSED VALIDATION - adding to validatedGuaranteed`);
+      if (empName && (
+        String(empName).toLowerCase().includes("chloe") || String(empName).toLowerCase().includes("mcclymont") ||
+        String(empName).toLowerCase().includes("palmer") || String(empName).toLowerCase().includes("campbell")
+      )) {
+        logger.debug(`  TRACKED EMPLOYEE ROW ${index + 1} (${empName}) PASSED VALIDATION - adding to validatedGuaranteed`);
       }
 
       validatedGuaranteed.push(row);
