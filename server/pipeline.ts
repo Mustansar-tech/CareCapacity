@@ -2706,6 +2706,13 @@ export async function processCapacityData(
     let adhocCount = 0;
     scheduledHoursMap.forEach((schedHours, key) => {
       if (schedHours <= 0) return;
+      
+      // Case-insensitive check for Palmer and Campbell
+      const upperKey = key.toUpperCase();
+      if (upperKey.includes("PALMER") || upperKey.includes("CAMPBELL")) {
+        logger.debug(`[PROACTIVE] Found target employee in scheduledHoursMap: ${key} = ${schedHours}h`);
+      }
+
       if (employeesAlreadyCounted.has(key)) return;
 
       const pipeIdx = key.lastIndexOf("|");
