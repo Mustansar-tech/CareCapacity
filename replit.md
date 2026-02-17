@@ -42,7 +42,7 @@ The application is designed for care home scheduling teams and business developm
 ### Feature Specifications
 
 - **File Upload & Processing:** Handles four required Excel files (Availability Export, Care Pro Guaranteed Hours, Hours by Service Type, CG Data Export) with flexible column matching, status canonicalization, and robust error handling.
-- **Overview Tab:** Executive dashboard with KPIs like Net Capacity, Client Required, Capacity Gap, Unavailability, and Holidays.
+- **Overview Tab:** Executive dashboard with 9 KPI cards (Net Capacity, Client Required, Scheduled Hours, Unavailability, Holidays, Sickness, etc.).
 - **Daily Capacity Tab:** Day-by-day analysis with a daily summary table, employee drill-down, gender-based color coding, and transport mode indicators.
 - **Employee Summary Tab:** Comprehensive metrics per employee, including contracted vs. scheduled hours, availability patterns, and free windows calculation.
 - **BD Matrix (Business Development):** A 7-day heatmap visually displaying employee availability for business development opportunities.
@@ -56,31 +56,49 @@ The application is designed for care home scheduling teams and business developm
 - **Analytics Tab:** Interactive visualizations (bar, line, area, pie charts) for daily comparisons, trend analysis, and data distribution, along with a data quality panel.
 - **Export Tab:** Comprehensive Excel reports including cleaned data, daily summary, and employee details.
 
-### Advanced Data Processing
+### Core Data Parsing & Validation Logic
 
-- **Smart Time Window Management:** Distinguishes "Day-Killers" (e.g., Holiday, Sick) from "Time-Killers" (e.g., Appointment) and enforces minimum bookable windows. Includes "Partial Availability" detection for business development.
-- **Enhanced Status Intelligence:** Canonical status mapping, typo handling, and "Ad-Hoc Status Highlighting" for scheduled visits without availability records.
-- **Geocoding & Travel Time Calculation:** Multi-level geocoding cache with Haversine distance × 1.2 road factor (UK roads), car speed 35 km/h (realistic for care delivery including parking/door-to-door), minimum 5 min car travel, walkers/public at 15 km/h + 15 min overhead + 15 min minimum. Strict 45-minute maximum travel cap on all legs. Features a "soft limit" scoring with exponential penalties rather than rigid rejections.
-- **Travel Compression Logic:** Allows a "travel time extra" allowance where travel exceeding gaps by up to 15 minutes is accepted through smart start-time shifting.
-- **Branch-Specific Preferences:** Support for per-branch scheduling preferences, including excluded service types, custom travel limits, and employee exclusions.
-- **Weekly Contracted Hours (Net Capacity):** Integrates guaranteed hours from the master employee file to calculate and display net capacity, used for weekly constraint enforcement.
+The system follows strict rules for data extraction and validation to ensure 100% accuracy in scheduled hours reporting:
+
+#### 1. Employee Name Resolution (The Fallback Chain)
+To prevent missing hours when data is incomplete:
+- **Primary Source:** "Actual Employee Name"
+- **Secondary Fallback:** "Planned Employee Name" (used if "Actual" is empty)
+- **Third Fallback:** "Service Requirement" metadata (used for shadowing/office hours)
+- This ensures employees like Palmer and Campbell (who often only have "Planned" entries) are always captured.
+
+#### 2. Scheduled Hours Calculation (Care Pro Guaranteed Hours)
+- **Validation:** Every row must have a name (either Actual or Planned) and valid timestamps.
+- **Ad-Hoc Injection:** Any employee found in the schedule file who is *not* in the main employee database is automatically "injected" as an ad-hoc employee.
+- **Zero-Hour Support:** Employees with 0 contracted weekly hours are fully supported and their scheduled visits are counted in all totals.
+- **Night Visit Exclusion:** Rows marked with "Night", "Sleep In", "Waking", or "Overnight" are excluded from capacity and scheduled totals per business rules.
+- **Cancellation Logic:** Only rows with a blank "Cancellation Description" are counted towards scheduled totals.
+
+#### 3. Capacity Formulas (Net Capacity)
+- **Gross Capacity:** Total available hours from Availability Export.
+- **Deductions:** (Unavailability + Sickness + Holidays).
+- **Net Capacity Formula:** strictly follows: `Gross Available Hours - Unavailability - Sickness - Holidays`.
+- **Capping Logic:** Deductions (Sickness/Holidays) are capped at the employee's daily contracted hours to prevent negative capacity.
+
+#### 4. Time Window Management
+- **Day-Killers:** Statuses like "Holiday" or "Sick" wipe out the entire day's capacity.
+- **Time-Killers:** Statuses like "Appointment" or "Personal" only subtract specific windows.
+- **Minimum Bookable Window:** Windows shorter than 45 minutes are ignored for capacity but still shown as unavailable.
 
 ### Production Security (Feb 2026)
 
-- **Structured Logging:** All server files use centralized `server/logger.ts` that suppresses debug/info output in production, formats as JSON for log aggregation, and strips stack traces from error logs. All client files use `client/src/lib/logger.ts` that suppresses ALL console output in production.
-- **Safe Error Responses:** API error responses use `safeErrorMessage()` helper to prevent internal error messages, stack traces, and file paths from reaching clients in production. The global error handler returns generic messages for all error status codes in production.
-- **Request Logging Sanitized:** API request middleware no longer captures or logs response body content, preventing sensitive data leakage in server logs.
-- **Security Headers:** X-Frame-Options, X-Content-Type-Options, XSS Protection, HSTS (production), CSP, Referrer-Policy, and Permissions-Policy all configured.
-- **Rate Limiting:** Applied to all `/api` routes in production mode.
-- **Input Sanitization:** XSS vector removal via `sanitizeInput()` utility.
+- **Structured Logging:** All server files use centralized `server/logger.ts` that suppresses debug/info output in production, formats as JSON for log aggregation, and strips stack traces from error logs.
+- **Safe Error Responses:** API error responses use `safeErrorMessage()` helper to prevent internal error messages, stack traces, and file paths from reaching clients in production.
+- **Security Headers:** Comprehensive CSP, HSTS, and XSS protection configured.
+- **Rate Limiting:** Applied to all `/api` routes in production.
 
 ### Data Privacy & Retention
 
-- **Configurable Retention:** Default 3-month data retention with user-controlled cleanup options and historical data browsing.
-- **Data Governance:** Secure session management, environment-based configuration, automatic cleanup scheduling, and compliance-ready audit trails.
+- **Configurable Retention:** Default 3-month data retention with user-controlled cleanup options.
+- **Data Governance:** Secure session management and compliance-ready audit trails.
 
 ## External Dependencies
 
-- **PostgreSQL (Neon serverless):** Primary database for storing application data.
-- **Google Maps API (or similar geocoding service):** Implicitly used for geocoding functionality, though not explicitly named as a direct dependency in the provided text, the geocoding cache implies its usage.
+- **PostgreSQL (Neon serverless):** Primary database.
+- **Google Maps API:** Used for geocoding and travel time calculations.
 - **XLSX library:** For reading and writing Excel files.
