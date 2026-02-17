@@ -352,28 +352,66 @@ function ClientEnquiryMatcher() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="timeStart">Preferred Start Time *</Label>
-                    <Input
-                      id="timeStart"
-                      type="time"
-                      step="900"
-                      value={timeStart}
-                      onChange={(e) => setTimeStart(e.target.value)}
-                    />
+                    <div className="flex gap-2">
+                      <Select value={timeStart.split(':')[0]} onValueChange={(h) => setTimeStart(`${h}:${timeStart.split(':')[1]}`)}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 24 }).map((_, i) => (
+                            <SelectItem key={i} value={i.toString().padStart(2, '0')}>
+                              {i.toString().padStart(2, '0')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="flex items-center">:</span>
+                      <Select value={timeStart.split(':')[1]} onValueChange={(m) => setTimeStart(`${timeStart.split(':')[0]}:${m}`)}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['00', '15', '30', '45'].map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="timeEnd">Preferred End Time *</Label>
-                    <Input
-                      id="timeEnd"
-                      type="time"
-                      step="900"
-                      value={timeEnd}
-                      onChange={(e) => setTimeEnd(e.target.value)}
-                    />
+                    <div className="flex gap-2">
+                      <Select value={timeEnd.split(':')[0]} onValueChange={(h) => setTimeEnd(`${h}:${timeEnd.split(':')[1]}`)}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 24 }).map((_, i) => (
+                            <SelectItem key={i} value={i.toString().padStart(2, '0')}>
+                              {i.toString().padStart(2, '0')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="flex items-center">:</span>
+                      <Select value={timeEnd.split(':')[1]} onValueChange={(m) => setTimeEnd(`${timeEnd.split(':')[0]}:${m}`)}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['00', '15', '30', '45'].map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="weeklyHours">Minimum Weekly Capacity Needed (hours)</Label>
