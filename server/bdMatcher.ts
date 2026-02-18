@@ -128,7 +128,9 @@ function getDayLabel(dateStr: string): string {
 function getDayAbbrev(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
   const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  return days[d.getDay()];
+  const abbrev = days[d.getDay()];
+  logger.debug(`getDayAbbrev: date=${dateStr}, day=${d.getDay()}, abbrev=${abbrev}`);
+  return abbrev;
 }
 
 // Company's 11 standardized time blocks
@@ -287,7 +289,8 @@ async function matchEmployeesForVisit(
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
   const visitDuration = 60;
 
-  logger.debug(`Matching for visit: gender=${genderPreference}, days=[${requiredDays.join(',')}], time=${preferredTimeWindow.start}-${preferredTimeWindow.end}`);
+  // LOG INPUT CRITERIA
+  logger.debug(`[BD_MATCHER_MATCH_VISIT_INPUT] gender=${genderPreference}, days=${JSON.stringify(requiredDays)}, time=${preferredTimeWindow.start}-${preferredTimeWindow.end}, dates_count=${dates.length}`);
 
   const datesByDay = new Map<string, string[]>();
   for (const dateStr of dates) {
@@ -296,6 +299,8 @@ async function matchEmployeesForVisit(
     existing.push(dateStr);
     datesByDay.set(dayAbbrev, existing);
   }
+  
+  logger.debug(`[BD_MATCHER_DATES_BY_DAY] ${JSON.stringify(Object.fromEntries(datesByDay))}`);
 
   const branchId = Array.from(employeeWeeklyData.values())[0] ? (dates.length > 0 ? null : null) : null; 
 
