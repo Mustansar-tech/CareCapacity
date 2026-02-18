@@ -348,62 +348,89 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   );
 }
 
-function MatchResultsCard({ match, index }: { match: MatchedEmployee; index: number }) {
+function MatchResultsGrid({ result }: { result: MultiVisitResult }) {
+  const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
+
   return (
-    <Card className="p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-      <div className="space-y-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 text-purple-700 dark:text-purple-300 font-bold text-sm">
-              {index + 1}
-            </div>
-            <div>
-              <h4 className={`font-semibold ${getGenderColorClass(match.gender)}`}>
-                {match.employeeName}
-              </h4>
-              <div className="flex items-center gap-2 mt-0.5">
-                {getMatchTypeBadge(match.matchType)}
-                <TransportModeIcon transportMode={match.transportMode} />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Score: {match.matchScore?.toFixed(0) || 'N/A'}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="text-right text-sm">
-            <div className="text-gray-600 dark:text-gray-400">
-              {match.contractedWeeklyHours?.toFixed(1) || '?'}h contracted/week
-            </div>
-            <div className="text-blue-600 dark:text-blue-400">
-              {match.totalScheduledHours?.toFixed(1) || '?'}h scheduled
-            </div>
-            <div className="font-semibold text-green-600 dark:text-green-400">
-              {match.remainingCapacity?.toFixed(1) || '?'}h remaining
-            </div>
-          </div>
-        </div>
-        {match.matchedSlots?.length > 0 && (
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
-            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Available Slots:</div>
-            <div className="flex flex-wrap gap-2">
-              {match.matchedSlots.map((slot: any, si: number) => (
-                <div key={si} className={`text-xs px-2.5 py-1.5 rounded-md border ${
-                  slot.matchType === 'exact'
-                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300'
-                    : slot.matchType === 'adjusted-time'
-                    ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300'
-                    : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300'
-                }`}>
-                  <span className="font-medium">{slot.dayLabel}</span>
-                  <span className="mx-1">|</span>
-                  <span>{slot.availableWindow}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </Card>
+    <div className="overflow-x-auto border rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+      <table className="w-full border-collapse text-[10px] leading-tight">
+        <thead>
+          <tr className="bg-gray-50 dark:bg-gray-900/50">
+            <th className="border p-2 min-w-[160px] text-left font-bold text-gray-700 dark:text-gray-300">Requirement</th>
+            {dayLabels.map(label => (
+              <th key={label} className="border p-2 min-w-[130px] text-center font-bold text-gray-700 dark:text-gray-300">{label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {result.visitResults.map((vr) => (
+            <React.Fragment key={vr.visitIndex}>
+              {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
+                const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
+                
+                return (
+                  <tr key={`${vr.visitIndex}-${cpIdx}`}>
+                    <td className="border p-2 align-top bg-gray-50/30 dark:bg-gray-900/10">
+                      <div className="font-bold text-purple-700 dark:text-purple-400 mb-1 uppercase">
+                        CP{cpIdx + 1}: {genderLabel} Only
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-gray-400">Name</div>
+                        <div className="text-gray-400">Time Suggested</div>
+                        <div className="text-gray-400">Driver / Walker</div>
+                        <div className="text-gray-400">Hours complete / Desired Hours (week)</div>
+                        <div className="text-[9px] text-gray-400 mt-2 border-t pt-1">Exact time green, adjusted time is orange</div>
+                      </div>
+                    </td>
+                    {days.map(day => {
+                      const employeeMatch = vr.matches[cpIdx]; 
+                      const slotOnDay = employeeMatch?.matchedSlots.find(s => {
+                        const date = new Date(s.day + 'T12:00:00');
+                        const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+                        return dayAbbrev === day;
+                      });
+
+                      if (!employeeMatch || !slotOnDay) {
+                        return <td key={day} className="border p-2 bg-gray-50/5 dark:bg-gray-900/2"></td>;
+                      }
+
+                      const isExact = slotOnDay.matchType === 'exact';
+                      const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
+                      
+                      return (
+                        <td key={day} className="border p-2 align-top hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors">
+                          <div className="space-y-1">
+                            <div className="h-3 opacity-0">—</div> 
+                            <div className="font-bold text-gray-900 dark:text-gray-100 truncate text-[11px]" title={employeeMatch.employeeName}>
+                              {employeeMatch.employeeName}
+                            </div>
+                            <div className={`font-bold text-[11px] ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                              {slotOnDay.availableWindow}
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                              <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
+                            </div>
+                            <div className="text-gray-600 dark:text-gray-400 font-medium">
+                              {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
+                            </div>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+              <tr className="h-2 bg-gray-100/50 dark:bg-gray-800/30">
+                <td colSpan={8} className="border-x"></td>
+              </tr>
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -892,66 +919,24 @@ function ClientEnquiryMatcher() {
                   </Button>
                 </div>
 
-                {multiResults.visitResults.length === 1 ? (
-                  <div className="space-y-3">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
-                      <span>CPs needed: {multiResults.visitResults[0].careProsRequired}</span>
-                      <span>&middot;</span>
-                      <span>Gender: {multiResults.visitResults[0].genderPreferences.map((g, gi) => `CP${gi + 1}: ${g}`).join(', ')}</span>
-                      <span>&middot;</span>
-                      <span>{multiResults.visitResults[0].totalEmployeesEvaluated} employees evaluated</span>
-                    </div>
-                    {multiResults.visitResults[0].matches.length === 0 ? (
-                      <Card className="p-8 text-center border-dashed">
-                        <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                        <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Found</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Try adjusting the time window, reducing required days, or changing gender preference.
+                {multiResults && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600">
+                          Matches for {clientName}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {multiResults.totalVisits} visits • {multiResults.visitResults.reduce((acc, vr) => acc + vr.matches.length, 0)} total matches
                         </p>
-                      </Card>
-                    ) : (
-                      multiResults.visitResults[0].matches.map((match, index) => (
-                        <MatchResultsCard key={index} match={match} index={index} />
-                      ))
-                    )}
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={handleReset}>
+                        Clear Results
+                      </Button>
+                    </div>
+
+                    <MatchResultsGrid result={multiResults} />
                   </div>
-                ) : (
-                  <Tabs value={activeResultTab} onValueChange={setActiveResultTab}>
-                    <TabsList className="mb-3">
-                      {multiResults.visitResults.map((vr, vi) => (
-                        <TabsTrigger key={vi} value={String(vi)} className="text-xs">
-                          {vr.visitLabel}
-                          <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">
-                            {vr.matches.length}
-                          </Badge>
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                    {multiResults.visitResults.map((vr, vi) => (
-                      <TabsContent key={vi} value={String(vi)} className="space-y-3">
-                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
-                          <span>CPs needed: {vr.careProsRequired}</span>
-                          <span>&middot;</span>
-                          <span>Gender: {vr.genderPreferences.map((g, gi) => `CP${gi + 1}: ${g}`).join(', ')}</span>
-                          <span>&middot;</span>
-                          <span>{vr.totalEmployeesEvaluated} employees evaluated</span>
-                        </div>
-                        {vr.matches.length === 0 ? (
-                          <Card className="p-6 text-center border-dashed">
-                            <XCircle className="w-10 h-10 mx-auto mb-2 text-gray-400" />
-                            <h4 className="font-medium text-gray-600 dark:text-gray-300 text-sm">No Matches Found</h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Try adjusting the time window or gender preference for this visit.
-                            </p>
-                          </Card>
-                        ) : (
-                          vr.matches.map((match, mi) => (
-                            <MatchResultsCard key={mi} match={match} index={mi} />
-                          ))
-                        )}
-                      </TabsContent>
-                    ))}
-                  </Tabs>
                 )}
               </div>
             )}
