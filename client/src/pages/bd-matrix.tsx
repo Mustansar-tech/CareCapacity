@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight,
-  History, Trash2, Plus, Minus
+  History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -248,46 +248,46 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Care Pros Required</Label>
-          <div className="flex items-center gap-2">
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-5">
+        <div className="space-y-2.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Care Pros Required</Label>
+          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => handleCareProsChange(visit.careProsRequired - 1)}
               disabled={visit.careProsRequired <= 1}
-              className="h-8 w-8 p-0"
+              className="h-9 w-9 p-0 rounded-lg border-gray-200"
             >
-              <Minus className="w-3 h-3" />
+              <Minus className="w-3.5 h-3.5" />
             </Button>
-            <span className="text-lg font-semibold w-8 text-center">{visit.careProsRequired}</span>
+            <span className="text-2xl font-black w-10 text-center text-purple-700 dark:text-purple-400">{visit.careProsRequired}</span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => handleCareProsChange(visit.careProsRequired + 1)}
               disabled={visit.careProsRequired >= 3}
-              className="h-8 w-8 p-0"
+              className="h-9 w-9 p-0 rounded-lg border-gray-200"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Gender Preference per CP</Label>
-          <div className="space-y-1.5">
+        <div className="space-y-2.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Gender Preference</Label>
+          <div className="space-y-2">
             {Array.from({ length: visit.careProsRequired }).map((_, cpIdx) => (
               <div key={cpIdx} className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10">CP{cpIdx + 1}:</span>
+                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 w-8 uppercase tracking-wider">CP{cpIdx + 1}</span>
                 <Select
                   value={visit.genderPreferences[cpIdx] || 'any'}
                   onValueChange={(v) => handleGenderChange(cpIdx, v)}
                 >
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-9 text-xs font-medium bg-white dark:bg-gray-900 border-gray-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -302,8 +302,8 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Required Days *</Label>
+      <div className="space-y-2.5">
+        <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Required Days *</Label>
         <div className="flex flex-wrap gap-2">
           {DAY_OPTIONS.map(day => (
             <Button
@@ -313,8 +313,8 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
               size="sm"
               onClick={() => handleDayToggle(day.value)}
               className={visit.selectedDays.includes(day.value)
-                ? "bg-purple-600 hover:bg-purple-700 text-white"
-                : ""}
+                ? "bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-md shadow-purple-500/20 px-4"
+                : "font-bold border-gray-200 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 px-4"}
             >
               {day.label}
             </Button>
@@ -322,26 +322,32 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Preferred Start Time *</Label>
-          <Input
-            type="time"
-            step="900"
-            value={visit.timeStart}
-            onChange={(e) => onChange({ ...visit, timeStart: e.target.value })}
-            className="w-full"
-          />
+      <div className="grid grid-cols-2 gap-5">
+        <div className="space-y-2.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Start Time *</Label>
+          <div className="relative group">
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+            <Input
+              type="time"
+              step="900"
+              value={visit.timeStart}
+              onChange={(e) => onChange({ ...visit, timeStart: e.target.value })}
+              className="pl-10 h-11 bg-white dark:bg-gray-900 border-gray-200 focus:ring-2 focus:ring-purple-500/20"
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Preferred End Time *</Label>
-          <Input
-            type="time"
-            step="900"
-            value={visit.timeEnd}
-            onChange={(e) => onChange({ ...visit, timeEnd: e.target.value })}
-            className="w-full"
-          />
+        <div className="space-y-2.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">End Time *</Label>
+          <div className="relative group">
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+            <Input
+              type="time"
+              step="900"
+              value={visit.timeEnd}
+              onChange={(e) => onChange({ ...visit, timeEnd: e.target.value })}
+              className="pl-10 h-11 bg-white dark:bg-gray-900 border-gray-200 focus:ring-2 focus:ring-purple-500/20"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -642,408 +648,461 @@ function ClientEnquiryMatcher() {
     <>
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setMultiResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
         <DialogTrigger asChild>
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg">
-            <Search className="w-4 h-4 mr-2" />
+          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg font-bold gap-2">
+            <UserCheck className="w-4 h-4" />
             Client Enquiry Matcher
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-lg">
-              <UserCheck className="w-5 h-5 text-purple-600" />
-              {showHistory ? 'Enquiry History' : 'Client Enquiry Matcher'}
-            </DialogTitle>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl">
+          {/* Gradient Header */}
+          <div className="px-6 py-5 bg-gradient-to-r from-purple-700 to-indigo-800 text-white rounded-t-lg">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {showHistory
-                  ? `${historyQuery.data?.length || 0} saved enquiries`
-                  : 'Enter client requirements — use tabs for multiple daily visits. Fill each visit tab then click Find Matches.'}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
-                className={showHistory ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700' : ''}
-              >
-                {showHistory ? (
-                  <><Search className="w-4 h-4 mr-1" /> New Search</>
-                ) : (
-                  <><History className="w-4 h-4 mr-1" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
-                )}
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur-sm">
+                  <UserCheck className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold tracking-tight text-white">
+                    Client Enquiry Matcher
+                  </DialogTitle>
+                  <DialogDescription className="text-purple-200/80 text-xs font-medium mt-0.5 uppercase tracking-wider">
+                    Care Capacity Intelligence v2.0
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
+                  className="gap-2 font-bold text-xs shadow-sm"
+                >
+                  {showHistory ? (
+                    <><Search className="w-3.5 h-3.5" /> New Search</>
+                  ) : (
+                    <><History className="w-3.5 h-3.5" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
+                  )}
+                </Button>
+              </div>
             </div>
-          </DialogHeader>
+          </div>
 
-          <ScrollArea className="flex-1 overflow-y-auto pr-2">
+          {/* Content Area */}
+          <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-950/50">
             {showHistory ? (
               viewingHistoryResult ? (
-                <div className="space-y-4 py-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                        Results for {viewingHistoryResult.clientName}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {viewingHistoryResult.totalVisits
-                          ? `${viewingHistoryResult.totalVisits} visit(s)`
-                          : `${viewingHistoryResult.matches?.length || 0} match(es)`}
-                        {viewingHistoryResult.createdAt && (
-                          <> &middot; {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
-                        )}
-                      </p>
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                        <History className="w-5 h-5 text-purple-700 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            {viewingHistoryResult.clientName}
+                          </h3>
+                          <Badge className="bg-purple-600 text-white font-bold text-[10px] px-2 uppercase tracking-wider">Archived</Badge>
+                        </div>
+                        <p className="text-xs font-medium text-gray-500 mt-0.5 flex items-center gap-3">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {viewingHistoryResult.postcode || 'No postcode'}
+                          </span>
+                          {viewingHistoryResult.createdAt && (
+                            <>
+                              <span className="w-1 h-1 rounded-full bg-gray-300" />
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setViewingHistoryResult(null)}>
-                      <ArrowRight className="w-4 h-4 mr-1 rotate-180" />
-                      Back to History
+                    <Button variant="outline" size="sm" onClick={() => setViewingHistoryResult(null)} className="gap-2 font-bold">
+                      <ArrowRight className="w-4 h-4 rotate-180" />
+                      Back
                     </Button>
                   </div>
 
-                  {viewingHistoryResult.visitResults ? (
-                    <Tabs defaultValue="0">
-                      <TabsList className="mb-3">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-4">
+                    {viewingHistoryResult.visitResults ? (
+                      <Tabs defaultValue="0" className="w-full">
+                        <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1 mb-4">
+                          {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
+                            <TabsTrigger key={vi} value={String(vi)} className="px-4 py-2 text-xs font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-sm rounded-lg transition-all">
+                              <div className="flex items-center gap-2">
+                                <span>{vr.visitLabel || `Visit ${vi + 1}`}</span>
+                                <div className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold text-[10px] min-w-[20px] text-center">
+                                  {vr.matches?.length || 0}
+                                </div>
+                              </div>
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
                         {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
-                          <TabsTrigger key={vi} value={String(vi)} className="text-xs">
-                            {vr.visitLabel || `Visit ${vi + 1}`}
-                            <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">
-                              {vr.matches?.length || 0}
-                            </Badge>
-                          </TabsTrigger>
+                          <TabsContent key={vi} value={String(vi)} className="mt-0 space-y-4">
+                            <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/30 text-xs font-bold text-gray-500">
+                              <span className="flex items-center gap-1.5">
+                                <Users className="w-3.5 h-3.5 text-purple-600" />
+                                CPs: {vr.careProsRequired || 1}
+                              </span>
+                              <span className="w-px h-4 bg-purple-200/50" />
+                              <span className="flex items-center gap-1.5">
+                                <Star className="w-3.5 h-3.5 text-blue-600" />
+                                Gender: {(vr.genderPreferences || ['any']).map((g: string, gi: number) => `CP${gi + 1}: ${g}`).join(', ')}
+                              </span>
+                            </div>
+                            {(vr.matches?.length || 0) === 0 ? (
+                              <div className="p-16 text-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl">
+                                <XCircle className="w-12 h-12 mx-auto mb-4 text-gray-200" />
+                                <h4 className="font-bold text-gray-400">No Matches Found</h4>
+                              </div>
+                            ) : (
+                              <MatchResultsGrid 
+                                result={{
+                                  ...viewingHistoryResult.results,
+                                  visitResults: [vr]
+                                }} 
+                                requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || []}
+                              />
+                            )}
+                          </TabsContent>
                         ))}
-                      </TabsList>
-                      {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
-                        <TabsContent key={vi} value={String(vi)} className="space-y-3">
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                            CPs needed: {vr.careProsRequired || 1} &middot;
-                            Gender: {(vr.genderPreferences || ['any']).map((g: string, gi: number) => `CP${gi + 1}: ${g}`).join(', ')}
-                          </div>
-                          {(vr.matches?.length || 0) === 0 ? (
-                            <Card className="p-6 text-center border-dashed">
-                              <XCircle className="w-10 h-10 mx-auto mb-2 text-gray-400" />
-                              <h4 className="font-medium text-gray-600 dark:text-gray-300 text-sm">No Matches Found</h4>
-                            </Card>
-                          ) : (
-                            <MatchResultsGrid 
-                              result={{
-                                ...viewingHistoryResult.results,
-                                visitResults: [vr]
-                              }} 
-                              requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || []}
-                            />
-                          )}
-                        </TabsContent>
-                      ))}
-                    </Tabs>
-                  ) : viewingHistoryResult.matches ? (
-                    (viewingHistoryResult.matches.length === 0) ? (
-                      <Card className="p-8 text-center border-dashed">
-                        <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                        <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Were Found</h4>
-                      </Card>
-                    ) : (
-                      <MatchResultsGrid 
-                        result={{
-                          totalVisits: 1,
-                          visitResults: [{
-                            visitLabel: 'Visit 1',
-                            careProsRequired: 1,
-                            genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
-                            matches: viewingHistoryResult.matches,
-                            totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0
-                          }]
-                        }}
-                        requiredDays={viewingHistoryResult.requiredDays || []}
-                      />
-                    )
-                  ) : null}
+                      </Tabs>
+                    ) : viewingHistoryResult.matches ? (
+                      (viewingHistoryResult.matches.length === 0) ? (
+                        <div className="p-16 text-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl">
+                          <XCircle className="w-12 h-12 mx-auto mb-4 text-gray-200" />
+                          <h4 className="font-bold text-gray-400">No Matches Were Found</h4>
+                        </div>
+                      ) : (
+                        <MatchResultsGrid 
+                          result={{
+                            clientName: viewingHistoryResult.clientName,
+                            totalVisits: 1,
+                            visitResults: [{
+                              visitLabel: 'Visit 1',
+                              visitIndex: 0,
+                              careProsRequired: 1,
+                              genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
+                              matches: viewingHistoryResult.matches,
+                              totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0
+                            }]
+                          }}
+                          requiredDays={viewingHistoryResult.requiredDays || []}
+                        />
+                      )
+                    ) : null}
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-2 py-2">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-1 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-6 bg-purple-600 rounded-full" />
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Search Archives</h3>
+                    </div>
+                    <Badge className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold px-3 py-1 rounded-full text-[10px]">
+                      {historyQuery.data?.length || 0} RECORDS
+                    </Badge>
+                  </div>
+                  
                   {historyQuery.isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
-                      <span className="text-gray-500">Loading history...</span>
+                    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
+                      <Loader2 className="w-10 h-10 animate-spin text-purple-600 mb-4" />
+                      <span className="text-sm font-bold text-gray-400 uppercase tracking-wider">Loading archives...</span>
                     </div>
                   ) : !historyQuery.data?.length ? (
-                    <Card className="p-8 text-center border-dashed">
-                      <History className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Enquiries Yet</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Run a client match search and it will be saved here automatically.
-                      </p>
-                    </Card>
+                    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
+                      <History className="w-16 h-16 mx-auto mb-4 text-gray-200" />
+                      <h4 className="font-bold text-gray-400 mb-1">No Enquiries Yet</h4>
+                      <p className="text-xs text-gray-400">Searches will be saved here automatically.</p>
+                    </div>
                   ) : (
-                    historyQuery.data.map((enquiry: any) => {
-                      const results = enquiry.results;
-                      const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
-                      const visitCount = isMultiVisit ? results.totalVisits : 1;
-                      const days = Array.isArray(enquiry.requiredDays) ? enquiry.requiredDays : [];
-                      const tw = enquiry.preferredTimeWindow || {};
-                      return (
-                        <Card key={enquiry.id} className="p-3 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                  {enquiry.clientName}
-                                </h4>
-                                {isMultiVisit && (
-                                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-xs">
-                                    {visitCount} visit{visitCount !== 1 ? 's' : ''}
-                                  </Badge>
-                                )}
-                                {enquiry.matchCount > 0 ? (
-                                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700 text-xs">
-                                    {enquiry.matchCount} match{enquiry.matchCount !== 1 ? 'es' : ''}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="text-xs">No matches</Badge>
-                                )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {historyQuery.data.map((enquiry: any) => {
+                        const results = enquiry.results;
+                        const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
+                        const visitCount = isMultiVisit ? results.totalVisits : 1;
+                        return (
+                          <div 
+                            key={enquiry.id} 
+                            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-purple-400 dark:hover:border-purple-700 rounded-2xl p-5 transition-all cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 relative overflow-hidden"
+                            onClick={() => {
+                              const resultData = enquiry.results;
+                              if (resultData) {
+                                setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, criteria: enquiry.criteria, requiredDays: enquiry.requiredDays, genderPreference: enquiry.genderPreference });
+                              }
+                            }}
+                          >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
+                            <div className="relative z-10">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-gray-900 dark:text-gray-100 truncate max-w-[160px]">{enquiry.clientName}</h4>
+                                    {isMultiVisit && (
+                                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-none font-bold text-[9px] px-1.5 h-4">
+                                        {visitCount} Visits
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[11px] font-medium text-gray-400">
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {enquiry.postcode || 'No postcode'}
+                                    </span>
+                                    <span className="w-1 h-1 rounded-full bg-gray-300" />
+                                    <span>{new Date(enquiry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteEnquiryMutation.mutate(enquiry.id);
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
                               </div>
-                              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {days.length > 0 && (
-                                  <span>{days.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(', ')}</span>
-                                )}
-                                {tw.start && <span>{tw.start} - {tw.end || '?'}</span>}
-                                {enquiry.topMatch && (
-                                  <span className="text-purple-600 dark:text-purple-400">Top: {enquiry.topMatch}</span>
-                                )}
+                              <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-gray-800">
+                                <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-bold text-xs">
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  {enquiry.matchCount || 0} matches
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-gray-200 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all" />
                               </div>
-                              <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                                {new Date(enquiry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 ml-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  const resultData = enquiry.results;
-                                  if (resultData) {
-                                    setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName });
-                                  }
-                                }}
-                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteEnquiryMutation.mutate(enquiry.id)}
-                                disabled={deleteEnquiryMutation.isPending}
-                                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
                             </div>
                           </div>
-                        </Card>
-                      );
-                    })
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               )
             ) : !multiResults ? (
-              <div className="space-y-5 py-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="clientName">Client Name *</Label>
-                    <Input
-                      id="clientName"
-                      placeholder="e.g. Mrs Smith"
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="postcode">Postcode</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="postcode"
-                        placeholder="e.g. SW1A 1AA"
-                        value={postcode}
-                        onChange={(e) => setPostcode(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Visit Details
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {visits.length} visit{visits.length !== 1 ? 's' : ''}
-                      </span>
-                      {visits.length < 5 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addVisitTab}
-                          className="h-7 text-xs px-2"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Add Visit
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <Tabs value={activeVisitTab} onValueChange={setActiveVisitTab}>
-                    <TabsList className="mb-3 flex-wrap h-auto gap-1">
-                      {visits.map((v, i) => (
-                        <div key={i} className="flex items-center">
-                          <TabsTrigger value={String(i)} className="text-xs relative pr-6">
-                            Visit {i + 1}
-                            {v.selectedDays.length > 0 && (
-                              <CheckCircle className="w-3 h-3 text-green-500 ml-1" />
-                            )}
-                          </TabsTrigger>
-                          {visits.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); removeVisitTab(i); }}
-                              className="ml-[-18px] mr-1 z-10 text-gray-400 hover:text-red-500 transition-colors"
-                              title="Remove this visit"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </TabsList>
-                    {visits.map((v, i) => (
-                      <TabsContent key={i} value={String(i)}>
-                        <VisitForm
-                          visit={v}
-                          onChange={(updated) => updateVisit(i, updated)}
+              <div className="space-y-6">
+                {/* Client Details */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="clientName" className="text-xs font-bold uppercase tracking-wider text-gray-500">Client Name *</Label>
+                      <div className="relative group">
+                        <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                        <Input
+                          id="clientName"
+                          placeholder="e.g. Mrs Smith"
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          className="pl-10 h-11 bg-white dark:bg-gray-900 border-gray-200 focus:ring-2 focus:ring-purple-500/20 transition-all"
                         />
-                      </TabsContent>
-                    ))}
-                  </Tabs>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="postcode" className="text-xs font-bold uppercase tracking-wider text-gray-500">Postcode</Label>
+                      <div className="relative group">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                        <Input
+                          id="postcode"
+                          placeholder="e.g. SW1A 1AA"
+                          value={postcode}
+                          onChange={(e) => setPostcode(e.target.value)}
+                          className="pl-10 h-11 bg-white dark:bg-gray-900 border-gray-200 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-purple-100 dark:border-purple-900/30 shadow-sm flex flex-col justify-center">
+                    <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold mb-1.5">
+                      <Info className="w-4 h-4" />
+                      <h4 className="text-[10px] uppercase tracking-[0.15em]">Multi-Visit Support</h4>
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+                      Configure up to 5 visits with different time windows and gender preferences per visit.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                  <Button variant="ghost" onClick={handleReset} className="text-gray-500">
-                    Reset
+                {/* Visit Schedule */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-6 bg-purple-600 rounded-full" />
+                      <h3 className="text-base font-bold tracking-tight">Visit Schedule</h3>
+                    </div>
+                    {visits.length < 5 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addVisitTab}
+                        className="h-8 gap-1.5 text-xs font-bold border-gray-200 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Visit
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+                    <Tabs value={activeVisitTab} onValueChange={setActiveVisitTab}>
+                      <div className="px-4 pt-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                        <TabsList className="bg-transparent p-0 h-auto flex-wrap gap-1.5 pb-px">
+                          {visits.map((v, i) => (
+                            <div key={i} className="flex items-center group relative">
+                              <TabsTrigger 
+                                value={String(i)} 
+                                className="px-5 py-2 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-700 rounded-t-lg border-x border-t border-transparent data-[state=active]:border-gray-200 dark:data-[state=active]:border-gray-700 transition-all"
+                              >
+                                Visit {i + 1}
+                                {v.selectedDays.length > 0 && (
+                                  <div className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                                )}
+                              </TabsTrigger>
+                              {visits.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeVisitTab(i); }}
+                                  className="absolute -top-1 -right-1 p-0.5 bg-white dark:bg-gray-800 rounded-full border shadow-sm text-gray-400 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 z-10"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </TabsList>
+                      </div>
+                      <div className="p-5">
+                        {visits.map((v, i) => (
+                          <TabsContent key={i} value={String(i)} className="mt-0">
+                            <VisitForm
+                              visit={v}
+                              onChange={(updated) => updateVisit(i, updated)}
+                            />
+                          </TabsContent>
+                        ))}
+                      </div>
+                    </Tabs>
+                  </div>
+                </div>
+
+                {/* Action Bar */}
+                <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-800">
+                  <Button variant="ghost" onClick={handleReset} className="text-gray-400 hover:text-red-500 font-bold text-xs uppercase tracking-wider">
+                    Reset All
                   </Button>
                   <div className="flex items-center gap-3">
                     {activeVisits.length > 0 && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] text-gray-400 font-bold">
                         {activeVisits.length} visit{activeVisits.length !== 1 ? 's' : ''} configured
                       </span>
                     )}
                     <Button
                       onClick={() => matchMutation.mutate()}
                       disabled={!canSubmit || matchMutation.isPending}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6"
+                      className="h-12 px-8 bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 hover:from-purple-800 hover:via-indigo-800 hover:to-blue-800 text-white font-bold text-sm uppercase tracking-wider shadow-lg shadow-purple-500/20 gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
                     >
                       {matchMutation.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Finding Matches...
-                        </>
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <>
-                          <Search className="w-4 h-4 mr-2" />
-                          Find Matches
-                        </>
+                        <Search className="w-4 h-4" />
                       )}
+                      {matchMutation.isPending ? "Searching..." : "Find Best Matches"}
                     </Button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 py-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                      Results for {multiResults.clientName}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot;
-                      {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
-                    </p>
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Results Header */}
+                <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        Matches for {clientName}
+                      </h3>
+                      <p className="text-xs font-bold text-gray-500 mt-0.5">
+                        {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot; {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
+                      </p>
+                    </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setMultiResults(null)}>
-                    <ArrowRight className="w-4 h-4 mr-1 rotate-180" />
-                    Back to Search
+                  <Button variant="outline" size="sm" onClick={() => setMultiResults(null)} className="gap-2 font-bold">
+                    <ArrowRight className="w-4 h-4 rotate-180" />
+                    Back
                   </Button>
                 </div>
 
-                {multiResults && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600">
-                          Matches for {clientName}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {multiResults.totalVisits} visits • {multiResults.visitResults.reduce((acc, vr) => acc + vr.matches.length, 0)} total matches
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleReset}>
-                          Clear Results
-                        </Button>
-                      </div>
-                    </div>
-
-                    <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
-                      <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1">
-                        {multiResults.visitResults.map((vr, idx) => (
-                          <TabsTrigger 
-                            key={idx} 
-                            value={String(idx)}
-                            className="px-4 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm rounded-md transition-all"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>Visit {idx + 1}</span>
-                              <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-none px-1.5 h-5 min-w-[20px] flex items-center justify-center font-bold">
-                                {vr.matches.length}
-                              </Badge>
-                            </div>
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                      
+                {/* Results Tabs */}
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-4">
+                  <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
+                    <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1.5 mb-5">
                       {multiResults.visitResults.map((vr, idx) => (
-                        <TabsContent key={idx} value={String(idx)} className="mt-4">
-                          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4 px-1">
-                            <span className="flex items-center gap-1.5">
-                              <Users className="w-4 h-4" />
-                              CPs needed: {vr.careProsRequired}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <Clock className="w-4 h-4" />
-                              Gender: {vr.genderPreferences.map((g, i) => `CP${i+1}: ${g}`).join(', ')}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <UserCheck className="w-4 h-4" />
-                              {vr.totalEmployeesEvaluated} employees evaluated
-                            </span>
+                        <TabsTrigger 
+                          key={idx} 
+                          value={String(idx)}
+                          className="px-5 py-2.5 text-xs font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-700 data-[state=active]:shadow-sm rounded-lg transition-all"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>Visit {idx + 1}</span>
+                            <div className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold text-[10px] min-w-[20px] text-center">
+                              {vr.matches.length}
+                            </div>
                           </div>
-                          
-                          <MatchResultsGrid 
-                            result={{
-                              ...multiResults!,
-                              visitResults: [vr]
-                            }} 
-                            requiredDays={visits[idx]?.selectedDays || []}
-                          />
-                        </TabsContent>
+                        </TabsTrigger>
                       ))}
-                    </Tabs>
-                  </div>
-                )}
+                    </TabsList>
+                    
+                    {multiResults.visitResults.map((vr, idx) => (
+                      <TabsContent key={idx} value={String(idx)} className="mt-0 space-y-4">
+                        <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/30 text-xs font-bold text-gray-500">
+                          <span className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-purple-600" />
+                            CPs needed: {vr.careProsRequired}
+                          </span>
+                          <span className="w-px h-4 bg-purple-200/50" />
+                          <span className="flex items-center gap-1.5">
+                            <Star className="w-3.5 h-3.5 text-blue-600" />
+                            Gender: {vr.genderPreferences.map((g, i) => `CP${i+1}: ${g}`).join(', ')}
+                          </span>
+                          <span className="w-px h-4 bg-purple-200/50" />
+                          <span className="flex items-center gap-1.5 ml-auto text-purple-600">
+                            <Activity className="w-3.5 h-3.5" />
+                            {vr.totalEmployeesEvaluated} analyzed
+                          </span>
+                        </div>
+                        
+                        <MatchResultsGrid 
+                          result={{
+                            ...multiResults!,
+                            visitResults: [vr]
+                          }} 
+                          requiredDays={visits[idx]?.selectedDays || []}
+                        />
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </div>
               </div>
             )}
-          </ScrollArea>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 flex justify-between items-center rounded-b-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Engine Online</span>
+            </div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Care Capacity Intelligence v2.0</span>
+          </div>
         </DialogContent>
       </Dialog>
     </>
