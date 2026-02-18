@@ -270,7 +270,7 @@ function matchEmployeesForVisit(
       genderPreference &&
       genderPreference !== 'any' &&
       weeklyData.gender &&
-      weeklyData.gender !== genderPreference
+      weeklyData.gender.toLowerCase() !== genderPreference.toLowerCase()
     ) {
       continue;
     }

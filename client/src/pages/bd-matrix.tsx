@@ -431,11 +431,16 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
 
                                   const isExact = slotOnDay.matchType === 'exact';
                                   const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
+                                  const genderColorClass = employeeMatch.gender?.toLowerCase() === 'female' 
+                                    ? 'border-pink-200 bg-pink-50/50 dark:bg-pink-900/20 dark:border-pink-800/50' 
+                                    : employeeMatch.gender?.toLowerCase() === 'male'
+                                      ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800/50'
+                                      : 'border-gray-200 dark:border-gray-800';
                                   
                                   return (
                                     <div 
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                      className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'border-purple-300 dark:border-purple-700 ring-1 ring-purple-100 dark:ring-purple-900/30' : 'border-gray-200 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
+                                      className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                     >
                                       {matchIdx === 0 && (
                                         <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm uppercase tracking-tighter">
