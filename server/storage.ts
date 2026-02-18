@@ -544,7 +544,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
-    const [result] = await db.insert(clientEnquiries).values(enquiry).returning();
+    const [result] = await db.insert(clientEnquiries).values({
+      ...enquiry,
+      visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
+    }).returning();
     return result;
   }
 
@@ -717,7 +720,10 @@ export class MemStorage implements IStorage {
   }
 
   async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
-    const [result] = await db.insert(clientEnquiries).values(enquiry).returning();
+    const [result] = await db.insert(clientEnquiries).values({
+      ...enquiry,
+      visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
+    }).returning();
     return result;
   }
 

@@ -564,6 +564,7 @@ function ClientEnquiryMatcher() {
         matchResult: data,
         isSingleVisit: isSingle,
       });
+      toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
     },
     onError: () => {
       toast({
