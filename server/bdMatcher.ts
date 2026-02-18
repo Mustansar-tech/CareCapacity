@@ -263,8 +263,7 @@ async function matchEmployeesForVisit(
   allEmployeeNames: Set<string>,
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string }>,
   topN: number = 50,
-  clientCoords?: { lat: number; lng: number },
-  clientPostcode?: string
+  clientCoords?: { lat: number; lng: number }
 ): Promise<MatchedEmployee[]> {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
@@ -278,35 +277,22 @@ async function matchEmployeesForVisit(
     datesByDay.set(dayAbbrev, existing);
   }
 
+  const branchId = Array.from(employeeWeeklyData.values())[0] ? (dates.length > 0 ? null : null) : null; 
+
   const candidates: MatchedEmployee[] = [];
 
   for (const empName of Array.from(allEmployeeNames)) {
     const weeklyData = employeeWeeklyData.get(empName)!;
     
     let distanceBonus = 0;
-    const empLoc = await storage.getEmployeeLocationByName(process.env.DEFAULT_BRANCH_ID || '', empName);
-    
-    // 1. Try Geocode Distance (Most Accurate)
-    if (clientCoords && empLoc && empLoc.homeLat && empLoc.homeLng) {
-      const dist = calculateDistance(
-        clientCoords.lat, clientCoords.lng,
-        parseFloat(empLoc.homeLat), parseFloat(empLoc.homeLng)
-      );
-      distanceBonus = Math.max(0, 20 - (dist * 2)); // 20 points for 0km, 0 points for 10km+
-    } 
-    // 2. Fallback to Postcode Prefix Matching (Fast & Reliable)
-    else if (clientPostcode && empLoc && empLoc.postcode) {
-      const cPC = clientPostcode.trim().toUpperCase().replace(/\s+/g, '');
-      const ePC = empLoc.postcode.trim().toUpperCase().replace(/\s+/g, '');
-      
-      if (cPC === ePC) {
-        distanceBonus = 20; // Exact postcode match
-      } else if (cPC.substring(0, 4) === ePC.substring(0, 4)) {
-        distanceBonus = 15; // Sector match (e.g., G22 5)
-      } else if (cPC.substring(0, 3) === ePC.substring(0, 3)) {
-        distanceBonus = 10; // District match (e.g., G22)
-      } else if (cPC.substring(0, 2) === ePC.substring(0, 2)) {
-        distanceBonus = 5; // Area match (e.g., G2)
+    if (clientCoords) {
+      const empLoc = await storage.getEmployeeLocationByName(process.env.DEFAULT_BRANCH_ID || '', empName);
+      if (empLoc && empLoc.homeLat && empLoc.homeLng) {
+        const dist = calculateDistance(
+          clientCoords.lat, clientCoords.lng,
+          parseFloat(empLoc.homeLat), parseFloat(empLoc.homeLng)
+        );
+        distanceBonus = Math.max(0, 20 - (dist * 2)); // 20 points for 0km, 0 points for 10km+
       }
     }
 
@@ -340,29 +326,29 @@ async function matchEmployeesForVisit(
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
-      if (exactSlot && bestScoreForDay < 100) {
-        bestSlotForDay = {
-          day: dateStr,
-          dayLabel: getDayLabel(dateStr),
-          availableWindow: exactSlot,
-          matchType: 'exact',
-        };
-        bestScoreForDay = 100;
-      } else if (!exactSlot && bestScoreForDay < 90) { // Increased threshold
-        const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
-        if (closestSlot) {
-          const score = Math.max(0, 90 - closestSlot.distance / 5); // Base 90 for adjusted time
-          if (score > bestScoreForDay) {
-            bestSlotForDay = {
-              day: dateStr,
-              dayLabel: getDayLabel(dateStr),
-              availableWindow: closestSlot.window,
-              matchType: 'adjusted-time',
-            };
-            bestScoreForDay = score;
+        if (exactSlot && bestScoreForDay < 100) {
+          bestSlotForDay = {
+            day: dateStr,
+            dayLabel: getDayLabel(dateStr),
+            availableWindow: exactSlot,
+            matchType: 'exact',
+          };
+          bestScoreForDay = 100;
+        } else if (!exactSlot && bestScoreForDay < 80) {
+          const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
+          if (closestSlot) {
+            const score = Math.max(0, 80 - closestSlot.distance / 5);
+            if (score > bestScoreForDay) {
+              bestSlotForDay = {
+                day: dateStr,
+                dayLabel: getDayLabel(dateStr),
+                availableWindow: closestSlot.window,
+                matchType: 'adjusted-time',
+              };
+              bestScoreForDay = score;
+            }
           }
         }
-      }
       }
 
       if (bestSlotForDay) {
@@ -393,8 +379,8 @@ async function matchEmployeesForVisit(
             matchType: 'alternative-day',
           });
           alternativeDayMatches++;
-          totalScore += 70; // Increased from 40
-          if (matchedSlots.length >= Math.max(1, requiredDays.length)) break;
+          totalScore += 40;
+          if (matchedSlots.length >= requiredDays.length) break;
         } else {
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
@@ -405,8 +391,8 @@ async function matchEmployeesForVisit(
               matchType: 'alternative-day',
             });
             alternativeDayMatches++;
-            totalScore += Math.max(0, 60 - closestSlot.distance / 10); // Increased from 20
-            if (matchedSlots.length >= Math.max(1, requiredDays.length)) break;
+            totalScore += Math.max(0, 20 - closestSlot.distance / 10);
+            if (matchedSlots.length >= requiredDays.length) break;
           }
         }
       }
@@ -417,7 +403,7 @@ async function matchEmployeesForVisit(
     const avgScore = totalScore / Math.max(requiredDays.length, 1);
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
-    const finalScore = Math.round((avgScore * 0.4 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.25) * 100) / 100;
+    const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.15) * 100) / 100;
 
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
@@ -436,9 +422,6 @@ async function matchEmployeesForVisit(
     });
   }
 
-  // Debug: Log evaluation result
-  logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, found ${candidates.length} candidates before filtering`);
-
   candidates.sort((a, b) => {
     const typeOrder = { exact: 0, 'adjusted-time': 1, 'alternative-day': 2 };
     const typeDiff = typeOrder[a.matchType] - typeOrder[b.matchType];
@@ -451,9 +434,7 @@ async function matchEmployeesForVisit(
 
 export async function matchClientEnquiry(
   criteria: ClientEnquiryCriteria,
-  analysis: CapacityAnalysis,
-  storage?: any,
-  branchId?: string
+  analysis: CapacityAnalysis
 ): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
@@ -467,21 +448,6 @@ export async function matchClientEnquiry(
     dates, employeeSummaryByDate, employeesByDate
   );
 
-  let clientCoords: { lat: number; lng: number } | undefined;
-  if (criteria.postcode) {
-    try {
-      const geo = await geocodeWithFallback(criteria.postcode, storage, branchId || 'default');
-      if (geo) {
-        clientCoords = { lat: Number(geo.lat), lng: Number(geo.lng) };
-      }
-    } catch (error) {
-      logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
-    }
-  }
-  
-  // Debug: Log coordinates and postcode
-  logger.debug(`BD Matcher Search: Postcode=${criteria.postcode}, Coords=${JSON.stringify(clientCoords)}`);
-
   const matches = await matchEmployeesForVisit(
     criteria.genderPreference || 'any',
     criteria.requiredDays,
@@ -489,10 +455,7 @@ export async function matchClientEnquiry(
     dates,
     employeeSummaryByDate,
     allEmployeeNames,
-    employeeWeeklyData,
-    50,
-    clientCoords,
-    criteria.postcode
+    employeeWeeklyData
   );
 
   logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
@@ -506,9 +469,7 @@ export async function matchClientEnquiry(
 
 export async function matchMultiVisitEnquiry(
   criteria: MultiVisitCriteria,
-  analysis: CapacityAnalysis,
-  storage?: any,
-  branchId?: string
+  analysis: CapacityAnalysis
 ): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
@@ -529,21 +490,6 @@ export async function matchMultiVisitEnquiry(
       totalVisits: criteria.visits.length,
     };
   }
-
-  let clientCoords: { lat: number; lng: number } | undefined;
-  if (criteria.postcode) {
-    try {
-      const geo = await geocodeWithFallback(criteria.postcode, storage, branchId || 'default');
-      if (geo) {
-        clientCoords = { lat: Number(geo.lat), lng: Number(geo.lng) };
-      }
-    } catch (error) {
-      logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
-    }
-  }
-  
-  // Debug: Log coordinates and postcode
-  logger.debug(`BD Matcher Search: Postcode=${criteria.postcode}, Coords=${JSON.stringify(clientCoords)}`);
 
   const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
     dates, employeeSummaryByDate, employeesByDate
@@ -571,9 +517,7 @@ export async function matchMultiVisitEnquiry(
         employeeSummaryByDate,
         filteredNames,
         employeeWeeklyData,
-        5,
-        clientCoords,
-        criteria.postcode
+        5
       );
 
       if (matches.length > 0) {
@@ -589,9 +533,7 @@ export async function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      visit.careProsRequired * 3,
-      clientCoords,
-      criteria.postcode
+      visit.careProsRequired * 3
     );
 
     const dedupedMatches: MatchedEmployee[] = [];

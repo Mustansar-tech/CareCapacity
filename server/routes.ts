@@ -1468,7 +1468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTimeWindow,
       };
 
-      const result = await matchClientEnquiry(criteria, latestData, storage, branchId);
+      const result = matchClientEnquiry(criteria, latestData);
       res.json(result);
     } catch (error) {
       logger.error('BD Matcher error', error);
@@ -1504,7 +1504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       };
 
-      const result = await matchMultiVisitEnquiry(multiCriteria, latestData, storage, branchId);
+      const result = matchMultiVisitEnquiry(multiCriteria, latestData);
       res.json(result);
     } catch (error) {
       logger.error('BD Multi-Visit Matcher error', error);
