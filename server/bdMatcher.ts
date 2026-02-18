@@ -340,29 +340,29 @@ async function matchEmployeesForVisit(
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
-        if (exactSlot && bestScoreForDay < 100) {
-          bestSlotForDay = {
-            day: dateStr,
-            dayLabel: getDayLabel(dateStr),
-            availableWindow: exactSlot,
-            matchType: 'exact',
-          };
-          bestScoreForDay = 100;
-        } else if (!exactSlot && bestScoreForDay < 80) {
-          const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
-          if (closestSlot) {
-            const score = Math.max(0, 80 - closestSlot.distance / 5);
-            if (score > bestScoreForDay) {
-              bestSlotForDay = {
-                day: dateStr,
-                dayLabel: getDayLabel(dateStr),
-                availableWindow: closestSlot.window,
-                matchType: 'adjusted-time',
-              };
-              bestScoreForDay = score;
-            }
+      if (exactSlot && bestScoreForDay < 100) {
+        bestSlotForDay = {
+          day: dateStr,
+          dayLabel: getDayLabel(dateStr),
+          availableWindow: exactSlot,
+          matchType: 'exact',
+        };
+        bestScoreForDay = 100;
+      } else if (!exactSlot && bestScoreForDay < 90) { // Increased threshold
+        const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
+        if (closestSlot) {
+          const score = Math.max(0, 90 - closestSlot.distance / 5); // Base 90 for adjusted time
+          if (score > bestScoreForDay) {
+            bestSlotForDay = {
+              day: dateStr,
+              dayLabel: getDayLabel(dateStr),
+              availableWindow: closestSlot.window,
+              matchType: 'adjusted-time',
+            };
+            bestScoreForDay = score;
           }
         }
+      }
       }
 
       if (bestSlotForDay) {
@@ -393,8 +393,8 @@ async function matchEmployeesForVisit(
             matchType: 'alternative-day',
           });
           alternativeDayMatches++;
-          totalScore += 40;
-          if (matchedSlots.length >= requiredDays.length) break;
+          totalScore += 70; // Increased from 40
+          if (matchedSlots.length >= Math.max(1, requiredDays.length)) break;
         } else {
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
@@ -405,8 +405,8 @@ async function matchEmployeesForVisit(
               matchType: 'alternative-day',
             });
             alternativeDayMatches++;
-            totalScore += Math.max(0, 20 - closestSlot.distance / 10);
-            if (matchedSlots.length >= requiredDays.length) break;
+            totalScore += Math.max(0, 60 - closestSlot.distance / 10); // Increased from 20
+            if (matchedSlots.length >= Math.max(1, requiredDays.length)) break;
           }
         }
       }
@@ -417,7 +417,7 @@ async function matchEmployeesForVisit(
     const avgScore = totalScore / Math.max(requiredDays.length, 1);
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
-    const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.15) * 100) / 100;
+    const finalScore = Math.round((avgScore * 0.4 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.25) * 100) / 100;
 
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
@@ -435,6 +435,9 @@ async function matchEmployeesForVisit(
       matchedSlots,
     });
   }
+
+  // Debug: Log evaluation result
+  logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, found ${candidates.length} candidates before filtering`);
 
   candidates.sort((a, b) => {
     const typeOrder = { exact: 0, 'adjusted-time': 1, 'alternative-day': 2 };
@@ -475,6 +478,9 @@ export async function matchClientEnquiry(
       logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
     }
   }
+  
+  // Debug: Log coordinates and postcode
+  logger.debug(`BD Matcher Search: Postcode=${criteria.postcode}, Coords=${JSON.stringify(clientCoords)}`);
 
   const matches = await matchEmployeesForVisit(
     criteria.genderPreference || 'any',
@@ -535,6 +541,9 @@ export async function matchMultiVisitEnquiry(
       logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
     }
   }
+  
+  // Debug: Log coordinates and postcode
+  logger.debug(`BD Matcher Search: Postcode=${criteria.postcode}, Coords=${JSON.stringify(clientCoords)}`);
 
   const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
     dates, employeeSummaryByDate, employeesByDate
