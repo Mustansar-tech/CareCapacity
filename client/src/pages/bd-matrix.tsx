@@ -348,9 +348,17 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   );
 }
 
-function MatchResultsGrid({ result }: { result: MultiVisitResult }) {
+function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitResult; requiredDays?: string[] }) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
+
+  // Filter days to only show those that are required
+  const visibleDays = days.filter(d => requiredDays.includes(d));
+  const visibleDayLabels = dayLabels.filter((_, i) => requiredDays.includes(days[i]));
+
+  // If no specific days are required (unlikely given the UI), show all
+  const displayDays = visibleDays.length > 0 ? visibleDays : days;
+  const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
   return (
     <div className="overflow-x-auto border rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
@@ -358,7 +366,7 @@ function MatchResultsGrid({ result }: { result: MultiVisitResult }) {
         <thead>
           <tr className="bg-gray-100 dark:bg-gray-900">
             <th className="border p-2 w-[180px] text-left font-bold text-gray-700 dark:text-gray-300">Requirement</th>
-            {dayLabels.map(label => (
+            {displayLabels.map(label => (
               <th key={label} className="border p-2 w-[140px] text-center font-bold text-gray-700 dark:text-gray-300">{label}</th>
             ))}
           </tr>
@@ -384,7 +392,7 @@ function MatchResultsGrid({ result }: { result: MultiVisitResult }) {
                         <div className="text-[9px] pt-1 opacity-60 italic">Exact time green, adjusted time is orange</div>
                       </div>
                     </td>
-                    {days.map(day => {
+                    {displayDays.map(day => {
                       // Logic to find matches: for a grid, we typically show the top match for this CP slot
                       const employeeMatch = vr.matches[cpIdx]; 
                       const slotOnDay = employeeMatch?.matchedSlots.find(s => {
@@ -426,7 +434,7 @@ function MatchResultsGrid({ result }: { result: MultiVisitResult }) {
               })}
               {/* Spacer row between visits */}
               <tr className="h-4 bg-gray-200/40 dark:bg-gray-800/50">
-                <td colSpan={8} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
+                <td colSpan={displayDays.length + 1} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
                   Next Visit Block
                 </td>
               </tr>
