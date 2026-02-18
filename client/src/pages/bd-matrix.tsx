@@ -361,11 +361,11 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
   return (
-    <div className="overflow-x-auto border rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
-      <table className="w-full border-collapse text-[10px] leading-tight table-fixed">
+    <div className="overflow-x-auto border rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm relative">
+      <table className="w-full border-collapse text-[10px] leading-tight table-fixed min-w-[800px]">
         <thead>
           <tr className="bg-gray-100 dark:bg-gray-900">
-            <th className="border p-2 w-[180px] text-left font-bold text-gray-700 dark:text-gray-300">Requirement</th>
+            <th className="border p-2 w-[180px] text-left font-bold text-gray-700 dark:text-gray-300 sticky left-0 z-20 bg-gray-100 dark:bg-gray-900 shadow-[2px_0_5px_rgba(0,0,0,0,0.05)]">Requirement</th>
             {displayLabels.map(label => (
               <th key={label} className="border p-2 w-[140px] text-center font-bold text-gray-700 dark:text-gray-300">{label}</th>
             ))}
@@ -380,7 +380,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                 
                 return (
                   <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
-                    <td className="border p-2 align-top bg-gray-50/30 dark:bg-gray-900/10 font-medium">
+                    <td className="border p-2 align-top bg-gray-50/30 dark:bg-gray-900/10 font-medium sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0,0.05)]">
                       <div className="font-bold text-purple-700 dark:text-purple-400 mb-2 border-b border-purple-100 dark:border-purple-900/50 pb-1">
                         CP{cpIdx + 1}: {genderLabel} Only
                       </div>
@@ -479,7 +479,7 @@ function ClientEnquiryMatcher() {
       if (firstVisit?.preferredTimeWindow?.start && firstVisit?.preferredTimeWindow?.end) {
         const start = firstVisit.preferredTimeWindow.start.split(':').map(Number);
         const end = firstVisit.preferredTimeWindow.end.split(':').map(Number);
-        durationMinutes = (end[0] * 60 + end[1]) - (start[0] * 60 + start[1]);
+        durationMinutes = (end[0] * 60 + (end[1] || 0)) - (start[0] * 60 + (start[1] || 0));
       }
 
       const res = await apiRequest('POST', '/api/client-enquiries', {
@@ -725,6 +725,7 @@ function ClientEnquiryMatcher() {
                           totalVisits: 1,
                           visitResults: [{
                             visitLabel: 'Visit 1',
+                            visitIndex: 0,
                             careProsRequired: 1,
                             genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
                             matches: viewingHistoryResult.matches,
