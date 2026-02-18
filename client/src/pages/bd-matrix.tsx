@@ -707,7 +707,7 @@ function ClientEnquiryMatcher() {
                                 ...viewingHistoryResult.results,
                                 visitResults: [vr]
                               }} 
-                              requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || []}
+                              requiredDays={vr.requiredDays || enquiryRequiredDays}
                             />
                           )}
                         </TabsContent>
