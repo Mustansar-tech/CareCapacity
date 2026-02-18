@@ -263,7 +263,8 @@ async function matchEmployeesForVisit(
   allEmployeeNames: Set<string>,
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string }>,
   topN: number = 50,
-  clientCoords?: { lat: number; lng: number }
+  clientCoords?: { lat: number; lng: number },
+  clientPostcode?: string
 ): Promise<MatchedEmployee[]> {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
@@ -277,22 +278,35 @@ async function matchEmployeesForVisit(
     datesByDay.set(dayAbbrev, existing);
   }
 
-  const branchId = Array.from(employeeWeeklyData.values())[0] ? (dates.length > 0 ? null : null) : null; 
-
   const candidates: MatchedEmployee[] = [];
 
   for (const empName of Array.from(allEmployeeNames)) {
     const weeklyData = employeeWeeklyData.get(empName)!;
     
     let distanceBonus = 0;
-    if (clientCoords) {
-      const empLoc = await storage.getEmployeeLocationByName(process.env.DEFAULT_BRANCH_ID || '', empName);
-      if (empLoc && empLoc.homeLat && empLoc.homeLng) {
-        const dist = calculateDistance(
-          clientCoords.lat, clientCoords.lng,
-          parseFloat(empLoc.homeLat), parseFloat(empLoc.homeLng)
-        );
-        distanceBonus = Math.max(0, 20 - (dist * 2)); // 20 points for 0km, 0 points for 10km+
+    const empLoc = await storage.getEmployeeLocationByName(process.env.DEFAULT_BRANCH_ID || '', empName);
+    
+    // 1. Try Geocode Distance (Most Accurate)
+    if (clientCoords && empLoc && empLoc.homeLat && empLoc.homeLng) {
+      const dist = calculateDistance(
+        clientCoords.lat, clientCoords.lng,
+        parseFloat(empLoc.homeLat), parseFloat(empLoc.homeLng)
+      );
+      distanceBonus = Math.max(0, 20 - (dist * 2)); // 20 points for 0km, 0 points for 10km+
+    } 
+    // 2. Fallback to Postcode Prefix Matching (Fast & Reliable)
+    else if (clientPostcode && empLoc && empLoc.postcode) {
+      const cPC = clientPostcode.trim().toUpperCase().replace(/\s+/g, '');
+      const ePC = empLoc.postcode.trim().toUpperCase().replace(/\s+/g, '');
+      
+      if (cPC === ePC) {
+        distanceBonus = 20; // Exact postcode match
+      } else if (cPC.substring(0, 4) === ePC.substring(0, 4)) {
+        distanceBonus = 15; // Sector match (e.g., G22 5)
+      } else if (cPC.substring(0, 3) === ePC.substring(0, 3)) {
+        distanceBonus = 10; // District match (e.g., G22)
+      } else if (cPC.substring(0, 2) === ePC.substring(0, 2)) {
+        distanceBonus = 5; // Area match (e.g., G2)
       }
     }
 
@@ -471,7 +485,8 @@ export async function matchClientEnquiry(
     allEmployeeNames,
     employeeWeeklyData,
     50,
-    clientCoords
+    clientCoords,
+    criteria.postcode
   );
 
   logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
@@ -548,7 +563,8 @@ export async function matchMultiVisitEnquiry(
         filteredNames,
         employeeWeeklyData,
         5,
-        clientCoords
+        clientCoords,
+        criteria.postcode
       );
 
       if (matches.length > 0) {
@@ -565,7 +581,8 @@ export async function matchMultiVisitEnquiry(
       allEmployeeNames,
       employeeWeeklyData,
       visit.careProsRequired * 3,
-      clientCoords
+      clientCoords,
+      criteria.postcode
     );
 
     const dedupedMatches: MatchedEmployee[] = [];
