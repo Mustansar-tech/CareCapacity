@@ -241,6 +241,12 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
     onChange({ ...visit, careProsRequired: clamped, genderPreferences: genderPrefs });
   };
 
+  const handleGenderChange = (cpIndex: number, value: string) => {
+    const genderPrefs = [...visit.genderPreferences];
+    genderPrefs[cpIndex] = value;
+    onChange({ ...visit, genderPreferences: genderPrefs });
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-6">
