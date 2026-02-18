@@ -248,62 +248,26 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Care Pros Required</Label>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleCareProsChange(visit.careProsRequired - 1)}
-              disabled={visit.careProsRequired <= 1}
-              className="h-8 w-8 p-0"
-            >
-              <Minus className="w-3 h-3" />
-            </Button>
-            <span className="text-lg font-semibold w-8 text-center">{visit.careProsRequired}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleCareProsChange(visit.careProsRequired + 1)}
-              disabled={visit.careProsRequired >= 3}
-              className="h-8 w-8 p-0"
-            >
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Gender Preference per CP</Label>
-          <div className="space-y-1.5">
-            {Array.from({ length: visit.careProsRequired }).map((_, cpIdx) => (
-              <div key={cpIdx} className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10">CP{cpIdx + 1}:</span>
-                <Select
-                  value={visit.genderPreferences[cpIdx] || 'any'}
-                  onValueChange={(v) => handleGenderChange(cpIdx, v)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">No Preference</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="male">Male</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Staffing Required</Label>
+        <Select
+          value={String(visit.careProsRequired)}
+          onValueChange={(v) => handleCareProsChange(parseInt(v))}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">1 Care Professional</SelectItem>
+            <SelectItem value="2">2 Care Professionals</SelectItem>
+            <SelectItem value="3">3 Care Professionals</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
-        <Label>Required Days *</Label>
+        <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Preferred Days <span className="text-red-500">*</span></Label>
         <div className="flex flex-wrap gap-2">
           {DAY_OPTIONS.map(day => (
             <Button
@@ -314,7 +278,7 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
               onClick={() => handleDayToggle(day.value)}
               className={visit.selectedDays.includes(day.value)
                 ? "bg-purple-600 hover:bg-purple-700 text-white"
-                : ""}
+                : "hover:border-purple-300 dark:hover:border-purple-600"}
             >
               {day.label}
             </Button>
@@ -322,26 +286,63 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
         </div>
       </div>
 
+      <div className="space-y-3">
+        <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Gender Preferences</Label>
+        <div className="space-y-2">
+          {Array.from({ length: visit.careProsRequired }).map((_, cpIdx) => (
+            <div key={cpIdx} className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-purple-700 dark:text-purple-400 w-10">CP{cpIdx + 1}</span>
+              <div className="flex gap-1">
+                {(['male', 'female', 'any'] as const).map((gender) => {
+                  const isActive = (visit.genderPreferences[cpIdx] || 'any') === gender;
+                  const genderLabel = gender === 'any' ? 'ANY' : gender.toUpperCase();
+                  return (
+                    <Button
+                      key={gender}
+                      type="button"
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleGenderChange(cpIdx, gender)}
+                      className={isActive
+                        ? "bg-purple-600 hover:bg-purple-700 text-white text-xs px-4"
+                        : "text-xs px-4 hover:border-purple-300 dark:hover:border-purple-600"}
+                    >
+                      {genderLabel}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Preferred Start Time *</Label>
-          <Input
-            type="time"
-            step="900"
-            value={visit.timeStart}
-            onChange={(e) => onChange({ ...visit, timeStart: e.target.value })}
-            className="w-full"
-          />
+          <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Window Start <span className="text-red-500">*</span></Label>
+          <div className="relative">
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              type="time"
+              step="900"
+              value={visit.timeStart}
+              onChange={(e) => onChange({ ...visit, timeStart: e.target.value })}
+              className="w-full pl-9"
+            />
+          </div>
         </div>
         <div className="space-y-2">
-          <Label>Preferred End Time *</Label>
-          <Input
-            type="time"
-            step="900"
-            value={visit.timeEnd}
-            onChange={(e) => onChange({ ...visit, timeEnd: e.target.value })}
-            className="w-full"
-          />
+          <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Window End <span className="text-red-500">*</span></Label>
+          <div className="relative">
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              type="time"
+              step="900"
+              value={visit.timeEnd}
+              onChange={(e) => onChange({ ...visit, timeEnd: e.target.value })}
+              className="w-full pl-9"
+            />
+          </div>
         </div>
       </div>
     </div>
