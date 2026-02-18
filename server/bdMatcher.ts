@@ -254,7 +254,7 @@ function buildEmployeeWeeklyData(
   return { allEmployeeNames, employeeWeeklyData };
 }
 
-function matchEmployeesForVisit(
+async function matchEmployeesForVisit(
   genderPreference: 'male' | 'female' | 'any',
   requiredDays: string[],
   preferredTimeWindow: { start: string; end: string },
@@ -432,10 +432,10 @@ function matchEmployeesForVisit(
   return candidates.slice(0, topN);
 }
 
-export function matchClientEnquiry(
+export async function matchClientEnquiry(
   criteria: ClientEnquiryCriteria,
   analysis: CapacityAnalysis
-): MatchResult {
+): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   const dates = Object.keys(employeeSummaryByDate).sort();
@@ -448,7 +448,7 @@ export function matchClientEnquiry(
     dates, employeeSummaryByDate, employeesByDate
   );
 
-  const matches = matchEmployeesForVisit(
+  const matches = await matchEmployeesForVisit(
     criteria.genderPreference || 'any',
     criteria.requiredDays,
     criteria.preferredTimeWindow,
@@ -467,10 +467,10 @@ export function matchClientEnquiry(
   };
 }
 
-export function matchMultiVisitEnquiry(
+export async function matchMultiVisitEnquiry(
   criteria: MultiVisitCriteria,
   analysis: CapacityAnalysis
-): MultiVisitMatchResult {
+): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   const dates = Object.keys(employeeSummaryByDate).sort();
@@ -509,7 +509,7 @@ export function matchMultiVisitEnquiry(
         Array.from(allEmployeeNames).filter(n => !alreadyAssigned.has(n))
       );
 
-      const matches = matchEmployeesForVisit(
+      const matches = await matchEmployeesForVisit(
         genderPref,
         visit.requiredDays,
         visit.preferredTimeWindow,
@@ -525,7 +525,7 @@ export function matchMultiVisitEnquiry(
       }
     }
 
-    const allMatchesForVisit = matchEmployeesForVisit(
+    const allMatchesForVisit = await matchEmployeesForVisit(
       'any',
       visit.requiredDays,
       visit.preferredTimeWindow,
