@@ -456,15 +456,12 @@ export class DatabaseStorage implements IStorage {
   async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     const [result] = await db
       .insert(weeklySchedules)
-      .values({
-        ...schedule,
-        unallocatedVisits: schedule.unallocatedVisits ?? [],
-      })
+      .values(schedule)
       .onConflictDoUpdate({
         target: [weeklySchedules.branchId, weeklySchedules.weekStartDate, weeklySchedules.weekEndDate],
         set: {
           scheduleData: schedule.scheduleData,
-          unallocatedVisits: schedule.unallocatedVisits ?? [],
+          unallocatedVisits: schedule.unallocatedVisits,
           metrics: schedule.metrics,
           generatedAt: new Date()
         }
