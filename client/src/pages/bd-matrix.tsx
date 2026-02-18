@@ -405,15 +405,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                         </div>
                       </td>
                       {displayDays.map(day => {
-                        const employeeMatch = vr.matches[cpIdx]; 
-                        const slotOnDay = employeeMatch?.matchedSlots.find(s => {
-                          const dateStr = s.day;
-                          const date = new Date(dateStr + 'T12:00:00');
-                          const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                          return dayAbbrev === day;
-                        });
-
-                        if (!employeeMatch || !slotOnDay) {
+                        if (!vr.matches || vr.matches.length === 0) {
                           return (
                             <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
                               <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
@@ -423,29 +415,58 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           );
                         }
 
-                        const isExact = slotOnDay.matchType === 'exact';
-                        const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
-                        
                         return (
-                          <td key={day} className="p-3 align-top">
-                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm group-hover:shadow-md transition-all space-y-3 ring-1 ring-black/5 dark:ring-white/5">
-                              <div className="font-bold text-gray-900 dark:text-gray-100 text-[13px] tracking-tight truncate" title={employeeMatch.employeeName}>
-                                {employeeMatch.employeeName}
+                          <td key={day} className="p-3 align-top min-w-[250px]">
+                            <ScrollArea className="h-[200px] pr-4">
+                              <div className="space-y-3">
+                                {vr.matches.map((employeeMatch, matchIdx) => {
+                                  const slotOnDay = employeeMatch.matchedSlots.find(s => {
+                                    const dateStr = s.day;
+                                    const date = new Date(dateStr + 'T12:00:00');
+                                    const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+                                    return dayAbbrev === day;
+                                  });
+
+                                  if (!slotOnDay) return null;
+
+                                  const isExact = slotOnDay.matchType === 'exact';
+                                  const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
+                                  
+                                  return (
+                                    <div 
+                                      key={`${employeeMatch.employeeName}-${matchIdx}`}
+                                      className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'border-purple-300 dark:border-purple-700 ring-1 ring-purple-100 dark:ring-purple-900/30' : 'border-gray-200 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
+                                    >
+                                      {matchIdx === 0 && (
+                                        <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm uppercase tracking-tighter">
+                                          Best Match
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between items-start gap-2">
+                                        <div className="font-bold text-gray-900 dark:text-gray-100 text-[12px] tracking-tight truncate" title={employeeMatch.employeeName}>
+                                          {employeeMatch.employeeName}
+                                        </div>
+                                        <div className="text-[10px] font-black text-purple-600 dark:text-purple-400">
+                                          {Math.round(employeeMatch.matchScore)}%
+                                        </div>
+                                      </div>
+                                      <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
+                                        {slotOnDay.availableWindow}
+                                      </div>
+                                      <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
+                                        <div className="flex items-center gap-1.5">
+                                          <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                          <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
+                                        </div>
+                                        <div className="font-bold text-gray-700 dark:text-gray-300">
+                                          {remainingHours}h rem
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <div className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
-                                {slotOnDay.availableWindow}
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400 font-medium">
-                                <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
-                              </div>
-                              <div className="text-[10px] font-bold text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-800 pt-3 mt-1 flex justify-between items-center">
-                                <span>{employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}h</span>
-                                <span className="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-sm">
-                                  {remainingHours} rem
-                                </span>
-                              </div>
-                            </div>
+                            </ScrollArea>
                           </td>
                         );
                       })}
