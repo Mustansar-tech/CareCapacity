@@ -11,11 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight,
-  History, Trash2
+  History, Trash2, Plus, Minus
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -192,15 +193,228 @@ function getMatchTypeBadge(matchType: string) {
   }
 }
 
+interface VisitFormData {
+  careProsRequired: number;
+  genderPreferences: string[];
+  selectedDays: string[];
+  timeStart: string;
+  timeEnd: string;
+}
+
+interface MultiVisitResult {
+  clientName: string;
+  postcode?: string;
+  visitResults: Array<{
+    visitLabel: string;
+    visitIndex: number;
+    careProsRequired: number;
+    genderPreferences: string[];
+    matches: MatchedEmployee[];
+    totalEmployeesEvaluated: number;
+  }>;
+  totalVisits: number;
+}
+
+function createEmptyVisit(): VisitFormData {
+  return {
+    careProsRequired: 1,
+    genderPreferences: ['any'],
+    selectedDays: [],
+    timeStart: '09:00',
+    timeEnd: '17:00',
+  };
+}
+
+function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: VisitFormData) => void }) {
+  const handleDayToggle = (day: string) => {
+    const newDays = visit.selectedDays.includes(day)
+      ? visit.selectedDays.filter(d => d !== day)
+      : [...visit.selectedDays, day];
+    onChange({ ...visit, selectedDays: newDays });
+  };
+
+  const handleCareProsChange = (count: number) => {
+    const clamped = Math.max(1, Math.min(3, count));
+    const genderPrefs = [...visit.genderPreferences];
+    while (genderPrefs.length < clamped) genderPrefs.push('any');
+    while (genderPrefs.length > clamped) genderPrefs.pop();
+    onChange({ ...visit, careProsRequired: clamped, genderPreferences: genderPrefs });
+  };
+
+  const handleGenderChange = (cpIndex: number, value: string) => {
+    const genderPrefs = [...visit.genderPreferences];
+    genderPrefs[cpIndex] = value;
+    onChange({ ...visit, genderPreferences: genderPrefs });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Care Pros Required</Label>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleCareProsChange(visit.careProsRequired - 1)}
+              disabled={visit.careProsRequired <= 1}
+              className="h-8 w-8 p-0"
+            >
+              <Minus className="w-3 h-3" />
+            </Button>
+            <span className="text-lg font-semibold w-8 text-center">{visit.careProsRequired}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleCareProsChange(visit.careProsRequired + 1)}
+              disabled={visit.careProsRequired >= 3}
+              className="h-8 w-8 p-0"
+            >
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Gender Preference per CP</Label>
+          <div className="space-y-1.5">
+            {Array.from({ length: visit.careProsRequired }).map((_, cpIdx) => (
+              <div key={cpIdx} className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10">CP{cpIdx + 1}:</span>
+                <Select
+                  value={visit.genderPreferences[cpIdx] || 'any'}
+                  onValueChange={(v) => handleGenderChange(cpIdx, v)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">No Preference</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="male">Male</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Required Days *</Label>
+        <div className="flex flex-wrap gap-2">
+          {DAY_OPTIONS.map(day => (
+            <Button
+              key={day.value}
+              type="button"
+              variant={visit.selectedDays.includes(day.value) ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleDayToggle(day.value)}
+              className={visit.selectedDays.includes(day.value)
+                ? "bg-purple-600 hover:bg-purple-700 text-white"
+                : ""}
+            >
+              {day.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Preferred Start Time *</Label>
+          <Input
+            type="time"
+            step="900"
+            value={visit.timeStart}
+            onChange={(e) => onChange({ ...visit, timeStart: e.target.value })}
+            className="w-full"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Preferred End Time *</Label>
+          <Input
+            type="time"
+            step="900"
+            value={visit.timeEnd}
+            onChange={(e) => onChange({ ...visit, timeEnd: e.target.value })}
+            className="w-full"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchResultsCard({ match, index }: { match: MatchedEmployee; index: number }) {
+  return (
+    <Card className="p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+      <div className="space-y-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 text-purple-700 dark:text-purple-300 font-bold text-sm">
+              {index + 1}
+            </div>
+            <div>
+              <h4 className={`font-semibold ${getGenderColorClass(match.gender)}`}>
+                {match.employeeName}
+              </h4>
+              <div className="flex items-center gap-2 mt-0.5">
+                {getMatchTypeBadge(match.matchType)}
+                <TransportModeIcon transportMode={match.transportMode} />
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Score: {match.matchScore?.toFixed(0) || 'N/A'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="text-right text-sm">
+            <div className="text-gray-600 dark:text-gray-400">
+              {match.contractedWeeklyHours?.toFixed(1) || '?'}h contracted/week
+            </div>
+            <div className="text-blue-600 dark:text-blue-400">
+              {match.totalScheduledHours?.toFixed(1) || '?'}h scheduled
+            </div>
+            <div className="font-semibold text-green-600 dark:text-green-400">
+              {match.remainingCapacity?.toFixed(1) || '?'}h remaining
+            </div>
+          </div>
+        </div>
+        {match.matchedSlots?.length > 0 && (
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Available Slots:</div>
+            <div className="flex flex-wrap gap-2">
+              {match.matchedSlots.map((slot: any, si: number) => (
+                <div key={si} className={`text-xs px-2.5 py-1.5 rounded-md border ${
+                  slot.matchType === 'exact'
+                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300'
+                    : slot.matchType === 'adjusted-time'
+                    ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300'
+                    : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300'
+                }`}>
+                  <span className="font-medium">{slot.dayLabel}</span>
+                  <span className="mx-1">|</span>
+                  <span>{slot.availableWindow}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function ClientEnquiryMatcher() {
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [postcode, setPostcode] = useState('');
-  const [genderPreference, setGenderPreference] = useState('any');
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [timeStart, setTimeStart] = useState('09:00');
-  const [timeEnd, setTimeEnd] = useState('17:00');
-  const [results, setResults] = useState<MatchResult | null>(null);
+  const [visits, setVisits] = useState<VisitFormData[]>([createEmptyVisit()]);
+  const [activeVisitTab, setActiveVisitTab] = useState('0');
+  const [multiResults, setMultiResults] = useState<MultiVisitResult | null>(null);
+  const [activeResultTab, setActiveResultTab] = useState('0');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
   const { toast } = useToast();
@@ -211,16 +425,25 @@ function ClientEnquiryMatcher() {
   });
 
   const saveEnquiryMutation = useMutation({
-    mutationFn: async (data: { criteria: any; matchResult: MatchResult }) => {
+    mutationFn: async (data: { criteria: any; matchResult: any; isSingleVisit: boolean }) => {
+      const totalMatches = data.matchResult.visitResults
+        ? data.matchResult.visitResults.reduce((sum: number, vr: any) => sum + (vr.matches?.length || 0), 0)
+        : data.matchResult.matches?.length || 0;
+      const topMatch = data.matchResult.visitResults
+        ? data.matchResult.visitResults[0]?.matches?.[0]?.employeeName || null
+        : data.matchResult.matches?.[0]?.employeeName || null;
+
+      const firstVisit = data.criteria.visits?.[0];
       const res = await apiRequest('POST', '/api/client-enquiries', {
         clientName: data.criteria.clientName,
         postcode: data.criteria.postcode || null,
-        genderPreference: data.criteria.genderPreference || null,
-        requiredDays: data.criteria.requiredDays,
-        preferredTimeWindow: data.criteria.preferredTimeWindow,
-        matchCount: data.matchResult.matches.length,
-        topMatch: data.matchResult.matches[0]?.employeeName || null,
+        genderPreference: data.isSingleVisit ? (firstVisit?.genderPreferences?.[0] || 'any') : null,
+        requiredDays: firstVisit?.requiredDays || [],
+        preferredTimeWindow: firstVisit?.preferredTimeWindow || { start: '09:00', end: '17:00' },
+        matchCount: totalMatches,
+        topMatch,
         results: data.matchResult,
+        isMultiVisit: !data.isSingleVisit,
       });
       return res.json();
     },
@@ -241,28 +464,66 @@ function ClientEnquiryMatcher() {
 
   const matchMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/bd-matcher', {
+      const activeVisits = visits.filter(v => v.selectedDays.length > 0);
+      if (activeVisits.length === 1 && activeVisits[0].careProsRequired === 1) {
+        const v = activeVisits[0];
+        const res = await apiRequest('POST', '/api/bd-matcher', {
+          clientName,
+          postcode: postcode || undefined,
+          genderPreference: v.genderPreferences[0] || 'any',
+          requiredDays: v.selectedDays,
+          preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+        });
+        const singleResult = await res.json();
+        return {
+          clientName,
+          postcode: postcode || undefined,
+          visitResults: [{
+            visitLabel: 'Visit 1',
+            visitIndex: 0,
+            careProsRequired: 1,
+            genderPreferences: v.genderPreferences,
+            matches: singleResult.matches,
+            totalEmployeesEvaluated: singleResult.totalEmployeesEvaluated,
+          }],
+          totalVisits: 1,
+        } as MultiVisitResult;
+      }
+
+      const visitPayloads = activeVisits.map((v, i) => ({
+        visitLabel: `Visit ${i + 1}`,
+        careProsRequired: v.careProsRequired,
+        genderPreferences: v.genderPreferences,
+        requiredDays: v.selectedDays,
+        preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+      }));
+
+      const res = await apiRequest('POST', '/api/bd-matcher/multi-visit', {
         clientName,
         postcode: postcode || undefined,
-        genderPreference,
-        requiredDays: selectedDays,
-        preferredTimeWindow: { start: timeStart, end: timeEnd },
-        visitDurationMinutes: 60, // Default to 60 minutes
+        visits: visitPayloads,
       });
-      return res.json();
+      return await res.json() as MultiVisitResult;
     },
-    onSuccess: (data: MatchResult) => {
-      setResults(data);
+    onSuccess: (data: MultiVisitResult) => {
+      setMultiResults(data);
+      setActiveResultTab('0');
+      const filledVisits = visits.filter(v => v.selectedDays.length > 0);
+      const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
       saveEnquiryMutation.mutate({
         criteria: {
           clientName,
           postcode: postcode || undefined,
-          genderPreference,
-          requiredDays: selectedDays,
-          preferredTimeWindow: { start: timeStart, end: timeEnd },
-          visitDurationMinutes: 60,
+          visits: filledVisits.map((v, i) => ({
+            visitLabel: `Visit ${i + 1}`,
+            careProsRequired: v.careProsRequired,
+            genderPreferences: v.genderPreferences,
+            requiredDays: v.selectedDays,
+            preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+          })),
         },
         matchResult: data,
+        isSingleVisit: isSingle,
       });
     },
     onError: () => {
@@ -274,27 +535,42 @@ function ClientEnquiryMatcher() {
     },
   });
 
-  const handleDayToggle = (day: string) => {
-    setSelectedDays(prev =>
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-    );
+  const updateVisit = (index: number, visitData: VisitFormData) => {
+    const newVisits = [...visits];
+    newVisits[index] = visitData;
+    setVisits(newVisits);
+  };
+
+  const addVisitTab = () => {
+    if (visits.length >= 5) return;
+    const newVisits = [...visits, createEmptyVisit()];
+    setVisits(newVisits);
+    setActiveVisitTab(String(newVisits.length - 1));
+  };
+
+  const removeVisitTab = (index: number) => {
+    if (visits.length <= 1) return;
+    const newVisits = visits.filter((_, i) => i !== index);
+    setVisits(newVisits);
+    const newActive = Math.min(parseInt(activeVisitTab), newVisits.length - 1);
+    setActiveVisitTab(String(newActive));
   };
 
   const handleReset = () => {
     setClientName('');
     setPostcode('');
-    setGenderPreference('any');
-    setSelectedDays([]);
-    setTimeStart('09:00');
-    setTimeEnd('17:00');
-    setResults(null);
+    setVisits([createEmptyVisit()]);
+    setActiveVisitTab('0');
+    setMultiResults(null);
+    setActiveResultTab('0');
   };
 
-  const canSubmit = clientName.trim() && selectedDays.length > 0 && timeStart && timeEnd;
+  const activeVisits = visits.filter(v => v.selectedDays.length > 0);
+  const canSubmit = clientName.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setMultiResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
         <DialogTrigger asChild>
           <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg">
             <Search className="w-4 h-4 mr-2" />
@@ -311,12 +587,12 @@ function ClientEnquiryMatcher() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {showHistory
                   ? `${historyQuery.data?.length || 0} saved enquiries`
-                  : 'Enter client requirements to find the best matching staff members based on availability, gender preference, and capacity.'}
+                  : 'Enter client requirements — use tabs for multiple daily visits. Fill each visit tab then click Find Matches.'}
               </p>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setResults(null); }}
+                onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
                 className={showHistory ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700' : ''}
               >
                 {showHistory ? (
@@ -335,10 +611,12 @@ function ClientEnquiryMatcher() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                        Results for {viewingHistoryResult.criteria?.clientName || viewingHistoryResult.clientName}
+                        Results for {viewingHistoryResult.clientName}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {viewingHistoryResult.matches?.length || 0} match{(viewingHistoryResult.matches?.length || 0) !== 1 ? 'es' : ''} found
+                        {viewingHistoryResult.totalVisits
+                          ? `${viewingHistoryResult.totalVisits} visit(s)`
+                          : `${viewingHistoryResult.matches?.length || 0} match(es)`}
                         {viewingHistoryResult.createdAt && (
                           <> &middot; {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
                         )}
@@ -350,62 +628,49 @@ function ClientEnquiryMatcher() {
                     </Button>
                   </div>
 
-                  {(viewingHistoryResult.matches?.length || 0) === 0 ? (
-                    <Card className="p-8 text-center border-dashed">
-                      <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Were Found</h4>
-                    </Card>
-                  ) : (
-                    viewingHistoryResult.matches.map((match: any, index: number) => (
-                      <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 text-purple-700 dark:text-purple-300 font-bold text-sm">
-                                {index + 1}
-                              </div>
-                              <div>
-                                <h4 className={`font-semibold ${getGenderColorClass(match.gender)}`}>
-                                  {match.employeeName}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  {getMatchTypeBadge(match.matchType)}
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                                    Score: {match.matchScore?.toFixed(0) || 'N/A'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right text-sm">
-                              <div className="font-semibold text-green-600 dark:text-green-400">
-                                {match.remainingCapacity?.toFixed(1) || '?'}h remaining
-                              </div>
-                            </div>
+                  {viewingHistoryResult.visitResults ? (
+                    <Tabs defaultValue="0">
+                      <TabsList className="mb-3">
+                        {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
+                          <TabsTrigger key={vi} value={String(vi)} className="text-xs">
+                            {vr.visitLabel || `Visit ${vi + 1}`}
+                            <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">
+                              {vr.matches?.length || 0}
+                            </Badge>
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                      {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
+                        <TabsContent key={vi} value={String(vi)} className="space-y-3">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            CPs needed: {vr.careProsRequired || 1} &middot;
+                            Gender: {(vr.genderPreferences || ['any']).map((g: string, gi: number) => `CP${gi + 1}: ${g}`).join(', ')}
                           </div>
-                          {match.matchedSlots?.length > 0 && (
-                            <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
-                              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Available Slots:</div>
-                              <div className="flex flex-wrap gap-2">
-                                {match.matchedSlots.map((slot: any, si: number) => (
-                                  <div key={si} className={`text-xs px-2.5 py-1.5 rounded-md border ${
-                                    slot.matchType === 'exact'
-                                      ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300'
-                                      : slot.matchType === 'adjusted-time'
-                                      ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300'
-                                      : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300'
-                                  }`}>
-                                    <span className="font-medium">{slot.dayLabel}</span>
-                                    <span className="mx-1">|</span>
-                                    <span>{slot.availableWindow}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                          {(vr.matches?.length || 0) === 0 ? (
+                            <Card className="p-6 text-center border-dashed">
+                              <XCircle className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                              <h4 className="font-medium text-gray-600 dark:text-gray-300 text-sm">No Matches Found</h4>
+                            </Card>
+                          ) : (
+                            vr.matches.map((match: any, mi: number) => (
+                              <MatchResultsCard key={mi} match={match} index={mi} />
+                            ))
                           )}
-                        </div>
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  ) : viewingHistoryResult.matches ? (
+                    (viewingHistoryResult.matches.length === 0) ? (
+                      <Card className="p-8 text-center border-dashed">
+                        <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                        <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Were Found</h4>
                       </Card>
-                    ))
-                  )}
+                    ) : (
+                      viewingHistoryResult.matches.map((match: any, index: number) => (
+                        <MatchResultsCard key={index} match={match} index={index} />
+                      ))
+                    )
+                  ) : null}
                 </div>
               ) : (
                 <div className="space-y-2 py-2">
@@ -424,6 +689,9 @@ function ClientEnquiryMatcher() {
                     </Card>
                   ) : (
                     historyQuery.data.map((enquiry: any) => {
+                      const results = enquiry.results;
+                      const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
+                      const visitCount = isMultiVisit ? results.totalVisits : 1;
                       const days = Array.isArray(enquiry.requiredDays) ? enquiry.requiredDays : [];
                       const tw = enquiry.preferredTimeWindow || {};
                       return (
@@ -434,6 +702,11 @@ function ClientEnquiryMatcher() {
                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                                   {enquiry.clientName}
                                 </h4>
+                                {isMultiVisit && (
+                                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-700 text-xs">
+                                    {visitCount} visit{visitCount !== 1 ? 's' : ''}
+                                  </Badge>
+                                )}
                                 {enquiry.matchCount > 0 ? (
                                   <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700 text-xs">
                                     {enquiry.matchCount} match{enquiry.matchCount !== 1 ? 'es' : ''}
@@ -443,11 +716,10 @@ function ClientEnquiryMatcher() {
                                 )}
                               </div>
                               <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                <span>{days.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(', ')}</span>
-                                <span>{tw.start || '?'} - {tw.end || '?'}</span>
-                                {enquiry.genderPreference && enquiry.genderPreference !== 'any' && (
-                                  <span className="capitalize">{enquiry.genderPreference}</span>
+                                {days.length > 0 && (
+                                  <span>{days.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(', ')}</span>
                                 )}
+                                {tw.start && <span>{tw.start} - {tw.end || '?'}</span>}
                                 {enquiry.topMatch && (
                                   <span className="text-purple-600 dark:text-purple-400">Top: {enquiry.topMatch}</span>
                                 )}
@@ -461,7 +733,7 @@ function ClientEnquiryMatcher() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  const resultData = enquiry.results as MatchResult;
+                                  const resultData = enquiry.results;
                                   if (resultData) {
                                     setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName });
                                   }
@@ -487,7 +759,7 @@ function ClientEnquiryMatcher() {
                   )}
                 </div>
               )
-            ) : !results ? (
+            ) : !multiResults ? (
               <div className="space-y-5 py-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -514,86 +786,92 @@ function ClientEnquiryMatcher() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <Label>Required Days *</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {DAY_OPTIONS.map(day => (
-                      <Button
-                        key={day.value}
-                        type="button"
-                        variant={selectedDays.includes(day.value) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleDayToggle(day.value)}
-                        className={selectedDays.includes(day.value)
-                          ? "bg-purple-600 hover:bg-purple-700 text-white"
-                          : ""}
-                      >
-                        {day.label}
-                      </Button>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Visit Details
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {visits.length} visit{visits.length !== 1 ? 's' : ''}
+                      </span>
+                      {visits.length < 5 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addVisitTab}
+                          className="h-7 text-xs px-2"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add Visit
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <Tabs value={activeVisitTab} onValueChange={setActiveVisitTab}>
+                    <TabsList className="mb-3 flex-wrap h-auto gap-1">
+                      {visits.map((v, i) => (
+                        <div key={i} className="flex items-center">
+                          <TabsTrigger value={String(i)} className="text-xs relative pr-6">
+                            Visit {i + 1}
+                            {v.selectedDays.length > 0 && (
+                              <CheckCircle className="w-3 h-3 text-green-500 ml-1" />
+                            )}
+                          </TabsTrigger>
+                          {visits.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); removeVisitTab(i); }}
+                              className="ml-[-18px] mr-1 z-10 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Remove this visit"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </TabsList>
+                    {visits.map((v, i) => (
+                      <TabsContent key={i} value={String(i)}>
+                        <VisitForm
+                          visit={v}
+                          onChange={(updated) => updateVisit(i, updated)}
+                        />
+                      </TabsContent>
                     ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="timeStart">Preferred Start Time *</Label>
-                    <Input
-                      id="timeStart"
-                      type="time"
-                      step="900"
-                      value={timeStart}
-                      onChange={(e) => setTimeStart(e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="timeEnd">Preferred End Time *</Label>
-                    <Input
-                      id="timeEnd"
-                      type="time"
-                      step="900"
-                      value={timeEnd}
-                      onChange={(e) => setTimeEnd(e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Gender Preference</Label>
-                  <Select value={genderPreference} onValueChange={setGenderPreference}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">No Preference</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="male">Male</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  </Tabs>
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
                   <Button variant="ghost" onClick={handleReset} className="text-gray-500">
                     Reset
                   </Button>
-                  <Button
-                    onClick={() => matchMutation.mutate()}
-                    disabled={!canSubmit || matchMutation.isPending}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6"
-                  >
-                    {matchMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Finding Matches...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-4 h-4 mr-2" />
-                        Find Matches
-                      </>
+                  <div className="flex items-center gap-3">
+                    {activeVisits.length > 0 && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {activeVisits.length} visit{activeVisits.length !== 1 ? 's' : ''} configured
+                      </span>
                     )}
-                  </Button>
+                    <Button
+                      onClick={() => matchMutation.mutate()}
+                      disabled={!canSubmit || matchMutation.isPending}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6"
+                    >
+                      {matchMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Finding Matches...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4 mr-2" />
+                          Find Matches
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -601,85 +879,79 @@ function ClientEnquiryMatcher() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                      Results for {results.criteria.clientName}
+                      Results for {multiResults.clientName}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {results.matches.length} match{results.matches.length !== 1 ? 'es' : ''} found from {results.totalEmployeesEvaluated} employees evaluated
+                      {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot;
+                      {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setResults(null)}>
+                  <Button variant="outline" size="sm" onClick={() => setMultiResults(null)}>
                     <ArrowRight className="w-4 h-4 mr-1 rotate-180" />
                     Back to Search
                   </Button>
                 </div>
 
-                {results.matches.length === 0 ? (
-                  <Card className="p-8 text-center border-dashed">
-                    <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                    <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Found</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Try adjusting the time window, reducing required days, or changing gender preference to find available staff.
-                    </p>
-                  </Card>
+                {multiResults.visitResults.length === 1 ? (
+                  <div className="space-y-3">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
+                      <span>CPs needed: {multiResults.visitResults[0].careProsRequired}</span>
+                      <span>&middot;</span>
+                      <span>Gender: {multiResults.visitResults[0].genderPreferences.map((g, gi) => `CP${gi + 1}: ${g}`).join(', ')}</span>
+                      <span>&middot;</span>
+                      <span>{multiResults.visitResults[0].totalEmployeesEvaluated} employees evaluated</span>
+                    </div>
+                    {multiResults.visitResults[0].matches.length === 0 ? (
+                      <Card className="p-8 text-center border-dashed">
+                        <XCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                        <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Found</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Try adjusting the time window, reducing required days, or changing gender preference.
+                        </p>
+                      </Card>
+                    ) : (
+                      multiResults.visitResults[0].matches.map((match, index) => (
+                        <MatchResultsCard key={index} match={match} index={index} />
+                      ))
+                    )}
+                  </div>
                 ) : (
-                  results.matches.map((match, index) => (
-                    <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 text-purple-700 dark:text-purple-300 font-bold text-sm">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <h4 className={`font-semibold ${getGenderColorClass(match.gender)}`}>
-                                {match.employeeName}
-                              </h4>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {getMatchTypeBadge(match.matchType)}
-                                <TransportModeIcon transportMode={match.transportMode} />
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  Score: {match.matchScore.toFixed(0)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right text-sm">
-                            <div className="text-gray-600 dark:text-gray-400">
-                              {match.contractedWeeklyHours.toFixed(1)}h contracted/week
-                            </div>
-                            <div className="text-blue-600 dark:text-blue-400">
-                              {match.totalScheduledHours.toFixed(1)}h scheduled
-                            </div>
-                            <div className="font-semibold text-green-600 dark:text-green-400">
-                              {match.remainingCapacity.toFixed(1)}h remaining
-                            </div>
-                          </div>
+                  <Tabs value={activeResultTab} onValueChange={setActiveResultTab}>
+                    <TabsList className="mb-3">
+                      {multiResults.visitResults.map((vr, vi) => (
+                        <TabsTrigger key={vi} value={String(vi)} className="text-xs">
+                          {vr.visitLabel}
+                          <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">
+                            {vr.matches.length}
+                          </Badge>
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {multiResults.visitResults.map((vr, vi) => (
+                      <TabsContent key={vi} value={String(vi)} className="space-y-3">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
+                          <span>CPs needed: {vr.careProsRequired}</span>
+                          <span>&middot;</span>
+                          <span>Gender: {vr.genderPreferences.map((g, gi) => `CP${gi + 1}: ${g}`).join(', ')}</span>
+                          <span>&middot;</span>
+                          <span>{vr.totalEmployeesEvaluated} employees evaluated</span>
                         </div>
-
-                        <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
-                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Available Slots:</div>
-                          <div className="flex flex-wrap gap-2">
-                            {match.matchedSlots.map((slot, si) => (
-                              <div
-                                key={si}
-                                className={`text-xs px-2.5 py-1.5 rounded-md border ${
-                                  slot.matchType === 'exact'
-                                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300'
-                                    : slot.matchType === 'adjusted-time'
-                                    ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300'
-                                    : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300'
-                                }`}
-                              >
-                                <span className="font-medium">{slot.dayLabel}</span>
-                                <span className="mx-1">|</span>
-                                <span>{slot.availableWindow}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
+                        {vr.matches.length === 0 ? (
+                          <Card className="p-6 text-center border-dashed">
+                            <XCircle className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                            <h4 className="font-medium text-gray-600 dark:text-gray-300 text-sm">No Matches Found</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Try adjusting the time window or gender preference for this visit.
+                            </p>
+                          </Card>
+                        ) : (
+                          vr.matches.map((match, mi) => (
+                            <MatchResultsCard key={mi} match={match} index={mi} />
+                          ))
+                        )}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
                 )}
               </div>
             )}

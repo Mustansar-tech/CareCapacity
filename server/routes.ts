@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
 
 import { logger } from "./logger";
-import { matchClientEnquiry, type ClientEnquiryCriteria } from "./bdMatcher";
+import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from "./bdMatcher";
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -1478,11 +1478,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/bd-matcher/multi-visit', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const latestData = await storage.getLatestCapacityAnalysis(branchId);
+      if (!latestData) {
+        return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
+      }
+
+      const { clientName, postcode, visits } = req.body;
+
+      if (!clientName || !visits || !Array.isArray(visits) || visits.length === 0) {
+        return res.status(400).json({ message: 'Missing required fields: clientName, visits (array)' });
+      }
+
+      const multiCriteria: MultiVisitCriteria = {
+        clientName,
+        postcode,
+        visits: visits.map((v: any, i: number) => ({
+          visitLabel: v.visitLabel || `Visit ${i + 1}`,
+          careProsRequired: v.careProsRequired || 1,
+          genderPreferences: v.genderPreferences || ['any'],
+          requiredDays: v.requiredDays || [],
+          preferredTimeWindow: v.preferredTimeWindow || { start: '09:00', end: '17:00' },
+        })),
+      };
+
+      const result = matchMultiVisitEnquiry(multiCriteria, latestData);
+      res.json(result);
+    } catch (error) {
+      logger.error('BD Multi-Visit Matcher error', error);
+      const message = safeErrorMessage(error, 'Failed to match multi-visit client enquiry');
+      const statusCode = message.includes('branchId is required') || message.includes('not found') ? 400 : 500;
+      res.status(statusCode).json({ message });
+    }
+  });
+
   app.post('/api/client-enquiries', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, matchCount, topMatch, results } = req.body;
-      if (!clientName || !requiredDays || !preferredTimeWindow) {
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, matchCount, topMatch, results, visits, isMultiVisit } = req.body;
+      if (!clientName) {
+        return res.status(400).json({ message: 'Missing required field: clientName' });
+      }
+      if (!isMultiVisit && (!requiredDays || !preferredTimeWindow)) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
       const enquiry = await storage.saveClientEnquiry({
@@ -1490,8 +1529,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName,
         postcode: postcode || null,
         genderPreference: genderPreference || null,
-        requiredDays,
-        preferredTimeWindow,
+        requiredDays: requiredDays || [],
+        preferredTimeWindow: preferredTimeWindow || {},
         matchCount: matchCount || 0,
         topMatch: topMatch || null,
         results: results || null,

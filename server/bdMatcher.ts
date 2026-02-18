@@ -9,6 +9,20 @@ export interface ClientEnquiryCriteria {
   preferredTimeWindow: { start: string; end: string };
 }
 
+export interface VisitCriteria {
+  visitLabel: string;
+  careProsRequired: number;
+  genderPreferences: ('male' | 'female' | 'any')[];
+  requiredDays: string[];
+  preferredTimeWindow: { start: string; end: string };
+}
+
+export interface MultiVisitCriteria {
+  clientName: string;
+  postcode?: string;
+  visits: VisitCriteria[];
+}
+
 export interface MatchedEmployee {
   employeeName: string;
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
@@ -32,6 +46,22 @@ export interface MatchResult {
   criteria: ClientEnquiryCriteria;
   matches: MatchedEmployee[];
   totalEmployeesEvaluated: number;
+}
+
+export interface VisitMatchResult {
+  visitLabel: string;
+  visitIndex: number;
+  careProsRequired: number;
+  genderPreferences: ('male' | 'female' | 'any')[];
+  matches: MatchedEmployee[];
+  totalEmployeesEvaluated: number;
+}
+
+export interface MultiVisitMatchResult {
+  clientName: string;
+  postcode?: string;
+  visitResults: VisitMatchResult[];
+  totalVisits: number;
 }
 
 function timeToMinutes(timeStr: string): number {
@@ -119,30 +149,11 @@ function findClosestSlot(
   return bestSlot;
 }
 
-export function matchClientEnquiry(
-  criteria: ClientEnquiryCriteria,
-  analysis: CapacityAnalysis
-): MatchResult {
-  const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
-  const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
-  const dates = Object.keys(employeeSummaryByDate).sort();
-
-  if (dates.length === 0) {
-    return { criteria, matches: [], totalEmployeesEvaluated: 0 };
-  }
-
-  const reqStart = timeToMinutes(criteria.preferredTimeWindow.start);
-  const reqEnd = timeToMinutes(criteria.preferredTimeWindow.end);
-  const visitDuration = 60; // Default to 60 minutes
-
-  const datesByDay = new Map<string, string[]>();
-  for (const dateStr of dates) {
-    const dayAbbrev = getDayAbbrev(dateStr);
-    const existing = datesByDay.get(dayAbbrev) || [];
-    existing.push(dateStr);
-    datesByDay.set(dayAbbrev, existing);
-  }
-
+function buildEmployeeWeeklyData(
+  dates: string[],
+  employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
+  employeesByDate: Record<string, EmployeeDailyDetail[]>
+) {
   const allEmployeeNames = new Set<string>();
   for (const dateStr of dates) {
     const summaries = employeeSummaryByDate[dateStr] || [];
@@ -158,11 +169,9 @@ export function matchClientEnquiry(
     transportMode?: string;
   }>();
 
-  const employeeList = Array.from(allEmployeeNames);
-  for (const empName of employeeList) {
+  for (const empName of Array.from(allEmployeeNames)) {
     let totalScheduled = 0;
     let totalContractedDaily = 0;
-    let daysWithContracted = 0;
     let gender: string | undefined;
     let transportMode: string | undefined;
 
@@ -179,34 +188,52 @@ export function matchClientEnquiry(
       const empDetail = details.find(d => d.employeeName === empName);
       if (empDetail && empDetail.contractedDailyHours > 0) {
         totalContractedDaily += empDetail.contractedDailyHours;
-        daysWithContracted++;
       }
     }
 
-    const contractedWeekly = totalContractedDaily > 0
-      ? Math.round(totalContractedDaily * 100) / 100
-      : 0;
-
     employeeWeeklyData.set(empName, {
       totalScheduled: Math.round(totalScheduled * 100) / 100,
-      contractedWeekly,
+      contractedWeekly: Math.round(totalContractedDaily * 100) / 100,
       gender,
       transportMode,
     });
   }
 
+  return { allEmployeeNames, employeeWeeklyData };
+}
+
+function matchEmployeesForVisit(
+  genderPreference: 'male' | 'female' | 'any',
+  requiredDays: string[],
+  preferredTimeWindow: { start: string; end: string },
+  dates: string[],
+  employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
+  allEmployeeNames: Set<string>,
+  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string }>,
+  topN: number = 5
+): MatchedEmployee[] {
+  const reqStart = timeToMinutes(preferredTimeWindow.start);
+  const reqEnd = timeToMinutes(preferredTimeWindow.end);
+  const visitDuration = 60;
+
+  const datesByDay = new Map<string, string[]>();
+  for (const dateStr of dates) {
+    const dayAbbrev = getDayAbbrev(dateStr);
+    const existing = datesByDay.get(dayAbbrev) || [];
+    existing.push(dateStr);
+    datesByDay.set(dayAbbrev, existing);
+  }
+
   const candidates: MatchedEmployee[] = [];
 
-  const allEmployeeList = Array.from(allEmployeeNames);
-
-  for (const empName of allEmployeeList) {
+  for (const empName of Array.from(allEmployeeNames)) {
     const weeklyData = employeeWeeklyData.get(empName)!;
 
     if (
-      criteria.genderPreference &&
-      criteria.genderPreference !== 'any' &&
+      genderPreference &&
+      genderPreference !== 'any' &&
       weeklyData.gender &&
-      weeklyData.gender !== criteria.genderPreference
+      weeklyData.gender !== genderPreference
     ) {
       continue;
     }
@@ -219,7 +246,7 @@ export function matchClientEnquiry(
     let adjustedTimeMatches = 0;
     let alternativeDayMatches = 0;
 
-    for (const reqDay of criteria.requiredDays) {
+    for (const reqDay of requiredDays) {
       const matchingDates = datesByDay.get(reqDay) || [];
       let bestSlotForDay: MatchedSlot | null = null;
       let bestScoreForDay = -1;
@@ -268,7 +295,7 @@ export function matchClientEnquiry(
     if (matchedSlots.length === 0) {
       for (const dateStr of dates) {
         const dayAbbrev = getDayAbbrev(dateStr);
-        if (criteria.requiredDays.includes(dayAbbrev)) continue;
+        if (requiredDays.includes(dayAbbrev)) continue;
 
         const summaries = employeeSummaryByDate[dateStr] || [];
         const empSummary = summaries.find(s => s.employeeName === empName);
@@ -286,7 +313,7 @@ export function matchClientEnquiry(
           });
           alternativeDayMatches++;
           totalScore += 40;
-          if (matchedSlots.length >= criteria.requiredDays.length) break;
+          if (matchedSlots.length >= requiredDays.length) break;
         } else {
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
@@ -298,7 +325,7 @@ export function matchClientEnquiry(
             });
             alternativeDayMatches++;
             totalScore += Math.max(0, 20 - closestSlot.distance / 10);
-            if (matchedSlots.length >= criteria.requiredDays.length) break;
+            if (matchedSlots.length >= requiredDays.length) break;
           }
         }
       }
@@ -306,8 +333,8 @@ export function matchClientEnquiry(
 
     if (matchedSlots.length === 0) continue;
 
-    const avgScore = totalScore / Math.max(criteria.requiredDays.length, 1);
-    const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(criteria.requiredDays.length, 1);
+    const avgScore = totalScore / Math.max(requiredDays.length, 1);
+    const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
     const finalScore = Math.round((avgScore * 0.6 + dayMatchRatio * 100 * 0.25 + capacityBonus * 0.15) * 100) / 100;
 
@@ -335,13 +362,144 @@ export function matchClientEnquiry(
     return b.matchScore - a.matchScore;
   });
 
-  const topMatches = candidates.slice(0, 5);
+  return candidates.slice(0, topN);
+}
 
-  logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, found ${candidates.length} candidates, returning top ${topMatches.length}`);
+export function matchClientEnquiry(
+  criteria: ClientEnquiryCriteria,
+  analysis: CapacityAnalysis
+): MatchResult {
+  const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
+  const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
+  const dates = Object.keys(employeeSummaryByDate).sort();
+
+  if (dates.length === 0) {
+    return { criteria, matches: [], totalEmployeesEvaluated: 0 };
+  }
+
+  const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
+    dates, employeeSummaryByDate, employeesByDate
+  );
+
+  const matches = matchEmployeesForVisit(
+    criteria.genderPreference || 'any',
+    criteria.requiredDays,
+    criteria.preferredTimeWindow,
+    dates,
+    employeeSummaryByDate,
+    allEmployeeNames,
+    employeeWeeklyData
+  );
+
+  logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
 
   return {
     criteria,
-    matches: topMatches,
+    matches,
     totalEmployeesEvaluated: allEmployeeNames.size,
+  };
+}
+
+export function matchMultiVisitEnquiry(
+  criteria: MultiVisitCriteria,
+  analysis: CapacityAnalysis
+): MultiVisitMatchResult {
+  const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
+  const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
+  const dates = Object.keys(employeeSummaryByDate).sort();
+
+  if (dates.length === 0) {
+    return {
+      clientName: criteria.clientName,
+      postcode: criteria.postcode,
+      visitResults: criteria.visits.map((v, i) => ({
+        visitLabel: v.visitLabel,
+        visitIndex: i,
+        careProsRequired: v.careProsRequired,
+        genderPreferences: v.genderPreferences,
+        matches: [],
+        totalEmployeesEvaluated: 0,
+      })),
+      totalVisits: criteria.visits.length,
+    };
+  }
+
+  const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
+    dates, employeeSummaryByDate, employeesByDate
+  );
+
+  const visitResults: VisitMatchResult[] = [];
+
+  for (let i = 0; i < criteria.visits.length; i++) {
+    const visit = criteria.visits[i];
+    const cpMatches: MatchedEmployee[] = [];
+
+    for (let cpIdx = 0; cpIdx < visit.careProsRequired; cpIdx++) {
+      const genderPref = visit.genderPreferences[cpIdx] || 'any';
+      const alreadyAssigned = new Set(cpMatches.map(m => m.employeeName));
+
+      const filteredNames = new Set(
+        Array.from(allEmployeeNames).filter(n => !alreadyAssigned.has(n))
+      );
+
+      const matches = matchEmployeesForVisit(
+        genderPref,
+        visit.requiredDays,
+        visit.preferredTimeWindow,
+        dates,
+        employeeSummaryByDate,
+        filteredNames,
+        employeeWeeklyData,
+        5
+      );
+
+      if (matches.length > 0) {
+        cpMatches.push(matches[0]);
+      }
+    }
+
+    const allMatchesForVisit = matchEmployeesForVisit(
+      'any',
+      visit.requiredDays,
+      visit.preferredTimeWindow,
+      dates,
+      employeeSummaryByDate,
+      allEmployeeNames,
+      employeeWeeklyData,
+      visit.careProsRequired * 3
+    );
+
+    const dedupedMatches: MatchedEmployee[] = [];
+    const seenNames = new Set<string>();
+    for (const m of cpMatches) {
+      if (!seenNames.has(m.employeeName)) {
+        seenNames.add(m.employeeName);
+        dedupedMatches.push(m);
+      }
+    }
+    for (const m of allMatchesForVisit) {
+      if (!seenNames.has(m.employeeName) && dedupedMatches.length < visit.careProsRequired * 3) {
+        seenNames.add(m.employeeName);
+        dedupedMatches.push(m);
+      }
+    }
+
+    visitResults.push({
+      visitLabel: visit.visitLabel,
+      visitIndex: i,
+      careProsRequired: visit.careProsRequired,
+      genderPreferences: visit.genderPreferences,
+      matches: dedupedMatches,
+      totalEmployeesEvaluated: allEmployeeNames.size,
+    });
+  }
+
+  logger.debug(`BD Multi-Visit Matcher: ${criteria.visits.length} visits, evaluated ${allEmployeeNames.size} employees`);
+
+  return {
+    clientName: criteria.clientName,
+    postcode: criteria.postcode,
+    visitResults,
+    totalVisits: criteria.visits.length,
   };
 }
