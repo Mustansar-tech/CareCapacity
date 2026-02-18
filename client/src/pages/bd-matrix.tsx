@@ -473,12 +473,22 @@ function ClientEnquiryMatcher() {
         : data.matchResult.matches?.[0]?.employeeName || null;
 
       const firstVisit = data.criteria.visits?.[0];
+      
+      // Calculate duration for the first visit to store in the main record
+      let durationMinutes = 60;
+      if (firstVisit?.preferredTimeWindow?.start && firstVisit?.preferredTimeWindow?.end) {
+        const start = firstVisit.preferredTimeWindow.start.split(':').map(Number);
+        const end = firstVisit.preferredTimeWindow.end.split(':').map(Number);
+        durationMinutes = (end[0] * 60 + end[1]) - (start[0] * 60 + start[1]);
+      }
+
       const res = await apiRequest('POST', '/api/client-enquiries', {
         clientName: data.criteria.clientName,
         postcode: data.criteria.postcode || null,
         genderPreference: data.isSingleVisit ? (firstVisit?.genderPreferences?.[0] || 'any') : null,
         requiredDays: firstVisit?.requiredDays || [],
         preferredTimeWindow: firstVisit?.preferredTimeWindow || { start: '09:00', end: '17:00' },
+        visitDurationMinutes: durationMinutes,
         matchCount: totalMatches,
         topMatch,
         results: data.matchResult,

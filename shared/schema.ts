@@ -569,6 +569,7 @@ export const clientEnquiries = pgTable("client_enquiries", {
   matchCount: integer("match_count").notNull().default(0),
   topMatch: text("top_match"),
   results: jsonb("results"),
+  visitDurationMinutes: integer("visit_duration_minutes").notNull().default(60),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   branchIdx: index("enquiry_branch_idx").on(table.branchId),
