@@ -942,12 +942,87 @@ function ClientEnquiryMatcher() {
                           {multiResults.totalVisits} visits • {multiResults.visitResults.reduce((acc, vr) => acc + vr.matches.length, 0)} total matches
                         </p>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={handleReset}>
-                        Clear Results
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-2 border-purple-200 hover:bg-purple-50 text-purple-700 dark:border-purple-800 dark:hover:bg-purple-900/20 dark:text-purple-400"
+                          onClick={() => {
+                            const filledVisits = visits.filter(v => v.selectedDays.length > 0);
+                            const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
+                            saveEnquiryMutation.mutate({
+                              criteria: {
+                                clientName,
+                                postcode: postcode || undefined,
+                                visits: filledVisits.map((v, i) => ({
+                                  visitLabel: `Visit ${i + 1}`,
+                                  careProsRequired: v.careProsRequired,
+                                  genderPreferences: v.genderPreferences,
+                                  requiredDays: v.selectedDays,
+                                  preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+                                })),
+                              },
+                              matchResult: multiResults,
+                              isSingleVisit: isSingle,
+                            });
+                            toast({ title: "Enquiry Saved", description: "The enquiry has been saved to history." });
+                          }}
+                          disabled={saveEnquiryMutation.isPending}
+                        >
+                          {saveEnquiryMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <History className="w-4 h-4" />}
+                          Save to History
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleReset}>
+                          Clear Results
+                        </Button>
+                      </div>
                     </div>
 
-                    <MatchResultsGrid result={multiResults} />
+                    <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
+                      <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1">
+                        {multiResults.visitResults.map((vr, idx) => (
+                          <TabsTrigger 
+                            key={idx} 
+                            value={String(idx)}
+                            className="px-4 py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm rounded-md transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>Visit {idx + 1}</span>
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-none px-1.5 h-5 min-w-[20px] flex items-center justify-center font-bold">
+                                {vr.matches.length}
+                              </Badge>
+                            </div>
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                      
+                      {multiResults.visitResults.map((vr, idx) => (
+                        <TabsContent key={idx} value={String(idx)} className="mt-4">
+                          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4 px-1">
+                            <span className="flex items-center gap-1.5">
+                              <Users className="w-4 h-4" />
+                              CPs needed: {vr.careProsRequired}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4" />
+                              Gender: {vr.genderPreferences.map((g, i) => `CP${i+1}: ${g}`).join(', ')}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <UserCheck className="w-4 h-4" />
+                              {vr.totalEmployeesEvaluated} employees evaluated
+                            </span>
+                          </div>
+                          
+                          <MatchResultsGrid 
+                            result={{
+                              ...multiResults!,
+                              visitResults: [vr]
+                            }} 
+                            requiredDays={visits[idx]?.selectedDays || []}
+                          />
+                        </TabsContent>
+                      ))}
+                    </Tabs>
                   </div>
                 )}
               </div>
