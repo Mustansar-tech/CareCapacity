@@ -233,6 +233,12 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
     onChange({ ...visit, selectedDays: newDays });
   };
 
+  const handleGenderChange = (cpIndex: number, value: string) => {
+    const genderPrefs = [...visit.genderPreferences];
+    genderPrefs[cpIndex] = value;
+    onChange({ ...visit, genderPreferences: genderPrefs });
+  };
+
   const handleCareProsChange = (count: number) => {
     const clamped = Math.max(1, Math.min(3, count));
     const genderPrefs = [...visit.genderPreferences];
