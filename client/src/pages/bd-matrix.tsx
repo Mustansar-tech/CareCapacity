@@ -653,7 +653,7 @@ function ClientEnquiryMatcher() {
             Client Enquiry Matcher
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl">
+        <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl">
           {/* Gradient Header */}
           <div className="px-6 py-5 bg-gradient-to-r from-purple-700 to-indigo-800 text-white rounded-t-lg">
             <div className="flex items-center justify-between">
