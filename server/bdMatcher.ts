@@ -448,6 +448,18 @@ export async function matchClientEnquiry(
     dates, employeeSummaryByDate, employeesByDate
   );
 
+  let clientCoords: { lat: number; lng: number } | undefined;
+  if (criteria.postcode) {
+    try {
+      const geo = await geocodeWithFallback(criteria.postcode);
+      if (geo) {
+        clientCoords = { lat: geo.lat, lng: geo.lng };
+      }
+    } catch (error) {
+      logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
+    }
+  }
+
   const matches = await matchEmployeesForVisit(
     criteria.genderPreference || 'any',
     criteria.requiredDays,
@@ -455,7 +467,9 @@ export async function matchClientEnquiry(
     dates,
     employeeSummaryByDate,
     allEmployeeNames,
-    employeeWeeklyData
+    employeeWeeklyData,
+    50,
+    clientCoords
   );
 
   logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
@@ -491,6 +505,18 @@ export async function matchMultiVisitEnquiry(
     };
   }
 
+  let clientCoords: { lat: number; lng: number } | undefined;
+  if (criteria.postcode) {
+    try {
+      const geo = await geocodeWithFallback(criteria.postcode);
+      if (geo) {
+        clientCoords = { lat: geo.lat, lng: geo.lng };
+      }
+    } catch (error) {
+      logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
+    }
+  }
+
   const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
     dates, employeeSummaryByDate, employeesByDate
   );
@@ -517,7 +543,8 @@ export async function matchMultiVisitEnquiry(
         employeeSummaryByDate,
         filteredNames,
         employeeWeeklyData,
-        5
+        5,
+        clientCoords
       );
 
       if (matches.length > 0) {
@@ -533,7 +560,8 @@ export async function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      visit.careProsRequired * 3
+      visit.careProsRequired * 3,
+      clientCoords
     );
 
     const dedupedMatches: MatchedEmployee[] = [];
