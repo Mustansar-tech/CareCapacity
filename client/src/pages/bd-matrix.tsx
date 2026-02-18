@@ -233,12 +233,6 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
     onChange({ ...visit, selectedDays: newDays });
   };
 
-  const handleGenderChange = (cpIndex: number, value: string) => {
-    const genderPrefs = [...visit.genderPreferences];
-    genderPrefs[cpIndex] = value;
-    onChange({ ...visit, genderPreferences: genderPrefs });
-  };
-
   const handleCareProsChange = (count: number) => {
     const clamped = Math.max(1, Math.min(3, count));
     const genderPrefs = [...visit.genderPreferences];
@@ -247,49 +241,56 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
     onChange({ ...visit, careProsRequired: clamped, genderPreferences: genderPrefs });
   };
 
+  const handleGenderChange = (cpIndex: number, value: string) => {
+    const genderPrefs = [...visit.genderPreferences];
+    genderPrefs[cpIndex] = value;
+    onChange({ ...visit, genderPreferences: genderPrefs });
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-3">
-          <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">CPs needed: {visit.careProsRequired}</Label>
-          <div className="flex items-center gap-4 bg-gray-50/50 dark:bg-gray-800/30 rounded-2xl p-4 border border-gray-100 dark:border-gray-800/50">
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-5">
+        <div className="space-y-2.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Care Pros Required</Label>
+          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => handleCareProsChange(visit.careProsRequired - 1)}
               disabled={visit.careProsRequired <= 1}
-              className="h-10 w-10 p-0 rounded-xl border-gray-200 bg-white shadow-sm"
+              className="h-9 w-9 p-0 rounded-lg border-gray-200"
             >
-              <Minus className="w-4 h-4" />
+              <Minus className="w-3.5 h-3.5" />
             </Button>
-            <span className="text-3xl font-black w-12 text-center text-purple-600 dark:text-purple-400">{visit.careProsRequired}</span>
+            <span className="text-2xl font-black w-10 text-center text-purple-700 dark:text-purple-400">{visit.careProsRequired}</span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => handleCareProsChange(visit.careProsRequired + 1)}
               disabled={visit.careProsRequired >= 3}
-              className="h-10 w-10 p-0 rounded-xl border-gray-200 bg-white shadow-sm"
+              className="h-9 w-9 p-0 rounded-lg border-gray-200"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
 
-        <div className="space-y-3">
-          <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Gender: CP1: {visit.genderPreferences[0] || 'any'}</Label>
-          <div className="space-y-3">
+        <div className="space-y-2.5">
+          <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Gender Preference</Label>
+          <div className="space-y-2">
             {Array.from({ length: visit.careProsRequired }).map((_, cpIdx) => (
-              <div key={cpIdx} className="flex items-center gap-3">
+              <div key={cpIdx} className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 w-8 uppercase tracking-wider">CP{cpIdx + 1}</span>
                 <Select
                   value={visit.genderPreferences[cpIdx] || 'any'}
                   onValueChange={(v) => handleGenderChange(cpIdx, v)}
                 >
-                  <SelectTrigger className="h-12 text-xs font-bold bg-white dark:bg-gray-900 border-gray-100 rounded-2xl shadow-sm">
+                  <SelectTrigger className="h-9 text-xs font-medium bg-white dark:bg-gray-900 border-gray-200">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-gray-100 shadow-2xl">
+                  <SelectContent>
                     <SelectItem value="any">No Preference</SelectItem>
                     <SelectItem value="female">Female</SelectItem>
                     <SelectItem value="male">Male</SelectItem>
@@ -301,9 +302,9 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
         </div>
       </div>
 
-      <div className="space-y-3">
-        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Required Days</Label>
-        <div className="flex flex-wrap gap-2.5">
+      <div className="space-y-2.5">
+        <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Required Days *</Label>
+        <div className="flex flex-wrap gap-2">
           {DAY_OPTIONS.map(day => (
             <Button
               key={day.value}
@@ -312,15 +313,14 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
               size="sm"
               onClick={() => handleDayToggle(day.value)}
               className={visit.selectedDays.includes(day.value)
-                ? "bg-purple-600 hover:bg-purple-700 text-white font-black shadow-xl shadow-purple-500/20 px-6 h-11 rounded-2xl border-none"
-                : "font-black border-gray-100 bg-white hover:border-purple-200 hover:text-purple-600 hover:bg-purple-50/50 px-6 h-11 rounded-2xl shadow-sm"}
+                ? "bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-md shadow-purple-500/20 px-4"
+                : "font-bold border-gray-200 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 px-4"}
             >
               {day.label}
             </Button>
           ))}
         </div>
       </div>
-
 
       <div className="grid grid-cols-2 gap-5">
         <div className="space-y-2.5">
@@ -362,27 +362,27 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const visibleDayLabels = dayLabels.filter((_, i) => requiredDays.includes(days[i]));
 
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
-  const displayLabels = displayDays.map(d => dayLabels[days.indexOf(d)]);
+  const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-2xl shadow-purple-500/5 overflow-hidden flex flex-col">
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
       <div className="overflow-x-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
         <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
-            <tr className="bg-white dark:bg-gray-950">
-              <th className="p-6 text-left font-black text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                <span className="text-sm uppercase tracking-[0.2em] text-gray-400">Requirement</span>
+            <tr className="bg-gray-50 dark:bg-gray-900/80">
+              <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                Requirement
               </th>
               {displayLabels.map(label => (
-                <th key={label} className="p-6 text-center font-black text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-white dark:bg-gray-950">
-                  <span className="text-lg tracking-tight">{label}</span>
+                <th key={label} className="p-4 text-center font-bold text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-gray-50 dark:bg-gray-900">
+                  {label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {result.visitResults.map((vr) => (
               <React.Fragment key={vr.visitIndex}>
                 {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
@@ -390,43 +390,41 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                   const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
                   
                   return (
-                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/30 dark:hover:bg-gray-800/10 transition-colors">
-                      <td className="p-6 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                        <div className="space-y-6">
-                          <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase tracking-widest border border-purple-100 dark:border-purple-800/30">
+                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                      <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                        <div className="space-y-4">
+                          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50">
                             CP{cpIdx + 1}: {genderLabel} Only
                           </div>
-                          <div className="space-y-4 text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-                            <div className="flex items-center gap-3"><Users className="w-3.5 h-3.5 opacity-40" /> Name</div>
-                            <div className="flex items-center gap-3"><Clock className="w-3.5 h-3.5 opacity-40" /> Suggested Time</div>
-                            <div className="flex items-center gap-3"><Car className="w-3.5 h-3.5 opacity-40" /> Driver / Walker</div>
-                            <div className="flex items-center gap-3"><BarChart3 className="w-3.5 h-3.5 opacity-40" /> Weekly Load (Rem)</div>
+                          <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
+                            <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
+                            <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
+                            <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
+                            <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
                           </div>
                         </div>
                       </td>
                       {displayDays.map(day => {
-                        const normalizedDay = day.toLowerCase() === 'thur' ? 'thu' : day.toLowerCase();
-                        
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <td key={day} className="p-6 bg-gray-50/5 dark:bg-gray-900/5">
-                              <div className="h-full min-h-[140px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl">
-                                <span className="text-gray-200 dark:text-gray-800 font-black text-xl">-</span>
+                            <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
+                              <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
+                                <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
                               </div>
                             </td>
                           );
                         }
 
                         return (
-                          <td key={day} className="p-4 align-top min-w-[260px]">
-                            <ScrollArea className="h-[220px] pr-4">
-                              <div className="space-y-4 py-2">
+                          <td key={day} className="p-3 align-top min-w-[250px]">
+                            <ScrollArea className="h-[200px] pr-4">
+                              <div className="space-y-3">
                                 {vr.matches.map((employeeMatch, matchIdx) => {
                                   const slotOnDay = employeeMatch.matchedSlots.find(s => {
                                     const dateStr = s.day;
                                     const date = new Date(dateStr + 'T12:00:00');
                                     const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                                    return dayAbbrev === normalizedDay;
+                                    return dayAbbrev === day;
                                   });
 
                                   if (!slotOnDay) return null;
@@ -437,32 +435,30 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   return (
                                     <div 
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                      className={`bg-white dark:bg-gray-900 border-2 ${matchIdx === 0 ? 'border-purple-100 dark:border-purple-900/40 shadow-xl shadow-purple-500/10' : 'border-gray-50 dark:border-gray-800'} rounded-2xl p-4 transition-all hover:scale-[1.02] active:scale-95 space-y-3 relative overflow-hidden`}
+                                      className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'border-purple-300 dark:border-purple-700 ring-1 ring-purple-100 dark:ring-purple-900/30' : 'border-gray-200 dark:border-gray-800'} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                     >
                                       {matchIdx === 0 && (
-                                        <div className="absolute top-0 right-0 bg-purple-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-tighter">
+                                        <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm uppercase tracking-tighter">
                                           Best Match
                                         </div>
                                       )}
-                                      <div className="flex justify-between items-start pt-1">
-                                        <div className="font-black text-gray-900 dark:text-gray-100 text-sm tracking-tight truncate pr-8" title={employeeMatch.employeeName}>
+                                      <div className="flex justify-between items-start gap-2">
+                                        <div className="font-bold text-gray-900 dark:text-gray-100 text-[12px] tracking-tight truncate" title={employeeMatch.employeeName}>
                                           {employeeMatch.employeeName}
                                         </div>
-                                        <div className="text-[11px] font-black text-purple-600 dark:text-purple-400">
+                                        <div className="text-[10px] font-black text-purple-600 dark:text-purple-400">
                                           {Math.round(employeeMatch.matchScore)}%
                                         </div>
                                       </div>
-                                      <div className={`inline-flex px-3 py-1.5 rounded-xl text-[10px] font-black tracking-tight border ${isExact ? 'bg-green-50 text-green-600 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40' : 'bg-orange-50 text-orange-600 border-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/40'}`}>
+                                      <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
                                         {slotOnDay.availableWindow}
                                       </div>
-                                      <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tight">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center">
-                                            <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                          </div>
+                                      <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
+                                        <div className="flex items-center gap-1.5">
+                                          <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                           <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
                                         </div>
-                                        <div className="font-black text-gray-900 dark:text-gray-200">
+                                        <div className="font-bold text-gray-700 dark:text-gray-300">
                                           {remainingHours}h rem
                                         </div>
                                       </div>
@@ -477,13 +473,9 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                     </tr>
                   );
                 })}
-                <tr className="bg-gray-50/50 dark:bg-gray-900/50">
-                  <td colSpan={displayDays.length + 1} className="p-3">
-                    <div className="flex items-center justify-center">
-                       <div className="h-px bg-gray-100 dark:bg-gray-800 flex-1" />
-                       <span className="px-4 text-[10px] font-black text-gray-300 dark:text-gray-600 uppercase tracking-[0.3em]">Next Visit Block</span>
-                       <div className="h-px bg-gray-100 dark:bg-gray-800 flex-1" />
-                    </div>
+                <tr className="h-4 bg-gray-200/40 dark:bg-gray-800/50">
+                  <td colSpan={displayDays.length + 1} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
+                    Next Visit Block
                   </td>
                 </tr>
               </React.Fragment>
@@ -491,11 +483,11 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </tbody>
         </table>
       </div>
-      <div className="bg-white dark:bg-gray-950 border-t border-gray-50 dark:border-gray-900 p-8 flex justify-center">
-        <button className="group relative flex items-center gap-4 px-8 py-3 rounded-full bg-white dark:bg-gray-900 border-2 border-purple-100 dark:border-purple-900/40 shadow-lg hover:shadow-purple-500/10 transition-all hover:-translate-y-1 active:translate-y-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
-          <span className="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-[0.3em]">Next Visit Block</span>
-        </button>
+      <div className="bg-gray-100/50 dark:bg-gray-900/80 border-t p-4 text-center">
+        <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white dark:bg-gray-800 border shadow-sm ring-1 ring-black/5">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
+          <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">Next Visit Block</span>
+        </div>
       </div>
     </div>
   );
@@ -1060,7 +1052,7 @@ function ClientEnquiryMatcher() {
                         Matches for {clientName}
                       </h3>
                       <p className="text-xs font-bold text-gray-500 mt-0.5">
-                        {multiResults?.totalVisits || 0} visit{(multiResults?.totalVisits || 0) !== 1 ? 's' : ''} &middot; {multiResults?.visitResults?.reduce((sum, vr) => sum + (vr.matches?.length || 0), 0) || 0} total matches
+                        {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot; {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
                       </p>
                     </div>
                   </div>
@@ -1074,7 +1066,7 @@ function ClientEnquiryMatcher() {
                 <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-4">
                   <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
                     <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1.5 mb-5">
-                      {multiResults?.visitResults?.map((vr, idx) => (
+                      {multiResults.visitResults.map((vr, idx) => (
                         <TabsTrigger 
                           key={idx} 
                           value={String(idx)}
@@ -1083,14 +1075,14 @@ function ClientEnquiryMatcher() {
                           <div className="flex items-center gap-2">
                             <span>Visit {idx + 1}</span>
                             <div className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold text-[10px] min-w-[20px] text-center">
-                              {vr.matches?.length || 0}
+                              {vr.matches.length}
                             </div>
                           </div>
                         </TabsTrigger>
                       ))}
                     </TabsList>
                     
-                    {multiResults?.visitResults?.map((vr, idx) => (
+                    {multiResults.visitResults.map((vr, idx) => (
                       <TabsContent key={idx} value={String(idx)} className="mt-0 space-y-4">
                         <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/30 text-xs font-bold text-gray-500">
                           <span className="flex items-center gap-1.5">
@@ -1100,7 +1092,7 @@ function ClientEnquiryMatcher() {
                           <span className="w-px h-4 bg-purple-200/50" />
                           <span className="flex items-center gap-1.5">
                             <Star className="w-3.5 h-3.5 text-blue-600" />
-                            Gender: {vr.genderPreferences?.map((g, i) => `CP${i+1}: ${g}`).join(', ') || 'Any'}
+                            Gender: {vr.genderPreferences.map((g, i) => `CP${i+1}: ${g}`).join(', ')}
                           </span>
                           <span className="w-px h-4 bg-purple-200/50" />
                           <span className="flex items-center gap-1.5 ml-auto text-purple-600">

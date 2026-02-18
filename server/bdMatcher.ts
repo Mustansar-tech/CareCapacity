@@ -93,7 +93,6 @@ function minutesToTime(mins: number): string {
 function parseFreeWindows(freeWindows: string): Array<[number, number]> {
   if (!freeWindows || freeWindows === '-' || freeWindows === '') return [];
 
-  // Handle both dash and en-dash/em-dash, and handle cases like "09:00 - 17:00"
   const normalized = freeWindows.replace(/\u2013|\u2014/g, '-');
 
   return normalized
@@ -103,18 +102,8 @@ function parseFreeWindows(freeWindows: string): Array<[number, number]> {
     .map(w => {
       const parts = w.split('-').map(s => s.trim());
       if (parts.length < 2) return null;
-      
-      // Handle cases where time might be just "9" instead of "09:00"
-      const parseTime = (t: string) => {
-        if (!t.includes(':')) {
-          const hour = parseInt(t, 10);
-          return isNaN(hour) ? 0 : hour * 60;
-        }
-        return timeToMinutes(t);
-      };
-
-      const start = parseTime(parts[0]);
-      const end = parseTime(parts[parts.length - 1]);
+      const start = timeToMinutes(parts[0]);
+      const end = timeToMinutes(parts[parts.length - 1]);
       return [start, end] as [number, number];
     })
     .filter((pair): pair is [number, number] => pair !== null && pair[1] > pair[0]);
@@ -127,10 +116,7 @@ function getDayLabel(dateStr: string): string {
 
 function getDayAbbrev(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
-  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  const abbrev = days[d.getDay()];
-  logger.debug(`getDayAbbrev: date=${dateStr}, day=${d.getDay()}, abbrev=${abbrev}`);
-  return abbrev;
+  return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
 }
 
 // Company's 11 standardized time blocks
@@ -166,21 +152,15 @@ function findExactSlot(
   visitDuration: number
 ): string | null {
   for (const [wStart, wEnd] of windows) {
-    // If the window is large enough, any time within it that matches a block is fine
-    // But traditionally "exact" means starting at the requested block
+    // Must align with a company block start
     const blockStart = getBlockStartMinutes(reqStart);
-    if (blockStart === null) {
-      // If not a standard block start, check if it just fits in the window
-      if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
-         return `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`;
-      }
-      continue;
-    }
+    if (blockStart === null) continue;
 
     const slotStart = Math.max(wStart, blockStart);
     const slotEnd = slotStart + visitDuration;
     
-    if (slotStart >= wStart && slotEnd <= wEnd) {
+    // Exact match must start exactly at the block start and fit in window
+    if (slotStart === blockStart && slotEnd <= wEnd) {
       return `${minutesToTime(slotStart)}-${minutesToTime(slotEnd)}`;
     }
   }
@@ -274,7 +254,7 @@ function buildEmployeeWeeklyData(
   return { allEmployeeNames, employeeWeeklyData };
 }
 
-async function matchEmployeesForVisit(
+function matchEmployeesForVisit(
   genderPreference: 'male' | 'female' | 'any',
   requiredDays: string[],
   preferredTimeWindow: { start: string; end: string },
@@ -289,9 +269,6 @@ async function matchEmployeesForVisit(
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
   const visitDuration = 60;
 
-  // LOG INPUT CRITERIA
-  logger.debug(`[BD_MATCHER_MATCH_VISIT_INPUT] gender=${genderPreference}, days=${JSON.stringify(requiredDays)}, time=${preferredTimeWindow.start}-${preferredTimeWindow.end}, dates_count=${dates.length}`);
-
   const datesByDay = new Map<string, string[]>();
   for (const dateStr of dates) {
     const dayAbbrev = getDayAbbrev(dateStr);
@@ -299,8 +276,6 @@ async function matchEmployeesForVisit(
     existing.push(dateStr);
     datesByDay.set(dayAbbrev, existing);
   }
-  
-  logger.debug(`[BD_MATCHER_DATES_BY_DAY] ${JSON.stringify(Object.fromEntries(datesByDay))}`);
 
   const branchId = Array.from(employeeWeeklyData.values())[0] ? (dates.length > 0 ? null : null) : null; 
 
@@ -332,8 +307,6 @@ async function matchEmployeesForVisit(
 
     const remainingCapacity = Math.max(0, weeklyData.contractedWeekly - weeklyData.totalScheduled);
 
-    logger.debug(`Evaluating employee: ${empName}, gender=${weeklyData.gender}, capacity=${remainingCapacity}`);
-
     const matchedSlots: MatchedSlot[] = [];
     let totalScore = 0;
     let exactDayMatches = 0;
@@ -351,7 +324,6 @@ async function matchEmployeesForVisit(
         if (!empSummary) continue;
 
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
-        logger.debug(`  Date ${dateStr}: freeWindows="${empSummary.freeWindows}" parsed=${JSON.stringify(freeWindows)}`);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
         if (exactSlot && bestScoreForDay < 100) {
@@ -397,7 +369,6 @@ async function matchEmployeesForVisit(
         if (!empSummary) continue;
 
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
-        logger.debug(`  Date ${dateStr}: freeWindows="${empSummary.freeWindows}" parsed=${JSON.stringify(freeWindows)}`);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
         if (exactSlot) {
@@ -434,8 +405,6 @@ async function matchEmployeesForVisit(
     const capacityBonus = Math.min(20, remainingCapacity * 2);
     const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.15) * 100) / 100;
 
-    logger.debug(`  Employee ${empName} final score: ${finalScore} (avgScore=${avgScore}, dayMatchRatio=${dayMatchRatio}, capacityBonus=${capacityBonus}, distanceBonus=${distanceBonus})`);
-
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
     else if (adjustedTimeMatches > 0) overallMatchType = 'adjusted-time';
@@ -454,22 +423,19 @@ async function matchEmployeesForVisit(
   }
 
   candidates.sort((a, b) => {
-    // Primary: Score
-    if (Math.abs(b.matchScore - a.matchScore) > 0.1) {
-      return b.matchScore - a.matchScore;
-    }
-    // Secondary: Match Type
     const typeOrder = { exact: 0, 'adjusted-time': 1, 'alternative-day': 2 };
-    return typeOrder[a.matchType] - typeOrder[b.matchType];
+    const typeDiff = typeOrder[a.matchType] - typeOrder[b.matchType];
+    if (typeDiff !== 0) return typeDiff;
+    return b.matchScore - a.matchScore;
   });
 
   return candidates.slice(0, topN);
 }
 
-export async function matchClientEnquiry(
+export function matchClientEnquiry(
   criteria: ClientEnquiryCriteria,
   analysis: CapacityAnalysis
-): Promise<MatchResult> {
+): MatchResult {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   const dates = Object.keys(employeeSummaryByDate).sort();
@@ -482,7 +448,7 @@ export async function matchClientEnquiry(
     dates, employeeSummaryByDate, employeesByDate
   );
 
-  const matches = await matchEmployeesForVisit(
+  const matches = matchEmployeesForVisit(
     criteria.genderPreference || 'any',
     criteria.requiredDays,
     criteria.preferredTimeWindow,
@@ -501,10 +467,10 @@ export async function matchClientEnquiry(
   };
 }
 
-export async function matchMultiVisitEnquiry(
+export function matchMultiVisitEnquiry(
   criteria: MultiVisitCriteria,
   analysis: CapacityAnalysis
-): Promise<MultiVisitMatchResult> {
+): MultiVisitMatchResult {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   const dates = Object.keys(employeeSummaryByDate).sort();
@@ -543,7 +509,7 @@ export async function matchMultiVisitEnquiry(
         Array.from(allEmployeeNames).filter(n => !alreadyAssigned.has(n))
       );
 
-      const matches = await matchEmployeesForVisit(
+      const matches = matchEmployeesForVisit(
         genderPref,
         visit.requiredDays,
         visit.preferredTimeWindow,
@@ -559,7 +525,7 @@ export async function matchMultiVisitEnquiry(
       }
     }
 
-    const allMatchesForVisit = await matchEmployeesForVisit(
+    const allMatchesForVisit = matchEmployeesForVisit(
       'any',
       visit.requiredDays,
       visit.preferredTimeWindow,
