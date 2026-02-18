@@ -247,7 +247,7 @@ function matchEmployeesForVisit(
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
   allEmployeeNames: Set<string>,
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string }>,
-  topN: number = 50
+  topN: number = 5
 ): MatchedEmployee[] {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
