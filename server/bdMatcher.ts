@@ -434,7 +434,9 @@ async function matchEmployeesForVisit(
 
 export async function matchClientEnquiry(
   criteria: ClientEnquiryCriteria,
-  analysis: CapacityAnalysis
+  analysis: CapacityAnalysis,
+  storage?: any,
+  branchId?: string
 ): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
@@ -451,9 +453,9 @@ export async function matchClientEnquiry(
   let clientCoords: { lat: number; lng: number } | undefined;
   if (criteria.postcode) {
     try {
-      const geo = await geocodeWithFallback(criteria.postcode);
+      const geo = await geocodeWithFallback(criteria.postcode, storage, branchId || 'default');
       if (geo) {
-        clientCoords = { lat: geo.lat, lng: geo.lng };
+        clientCoords = { lat: Number(geo.lat), lng: Number(geo.lng) };
       }
     } catch (error) {
       logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
@@ -483,7 +485,9 @@ export async function matchClientEnquiry(
 
 export async function matchMultiVisitEnquiry(
   criteria: MultiVisitCriteria,
-  analysis: CapacityAnalysis
+  analysis: CapacityAnalysis,
+  storage?: any,
+  branchId?: string
 ): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
@@ -508,9 +512,9 @@ export async function matchMultiVisitEnquiry(
   let clientCoords: { lat: number; lng: number } | undefined;
   if (criteria.postcode) {
     try {
-      const geo = await geocodeWithFallback(criteria.postcode);
+      const geo = await geocodeWithFallback(criteria.postcode, storage, branchId || 'default');
       if (geo) {
-        clientCoords = { lat: geo.lat, lng: geo.lng };
+        clientCoords = { lat: Number(geo.lat), lng: Number(geo.lng) };
       }
     } catch (error) {
       logger.error(`Geocoding failed for postcode ${criteria.postcode}:`, error);
