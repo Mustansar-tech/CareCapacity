@@ -352,96 +352,116 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
-  // Filter days to only show those that are required
   const visibleDays = days.filter(d => requiredDays.includes(d));
   const visibleDayLabels = dayLabels.filter((_, i) => requiredDays.includes(days[i]));
 
-  // If no specific days are required (unlikely given the UI), show all
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
+  if (!result || !result.visitResults || result.visitResults.length === 0) return null;
+
   return (
-    <div className="overflow-x-auto border rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
-      <table className="w-full border-collapse text-[10px] leading-tight table-fixed">
-        <thead>
-          <tr className="bg-gray-100 dark:bg-gray-900">
-            <th className="border p-2 w-[180px] text-left font-bold text-gray-700 dark:text-gray-300">Requirement</th>
-            {displayLabels.map(label => (
-              <th key={label} className="border p-2 w-[140px] text-center font-bold text-gray-700 dark:text-gray-300">{label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {result.visitResults.map((vr) => (
-            <React.Fragment key={vr.visitIndex}>
-              {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
-                const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
-                
-                return (
-                  <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
-                    <td className="border p-2 align-top bg-gray-50/30 dark:bg-gray-900/10 font-medium">
-                      <div className="font-bold text-purple-700 dark:text-purple-400 mb-2 border-b border-purple-100 dark:border-purple-900/50 pb-1">
-                        CP{cpIdx + 1}: {genderLabel} Only
-                      </div>
-                      <div className="space-y-2 text-gray-400 dark:text-gray-500 font-normal">
-                        <div className="flex justify-between"><span>Name</span></div>
-                        <div className="flex justify-between"><span>Time Suggested</span></div>
-                        <div className="flex justify-between"><span>Driver / Walker</span></div>
-                        <div className="flex justify-between"><span>Hours complete / Desired Hours (week)</span></div>
-                        <div className="text-[9px] pt-1 opacity-60 italic">Exact time green, adjusted time is orange</div>
-                      </div>
-                    </td>
-                    {displayDays.map(day => {
-                      // Logic to find matches: for a grid, we typically show the top match for this CP slot
-                      const employeeMatch = vr.matches[cpIdx]; 
-                      const slotOnDay = employeeMatch?.matchedSlots.find(s => {
-                        const dateStr = s.day;
-                        const date = new Date(dateStr + 'T12:00:00');
-                        const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                        return dayAbbrev === day;
-                      });
-
-                      if (!employeeMatch || !slotOnDay) {
-                        return <td key={day} className="border p-2 bg-gray-50/5 dark:bg-gray-900/2"></td>;
-                      }
-
-                      const isExact = slotOnDay.matchType === 'exact';
-                      const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
-                      
-                      return (
-                        <td key={day} className="border p-2 align-top transition-colors">
-                          <div className="space-y-2 mt-[1.4rem]">
-                            <div className="font-bold text-gray-900 dark:text-gray-100 truncate text-[11px] leading-none" title={employeeMatch.employeeName}>
-                              {employeeMatch.employeeName}
-                            </div>
-                            <div className={`font-bold text-[11px] leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                              {slotOnDay.availableWindow}
-                            </div>
-                            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 leading-none h-3">
-                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                              <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
-                            </div>
-                            <div className="text-gray-600 dark:text-gray-400 font-medium leading-none">
-                              {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
-                            </div>
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
+      <div className="overflow-x-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
+          <thead>
+            <tr className="bg-gray-50 dark:bg-gray-900/80">
+              <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                Requirement
+              </th>
+              {displayLabels.map(label => (
+                <th key={label} className="p-4 text-center font-bold text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-gray-50 dark:bg-gray-900">
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            {result.visitResults.map((vr) => (
+              <React.Fragment key={vr.visitIndex}>
+                {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
+                  const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                  const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
+                  
+                  return (
+                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                      <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                        <div className="space-y-4">
+                          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50">
+                            CP{cpIdx + 1}: {genderLabel} Only
                           </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-              {/* Spacer row between visits */}
-              <tr className="h-4 bg-gray-200/40 dark:bg-gray-800/50">
-                <td colSpan={displayDays.length + 1} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
-                  Next Visit Block
-                </td>
-              </tr>
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
+                          <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
+                            <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
+                            <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
+                            <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
+                            <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
+                          </div>
+                        </div>
+                      </td>
+                      {displayDays.map(day => {
+                        const employeeMatch = vr.matches[cpIdx]; 
+                        const slotOnDay = employeeMatch?.matchedSlots.find(s => {
+                          const dateStr = s.day;
+                          const date = new Date(dateStr + 'T12:00:00');
+                          const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+                          return dayAbbrev === day;
+                        });
+
+                        if (!employeeMatch || !slotOnDay) {
+                          return (
+                            <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
+                              <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
+                                <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        const isExact = slotOnDay.matchType === 'exact';
+                        const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
+                        
+                        return (
+                          <td key={day} className="p-3 align-top">
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm group-hover:shadow-md transition-all space-y-3 ring-1 ring-black/5 dark:ring-white/5">
+                              <div className="font-bold text-gray-900 dark:text-gray-100 text-[13px] tracking-tight truncate" title={employeeMatch.employeeName}>
+                                {employeeMatch.employeeName}
+                              </div>
+                              <div className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
+                                {slotOnDay.availableWindow}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400 font-medium">
+                                <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
+                              </div>
+                              <div className="text-[10px] font-bold text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-800 pt-3 mt-1 flex justify-between items-center">
+                                <span>{employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}h</span>
+                                <span className="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-sm">
+                                  {remainingHours} rem
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+                <tr className="h-4 bg-gray-200/40 dark:bg-gray-800/50">
+                  <td colSpan={displayDays.length + 1} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
+                    Next Visit Block
+                  </td>
+                </tr>
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="bg-gray-100/50 dark:bg-gray-900/80 border-t p-4 text-center">
+        <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white dark:bg-gray-800 border shadow-sm ring-1 ring-black/5">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
+          <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">Next Visit Block</span>
+        </div>
+      </div>
     </div>
   );
 }
