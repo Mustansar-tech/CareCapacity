@@ -361,14 +361,14 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto custom-scrollbar pb-2">
-        <table className="w-full border-collapse text-[10px] leading-tight min-w-[900px]">
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm overflow-hidden flex flex-col">
+      <div className="overflow-x-auto custom-scrollbar pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <table className="w-full border-collapse text-[10px] leading-tight" style={{ minWidth: '1000px', tableLayout: 'fixed' }}>
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-900">
-              <th className="border p-2 w-[200px] text-left font-bold text-gray-700 dark:text-gray-300">Requirement</th>
+              <th className="border p-2 w-[220px] text-left font-bold text-gray-700 dark:text-gray-300 sticky left-0 z-10 bg-gray-100 dark:bg-gray-900">Requirement</th>
               {displayLabels.map(label => (
-                <th key={label} className="border p-2 w-[160px] text-center font-bold text-gray-700 dark:text-gray-300">{label}</th>
+                <th key={label} className="border p-2 w-[180px] text-center font-bold text-gray-700 dark:text-gray-300">{label}</th>
               ))}
             </tr>
           </thead>
@@ -381,7 +381,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                   
                   return (
                     <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
-                      <td className="border p-2 align-top bg-gray-50/30 dark:bg-gray-900/10 font-medium min-w-[200px]">
+                      <td className="border p-2 align-top bg-gray-50 dark:bg-gray-900 font-medium sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                         <div className="font-bold text-purple-700 dark:text-purple-400 mb-2 border-b border-purple-100 dark:border-purple-900/50 pb-1">
                           CP{cpIdx + 1}: {genderLabel} Only
                         </div>
@@ -390,11 +390,10 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           <div className="flex justify-between"><span>Time Suggested</span></div>
                           <div className="flex justify-between"><span>Driver / Walker</span></div>
                           <div className="flex justify-between"><span>Hours complete / Desired Hours (week)</span></div>
-                          <div className="text-[9px] pt-1 opacity-60 italic">Exact time green, adjusted time is orange</div>
+                          <div className="text-[9px] pt-1 opacity-60 italic whitespace-normal">Exact time green, adjusted time is orange</div>
                         </div>
                       </td>
                       {displayDays.map(day => {
-                        // Logic to find matches: for a grid, we typically show the top match for this CP slot
                         const employeeMatch = vr.matches[cpIdx]; 
                         const slotOnDay = employeeMatch?.matchedSlots.find(s => {
                           const dateStr = s.day;
@@ -404,14 +403,14 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                         });
 
                         if (!employeeMatch || !slotOnDay) {
-                          return <td key={day} className="border p-2 bg-gray-50/5 dark:bg-gray-900/2 min-w-[160px]"></td>;
+                          return <td key={day} className="border p-2 bg-gray-50/5 dark:bg-gray-900/2"></td>;
                         }
 
                         const isExact = slotOnDay.matchType === 'exact';
                         const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
                         
                         return (
-                          <td key={day} className="border p-2 align-top transition-colors min-w-[160px]">
+                          <td key={day} className="border p-2 align-top transition-colors">
                             <div className="space-y-2 mt-[1.4rem]">
                               <div className="font-bold text-gray-900 dark:text-gray-100 truncate text-[11px] leading-none" title={employeeMatch.employeeName}>
                                 {employeeMatch.employeeName}
@@ -433,7 +432,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                     </tr>
                   );
                 })}
-                {/* Spacer row between visits */}
                 <tr className="h-4 bg-gray-200/40 dark:bg-gray-800/50">
                   <td colSpan={displayDays.length + 1} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
                     Next Visit Block
