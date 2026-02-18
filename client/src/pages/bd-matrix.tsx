@@ -514,42 +514,7 @@ function ClientEnquiryMatcher() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Gender Preference</Label>
-                    <Select value={genderPreference} onValueChange={setGenderPreference}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">No Preference</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="male">Male</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="visitDuration">Visit Duration *</Label>
-                    <Select value={visitDuration} onValueChange={setVisitDuration}>
-                      <SelectTrigger id="visitDuration">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="30">30 min</SelectItem>
-                        <SelectItem value="45">45 min</SelectItem>
-                        <SelectItem value="60">1 hour</SelectItem>
-                        <SelectItem value="75">1h 15m</SelectItem>
-                        <SelectItem value="90">1.5 hours</SelectItem>
-                        <SelectItem value="120">2 hours</SelectItem>
-                        <SelectItem value="180">3 hours</SelectItem>
-                        <SelectItem value="240">4 hours</SelectItem>
-                        <SelectItem value="300">5 hours</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label>Required Days *</Label>
                   <div className="flex flex-wrap gap-2">
                     {DAY_OPTIONS.map(day => (
@@ -595,19 +560,17 @@ function ClientEnquiryMatcher() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="weeklyHours">Minimum Weekly Capacity Needed (hours)</Label>
-                  <Input
-                    id="weeklyHours"
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    placeholder="Leave blank to skip this filter"
-                    value={weeklyHours}
-                    onChange={(e) => setWeeklyHours(e.target.value)}
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Only show staff with at least this many hours of remaining weekly capacity
-                  </p>
+                  <Label>Gender Preference</Label>
+                  <Select value={genderPreference} onValueChange={setGenderPreference}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">No Preference</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">

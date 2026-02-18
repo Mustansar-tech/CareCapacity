@@ -1454,10 +1454,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
       }
 
-      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, visitDurationMinutes, weeklyHoursNeeded } = req.body;
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow } = req.body;
 
-      if (!clientName || !requiredDays || !preferredTimeWindow || !visitDurationMinutes) {
-        return res.status(400).json({ message: 'Missing required fields: clientName, requiredDays, preferredTimeWindow, visitDurationMinutes' });
+      if (!clientName || !requiredDays || !preferredTimeWindow) {
+        return res.status(400).json({ message: 'Missing required fields: clientName, requiredDays, preferredTimeWindow' });
       }
 
       const criteria: ClientEnquiryCriteria = {
@@ -1466,8 +1466,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         genderPreference: genderPreference || 'any',
         requiredDays,
         preferredTimeWindow,
-        visitDurationMinutes: Number(visitDurationMinutes),
-        weeklyHoursNeeded: weeklyHoursNeeded ? Number(weeklyHoursNeeded) : undefined,
       };
 
       const result = matchClientEnquiry(criteria, latestData);
@@ -1483,8 +1481,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/client-enquiries', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, visitDurationMinutes, weeklyHoursNeeded, matchCount, topMatch, results } = req.body;
-      if (!clientName || !requiredDays || !preferredTimeWindow || !visitDurationMinutes) {
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, matchCount, topMatch, results } = req.body;
+      if (!clientName || !requiredDays || !preferredTimeWindow) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
       const enquiry = await storage.saveClientEnquiry({
@@ -1494,8 +1492,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         genderPreference: genderPreference || null,
         requiredDays,
         preferredTimeWindow,
-        visitDurationMinutes: Number(visitDurationMinutes),
-        weeklyHoursNeeded: weeklyHoursNeeded || null,
         matchCount: matchCount || 0,
         topMatch: topMatch || null,
         results: results || null,
