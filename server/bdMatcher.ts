@@ -265,12 +265,17 @@ function matchEmployeesForVisit(
 
   for (const empName of Array.from(allEmployeeNames)) {
     const weeklyData = employeeWeeklyData.get(empName)!;
+    
+    // Debug log for gender matching
+    if (genderPreference && genderPreference !== 'any') {
+      logger.debug(`Matching ${empName}: preferred=${genderPreference}, employee=${weeklyData.gender}`);
+    }
 
     if (
       genderPreference &&
       genderPreference !== 'any' &&
       weeklyData.gender &&
-      weeklyData.gender.toLowerCase() !== genderPreference.toLowerCase()
+      weeklyData.gender.trim().toLowerCase() !== genderPreference.trim().toLowerCase()
     ) {
       continue;
     }

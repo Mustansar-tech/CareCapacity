@@ -419,8 +419,14 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           <td key={day} className="p-3 align-top min-w-[250px]">
                             <ScrollArea className="h-[200px] pr-4">
                               <div className="space-y-3">
-                                {vr.matches.map((employeeMatch, matchIdx) => {
-                                  const slotOnDay = employeeMatch.matchedSlots.find(s => {
+                                {vr.matches
+                                  .filter(m => {
+                                    const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                                    if (genderPref === 'any') return true;
+                                    return m.gender?.toLowerCase() === genderPref.toLowerCase();
+                                  })
+                                  .map((employeeMatch, matchIdx) => {
+                                    const slotOnDay = employeeMatch.matchedSlots.find(s => {
                                     const dateStr = s.day;
                                     const date = new Date(dateStr + 'T12:00:00');
                                     const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
