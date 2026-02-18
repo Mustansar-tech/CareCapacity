@@ -460,6 +460,12 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                       ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800/50'
                                       : 'border-gray-200 dark:border-gray-800';
                                   
+                                  const nameColorClass = employeeMatch.gender?.toLowerCase() === 'female'
+                                    ? 'text-pink-700 dark:text-pink-400'
+                                    : employeeMatch.gender?.toLowerCase() === 'male'
+                                      ? 'text-blue-700 dark:text-blue-400'
+                                      : 'text-gray-900 dark:text-gray-100';
+                                  
                                   return (
                                     <div 
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
@@ -471,7 +477,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                         </div>
                                       )}
                                       <div className="flex justify-between items-start gap-2">
-                                        <div className="font-bold text-gray-900 dark:text-gray-100 text-[12px] tracking-tight truncate" title={employeeMatch.employeeName}>
+                                        <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate`} title={employeeMatch.employeeName}>
                                           {employeeMatch.employeeName}
                                         </div>
                                         <div className="text-[10px] font-black text-purple-600 dark:text-purple-400">
