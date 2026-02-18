@@ -691,9 +691,13 @@ function ClientEnquiryMatcher() {
                               <h4 className="font-medium text-gray-600 dark:text-gray-300 text-sm">No Matches Found</h4>
                             </Card>
                           ) : (
-                            vr.matches.map((match: any, mi: number) => (
-                              <MatchResultsCard key={mi} match={match} index={mi} />
-                            ))
+                            <MatchResultsGrid 
+                              result={{
+                                ...viewingHistoryResult.results,
+                                visitResults: [vr]
+                              }} 
+                              requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || []}
+                            />
                           )}
                         </TabsContent>
                       ))}
@@ -705,9 +709,19 @@ function ClientEnquiryMatcher() {
                         <h4 className="font-medium text-gray-600 dark:text-gray-300 mb-1">No Matches Were Found</h4>
                       </Card>
                     ) : (
-                      viewingHistoryResult.matches.map((match: any, index: number) => (
-                        <MatchResultsCard key={index} match={match} index={index} />
-                      ))
+                      <MatchResultsGrid 
+                        result={{
+                          totalVisits: 1,
+                          visitResults: [{
+                            visitLabel: 'Visit 1',
+                            careProsRequired: 1,
+                            genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
+                            matches: viewingHistoryResult.matches,
+                            totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0
+                          }]
+                        }}
+                        requiredDays={viewingHistoryResult.requiredDays || []}
+                      />
                     )
                   ) : null}
                 </div>
@@ -943,35 +957,6 @@ function ClientEnquiryMatcher() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="gap-2 border-purple-200 hover:bg-purple-50 text-purple-700 dark:border-purple-800 dark:hover:bg-purple-900/20 dark:text-purple-400"
-                          onClick={() => {
-                            const filledVisits = visits.filter(v => v.selectedDays.length > 0);
-                            const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
-                            saveEnquiryMutation.mutate({
-                              criteria: {
-                                clientName,
-                                postcode: postcode || undefined,
-                                visits: filledVisits.map((v, i) => ({
-                                  visitLabel: `Visit ${i + 1}`,
-                                  careProsRequired: v.careProsRequired,
-                                  genderPreferences: v.genderPreferences,
-                                  requiredDays: v.selectedDays,
-                                  preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-                                })),
-                              },
-                              matchResult: multiResults,
-                              isSingleVisit: isSingle,
-                            });
-                            toast({ title: "Enquiry Saved", description: "The enquiry has been saved to history." });
-                          }}
-                          disabled={saveEnquiryMutation.isPending}
-                        >
-                          {saveEnquiryMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <History className="w-4 h-4" />}
-                          Save to History
-                        </Button>
                         <Button variant="ghost" size="sm" onClick={handleReset}>
                           Clear Results
                         </Button>

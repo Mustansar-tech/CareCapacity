@@ -1531,7 +1531,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         genderPreference: genderPreference || null,
         requiredDays: requiredDays || [],
         preferredTimeWindow: preferredTimeWindow || {},
-        visitDurationMinutes: 60,
         matchCount: matchCount || 0,
         topMatch: topMatch || null,
         results: results || null,
