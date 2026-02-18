@@ -566,8 +566,6 @@ export const clientEnquiries = pgTable("client_enquiries", {
   genderPreference: text("gender_preference"),
   requiredDays: jsonb("required_days").notNull(),
   preferredTimeWindow: jsonb("preferred_time_window").notNull(),
-  visitDurationMinutes: integer("visit_duration_minutes").notNull(),
-  weeklyHoursNeeded: text("weekly_hours_needed"),
   matchCount: integer("match_count").notNull().default(0),
   topMatch: text("top_match"),
   results: jsonb("results"),

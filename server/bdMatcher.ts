@@ -7,8 +7,6 @@ export interface ClientEnquiryCriteria {
   genderPreference?: 'male' | 'female' | 'any';
   requiredDays: string[];
   preferredTimeWindow: { start: string; end: string };
-  visitDurationMinutes: number;
-  weeklyHoursNeeded?: number;
 }
 
 export interface MatchedEmployee {
@@ -135,7 +133,7 @@ export function matchClientEnquiry(
 
   const reqStart = timeToMinutes(criteria.preferredTimeWindow.start);
   const reqEnd = timeToMinutes(criteria.preferredTimeWindow.end);
-  const visitDuration = criteria.visitDurationMinutes;
+  const visitDuration = 60; // Default to 60 minutes
 
   const datesByDay = new Map<string, string[]>();
   for (const dateStr of dates) {
@@ -214,10 +212,6 @@ export function matchClientEnquiry(
     }
 
     const remainingCapacity = Math.max(0, weeklyData.contractedWeekly - weeklyData.totalScheduled);
-
-    if (criteria.weeklyHoursNeeded && remainingCapacity < criteria.weeklyHoursNeeded) {
-      continue;
-    }
 
     const matchedSlots: MatchedSlot[] = [];
     let totalScore = 0;

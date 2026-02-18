@@ -200,8 +200,6 @@ function ClientEnquiryMatcher() {
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [timeStart, setTimeStart] = useState('09:00');
   const [timeEnd, setTimeEnd] = useState('17:00');
-  const [visitDuration, setVisitDuration] = useState('60');
-  const [weeklyHours, setWeeklyHours] = useState('');
   const [results, setResults] = useState<MatchResult | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
@@ -220,8 +218,6 @@ function ClientEnquiryMatcher() {
         genderPreference: data.criteria.genderPreference || null,
         requiredDays: data.criteria.requiredDays,
         preferredTimeWindow: data.criteria.preferredTimeWindow,
-        visitDurationMinutes: data.criteria.visitDurationMinutes,
-        weeklyHoursNeeded: data.criteria.weeklyHoursNeeded ? String(data.criteria.weeklyHoursNeeded) : null,
         matchCount: data.matchResult.matches.length,
         topMatch: data.matchResult.matches[0]?.employeeName || null,
         results: data.matchResult,
@@ -251,8 +247,7 @@ function ClientEnquiryMatcher() {
         genderPreference,
         requiredDays: selectedDays,
         preferredTimeWindow: { start: timeStart, end: timeEnd },
-        visitDurationMinutes: parseInt(visitDuration),
-        weeklyHoursNeeded: weeklyHours ? parseFloat(weeklyHours) : undefined,
+        visitDurationMinutes: 60, // Default to 60 minutes
       });
       return res.json();
     },
@@ -265,8 +260,7 @@ function ClientEnquiryMatcher() {
           genderPreference,
           requiredDays: selectedDays,
           preferredTimeWindow: { start: timeStart, end: timeEnd },
-          visitDurationMinutes: parseInt(visitDuration),
-          weeklyHoursNeeded: weeklyHours ? parseFloat(weeklyHours) : undefined,
+          visitDurationMinutes: 60,
         },
         matchResult: data,
       });
@@ -293,12 +287,10 @@ function ClientEnquiryMatcher() {
     setSelectedDays([]);
     setTimeStart('09:00');
     setTimeEnd('17:00');
-    setVisitDuration('60');
-    setWeeklyHours('');
     setResults(null);
   };
 
-  const canSubmit = clientName.trim() && selectedDays.length > 0 && timeStart && timeEnd && visitDuration;
+  const canSubmit = clientName.trim() && selectedDays.length > 0 && timeStart && timeEnd;
 
   return (
     <>
@@ -453,7 +445,6 @@ function ClientEnquiryMatcher() {
                               <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 <span>{days.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1, 3)).join(', ')}</span>
                                 <span>{tw.start || '?'} - {tw.end || '?'}</span>
-                                <span>{enquiry.visitDurationMinutes}min</span>
                                 {enquiry.genderPreference && enquiry.genderPreference !== 'any' && (
                                   <span className="capitalize">{enquiry.genderPreference}</span>
                                 )}
