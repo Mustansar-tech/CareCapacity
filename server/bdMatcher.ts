@@ -1,5 +1,20 @@
 import { logger } from './logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
+import { geocodeWithFallback } from './pipeline';
+import { storage } from './storage';
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const d = R * c; // Distance in km
+  return d;
+}
 
 export interface ClientEnquiryCriteria {
   clientName: string;
@@ -247,8 +262,9 @@ function matchEmployeesForVisit(
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
   allEmployeeNames: Set<string>,
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string }>,
-  topN: number = 50
-): MatchedEmployee[] {
+  topN: number = 50,
+  clientCoords?: { lat: number; lng: number }
+): Promise<MatchedEmployee[]> {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
   const visitDuration = 60;
@@ -261,10 +277,24 @@ function matchEmployeesForVisit(
     datesByDay.set(dayAbbrev, existing);
   }
 
+  const branchId = Array.from(employeeWeeklyData.values())[0] ? (dates.length > 0 ? null : null) : null; 
+
   const candidates: MatchedEmployee[] = [];
 
   for (const empName of Array.from(allEmployeeNames)) {
     const weeklyData = employeeWeeklyData.get(empName)!;
+    
+    let distanceBonus = 0;
+    if (clientCoords) {
+      const empLoc = await storage.getEmployeeLocationByName(process.env.DEFAULT_BRANCH_ID || '', empName);
+      if (empLoc && empLoc.homeLat && empLoc.homeLng) {
+        const dist = calculateDistance(
+          clientCoords.lat, clientCoords.lng,
+          parseFloat(empLoc.homeLat), parseFloat(empLoc.homeLng)
+        );
+        distanceBonus = Math.max(0, 20 - (dist * 2)); // 20 points for 0km, 0 points for 10km+
+      }
+    }
 
     if (
       genderPreference &&
@@ -373,7 +403,7 @@ function matchEmployeesForVisit(
     const avgScore = totalScore / Math.max(requiredDays.length, 1);
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
-    const finalScore = Math.round((avgScore * 0.6 + dayMatchRatio * 100 * 0.25 + capacityBonus * 0.15) * 100) / 100;
+    const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.15) * 100) / 100;
 
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
