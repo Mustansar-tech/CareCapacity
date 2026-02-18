@@ -368,6 +368,23 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
+      <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b p-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+            <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight">Enquiry Results</h3>
+            <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-widest">{result.clientName || 'New Client'}</p>
+          </div>
+        </div>
+        {result.postcode && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full border shadow-sm">
+            <MapPin className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{result.postcode}</span>
+          </div>
+        )}
+      </div>
       <div className="overflow-x-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
         <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
