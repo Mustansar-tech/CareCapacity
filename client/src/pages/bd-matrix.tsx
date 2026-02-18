@@ -1054,7 +1054,7 @@ function ClientEnquiryMatcher() {
                         Matches for {clientName}
                       </h3>
                       <p className="text-xs font-bold text-gray-500 mt-0.5">
-                        {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot; {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
+                        {multiResults?.totalVisits || 0} visit{(multiResults?.totalVisits || 0) !== 1 ? 's' : ''} &middot; {multiResults?.visitResults?.reduce((sum, vr) => sum + (vr.matches?.length || 0), 0) || 0} total matches
                       </p>
                     </div>
                   </div>
@@ -1068,7 +1068,7 @@ function ClientEnquiryMatcher() {
                 <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-4">
                   <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
                     <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1.5 mb-5">
-                      {multiResults.visitResults.map((vr, idx) => (
+                      {multiResults?.visitResults?.map((vr, idx) => (
                         <TabsTrigger 
                           key={idx} 
                           value={String(idx)}
@@ -1077,14 +1077,14 @@ function ClientEnquiryMatcher() {
                           <div className="flex items-center gap-2">
                             <span>Visit {idx + 1}</span>
                             <div className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold text-[10px] min-w-[20px] text-center">
-                              {vr.matches.length}
+                              {vr.matches?.length || 0}
                             </div>
                           </div>
                         </TabsTrigger>
                       ))}
                     </TabsList>
                     
-                    {multiResults.visitResults.map((vr, idx) => (
+                    {multiResults?.visitResults?.map((vr, idx) => (
                       <TabsContent key={idx} value={String(idx)} className="mt-0 space-y-4">
                         <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/30 text-xs font-bold text-gray-500">
                           <span className="flex items-center gap-1.5">
@@ -1094,7 +1094,7 @@ function ClientEnquiryMatcher() {
                           <span className="w-px h-4 bg-purple-200/50" />
                           <span className="flex items-center gap-1.5">
                             <Star className="w-3.5 h-3.5 text-blue-600" />
-                            Gender: {vr.genderPreferences.map((g, i) => `CP${i+1}: ${g}`).join(', ')}
+                            Gender: {vr.genderPreferences?.map((g, i) => `CP${i+1}: ${g}`).join(', ') || 'Any'}
                           </span>
                           <span className="w-px h-4 bg-purple-200/50" />
                           <span className="flex items-center gap-1.5 ml-auto text-purple-600">
