@@ -324,24 +324,33 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Preferred Start Time *</Label>
-          <Input
-            type="time"
-            step="900"
-            value={visit.timeStart}
-            onChange={(e) => onChange({ ...visit, timeStart: e.target.value })}
-            className="w-full"
-          />
+          <Label>Preferred Time Block *</Label>
+          <Select
+            value={COMPANY_TIME_BLOCKS.find(b => b.start === visit.timeStart)?.start || ""}
+            onValueChange={(v) => {
+              const block = COMPANY_TIME_BLOCKS.find(b => b.start === v);
+              if (block) {
+                onChange({ ...visit, timeStart: block.start, timeEnd: block.end });
+              }
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a time block" />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPANY_TIME_BLOCKS.map(block => (
+                <SelectItem key={block.start} value={block.start}>
+                  {block.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
-          <Label>Preferred End Time *</Label>
-          <Input
-            type="time"
-            step="900"
-            value={visit.timeEnd}
-            onChange={(e) => onChange({ ...visit, timeEnd: e.target.value })}
-            className="w-full"
-          />
+          <Label>Visit Duration</Label>
+          <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted/50 text-sm">
+            60 minutes (Standard Block)
+          </div>
         </div>
       </div>
     </div>

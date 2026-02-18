@@ -104,6 +104,32 @@ function getDayAbbrev(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
 }
 
+// Company's 11 standardized time blocks
+const COMPANY_TIME_BLOCKS = [
+  { start: '08:00', end: '09:00' },
+  { start: '09:15', end: '10:15' },
+  { start: '10:30', end: '11:30' },
+  { start: '11:45', end: '12:45' },
+  { start: '13:00', end: '14:00' },
+  { start: '14:15', end: '15:15' },
+  { start: '15:30', end: '16:30' },
+  { start: '16:45', end: '17:45' },
+  { start: '18:00', end: '19:00' },
+  { start: '19:15', end: '20:15' },
+  { start: '20:30', end: '21:30' },
+];
+
+function getBlockStartMinutes(timeMins: number): number | null {
+  for (const block of COMPANY_TIME_BLOCKS) {
+    const blockStart = timeToMinutes(block.start);
+    const blockEnd = timeToMinutes(block.end);
+    if (timeMins >= blockStart && timeMins < blockEnd) {
+      return blockStart;
+    }
+  }
+  return null;
+}
+
 function findExactSlot(
   windows: Array<[number, number]>,
   reqStart: number,
@@ -111,9 +137,15 @@ function findExactSlot(
   visitDuration: number
 ): string | null {
   for (const [wStart, wEnd] of windows) {
-    const slotStart = Math.max(wStart, reqStart);
+    // Must align with a company block start
+    const blockStart = getBlockStartMinutes(reqStart);
+    if (blockStart === null) continue;
+
+    const slotStart = Math.max(wStart, blockStart);
     const slotEnd = slotStart + visitDuration;
-    if (slotEnd <= wEnd && slotEnd <= reqEnd) {
+    
+    // Exact match must start exactly at the block start and fit in window
+    if (slotStart === blockStart && slotEnd <= wEnd) {
       return `${minutesToTime(slotStart)}-${minutesToTime(slotEnd)}`;
     }
   }
@@ -126,22 +158,27 @@ function findClosestSlot(
   reqEnd: number,
   visitDuration: number
 ): { window: string; distance: number } | null {
+  const preferredBlockStart = getBlockStartMinutes(reqStart);
+  if (preferredBlockStart === null) return null;
+
   let bestSlot: { window: string; distance: number } | null = null;
+  const MAX_DIFF = 150; // 2h 30mins in minutes
 
-  for (const [wStart, wEnd] of windows) {
-    const gapLength = wEnd - wStart;
-    if (gapLength < visitDuration) continue;
+  for (const block of COMPANY_TIME_BLOCKS) {
+    const blockStart = timeToMinutes(block.start);
+    const diff = Math.abs(blockStart - preferredBlockStart);
+    
+    if (diff > MAX_DIFF) continue;
 
-    const fitStart = Math.max(wStart, Math.min(reqStart, wEnd - visitDuration));
-    const fitEnd = fitStart + visitDuration;
-
-    if (fitEnd <= wEnd) {
-      const distanceFromPreferred = Math.abs(fitStart - reqStart);
-      if (!bestSlot || distanceFromPreferred < bestSlot.distance) {
-        bestSlot = {
-          window: `${minutesToTime(fitStart)}-${minutesToTime(fitEnd)}`,
-          distance: distanceFromPreferred,
-        };
+    for (const [wStart, wEnd] of windows) {
+      const slotEnd = blockStart + visitDuration;
+      if (blockStart >= wStart && slotEnd <= wEnd) {
+        if (!bestSlot || diff < bestSlot.distance) {
+          bestSlot = {
+            window: `${minutesToTime(blockStart)}-${minutesToTime(slotEnd)}`,
+            distance: diff,
+          };
+        }
       }
     }
   }
