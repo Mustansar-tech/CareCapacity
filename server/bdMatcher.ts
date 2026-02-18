@@ -93,6 +93,7 @@ function minutesToTime(mins: number): string {
 function parseFreeWindows(freeWindows: string): Array<[number, number]> {
   if (!freeWindows || freeWindows === '-' || freeWindows === '') return [];
 
+  // Handle both dash and en-dash/em-dash, and handle cases like "09:00 - 17:00"
   const normalized = freeWindows.replace(/\u2013|\u2014/g, '-');
 
   return normalized
@@ -102,8 +103,18 @@ function parseFreeWindows(freeWindows: string): Array<[number, number]> {
     .map(w => {
       const parts = w.split('-').map(s => s.trim());
       if (parts.length < 2) return null;
-      const start = timeToMinutes(parts[0]);
-      const end = timeToMinutes(parts[parts.length - 1]);
+      
+      // Handle cases where time might be just "9" instead of "09:00"
+      const parseTime = (t: string) => {
+        if (!t.includes(':')) {
+          const hour = parseInt(t, 10);
+          return isNaN(hour) ? 0 : hour * 60;
+        }
+        return timeToMinutes(t);
+      };
+
+      const start = parseTime(parts[0]);
+      const end = parseTime(parts[parts.length - 1]);
       return [start, end] as [number, number];
     })
     .filter((pair): pair is [number, number] => pair !== null && pair[1] > pair[0]);
@@ -116,7 +127,8 @@ function getDayLabel(dateStr: string): string {
 
 function getDayAbbrev(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return days[d.getDay()];
 }
 
 // Company's 11 standardized time blocks
@@ -152,15 +164,21 @@ function findExactSlot(
   visitDuration: number
 ): string | null {
   for (const [wStart, wEnd] of windows) {
-    // Must align with a company block start
+    // If the window is large enough, any time within it that matches a block is fine
+    // But traditionally "exact" means starting at the requested block
     const blockStart = getBlockStartMinutes(reqStart);
-    if (blockStart === null) continue;
+    if (blockStart === null) {
+      // If not a standard block start, check if it just fits in the window
+      if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
+         return `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`;
+      }
+      continue;
+    }
 
     const slotStart = Math.max(wStart, blockStart);
     const slotEnd = slotStart + visitDuration;
     
-    // Exact match must start exactly at the block start and fit in window
-    if (slotStart === blockStart && slotEnd <= wEnd) {
+    if (slotStart >= wStart && slotEnd <= wEnd) {
       return `${minutesToTime(slotStart)}-${minutesToTime(slotEnd)}`;
     }
   }
@@ -269,6 +287,8 @@ async function matchEmployeesForVisit(
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
   const visitDuration = 60;
 
+  logger.debug(`Matching for visit: gender=${genderPreference}, days=[${requiredDays.join(',')}], time=${preferredTimeWindow.start}-${preferredTimeWindow.end}`);
+
   const datesByDay = new Map<string, string[]>();
   for (const dateStr of dates) {
     const dayAbbrev = getDayAbbrev(dateStr);
@@ -307,6 +327,8 @@ async function matchEmployeesForVisit(
 
     const remainingCapacity = Math.max(0, weeklyData.contractedWeekly - weeklyData.totalScheduled);
 
+    logger.debug(`Evaluating employee: ${empName}, gender=${weeklyData.gender}, capacity=${remainingCapacity}`);
+
     const matchedSlots: MatchedSlot[] = [];
     let totalScore = 0;
     let exactDayMatches = 0;
@@ -324,6 +346,7 @@ async function matchEmployeesForVisit(
         if (!empSummary) continue;
 
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
+        logger.debug(`  Date ${dateStr}: freeWindows="${empSummary.freeWindows}" parsed=${JSON.stringify(freeWindows)}`);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
         if (exactSlot && bestScoreForDay < 100) {
@@ -369,6 +392,7 @@ async function matchEmployeesForVisit(
         if (!empSummary) continue;
 
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
+        logger.debug(`  Date ${dateStr}: freeWindows="${empSummary.freeWindows}" parsed=${JSON.stringify(freeWindows)}`);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
         if (exactSlot) {
@@ -405,6 +429,8 @@ async function matchEmployeesForVisit(
     const capacityBonus = Math.min(20, remainingCapacity * 2);
     const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + distanceBonus * 0.15) * 100) / 100;
 
+    logger.debug(`  Employee ${empName} final score: ${finalScore} (avgScore=${avgScore}, dayMatchRatio=${dayMatchRatio}, capacityBonus=${capacityBonus}, distanceBonus=${distanceBonus})`);
+
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
     else if (adjustedTimeMatches > 0) overallMatchType = 'adjusted-time';
@@ -423,10 +449,13 @@ async function matchEmployeesForVisit(
   }
 
   candidates.sort((a, b) => {
+    // Primary: Score
+    if (Math.abs(b.matchScore - a.matchScore) > 0.1) {
+      return b.matchScore - a.matchScore;
+    }
+    // Secondary: Match Type
     const typeOrder = { exact: 0, 'adjusted-time': 1, 'alternative-day': 2 };
-    const typeDiff = typeOrder[a.matchType] - typeOrder[b.matchType];
-    if (typeDiff !== 0) return typeDiff;
-    return b.matchScore - a.matchScore;
+    return typeOrder[a.matchType] - typeOrder[b.matchType];
   });
 
   return candidates.slice(0, topN);
