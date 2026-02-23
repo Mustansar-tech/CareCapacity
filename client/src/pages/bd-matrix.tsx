@@ -530,6 +530,7 @@ function ClientEnquiryMatcher() {
 
   const saveEnquiryMutation = useMutation({
     mutationFn: async (data: { criteria: any; matchResult: any; isSingleVisit: boolean }) => {
+      const firstVisit = data.criteria.visits?.[0];
       const totalMatches = data.matchResult.visitResults
         ? data.matchResult.visitResults.reduce((sum: number, vr: any) => sum + (vr.matches?.length || 0), 0)
         : data.matchResult.matches?.length || 0;
@@ -556,6 +557,7 @@ function ClientEnquiryMatcher() {
         topMatch,
         results: data.matchResult,
         isMultiVisit: !data.isSingleVisit,
+        criteria: data.criteria,
       });
       return res.json();
     },
