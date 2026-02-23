@@ -1158,7 +1158,7 @@ function ClientEnquiryMatcher() {
                             ...multiResults!,
                             visitResults: [vr]
                           }} 
-                          requiredDays={visits[idx]?.selectedDays || []}
+                          requiredDays={vr.selectedDays || []}
                         />
                       </TabsContent>
                     ))}
