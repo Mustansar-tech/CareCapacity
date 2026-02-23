@@ -137,6 +137,7 @@ function findExactSlot(
   visitDuration: number
 ): string | null {
   for (const [wStart, wEnd] of windows) {
+    // A window is an "Exact" match if the requested start and end fit entirely inside it
     if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
       return `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`;
     }
@@ -154,17 +155,21 @@ function findClosestSlot(
   const MAX_DIFF = 150; // 2h 30mins in minutes
 
   for (const [wStart, wEnd] of windows) {
-    // Try to fit the visit at the start of the window, end of the window, or anywhere in between
-    // but the "distance" is measured from the requested start time.
-    
     // If the window is large enough for the visit
     if (wEnd - wStart >= visitDuration) {
-      // Possible start times in this window are [wStart, wEnd - visitDuration]
-      // We want the one closest to reqStart
+      // We want to find a start time 's' such that:
+      // 1. s >= wStart
+      // 2. s + visitDuration <= wEnd
+      // 3. abs(s - reqStart) is minimized
+      
       let closestStart: number;
-      if (reqStart < wStart) closestStart = wStart;
-      else if (reqStart > (wEnd - visitDuration)) closestStart = wEnd - visitDuration;
-      else closestStart = reqStart;
+      if (reqStart < wStart) {
+        closestStart = wStart;
+      } else if (reqStart > (wEnd - visitDuration)) {
+        closestStart = wEnd - visitDuration;
+      } else {
+        closestStart = reqStart;
+      }
 
       const diff = Math.abs(closestStart - reqStart);
       if (diff <= MAX_DIFF) {
