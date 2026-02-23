@@ -2980,7 +2980,7 @@ export async function processCapacityData(
     const sampleEmployees = employeesByDate[sampleDate].slice(0, 10);
     logger.debug(`  Checking ${sampleEmployees.length} employees on ${sampleDate}:`);
     sampleEmployees.forEach((emp: any) => {
-      logger.debug(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
+      logger.debug(`    - ${emp.employeeName}: (status: ${emp.status})`);
     });
 
     // Count how many have gender data
