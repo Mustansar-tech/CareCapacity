@@ -410,8 +410,8 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                             <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                               <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
                                 <div className="space-y-4">
-                                  <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50">
-                                    CP{cpIdx + 1}: {genderLabel} Only
+                                  <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50 text-[#41589c]">
+                                    CP{cpIdx + 1}: {genderLabel === "Female" ? "F" : genderLabel === "Male" ? "M" : genderLabel} Only
                                   </div>
                                   <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
                                     <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
@@ -537,8 +537,8 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           </td>
                         );
                       })}
-                    </tr>
-                  );
+                            </tr>
+                          );
                 })}
               </React.Fragment>
             ))}
