@@ -502,21 +502,10 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                     </tr>
                   );
                 })}
-                <tr className="h-4 bg-gray-200/40 dark:bg-gray-800/50">
-                  <td colSpan={displayDays.length + 1} className="border p-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center">
-                    Next Visit Block
-                  </td>
-                </tr>
               </React.Fragment>
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="bg-gray-100/50 dark:bg-gray-900/80 border-t p-4 text-center">
-        <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white dark:bg-gray-800 border shadow-sm ring-1 ring-black/5">
-          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
-          <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">Next Visit Block</span>
-        </div>
       </div>
     </div>
   );
@@ -705,16 +694,19 @@ function ClientEnquiryMatcher() {
           {/* Gradient Header */}
           <div className="px-6 py-5 bg-gradient-to-r from-purple-700 to-indigo-800 text-white rounded-t-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur-sm">
-                  <UserCheck className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <DialogTitle className="text-xl font-bold tracking-tight text-white">
-                    Client Enquiry Matcher
-                  </DialogTitle>
-                </div>
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur-sm">
+                      <UserCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl font-bold tracking-tight text-white">
+                        Client Enquiry Matcher
+                      </DialogTitle>
+                      <DialogDescription className="text-purple-200/80 text-xs font-medium mt-0.5 uppercase tracking-wider">
+                        Care Capacity Intelligence
+                      </DialogDescription>
+                    </div>
+                  </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"
@@ -1140,14 +1132,6 @@ function ClientEnquiryMatcher() {
             )}
           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 flex justify-between items-center rounded-b-lg">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Engine Online</span>
-            </div>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Care Capacity Intelligence</span>
-          </div>
         </DialogContent>
       </Dialog>
     </>
