@@ -186,10 +186,12 @@ function findClosestSlot(
   return bestSlot;
 }
 
-function buildEmployeeWeeklyData(
+async function buildEmployeeWeeklyData(
   dates: string[],
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
-  employeesByDate: Record<string, EmployeeDailyDetail[]>
+  employeesByDate: Record<string, EmployeeDailyDetail[]>,
+  branchId?: string,
+  storage?: any
 ) {
   const allEmployeeNames = new Set<string>();
   for (const dateStr of dates) {
@@ -204,6 +206,8 @@ function buildEmployeeWeeklyData(
     contractedWeekly: number;
     gender?: string;
     transportMode?: string;
+    homeLat?: number;
+    homeLng?: number;
   }>();
 
   for (const empName of Array.from(allEmployeeNames)) {
@@ -236,6 +240,16 @@ function buildEmployeeWeeklyData(
     });
   }
 
+  if (branchId && storage) {
+    for (const [empName, data] of employeeWeeklyData.entries()) {
+      const loc = await storage.getEmployeeLocationByName(branchId, empName);
+      if (loc && loc.homeLat && loc.homeLng) {
+        data.homeLat = parseFloat(loc.homeLat.toString());
+        data.homeLng = parseFloat(loc.homeLng.toString());
+      }
+    }
+  }
+
   return { allEmployeeNames, employeeWeeklyData };
 }
 
@@ -246,8 +260,9 @@ function matchEmployeesForVisit(
   dates: string[],
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
   allEmployeeNames: Set<string>,
-  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string }>,
-  topN: number = 50
+  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homeLat?: number; homeLng?: number }>,
+  topN: number = 50,
+  clientLocation?: { lat: number; lng: number }
 ): MatchedEmployee[] {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
@@ -378,7 +393,21 @@ function matchEmployeesForVisit(
     const avgScore = totalScore / Math.max(requiredDays.length, 1);
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
-    const finalScore = Math.round((avgScore * 0.6 + dayMatchRatio * 100 * 0.25 + capacityBonus * 0.15) * 100) / 100;
+
+    // Travel Score Component
+    let travelBonus = 0;
+    if (clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
+      // Direct distance calculation as proxy for travel time in BD matcher
+      const latDiff = clientLocation.lat - weeklyData.homeLat;
+      const lngDiff = clientLocation.lng - weeklyData.homeLng;
+      const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+      
+      // Assume ~0.01 degree is approx 1km. 10km radius for full bonus.
+      // Score decreases as distance increases.
+      travelBonus = Math.max(0, 15 - (distance * 100)); 
+    }
+
+    const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + travelBonus) * 100) / 100;
 
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
@@ -407,10 +436,12 @@ function matchEmployeesForVisit(
   return candidates.slice(0, topN);
 }
 
-export function matchClientEnquiry(
+export async function matchClientEnquiry(
   criteria: ClientEnquiryCriteria,
-  analysis: CapacityAnalysis
-): MatchResult {
+  analysis: CapacityAnalysis,
+  branchId?: string,
+  storage?: any
+): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   const dates = Object.keys(employeeSummaryByDate).sort();
@@ -419,9 +450,18 @@ export function matchClientEnquiry(
     return { criteria, matches: [], totalEmployeesEvaluated: 0 };
   }
 
-  const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
-    dates, employeeSummaryByDate, employeesByDate
+  const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
+    dates, employeeSummaryByDate, employeesByDate, branchId, storage
   );
+
+  let clientCoords: { lat: number; lng: number } | undefined;
+  if (branchId && storage && criteria.postcode) {
+    const { geocodeWithFallback } = await import('./pipeline');
+    const geocoded = await geocodeWithFallback(criteria.postcode, storage, branchId);
+    if (geocoded && geocoded.lat && geocoded.lng) {
+      clientCoords = { lat: parseFloat(geocoded.lat), lng: parseFloat(geocoded.lng) };
+    }
+  }
 
   const matches = matchEmployeesForVisit(
     criteria.genderPreference || 'any',
@@ -430,7 +470,9 @@ export function matchClientEnquiry(
     dates,
     employeeSummaryByDate,
     allEmployeeNames,
-    employeeWeeklyData
+    employeeWeeklyData,
+    50,
+    clientCoords
   );
 
   logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
@@ -442,10 +484,12 @@ export function matchClientEnquiry(
   };
 }
 
-export function matchMultiVisitEnquiry(
+export async function matchMultiVisitEnquiry(
   criteria: MultiVisitCriteria,
-  analysis: CapacityAnalysis
-): MultiVisitMatchResult {
+  analysis: CapacityAnalysis,
+  branchId?: string,
+  storage?: any
+): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   const dates = Object.keys(employeeSummaryByDate).sort();
@@ -466,9 +510,18 @@ export function matchMultiVisitEnquiry(
     };
   }
 
-  const { allEmployeeNames, employeeWeeklyData } = buildEmployeeWeeklyData(
-    dates, employeeSummaryByDate, employeesByDate
+  const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
+    dates, employeeSummaryByDate, employeesByDate, branchId, storage
   );
+
+  let clientCoords: { lat: number; lng: number } | undefined;
+  if (branchId && storage && criteria.postcode) {
+    const { geocodeWithFallback } = await import('./pipeline');
+    const geocoded = await geocodeWithFallback(criteria.postcode, storage, branchId);
+    if (geocoded && geocoded.lat && geocoded.lng) {
+      clientCoords = { lat: parseFloat(geocoded.lat), lng: parseFloat(geocoded.lng) };
+    }
+  }
 
   const visitResults: VisitMatchResult[] = [];
 
@@ -492,7 +545,8 @@ export function matchMultiVisitEnquiry(
         employeeSummaryByDate,
         filteredNames,
         employeeWeeklyData,
-        5
+        5,
+        clientCoords
       );
 
       if (matches.length > 0) {
@@ -508,7 +562,8 @@ export function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      visit.careProsRequired * 3
+      visit.careProsRequired * 3,
+      clientCoords
     );
 
     const dedupedMatches: MatchedEmployee[] = [];
