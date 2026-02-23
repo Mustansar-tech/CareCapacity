@@ -1489,12 +1489,7 @@ export async function parseExcelFiles(
     logger.debug(`Gender distribution:`, genderStats);
 
     // Show sample employees with their Title and Gender
-    const samplesWithGender = cgData.slice(0, 5).map(emp => ({
-      name: emp["CAREGiver Name"],
-      title: emp.Title,
-      gender: emp.Gender || "unknown"
-    }));
-    logger.debug(`Sample employees (Title → Gender):`, samplesWithGender);
+    logger.debug(`CG Data rows with gender info found: ${cgData.slice(0, 5).length}`);
   } else {
     logger.debug(`No valid CG Data rows found - check column names and data`);
   }
