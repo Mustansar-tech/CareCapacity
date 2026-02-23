@@ -471,11 +471,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
                                       className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                     >
-                                      {matchIdx === 0 && (
-                                        <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm uppercase tracking-tighter">
-                                          Best Match
-                                        </div>
-                                      )}
                                       <div className="flex justify-between items-start gap-2">
                                         <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate`} title={employeeMatch.employeeName}>
                                           {employeeMatch.employeeName}
@@ -493,7 +488,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                           <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
                                         </div>
                                         <div className="font-bold text-gray-700 dark:text-gray-300">
-                                          {remainingHours}h rem
+                                          {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
                                         </div>
                                       </div>
                                     </div>
