@@ -229,7 +229,6 @@ export class AutoScheduler {
           schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
 
           employeeSchedules.set(bestAssignment.employeeName, schedule);
-          logger.debug(`[Other-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
           phase1_5Unassigned.push(visit);
         }
@@ -258,7 +257,6 @@ export class AutoScheduler {
           // Also update in main schedules map
           employeeSchedules.set(bestAssignment.employeeName, schedule);
           
-          logger.debug(`[Non-GH] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
           phase2Unassigned.push(visit);
         }
@@ -287,7 +285,6 @@ export class AutoScheduler {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
           const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
           schedule.visits.push(scheduledVisit);
-          logger.debug(`[EXTREME] Assigned ${visit.clientName} to ${bestAssignment.employeeName}`);
         } else {
           phase4Unassigned.push(visit);
         }
@@ -402,8 +399,6 @@ export class AutoScheduler {
         // Get gender from employee location (from Title in CG Data)
         const employeeGender = emp.gender || availability.gender || undefined;
         
-        logger.debug(`${emp.employeeName}: Location gender="${emp.gender || 'NONE'}", Availability gender="${availability.gender || 'NONE'}", Using="${employeeGender || 'NONE'}"`);
-        
         const finalEmployee = {
           employeeName: emp.employeeName,
           homeLat: parseFloat(emp.homeLat),
@@ -416,7 +411,6 @@ export class AutoScheduler {
           gender: employeeGender, // Use gender from employee location (Title) or availability
         };
         
-        logger.debug(`Adding employee to scheduler: ${emp.employeeName}, gender="${finalEmployee.gender || 'MISSING'}"`);
         employees.push(finalEmployee);
       }
 
@@ -455,34 +449,6 @@ export class AutoScheduler {
       const dateEmployees: any[] = employeesByDate[date] || [];
       const dateSummary: any[] = employeeSummaryByDate[date] || [];
 
-      logger.debug(`\nAUTO-SCHEDULER GENDER DEBUG for ${date}:`);
-      logger.debug(`  Total employees on date: ${dateEmployees.length}`);
-      logger.debug(`  Total employees in summary: ${dateSummary.length}`);
-
-      // Debug: Show actual gender data in employeesByDate
-      if (dateEmployees.length > 0) {
-        logger.debug(`\n  FIRST 5 EMPLOYEE DATA FROM DATABASE:`);
-        dateEmployees.slice(0, 5).forEach((sample, idx) => {
-          logger.debug(`    ${idx + 1}. Name: ${sample.employeeName}`);
-          logger.debug(`       Gender field: "${sample.gender || 'MISSING'}"`);
-          logger.debug(`       Status: ${sample.status}`);
-        });
-      }
-      if (dateSummary.length > 0) {
-        logger.debug(`\n  FIRST 5 SUMMARY DATA FROM DATABASE:`);
-        dateSummary.slice(0, 5).forEach((sample, idx) => {
-          logger.debug(`    ${idx + 1}. Name: ${sample.employeeName}`);
-          logger.debug(`       Gender field: "${sample.gender || 'MISSING'}"`);
-        });
-      }
-
-      // Count how many have gender before processing
-      const employeesWithGender = dateEmployees.filter((e: any) => e.gender && e.gender.trim() !== '').length;
-      const summaryWithGender = dateSummary.filter((e: any) => e.gender && e.gender.trim() !== '').length;
-      logger.debug(`\n  GENDER DATA AVAILABILITY:`);
-      logger.debug(`     employeesByDate: ${employeesWithGender}/${dateEmployees.length} employees have gender`);
-      logger.debug(`     employeeSummaryByDate: ${summaryWithGender}/${dateSummary.length} employees have gender`);
-
       const result = dateEmployees.map(emp => {
         const isAvailable = ['Available', 'Partial Availability', 'Ad-hoc'].includes(emp.status);
         const summary = dateSummary.find((s: any) => s.employeeName === emp.employeeName);
@@ -493,12 +459,10 @@ export class AutoScheduler {
         // Priority 1: Direct gender field from employeesByDate JSONB
         if (emp.gender && typeof emp.gender === 'string' && emp.gender.trim() !== '') {
           gender = emp.gender.trim().toLowerCase();
-          logger.debug(`${emp.employeeName}: Found gender in employeesByDate = "${gender}"`);
         }
         // Priority 2: Summary data (employeeSummaryByDate)
         else if (summary?.gender && typeof summary.gender === 'string' && summary.gender.trim() !== '') {
           gender = summary.gender.trim().toLowerCase();
-          logger.debug(`${emp.employeeName}: Using gender from employeeSummaryByDate = "${gender}"`);
         }
         // Priority 3: Parse title from employee name
         else {
@@ -506,14 +470,10 @@ export class AutoScheduler {
           
           if (empNameLower.includes('mr ') || empNameLower.includes('mr. ')) {
             gender = 'male';
-            logger.debug(`${emp.employeeName}: Parsed gender from name (Mr) = "male"`);
           } else if (empNameLower.includes('mrs ') || empNameLower.includes('mrs. ') || 
                      empNameLower.includes('miss ') || empNameLower.includes('ms ') || 
                      empNameLower.includes('ms. ')) {
             gender = 'female';
-            logger.debug(`${emp.employeeName}: Parsed gender from name (Mrs/Miss/Ms) = "female"`);
-          } else {
-            logger.debug(`${emp.employeeName}: NO GENDER FOUND (emp.gender='${emp.gender}', summary?.gender='${summary?.gender}', name parsing failed)`);
           }
         }
 
@@ -526,10 +486,6 @@ export class AutoScheduler {
           gender: gender,
         };
       });
-
-      // Final stats on returned data
-      const resultWithGender = result.filter(r => r.gender && r.gender.trim() !== '').length;
-      logger.debug(`\n  FINAL RESULT: ${resultWithGender}/${result.length} employees will have gender data for scheduling\n`);
 
       return result;
     } catch (error) {
@@ -655,21 +611,11 @@ export class AutoScheduler {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
 
-    // Log client gender requirement
-    const clientGenderPref = this.getClientGenderPreference(visit.clientName);
-    if (clientGenderPref) {
-      logger.debug(`\nClient "${visit.clientName}" requires gender: ${clientGenderPref}`);
-      logger.debug(`   Checking ${employeeSchedules.size} employees...`);
-    }
-
     for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
       const employee = schedule.employee;
 
       // Check gender preference match
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
-        if (clientGenderPref) {
-          logger.debug(`   ${empName}: gender="${employee.gender || 'UNDEFINED'}" does not match required "${clientGenderPref}"`);
-        }
         continue; // Skip this employee - gender doesn't match client preference
       }
 
@@ -685,12 +631,7 @@ export class AutoScheduler {
       });
 
       if (hasTimeConflict) {
-        logger.debug(`   ${empName}: STRICT TIME CONFLICT - overlap detected with ${visit.startTime}-${visit.endTime}`);
         continue; // Skip - employee already busy at this time
-      }
-
-      if (clientGenderPref) {
-        logger.debug(`   ${empName}: gender="${employee.gender}" MATCHES required "${clientGenderPref}" - checking availability...`);
       }
 
       const travelTime = await (this as any).calculateTravelTime(

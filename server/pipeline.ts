@@ -2956,15 +2956,6 @@ export async function processCapacityData(
     );
     const gender = masterEmployee?.gender || "";
 
-    // Debug: Always log for debugging
-    logger.debug(`📝 Adding to employeesByDate[${record.date}]: ${record.employeeName}`);
-    logger.debug(`  - Normalized name: "${empNormalizedName}"`);
-    logger.debug(`  - Master employee found: ${masterEmployee ? 'YES' : 'NO'}`);
-    if (masterEmployee) {
-      logger.debug(`  - Master employee gender: "${masterEmployee.gender}"`);
-    }
-    logger.debug(`  - Final gender value: "${gender || 'EMPTY'}"`);
-
     employeesByDate[record.date].push({
       employeeName: record.employeeName,
       status: record.status,
@@ -2977,38 +2968,6 @@ export async function processCapacityData(
       gender: gender, // Gender from master employee list (derived from Title)
     });
   });
-
-  // Debug: Verify gender is stored in employeesByDate (CRITICAL for auto-scheduler)
-  logger.debug(`\nVERIFYING GENDER IN employeesByDate (for auto-scheduler):`);
-  const sampleDate = Object.keys(employeesByDate)[0];
-  if (sampleDate && employeesByDate[sampleDate]) {
-    const sampleEmployees = employeesByDate[sampleDate].slice(0, 10);
-    logger.debug(`  Checking ${sampleEmployees.length} employees on ${sampleDate}:`);
-    sampleEmployees.forEach((emp: any) => {
-      logger.debug(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
-    });
-
-    // Count how many have gender data
-    const withGender = sampleEmployees.filter((e: any) => e.gender).length;
-    logger.debug(`  ${withGender}/${sampleEmployees.length} employees have gender data in employeesByDate`);
-
-    // Show the actual object structure that will be saved
-    if (sampleEmployees.length > 0) {
-      logger.debug(`  📦 Sample object structure:`, JSON.stringify(sampleEmployees[0], null, 2));
-    }
-  }
-
-  // CRITICAL VERIFICATION: Check all dates for gender data completeness
-  let totalEmployees = 0;
-  let employeesWithGender = 0;
-  Object.entries(employeesByDate).forEach(([date, employees]) => {
-    (employees as any[]).forEach(emp => {
-      totalEmployees++;
-      if (emp.gender) employeesWithGender++;
-    });
-  });
-  logger.debug(`  TOTAL GENDER COVERAGE: ${employeesWithGender}/${totalEmployees} employees (${Math.round(employeesWithGender/totalEmployees*100)}%)`);
-  logger.debug(`=========================================\n`);
 
   // === NEW: inject Ad-hoc rows (scheduled but not present in Availability that day) ===
   // Build adhoc windows map once for reuse in employee summary calculation
