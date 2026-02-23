@@ -451,16 +451,13 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                         {vr.matches
                                           .filter(m => {
                                             const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                                            if (genderPref === 'any') return true;
-                                            return m.gender?.toLowerCase() === genderPref.toLowerCase();
-                                          })
-                                          .sort((a, b) => {
-                                            const aTaken = assignedToPreviousCps.includes(a.employeeName);
-                                            const bTaken = assignedToPreviousCps.includes(b.employeeName);
-                                            // Priority 1: Not already suggested for a previous CP slot
-                                            if (aTaken && !bTaken) return 1;
-                                            if (!aTaken && bTaken) return -1;
-                                            return 0;
+                                            const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
+                                            if (!isCorrectGender) return false;
+
+                                            // Absolute uniqueness: If this person is the TOP match for any PREVIOUS CP slot
+                                            // for this specific day, they are excluded from this row entirely.
+                                            const isTakenByPrevious = assignedToPreviousCps.includes(m.employeeName);
+                                            return !isTakenByPrevious;
                                           })
                                           .map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => {
