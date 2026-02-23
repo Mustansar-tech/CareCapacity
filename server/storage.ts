@@ -600,7 +600,7 @@ export class MemStorage implements IStorage {
 
   async saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
     const id = randomUUID();
-    const result: CapacityAnalysis = { ...analysis, id, uploadedAt: new Date(), employeeSummaryByDate: analysis.employeeSummaryByDate || {}, warnings: analysis.warnings || [], unallocatedVisits: analysis.unallocatedVisits || null };
+    const result: CapacityAnalysis = { ...analysis, id, uploadedAt: new Date(), employeeSummaryByDate: analysis.employeeSummaryByDate || {}, warnings: analysis.warnings || [] };
     this.capacityAnalyses.set(id, result);
     return result;
   }
@@ -682,7 +682,7 @@ export class MemStorage implements IStorage {
 
   async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     const id = randomUUID();
-    const result: WeeklySchedule = { ...schedule, id, generatedAt: new Date() };
+    const result: WeeklySchedule = { ...schedule, id, generatedAt: new Date(), unallocatedVisits: schedule.unallocatedVisits ?? [] };
     this.weeklySchedules.set(id, result);
     return result;
   }
