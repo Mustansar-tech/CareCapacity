@@ -623,7 +623,7 @@ export class AutoScheduler {
       // Check gender preference match
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
         if (clientGenderPref) {
-          logger.debug(`   ${empName}: gender does not match client preference`);
+          logger.debug(`   ${empName}: gender="${employee.gender || 'UNDEFINED'}" does not match required "${clientGenderPref}"`);
         }
         continue; // Skip this employee - gender doesn't match client preference
       }
@@ -645,7 +645,7 @@ export class AutoScheduler {
       }
 
       if (clientGenderPref) {
-        logger.debug(`   ${empName}: gender preference check passed - checking availability...`);
+        logger.debug(`   ${empName}: gender="${employee.gender}" MATCHES required "${clientGenderPref}" - checking availability...`);
       }
 
       const travelTime = await (this as any).calculateTravelTime(

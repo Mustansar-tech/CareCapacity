@@ -1489,7 +1489,12 @@ export async function parseExcelFiles(
     logger.debug(`Gender distribution:`, genderStats);
 
     // Show sample employees with their Title and Gender
-    logger.debug(`CG Data rows with gender info found: ${cgData.slice(0, 5).length}`);
+    const samplesWithGender = cgData.slice(0, 5).map(emp => ({
+      name: emp["CAREGiver Name"],
+      title: emp.Title,
+      gender: emp.Gender || "unknown"
+    }));
+    logger.debug(`Sample employees (Title → Gender):`, samplesWithGender);
   } else {
     logger.debug(`No valid CG Data rows found - check column names and data`);
   }
@@ -2980,7 +2985,7 @@ export async function processCapacityData(
     const sampleEmployees = employeesByDate[sampleDate].slice(0, 10);
     logger.debug(`  Checking ${sampleEmployees.length} employees on ${sampleDate}:`);
     sampleEmployees.forEach((emp: any) => {
-      logger.debug(`    - ${emp.employeeName}: (status: ${emp.status})`);
+      logger.debug(`    - ${emp.employeeName}: gender="${emp.gender || 'MISSING'}" (status: ${emp.status})`);
     });
 
     // Count how many have gender data
@@ -3486,6 +3491,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
           // Update database if gender is missing
           if (gender && !existing.gender) {
+            logger.debug(`  Updating gender for ${employeeName}: ${gender}`);
             await storage.upsertEmployeeLocation(locationData);
           }
         } else {
