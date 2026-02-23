@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -570,8 +570,6 @@ export const clientEnquiries = pgTable("client_enquiries", {
   topMatch: text("top_match"),
   results: jsonb("results"),
   visitDurationMinutes: integer("visit_duration_minutes").notNull().default(60),
-  isMultiVisit: boolean("is_multi_visit").notNull().default(false),
-  criteria: jsonb("criteria"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   branchIdx: index("enquiry_branch_idx").on(table.branchId),
