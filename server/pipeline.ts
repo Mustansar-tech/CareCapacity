@@ -2280,12 +2280,25 @@ export async function processCapacityData(
     const contractedWeeklyHours = row.matchedEmployee
       ? row.matchedEmployee.weeklyHours
       : 0;
-    
-    // Proportional Daily Hours: (Daily Avail / Weekly Avail) * Weekly Contracted
+
+    // Daily Hours Logic: 
+    // Default: Weekly Hours / Number of Days Available
+    // Special Case: If shift duration varies significantly, use proportional spreading
     let contractedDailyHours = 0;
-    if (row.matchedEmployee && totalWeeklyAvailabilityMinutes > 0) {
-      const proportion = rowDurationMinutes / totalWeeklyAvailabilityMinutes;
-      contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
+    if (row.matchedEmployee) {
+      const daysAvailable = employeeDays.get(key)!.size;
+      const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
+      
+      // Check for significant variation (more than 2 hours difference from standard)
+      const standardMin = standardDaily * 60;
+      const isSpecialCase = Math.abs(rowDurationMinutes - standardMin) > 120;
+
+      if (isSpecialCase && totalWeeklyAvailabilityMinutes > 0) {
+        const proportion = rowDurationMinutes / totalWeeklyAvailabilityMinutes;
+        contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
+      } else {
+        contractedDailyHours = standardDaily;
+      }
     }
 
     // Safer hours: prefer 'Hours' if present, else compute from time
