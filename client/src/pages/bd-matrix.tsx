@@ -842,7 +842,9 @@ function ClientEnquiryMatcher() {
                                   ...viewingHistoryResult.results,
                                   visitResults: [vr]
                                 }} 
-                                requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || []}
+                                requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.selectedDays || 
+                                             viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || 
+                                             viewingHistoryResult.requiredDays || []}
                               />
                             )}
                           </TabsContent>
@@ -868,7 +870,9 @@ function ClientEnquiryMatcher() {
                               totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0
                             }]
                           }}
-                          requiredDays={viewingHistoryResult.requiredDays || []}
+                          requiredDays={viewingHistoryResult.criteria?.visits?.[0]?.selectedDays || 
+                                       viewingHistoryResult.criteria?.visits?.[0]?.requiredDays || 
+                                       viewingHistoryResult.requiredDays || []}
                         />
                       )
                     ) : null}
