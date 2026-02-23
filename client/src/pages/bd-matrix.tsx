@@ -432,16 +432,18 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   );
                                 }
 
-                                // Deterministic assignment of "top" matches per CP slot FOR THIS SPECIFIC DAY
-                                const takenByPreviousOnThisDay = Array.from({ length: cpIdx })
-                                  .map((_, prevIdx) => {
+                                // Absolute uniqueness across ALL rows for this specific day
+                                // If a care pro is suggested in ANY previous row (CP1, CP2, etc.) 
+                                // they are completely removed from the candidate pool for all subsequent rows.
+                                const allTakenOnThisDay = Array.from({ length: cpIdx })
+                                  .flatMap((_, prevIdx) => {
                                     const prevGenderPref = vr.genderPreferences[prevIdx] || 'any';
                                     
-                                    // Chain the logic: each row knows who the previous rows "took"
+                                    // We need to re-calculate the full chain to know who was actually assigned
                                     let chainTaken: string[] = [];
-                                    for (let i = 0; i < prevIdx; i++) {
+                                    for (let i = 0; i <= prevIdx; i++) {
                                       const iGenderPref = vr.genderPreferences[i] || 'any';
-                                      const topMatch = vr.matches.find(m => {
+                                      const match = vr.matches.find(m => {
                                         if (chainTaken.includes(m.employeeName)) return false;
                                         const matchesGender = iGenderPref === 'any' || m.gender?.toLowerCase() === iGenderPref.toLowerCase();
                                         if (!matchesGender) return false;
@@ -450,21 +452,13 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                           return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
                                         });
                                       });
-                                      if (topMatch) chainTaken.push(topMatch.employeeName);
+                                      if (match) chainTaken.push(match.employeeName);
                                     }
+                                    return chainTaken;
+                                  });
 
-                                    const finalPrevMatch = vr.matches.find(m => {
-                                      if (chainTaken.includes(m.employeeName)) return false;
-                                      const matchesGender = prevGenderPref === 'any' || m.gender?.toLowerCase() === prevGenderPref.toLowerCase();
-                                      if (!matchesGender) return false;
-                                      return m.matchedSlots.some(s => {
-                                        const date = new Date(s.day + 'T12:00:00');
-                                        return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
-                                      });
-                                    });
-                                    return finalPrevMatch?.employeeName;
-                                  })
-                                  .filter(Boolean) as string[];
+                                // Create a unique set of all names taken by ANY previous CP slot on this day
+                                const uniqueTakenNames = Array.from(new Set(allTakenOnThisDay));
 
                                 return (
                                   <td key={day} className="p-3 align-top min-w-[250px]">
@@ -482,9 +476,9 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                             });
                                             if (!hasSlotOnDay) return false;
 
-                                            // Absolute uniqueness: If this person is the TOP match for any PREVIOUS CP slot
-                                            // on this specific day, they are excluded from this row entirely.
-                                            return !takenByPreviousOnThisDay.includes(m.employeeName);
+                                            // CRITICAL: If this person is suggested ANYWHERE in a previous CP row for this day,
+                                            // they are 100% excluded from this row.
+                                            return !uniqueTakenNames.includes(m.employeeName);
                                           })
                                           .map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => {
