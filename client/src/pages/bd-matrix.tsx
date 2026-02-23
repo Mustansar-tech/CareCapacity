@@ -403,46 +403,65 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
             {result.visitResults.map((vr) => (
               <React.Fragment key={vr.visitIndex}>
                 {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
-                  const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                  const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
-                  
-                  return (
-                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                      <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
-                        <div className="space-y-4">
-                          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50">
-                            CP{cpIdx + 1}: {genderLabel} Only
-                          </div>
-                          <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
-                            <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
-                            <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
-                            <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
-                            <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
-                          </div>
-                        </div>
-                      </td>
-                      {displayDays.map(day => {
-                        if (!vr.matches || vr.matches.length === 0) {
-                          return (
-                            <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
-                              <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
-                                <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
-                              </div>
-                            </td>
-                          );
-                        }
+                          const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                          const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
 
-                        return (
-                          <td key={day} className="p-3 align-top min-w-[250px]">
-                            <ScrollArea className="h-[200px] pr-4">
-                              <div className="space-y-3">
-                                {vr.matches
-                                  .filter(m => {
-                                    const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                                    if (genderPref === 'any') return true;
-                                    return m.gender?.toLowerCase() === genderPref.toLowerCase();
-                                  })
-                                  .map((employeeMatch, matchIdx) => {
+                          // Get selected names from other CP rows for this visit on this day
+                          const otherCpSelectedNames = Array.from({ length: vr.careProsRequired })
+                            .map((_, otherIdx) => {
+                              if (otherIdx === cpIdx) return null;
+                              const otherGenderPref = vr.genderPreferences[otherIdx] || 'any';
+                              const otherMatches = vr.matches.filter(m => {
+                                return otherGenderPref === 'any' || m.gender?.toLowerCase() === otherGenderPref.toLowerCase();
+                              });
+                              return otherMatches[0]?.employeeName;
+                            })
+                            .filter(Boolean) as string[];
+
+                          return (
+                            <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                              <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                                <div className="space-y-4">
+                                  <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50">
+                                    CP{cpIdx + 1}: {genderLabel} Only
+                                  </div>
+                                  <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
+                                    <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
+                                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
+                                    <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
+                                    <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
+                                  </div>
+                                </div>
+                              </td>
+                              {displayDays.map(day => {
+                                if (!vr.matches || vr.matches.length === 0) {
+                                  return (
+                                    <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
+                                      <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
+                                        <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
+                                      </div>
+                                    </td>
+                                  );
+                                }
+
+                                return (
+                                  <td key={day} className="p-3 align-top min-w-[250px]">
+                                    <ScrollArea className="h-[200px] pr-4">
+                                      <div className="space-y-3">
+                                        {vr.matches
+                                          .filter(m => {
+                                            const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                                            if (genderPref === 'any') return true;
+                                            return m.gender?.toLowerCase() === genderPref.toLowerCase();
+                                          })
+                                          .sort((a, b) => {
+                                            const aSelected = otherCpSelectedNames.includes(a.employeeName);
+                                            const bSelected = otherCpSelectedNames.includes(b.employeeName);
+                                            if (aSelected && !bSelected) return 1;
+                                            if (!aSelected && bSelected) return -1;
+                                            return 0;
+                                          })
+                                          .map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => {
                                     const dateStr = s.day;
                                     const date = new Date(dateStr + 'T12:00:00');
