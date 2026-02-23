@@ -623,7 +623,7 @@ export class AutoScheduler {
       // Check gender preference match
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
         if (clientGenderPref) {
-          logger.debug(`   ${empName}: gender="${employee.gender || 'UNDEFINED'}" does not match required "${clientGenderPref}"`);
+          logger.debug(`   ${empName}: gender does not match client preference`);
         }
         continue; // Skip this employee - gender doesn't match client preference
       }
