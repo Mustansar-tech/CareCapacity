@@ -480,7 +480,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                         <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate`} title={employeeMatch.employeeName}>
                                           {employeeMatch.employeeName}
                                         </div>
-                                        <div className="text-[10px] font-black text-purple-600 dark:text-purple-400">
+                                        <div className="sr-only">
                                           {Math.round(employeeMatch.matchScore)}%
                                         </div>
                                       </div>
