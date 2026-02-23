@@ -251,7 +251,7 @@ function matchEmployeesForVisit(
 ): MatchedEmployee[] {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
-  const visitDuration = 60;
+  const visitDuration = reqEnd - reqStart;
 
   const datesByDay = new Map<string, string[]>();
   for (const dateStr of dates) {

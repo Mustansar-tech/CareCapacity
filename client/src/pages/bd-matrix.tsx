@@ -553,8 +553,6 @@ function ClientEnquiryMatcher() {
         ? data.matchResult.visitResults[0]?.matches?.[0]?.employeeName || null
         : data.matchResult.matches?.[0]?.employeeName || null;
 
-      const firstVisit = data.criteria.visits?.[0];
-      
       // Calculate duration for the first visit to store in the main record
       let durationMinutes = 60;
       if (firstVisit?.preferredTimeWindow?.start && firstVisit?.preferredTimeWindow?.end) {
