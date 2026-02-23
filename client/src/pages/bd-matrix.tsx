@@ -406,18 +406,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           const genderPref = vr.genderPreferences[cpIdx] || 'any';
                           const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
 
-                          // Deterministic assignment of "top" matches per CP slot to avoid repetition
-                          const assignedToPreviousCps = Array.from({ length: cpIdx })
-                            .map((_, prevIdx) => {
-                              const prevGenderPref = vr.genderPreferences[prevIdx] || 'any';
-                              const prevMatches = vr.matches.filter(m => {
-                                return prevGenderPref === 'any' || m.gender?.toLowerCase() === prevGenderPref.toLowerCase();
-                              });
-                              // This assumes the UI would naturally pick the first match for previous rows
-                              return prevMatches[0]?.employeeName;
-                            })
-                            .filter(Boolean) as string[];
-
                           return (
                             <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                               <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
@@ -444,6 +432,43 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   );
                                 }
 
+                                // Deterministic assignment of "top" matches per CP slot FOR THIS SPECIFIC DAY
+                                const takenByPreviousOnThisDay = Array.from({ length: cpIdx })
+                                  .map((_, prevIdx) => {
+                                    const prevGenderPref = vr.genderPreferences[prevIdx] || 'any';
+                                    const prevMatchesForDay = vr.matches
+                                      .filter(m => {
+                                        const isCorrectGender = prevGenderPref === 'any' || m.gender?.toLowerCase() === prevGenderPref.toLowerCase();
+                                        if (!isCorrectGender) return false;
+                                        return m.matchedSlots.some(s => {
+                                          const date = new Date(s.day + 'T12:00:00');
+                                          return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                        });
+                                      });
+                                    
+                                    // We need to account for what the previous rows would have "taken" 
+                                    // considering they also filtered out people taken before them.
+                                    // This is a recursive-like logic but implemented iteratively.
+                                    let takenInPrevChain: string[] = [];
+                                    for (let i = 0; i < prevIdx; i++) {
+                                      const iGenderPref = vr.genderPreferences[i] || 'any';
+                                      const topMatch = vr.matches.find(m => {
+                                        if (takenInPrevChain.includes(m.employeeName)) return false;
+                                        const matchesGender = iGenderPref === 'any' || m.gender?.toLowerCase() === iGenderPref.toLowerCase();
+                                        if (!matchesGender) return false;
+                                        return m.matchedSlots.some(s => {
+                                          const date = new Date(s.day + 'T12:00:00');
+                                          return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                        });
+                                      });
+                                      if (topMatch) takenInPrevChain.push(topMatch.employeeName);
+                                    }
+
+                                    const finalPrevMatch = prevMatchesForDay.find(m => !takenInPrevChain.includes(m.employeeName));
+                                    return finalPrevMatch?.employeeName;
+                                  })
+                                  .filter(Boolean) as string[];
+
                                 return (
                                   <td key={day} className="p-3 align-top min-w-[250px]">
                                     <ScrollArea className="h-[200px] pr-4">
@@ -454,10 +479,15 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                             const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
                                             if (!isCorrectGender) return false;
 
+                                            const hasSlotOnDay = m.matchedSlots.some(s => {
+                                              const date = new Date(s.day + 'T12:00:00');
+                                              return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                            });
+                                            if (!hasSlotOnDay) return false;
+
                                             // Absolute uniqueness: If this person is the TOP match for any PREVIOUS CP slot
-                                            // for this specific day, they are excluded from this row entirely.
-                                            const isTakenByPrevious = assignedToPreviousCps.includes(m.employeeName);
-                                            return !isTakenByPrevious;
+                                            // on this specific day, they are excluded from this row entirely.
+                                            return !takenByPreviousOnThisDay.includes(m.employeeName);
                                           })
                                           .map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => {
