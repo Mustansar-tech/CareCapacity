@@ -358,11 +358,8 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
-  const visibleDays = days.filter(d => requiredDays.includes(d));
-  const visibleDayLabels = dayLabels.filter((_, i) => requiredDays.includes(days[i]));
-
-  const displayDays = visibleDays.length > 0 ? visibleDays : days;
-  const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
+  const displayDays = requiredDays.length > 0 ? requiredDays : days;
+  const displayLabels = requiredDays.length > 0 ? dayLabels.filter((_, i) => requiredDays.includes(days[i])) : dayLabels;
 
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
