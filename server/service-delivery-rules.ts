@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "./xlsx-compat.js";
 import { logger } from './logger';
 
 /** Column synonyms so we can map by name, not position */
@@ -64,7 +64,7 @@ function matchOne(headers: string[], synonyms: readonly string[]): string | null
   return null;
 }
 
-function pickBestSheet(wb: XLSX.WorkBook): XLSX.WorkSheet {
+function pickBestSheet(wb: XLSX.WorkBookCompat): XLSX.SheetCompat {
   const names = wb.SheetNames;
   const exact = names.find((n) => n === "Data");
   if (exact) return wb.Sheets[exact];
@@ -74,7 +74,7 @@ function pickBestSheet(wb: XLSX.WorkBook): XLSX.WorkSheet {
   return wb.Sheets[firstDataLike];
 }
 
-function findHeaderRow(ws: XLSX.WorkSheet, scanRows = 80): { headerRowIdx: number; headers: string[] } {
+function findHeaderRow(ws: XLSX.SheetCompat, scanRows = 80): { headerRowIdx: number; headers: string[] } {
   const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
   let best = { idx: range.s.r, score: -Infinity, headers: [] as string[] };
   const end = Math.min(range.e.r, range.s.r + scanRows - 1);
@@ -116,7 +116,7 @@ function buildColumnMap(headers: string[]) {
 }
 
 /** MAIN: read a "Hours by Service Type …" workbook buffer and apply rules */
-export function applyServiceRules(demandBuffer: Buffer): {
+export async function applyServiceRules(demandBuffer: Buffer): Promise<{
   meta: {
     sheetName: string;
     headerRow: number;
@@ -125,12 +125,11 @@ export function applyServiceRules(demandBuffer: Buffer): {
     rowsAfterNormalize: number;
     rowsAfterFilter: number;
   };
-  filteredRows: CleanRow[];                            // cleaned data after rules
+  filteredRows: CleanRow[];
   hoursByWeekday: Array<{ weekday: string; hours: number }>;
   serviceTypeByWeekday: Map<string, Map<string, number>>;
-} {
-  // 1) Open workbook and pick the right sheet
-  const wb = XLSX.read(demandBuffer);
+}> {
+  const wb = await XLSX.read(demandBuffer);
   const ws = pickBestSheet(wb);
 
   // 2) Find header row by content; get full matrix

@@ -24,7 +24,7 @@ The application is designed for care home scheduling teams and business developm
 - **Express.js + TypeScript:** RESTful API with comprehensive middleware.
 - **Drizzle ORM:** Type-safe PostgreSQL database operations.
 - **Multer:** Secure file upload handling with validation.
-- **XLSX:** Robust Excel file processing (read and write).
+- **ExcelJS:** Robust Excel file processing (read and write), via `xlsx-compat.ts` wrapper.
 - **Advanced fuzzy name matching:** With confidence scoring for data reconciliation.
 - **Sophisticated time window arithmetic:** For accurate capacity calculations.
 
@@ -102,4 +102,4 @@ To prevent missing hours when data is incomplete:
 
 - **PostgreSQL (Neon serverless):** Primary database.
 - **Google Maps API:** Used for geocoding and travel time calculations.
-- **XLSX library:** For reading and writing Excel files.
+- **ExcelJS library:** For reading and writing Excel files (replaced xlsx@0.18.5 due to CVEs).

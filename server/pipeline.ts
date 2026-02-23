@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as XLSX from "./xlsx-compat.js";
 import { logger } from './logger';
 import { parse, format, addDays, differenceInDays } from "date-fns";
 import {
@@ -1213,7 +1213,7 @@ export async function parseExcelFiles(
   const warnings: string[] = [];
 
   // Parse Availability Export.xlsx
-  const availabilityWorkbook = XLSX.read(availabilityBuffer);
+  const availabilityWorkbook = await XLSX.read(availabilityBuffer);
   const availabilitySheetName = AVAIL_SHEET;
   if (!availabilityWorkbook.SheetNames.includes(availabilitySheetName)) {
     throw new Error(
@@ -1226,7 +1226,7 @@ export async function parseExcelFiles(
     XLSX.utils.sheet_to_json<AvailabilityRow>(availabilitySheet);
 
   // Parse Care Pro Guaranteed Hours.xlsx
-  const guaranteedWorkbook = XLSX.read(guaranteedBuffer);
+  const guaranteedWorkbook = await XLSX.read(guaranteedBuffer);
   logger.debug(`Guaranteed workbook sheets available:`, guaranteedWorkbook.SheetNames);
   
   const guaranteedSheetName = GUAR_SHEET;
@@ -1409,7 +1409,7 @@ export async function parseExcelFiles(
   logger.debug(`Total demand rows after filtering: ${demandRows.length}`);
 
   // Parse CG Data Export.xlsx (Master Employee List) — robust sheet detection
-  const cgDataWorkbook = XLSX.read(cgDataBuffer);
+  const cgDataWorkbook = await XLSX.read(cgDataBuffer);
   const cgDataSheetName = getCGSheetName(cgDataWorkbook);
   const cgDataSheet = cgDataWorkbook.Sheets[cgDataSheetName];
   const cgRowsRaw = XLSX.utils.sheet_to_json<Record<string, any>>(cgDataSheet, {
@@ -3092,11 +3092,11 @@ export async function processCapacityData(
   // Step 9: Generate employee summary by date
   const employeeSummaryByDate: Record<string, any[]> = {};
 
-  Object.entries(employeesByDate).forEach(([dateStr, employees]) => {
+  for (const [dateStr, employees] of Object.entries(employeesByDate)) {
     // Extract cancelled visits for this specific date
     logger.debug(`\nEXTRACTING CANCELLED VISITS FOR ${dateStr}...`);
     const cancelledVisitsForDate = options?.ghWorkbookBuffer
-      ? extractCancelledWindowsFromGHWorkbook(
+      ? await extractCancelledWindowsFromGHWorkbook(
           options.ghWorkbookBuffer,
           new Date(dateStr),
           60,
@@ -3336,7 +3336,7 @@ export async function processCapacityData(
         return summaryRecord;
       },
     ).filter((record): record is NonNullable<typeof record> => record !== null);
-  });
+  }
 
   // === ALL VISIT DATA EXTRACTION NOW MOVED TO extractAndStoreGeographicalData ===
   // The original loop that created visits from 'guaranteed' data has been removed
@@ -3564,7 +3564,7 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
     // Parse raw GH workbook to get ALL rows (not just filtered scheduling rows)
     let rawGHRows: any[] = [];
     if (ghWorkbookBuffer) {
-      const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
+      const wb = await XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
       const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
       const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
         header: 1,
@@ -4235,5 +4235,5 @@ export async function generateExcelExport(
   // Heatmap tabs excluded from export as per user request
   logger.debug("Heatmap sheets excluded from Excel export");
 
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  return await XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }

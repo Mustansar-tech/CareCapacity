@@ -1,5 +1,5 @@
 // cancelled-visits-from-gh.ts
-import * as XLSX from 'xlsx';
+import * as XLSX from './xlsx-compat.js';
 import { addMinutes, startOfDay, endOfDay, format as fmt } from 'date-fns';
 
 // Columns seen in your GH export
@@ -43,15 +43,14 @@ function toDate(v: any): Date | undefined {
  * Read the GH workbook BUFFER and output Map<normalizedStaff, "10:30–11:30; ..."> for the specific date
  * This does NOT rely on (or modify) your filtered rows.
  */
-export function extractCancelledWindowsFromGHWorkbook(
+export async function extractCancelledWindowsFromGHWorkbook(
   ghWorkbookBuffer: Buffer,
   specificDate: Date,
   minMinutes = 60
-): Map<string, string> {
-  const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
+): Promise<Map<string, string>> {
+  const wb = await XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
 
-  // robust header detection
   const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], { header: 1, raw: true, blankrows: false }) as any[][];
   let headerIdx = rows2d.findIndex(r => {
     const low = r.map(v => String(v ?? '').toLowerCase());

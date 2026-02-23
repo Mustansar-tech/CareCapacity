@@ -1,5 +1,5 @@
 // Extract real client visit times directly from Guaranteed Hours Excel file
-import * as XLSX from 'xlsx';
+import * as XLSX from './xlsx-compat.js';
 import { startOfDay, endOfDay, format as fmt, addMinutes, parse as parseDate, format } from 'date-fns';
 import { logger } from './logger';
 
@@ -167,7 +167,7 @@ export async function extractClientVisitsFromGHExcel(
   branchId: string, // Added branchId as it's used in the modified logic
   storage: any // Added storage as it's used in the modified logic
 ): Promise<ExcelClientVisit[]> {
-  const wb = XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
+  const wb = await XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
 
   const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
