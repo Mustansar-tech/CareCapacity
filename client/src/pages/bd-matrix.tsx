@@ -414,7 +414,28 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                               const otherMatches = vr.matches.filter(m => {
                                 return otherGenderPref === 'any' || m.gender?.toLowerCase() === otherGenderPref.toLowerCase();
                               });
+                              // Logic: For row N, consider the top (N-1) matches already "taken" by previous rows
+                              // and subsequent rows will consider this row's match "taken"
+                              // This is a simple but effective way to ensure variety in the top suggestions
                               return otherMatches[0]?.employeeName;
+                            })
+                            .filter(Boolean) as string[];
+
+                          // Additional logic for multiple CPs of same gender:
+                          // If we have CP1: Male and CP2: Male, and they both have the same top match,
+                          // we want to ensure they show different people.
+                          const sameGenderOtherCpNames = Array.from({ length: vr.careProsRequired })
+                            .map((_, otherIdx) => {
+                              if (otherIdx >= cpIdx) return null; // Only look at "previous" CPs to establish a deterministic order
+                              const currentGender = vr.genderPreferences[cpIdx] || 'any';
+                              const otherGender = vr.genderPreferences[otherIdx] || 'any';
+                              if (currentGender === otherGender) {
+                                const otherMatches = vr.matches.filter(m => {
+                                  return otherGender === 'any' || m.gender?.toLowerCase() === otherGender.toLowerCase();
+                                });
+                                return otherMatches[0]?.employeeName;
+                              }
+                              return null;
                             })
                             .filter(Boolean) as string[];
 
@@ -455,6 +476,11 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                             return m.gender?.toLowerCase() === genderPref.toLowerCase();
                                           })
                                           .sort((a, b) => {
+                                            const aTaken = sameGenderOtherCpNames.includes(a.employeeName);
+                                            const bTaken = sameGenderOtherCpNames.includes(b.employeeName);
+                                            if (aTaken && !bTaken) return 1;
+                                            if (!aTaken && bTaken) return -1;
+                                            
                                             const aSelected = otherCpSelectedNames.includes(a.employeeName);
                                             const bSelected = otherCpSelectedNames.includes(b.employeeName);
                                             if (aSelected && !bSelected) return 1;
