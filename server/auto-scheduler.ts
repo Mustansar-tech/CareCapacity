@@ -498,7 +498,6 @@ export class AutoScheduler {
         // Priority 2: Summary data (employeeSummaryByDate)
         else if (summary?.gender && typeof summary.gender === 'string' && summary.gender.trim() !== '') {
           gender = summary.gender.trim().toLowerCase();
-          logger.debug(`${emp.employeeName}: Using gender from employeeSummaryByDate = "${gender}"`);
         }
         // Priority 3: Parse title from employee name
         else {
