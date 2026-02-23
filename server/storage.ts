@@ -545,8 +545,18 @@ export class DatabaseStorage implements IStorage {
 
   async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
     const [result] = await db.insert(clientEnquiries).values({
-      ...enquiry,
+      branchId: enquiry.branchId,
+      clientName: enquiry.clientName,
+      postcode: enquiry.postcode,
+      genderPreference: enquiry.genderPreference,
+      requiredDays: enquiry.requiredDays,
+      preferredTimeWindow: enquiry.preferredTimeWindow,
+      matchCount: enquiry.matchCount,
+      topMatch: enquiry.topMatch,
+      results: enquiry.results,
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
+      isMultiVisit: (enquiry as any).isMultiVisit ?? false,
+      criteria: (enquiry as any).criteria ?? null,
     }).returning();
     return result;
   }
@@ -576,6 +586,7 @@ export class MemStorage implements IStorage {
   private travelTimeCache: Map<string, TravelTimeCache> = new Map();
   private weeklySchedules: Map<string, WeeklySchedule> = new Map();
   private branchSchedulingPreferences: Map<string, BranchSchedulingPreference> = new Map();
+  private clientEnquiries: Map<string, ClientEnquiry> = new Map();
 
   async getUser(id: string): Promise<User | undefined> { return this.users.get(id); }
   async getUserByUsername(username: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.username === username); }
@@ -604,42 +615,32 @@ export class MemStorage implements IStorage {
     this.capacityAnalyses.set(id, result);
     return result;
   }
-  async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> {
-    return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId && a.weekStartDate >= startDate && a.weekEndDate <= endDate);
-  }
+  async getCapacityAnalysesByDateRange(branchId: string, startDate: string, endDate: string): Promise<CapacityAnalysis[]> { return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId && a.weekStartDate >= startDate && a.weekEndDate <= endDate); }
   async getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> { return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId); }
   async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> { return this.getAllCapacityAnalyses(branchId); }
-  async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
-    return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
-  }
-  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
-    return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)).slice(0, limit);
-  }
+  async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> { return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0]; }
+  async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> { return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)).slice(0, limit); }
   async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> { return 0; }
   async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> { return 0; }
 
   async upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation> {
     const id = randomUUID();
-    const result: EmployeeLocation = { ...location, id, homeLat: location.homeLat ?? null, homeLng: location.homeLng ?? null, transportMode: location.transportMode ?? null, gender: location.gender ?? null, geocodedAt: new Date() };
-    this.employeeLocations.set(id, result);
+    const result: EmployeeLocation = { ...location, id, geocodedAt: location.homeLat && location.homeLng ? new Date() : null, homeLat: location.homeLat ?? null, homeLng: location.homeLng ?? null, transportMode: location.transportMode ?? null, gender: location.gender ?? null };
+    this.employeeLocations.set(`${location.branchId}:${location.employeeName}`, result);
     return result;
   }
-  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> {
-    return Array.from(this.employeeLocations.values()).find(l => l.branchId === branchId && l.employeeName === employeeName);
-  }
-  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> { return this.employeeLocations.get(id); }
+  async getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined> { return this.employeeLocations.get(`${branchId}:${employeeName}`); }
+  async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> { return Array.from(this.employeeLocations.values()).find(l => l.id === id); }
   async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> { return Array.from(this.employeeLocations.values()).filter(l => l.branchId === branchId); }
 
   async upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation> {
     const id = randomUUID();
-    const result: ClientLocation = { ...location, id, lat: location.lat ?? null, lng: location.lng ?? null, geocodedAt: new Date() };
-    this.clientLocations.set(id, result);
+    const result: ClientLocation = { ...location, id, geocodedAt: location.lat && location.lng ? new Date() : null, lat: location.lat ?? null, lng: location.lng ?? null };
+    this.clientLocations.set(`${location.branchId}:${location.clientName}`, result);
     return result;
   }
-  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> {
-    return Array.from(this.clientLocations.values()).find(l => l.branchId === branchId && l.clientName === clientName);
-  }
-  async getClientLocationById(id: string): Promise<ClientLocation | undefined> { return this.clientLocations.get(id); }
+  async getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined> { return this.clientLocations.get(`${branchId}:${clientName}`); }
+  async getClientLocationById(id: string): Promise<ClientLocation | undefined> { return Array.from(this.clientLocations.values()).find(l => l.id === id); }
   async getAllClientLocations(branchId: string): Promise<ClientLocation[]> { return Array.from(this.clientLocations.values()).filter(l => l.branchId === branchId); }
 
   async saveVisit(visit: InsertVisit): Promise<Visit> {
@@ -651,12 +652,12 @@ export class MemStorage implements IStorage {
   async getVisitById(id: string): Promise<Visit | undefined> { return this.visits.get(id); }
   async getVisitsByDate(branchId: string, date: string): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId && v.date === date); }
   async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.clientId === clientId && v.date === date); }
-  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId); }
-  async clearAllVisits(branchId: string): Promise<any> { Array.from(this.visits.values()).forEach(v => { if (v.branchId === branchId) this.visits.delete(v.id); }); }
+  async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId && (!startDate || v.date >= startDate) && (!endDate || v.date <= endDate)); }
+  async clearAllVisits(branchId: string): Promise<any> { Array.from(this.visits.entries()).forEach(([id, v]) => { if (v.branchId === branchId) this.visits.delete(id); }); }
 
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
     const id = randomUUID();
-    const result: RoutePlan = { ...plan, id, createdAt: new Date(), updatedAt: new Date(), totalDistanceKm: plan.totalDistanceKm ?? null, totalTravelMinutes: plan.totalTravelMinutes ?? null, status: plan.status ?? null, warnings: plan.warnings ?? [] };
+    const result: RoutePlan = { ...plan, id, createdAt: new Date(), updatedAt: new Date(), totalDistanceKm: plan.totalDistanceKm ?? null, totalTravelMinutes: plan.totalTravelMinutes ?? null, status: plan.status ?? null, warnings: plan.warnings ?? null };
     this.routePlans.set(id, result);
     return result;
   }
@@ -669,7 +670,7 @@ export class MemStorage implements IStorage {
     this.routeStops.set(id, result);
     return result;
   }
-  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> { return Array.from(this.routeStops.values()).filter(s => s.routePlanId === routePlanId); }
+  async getRouteStopsByPlan(routePlanId: string): Promise<RouteStop[]> { return Array.from(this.routeStops.values()).filter(s => s.routePlanId === routePlanId).sort((a, b) => a.sequence - b.sequence); }
 
   async getGeocode(branchId: string, key: string): Promise<GeocodeCache | undefined> { return this.geocodeCache.get(`${branchId}:${key}`); }
   async saveGeocode(geocode: InsertGeocode): Promise<GeocodeCache> {
@@ -678,11 +679,12 @@ export class MemStorage implements IStorage {
     this.geocodeCache.set(`${geocode.branchId}:${geocode.key}`, result);
     return result;
   }
-  async clearRoutesAndVisits(branchId: string): Promise<any> { return {}; }
+
+  async clearRoutesAndVisits(branchId: string): Promise<any> { return { routePlansDeleted: 0, routeStopsDeleted: 0, visitsDeleted: 0 }; }
 
   async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     const id = randomUUID();
-    const result: WeeklySchedule = { ...schedule, id, generatedAt: new Date() };
+    const result: WeeklySchedule = { ...schedule, id, generatedAt: new Date(), unallocatedVisits: schedule.unallocatedVisits || null };
     this.weeklySchedules.set(id, result);
     return result;
   }
@@ -720,22 +722,28 @@ export class MemStorage implements IStorage {
   }
 
   async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
-    const [result] = await db.insert(clientEnquiries).values({
-      ...enquiry,
+    const id = randomUUID();
+    const result: ClientEnquiry = { 
+      ...enquiry, 
+      id, 
+      createdAt: new Date(), 
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
-    }).returning();
+      isMultiVisit: (enquiry as any).isMultiVisit ?? false,
+      criteria: (enquiry as any).criteria ?? null
+    };
+    this.clientEnquiries.set(id, result);
     return result;
   }
 
   async getClientEnquiries(branchId: string, limit: number = 50): Promise<ClientEnquiry[]> {
-    return await db.select().from(clientEnquiries)
-      .where(eq(clientEnquiries.branchId, branchId))
-      .orderBy(desc(clientEnquiries.createdAt))
-      .limit(limit);
+    return Array.from(this.clientEnquiries.values())
+      .filter(e => e.branchId === branchId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
   }
 
   async deleteClientEnquiry(id: string): Promise<void> {
-    await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
+    this.clientEnquiries.delete(id);
   }
 }
 

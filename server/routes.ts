@@ -1517,12 +1517,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/client-enquiries', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, matchCount, topMatch, results, visits, isMultiVisit } = req.body;
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, matchCount, topMatch, results, isMultiVisit, criteria } = req.body;
       if (!clientName) {
         return res.status(400).json({ message: 'Missing required field: clientName' });
-      }
-      if (!isMultiVisit && (!requiredDays || !preferredTimeWindow)) {
-        return res.status(400).json({ message: 'Missing required fields' });
       }
       const enquiry = await storage.saveClientEnquiry({
         branchId,
@@ -1535,7 +1532,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchCount: matchCount || 0,
         topMatch: topMatch || null,
         results: results || null,
-      });
+        isMultiVisit: !!isMultiVisit,
+        criteria: criteria || null,
+      } as any);
       res.json(enquiry);
     } catch (error) {
       logger.error('Save client enquiry error', error);
