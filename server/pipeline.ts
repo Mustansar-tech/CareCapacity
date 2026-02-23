@@ -2289,9 +2289,11 @@ export async function processCapacityData(
       const daysAvailable = employeeDays.get(key)!.size;
       const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
       
-      // Check for significant variation (more than 2 hours difference from standard)
+      // Special Case Logic: 
+      // If the shift is shorter than the standard daily requirement (even by a few minutes),
+      // we MUST use the proportional logic to ensure Desired Hours <= Availability.
       const standardMin = standardDaily * 60;
-      const isSpecialCase = Math.abs(rowDurationMinutes - standardMin) > 120;
+      const isSpecialCase = rowDurationMinutes < standardMin || Math.abs(rowDurationMinutes - standardMin) > 60;
 
       if (isSpecialCase && totalWeeklyAvailabilityMinutes > 0) {
         const proportion = rowDurationMinutes / totalWeeklyAvailabilityMinutes;
