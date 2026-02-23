@@ -1,77 +1,83 @@
-# Care Capacity Dashboard - Logic Reference
+# Home Instead Care Capacity Dashboard - Definitive Logic Reference
 
-This document outlines the core business logic, data processing rules, and matching algorithms used in the Home Instead Care Capacity Dashboard.
-
----
-
-## 1. Data Ingestion & Extraction
-**Source:** Excel files (Employee Weekly Schedule, Client Visits, etc.)
-**Tab:** Dashboard (Upload Section)
-
-### Processing Logic:
-- **Date Normalization:** All dates are parsed and converted to a standard ISO format (YYYY-MM-DD).
-- **Time Parsing:** Time strings (e.g., "09:00 - 10:30") are converted into minutes from midnight for mathematical comparison.
-- **Contracted Hours:** Extracted from the "Contracted Hours" column. If missing, it defaults to the sum of scheduled hours for that week.
-- **Scheduled Hours:** Calculated by summing the duration of all assigned visits for an employee across the selected date range.
-- **Free Windows:** Calculated by identifying gaps between scheduled visits, travel time buffers, and the employee's defined shift start/end times.
+This document serves as a technical and business reference for the dashboard's features, explaining **what** they do, **how** they work, and **why** they were implemented.
 
 ---
 
-## 2. Live Capacity Matrix (The "Grid")
-**Tab:** BD Matrix (Top Section)
+## 1. Dashboard Tab (Executive Overview)
+**Purpose:** To give a high-level "health check" of the branch's staffing levels before diving into individual matches.
 
-### Logic:
-- **Red/Green Indicators:** 
-    - **Green:** Employee has remaining contracted hours AND has a "Free Window" during the selected time block.
-    - **Red:** Employee is either over-capacity (Scheduled > Contracted) or is currently assigned to another visit.
-- **Time Blocks:** Displays availability across 11 standardized company time blocks (e.g., 08:00-09:00, 09:15-10:15).
-- **Tooltips:** Hovering over a cell shows the specific "Free Window" strings (e.g., "Free: 14:00-17:30").
+### Daily Capacity Summary
+- **Why it was needed:** To quickly identify which days of the coming week are at risk. It prevents Business Developers from booking new clients on days where the branch is already "red-lined" (over-capacity).
+- **Elements:**
+    - **Total Hours:** Sum of all visit durations for that day.
+    - **Staff Count:** Total unique Care Professionals (CPs) working that day.
+    - **Capacity Percentage:** `(Scheduled Hours / Total Contracted Hours) * 100`.
+- **Logic:** If the percentage exceeds 90%, the day is flagged as "At Risk" to warn against adding more intensive care packages.
 
----
-
-## 3. BD Matcher (The Algorithmic Ranking)
-**Tab:** BD Matcher / Multi-Visit Matcher
-
-### Matching Rules:
-1. **Gender Preference (Hard Filter):** If "Female Only" is selected, all Male Care Professionals are excluded immediately.
-2. **Availability Logic (Flexible Windows):**
-    - **Exact Match:** The CP has a free window that *entirely contains* the requested visit time (e.g., free 14:00-17:00 for a 15:30-16:30 request).
-    - **Adjusted Time:** The CP is free on the requested day, but not at the requested time. The system finds the closest available slot within 2.5 hours.
-    - **Alternative Day:** The CP is free at the requested time, but on a different day than requested.
-
-### Scoring Logic (Weighted 0-100):
-- **50% Time Alignment:** High score for exact time matches, lower for "Adjusted Time."
-- **20% Day Consistency:** Ratio of requested days covered vs. total days requested.
-- **15% Remaining Capacity:** Bonus for CPs with more available contracted hours (Remaining = Contracted - Scheduled).
-- **15% Travel Proximity:** Based on the distance between the CP's home postcode and the client's postcode.
+### KPI Cards
+- **Utilization Rate:** Average across all staff. Helps management see if they are under-employing staff (waste) or over-working them (burnout).
+- **Available Gaps:** The total count of "Free Windows" found across the whole team.
 
 ---
 
-## 4. Postcode & Travel Logic
-**Mechanism:** Geocoding via Postcodes.io (with fallbacks)
+## 2. BD Matrix Tab (The Visual Grid)
+**Purpose:** A real-time "map" of who is where, used for quick phone enquiries where a Business Developer needs to say "Yes, we have someone free at 10:00 AM on Tuesday" within seconds.
 
-### Logic:
-- **Coordinates:** Every postcode is converted to Latitude/Longitude.
-- **Proximity Score:** Uses the "Haversine" formula to calculate straight-line distance.
-- **The "10km Rule":** Full 15-point travel bonus given for matches under 10km. Points drop off linearly as distance increases.
-- **Storage:** Locations are cached in the database (`employee_locations` and `client_locations`) to avoid redundant API calls.
+### The Availability Grid
+- **The Red/Green Logic:** 
+    - **Green:** CP has at least 1 hour of contracted capacity left AND is free for the *entire* 1-hour block.
+    - **Red:** CP is either physically busy with another client OR has reached their weekly contracted limit.
+- **Why Standardized Blocks?** The company uses 11 standardized slots (e.g., 08:00-09:00). Even if a visit is 45 mins, it is mapped to these blocks to keep the UI clean and predictable.
 
----
-
-## 5. History & Tracking
-**Tab:** History
-
-### Logic:
-- **Focused View:** The history view automatically filters the displayed schedule to show *only* the days relevant to that specific enquiry (e.g., if the enquiry was for Mon/Wed, it hides Tue/Thu/Fri).
-- **Short Labels:** Gender preferences are shortened for UI density (e.g., "CP1: F Only").
-- **Persistence:** All enquiries are saved with their full match results, allowing users to revisit potential matches even after new data is uploaded.
+### Hover/Tooltips
+- **Logic:** Shows the *raw* free window strings from the system (e.g., "Free: 09:00-12:00, 14:00-17:00"). This is needed because a CP might be "Green" for a 10:00 slot but actually free all morning.
 
 ---
 
-## 6. Route Optimization (Experimental)
-**Tab:** Routing/Schedules
+## 3. BD Matcher (Algorithmic Selection)
+**Purpose:** To find the "Perfect Match" by balancing time, distance, and consistency.
 
-### Logic:
-- **Greedy Assignment:** Visits are assigned to the nearest available employee who fits the time window.
-- **Travel Time:** Calculates travel minutes between visits based on transport mode (Car: 35km/h, Walking: 15km/h).
-- **Overheads:** Adds 15-minute buffers for public transport/walking transitions.
+### Flexible Window Matching (Updated)
+- **Problem:** A CP free from 14:00-17:00 wasn't showing up for a 15:00 visit because the times didn't "align" exactly.
+- **Solution:** "Container Logic." The system now checks if your 1-hour visit can fit *anywhere* inside the CP's free gap.
+- **Rules:**
+    1. **Exact:** Fits perfectly at the requested time.
+    2. **Adjusted:** CP is free but needs a start-time shift (e.g., you asked for 15:30, they are free at 16:00).
+
+### Scoring Rules (The 100-Point Scale)
+- **Travel (15 pts):** Uses the "10km Rule." Closer is better.
+- **Consistency (20 pts):** Prioritizes CPs who can do *all* requested days (e.g., Mon/Wed/Fri) so the client sees the same face.
+- **Capacity (15 pts):** Prioritizes CPs with the most "Remaining Hours" to ensure they don't hit their limit mid-month.
+- **Time (50 pts):** The primary driver. If they can't do the time, nothing else matters.
+
+---
+
+## 4. Multi-Visit Matcher
+**Purpose:** For complex "Double-Up" visits (2 CPs needed) or high-intensity clients.
+
+### Exclusion Logic
+- **The Rule:** If "CP1" is filled by *Jane Doe*, the system **instantly excludes** *Jane Doe* from being suggested for "CP2" for that same visit.
+- **Why:** To ensure the suggested team is physically possible (one person cannot be in two slots at once).
+
+---
+
+## 5. Postcode & Travel Scoring
+**Purpose:** To minimize travel time and cost, which is the #1 complaint of Care Professionals.
+
+### Proximity Logic
+- **Geocoding:** Postcodes are converted to Map Coordinates.
+- **Haversine Formula:** Calculates the "As the crow flies" distance between the CP's home and the Client's home.
+- **Why not Google Maps Travel Time?** API costs and speed. Direct distance is a 95% accurate proxy for travel time in most branch areas and calculates instantly.
+
+---
+
+## 6. History & Data Management
+**Purpose:** To track what was promised to clients and keep the database clean.
+
+### Focused History View
+- **Logic:** When you view a past enquiry for "Tuesday/Friday," the table hides Monday, Wednesday, Thursday, Saturday, and Sunday.
+- **Why:** To remove "Visual Noise" and let the user focus only on the days that were actually matched.
+
+### Data Management
+- **Branch Switching:** When a user changes branches, all current analysis is wiped from memory to prevent data from Branch A leaking into Branch B.
