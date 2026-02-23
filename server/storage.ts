@@ -719,23 +719,34 @@ export class MemStorage implements IStorage {
     return result;
   }
 
+  private clientEnquiriesMap: Map<string, ClientEnquiry> = new Map();
+
   async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
-    const [result] = await db.insert(clientEnquiries).values({
+    const id = randomUUID();
+    const result: ClientEnquiry = {
       ...enquiry,
+      id,
+      postcode: enquiry.postcode ?? null,
+      genderPreference: enquiry.genderPreference ?? null,
+      topMatch: enquiry.topMatch ?? null,
+      results: enquiry.results ?? null,
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
-    }).returning();
+      matchCount: enquiry.matchCount ?? 0,
+      createdAt: new Date(),
+    };
+    this.clientEnquiriesMap.set(id, result);
     return result;
   }
 
   async getClientEnquiries(branchId: string, limit: number = 50): Promise<ClientEnquiry[]> {
-    return await db.select().from(clientEnquiries)
-      .where(eq(clientEnquiries.branchId, branchId))
-      .orderBy(desc(clientEnquiries.createdAt))
-      .limit(limit);
+    return Array.from(this.clientEnquiriesMap.values())
+      .filter(e => e.branchId === branchId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
   }
 
   async deleteClientEnquiry(id: string): Promise<void> {
-    await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
+    this.clientEnquiriesMap.delete(id);
   }
 }
 
