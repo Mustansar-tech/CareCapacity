@@ -40,12 +40,6 @@ function validateConfig(): Config {
     logLevel: process.env.LOG_LEVEL || 'info'
   };
 
-  logger.info('Configuration loaded successfully', {
-    nodeEnv: config.nodeEnv,
-    port: config.port,
-    hasOrsApiKey: !!config.orsApiKey
-  });
-
   return config;
 }
 
