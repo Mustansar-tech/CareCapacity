@@ -436,24 +436,13 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                 const takenByPreviousOnThisDay = Array.from({ length: cpIdx })
                                   .map((_, prevIdx) => {
                                     const prevGenderPref = vr.genderPreferences[prevIdx] || 'any';
-                                    const prevMatchesForDay = vr.matches
-                                      .filter(m => {
-                                        const isCorrectGender = prevGenderPref === 'any' || m.gender?.toLowerCase() === prevGenderPref.toLowerCase();
-                                        if (!isCorrectGender) return false;
-                                        return m.matchedSlots.some(s => {
-                                          const date = new Date(s.day + 'T12:00:00');
-                                          return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
-                                        });
-                                      });
                                     
-                                    // We need to account for what the previous rows would have "taken" 
-                                    // considering they also filtered out people taken before them.
-                                    // This is a recursive-like logic but implemented iteratively.
-                                    let takenInPrevChain: string[] = [];
+                                    // Chain the logic: each row knows who the previous rows "took"
+                                    let chainTaken: string[] = [];
                                     for (let i = 0; i < prevIdx; i++) {
                                       const iGenderPref = vr.genderPreferences[i] || 'any';
                                       const topMatch = vr.matches.find(m => {
-                                        if (takenInPrevChain.includes(m.employeeName)) return false;
+                                        if (chainTaken.includes(m.employeeName)) return false;
                                         const matchesGender = iGenderPref === 'any' || m.gender?.toLowerCase() === iGenderPref.toLowerCase();
                                         if (!matchesGender) return false;
                                         return m.matchedSlots.some(s => {
@@ -461,10 +450,18 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                           return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
                                         });
                                       });
-                                      if (topMatch) takenInPrevChain.push(topMatch.employeeName);
+                                      if (topMatch) chainTaken.push(topMatch.employeeName);
                                     }
 
-                                    const finalPrevMatch = prevMatchesForDay.find(m => !takenInPrevChain.includes(m.employeeName));
+                                    const finalPrevMatch = vr.matches.find(m => {
+                                      if (chainTaken.includes(m.employeeName)) return false;
+                                      const matchesGender = prevGenderPref === 'any' || m.gender?.toLowerCase() === prevGenderPref.toLowerCase();
+                                      if (!matchesGender) return false;
+                                      return m.matchedSlots.some(s => {
+                                        const date = new Date(s.day + 'T12:00:00');
+                                        return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                      });
+                                    });
                                     return finalPrevMatch?.employeeName;
                                   })
                                   .filter(Boolean) as string[];
