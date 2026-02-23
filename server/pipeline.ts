@@ -2260,16 +2260,33 @@ export async function processCapacityData(
     const key = row.matchedEmployee
       ? row.matchedEmployee.normalizedName
       : normalizeName(row["CAREGiver Name"]);
-    const daysAvailable = employeeDays.get(key)!.size;
+    
+    // Total hours available in the spreadsheet for this employee across the whole week
+    const totalWeeklyAvailabilityMinutes = allAvailabilityWithMatching
+      .filter(r => (r.matchedEmployee?.normalizedName || normalizeName(r["CAREGiver Name"])) === key)
+      .reduce((sum, r) => {
+        const start = toMin(r["Start Time"]);
+        const end = toMin(r["End Time"]);
+        if (isNaN(start) || isNaN(end)) return sum;
+        const duration = end <= start ? (end + 24 * 60) - start : end - start;
+        return sum + duration;
+      }, 0);
+
+    const rowStart = toMin(row["Start Time"]);
+    const rowEnd = toMin(row["End Time"]);
+    const rowDurationMinutes = rowEnd <= rowStart ? (rowEnd + 24 * 60) - rowStart : rowEnd - rowStart;
 
     // Use CG Data weekly hours if matched, otherwise default to 0
     const contractedWeeklyHours = row.matchedEmployee
       ? row.matchedEmployee.weeklyHours
       : 0;
-    const contractedDailyHours = row.matchedEmployee
-      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) /
-        100
-      : 0;
+    
+    // Proportional Daily Hours: (Daily Avail / Weekly Avail) * Weekly Contracted
+    let contractedDailyHours = 0;
+    if (row.matchedEmployee && totalWeeklyAvailabilityMinutes > 0) {
+      const proportion = rowDurationMinutes / totalWeeklyAvailabilityMinutes;
+      contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
+    }
 
     // Safer hours: prefer 'Hours' if present, else compute from time
     const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);
