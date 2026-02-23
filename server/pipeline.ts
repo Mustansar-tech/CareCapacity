@@ -2260,78 +2260,16 @@ export async function processCapacityData(
     const key = row.matchedEmployee
       ? row.matchedEmployee.normalizedName
       : normalizeName(row["CAREGiver Name"]);
-    
-    // Total hours available in the spreadsheet for this employee across the whole week
-    const totalWeeklyAvailabilityMinutes = allAvailabilityWithMatching
-      .filter(r => (r.matchedEmployee?.normalizedName || normalizeName(r["CAREGiver Name"])) === key)
-      .reduce((sum, r) => {
-        const start = toMin(r["Start Time"]);
-        const end = toMin(r["End Time"]);
-        if (isNaN(start) || isNaN(end)) return sum;
-        const duration = end <= start ? (end + 24 * 60) - start : end - start;
-        return sum + duration;
-      }, 0);
-
-    const rowStart = toMin(row["Start Time"]);
-    const rowEnd = toMin(row["End Time"]);
-    const rowDurationMinutes = rowEnd <= rowStart ? (rowEnd + 24 * 60) - rowStart : rowEnd - rowStart;
+    const daysAvailable = employeeDays.get(key)!.size;
 
     // Use CG Data weekly hours if matched, otherwise default to 0
     const contractedWeeklyHours = row.matchedEmployee
       ? row.matchedEmployee.weeklyHours
       : 0;
-
-    // Daily Hours Logic: 
-    // Default: Weekly Hours / Number of Days Available
-    // Special Case: If shift duration varies across the week, use proportional spreading.
-    let contractedDailyHours = 0;
-    if (row.matchedEmployee) {
-      const daysAvailable = employeeDays.get(key)!.size;
-      const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
-      
-      // Build a per-day duration map using ONLY "Available" status rows
-      // This ensures we capture actual shift lengths, not leave/blocker durations
-      // BUG FIX: Previously included all statuses (e.g., "Other Unavailable" 14:00-21:30
-      // would mask a short "Available" 08:00-14:00 window via Math.max)
-      const perDayDurations = new Map<string, number>();
-      allAvailabilityWithMatching
-        .filter(r => {
-          const matchesKey = (r.matchedEmployee?.normalizedName || normalizeName(r["CAREGiver Name"])) === key;
-          if (!matchesKey) return false;
-          // CRITICAL: Only use "Available" rows for shift length measurement
-          const status = canonicalStatus(r.Type);
-          return status === "Available";
-        })
-        .forEach(r => {
-          const d = format(r.parsedDate, "yyyy-MM-dd");
-          const s = toMin(r["Start Time"]);
-          const e = toMin(r["End Time"]);
-          if (isNaN(s) || isNaN(e)) return;
-          const dur = e <= s ? (e + 24 * 60) - s : e - s;
-          // Use the max "Available" duration per day (the main availability window)
-          perDayDurations.set(d, Math.max(perDayDurations.get(d) || 0, dur));
-        });
-
-      const currentDate = format(row.parsedDate, "yyyy-MM-dd");
-      const todayDuration = perDayDurations.get(currentDate) || rowDurationMinutes;
-      const allDurations = Array.from(perDayDurations.values());
-      const totalWeekDuration = allDurations.reduce((a, b) => a + b, 0);
-      const avgDuration = allDurations.length > 0 ? totalWeekDuration / allDurations.length : 0;
-
-      // Detect variable shifts: if any day differs from the average by more than 15 minutes
-      const hasVariableShifts = allDurations.length > 1 && allDurations.some(d => Math.abs(d - avgDuration) > 15);
-
-      logger.info(`[DAILY-HOURS] ${row.matchedEmployee.originalName} on ${currentDate}: rowDur=${rowDurationMinutes}min, todayDur=${todayDuration}min, avgDur=${Math.round(avgDuration)}min, totalWeek=${totalWeekDuration}min, days=${allDurations.length}, variable=${hasVariableShifts}, standard=${standardDaily}h, weekly=${row.matchedEmployee.weeklyHours}h`);
-
-      if (hasVariableShifts && totalWeekDuration > 0) {
-        const proportion = todayDuration / totalWeekDuration;
-        contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
-        logger.info(`[PROPORTIONAL APPLIED] ${row.matchedEmployee.originalName} on ${currentDate}: proportion=${proportion.toFixed(4)}, daily=${contractedDailyHours}h (instead of standard ${standardDaily}h)`);
-      } else {
-        contractedDailyHours = standardDaily;
-        logger.info(`[STANDARD APPLIED] ${row.matchedEmployee.originalName} on ${currentDate}: daily=${contractedDailyHours}h`);
-      }
-    }
+    const contractedDailyHours = row.matchedEmployee
+      ? Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) /
+        100
+      : 0;
 
     // Safer hours: prefer 'Hours' if present, else compute from time
     const hoursCalc = hoursBetween(row["Start Time"], row["End Time"]);

@@ -24,11 +24,11 @@ This document serves as a technical and business reference for the dashboard's f
 ## 2. BD Matrix Tab (The Visual Grid)
 **Purpose:** A real-time "map" of who is where, used for quick phone enquiries where a Business Developer needs to say "Yes, we have someone free at 10:00 AM on Tuesday" within seconds.
 
-### Contracted Daily Hours (Hybrid Logic)
-- **Standard Logic:** By default, weekly hours are divided equally by the number of days the CP is available (e.g., 30 hours / 4 days = 7.5 hours/day).
-- **Special Case (Variable Shifts):** If a specific day's shift is significantly shorter or longer than the average (more than 2 hours difference), the system switches to "Proportional Spreading."
-- **Why:** This preserves the solid "Standard" logic for regular schedules while automatically adjusting for outliers like Ms. Alison, who might have a 6-hour "short day" alongside 13-hour "long days."
-- **Calculation:** `(Minutes Available Today / Total Minutes Available This Week) * Weekly Contracted Hours`.
+### The Availability Grid
+- **The Red/Green Logic:** 
+    - **Green:** CP has at least 1 hour of contracted capacity left AND is free for the *entire* 1-hour block.
+    - **Red:** CP is either physically busy with another client OR has reached their weekly contracted limit.
+- **Why Standardized Blocks?** The company uses 11 standardized slots (e.g., 08:00-09:00). Even if a visit is 45 mins, it is mapped to these blocks to keep the UI clean and predictable.
 
 ### Hover/Tooltips
 - **Logic:** Shows the *raw* free window strings from the system (e.g., "Free: 09:00-12:00, 14:00-17:00"). This is needed because a CP might be "Green" for a 10:00 slot but actually free all morning.
