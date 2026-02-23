@@ -487,7 +487,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                           <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                           <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
                                         </div>
-                                        <div className="font-bold text-gray-700 dark:text-gray-300">
+                                        <div className="font-bold text-gray-700 dark:text-gray-300 cursor-help" title={`Scheduled: ${employeeMatch.totalScheduledHours}h\nContracted: ${employeeMatch.contractedWeeklyHours}h\nRemaining: ${remainingHours}h`}>
                                           {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
                                         </div>
                                       </div>
@@ -713,9 +713,6 @@ function ClientEnquiryMatcher() {
                   <DialogTitle className="text-xl font-bold tracking-tight text-white">
                     Client Enquiry Matcher
                   </DialogTitle>
-                  <DialogDescription className="text-purple-200/80 text-xs font-medium mt-0.5 uppercase tracking-wider">
-                    Care Capacity Intelligence v2.0
-                  </DialogDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1149,7 +1146,7 @@ function ClientEnquiryMatcher() {
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em]">Engine Online</span>
             </div>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Care Capacity Intelligence v2.0</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Care Capacity Intelligence</span>
           </div>
         </DialogContent>
       </Dialog>
