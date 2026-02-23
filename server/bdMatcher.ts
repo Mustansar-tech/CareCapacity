@@ -137,16 +137,8 @@ function findExactSlot(
   visitDuration: number
 ): string | null {
   for (const [wStart, wEnd] of windows) {
-    // Must align with a company block start
-    const blockStart = getBlockStartMinutes(reqStart);
-    if (blockStart === null) continue;
-
-    const slotStart = Math.max(wStart, blockStart);
-    const slotEnd = slotStart + visitDuration;
-    
-    // Exact match must start exactly at the block start and fit in window
-    if (slotStart === blockStart && slotEnd <= wEnd) {
-      return `${minutesToTime(slotStart)}-${minutesToTime(slotEnd)}`;
+    if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
+      return `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`;
     }
   }
   return null;
@@ -158,24 +150,27 @@ function findClosestSlot(
   reqEnd: number,
   visitDuration: number
 ): { window: string; distance: number } | null {
-  const preferredBlockStart = getBlockStartMinutes(reqStart);
-  if (preferredBlockStart === null) return null;
-
   let bestSlot: { window: string; distance: number } | null = null;
   const MAX_DIFF = 150; // 2h 30mins in minutes
 
-  for (const block of COMPANY_TIME_BLOCKS) {
-    const blockStart = timeToMinutes(block.start);
-    const diff = Math.abs(blockStart - preferredBlockStart);
+  for (const [wStart, wEnd] of windows) {
+    // Try to fit the visit at the start of the window, end of the window, or anywhere in between
+    // but the "distance" is measured from the requested start time.
     
-    if (diff > MAX_DIFF) continue;
+    // If the window is large enough for the visit
+    if (wEnd - wStart >= visitDuration) {
+      // Possible start times in this window are [wStart, wEnd - visitDuration]
+      // We want the one closest to reqStart
+      let closestStart: number;
+      if (reqStart < wStart) closestStart = wStart;
+      else if (reqStart > (wEnd - visitDuration)) closestStart = wEnd - visitDuration;
+      else closestStart = reqStart;
 
-    for (const [wStart, wEnd] of windows) {
-      const slotEnd = blockStart + visitDuration;
-      if (blockStart >= wStart && slotEnd <= wEnd) {
+      const diff = Math.abs(closestStart - reqStart);
+      if (diff <= MAX_DIFF) {
         if (!bestSlot || diff < bestSlot.distance) {
           bestSlot = {
-            window: `${minutesToTime(blockStart)}-${minutesToTime(slotEnd)}`,
+            window: `${minutesToTime(closestStart)}-${minutesToTime(closestStart + visitDuration)}`,
             distance: diff,
           };
         }
