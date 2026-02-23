@@ -2290,13 +2290,16 @@ export async function processCapacityData(
       const daysAvailable = employeeDays.get(key)!.size;
       const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
       
-      // Calculate average duration of all shifts this week to detect variation
+      // TRIGGER PROPORTIONAL MODEL IF:
+      // Today's availability is significantly different from the weekly average (even by 1 minute)
+      // We check the raw duration vs the total weekly average
       const avgDurationMinutes = totalWeeklyAvailabilityMinutes / daysAvailable;
       
-      // If today's shift is significantly different from the average (> 30 mins difference),
-      // or if today's shift is shorter than the standard daily requirement,
-      // use the proportional model.
-      const isVariableShift = Math.abs(rowDurationMinutes - avgDurationMinutes) > 30;
+      // Calculate variance - if the shift is more than 1 minute different from the average,
+      // it's a variable shift and needs the proportional model.
+      const isVariableShift = Math.abs(rowDurationMinutes - avgDurationMinutes) >= 1; 
+      
+      // Also trigger if today is shorter than the standard flat daily rate
       const isShorterThanStandard = rowDurationMinutes < (standardDaily * 60 - 1);
 
       if ((isVariableShift || isShorterThanStandard) && totalWeeklyAvailabilityMinutes > 0) {
