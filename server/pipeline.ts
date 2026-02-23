@@ -2290,21 +2290,36 @@ export async function processCapacityData(
       const daysAvailable = employeeDays.get(key)!.size;
       const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
       
-      // TRIGGER PROPORTIONAL MODEL IF:
-      // Today's availability is significantly different from the weekly average (even by 1 minute)
-      // We check the raw duration vs the total weekly average
-      const avgDurationMinutes = totalWeeklyAvailabilityMinutes / daysAvailable;
-      
-      // Calculate variance - if the shift is more than 1 minute different from the average,
-      // it's a variable shift and needs the proportional model.
-      const isVariableShift = Math.abs(rowDurationMinutes - avgDurationMinutes) >= 1; 
-      
-      // Also trigger if today is shorter than the standard flat daily rate
-      const isShorterThanStandard = rowDurationMinutes < (standardDaily * 60 - 1);
+      // Build a per-day duration map to detect variable shifts accurately
+      // This sums all availability rows for the same employee on the same day
+      const perDayDurations = new Map<string, number>();
+      allAvailabilityWithMatching
+        .filter(r => (r.matchedEmployee?.normalizedName || normalizeName(r["CAREGiver Name"])) === key)
+        .forEach(r => {
+          const d = format(r.parsedDate, "yyyy-MM-dd");
+          const s = toMin(r["Start Time"]);
+          const e = toMin(r["End Time"]);
+          if (isNaN(s) || isNaN(e)) return;
+          const dur = e <= s ? (e + 24 * 60) - s : e - s;
+          perDayDurations.set(d, Math.max(perDayDurations.get(d) || 0, dur));
+        });
 
-      if ((isVariableShift || isShorterThanStandard) && totalWeeklyAvailabilityMinutes > 0) {
-        const proportion = rowDurationMinutes / totalWeeklyAvailabilityMinutes;
+      const currentDate = format(row.parsedDate, "yyyy-MM-dd");
+      const todayDuration = perDayDurations.get(currentDate) || rowDurationMinutes;
+      const allDurations = Array.from(perDayDurations.values());
+      const totalWeekDuration = allDurations.reduce((a, b) => a + b, 0);
+      const avgDuration = totalWeekDuration / allDurations.length;
+
+      // Detect variable shifts: if any day differs from the average by more than 15 minutes
+      const hasVariableShifts = allDurations.some(d => Math.abs(d - avgDuration) > 15);
+
+      if (hasVariableShifts && totalWeekDuration > 0) {
+        const proportion = todayDuration / totalWeekDuration;
         contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
+        
+        if (key.includes('alison') || key.includes('shield')) {
+          logger.info(`[PROPORTIONAL] ${row.matchedEmployee.originalName} on ${currentDate}: todayDur=${todayDuration}min, totalWeek=${totalWeekDuration}min, proportion=${proportion.toFixed(3)}, daily=${contractedDailyHours}h (standard would be ${standardDaily}h)`);
+        }
       } else {
         contractedDailyHours = standardDaily;
       }
