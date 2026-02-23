@@ -361,10 +361,8 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const visibleDays = days.filter(d => requiredDays.includes(d));
   const visibleDayLabels = dayLabels.filter((_, i) => requiredDays.includes(days[i]));
 
-  const displayDays = visibleDays;
-  const displayLabels = visibleDayLabels;
-
-  if (displayDays.length === 0) return null;
+  const displayDays = visibleDays.length > 0 ? visibleDays : days;
+  const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
@@ -638,7 +636,6 @@ function ClientEnquiryMatcher() {
         },
         matchResult: data,
         isSingleVisit: isSingle,
-        requiredDays: isSingle ? filledVisits[0].selectedDays : [],
       });
       toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
     },
