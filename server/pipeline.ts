@@ -3486,7 +3486,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
 
           // Update database if gender is missing
           if (gender && !existing.gender) {
-            logger.debug(`  Updating gender for ${employeeName}: ${gender}`);
             await storage.upsertEmployeeLocation(locationData);
           }
         } else {
