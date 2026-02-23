@@ -358,8 +358,16 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
-  const displayDays = requiredDays.length > 0 ? requiredDays : days;
-  const displayLabels = requiredDays.length > 0 ? dayLabels.filter((_, i) => requiredDays.includes(days[i])) : dayLabels;
+  // Normalize requiredDays to lowercase to match our days array
+  const normalizedRequiredDays = requiredDays.map(d => d.toLowerCase());
+
+  const displayDays = normalizedRequiredDays.length > 0 
+    ? days.filter(d => normalizedRequiredDays.includes(d)) 
+    : days;
+    
+  const displayLabels = normalizedRequiredDays.length > 0 
+    ? dayLabels.filter((_, i) => normalizedRequiredDays.includes(days[i])) 
+    : dayLabels;
 
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
