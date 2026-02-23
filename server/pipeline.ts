@@ -2283,19 +2283,23 @@ export async function processCapacityData(
 
     // Daily Hours Logic: 
     // Default: Weekly Hours / Number of Days Available
-    // Special Case: If shift duration varies significantly, use proportional spreading
+    // Special Case: If shift duration varies across the week, use proportional spreading.
+    // This handles cases like Ms. Alison who works 13.5h most days but 6h on one day.
     let contractedDailyHours = 0;
     if (row.matchedEmployee) {
       const daysAvailable = employeeDays.get(key)!.size;
       const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
       
-      // Special Case Logic: 
-      // If the shift is shorter than the standard daily requirement (even by a few minutes),
-      // we MUST use the proportional logic to ensure Desired Hours <= Availability.
-      const standardMin = standardDaily * 60;
-      const isSpecialCase = rowDurationMinutes < standardMin || Math.abs(rowDurationMinutes - standardMin) > 60;
+      // Calculate average duration of all shifts this week to detect variation
+      const avgDurationMinutes = totalWeeklyAvailabilityMinutes / daysAvailable;
+      
+      // If today's shift is significantly different from the average (> 30 mins difference),
+      // or if today's shift is shorter than the standard daily requirement,
+      // use the proportional model.
+      const isVariableShift = Math.abs(rowDurationMinutes - avgDurationMinutes) > 30;
+      const isShorterThanStandard = rowDurationMinutes < (standardDaily * 60 - 1);
 
-      if (isSpecialCase && totalWeeklyAvailabilityMinutes > 0) {
+      if ((isVariableShift || isShorterThanStandard) && totalWeeklyAvailabilityMinutes > 0) {
         const proportion = rowDurationMinutes / totalWeeklyAvailabilityMinutes;
         contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
       } else {
