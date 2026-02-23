@@ -645,7 +645,7 @@ export class AutoScheduler {
       }
 
       if (clientGenderPref) {
-        logger.debug(`   ${empName}: gender="${employee.gender}" MATCHES required "${clientGenderPref}" - checking availability...`);
+        logger.debug(`   ${empName}: gender preference check passed - checking availability...`);
       }
 
       const travelTime = await (this as any).calculateTravelTime(
