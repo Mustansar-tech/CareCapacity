@@ -1138,22 +1138,6 @@ function ClientEnquiryMatcher() {
                   </Button>
                 </div>
 
-                {/* Stat Cards */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 p-5 shadow-md shadow-purple-500/5 transition-all duration-300 hover:-translate-y-0.5">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Total Visits</div>
-                    <div className="text-3xl font-black text-purple-700 dark:text-purple-400">{multiResults.totalVisits}</div>
-                  </div>
-                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 p-5 shadow-md shadow-green-500/5 transition-all duration-300 hover:-translate-y-0.5">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Total Matches</div>
-                    <div className="text-3xl font-black text-green-600 dark:text-green-400">{multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)}</div>
-                  </div>
-                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 p-5 shadow-md shadow-blue-500/5 transition-all duration-300 hover:-translate-y-0.5">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Evaluated</div>
-                    <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{multiResults.visitResults[0]?.totalEmployeesEvaluated || 0}</div>
-                  </div>
-                </div>
-
                 {/* Results Tabs */}
                 <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-xl shadow-purple-500/5 overflow-hidden p-5">
                   <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
