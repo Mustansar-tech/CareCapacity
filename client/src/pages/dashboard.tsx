@@ -363,20 +363,20 @@ export default function Dashboard() {
         {/* Upload Section - Collapsible */}
         {!processedData && showUploadPanel && (
           <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
-        <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
-          <CardTitle className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
-              <Upload className="w-4 h-4 text-white" />
-            </div>
-            <span className="bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-              Upload Files
-            </span>
-            {isLoadingLatest && (
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-                <span className="text-sm text-blue-600">Loading latest data...</span>
+          <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center" aria-hidden="true">
+                <Upload className="w-4 h-4 text-white" />
               </div>
-            )}
+              <h2 className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                Upload Files
+              </h2>
+              {isLoadingLatest && (
+                <div className="flex items-center gap-2" role="status" aria-label="Loading latest data">
+                  <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                  <span className="text-sm text-blue-600">Loading latest data...</span>
+                </div>
+              )}
             {latestDataError && (
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-orange-500" />

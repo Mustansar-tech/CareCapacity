@@ -69,6 +69,15 @@ function Navigation() {
               const event = new CustomEvent('navigate-to-overview');
               window.dispatchEvent(event);
             }}
+            role="link"
+            aria-label="Navigate to Care Capacity Dashboard Overview"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                const event = new CustomEvent('navigate-to-overview');
+                window.dispatchEvent(event);
+              }
+            }}
           >
             <div className="relative">
               <img 
