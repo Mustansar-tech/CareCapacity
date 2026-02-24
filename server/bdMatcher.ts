@@ -145,6 +145,26 @@ function findExactSlot(
   return null;
 }
 
+function findContainedSlot(
+  windows: Array<[number, number]>,
+  reqStart: number,
+  reqEnd: number,
+  visitDuration: number
+): { window: string; distance: number } | null {
+  for (const [wStart, wEnd] of windows) {
+    // If the requested block (reqStart to reqStart + visitDuration) 
+    // is entirely within an available window (wStart to wEnd), 
+    // then it's a valid match at the requested time.
+    if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
+      return {
+        window: `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`,
+        distance: 0
+      };
+    }
+  }
+  return null;
+}
+
 function findClosestSlot(
   windows: Array<[number, number]>,
   reqStart: number,
@@ -339,6 +359,7 @@ function matchEmployeesForVisit(
 
         const freeWindows = parseFreeWindows(empSummary.freeWindows);
         const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
+        const containedSlot = findContainedSlot(freeWindows, reqStart, reqEnd, visitDuration);
 
         if (exactSlot && bestScoreForDay < 100) {
           bestSlotForDay = {
@@ -348,7 +369,17 @@ function matchEmployeesForVisit(
             matchType: 'exact',
           };
           bestScoreForDay = 100;
-        } else if (!exactSlot && bestScoreForDay < 80) {
+        } else if (containedSlot && bestScoreForDay < 95) {
+          // New logic: if someone is available for a larger window that contains our requested block,
+          // it's almost an exact match (95 score).
+          bestSlotForDay = {
+            day: dateStr,
+            dayLabel: getDayLabel(dateStr),
+            availableWindow: containedSlot.window,
+            matchType: 'exact',
+          };
+          bestScoreForDay = 95;
+        } else if (!exactSlot && !containedSlot && bestScoreForDay < 80) {
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
             const score = Math.max(0, 80 - closestSlot.distance / 5);
