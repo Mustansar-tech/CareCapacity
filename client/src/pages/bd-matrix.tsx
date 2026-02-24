@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
-  Search, UserCheck, MapPin, Loader2, Star, ArrowRight,
+  Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
@@ -724,39 +724,47 @@ function ClientEnquiryMatcher() {
     <>
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setMultiResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
         <DialogTrigger asChild>
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg font-bold gap-2">
-            <UserCheck className="w-4 h-4" />
-            Client Enquiry Matcher
+          <Button className="bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white shadow-xl shadow-purple-500/20 font-black gap-3 px-6 py-3 h-auto rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5">
+            <div className="p-1.5 bg-white/20 rounded-xl backdrop-blur-sm">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-black tracking-wide">Client Enquiry Matcher</div>
+              <div className="text-[10px] font-medium text-purple-200/80 tracking-widest uppercase">Care Intelligence</div>
+            </div>
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl">
-          {/* Gradient Header */}
-          <div className="px-6 py-5 bg-gradient-to-r from-purple-700 to-indigo-800 text-white rounded-t-lg">
-            <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur-sm">
-                      <UserCheck className="w-6 h-6 text-white" />
+        <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-3xl">
+          {/* Glassmorphism Header */}
+          <div className="px-8 py-6 bg-gradient-to-br from-purple-600 via-indigo-700 to-purple-800 text-white rounded-t-3xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/5 backdrop-blur-sm" />
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-400/10 rounded-full blur-2xl" />
+            <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/15 rounded-2xl backdrop-blur-sm rotate-3 hover:rotate-0 transition-transform duration-300 shadow-lg shadow-purple-900/30">
+                      <UserCheck className="w-7 h-7 text-white" />
                     </div>
                     <div>
-                      <DialogTitle className="text-xl font-bold tracking-tight text-white">
+                      <DialogTitle className="text-2xl font-black tracking-tight text-white bg-gradient-to-r from-white to-purple-200 bg-clip-text">
                         Client Enquiry Matcher
                       </DialogTitle>
-                      <DialogDescription className="text-purple-200/80 text-xs font-medium mt-0.5 uppercase tracking-wider">
+                      <DialogDescription className="text-purple-200/80 text-xs font-bold mt-1 uppercase tracking-widest">
                         Care Capacity Intelligence
                       </DialogDescription>
                     </div>
                   </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
-                  className="gap-2 font-bold text-xs shadow-sm"
+                  className="gap-2 font-bold text-xs border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm rounded-xl px-4 py-2 h-auto transition-all duration-300 shadow-lg shadow-purple-900/20"
                 >
                   {showHistory ? (
-                    <><Search className="w-3.5 h-3.5" /> New Search</>
+                    <><Search className="w-4 h-4" /> New Search</>
                   ) : (
-                    <><History className="w-3.5 h-3.5" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
+                    <><History className="w-4 h-4" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
                   )}
                 </Button>
               </div>
@@ -767,29 +775,29 @@ function ClientEnquiryMatcher() {
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-950/50">
             {showHistory ? (
               viewingHistoryResult ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
-                        <History className="w-5 h-5 text-purple-700 dark:text-purple-400" />
+                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="flex items-center justify-between pb-5 border-b border-gray-200/60 dark:border-gray-800/60">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3.5 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 rounded-2xl shadow-md shadow-purple-500/10">
+                        <History className="w-6 h-6 text-purple-700 dark:text-purple-400" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
                             {viewingHistoryResult.clientName}
                           </h3>
-                          <Badge className="bg-purple-600 text-white font-bold text-[10px] px-2 uppercase tracking-wider">Archived</Badge>
+                          <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] px-3 py-1 uppercase tracking-widest rounded-xl shadow-md shadow-purple-500/20">Archived</Badge>
                         </div>
-                        <p className="text-xs font-medium text-gray-500 mt-0.5 flex items-center gap-3">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
+                        <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-3">
+                          <span className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5" />
                             {viewingHistoryResult.postcode || 'No postcode'}
                           </span>
                           {viewingHistoryResult.createdAt && (
                             <>
-                              <span className="w-1 h-1 rounded-full bg-gray-300" />
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-300 animate-pulse" />
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" />
                                 {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </>
@@ -797,13 +805,13 @@ function ClientEnquiryMatcher() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setViewingHistoryResult(null)} className="gap-2 font-bold">
-                      <ArrowRight className="w-4 h-4 rotate-180" />
+                    <Button variant="outline" size="sm" onClick={() => setViewingHistoryResult(null)} className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 px-4 py-2 h-auto">
+                      <ArrowLeft className="w-4 h-4" />
                       Back
                     </Button>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-4">
+                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-xl shadow-purple-500/5 overflow-hidden p-5">
                     {viewingHistoryResult.visitResults ? (
                       <Tabs defaultValue="0" className="w-full">
                         <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1 mb-4">
@@ -879,13 +887,13 @@ function ClientEnquiryMatcher() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-1 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-6 bg-purple-600 rounded-full" />
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Search Archives</h3>
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between px-1 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-8 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full shadow-md shadow-purple-500/20" />
+                      <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">Search Archives</h3>
                     </div>
-                    <Badge className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold px-3 py-1 rounded-full text-[10px]">
+                    <Badge className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-100 dark:to-gray-200 text-white dark:text-gray-900 font-black px-4 py-1.5 rounded-2xl text-[10px] tracking-widest shadow-md">
                       {historyQuery.data?.length || 0} RECORDS
                     </Badge>
                   </div>
@@ -902,7 +910,7 @@ function ClientEnquiryMatcher() {
                       <p className="text-xs text-gray-400">Searches will be saved here automatically.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {historyQuery.data.map((enquiry: any) => {
                         const results = enquiry.results;
                         const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
@@ -910,7 +918,7 @@ function ClientEnquiryMatcher() {
                         return (
                           <div 
                             key={enquiry.id} 
-                            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-purple-400 dark:hover:border-purple-700 rounded-2xl p-5 transition-all cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5 relative overflow-hidden"
+                            className="group bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/60 dark:border-gray-800/60 hover:border-purple-400 dark:hover:border-purple-600 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1 relative overflow-hidden"
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
@@ -918,12 +926,12 @@ function ClientEnquiryMatcher() {
                               }
                             }}
                           >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-indigo-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-[2] transition-transform duration-500" />
                             <div className="relative z-10">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-bold text-gray-900 dark:text-gray-100 truncate max-w-[160px]">{enquiry.clientName}</h4>
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-2.5">
+                                    <h4 className="font-black text-lg text-gray-900 dark:text-gray-100 truncate max-w-[180px] tracking-tight">{enquiry.clientName}</h4>
                                     {isMultiVisit && (
                                       <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-none font-bold text-[9px] px-1.5 h-4">
                                         {visitCount} Visits
@@ -951,12 +959,14 @@ function ClientEnquiryMatcher() {
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
-                              <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-gray-800">
-                                <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-bold text-xs">
-                                  <UserCheck className="w-3.5 h-3.5" />
+                              <div className="flex items-center justify-between pt-4 border-t border-gray-100/60 dark:border-gray-800/60">
+                                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-black text-sm">
+                                  <UserCheck className="w-4 h-4" />
                                   {enquiry.matchCount || 0} matches
                                 </div>
-                                <ArrowRight className="w-4 h-4 text-gray-200 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all" />
+                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-all duration-300">
+                                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all duration-300" />
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -967,54 +977,56 @@ function ClientEnquiryMatcher() {
                 </div>
               )
             ) : !multiResults ? (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Client Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="clientName" className="text-xs font-bold uppercase tracking-wider text-gray-500">Client Name *</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 grid grid-cols-2 gap-5">
+                    <div className="space-y-2.5">
+                      <Label htmlFor="clientName" className="text-xs font-black uppercase tracking-widest text-gray-500">Client Name *</Label>
                       <div className="relative group">
-                        <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                        <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-300" />
                         <Input
                           id="clientName"
                           placeholder="e.g. Mrs Smith"
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
-                          className="pl-10 h-11 bg-white dark:bg-gray-900 border-gray-200 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                          className="pl-12 h-13 text-base bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-gray-200/60 dark:border-gray-800/60 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 rounded-2xl transition-all duration-300 shadow-sm"
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="postcode" className="text-xs font-bold uppercase tracking-wider text-gray-500">Postcode</Label>
+                    <div className="space-y-2.5">
+                      <Label htmlFor="postcode" className="text-xs font-black uppercase tracking-widest text-gray-500">Postcode</Label>
                       <div className="relative group">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-300" />
                         <Input
                           id="postcode"
                           placeholder="e.g. SW1A 1AA"
                           value={postcode}
                           onChange={(e) => setPostcode(e.target.value)}
-                          className="pl-10 h-11 bg-white dark:bg-gray-900 border-gray-200 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                          className="pl-12 h-13 text-base bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-gray-200/60 dark:border-gray-800/60 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 rounded-2xl transition-all duration-300 shadow-sm"
                         />
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-purple-100 dark:border-purple-900/30 shadow-sm flex flex-col justify-center">
-                    <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold mb-1.5">
-                      <Info className="w-4 h-4" />
-                      <h4 className="text-[10px] uppercase tracking-[0.15em]">Multi-Visit Support</h4>
+                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-5 rounded-2xl border border-purple-200/50 dark:border-purple-800/30 shadow-md shadow-purple-500/5 flex flex-col justify-center backdrop-blur-sm">
+                    <div className="flex items-center gap-2.5 text-purple-700 dark:text-purple-300 font-black mb-2">
+                      <div className="p-1.5 bg-purple-200/50 dark:bg-purple-800/30 rounded-lg">
+                        <Info className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-[10px] uppercase tracking-[0.2em]">Multi-Visit Support</h4>
                     </div>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+                    <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed font-bold">
                       Configure up to 5 visits with different time windows and gender preferences per visit.
                     </p>
                   </div>
                 </div>
 
                 {/* Visit Schedule */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-6 bg-purple-600 rounded-full" />
-                      <h3 className="text-base font-bold tracking-tight">Visit Schedule</h3>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-8 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full shadow-md shadow-purple-500/20" />
+                      <h3 className="text-lg font-black tracking-tight">Visit Schedule</h3>
                     </div>
                     {visits.length < 5 && (
                       <Button
@@ -1022,7 +1034,7 @@ function ClientEnquiryMatcher() {
                         variant="outline"
                         size="sm"
                         onClick={addVisitTab}
-                        className="h-8 gap-1.5 text-xs font-bold border-gray-200 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 transition-all"
+                        className="h-9 gap-2 text-xs font-black border-gray-200/60 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all duration-300 tracking-wider uppercase"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Add Visit
@@ -1030,19 +1042,22 @@ function ClientEnquiryMatcher() {
                     )}
                   </div>
 
-                  <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-lg shadow-purple-500/5 overflow-hidden">
                     <Tabs value={activeVisitTab} onValueChange={setActiveVisitTab}>
-                      <div className="px-4 pt-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-                        <TabsList className="bg-transparent p-0 h-auto flex-wrap gap-1.5 pb-px">
+                      <div className="px-5 pt-4 border-b border-gray-100/60 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
+                        <TabsList className="bg-transparent p-0 h-auto flex-wrap gap-2 pb-px">
                           {visits.map((v, i) => (
                             <div key={i} className="flex items-center group relative">
                               <TabsTrigger 
                                 value={String(i)} 
-                                className="px-5 py-2 text-xs font-bold uppercase tracking-wider data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-700 rounded-t-lg border-x border-t border-transparent data-[state=active]:border-gray-200 dark:data-[state=active]:border-gray-700 transition-all"
+                                className="px-5 py-2.5 text-xs font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-700 data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/10 rounded-t-xl border-x border-t border-transparent data-[state=active]:border-gray-200/60 dark:data-[state=active]:border-gray-700 transition-all duration-300"
                               >
-                                Visit {i + 1}
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="w-5 h-5 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-black flex items-center justify-center">{i + 1}</span>
+                                  Visit {i + 1}
+                                </span>
                                 {v.selectedDays.length > 0 && (
-                                  <div className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                                  <div className="ml-2 w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                                 )}
                               </TabsTrigger>
                               {visits.length > 1 && (
@@ -1058,7 +1073,7 @@ function ClientEnquiryMatcher() {
                           ))}
                         </TabsList>
                       </div>
-                      <div className="p-5">
+                      <div className="p-6">
                         {visits.map((v, i) => (
                           <TabsContent key={i} value={String(i)} className="mt-0">
                             <VisitForm
@@ -1073,25 +1088,27 @@ function ClientEnquiryMatcher() {
                 </div>
 
                 {/* Action Bar */}
-                <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-800">
-                  <Button variant="ghost" onClick={handleReset} className="text-gray-400 hover:text-red-500 font-bold text-xs uppercase tracking-wider">
+                <div className="flex justify-between items-center pt-6 border-t border-gray-200/60 dark:border-gray-800/60">
+                  <Button variant="ghost" onClick={handleReset} className="text-gray-400 hover:text-red-500 font-black text-xs uppercase tracking-widest gap-2 transition-all duration-300">
+                    <RefreshCw className="w-3.5 h-3.5" />
                     Reset All
                   </Button>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     {activeVisits.length > 0 && (
-                      <span className="text-[11px] text-gray-400 font-bold">
+                      <span className="text-[11px] text-gray-400 font-black tracking-wider">
                         {activeVisits.length} visit{activeVisits.length !== 1 ? 's' : ''} configured
+                        <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                       </span>
                     )}
                     <Button
                       onClick={() => matchMutation.mutate()}
                       disabled={!canSubmit || matchMutation.isPending}
-                      className="h-12 px-8 bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 hover:from-purple-800 hover:via-indigo-800 hover:to-blue-800 text-white font-bold text-sm uppercase tracking-wider shadow-lg shadow-purple-500/20 gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      className="h-13 px-10 bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-700 hover:from-purple-800 hover:via-indigo-800 hover:to-blue-800 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-purple-500/25 gap-3 rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl hover:shadow-purple-500/30"
                     >
                       {matchMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
-                        <Search className="w-4 h-4" />
+                        <Search className="w-5 h-5" />
                       )}
                       {matchMutation.isPending ? "Searching..." : "Find Best Matches"}
                     </Button>
@@ -1099,41 +1116,57 @@ function ClientEnquiryMatcher() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Results Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-xl">
-                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="flex items-center justify-between pb-5 border-b border-gray-200/60 dark:border-gray-800/60">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3.5 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40 rounded-2xl shadow-md shadow-green-500/10">
+                      <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                      <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
                         Matches for {clientName}
                       </h3>
-                      <p className="text-xs font-bold text-gray-500 mt-0.5">
+                      <p className="text-xs font-black text-gray-500 mt-1 tracking-wider">
                         {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot; {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setMultiResults(null)} className="gap-2 font-bold">
-                    <ArrowRight className="w-4 h-4 rotate-180" />
+                  <Button variant="outline" size="sm" onClick={() => setMultiResults(null)} className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 px-4 py-2 h-auto">
+                    <ArrowLeft className="w-4 h-4" />
                     Back
                   </Button>
                 </div>
 
+                {/* Stat Cards */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 p-5 shadow-md shadow-purple-500/5 transition-all duration-300 hover:-translate-y-0.5">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Total Visits</div>
+                    <div className="text-3xl font-black text-purple-700 dark:text-purple-400">{multiResults.totalVisits}</div>
+                  </div>
+                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 p-5 shadow-md shadow-green-500/5 transition-all duration-300 hover:-translate-y-0.5">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Total Matches</div>
+                    <div className="text-3xl font-black text-green-600 dark:text-green-400">{multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)}</div>
+                  </div>
+                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 p-5 shadow-md shadow-blue-500/5 transition-all duration-300 hover:-translate-y-0.5">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Evaluated</div>
+                    <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{multiResults.visitResults[0]?.totalEmployeesEvaluated || 0}</div>
+                  </div>
+                </div>
+
                 {/* Results Tabs */}
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-4">
+                <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-xl shadow-purple-500/5 overflow-hidden p-5">
                   <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
-                    <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1.5 mb-5">
+                    <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1.5 h-auto flex-wrap gap-2 mb-6 rounded-2xl">
                       {multiResults.visitResults.map((vr, idx) => (
                         <TabsTrigger 
                           key={idx} 
                           value={String(idx)}
-                          className="px-5 py-2.5 text-xs font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-700 data-[state=active]:shadow-sm rounded-lg transition-all"
+                          className="px-6 py-3 text-xs font-black data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:text-purple-700 data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/10 rounded-xl transition-all duration-300"
                         >
-                          <div className="flex items-center gap-2">
-                            <span>Visit {idx + 1}</span>
-                            <div className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold text-[10px] min-w-[20px] text-center">
+                          <div className="flex items-center gap-2.5">
+                            <span className="tracking-wider uppercase">Visit {idx + 1}</span>
+                            <div className="bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 text-purple-700 dark:text-purple-300 px-2.5 py-1 rounded-xl font-black text-[10px] min-w-[24px] text-center shadow-sm">
                               {vr.matches.length}
                             </div>
                           </div>
@@ -1451,9 +1484,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     <Filter className="w-5 h-5" />
                                     Employees Available in ALL Selected Blocks
                                   </DialogTitle>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees available in all {selectedTimeBlocks.size} selected time blocks
-                                  </div>
+                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) &bull; {cell.count} employees available in all {selectedTimeBlocks.size} selected time blocks
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
                                   <div className="space-y-3">
@@ -1560,9 +1593,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                     <Users className="w-5 h-5" />
                                     Available Employees - {timeBlock.label}
                                   </DialogTitle>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) • {cell.count} employees fully available
-                                  </div>
+                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) &bull; {cell.count} employees fully available
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <ScrollArea className="max-h-[60vh]">
                                   <div className="space-y-3">
