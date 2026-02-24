@@ -50,7 +50,10 @@ The application is designed for care home scheduling teams and business developm
 - **Schedules Tab:** Automated weekly planning using an enhanced VRPTW optimization engine. Features include:
     - **Flexible Gap-Filling:** Optimized to allocate visits in tight windows (e.g., 2-minute buffers).
     - **Travel Time Extra:** Intelligent "compression" logic that allows visits to be scheduled even if travel time exceeds available gaps by up to 15 minutes.
-    - **Early Start Allowance:** Permits visits to start up to 15 minutes early to maximize workforce utilization.
+    - **Geographic Clustering:** Grid-based approach (~2km cells) sorts visits by proximity within priority groups for better route efficiency.
+    - **Care Continuity Scoring:** 15% bonus for same employee-client pairings from previous days (10% for fuzzy matches), promoting consistent care relationships.
+    - **Statutory Rest Breaks:** 20-minute break injected after 6 hours of consecutive work, blocking visit allocation during break windows.
+    - **Shift Stability Scoring:** 10% bonus for compact, back-to-back schedules over fragmented shifts, reducing employee travel burden.
     - **Constraint Enforcement:** Respects 9-hour daily care limits, weekly contracted hours, and gender preferences.
     - **Visual Indicators:** Real-time feedback on travel compression and shift overflows in the dashboard.
 - **AI Insights Tab:** Provides predictive analytics, workload redistribution opportunities, staff optimization suggestions, and risk assessments with actionable insights.

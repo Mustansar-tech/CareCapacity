@@ -852,6 +852,74 @@ function assignVisitToBestEmployee(
       finalScore += GH_EVENING_BONUS; // Increased bonus
       clientLogger.log(`🌙 EVENING GH BONUS: ${schedule.employeeName} gets +${GH_EVENING_BONUS} for evening visit ${adjustedVisit.clientName}`);
     }
+
+    // Care continuity bonus: prefer same employee-client pairings across days
+    const continuityMap = (originalVisit as any)._continuityMap as Map<string, Set<string>> | undefined;
+    if (continuityMap) {
+      const clientSet = continuityMap.get(schedule.employeeName);
+      if (clientSet) {
+        const normalizedClient = adjustedVisit.clientName.toLowerCase().trim();
+        if (clientSet.has(normalizedClient)) {
+          finalScore += 0.15;
+          clientLogger.log(`🔄 CONTINUITY BONUS: ${schedule.employeeName} +15% for returning client ${adjustedVisit.clientName}`);
+        } else {
+          const clientArray = Array.from(clientSet);
+          const fuzzyMatch = clientArray.find(c => normalizedClient.includes(c) || c.includes(normalizedClient));
+          if (fuzzyMatch) {
+            finalScore += 0.10;
+          }
+        }
+      }
+    }
+
+    // Shift stability bonus: prefer compact back-to-back schedules
+    if (schedule.assignedVisits.length > 0) {
+      const sorted = [...schedule.assignedVisits].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      const firstStart = timeToMinutes(sorted[0].startTime);
+      const lastEnd = timeToMinutes(sorted[sorted.length - 1].endTime);
+      const withinBlock = visitStartMinInternal >= firstStart && (visitStartMinInternal + adjustedVisit.durationMinutes) <= lastEnd;
+      if (withinBlock) {
+        finalScore += 0.10;
+      } else {
+        const existingSpan = lastEnd - firstStart;
+        const newStart = Math.min(firstStart, visitStartMinInternal);
+        const newEnd = Math.max(lastEnd, visitStartMinInternal + adjustedVisit.durationMinutes);
+        const newSpan = newEnd - newStart;
+        if (existingSpan > 0 && newSpan > 0) {
+          finalScore += (existingSpan / newSpan) * 0.10;
+        }
+      }
+    }
+
+    // Rest break enforcement: block visit if it falls in a statutory rest window
+    // Track consecutive work using actual time gaps between visits (gap >= 20min resets the counter)
+    let blockedByRestBreak = false;
+    if (schedule.assignedVisits.length > 0) {
+      const REST_THRESHOLD = 360; // 6 hours
+      const sorted = [...schedule.assignedVisits].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      let consecutiveWork = sorted[0].durationMinutes;
+      let prevEnd = timeToMinutes(sorted[0].endTime);
+      for (let vi = 1; vi < sorted.length; vi++) {
+        const v = sorted[vi];
+        const vStart = timeToMinutes(v.startTime);
+        const gap = vStart - prevEnd;
+        if (gap >= 20) {
+          consecutiveWork = 0;
+        }
+        consecutiveWork += v.durationMinutes;
+        prevEnd = timeToMinutes(v.endTime);
+        if (consecutiveWork >= REST_THRESHOLD) {
+          const breakEnd = prevEnd + 20;
+          if (visitStartMinInternal >= prevEnd && visitStartMinInternal < breakEnd) {
+            clientLogger.log(`🛑 REST BREAK: ${schedule.employeeName} needs 20min break at ${prevEnd}min - blocking visit at ${visitStartMinInternal}min`);
+            blockedByRestBreak = true;
+          }
+          break;
+        }
+      }
+    }
+    if (blockedByRestBreak) continue;
+
     candidates.push({
       employeeName: schedule.employeeName,
       score: finalScore,
@@ -1230,6 +1298,10 @@ export function generateWeeklySchedule(
   // Track which employees are assigned to each time slot (for multiple care)
   const visitEmployeeAssignments = new Map<string, Set<string>>(); // key -> Set of employee names
 
+  // Build care continuity map: employee -> Set of client names they served on previous days
+  // This enables continuity scoring (same employee serves same client across days)
+  const continuityMap = new Map<string, Set<string>>();
+
   // CRITICAL: Sort visits STRICTLY by start time (chronological order)
   // This ensures we assign visits in the order they occur during the day
   const sortedVisits = [...filteredVisits].sort((a, b) => {
@@ -1307,86 +1379,110 @@ export function generateWeeklySchedule(
   // GH employees are prioritized to fill their contracted hours.
   // ============================================================================
 
-  // First pass: Assign each visit prioritizing GH employees
-  for (const visit of sortedVisits) {
-    // Skip if already assigned by walker phase
-    if (assignedVisitIds.has(visit.id)) continue;
+  // Process day-by-day for care continuity: earlier days build the continuity map for later days
+  for (const date of weekDates) {
+    const dayVisits = sortedVisits.filter(v => v.date === date);
     
-    const employeeSchedules = schedulesByDate[visit.date] || [];
-
-    if (employeeSchedules.length === 0) {
-      unallocated.push({ ...visit, reason: 'No employees available for this date' });
-      continue;
+    // Tag visits with the current continuity map (built from previous days)
+    for (const visit of dayVisits) {
+      (visit as any)._continuityMap = continuityMap;
     }
 
-    // Check if this is a multiple care visit (needs to avoid already assigned employee)
-    const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
-    const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
+    // First pass: Assign each visit prioritizing GH employees
+    for (const visit of dayVisits) {
+      // Skip if already assigned by walker phase
+      if (assignedVisitIds.has(visit.id)) continue;
+      
+      const employeeSchedules = schedulesByDate[visit.date] || [];
 
-    // Filter out employees already assigned to this exact time slot
-    // Also filter out walkers (they only get proximity-based assignments)
-    const availableSchedules = employeeSchedules.filter(s => 
-      !alreadyAssignedEmployees.has(s.employeeName) && s.transportMode !== 'walking'
-    );
+      if (employeeSchedules.length === 0) {
+        unallocated.push({ ...visit, reason: 'No employees available for this date' });
+        continue;
+      }
 
-    if (availableSchedules.length === 0) {
-      unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot (multiple care) or only walkers available' });
-      continue;
-    }
+      // Check if this is a multiple care visit (needs to avoid already assigned employee)
+      const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
+      const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
 
-    // Separate GH and non-GH employees for two-phase allocation
-    const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
-    
-    // Calculate GH employees who still have unfilled contracted hours
-    const ghWithCapacity = ghEmployees.filter(s => {
-      const remaining = s.weeklyContractedMinutes - s.weeklyUsedMinutes;
-      return remaining > 0;
-    });
+      // Filter out employees already assigned to this exact time slot
+      // Also filter out walkers (they only get proximity-based assignments)
+      const availableSchedules = employeeSchedules.filter(s => 
+        !alreadyAssignedEmployees.has(s.employeeName) && s.transportMode !== 'walking'
+      );
 
-    // Phase 1: STRICT GH-FIRST - Try to assign to GH employees who need hours
-    let result = ghWithCapacity.length > 0
-      ? assignVisitToBestEmployee(visit, ghWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate)
-      : { success: false, reason: 'No GH employees with remaining capacity' };
+      if (availableSchedules.length === 0) {
+        unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot (multiple care) or only walkers available' });
+        continue;
+      }
 
-    // Phase 1b: If no GH with capacity, try all GH employees (they may still want visits)
-    if (!result.success && ghEmployees.length > 0) {
-      result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-    }
+      // Separate GH and non-GH employees for two-phase allocation
+      const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
+      
+      // Calculate GH employees who still have unfilled contracted hours
+      const ghWithCapacity = ghEmployees.filter(s => {
+        const remaining = s.weeklyContractedMinutes - s.weeklyUsedMinutes;
+        return remaining > 0;
+      });
 
-    // Phase 2: If not assigned to GH employee, try all (non-walker) employees
-    if (!result.success) {
-      result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-    }
-    
-    // Log GH assignment for tracking
-    if (result.success && result.employeeName && isGHEmployee(result.employeeName)) {
-      const schedule = availableSchedules.find(s => s.employeeName === result.employeeName);
-      if (schedule) {
-        const usedPct = schedule.weeklyContractedMinutes > 0 
-          ? ((schedule.weeklyUsedMinutes / schedule.weeklyContractedMinutes) * 100).toFixed(0)
-          : '0';
-        clientLogger.log(`✅ GH ASSIGNED: ${result.employeeName} → ${visit.clientName} (${usedPct}% of contracted hours used)`);
+      // Phase 1: STRICT GH-FIRST - Try to assign to GH employees who need hours
+      let result = ghWithCapacity.length > 0
+        ? assignVisitToBestEmployee(visit, ghWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+        : { success: false, reason: 'No GH employees with remaining capacity' };
+
+      // Phase 1b: If no GH with capacity, try all GH employees (they may still want visits)
+      if (!result.success && ghEmployees.length > 0) {
+        result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
+
+      // Phase 2: If not assigned to GH employee, try all (non-walker) employees
+      if (!result.success) {
+        result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+      }
+      
+      // Log GH assignment for tracking
+      if (result.success && result.employeeName && isGHEmployee(result.employeeName)) {
+        const schedule = availableSchedules.find(s => s.employeeName === result.employeeName);
+        if (schedule) {
+          const usedPct = schedule.weeklyContractedMinutes > 0 
+            ? ((schedule.weeklyUsedMinutes / schedule.weeklyContractedMinutes) * 100).toFixed(0)
+            : '0';
+          clientLogger.log(`✅ GH ASSIGNED: ${result.employeeName} → ${visit.clientName} (${usedPct}% of contracted hours used)`);
+        }
+      }
+
+      if (result.success && result.employeeName) {
+        // Track this employee assignment for multiple care visits
+        if (!visitEmployeeAssignments.has(visitKey)) {
+          visitEmployeeAssignments.set(visitKey, new Set());
+        }
+        visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
+
+        // Log multiple care assignments
+        if (alreadyAssignedEmployees.size > 0) {
+          clientLogger.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
+        }
+      } else {
+        unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
       }
     }
 
-    if (result.success && result.employeeName) {
-      // Track this employee assignment for multiple care visits
-      if (!visitEmployeeAssignments.has(visitKey)) {
-        visitEmployeeAssignments.set(visitKey, new Set());
+    // After each day's first pass, update continuity map with today's assignments
+    const daySchedules = schedulesByDate[date] || [];
+    for (const schedule of daySchedules) {
+      for (const av of schedule.assignedVisits) {
+        const empName = schedule.employeeName;
+        if (!continuityMap.has(empName)) {
+          continuityMap.set(empName, new Set());
+        }
+        continuityMap.get(empName)!.add(av.clientName.toLowerCase().trim());
       }
-      visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
-
-      // Log multiple care assignments
-      if (alreadyAssignedEmployees.size > 0) {
-        clientLogger.log(`👥 Multiple care: ${visit.clientName} @ ${visit.startTime} - CP ${alreadyAssignedEmployees.size + 1}: ${result.employeeName}`);
-      }
-    } else {
-      unallocated.push({ ...visit, reason: result.reason || 'Unknown reason' });
     }
   }
 
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)
+  clientLogger.log(`🔄 Care continuity map: ${continuityMap.size} employees with client pairings across ${weekDates.length} days`);
+
   clientLogger.log(`\n🔄 SECOND PASS: Attempting to allocate ${unallocated.length} unallocated visits (sorted by duration)`);
   
   // CRITICAL: Sort second pass visits chronologically first, then by duration

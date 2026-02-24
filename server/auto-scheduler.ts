@@ -147,8 +147,12 @@ export class AutoScheduler {
       };
     }
 
-    // Sort visits by priority and time constraints
-    const prioritizedVisits = this.prioritizeVisits(visits);
+    // Sort visits by priority, then cluster by geography for better route efficiency
+    const prioritizedVisits = this.clusterVisitsByGeography(this.prioritizeVisits(visits));
+    logger.debug(`Clustered ${prioritizedVisits.length} visits by geographic proximity`);
+
+    // Load care continuity data (employee-client pairings from previous day)
+    const continuityMap = await this.loadCareContinuityMap(date, branchId);
 
     // Initialize employee schedules
     const employeeSchedules = new Map<string, {
@@ -195,7 +199,7 @@ export class AutoScheduler {
     // PHASE 1: Assign visits to Male GH employees FIRST
     logger.debug(`\nPHASE 1: Filling MALE GH employees first...`);
     for (const visit of prioritizedVisits) {
-      const bestAssignment = await this.findBestEmployeeForVisit(visit, maleGhEmployeeSchedules);
+      const bestAssignment = await this.findBestEmployeeForVisit(visit, maleGhEmployeeSchedules, continuityMap);
 
       if (bestAssignment) {
         const schedule = maleGhEmployeeSchedules.get(bestAssignment.employeeName)!;
@@ -218,7 +222,7 @@ export class AutoScheduler {
       const phase1_5Unassigned: SchedulingVisit[] = [];
       
       for (const visit of unassignedVisits) {
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, femaleOtherGhEmployeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, femaleOtherGhEmployeeSchedules, continuityMap);
 
         if (bestAssignment) {
           const schedule = femaleOtherGhEmployeeSchedules.get(bestAssignment.employeeName)!;
@@ -245,7 +249,7 @@ export class AutoScheduler {
       const phase2Unassigned: SchedulingVisit[] = [];
 
       for (const visit of unassignedVisits) {
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, nonGhEmployeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, nonGhEmployeeSchedules, continuityMap);
 
         if (bestAssignment) {
           const schedule = nonGhEmployeeSchedules.get(bestAssignment.employeeName)!;
@@ -266,21 +270,16 @@ export class AutoScheduler {
       logger.debug(`Phase 2 results: ${unassignedVisits.length} still unassigned`);
     }
 
-    // ALLOWANCE 1: "Travel Compression" (Extra 15 mins)
+    // ALLOWANCE: "Travel Compression" (Extra 15 mins)
     // If travel time exceeds the gap by up to 15 minutes, we "compress" it
-    // by allowing the visit to start slightly late or the previous one to finish slightly late
     const TRAVEL_EXTRA_ALLOWANCE = 15; 
-    
-    // ALLOWANCE 2: "Early Start" (Extra 15 mins)
-    // We allow visits to start up to 15 minutes before their planned time if it helps fit them in
-    const EARLY_START_ALLOWANCE = 15;
 
     // Phase 4: Final attempt for remaining unallocated visits (still respecting 45-min travel cap)
     if (unassignedVisits.length > 0) {
       logger.debug(`\nPHASE 4: FINAL ATTEMPT for ${unassignedVisits.length} remaining visits (45-min travel cap enforced)...`);
       const phase4Unassigned: SchedulingVisit[] = [];
       for (const visit of unassignedVisits) {
-        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules);
+        const bestAssignment = await this.findBestEmployeeForVisit(visit, employeeSchedules, continuityMap);
         if (bestAssignment) {
           const schedule = employeeSchedules.get(bestAssignment.employeeName)!;
           const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
@@ -596,7 +595,6 @@ export class AutoScheduler {
 
   private prioritizeVisits(visits: SchedulingVisit[]): SchedulingVisit[] {
     return visits.sort((a, b) => {
-      // Sort by priority first (1=highest), then by preferred start time
       if (a.priority !== b.priority) {
         return a.priority - b.priority;
       }
@@ -604,9 +602,126 @@ export class AutoScheduler {
     });
   }
 
+  private clusterVisitsByGeography(visits: SchedulingVisit[]): SchedulingVisit[] {
+    if (visits.length <= 1) return visits;
+
+    const GRID_SIZE = 0.02; // ~2km grid cells
+    const withGrid = visits.map(v => ({
+      visit: v,
+      gridX: Math.floor(v.clientLat / GRID_SIZE),
+      gridY: Math.floor(v.clientLng / GRID_SIZE),
+    }));
+
+    withGrid.sort((a, b) => {
+      if (a.visit.priority !== b.visit.priority) return a.visit.priority - b.visit.priority;
+      if (a.gridX !== b.gridX) return a.gridX - b.gridX;
+      if (a.gridY !== b.gridY) return a.gridY - b.gridY;
+      return a.visit.startTime - b.visit.startTime;
+    });
+
+    return withGrid.map(w => w.visit);
+  }
+
+  private async loadCareContinuityMap(date: string, branchId: string): Promise<Map<string, Set<string>>> {
+    const continuityMap = new Map<string, Set<string>>();
+    try {
+      const prevDate = new Date(date);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split('T')[0];
+
+      const analyses = await storage.getCapacityAnalyses(branchId);
+      if (analyses.length === 0) return continuityMap;
+
+      const latestAnalysis = analyses[0];
+      const employeesByDate = (latestAnalysis.employeesByDate as any) || {};
+      const prevDayEmployees: any[] = employeesByDate[prevDateStr] || [];
+
+      for (const emp of prevDayEmployees) {
+        if (emp.clients && Array.isArray(emp.clients)) {
+          for (const clientName of emp.clients) {
+            if (!continuityMap.has(emp.employeeName)) {
+              continuityMap.set(emp.employeeName, new Set());
+            }
+            continuityMap.get(emp.employeeName)!.add(clientName.toLowerCase().trim());
+          }
+        }
+      }
+      logger.debug(`Care continuity: loaded ${continuityMap.size} employee-client pairings from ${prevDateStr}`);
+    } catch (error) {
+      logger.debug(`Care continuity map not available (non-critical): ${(error as any)?.message}`);
+    }
+    return continuityMap;
+  }
+
+  private getCareContinuityBonus(employeeName: string, clientName: string, continuityMap: Map<string, Set<string>>): number {
+    const clientSet = continuityMap.get(employeeName);
+    if (!clientSet) return 0;
+    const normalizedClient = clientName.toLowerCase().trim();
+    if (clientSet.has(normalizedClient)) {
+      return 0.15;
+    }
+    const clientArray = Array.from(clientSet);
+    for (const prevClient of clientArray) {
+      if (normalizedClient.includes(prevClient) || prevClient.includes(normalizedClient)) {
+        return 0.10;
+      }
+    }
+    return 0;
+  }
+
+  private needsRestBreak(schedule: any): { needed: boolean; afterMinutes: number } {
+    const REST_BREAK_THRESHOLD = 360; // 6 hours in minutes
+    const visits = schedule.visits;
+    if (visits.length === 0) return { needed: false, afterMinutes: 0 };
+
+    const sortedVisits = [...visits].sort((a: any, b: any) => a.actualStartTime - b.actualStartTime);
+    let consecutiveWorkMinutes = 0;
+    let lastBreakEnd = sortedVisits[0].actualStartTime;
+
+    for (const visit of sortedVisits) {
+      const gapFromLast = visit.actualStartTime - lastBreakEnd;
+      if (gapFromLast >= 20) {
+        consecutiveWorkMinutes = 0;
+        lastBreakEnd = visit.actualStartTime;
+      }
+      consecutiveWorkMinutes += visit.durationMinutes;
+      lastBreakEnd = visit.actualEndTime;
+
+      if (consecutiveWorkMinutes >= REST_BREAK_THRESHOLD) {
+        return { needed: true, afterMinutes: visit.actualEndTime };
+      }
+    }
+    return { needed: false, afterMinutes: 0 };
+  }
+
+  private calculateShiftCompactness(schedule: any, visit: SchedulingVisit): number {
+    const visits = schedule.visits;
+    if (visits.length === 0) return 0.5;
+
+    const sortedVisits = [...visits].sort((a: any, b: any) => a.actualStartTime - b.actualStartTime);
+    const firstStart = sortedVisits[0].actualStartTime;
+    const lastEnd = sortedVisits[sortedVisits.length - 1].actualEndTime;
+
+    const visitWouldExtendBefore = visit.startTime < firstStart;
+    const visitWouldExtendAfter = visit.endTime > lastEnd;
+    const visitWithinBlock = visit.startTime >= firstStart && visit.endTime <= lastEnd;
+
+    if (visitWithinBlock) return 1.0;
+
+    const existingSpan = lastEnd - firstStart;
+    const newStart = Math.min(firstStart, visit.startTime);
+    const newEnd = Math.max(lastEnd, visit.endTime);
+    const newSpan = newEnd - newStart;
+
+    if (existingSpan <= 0) return 0.5;
+    const compactness = existingSpan / newSpan;
+    return Math.max(0, compactness);
+  }
+
   private async findBestEmployeeForVisit(
     visit: SchedulingVisit, 
-    employeeSchedules: Map<string, any>
+    employeeSchedules: Map<string, any>,
+    continuityMap?: Map<string, Set<string>>
   ): Promise<{ employeeName: string; score: number; insertionIndex: number } | null> {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
@@ -614,24 +729,31 @@ export class AutoScheduler {
     for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
       const employee = schedule.employee;
 
-      // Check gender preference match
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
-        continue; // Skip this employee - gender doesn't match client preference
+        continue;
       }
 
-      // CRITICAL: Check if employee already has a visit at this exact time
       const hasTimeConflict = schedule.visits.some((v: any) => {
-        // Strict overlap check: No overlapping visits allowed
         const vStart = v.actualStartTime;
         const vEnd = v.actualEndTime;
         const visitStart = visit.startTime;
         const visitEnd = visit.endTime;
-
         return (visitStart < vEnd && visitEnd > vStart);
       });
 
       if (hasTimeConflict) {
-        continue; // Skip - employee already busy at this time
+        continue;
+      }
+
+      // Rest break check: if employee needs a statutory break, only allow visits after break window
+      const restBreakStatus = this.needsRestBreak(schedule);
+      if (restBreakStatus.needed) {
+        const REST_BREAK_DURATION = 20;
+        const breakEndTime = restBreakStatus.afterMinutes + REST_BREAK_DURATION;
+        if (visit.startTime < breakEndTime && visit.startTime >= restBreakStatus.afterMinutes) {
+          logger.debug(`   ${empName}: Visit at ${visit.startTime}min blocked by statutory rest break (${restBreakStatus.afterMinutes}-${breakEndTime}min)`);
+          continue;
+        }
       }
 
       const travelTime = await (this as any).calculateTravelTime(
@@ -641,22 +763,37 @@ export class AutoScheduler {
         employee.transportMode
       );
 
-      // Hard 45-minute travel cap: skip this employee if home-to-visit exceeds cap
       if (travelTime > this.maxTravelCapMinutes && schedule.visits.length === 0) {
         logger.debug(`   ${empName}: REJECTED - home-to-visit travel (${travelTime.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
         continue;
       }
 
-      // Find best insertion point and calculate score (cap enforced inside)
       const insertion = await this.findBestInsertionPoint(visit, schedule);
 
-      if (insertion && insertion.score > bestScore) {
-        bestScore = insertion.score;
-        bestMatch = {
-          employeeName: empName,
-          score: insertion.score,
-          insertionIndex: insertion.index,
-        };
+      if (insertion) {
+        let adjustedScore = insertion.score;
+
+        // Care continuity bonus
+        if (continuityMap) {
+          const continuityBonus = this.getCareContinuityBonus(empName, visit.clientName, continuityMap);
+          if (continuityBonus > 0) {
+            adjustedScore += continuityBonus;
+            logger.debug(`   ${empName}: +${(continuityBonus * 100).toFixed(0)}% care continuity bonus for ${visit.clientName}`);
+          }
+        }
+
+        // Shift stability bonus (prefer compact schedules)
+        const compactness = this.calculateShiftCompactness(schedule, visit);
+        adjustedScore += compactness * 0.10;
+
+        if (adjustedScore > bestScore) {
+          bestScore = adjustedScore;
+          bestMatch = {
+            employeeName: empName,
+            score: adjustedScore,
+            insertionIndex: insertion.index,
+          };
+        }
       }
     }
 
@@ -814,7 +951,7 @@ export class AutoScheduler {
     const travelTimeBefore = assignment.score > 0 ? (assignment as any).travelTimeBefore || 0 : 0;
 
     const actualStartTime = prevVisit 
-      ? Math.max(visit.startTime - 15, prevVisit.actualEndTime + travelTimeBefore + this.bufferTime - 15) // Use requested buffer, allow 15min earlier start or compression
+      ? Math.max(visit.startTime, prevVisit.actualEndTime + travelTimeBefore + this.bufferTime)
       : visit.startTime;
 
     return {
