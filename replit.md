@@ -95,6 +95,7 @@ To prevent missing hours when data is incomplete:
 
 ### Data Privacy & Retention
 
+- **Privacy Guard Skill:** Strictly follow the `privacy-guard` skill to prevent PII and secret leakage in logs.
 - **Configurable Retention:** Default 3-month data retention with user-controlled cleanup options.
 - **Data Governance:** Secure session management and compliance-ready audit trails.
 
