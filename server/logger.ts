@@ -42,12 +42,11 @@ class Logger {
   }
 
   debug(message: string, meta?: any) {
-    if (!isProduction) {
-      console.debug(this.formatMessage(LogLevel.DEBUG, message, meta));
-    }
+    // Debug logs are disabled in all environments to prevent data leakage and noise
   }
 
   info(message: string, meta?: any) {
+    // Info logs are only enabled in development
     if (!isProduction) {
       console.log(this.formatMessage(LogLevel.INFO, message, meta));
     }
