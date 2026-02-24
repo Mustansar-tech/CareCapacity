@@ -432,32 +432,30 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   );
                                 }
 
-                                // Absolute uniqueness across ALL rows for this specific visit on this specific day
-                                // If a care pro is suggested in ANY previous row (CP1, CP2, etc.) for this same visit
-                                // they are completely removed from the candidate pool for all subsequent rows.
-                                const uniqueTakenNames = Array.from({ length: cpIdx })
-                                  .map((_, prevIdx) => {
-                                    // Identify the top match for each previous row on this specific day
-                                    const genderPrefForPrev = vr.genderPreferences[prevIdx] || 'any';
-                                    
-                                    // Important: We need to find the specific person who would be assigned to the previous slot
-                                    // considering who was taken before THEM.
-                                    let chain: string[] = [];
-                                    for (let i = 0; i <= prevIdx; i++) {
-                                      const pref = vr.genderPreferences[i] || 'any';
-                                      const bestAvailable = vr.matches.find(m => {
-                                        if (chain.includes(m.employeeName)) return false;
-                                        if (pref !== 'any' && m.gender?.toLowerCase() !== pref.toLowerCase()) return false;
-                                        return m.matchedSlots.some(s => {
-                                          const date = new Date(s.day + 'T12:00:00');
-                                          return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
-                                        });
+                                // Absolute uniqueness across ALL CP rows for this specific visit on this specific day
+                                // We determine the final assignment for all previous CP slots to know who is "taken"
+                                const getTakenForDay = () => {
+                                  const taken: string[] = [];
+                                  for (let i = 0; i < cpIdx; i++) {
+                                    const pref = vr.genderPreferences[i] || 'any';
+                                    const bestAvailable = vr.matches.find(m => {
+                                      if (taken.includes(m.employeeName)) return false;
+                                      const isCorrectGender = pref === 'any' || m.gender?.toLowerCase() === pref.toLowerCase();
+                                      if (!isCorrectGender) return false;
+                                      
+                                      return m.matchedSlots.some(s => {
+                                        const date = new Date(s.day + 'T12:00:00');
+                                        return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
                                       });
-                                      if (bestAvailable) chain.push(bestAvailable.employeeName);
+                                    });
+                                    if (bestAvailable) {
+                                      taken.push(bestAvailable.employeeName);
                                     }
-                                    return chain[prevIdx];
-                                  })
-                                  .filter(Boolean) as string[];
+                                  }
+                                  return taken;
+                                };
+
+                                const uniqueTakenNames = getTakenForDay();
 
                                 return (
                                   <td key={day} className="p-3 align-top min-w-[250px]">

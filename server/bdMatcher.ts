@@ -152,7 +152,7 @@ function findClosestSlot(
   visitDuration: number
 ): { window: string; distance: number } | null {
   let bestSlot: { window: string; distance: number } | null = null;
-  const MAX_DIFF = 150; // 2h 30mins in minutes
+  const MAX_DIFF = 180; // Allow up to 3 hours difference for block matching
 
   for (const [wStart, wEnd] of windows) {
     if (wEnd - wStart >= visitDuration) {
@@ -161,9 +161,11 @@ function findClosestSlot(
         const blockStart = timeToMinutes(block.start);
         const blockEnd = blockStart + visitDuration;
         
+        // Block must fit within the free window
         if (blockStart >= wStart && blockEnd <= wEnd) {
           const diff = Math.abs(blockStart - reqStart);
           if (diff <= MAX_DIFF) {
+            // Priority 1: Exact company block start time
             if (!bestSlot || diff < bestSlot.distance) {
               bestSlot = {
                 window: `${minutesToTime(blockStart)}-${minutesToTime(blockEnd)}`,
@@ -173,9 +175,13 @@ function findClosestSlot(
           }
         }
       }
-      
-      // Fallback: if no block start fits, use the closest possible start time
-      if (!bestSlot) {
+    }
+  }
+
+  // Fallback: If no company block fits, use the closest possible start time
+  if (!bestSlot) {
+    for (const [wStart, wEnd] of windows) {
+      if (wEnd - wStart >= visitDuration) {
         let closestStart: number;
         if (reqStart < wStart) {
           closestStart = wStart;
@@ -464,8 +470,17 @@ export async function matchClientEnquiry(
     return { criteria, matches: [], totalEmployeesEvaluated: 0 };
   }
 
+  // Pre-filter analysis data to ensure only relevant dates are evaluated
+  const filteredSummaryByDate: Record<string, EmployeeSummaryRecord[]> = {};
+  const filteredEmployeesByDate: Record<string, EmployeeDailyDetail[]> = {};
+  
+  for (const date of dates) {
+    filteredSummaryByDate[date] = employeeSummaryByDate[date];
+    filteredEmployeesByDate[date] = employeesByDate[date];
+  }
+
   const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
-    dates, employeeSummaryByDate, employeesByDate, branchId, storage
+    dates, filteredSummaryByDate, filteredEmployeesByDate, branchId, storage
   );
 
   let clientCoords: { lat: number; lng: number } | undefined;
@@ -526,8 +541,17 @@ export async function matchMultiVisitEnquiry(
     };
   }
 
+  // Pre-filter analysis data to ensure only relevant dates are evaluated
+  const filteredSummaryByDate: Record<string, EmployeeSummaryRecord[]> = {};
+  const filteredEmployeesByDate: Record<string, EmployeeDailyDetail[]> = {};
+  
+  for (const date of dates) {
+    filteredSummaryByDate[date] = employeeSummaryByDate[date];
+    filteredEmployeesByDate[date] = employeesByDate[date];
+  }
+
   const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
-    dates, employeeSummaryByDate, employeesByDate, branchId, storage
+    dates, filteredSummaryByDate, filteredEmployeesByDate, branchId, storage
   );
 
   let clientCoords: { lat: number; lng: number } | undefined;
