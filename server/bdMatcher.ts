@@ -614,7 +614,7 @@ export async function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      visit.careProsRequired * 3,
+      50, // Increase result count to ensure "all remaining" is truly all available
       clientCoords
     );
 
