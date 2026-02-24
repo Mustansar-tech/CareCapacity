@@ -724,7 +724,7 @@ function ClientEnquiryMatcher() {
     <>
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setMultiResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
         <DialogTrigger asChild>
-          <Button className="bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white shadow-xl shadow-purple-500/20 font-black gap-3 px-6 py-3 h-auto rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5">
+          <Button className="bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white shadow-xl shadow-purple-500/20 font-black gap-3 h-auto rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 pl-[24px] pr-[24px] pt-[8.5px] pb-[8.5px]">
             <div className="p-1.5 bg-white/20 rounded-xl backdrop-blur-sm">
               <UserCheck className="w-5 h-5" />
             </div>
