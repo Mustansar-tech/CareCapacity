@@ -155,29 +155,44 @@ function findClosestSlot(
   const MAX_DIFF = 150; // 2h 30mins in minutes
 
   for (const [wStart, wEnd] of windows) {
-    // If the window is large enough for the visit
     if (wEnd - wStart >= visitDuration) {
-      // We want to find a start time 's' such that:
-      // 1. s >= wStart
-      // 2. s + visitDuration <= wEnd
-      // 3. abs(s - reqStart) is minimized
-      
-      let closestStart: number;
-      if (reqStart < wStart) {
-        closestStart = wStart;
-      } else if (reqStart > (wEnd - visitDuration)) {
-        closestStart = wEnd - visitDuration;
-      } else {
-        closestStart = reqStart;
+      // Try each company block start time that fits in this window
+      for (const block of COMPANY_TIME_BLOCKS) {
+        const blockStart = timeToMinutes(block.start);
+        const blockEnd = blockStart + visitDuration;
+        
+        if (blockStart >= wStart && blockEnd <= wEnd) {
+          const diff = Math.abs(blockStart - reqStart);
+          if (diff <= MAX_DIFF) {
+            if (!bestSlot || diff < bestSlot.distance) {
+              bestSlot = {
+                window: `${minutesToTime(blockStart)}-${minutesToTime(blockEnd)}`,
+                distance: diff,
+              };
+            }
+          }
+        }
       }
+      
+      // Fallback: if no block start fits, use the closest possible start time
+      if (!bestSlot) {
+        let closestStart: number;
+        if (reqStart < wStart) {
+          closestStart = wStart;
+        } else if (reqStart > (wEnd - visitDuration)) {
+          closestStart = wEnd - visitDuration;
+        } else {
+          closestStart = reqStart;
+        }
 
-      const diff = Math.abs(closestStart - reqStart);
-      if (diff <= MAX_DIFF) {
-        if (!bestSlot || diff < bestSlot.distance) {
-          bestSlot = {
-            window: `${minutesToTime(closestStart)}-${minutesToTime(closestStart + visitDuration)}`,
-            distance: diff,
-          };
+        const diff = Math.abs(closestStart - reqStart);
+        if (diff <= MAX_DIFF) {
+          if (!bestSlot || diff < bestSlot.distance) {
+            bestSlot = {
+              window: `${minutesToTime(closestStart)}-${minutesToTime(closestStart + visitDuration)}`,
+              distance: diff,
+            };
+          }
         }
       }
     }
@@ -440,6 +455,8 @@ export async function matchClientEnquiry(
 ): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
+  
+  // CRITICAL: Only use dates from the provided analysis object to ensure we stay within the selected week
   const dates = Object.keys(employeeSummaryByDate).sort();
 
   if (dates.length === 0) {
@@ -488,6 +505,8 @@ export async function matchMultiVisitEnquiry(
 ): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
+
+  // CRITICAL: Only use dates from the provided analysis object to ensure we stay within the selected week
   const dates = Object.keys(employeeSummaryByDate).sort();
 
   if (dates.length === 0) {
