@@ -33,6 +33,7 @@ The application is designed for care home scheduling teams and business developm
 - **Session management:** With PostgreSQL session store.
 - **Zod schemas:** Comprehensive data validation.
 - **Geocoding cache:** Multi-level fallback hierarchy for performance.
+- **Advanced Travel Logic:** Bypasses ORS (OpenRouteService) cache for "Walking" mode to ensure realistic estimates for care pros who often use public transport/lifts.
 
 ### Performance Optimizations
 

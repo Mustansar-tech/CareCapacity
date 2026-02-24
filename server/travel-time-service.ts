@@ -129,12 +129,6 @@ export class TravelTimeService {
           const distanceMeters = data.routes[0].summary.distance;
           let durationMinutes = Math.max(2, Math.round(durationSeconds / 60)); // Minimum 2 min
 
-          // Add 10-minute public transport overhead (walking to/from stops, waiting)
-          if (transportMode === 'public') {
-            durationMinutes += 10;
-            logger.debug(`Added 10min public transport overhead: ${durationMinutes - 10} -> ${durationMinutes} min`);
-          }
-
           // Do NOT cap - return real travel time (scheduling engine will reject if > 60)
           logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
 
