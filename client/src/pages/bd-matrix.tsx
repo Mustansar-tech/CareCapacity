@@ -436,20 +436,29 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                 // We determine the final assignment for all previous CP slots to know who is "taken"
                                 const getTakenForDay = () => {
                                   const taken: string[] = [];
+                                  // Iterate through all previous rows (cpIdx is the current row index)
                                   for (let i = 0; i < cpIdx; i++) {
                                     const pref = vr.genderPreferences[i] || 'any';
-                                    const bestAvailable = vr.matches.find(m => {
+                                    
+                                    // Find who would have been chosen for this previous slot
+                                    const assignedToPrev = vr.matches.find(m => {
+                                      // Must not have been taken by an even earlier slot
                                       if (taken.includes(m.employeeName)) return false;
+                                      
+                                      // Must match the gender preference of that slot
                                       const isCorrectGender = pref === 'any' || m.gender?.toLowerCase() === pref.toLowerCase();
                                       if (!isCorrectGender) return false;
                                       
+                                      // Must be available on this specific day
                                       return m.matchedSlots.some(s => {
                                         const date = new Date(s.day + 'T12:00:00');
-                                        return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                        const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+                                        return dayAbbrev === day;
                                       });
                                     });
-                                    if (bestAvailable) {
-                                      taken.push(bestAvailable.employeeName);
+
+                                    if (assignedToPrev) {
+                                      taken.push(assignedToPrev.employeeName);
                                     }
                                   }
                                   return taken;
