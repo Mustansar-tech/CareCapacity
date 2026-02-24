@@ -185,12 +185,12 @@ function findClosestSlot(
           closestStart = reqStart;
         }
 
-        const diff = Math.abs(closestStart - reqStart);
-        if (diff <= MAX_DIFF) {
-          if (!bestSlot || diff < bestSlot.distance) {
+        const diffFallback = Math.abs(closestStart - reqStart);
+        if (diffFallback <= MAX_DIFF) {
+          if (!bestSlot || diffFallback < (bestSlot as any).distance) {
             bestSlot = {
               window: `${minutesToTime(closestStart)}-${minutesToTime(closestStart + visitDuration)}`,
-              distance: diff,
+              distance: diffFallback,
             };
           }
         }
@@ -256,7 +256,7 @@ async function buildEmployeeWeeklyData(
   }
 
   if (branchId && storage) {
-    for (const [empName, data] of employeeWeeklyData.entries()) {
+    for (const [empName, data] of Array.from(employeeWeeklyData.entries())) {
       const loc = await storage.getEmployeeLocationByName(branchId, empName);
       if (loc && loc.homeLat && loc.homeLng) {
         data.homeLat = parseFloat(loc.homeLat.toString());
@@ -293,7 +293,8 @@ function matchEmployeesForVisit(
 
   const candidates: MatchedEmployee[] = [];
 
-  for (const empName of Array.from(allEmployeeNames)) {
+  const employeeNamesArray = Array.from(allEmployeeNames);
+  for (const empName of employeeNamesArray) {
     const weeklyData = employeeWeeklyData.get(empName)!;
     
 
