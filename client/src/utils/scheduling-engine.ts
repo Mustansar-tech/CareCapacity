@@ -937,31 +937,67 @@ function assignVisitToBestEmployee(
       }
     }
 
-    // Rest break enforcement: block visit if it falls in a statutory rest window
-    // Track consecutive work using actual time gaps between visits (gap >= 20min resets the counter)
+    // Rest break enforcement: 30-minute break after 5 hours of scheduled care work
+    // Travel time does NOT count as rest - it must be subtracted from the gap
     let blockedByRestBreak = false;
     if (schedule.assignedVisits.length > 0) {
-      const REST_THRESHOLD = 360; // 6 hours
       const sorted = [...schedule.assignedVisits].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-      let consecutiveWork = sorted[0].durationMinutes;
-      let prevEnd = timeToMinutes(sorted[0].endTime);
-      for (let vi = 1; vi < sorted.length; vi++) {
+      let cumulativeCareMinutes = 0;
+      let breakTaken = false;
+
+      for (let vi = 0; vi < sorted.length; vi++) {
         const v = sorted[vi];
-        const vStart = timeToMinutes(v.startTime);
-        const gap = vStart - prevEnd;
-        if (gap >= 20) {
-          consecutiveWork = 0;
-        }
-        consecutiveWork += v.durationMinutes;
-        prevEnd = timeToMinutes(v.endTime);
-        if (consecutiveWork >= REST_THRESHOLD) {
-          const breakEnd = prevEnd + 20;
-          if (visitStartMinInternal >= prevEnd && visitStartMinInternal < breakEnd) {
-            clientLogger.log(`🛑 REST BREAK: ${schedule.employeeName} needs 20min break at ${prevEnd}min - blocking visit at ${visitStartMinInternal}min`);
-            blockedByRestBreak = true;
+        cumulativeCareMinutes += v.durationMinutes;
+
+        // Check if a sufficient break gap existed between consecutive visits
+        if (vi < sorted.length - 1) {
+          const vEnd = timeToMinutes(v.endTime);
+          const nextV = sorted[vi + 1];
+          const nextStart = timeToMinutes(nextV.startTime);
+          const rawGap = nextStart - vEnd;
+          const travelInGap = nextV.travelTimeBefore || 0;
+          const pureRest = rawGap - travelInGap;
+
+          // If there was a genuine 30-min rest break, reset the counter
+          if (pureRest >= BREAK_DURATION_MINUTES) {
+            if (cumulativeCareMinutes >= BREAK_THRESHOLD_MINUTES) {
+              breakTaken = true;
+            }
+            cumulativeCareMinutes = 0;
           }
-          break;
         }
+      }
+
+      // After all existing visits, check if this new visit would violate the break rule
+      if (cumulativeCareMinutes >= BREAK_THRESHOLD_MINUTES && !breakTaken) {
+        // Employee has worked 5+ hours without a 30-min break
+        // Check if the gap between last visit and this new visit provides enough rest
+        const lastVisit = sorted[sorted.length - 1];
+        const lastEnd = timeToMinutes(lastVisit.endTime);
+        const rawGapToNew = visitStartMinInternal - lastEnd;
+
+        // Calculate travel time from last visit to this new visit
+        const travelToNew = getTravelMinutes(
+          { lat: lastVisit.lat || 0, lng: lastVisit.lng || 0 },
+          { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
+          schedule.transportMode,
+          lastEnd
+        );
+        const pureRestToNew = rawGapToNew - travelToNew;
+
+        if (pureRestToNew < BREAK_DURATION_MINUTES) {
+          const neededStart = lastEnd + travelToNew + BREAK_DURATION_MINUTES;
+          clientLogger.log(`🛑 REST BREAK: ${schedule.employeeName} has worked ${(cumulativeCareMinutes/60).toFixed(1)}h - needs ${BREAK_DURATION_MINUTES}min break. Gap=${rawGapToNew}min, travel=${travelToNew}min, rest=${pureRestToNew}min. Visit ${adjustedVisit.clientName}@${adjustedVisit.startTime} blocked (earliest start: ${minutesToTime(neededStart)})`);
+          blockedByRestBreak = true;
+        }
+      }
+
+      // Also check: if adding this visit would push cumulative over threshold
+      // and there's no break opportunity after it
+      if (!blockedByRestBreak && (cumulativeCareMinutes + adjustedVisit.durationMinutes) >= BREAK_THRESHOLD_MINUTES) {
+        // The visit itself would push over threshold - that's OK as long as
+        // there will be a break after. We just log a warning.
+        clientLogger.log(`⚠️ REST WATCH: ${schedule.employeeName} will reach ${((cumulativeCareMinutes + adjustedVisit.durationMinutes)/60).toFixed(1)}h after ${adjustedVisit.clientName} - break needed after this visit`);
       }
     }
     if (blockedByRestBreak) continue;

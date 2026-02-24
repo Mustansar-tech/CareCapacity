@@ -670,24 +670,31 @@ export class AutoScheduler {
   }
 
   private needsRestBreak(schedule: any): { needed: boolean; afterMinutes: number } {
-    const REST_BREAK_THRESHOLD = 360; // 6 hours in minutes
+    const REST_BREAK_THRESHOLD = 300; // 5 hours in minutes (company rule)
+    const REST_BREAK_DURATION = 30; // 30-minute break required
     const visits = schedule.visits;
     if (visits.length === 0) return { needed: false, afterMinutes: 0 };
 
     const sortedVisits = [...visits].sort((a: any, b: any) => a.actualStartTime - b.actualStartTime);
-    let consecutiveWorkMinutes = 0;
-    let lastBreakEnd = sortedVisits[0].actualStartTime;
+    let cumulativeCareMinutes = 0;
 
-    for (const visit of sortedVisits) {
-      const gapFromLast = visit.actualStartTime - lastBreakEnd;
-      if (gapFromLast >= 20) {
-        consecutiveWorkMinutes = 0;
-        lastBreakEnd = visit.actualStartTime;
+    for (let i = 0; i < sortedVisits.length; i++) {
+      const visit = sortedVisits[i];
+      cumulativeCareMinutes += visit.durationMinutes;
+
+      // Check if gap between visits provides a genuine 30-min rest (excluding travel)
+      if (i < sortedVisits.length - 1) {
+        const nextVisit = sortedVisits[i + 1];
+        const rawGap = nextVisit.actualStartTime - visit.actualEndTime;
+        const travelInGap = nextVisit.travelTimeBefore || 0;
+        const pureRest = rawGap - travelInGap;
+
+        if (pureRest >= REST_BREAK_DURATION) {
+          cumulativeCareMinutes = 0; // Break taken, reset counter
+        }
       }
-      consecutiveWorkMinutes += visit.durationMinutes;
-      lastBreakEnd = visit.actualEndTime;
 
-      if (consecutiveWorkMinutes >= REST_BREAK_THRESHOLD) {
+      if (cumulativeCareMinutes >= REST_BREAK_THRESHOLD) {
         return { needed: true, afterMinutes: visit.actualEndTime };
       }
     }
