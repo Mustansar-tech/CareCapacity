@@ -1494,7 +1494,7 @@ export async function parseExcelFiles(
       title: emp.Title,
       gender: emp.Gender || "unknown"
     }));
-    logger.debug(`Sample employees (Title → Gender):`, samplesWithGender);
+    logger.debug(`Sample employees loaded: ${samplesWithGender.length} records`);
   } else {
     logger.debug(`No valid CG Data rows found - check column names and data`);
   }
