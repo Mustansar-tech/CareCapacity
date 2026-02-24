@@ -204,8 +204,8 @@ function clusterVisitsByLocation<T extends { lat?: number; lng?: number; date: s
 }
 
 // Statutory rest breaks configuration
-const BREAK_THRESHOLD_MINUTES = 5 * 60; // 5 hours
-const BREAK_DURATION_MINUTES = 30; // 30 minutes
+const BREAK_THRESHOLD_MINUTES = 6 * 60; // 6 hours
+const BREAK_DURATION_MINUTES = 20; // 20 minutes
 
 // Check if adding a visit would exceed capacity, daily limit, weekly hours, or requires a break
 function wouldExceedCapacity(
@@ -247,7 +247,7 @@ function injectStatutoryBreaks(schedule: EmployeeDaySchedule): void {
   if (schedule.assignedVisits.length < 2) return;
   if (schedule.usedCapacityMinutes < BREAK_THRESHOLD_MINUTES) return;
 
-  // Find the best gap for a 30-minute break after ~5 hours of work
+  // Find the best gap for a 20-minute break after ~6 hours of work
   let runningWorkMinutes = 0;
   let breakInjected = false;
 
