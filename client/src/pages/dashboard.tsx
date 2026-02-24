@@ -388,26 +388,44 @@ export default function Dashboard() {
         <CardContent>
           {/* Show intro cards only when no data exists */}
           {!processedData && (
-            <div className="text-center mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-blue-600" />
-                  <h3 className="font-semibold mb-2">Availability Export</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Employee availability and shift preferences</p>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                  <Card className="glass hover-lift border-primary/20 bg-primary/5 transition-all duration-300">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
+                        <FileSpreadsheet className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="font-bold text-lg mb-1">Availability</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">Staff shift patterns and preferences</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="glass hover-lift border-secondary/20 bg-secondary/5 transition-all duration-300">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
+                        <Clock className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="font-bold text-lg mb-1">Guaranteed</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">Contracted hours and core data</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="glass hover-lift border-tertiary/20 bg-tertiary/5 transition-all duration-300">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/20">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="font-bold text-lg mb-1">Client Data</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">Service requirements and locations</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="glass hover-lift border-orange-500/20 bg-orange-500/5 transition-all duration-300">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
+                        <Target className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="font-bold text-lg mb-1">CG Data</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">Master employee list (Required)</p>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-3 text-emerald-600" />
-                  <h3 className="font-semibold mb-2">Care Pro Guaranteed Hours</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Contracted hours and employee data</p>
-                </div>
-                {/* Client Demand intro card removed */}
-                <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <Target className="w-8 h-8 mx-auto mb-3 text-orange-600" />
-                  <h3 className="font-semibold mb-2">CG Data Export</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Master employee list and weekly hours</p>
-                </div>
-              </div>
-            </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6"> {/* Changed grid columns to 3 */}
@@ -560,7 +578,7 @@ export default function Dashboard() {
           <TabsList className="grid w-full grid-cols-5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <TabsTrigger
               value="overview"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-3"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
@@ -568,7 +586,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="daily-capacity"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-3"
               data-testid="tab-daily-capacity"
             >
               <Calendar className="w-4 h-4 mr-2" />
@@ -576,7 +594,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="bd-matrix"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              className="data-[state=active]:bg-tertiary data-[state=active]:text-tertiary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-3"
               data-testid="tab-bd-matrix"
             >
               <Users className="w-4 h-4 mr-2" />
@@ -584,7 +602,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="schedules"
-              className="data-[state=active]:bg-blue-600 data-[state=active]:text-white dark:data-[state=active]:bg-blue-600 dark:data-[state=active]:text-white data-[state=active]:shadow-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-lg font-medium"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-3"
               data-testid="tab-schedules"
             >
               <Calendar className="w-4 h-4 mr-2" />
