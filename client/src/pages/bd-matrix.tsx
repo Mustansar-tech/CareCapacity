@@ -467,26 +467,29 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
 
                                 const uniqueTakenNames = getTakenForDay();
 
+                                const isLastCP = cpIdx === vr.careProsRequired - 1;
+
+                                const allVisibleMatches = vr.matches.filter(m => {
+                                  const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                                  const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
+                                  if (!isCorrectGender) return false;
+
+                                  const hasSlotOnDay = m.matchedSlots.some(s => {
+                                    const date = new Date(s.day + 'T12:00:00');
+                                    return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                  });
+                                  if (!hasSlotOnDay) return false;
+
+                                  return !uniqueTakenNames.includes(m.employeeName);
+                                });
+
+                                const matchesToShow = isLastCP ? allVisibleMatches : allVisibleMatches.slice(0, 1);
+
                                 return (
                                   <td key={day} className="p-3 align-top min-w-[250px]">
                                     <ScrollArea className="h-[200px] pr-4">
                                       <div className="space-y-3">
-                                        {vr.matches
-                                          .filter(m => {
-                                            const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                                            const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
-                                            if (!isCorrectGender) return false;
-
-                                            const hasSlotOnDay = m.matchedSlots.some(s => {
-                                              const date = new Date(s.day + 'T12:00:00');
-                                              return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
-                                            });
-                                            if (!hasSlotOnDay) return false;
-
-                                            // CRITICAL: If this person is suggested ANYWHERE in a previous CP row for this day,
-                                            // they are 100% excluded from this row.
-                                            return !uniqueTakenNames.includes(m.employeeName);
-                                          })
+                                        {matchesToShow
                                           .map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => {
                                     const dateStr = s.day;
