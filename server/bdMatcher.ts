@@ -479,9 +479,12 @@ export async function matchClientEnquiry(
   const filteredSummaryByDate: Record<string, EmployeeSummaryRecord[]> = {};
   const filteredEmployeesByDate: Record<string, EmployeeDailyDetail[]> = {};
   
-  for (const date of dates) {
-    filteredSummaryByDate[date] = employeeSummaryByDate[date];
-    filteredEmployeesByDate[date] = employeesByDate[date];
+  const selectedDatesSet = new Set(dates);
+  for (const date of Object.keys(employeeSummaryByDate)) {
+    if (selectedDatesSet.has(date)) {
+      filteredSummaryByDate[date] = employeeSummaryByDate[date];
+      filteredEmployeesByDate[date] = employeesByDate[date];
+    }
   }
 
   const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
@@ -550,9 +553,12 @@ export async function matchMultiVisitEnquiry(
   const filteredSummaryByDate: Record<string, EmployeeSummaryRecord[]> = {};
   const filteredEmployeesByDate: Record<string, EmployeeDailyDetail[]> = {};
   
-  for (const date of dates) {
-    filteredSummaryByDate[date] = employeeSummaryByDate[date];
-    filteredEmployeesByDate[date] = employeesByDate[date];
+  const selectedDatesSet = new Set(dates);
+  for (const date of Object.keys(employeeSummaryByDate)) {
+    if (selectedDatesSet.has(date)) {
+      filteredSummaryByDate[date] = employeeSummaryByDate[date];
+      filteredEmployeesByDate[date] = employeesByDate[date];
+    }
   }
 
   const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(

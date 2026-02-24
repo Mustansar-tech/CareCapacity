@@ -441,8 +441,9 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                     const pref = vr.genderPreferences[i] || 'any';
                                     
                                     // Find who would have been chosen for this previous slot
+                                    // This must mirror the actual display logic (first available match)
                                     const assignedToPrev = vr.matches.find(m => {
-                                      // Must not have been taken by an even earlier slot
+                                      // Must not have been taken by an even earlier slot in this same visit
                                       if (taken.includes(m.employeeName)) return false;
                                       
                                       // Must match the gender preference of that slot
