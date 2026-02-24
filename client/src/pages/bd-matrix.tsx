@@ -483,6 +483,10 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   return !uniqueTakenNames.includes(m.employeeName);
                                 });
 
+                                // Rule:
+                                // 1. If not the last CP: Only show top 1 match.
+                                // 2. If the last CP: Show all available matches.
+                                // This ensures CP1/CP2 show fixed assignments while the final CP allows choice.
                                 const matchesToShow = isLastCP ? allVisibleMatches : allVisibleMatches.slice(0, 1);
 
                                 return (
@@ -490,6 +494,14 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                     <ScrollArea className="h-[200px] pr-4">
                                       <div className="space-y-3">
                                         {matchesToShow
+                                          .sort((a, b) => {
+                                            // Priority: Exact matches always on top
+                                            const aExact = a.matchedSlots.some(s => s.matchType === 'exact' && s.day.includes(day) || s.dayLabel.toLowerCase().startsWith(day));
+                                            const bExact = b.matchedSlots.some(s => s.matchType === 'exact' && s.day.includes(day) || s.dayLabel.toLowerCase().startsWith(day));
+                                            if (aExact && !bExact) return -1;
+                                            if (!aExact && bExact) return 1;
+                                            return b.matchScore - a.matchScore;
+                                          })
                                           .map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => {
                                     const dateStr = s.day;

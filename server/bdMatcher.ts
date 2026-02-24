@@ -152,7 +152,7 @@ function findClosestSlot(
   visitDuration: number
 ): { window: string; distance: number } | null {
   let bestSlot: { window: string; distance: number } | null = null;
-  const MAX_DIFF = 240; // Allow up to 4 hours difference for block matching
+  const MAX_DIFF = 150; // 2h30mins = 150 minutes
 
   // Helper to check if a block matches exactly (09:15, 10:30, etc.)
   const isStandardBlockStart = (mins: number) => {
@@ -184,6 +184,7 @@ function findClosestSlot(
   }
 
   // Fallback: If NO standard block fits the window, only then use a non-standard time
+  // Note: We still respect MAX_DIFF here
   if (!bestSlot) {
     for (const [wStart, wEnd] of windows) {
       if (wEnd - wStart >= visitDuration) {
