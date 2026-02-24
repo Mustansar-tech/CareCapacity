@@ -3426,7 +3426,6 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         gender = "female";
       }
 
-      logger.debug(`  ${employeeName}: Title="${title}" -> Gender="${gender || "unknown"}"`);
 
       if (employeeName && postcode) {
         const normalizedTransport = toTransportMode(transportMode);
