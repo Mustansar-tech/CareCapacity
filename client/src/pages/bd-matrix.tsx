@@ -501,6 +501,11 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   if (!slotOnDay) return null;
 
                                   const isExact = slotOnDay.matchType === 'exact';
+                                  const rawGap = (employeeMatch as any).rawGap;
+                                  const travelInGap = (employeeMatch as any).travelInGap;
+                                  const pureRest = (rawGap !== undefined && travelInGap !== undefined) ? (rawGap - travelInGap) : 60; // Default to 60 if not provided
+                                  const showAdjustedTime = !isExact && pureRest >= 30;
+
                                   const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
                                   const genderColorClass = employeeMatch.gender?.toLowerCase() === 'female' 
                                     ? 'border-pink-200 bg-pink-50/50 dark:bg-pink-900/20 dark:border-pink-800/50' 
@@ -527,8 +532,22 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                           {Math.round(employeeMatch.matchScore)}%
                                         </div>
                                       </div>
-                                      <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
-                                        {slotOnDay.availableWindow}
+                                      <div className="flex flex-wrap gap-1.5">
+                                        <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
+                                          {slotOnDay.availableWindow}
+                                        </div>
+                                        {showAdjustedTime && (
+                                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50">
+                                            <Clock className="w-3 h-3" />
+                                            Sug: {slotOnDay.availableWindow.split('-')[0]}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                        <div className="flex items-center gap-1">
+                                          <BarChart3 className="w-3 h-3 opacity-50" />
+                                          {remainingHours}h rem
+                                        </div>
                                       </div>
                                       <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
                                         <div className="flex items-center gap-1.5">
