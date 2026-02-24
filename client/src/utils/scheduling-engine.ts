@@ -262,11 +262,13 @@ function injectStatutoryBreaks(schedule: EmployeeDaySchedule): void {
       const currentEnd = timeToMinutes(currentVisit.endTime);
       const nextStart = timeToMinutes(nextVisit.startTime);
       const travelTime = nextVisit.travelTimeBefore || 0;
-      const gap = nextStart - currentEnd - travelTime;
+      
+      // Calculate pure rest gap (Total gap between visits - travel time)
+      const pureRestGap = nextStart - currentEnd - travelTime;
 
-      if (gap >= BREAK_DURATION_MINUTES) {
-        // We found a natural gap! Mark it as a break (visual only for now in logs/metadata)
-        clientLogger.log(`✅ ${schedule.employeeName}: Statutory break accommodated in ${gap}min gap (excluding ${travelTime}min travel) after ${runningWorkMinutes}min work`);
+      if (pureRestGap >= BREAK_DURATION_MINUTES) {
+        // We found a natural gap! Mark it as a break
+        clientLogger.log(`✅ ${schedule.employeeName}: Statutory break accommodated in ${pureRestGap}min pure rest gap after ${runningWorkMinutes}min work`);
         breakInjected = true;
         break;
       }
