@@ -1098,15 +1098,16 @@ export default function Dashboard() {
                     disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
                     data-testid="button-process-overview"
+                    aria-busy={isProcessing || processMutation.isPending}
                   >
                     {isProcessing || processMutation.isPending ? (
                       <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
                         Processing Files...
                       </>
                     ) : (
                       <>
-                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        <FileSpreadsheet className="w-4 h-4 mr-2" aria-hidden="true" />
                         Process Files
                       </>
                     )}
