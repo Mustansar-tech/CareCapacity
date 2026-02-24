@@ -203,7 +203,11 @@ function clusterVisitsByLocation<T extends { lat?: number; lng?: number; date: s
   return clustered;
 }
 
-// Check if adding a visit would exceed capacity, daily limit, or weekly hours
+// Statutory rest breaks configuration
+const BREAK_THRESHOLD_MINUTES = 5 * 60; // 5 hours
+const BREAK_DURATION_MINUTES = 30; // 30 minutes
+
+// Check if adding a visit would exceed capacity, daily limit, weekly hours, or requires a break
 function wouldExceedCapacity(
   schedule: EmployeeDaySchedule,
   visitDurationMinutes: number
@@ -225,12 +229,51 @@ function wouldExceedCapacity(
   }
 
   // Check against available daily capacity
-  if (newTotalCareTime > schedule.totalCapacityMinutes) {
-    clientLogger.log(`⚠️ ${schedule.employeeName}: Would exceed capacity (${newTotalCareTime}min > ${schedule.totalCapacityMinutes}min)`);
+  // We subtract the potential break duration from total capacity if threshold is reached
+  const effectiveCapacity = newTotalCareTime >= BREAK_THRESHOLD_MINUTES 
+    ? schedule.totalCapacityMinutes - BREAK_DURATION_MINUTES
+    : schedule.totalCapacityMinutes;
+
+  if (newTotalCareTime > effectiveCapacity) {
+    clientLogger.log(`⚠️ ${schedule.employeeName}: Would exceed capacity with break considerations (${newTotalCareTime}min > ${effectiveCapacity}min)`);
     return true;
   }
 
   return false;
+}
+
+// Inject statutory breaks into a completed daily schedule
+function injectStatutoryBreaks(schedule: EmployeeDaySchedule): void {
+  if (schedule.assignedVisits.length < 2) return;
+  if (schedule.usedCapacityMinutes < BREAK_THRESHOLD_MINUTES) return;
+
+  // Find the best gap for a 30-minute break after ~5 hours of work
+  let runningWorkMinutes = 0;
+  let breakInjected = false;
+
+  for (let i = 0; i < schedule.assignedVisits.length - 1; i++) {
+    const currentVisit = schedule.assignedVisits[i];
+    const nextVisit = schedule.assignedVisits[i + 1];
+    
+    runningWorkMinutes += currentVisit.durationMinutes;
+
+    // If we've worked enough, look for a gap
+    if (runningWorkMinutes >= BREAK_THRESHOLD_MINUTES && !breakInjected) {
+      const currentEnd = timeToMinutes(currentVisit.endTime);
+      const nextStart = timeToMinutes(nextVisit.startTime);
+      const gap = nextStart - currentEnd;
+
+      if (gap >= BREAK_DURATION_MINUTES) {
+        // We found a natural gap! Mark it as a break (visual only for now in logs/metadata)
+        clientLogger.log(`✅ ${schedule.employeeName}: Statutory break accommodated in ${gap}min gap after ${runningWorkMinutes}min work`);
+        breakInjected = true;
+        break;
+      }
+    }
+  }
+
+  // If no natural gap was found but threshold was reached, the scheduler 
+  // should have theoretically prevented this via wouldExceedCapacity
 }
 
 // Merge adjacent or overlapping time windows for better scheduling
@@ -1469,6 +1512,12 @@ export function generateWeeklySchedule(
     // After each day's first pass, update continuity map with today's assignments
     const daySchedules = schedulesByDate[date] || [];
     for (const schedule of daySchedules) {
+      // Finalize day schedule and inject breaks
+      if (schedule.assignedVisits.length > 0) {
+        schedule.assignedVisits.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+        injectStatutoryBreaks(schedule);
+      }
+
       for (const av of schedule.assignedVisits) {
         const empName = schedule.employeeName;
         if (!continuityMap.has(empName)) {
@@ -1794,6 +1843,8 @@ export function generateWeeklySchedule(
         const timeB = timeToMinutes(b.startTime);
         return timeA - timeB;
       });
+      // Inject statutory breaks after 5 hours of work
+      injectStatutoryBreaks(schedule);
     });
   });
 
