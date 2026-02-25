@@ -78,20 +78,23 @@ function minutesToTime(mins: number): string {
 function parseFreeWindows(freeWindows: string): Array<[number, number]> {
   if (!freeWindows || freeWindows === '-' || freeWindows === '') return [];
 
-  const normalized = freeWindows.replace(/\u2013|\u2014/g, '-');
+    const normalized = freeWindows.replace(/\u2013|\u2014/g, '-');
 
-  return normalized
-    .split(',')
-    .map(w => w.trim())
-    .filter(w => w && w.includes('-'))
-    .map(w => {
-      const parts = w.split('-').map(s => s.trim());
-      if (parts.length < 2) return null;
-      const start = timeToMinutes(parts[0]);
-      const end = timeToMinutes(parts[parts.length - 1]);
-      return [start, end] as [number, number];
-    })
-    .filter((pair): pair is [number, number] => pair !== null && pair[1] > pair[0]);
+    return normalized
+      .split(',')
+      .map(w => w.trim())
+      .filter(w => w && (w.includes('-') || w.toLowerCase() === 'any'))
+      .map(w => {
+        if (w.toLowerCase() === 'any') {
+          return [0, 1439] as [number, number]; // 00:00 to 23:59
+        }
+        const parts = w.split('-').map(s => s.trim());
+        if (parts.length < 2) return null;
+        const start = timeToMinutes(parts[0]);
+        const end = timeToMinutes(parts[parts.length - 1]);
+        return [start, end] as [number, number];
+      })
+      .filter((pair): pair is [number, number] => pair !== null && pair[1] > pair[0]);
 }
 
 function getDayLabel(dateStr: string): string {
