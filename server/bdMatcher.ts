@@ -100,9 +100,16 @@ function getDayLabel(dateStr: string): string {
 }
 
 function getDayAbbrev(dateStr: string): string {
-  // Use UTC to avoid timezone shifts that might change the day
+  // Matrix grid in bd-matrix.tsx uses toLocaleDateString('en-GB') or standard 3-letter abbrevs
+  // but the search filter uses ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
   const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  
+  // Normalize to the 3-letter keys used in the search logic
+  if (dayName === 'thu') return 'thu'; 
+  if (dayName === 'sat') return 'sat';
+  if (dayName === 'sun') return 'sun';
+  return dayName;
 }
 
 // Company's 11 standardized time blocks

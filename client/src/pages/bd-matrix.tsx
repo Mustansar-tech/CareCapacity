@@ -364,6 +364,12 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
+  // Debug helper to ensure we're matching the right day strings
+  const getDayAbbrevFromDate = (dateStr: string) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  };
+
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
   return (
@@ -475,8 +481,10 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   if (!isCorrectGender) return false;
 
                                   const hasSlotOnDay = m.matchedSlots.some(s => {
+                                    // Use a more robust check that handles both full date strings and day labels
                                     const date = new Date(s.day + 'T12:00:00');
-                                    return date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase() === day;
+                                    const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+                                    return dayAbbrev === day.toLowerCase() || s.dayLabel.toLowerCase().startsWith(day.toLowerCase());
                                   });
                                   if (!hasSlotOnDay) return false;
 
