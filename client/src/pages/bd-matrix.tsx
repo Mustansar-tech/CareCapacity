@@ -1604,22 +1604,50 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                     View Care Pro Map
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
-                  <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight">
-                      <MapPin className="w-7 h-7" />
-                      Care Pro Strategic Map
-                    </DialogTitle>
-                    <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-widest text-[10px]">
-                      Real-time geographic distribution of care professionals
-                    </DialogDescription>
+                <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] p-0 overflow-hidden border-none shadow-2xl rounded-3xl bg-white dark:bg-gray-950">
+                  <DialogHeader className="px-8 py-6 bg-gradient-to-br from-blue-700 via-indigo-700 to-blue-800 text-white shrink-0 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl" />
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
+                    <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl" />
+                    
+                    <div className="flex items-center justify-between relative z-10 w-full">
+                      <div className="flex items-center gap-5">
+                        <div className="p-3.5 bg-white/20 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 rotate-3 hover:rotate-0 transition-transform duration-500">
+                          <MapIcon className="w-8 h-8 text-white drop-shadow-md" />
+                        </div>
+                        <div>
+                          <DialogTitle className="text-3xl font-black tracking-tight text-white drop-shadow-sm">
+                            Care Pro Strategic Map
+                          </DialogTitle>
+                          <DialogDescription className="text-blue-100 font-bold text-[10px] uppercase tracking-[0.2em] opacity-90 mt-1.5 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            Real-time geographic distribution of care professionals
+                          </DialogDescription>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 px-6 py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 opacity-70">Total Active</span>
+                          <span className="text-xl font-black text-white leading-none">{locations.length}</span>
+                        </div>
+                        <div className="w-px h-8 bg-white/20" />
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 opacity-70">Region</span>
+                          <span className="text-sm font-black text-white leading-none uppercase tracking-tighter">Central Branch</span>
+                        </div>
+                      </div>
+                    </div>
                   </DialogHeader>
-                  <div className="flex-1 relative bg-gray-100 overflow-hidden">
-                    <CareProMap 
-                      locations={locations} 
-                      onRefresh={() => refetchLocations()} 
-                      isRefreshing={isFetchingLocations} 
-                    />
+                  <div className="flex-1 relative bg-[#f1f5f9] dark:bg-gray-900">
+                    <div className="absolute inset-0 z-0 opacity-30 pointer-events-none bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)]" />
+                    <div className="relative z-10 h-full w-full">
+                      <CareProMap 
+                        locations={locations} 
+                        onRefresh={() => refetchLocations()} 
+                        isRefreshing={isFetchingLocations} 
+                      />
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
