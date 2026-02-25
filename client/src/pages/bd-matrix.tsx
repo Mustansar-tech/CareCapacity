@@ -185,7 +185,9 @@ function getMatchTypeBadge(matchType: string) {
     case 'exact':
       return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700">Exact Match</Badge>;
     case 'adjusted-time':
-      return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700">Adjusted Time</Badge>;
+      return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700 flex items-center gap-1">
+        <Info className="w-3 h-3" /> Needs Adjustment
+      </Badge>;
     case 'alternative-day':
       return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700">Alternative Day</Badge>;
     default:
@@ -564,8 +566,11 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                 >
                                                   <div className="flex justify-between items-start gap-2">
                                                     <div className="flex flex-col min-w-0">
-                                                      <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate`} title={employeeMatch.employeeName}>
+                                                      <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1`} title={employeeMatch.employeeName}>
                                                         {employeeMatch.employeeName}
+                                                        {slotOnDay.matchType === 'adjusted-time' && (
+                                                          <Info className="w-3 h-3 text-orange-500" />
+                                                        )}
                                                       </div>
                                                       {employeeMatch.homePostcode && (
                                                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">

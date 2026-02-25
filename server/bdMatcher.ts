@@ -191,11 +191,18 @@ function findClosestSlot(
     if (wEnd - wStart < visitDuration) continue;
 
     // Step 1: Check if requested slot fits exactly (window contains requested start→end)
+    // AND it must align with a company time block to be considered "exact"
     if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
-      return {
-        window: `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`,
-        distance: 0,
-      };
+      const isBlockAligned = COMPANY_TIME_BLOCKS.some(block => 
+        timeToMinutes(block.start) === reqStart
+      );
+      
+      if (isBlockAligned) {
+        return {
+          window: `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`,
+          distance: 0,
+        };
+      }
     }
 
     // Step 2: Find the best start time within this window that is closest to reqStart.
