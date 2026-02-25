@@ -155,7 +155,8 @@ function findContainedSlot(
     // If the requested block (reqStart to reqStart + visitDuration) 
     // is entirely within an available window (wStart to wEnd), 
     // then it's a valid match at the requested time.
-    if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
+    // MODIFICATION: Use a small buffer (1 min) to handle precision issues
+    if (reqStart >= wStart - 1 && (reqStart + visitDuration) <= wEnd + 1) {
       return {
         window: `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`,
         distance: 0
@@ -652,7 +653,7 @@ export async function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      50, // Increase result count to ensure "all remaining" is truly all available
+      100, // Further increase to ensure no one is missed
       clientCoords
     );
 
