@@ -488,7 +488,7 @@ function matchEmployeesForVisit(
       travelBonus = Math.max(0, 15 - (distance * 100)); 
     }
 
-    const finalScore = Math.round((avgScore * 0.5 + dayMatchRatio * 100 * 0.2 + capacityBonus * 0.15 + travelBonus) * 100) / 100;
+    const finalScore = Math.round((avgScore * 0.4 + dayMatchRatio * 100 * 0.4 + capacityBonus * 0.1 + travelBonus * 0.1) * 100) / 100;
 
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';

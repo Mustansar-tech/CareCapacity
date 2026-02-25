@@ -484,7 +484,25 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                     // Use a more robust check that handles both full date strings and day labels
                                     const date = new Date(s.day + 'T12:00:00');
                                     const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                                    return dayAbbrev === day.toLowerCase() || s.dayLabel.toLowerCase().startsWith(day.toLowerCase());
+                                    
+                                    // Match against the column's day ID ('mon', 'tue', etc)
+                                    const columnDay = day.toLowerCase();
+                                    
+                                    // Normalize day abbreviations for comparison
+                                    const normalizeDay = (d: string) => {
+                                      const mapped: Record<string, string> = {
+                                        'thu': 'thu', 'thur': 'thu', 'thurs': 'thu',
+                                        'sat': 'sat', 'sun': 'sun', 'mon': 'mon', 
+                                        'tue': 'tue', 'tues': 'tue', 'wed': 'wed', 'fri': 'fri'
+                                      };
+                                      return mapped[d] || d;
+                                    };
+
+                                    const normSlotDay = normalizeDay(dayAbbrev);
+                                    const normColumnDay = normalizeDay(columnDay);
+                                    const normLabelDay = normalizeDay(s.dayLabel.toLowerCase().split(' ')[0]);
+
+                                    return normSlotDay === normColumnDay || normLabelDay === normColumnDay;
                                   });
                                   if (!hasSlotOnDay) return false;
 
