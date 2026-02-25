@@ -154,7 +154,9 @@ interface MatchedSlot {
 
 function dateToAbbrev(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  const dayIdx = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return days[dayIdx];
 }
 
 type GridMatrix = { dates: string[]; matrix: Record<string, Record<string, BDMatrixCell>> };
@@ -186,7 +188,8 @@ function performFrontendMatch(
     const coveringBlocks = COMPANY_TIME_BLOCKS.filter(tb => {
       const bStart = timeToMinutes(tb.start);
       const bEnd = timeToMinutes(tb.end);
-      return bStart <= reqStart && bEnd >= reqEnd;
+      // Use 1-minute tolerance to handle any floating point or precision issues
+      return (bStart <= reqStart + 1) && (bEnd >= reqEnd - 1);
     });
 
     // If no block exactly covers it, find blocks with the most overlap (closest match)
@@ -1320,7 +1323,7 @@ function ClientEnquiryMatcher({ gridMatrix }: { gridMatrix?: GridMatrix }) {
                           <span className="w-px h-4 bg-purple-200/50" />
                           <span className="flex items-center gap-1.5 ml-auto text-purple-600">
                             <Activity className="w-3.5 h-3.5" />
-                            {vr.totalEmployeesEvaluated} analyzed
+                            {vr.matches.length > 0 ? `${vr.totalEmployeesEvaluated} analyzed` : "0 matches (check time alignment)"}
                           </span>
                         </div>
                         
