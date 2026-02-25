@@ -475,11 +475,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
     return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
   };
 
-  const { data: locations = [] } = useQuery<any[]>({
-    queryKey: ['/api/locations'],
-    enabled: !!data,
-  });
-
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
   return (
@@ -1394,6 +1389,11 @@ function ClientEnquiryMatcher() {
 
 export default function BDMatrix({ data }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
+
+  const { data: locations = [] } = useQuery<any[]>({
+    queryKey: ['/api/locations'],
+    enabled: !!data,
+  });
 
   const matrixData = useMemo(() => {
     if (!data?.employeeSummaryByDate) return null;
