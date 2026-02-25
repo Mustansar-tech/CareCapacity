@@ -111,6 +111,18 @@ export class AutoScheduler {
 
   private bufferTime: number;
   private maxTravelCapMinutes: number;
+    private getTrafficMultiplier(timeMinutes: number): number {
+      // Peak hours: 07:30-09:30 and 16:30-18:30
+      if ((timeMinutes >= 450 && timeMinutes <= 570) || (timeMinutes >= 990 && timeMinutes <= 1110)) {
+        return 1.4; // 40% increase during peak
+      }
+      // Evening/Night: 20:00-06:00
+      if (timeMinutes >= 1200 || timeMinutes <= 360) {
+        return 0.8; // 20% decrease
+      }
+      return 1.0;
+    }
+  
 
   /**
    * Automatically schedule visits for a given date
@@ -196,13 +208,18 @@ export class AutoScheduler {
     logger.debug(`   Other GH employees: ${femaleOtherGhEmployeeSchedules.size}`);
     logger.debug(`   Non-GH (ad-hoc) employees: ${nonGhEmployeeSchedules.size}`);
 
-    // PHASE 1: Assign visits to Male GH employees FIRST
+    // PHASE 1: Assign visits to Male GH employees FIRST (Industry Standard: Priority Resource Allocation)
     logger.debug(`\nPHASE 1: Filling MALE GH employees first...`);
     for (const visit of prioritizedVisits) {
       const bestAssignment = await this.findBestEmployeeForVisit(visit, maleGhEmployeeSchedules, continuityMap);
 
       if (bestAssignment) {
         const schedule = maleGhEmployeeSchedules.get(bestAssignment.employeeName)!;
+        
+        // Calculate dynamic travel with traffic awareness
+        const trafficMult = this.getTrafficMultiplier(visit.startTime);
+        bestAssignment.travelTimeBefore *= trafficMult;
+        
         const scheduledVisit = this.assignVisitToEmployee(visit, bestAssignment, schedule);
         schedule.visits.push(scheduledVisit);
 
@@ -210,7 +227,6 @@ export class AutoScheduler {
         schedule.lastVisitEndTime = scheduledVisit.actualEndTime;
 
         employeeSchedules.set(bestAssignment.employeeName, schedule);
-        // Removed debug log for better privacy in production
       } else {
         unassignedVisits.push(visit);
       }
@@ -1014,3 +1030,8 @@ export class AutoScheduler {
 
 // Export singleton instance
 export const autoScheduler = new AutoScheduler();
+    private getPostcodeSector(postcode: string): string {
+      if (!postcode) return 'unknown';
+      return postcode.split(' ')[0];
+    }
+  
