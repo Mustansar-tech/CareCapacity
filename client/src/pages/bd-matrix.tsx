@@ -388,26 +388,18 @@ function normalizeGender(raw: string | undefined | null): 'female' | 'male' | nu
 function makeIcon(gender: string) {
   const g = normalizeGender(gender);
   const color = g === 'female' ? '#ec4899' : g === 'male' ? '#3b82f6' : '#9ca3af';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
-    <defs>
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
-        <feOffset dx="0" dy="2" result="offsetblur" />
-        <feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer>
-        <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <path d="M18 0C8.059 0 0 8.059 0 18c0 12 18 26 18 26s18-14 18-26C36 8.059 27.941 0 18 0z" fill="${color}" stroke="white" stroke-width="2.5" filter="url(#shadow)"/>
-    <circle cx="18" cy="18" r="8" fill="white" opacity="0.95"/>
-    <circle cx="18" cy="18" r="5" fill="${color}"/>
-    <circle cx="28" cy="8" r="6" fill="#22c55e" stroke="white" stroke-width="2"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+    <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
+    <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
+    <circle cx="16" cy="16" r="4" fill="${color}"/>
+    <circle cx="24" cy="8" r="5" fill="#22c55e" stroke="white" stroke-width="2"/>
   </svg>`;
   return L.divIcon({
     html: svg,
-    className: 'care-pro-marker',
-    iconSize: [36, 44],
-    iconAnchor: [18, 44],
-    popupAnchor: [0, -44],
+    className: '',
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -40],
   });
 }
 
@@ -435,42 +427,34 @@ function CareProMap({
     return [avgLat, avgLng];
   }, [validLocations]);
 
-  const [map, setMap] = useState<L.Map | null>(null);
-
   if (validLocations.length === 0) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 backdrop-blur-sm">
-        <div className="p-8 bg-white dark:bg-slate-800 rounded-[32px] shadow-2xl border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center animate-in zoom-in duration-500">
-          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-6 ring-8 ring-slate-100 dark:ring-slate-800/50">
-            <MapIcon className="w-10 h-10 text-slate-300 dark:text-slate-600 animate-pulse" />
-          </div>
-          <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Geographic Data Pending</h4>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-[280px] font-medium leading-relaxed italic">Upload employee postcodes and ensure geocoding is complete to visualize capacity.</p>
-          {onRefresh && (
-            <Button 
-              onClick={onRefresh} 
-              disabled={isRefreshing}
-              variant="outline"
-              className="mt-8 gap-3 h-12 px-8 rounded-2xl font-bold border-2 hover:bg-slate-50 transition-all active:scale-95"
-            >
-              <RefreshCw className={`w-5 h-5 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Initialize Data Fetch
-            </Button>
-          )}
-        </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
+        <MapIcon className="w-16 h-16 text-gray-300 mb-4" />
+        <h4 className="text-xl font-bold text-gray-400">No Location Data</h4>
+        <p className="text-sm text-gray-400 mt-2">Ensure employee postcodes are uploaded and geocoded</p>
+        {onRefresh && (
+          <Button 
+            onClick={onRefresh} 
+            disabled={isRefreshing}
+            variant="outline"
+            className="mt-4 gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 group">
+    <div className="absolute inset-0">
       <MapContainer
         center={center}
         zoom={10}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
-        ref={setMap}
-        zoomControl={false}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -482,44 +466,23 @@ function CareProMap({
             position={[parseFloat(loc.homeLat), parseFloat(loc.homeLng)]}
             icon={makeIcon(loc.gender || '')}
           >
-            <Popup className="premium-popup">
-              <div className="p-1 min-w-[180px]">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-3 mb-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${normalizeGender(loc.gender) === 'female' ? 'bg-pink-100 text-pink-600' : 'bg-blue-100 text-blue-600'}`}>
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-black text-sm text-slate-900 leading-none">{loc.employeeName}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{loc.homePostcode}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
+            <Popup>
+              <div className="text-center min-w-[140px]">
+                <p className="font-black text-sm text-gray-900">{loc.employeeName}</p>
+                <p className="text-xs font-bold text-gray-500 mt-0.5 uppercase">{loc.homePostcode}</p>
+                <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
                   {normalizeGender(loc.gender) && (
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Identity</span>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full ${normalizeGender(loc.gender) === 'female' ? 'bg-pink-500' : 'bg-blue-500'}`} />
-                        <span className="text-slate-700 capitalize">{normalizeGender(loc.gender)}</span>
-                      </div>
-                    </div>
+                    <>
+                      <div className={`w-2 h-2 rounded-full ${normalizeGender(loc.gender) === 'female' ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                      <span className="text-xs text-gray-600 capitalize">{normalizeGender(loc.gender)}</span>
+                    </>
+                  )}
+                  {loc.transportMode && normalizeGender(loc.gender) && (
+                    <span className="text-xs text-gray-400">•</span>
                   )}
                   {loc.transportMode && (
-                    <div className="flex items-center justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Transport</span>
-                      <span className="text-slate-700 capitalize flex items-center gap-1.5">
-                        <TransportModeIcon transportMode={loc.transportMode} />
-                        {loc.transportMode}
-                      </span>
-                    </div>
+                    <span className="text-xs text-gray-500 capitalize">{loc.transportMode}</span>
                   )}
-                  <div className="flex items-center justify-between text-[11px] font-bold">
-                    <span className="text-slate-400 uppercase tracking-tighter">Status</span>
-                    <span className="text-green-600 flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                      Active
-                    </span>
-                  </div>
                 </div>
               </div>
             </Popup>
@@ -527,94 +490,28 @@ function CareProMap({
         ))}
       </MapContainer>
 
-      {/* Floating UI Elements */}
-      <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-2">
-        <div className="flex flex-col bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-10 w-10 hover:bg-slate-100 rounded-none border-b border-slate-100 text-slate-600"
-            onClick={() => map?.zoomIn()}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-10 w-10 hover:bg-slate-100 rounded-none text-slate-600"
-            onClick={() => map?.zoomOut()}
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
-        </div>
-        <Button 
-          variant="secondary" 
-          size="icon" 
-          className="h-10 w-10 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 text-slate-600 hover:bg-white"
-          onClick={() => map?.setView(center, 10)}
-        >
-          <Activity className="w-4 h-4" />
-        </Button>
-      </div>
-
-      <div className="absolute top-6 right-6 z-[1000] flex items-center gap-3">
+      <div className="absolute top-6 right-20 z-[1000]">
         {onRefresh && (
           <Button 
             onClick={onRefresh} 
             disabled={isRefreshing}
-            className="bg-white/95 hover:bg-white text-slate-900 font-black shadow-2xl border border-slate-100/50 rounded-2xl gap-3 h-12 px-6 transition-all active:scale-95 group/btn"
+            className="bg-white/95 hover:bg-white text-gray-900 font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
           >
-            <div className={`p-1.5 rounded-lg ${isRefreshing ? 'bg-blue-50' : 'bg-slate-50 group-hover/btn:bg-blue-50'} transition-colors`}>
-              <RefreshCw className={`w-4 h-4 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </div>
-            <span className="tracking-tight">{isRefreshing ? 'Syncing...' : 'Sync Map Data'}</span>
+            <RefreshCw className={`w-4 h-4 text-purple-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh Map Data'}
           </Button>
         )}
       </div>
 
-      <div className="absolute bottom-8 left-8 right-8 z-[1000] flex justify-between items-end pointer-events-none">
-        {/* Advanced Legend */}
-        <div className="pointer-events-auto bg-slate-900/95 backdrop-blur-2xl p-6 rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border border-slate-800/50 min-w-[240px] animate-in slide-in-from-bottom-4 duration-700">
-          <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-4">
-            <div className="p-2 bg-blue-500/20 rounded-xl">
-              <Filter className="w-4 h-4 text-blue-400" />
-            </div>
-            <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Map Intelligence</h5>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between group/item">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 bg-pink-500 rounded-full ring-4 ring-pink-500/20 shadow-lg shadow-pink-500/20" />
-                <span className="text-[13px] font-black text-slate-200">Female Staff</span>
-              </div>
-              <Badge variant="outline" className="bg-pink-500/10 text-pink-400 border-pink-500/20 font-black px-2">{femaleCount}</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between group/item">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 bg-blue-500 rounded-full ring-4 ring-blue-500/20 shadow-lg shadow-blue-500/20" />
-                <span className="text-[13px] font-black text-slate-200">Male Staff</span>
-              </div>
-              <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 font-black px-2">{maleCount}</Badge>
-            </div>
-
-            <div className="pt-2 mt-2 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Visible</span>
-              <span className="text-sm font-black text-slate-300 tracking-tight">{validLocations.length} Pros</span>
-            </div>
-          </div>
+      <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
+        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
         </div>
-
-        {/* Region Info */}
-        <div className="pointer-events-auto bg-white/90 backdrop-blur-xl px-6 py-4 rounded-3xl shadow-2xl border border-white/20 flex items-center gap-4 animate-in slide-in-from-right-4 duration-700">
-          <div className="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center border border-green-100">
-            <MapPin className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] leading-none mb-1">Current Branch</p>
-            <p className="text-sm font-black text-slate-800 tracking-tight">Region: Central Operations</p>
-          </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
         </div>
       </div>
     </div>
@@ -1707,50 +1604,22 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                     View Care Pro Map
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] p-0 overflow-hidden border-none shadow-2xl rounded-3xl bg-white dark:bg-gray-950">
-                  <DialogHeader className="px-8 py-6 bg-gradient-to-br from-blue-700 via-indigo-700 to-blue-800 text-white shrink-0 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl" />
-                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl" />
-                    
-                    <div className="flex items-center justify-between relative z-10 w-full">
-                      <div className="flex items-center gap-5">
-                        <div className="p-3.5 bg-white/20 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 rotate-3 hover:rotate-0 transition-transform duration-500">
-                          <MapIcon className="w-8 h-8 text-white drop-shadow-md" />
-                        </div>
-                        <div>
-                          <DialogTitle className="text-3xl font-black tracking-tight text-white drop-shadow-sm">
-                            Care Pro Strategic Map
-                          </DialogTitle>
-                          <DialogDescription className="text-blue-100 font-bold text-[10px] uppercase tracking-[0.2em] opacity-90 mt-1.5 flex items-center gap-2">
-                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                            Real-time geographic distribution of care professionals
-                          </DialogDescription>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 px-6 py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 opacity-70">Total Active</span>
-                          <span className="text-xl font-black text-white leading-none">{locations.length}</span>
-                        </div>
-                        <div className="w-px h-8 bg-white/20" />
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 opacity-70">Region</span>
-                          <span className="text-sm font-black text-white leading-none uppercase tracking-tighter">Central Branch</span>
-                        </div>
-                      </div>
-                    </div>
+                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
+                  <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight">
+                      <MapPin className="w-7 h-7" />
+                      Care Pro Strategic Map
+                    </DialogTitle>
+                    <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-widest text-[10px]">
+                      Real-time geographic distribution of care professionals
+                    </DialogDescription>
                   </DialogHeader>
-                  <div className="flex-1 relative bg-[#f1f5f9] dark:bg-gray-900">
-                    <div className="absolute inset-0 z-0 opacity-30 pointer-events-none bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)]" />
-                    <div className="relative z-10 h-full w-full">
-                      <CareProMap 
-                        locations={locations} 
-                        onRefresh={() => refetchLocations()} 
-                        isRefreshing={isFetchingLocations} 
-                      />
-                    </div>
+                  <div className="flex-1 relative bg-gray-100 overflow-hidden">
+                    <CareProMap 
+                      locations={locations} 
+                      onRefresh={() => refetchLocations()} 
+                      isRefreshing={isFetchingLocations} 
+                    />
                   </div>
                 </DialogContent>
               </Dialog>
