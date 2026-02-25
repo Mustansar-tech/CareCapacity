@@ -572,7 +572,7 @@ export async function matchClientEnquiry(
     employeeSummaryByDate,
     allEmployeeNames,
     employeeWeeklyData,
-    50,
+    200,
     clientCoords
   );
 
@@ -677,7 +677,7 @@ export async function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      100, // Further increase to ensure no one is missed
+      200, // Include all possible candidates regardless of day coverage
       clientCoords
     );
 
@@ -690,7 +690,7 @@ export async function matchMultiVisitEnquiry(
       }
     }
     for (const m of allMatchesForVisit) {
-      if (!seenNames.has(m.employeeName) && dedupedMatches.length < visit.careProsRequired * 3) {
+      if (!seenNames.has(m.employeeName)) {
         seenNames.add(m.employeeName);
         dedupedMatches.push(m);
       }
