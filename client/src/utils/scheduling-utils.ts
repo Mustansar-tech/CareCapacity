@@ -169,6 +169,41 @@ export function clearTravelCache(): void {
   travelTimeCache.clear();
 }
 
+// Seed the travel time cache with real road distances fetched from the backend.
+// The backend returns ORS/OSRM base times. We apply the congestion multiplier for
+// each time band so the scheduler gets realistic times for any time of day.
+export function seedTravelCache(
+  entries: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }>
+): void {
+  let seeded = 0;
+  for (const entry of entries) {
+    const fLat = Number(entry.fromLat).toFixed(4);
+    const fLng = Number(entry.fromLng).toFixed(4);
+    const tLat = Number(entry.toLat).toFixed(4);
+    const tLng = Number(entry.toLng).toFixed(4);
+    const mode = entry.mode as 'car' | 'walking' | 'public';
+    const baseDuration = entry.durationMinutes;
+
+    // Seed for the 'offpeak' key (no startTimeMinutes)
+    const offpeakKey = `${fLat},${fLng}-${tLat},${tLng}-${mode}-offpeak`;
+    travelTimeCache.set(offpeakKey, baseDuration);
+
+    // Seed for all 24 time bands with the appropriate congestion multiplier
+    for (let hour = 0; hour <= 23; hour++) {
+      const startTimeMinutes = hour * 60;
+      const multiplier = getTimeOfDayMultiplier(startTimeMinutes);
+      const adjusted = Math.max(
+        mode === 'car' ? 5 : 15,
+        Math.round(baseDuration * multiplier)
+      );
+      const key = `${fLat},${fLng}-${tLat},${tLng}-${mode}-${hour}`;
+      travelTimeCache.set(key, adjusted);
+    }
+    seeded++;
+  }
+  console.log(`[Travel Cache] Seeded ${seeded} real-road entries (${travelTimeCache.size} total cache entries)`);
+}
+
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
 // Handles formats like "09:15-10:30; 12:30-16:15" or ["09:15-10:30", "12:30-16:15"]
 export interface TimeWindow {

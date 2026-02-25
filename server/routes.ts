@@ -6,6 +6,7 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
+import { travelTimeService, type TransportMode } from './travel-time-service';
 
 import { logger } from "./logger";
 import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from "./bdMatcher";
@@ -1341,6 +1342,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Failed to generate weekly schedule',
         error: safeErrorMessage(error, 'Unknown error')
       });
+    }
+  });
+
+  // Batch travel time pre-fetch for frontend scheduling engine.
+  // Accepts employee and client locations, returns real road travel times
+  // using ORS Matrix (batch) → OSRM → Haversine fallback chain.
+  // The frontend seeds its in-memory cache with these values before running the scheduler.
+  app.post('/api/travel-times/batch', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const { employees, clients } = req.body as {
+        employees: Array<{ lat: number; lng: number; mode: string }>;
+        clients: Array<{ lat: number; lng: number }>;
+      };
+
+      if (!Array.isArray(employees) || !Array.isArray(clients)) {
+        return res.status(400).json({ error: 'employees and clients arrays are required' });
+      }
+
+      const validEmployees = employees.filter(e => e.lat && e.lng);
+      const validClients = clients.filter(c => c.lat && c.lng);
+
+      if (validEmployees.length === 0 || validClients.length === 0) {
+        return res.json({ results: [] });
+      }
+
+      // Pre-warm cache using ORS Matrix API (batch calls, avoids rate limits)
+      await travelTimeService.prewarmTravelCache(
+        branchId,
+        validEmployees.map((e, i) => ({ id: String(i), lat: e.lat, lng: e.lng, transportMode: (e.mode || 'car') as TransportMode })),
+        validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng }))
+      );
+
+      // Collect all results from cache and return to frontend
+      const results: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }> = [];
+
+      for (const emp of validEmployees) {
+        const mode = (emp.mode || 'car') as TransportMode;
+        for (const client of validClients) {
+          try {
+            const cached = await storage.getTravelTime(
+              branchId,
+              emp.lat.toString(), emp.lng.toString(),
+              client.lat.toString(), client.lng.toString(),
+              mode
+            );
+            if (cached) {
+              results.push({
+                fromLat: emp.lat, fromLng: emp.lng,
+                toLat: client.lat, toLng: client.lng,
+                mode,
+                durationMinutes: cached.durationMinutes,
+              });
+            }
+          } catch (_) {}
+        }
+      }
+
+      logger.info(`[Travel Batch] Returned ${results.length} travel times for ${validEmployees.length} employees × ${validClients.length} clients`);
+      res.json({ results });
+    } catch (error) {
+      logger.error('Error in travel-times/batch:', error);
+      res.status(500).json({ error: safeErrorMessage(error, 'Failed to fetch travel times') });
     }
   });
 

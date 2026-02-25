@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import { minutesToTime, timeToMinutes, getTravelMinutes } from "@/utils/scheduling-utils";
+import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -231,6 +231,58 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           clientLogger.warn(`⚠️ Missing gender for ${emp.employeeName} on ${emp.date} - Check employee data and location data.`);
         }
       });
+
+      // Pre-fetch real road travel times from backend before scheduling.
+      // This seeds the in-memory travel cache with ORS/OSRM distances so the
+      // scheduler uses real road times instead of straight-line Haversine estimates.
+      try {
+        clearTravelCache();
+
+        // Collect unique employee home locations (one entry per unique lat/lng/mode)
+        const uniqueEmployeeMap = new Map<string, { lat: number; lng: number; mode: string }>();
+        employeesWithLocations.forEach(emp => {
+          if (emp.homeLat && emp.homeLng) {
+            const key = `${emp.homeLat},${emp.homeLng},${emp.transportMode || 'car'}`;
+            if (!uniqueEmployeeMap.has(key)) {
+              uniqueEmployeeMap.set(key, { lat: emp.homeLat, lng: emp.homeLng, mode: emp.transportMode || 'car' });
+            }
+          }
+        });
+
+        // Collect unique client locations (one entry per unique lat/lng)
+        const uniqueClientMap = new Map<string, { lat: number; lng: number }>();
+        visitsWithLocations.forEach(visit => {
+          if (visit.lat && visit.lng) {
+            const key = `${visit.lat},${visit.lng}`;
+            if (!uniqueClientMap.has(key)) {
+              uniqueClientMap.set(key, { lat: visit.lat, lng: visit.lng });
+            }
+          }
+        });
+
+        const uniqueEmployees = Array.from(uniqueEmployeeMap.values());
+        const uniqueClients = Array.from(uniqueClientMap.values());
+
+        if (uniqueEmployees.length > 0 && uniqueClients.length > 0) {
+          clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients`);
+          const response = await fetch('/api/travel-times/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employees: uniqueEmployees, clients: uniqueClients }),
+          });
+          if (response.ok) {
+            const travelData = await response.json();
+            if (travelData.results?.length > 0) {
+              seedTravelCache(travelData.results);
+              clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries`);
+            }
+          } else {
+            clientLogger.warn(`⚠️ Travel batch API failed (${response.status}) - using Haversine fallback`);
+          }
+        }
+      } catch (travelError) {
+        clientLogger.warn('⚠️ Real road travel pre-fetch failed - using Haversine fallback:', travelError);
+      }
 
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
 
