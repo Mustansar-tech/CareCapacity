@@ -578,7 +578,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                     </div>
                                                   </div>
                                                   <div className="flex flex-wrap gap-1.5">
-                                                    <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
+                                                    <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700' : 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700'}`}>
                                                       {slotOnDay.availableWindow}
                                                     </div>
                                                   </div>
