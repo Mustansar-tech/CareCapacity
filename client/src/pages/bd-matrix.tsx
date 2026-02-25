@@ -394,7 +394,15 @@ function makeIcon(gender: string) {
   });
 }
 
-function CareProMap({ locations }: { locations: any[] }) {
+function CareProMap({ 
+  locations, 
+  onRefresh, 
+  isRefreshing 
+}: { 
+  locations: any[];
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}) {
   const validLocations = useMemo(
     () => locations.filter(l => l.homeLat && l.homeLng),
     [locations]
@@ -413,6 +421,17 @@ function CareProMap({ locations }: { locations: any[] }) {
         <MapIcon className="w-16 h-16 text-gray-300 mb-4" />
         <h4 className="text-xl font-bold text-gray-400">No Location Data</h4>
         <p className="text-sm text-gray-400 mt-2">Ensure employee postcodes are uploaded and geocoded</p>
+        {onRefresh && (
+          <Button 
+            onClick={onRefresh} 
+            disabled={isRefreshing}
+            variant="outline"
+            className="mt-4 gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </Button>
+        )}
       </div>
     );
   }
@@ -451,6 +470,19 @@ function CareProMap({ locations }: { locations: any[] }) {
           </Marker>
         ))}
       </MapContainer>
+
+      <div className="absolute top-6 right-20 z-[1000]">
+        {onRefresh && (
+          <Button 
+            onClick={onRefresh} 
+            disabled={isRefreshing}
+            className="bg-white/95 hover:bg-white text-gray-900 font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
+          >
+            <RefreshCw className={`w-4 h-4 text-purple-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh Map Data'}
+          </Button>
+        )}
+      </div>
 
       <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
         <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
@@ -1403,7 +1435,7 @@ function ClientEnquiryMatcher() {
 export default function BDMatrix({ data }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
 
-  const { data: locationsData } = useQuery<{ employees: any[]; clients: any[] }>({
+  const { data: locationsData, refetch: refetchLocations, isFetching: isFetchingLocations } = useQuery<{ employees: any[]; clients: any[] }>({
     queryKey: ['/api/locations'],
   });
   const locations = locationsData?.employees ?? [];
@@ -1569,7 +1601,11 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex-1 relative bg-gray-100 overflow-hidden">
-                    <CareProMap locations={locations} />
+                    <CareProMap 
+                      locations={locations} 
+                      onRefresh={() => refetchLocations()} 
+                      isRefreshing={isFetchingLocations} 
+                    />
                   </div>
                 </DialogContent>
               </Dialog>
