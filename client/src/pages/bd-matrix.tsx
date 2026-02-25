@@ -515,9 +515,8 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                               const isExact = slotOnDay.matchType === 'exact';
                                               const rawGap = (employeeMatch as any).rawGap;
                                               const travelInGap = (employeeMatch as any).travelInGap;
-                                              // Adjusted logic: always try to show Sug if it's not a perfect 'exact' match type
-                                              // and we have a valid window.
-                                              const showAdjustedTime = !isExact || slotOnDay.matchType === 'adjusted-time';
+                                              // Simplified logic: Show suggested time if it's not exact OR if it was found via adjusted/contained logic
+                                              const showAdjustedTime = slotOnDay.matchType === 'adjusted-time' || (slotOnDay.matchType === 'exact' && slotOnDay.availableWindow.includes('-'));
 
                                               const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
                                               const genderColorClass = employeeMatch.gender?.toLowerCase() === 'female' 

@@ -635,7 +635,7 @@ export async function matchMultiVisitEnquiry(
         employeeSummaryByDate,
         filteredNames,
         employeeWeeklyData,
-        5,
+        50, // Increase topN for multi-visit matches
         clientCoords
       );
 
