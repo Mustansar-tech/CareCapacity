@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from "react";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -374,86 +377,96 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   );
 }
 
+function makeIcon(gender: string) {
+  const color = gender === 'female' ? '#ec4899' : '#3b82f6';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+    <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
+    <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
+    <circle cx="16" cy="16" r="4" fill="${color}"/>
+    <circle cx="24" cy="8" r="5" fill="#22c55e" stroke="white" stroke-width="2"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -40],
+  });
+}
+
 function CareProMap({ locations }: { locations: any[] }) {
-  const mapPoints = useMemo(() => {
-    if (!locations || locations.length === 0) return [];
-    
-    const valid = locations.filter(l => l.homeLat && l.homeLng);
-    if (valid.length === 0) return [];
+  const validLocations = useMemo(
+    () => locations.filter(l => l.homeLat && l.homeLng),
+    [locations]
+  );
 
-    const lats = valid.map(l => parseFloat(l.homeLat));
-    const lngs = valid.map(l => parseFloat(l.homeLng));
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
+  const center = useMemo<[number, number]>(() => {
+    if (validLocations.length === 0) return [53.5, -1.5];
+    const avgLat = validLocations.reduce((s, l) => s + parseFloat(l.homeLat), 0) / validLocations.length;
+    const avgLng = validLocations.reduce((s, l) => s + parseFloat(l.homeLng), 0) / validLocations.length;
+    return [avgLat, avgLng];
+  }, [validLocations]);
 
-    const latRange = maxLat - minLat || 0.1;
-    const lngRange = maxLng - minLng || 0.1;
-
-    return valid.map(l => ({
-      ...l,
-      x: ((parseFloat(l.homeLng) - minLng) / lngRange) * 80 + 10,
-      y: (1 - (parseFloat(l.homeLat) - minLat) / latRange) * 80 + 10
-    }));
-  }, [locations]);
+  if (validLocations.length === 0) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
+        <MapIcon className="w-16 h-16 text-gray-300 mb-4" />
+        <h4 className="text-xl font-bold text-gray-400">No Location Data</h4>
+        <p className="text-sm text-gray-400 mt-2">Ensure employee postcodes are uploaded and geocoded</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e5e3df]">
-      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-      
-      <div className="relative w-full h-full p-12 overflow-hidden">
-        {mapPoints.map((loc, i) => (
-          <div 
-            key={loc.id || i}
-            className="absolute group transition-all duration-500 animate-in fade-in zoom-in"
-            style={{ 
-              left: `${loc.x}%`, 
-              top: `${loc.y}%`,
-              animationDelay: `${i * 50}ms`
-            }}
+    <div className="absolute inset-0">
+      <MapContainer
+        center={center}
+        zoom={10}
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={true}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {validLocations.map((loc) => (
+          <Marker
+            key={loc.id}
+            position={[parseFloat(loc.homeLat), parseFloat(loc.homeLng)]}
+            icon={makeIcon(loc.gender || '')}
           >
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <MapPin className={`w-8 h-8 ${loc.gender === 'female' ? 'text-pink-500' : 'text-blue-500'} drop-shadow-lg group-hover:scale-110 transition-transform`} />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+            <Popup>
+              <div className="text-center min-w-[140px]">
+                <p className="font-black text-sm text-gray-900">{loc.employeeName}</p>
+                <p className="text-xs font-bold text-gray-500 mt-0.5 uppercase">{loc.homePostcode}</p>
+                <div className="flex items-center justify-center gap-1 mt-1">
+                  <div className={`w-2 h-2 rounded-full ${loc.gender === 'female' ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                  <span className="text-xs text-gray-600 capitalize">{loc.gender || 'Unknown'}</span>
+                  {loc.transportMode && (
+                    <span className="text-xs text-gray-400 ml-1">• {loc.transportMode}</span>
+                  )}
+                </div>
               </div>
-              <div className="mt-2 px-3 py-1.5 bg-white/95 backdrop-blur-sm border shadow-xl rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none min-w-[120px]">
-                <p className="text-[11px] font-black text-gray-900 truncate">{loc.employeeName}</p>
-                <p className="text-[9px] font-bold text-gray-500 uppercase">{loc.homePostcode}</p>
-              </div>
-            </div>
-          </div>
+            </Popup>
+          </Marker>
         ))}
+      </MapContainer>
 
-        {mapPoints.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full">
-            <MapIcon className="w-16 h-16 text-gray-300 mb-4 animate-pulse" />
-            <h4 className="text-xl font-bold text-gray-400">No Geographic Data Available</h4>
-            <p className="text-sm text-gray-400 mt-2">Ensure employee postcodes are uploaded and geocoded</p>
-          </div>
-        )}
-      </div>
-
-      <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-3 z-20">
-        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Map Legend</h5>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+      <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
+        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
           <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
           <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Active Available</span>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Active</span>
         </div>
-      </div>
-
-      <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
-        <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Plus className="w-4 h-4" /></Button>
-        <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Minus className="w-4 h-4" /></Button>
+        <p className="text-[9px] text-gray-400 mt-1 font-bold">{validLocations.length} care pros</p>
       </div>
     </div>
   );
