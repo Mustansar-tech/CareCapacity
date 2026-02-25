@@ -152,156 +152,6 @@ interface MatchedSlot {
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
 }
 
-function dateToAbbrev(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  const dayIdx = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  return days[dayIdx];
-}
-
-type GridMatrix = { dates: string[]; matrix: Record<string, Record<string, BDMatrixCell>> };
-
-function performFrontendMatch(
-  visits: VisitFormData[],
-  clientName: string,
-  postcode: string | undefined,
-  gridMatrix: GridMatrix
-): MultiVisitResult {
-  const { dates, matrix } = gridMatrix;
-
-  // Build day-abbrev → dates[] map using the exact same date strings the grid uses
-  const datesByDay = new Map<string, string[]>();
-  for (const dateStr of dates) {
-    const abbrev = dateToAbbrev(dateStr);
-    if (!datesByDay.has(abbrev)) datesByDay.set(abbrev, []);
-    datesByDay.get(abbrev)!.push(dateStr);
-  }
-
-  const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-
-  const visitResults = activeVisits.map((v, visitIdx) => {
-    const reqStart = timeToMinutes(v.timeStart);
-    const reqEnd = timeToMinutes(v.timeEnd);
-
-    // Find which COMPANY_TIME_BLOCKS cover the requested window (blockStart <= reqStart && blockEnd >= reqEnd)
-    // This is EXACTLY what the grid uses for each cell
-    const coveringBlocks = COMPANY_TIME_BLOCKS.filter(tb => {
-      const bStart = timeToMinutes(tb.start);
-      const bEnd = timeToMinutes(tb.end);
-      // Use 1-minute tolerance to handle any floating point or precision issues
-      return (bStart <= reqStart + 1) && (bEnd >= reqEnd - 1);
-    });
-
-    // If no block exactly covers it, find blocks with the most overlap (closest match)
-    const blockLabels = coveringBlocks.length > 0
-      ? coveringBlocks.map(tb => tb.label)
-      : COMPANY_TIME_BLOCKS
-          .filter(tb => {
-            const bStart = timeToMinutes(tb.start);
-            const bEnd = timeToMinutes(tb.end);
-            return bStart < reqEnd && bEnd > reqStart;
-          })
-          .map(tb => tb.label);
-
-    const employeeSlotsByDay = new Map<string, Map<string, MatchedSlot>>();
-    let totalEvaluated = 0;
-
-    for (const reqDay of v.selectedDays) {
-      // Normalize reqDay just in case
-      const normalizedReqDay = reqDay.toLowerCase().trim();
-      const datesForDay = datesByDay.get(normalizedReqDay) || [];
-      
-      console.log(`[BD Matcher] Processing reqDay: ${normalizedReqDay}, found ${datesForDay.length} dates:`, datesForDay);
-      
-      for (const dateStr of datesForDay) {
-        // Collect employees from ALL matching time block cells for this date
-        // This reads DIRECTLY from the grid's pre-computed cell data
-        const seen = new Set<string>();
-        for (const blockLabel of blockLabels) {
-          const cell = matrix[dateStr]?.[blockLabel];
-          if (!cell) {
-            console.log(`[BD Matcher] No cell found for date: ${dateStr}, block: ${blockLabel}`);
-            continue;
-          }
-          
-          totalEvaluated = Math.max(totalEvaluated, cell.count);
-          if (cell.employees.length > 0) {
-            console.log(`[BD Matcher] Found ${cell.employees.length} employees in cell ${blockLabel} on ${dateStr}`);
-          }
-          
-          for (const emp of cell.employees) {
-            if (seen.has(emp.name)) continue;
-            seen.add(emp.name);
-
-            if (!employeeSlotsByDay.has(emp.name)) {
-              employeeSlotsByDay.set(emp.name, new Map());
-            }
-            const slotMap = employeeSlotsByDay.get(emp.name)!;
-            if (!slotMap.has(reqDay)) {
-              const d = new Date(dateStr + 'T12:00:00');
-              const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long' });
-              slotMap.set(reqDay, {
-                day: dateStr,
-                dayLabel,
-                availableWindow: `${v.timeStart}-${v.timeEnd}`,
-                matchType: 'exact',
-              });
-            }
-          }
-        }
-      }
-    }
-
-    const matches: MatchedEmployee[] = [];
-    Array.from(employeeSlotsByDay.entries()).forEach(([empName, slotMap]) => {
-      // Only include employees available on ALL required days
-      const coversAll = v.selectedDays.every(day => slotMap.has(day));
-      if (!coversAll) return;
-
-      // Get gender/transport from the grid cell data
-      let gender: string | undefined;
-      let transportMode: string | undefined;
-      outer: for (const dateStr of dates) {
-        for (const blockLabel of blockLabels) {
-          const cell = matrix[dateStr]?.[blockLabel];
-          if (!cell) continue;
-          const empInfo = cell.employees.find(e => e.name === empName);
-          if (empInfo) {
-            gender = empInfo.gender;
-            transportMode = empInfo.transportMode;
-            break outer;
-          }
-        }
-      }
-
-      matches.push({
-        employeeName: empName,
-        matchType: 'exact',
-        matchScore: 100,
-        gender,
-        transportMode,
-        contractedWeeklyHours: 0,
-        totalScheduledHours: 0,
-        remainingCapacity: 0,
-        matchedSlots: Array.from(slotMap.values()),
-      });
-    });
-
-    matches.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
-
-    return {
-      visitLabel: `Visit ${visitIdx + 1}`,
-      visitIndex: visitIdx,
-      careProsRequired: v.careProsRequired,
-      genderPreferences: v.genderPreferences,
-      matches,
-      totalEmployeesEvaluated: totalEvaluated,
-    };
-  });
-
-  return { clientName, postcode, visitResults, totalVisits: visitResults.length };
-}
-
 interface MatchedEmployee {
   employeeName: string;
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
@@ -755,7 +605,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   );
 }
 
-function ClientEnquiryMatcher({ gridMatrix }: { gridMatrix?: GridMatrix }) {
+function ClientEnquiryMatcher() {
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [postcode, setPostcode] = useState('');
@@ -819,40 +669,79 @@ function ClientEnquiryMatcher({ gridMatrix }: { gridMatrix?: GridMatrix }) {
     },
   });
 
-  const handleFindMatches = () => {
-    if (!gridMatrix || gridMatrix.dates.length === 0) {
-      toast({
-        title: "No Data Available",
-        description: "Please upload and process Excel files first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const result = performFrontendMatch(visits, clientName, postcode || undefined, gridMatrix);
-    setMultiResults(result);
-    setActiveResultTab('0');
-
-    const filledVisits = visits.filter(v => v.selectedDays.length > 0);
-    const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
-    saveEnquiryMutation.mutate({
-      criteria: {
-        clientName,
-        postcode: postcode || undefined,
-        visits: filledVisits.map((v, i) => ({
-          visitLabel: `Visit ${i + 1}`,
-          careProsRequired: v.careProsRequired,
-          genderPreferences: v.genderPreferences,
+  const matchMutation = useMutation({
+    mutationFn: async () => {
+      const activeVisits = visits.filter(v => v.selectedDays.length > 0);
+      if (activeVisits.length === 1 && activeVisits[0].careProsRequired === 1) {
+        const v = activeVisits[0];
+        const res = await apiRequest('POST', '/api/bd-matcher', {
+          clientName,
+          postcode: postcode || undefined,
+          genderPreference: v.genderPreferences[0] || 'any',
           requiredDays: v.selectedDays,
           preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-        })),
-      },
-      matchResult: result,
-      isSingleVisit: isSingle,
-    });
+        });
+        const singleResult = await res.json();
+        return {
+          clientName,
+          postcode: postcode || undefined,
+          visitResults: [{
+            visitLabel: 'Visit 1',
+            visitIndex: 0,
+            careProsRequired: 1,
+            genderPreferences: v.genderPreferences,
+            matches: singleResult.matches,
+            totalEmployeesEvaluated: singleResult.totalEmployeesEvaluated,
+          }],
+          totalVisits: 1,
+        } as MultiVisitResult;
+      }
 
-    toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${result.totalVisits} visit${result.totalVisits !== 1 ? 's' : ''}.` });
-  };
+      const visitPayloads = activeVisits.map((v, i) => ({
+        visitLabel: `Visit ${i + 1}`,
+        careProsRequired: v.careProsRequired,
+        genderPreferences: v.genderPreferences,
+        requiredDays: v.selectedDays,
+        preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+      }));
+
+      const res = await apiRequest('POST', '/api/bd-matcher/multi-visit', {
+        clientName,
+        postcode: postcode || undefined,
+        visits: visitPayloads,
+      });
+      return await res.json() as MultiVisitResult;
+    },
+    onSuccess: (data: MultiVisitResult) => {
+      setMultiResults(data);
+      setActiveResultTab('0');
+      const filledVisits = visits.filter(v => v.selectedDays.length > 0);
+      const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
+      saveEnquiryMutation.mutate({
+        criteria: {
+          clientName,
+          postcode: postcode || undefined,
+          visits: filledVisits.map((v, i) => ({
+            visitLabel: `Visit ${i + 1}`,
+            careProsRequired: v.careProsRequired,
+            genderPreferences: v.genderPreferences,
+            requiredDays: v.selectedDays,
+            preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+          })),
+        },
+        matchResult: data,
+        isSingleVisit: isSingle,
+      });
+      toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
+    },
+    onError: () => {
+      toast({
+        title: "Matching Failed",
+        description: "Could not find matches. Please make sure data has been uploaded and processed first.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const updateVisit = (index: number, visitData: VisitFormData) => {
     const newVisits = [...visits];
@@ -1268,12 +1157,16 @@ function ClientEnquiryMatcher({ gridMatrix }: { gridMatrix?: GridMatrix }) {
                       </span>
                     )}
                     <Button
-                      onClick={handleFindMatches}
-                      disabled={!canSubmit}
+                      onClick={() => matchMutation.mutate()}
+                      disabled={!canSubmit || matchMutation.isPending}
                       className="h-13 px-10 bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-700 hover:from-purple-800 hover:via-indigo-800 hover:to-blue-800 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-purple-500/25 gap-3 rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl hover:shadow-purple-500/30"
                     >
-                      <Search className="w-5 h-5" />
-                      Find Best Matches
+                      {matchMutation.isPending ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Search className="w-5 h-5" />
+                      )}
+                      {matchMutation.isPending ? "Searching..." : "Find Best Matches"}
                     </Button>
                   </div>
                 </div>
@@ -1336,7 +1229,7 @@ function ClientEnquiryMatcher({ gridMatrix }: { gridMatrix?: GridMatrix }) {
                           <span className="w-px h-4 bg-purple-200/50" />
                           <span className="flex items-center gap-1.5 ml-auto text-purple-600">
                             <Activity className="w-3.5 h-3.5" />
-                            {vr.matches.length > 0 ? `${vr.totalEmployeesEvaluated} analyzed` : "0 matches (check time alignment)"}
+                            {vr.totalEmployeesEvaluated} analyzed
                           </span>
                         </div>
                         
@@ -1506,7 +1399,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <Users className="w-6 h-6 text-blue-600" />
               BD Availability Matrix
             </CardTitle>
-            <ClientEnquiryMatcher gridMatrix={matrixData || undefined} />
+            <ClientEnquiryMatcher />
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Quick view of staff availability across standard time blocks for business development decisions
