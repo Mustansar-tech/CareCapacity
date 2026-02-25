@@ -100,6 +100,7 @@ function getDayLabel(dateStr: string): string {
 }
 
 function getDayAbbrev(dateStr: string): string {
+  // Use UTC to avoid timezone shifts that might change the day
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
 }
@@ -311,16 +312,19 @@ function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqE
   if (!freeWindows || freeWindows === '-' || freeWindows === '') return false;
   
   // Use the exact same logic as client/src/pages/bd-matrix.tsx (isFullyAvailableInTimeBlock)
+  // The matrix grid uses normalized windows (trim, remove empty, check for dash)
   const windows = freeWindows.split(',').map(w => w.trim()).filter(w => w);
   
   for (const window of windows) {
     if (window.includes('-')) {
       const parts = window.split('-').map(s => s.trim());
       if (parts.length < 2) continue;
+      
+      // Ensure we use the first and last part if there are multiple dashes (e.g. "08:00 - 09:00")
       const windowStart = timeToMinutes(parts[0]);
       const windowEnd = timeToMinutes(parts[parts.length - 1]);
       
-      // Matrix grid uses windowStart <= blockStart && windowEnd >= blockEnd
+      // Matrix grid check: windowStart <= blockStart && windowEnd >= blockEnd
       if (windowStart <= reqStart && windowEnd >= reqEnd) {
         return true;
       }
