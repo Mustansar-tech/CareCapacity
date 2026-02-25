@@ -1390,10 +1390,10 @@ function ClientEnquiryMatcher() {
 export default function BDMatrix({ data }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
 
-  const { data: locations = [] } = useQuery<any[]>({
+  const { data: locationsData } = useQuery<{ employees: any[]; clients: any[] }>({
     queryKey: ['/api/locations'],
-    enabled: !!data,
   });
+  const locations = locationsData?.employees ?? [];
 
   const matrixData = useMemo(() => {
     if (!data?.employeeSummaryByDate) return null;
