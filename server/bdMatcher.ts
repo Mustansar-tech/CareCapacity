@@ -185,65 +185,59 @@ function findClosestSlot(
   let bestSlot: { window: string; distance: number } | null = null;
   const MAX_DIFF = 150; // 2h30mins = 150 minutes
 
-  // First, check if the requested block is contained ANYWHERE in the free windows.
-  // This handles the "generic" match case where an employee has a broad window
-  // that covers the requested block, regardless of company block alignment.
   for (const [wStart, wEnd] of windows) {
+    // Window must be large enough to fit the visit
+    if (wEnd - wStart < visitDuration) continue;
+
+    // Step 1: Check if requested slot fits exactly (window contains requested start→end)
     if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
       return {
         window: `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`,
-        distance: 0
+        distance: 0,
       };
     }
-  }
 
-  // Fallback to searching around the requested time within the windows
-  for (const [wStart, wEnd] of windows) {
-    if (wEnd - wStart >= visitDuration) {
-      // Try each company block start time that fits in this window
-      for (const block of COMPANY_TIME_BLOCKS) {
-        const blockStart = timeToMinutes(block.start);
-        const blockEnd = blockStart + visitDuration;
-        
-        // Block must fit within the free window
-        if (blockStart >= wStart && blockEnd <= wEnd) {
-          const diff = Math.abs(blockStart - reqStart);
-          if (diff <= MAX_DIFF) {
-            // Priority: Smallest distance to requested time among standard blocks
-            if (!bestSlot || diff < bestSlot.distance) {
-              bestSlot = {
-                window: `${minutesToTime(blockStart)}-${minutesToTime(blockEnd)}`,
-                distance: diff,
-              };
-            }
-          }
+    // Step 2: Find the best start time within this window that is closest to reqStart.
+    // Clamp reqStart to [wStart, wEnd - visitDuration], then snap to nearest 15-min boundary.
+    const clampedIdeal = Math.max(wStart, Math.min(reqStart, wEnd - visitDuration));
+
+    // Try snapping to nearest company time block first (preferred display)
+    let bestBlockStart: number | null = null;
+    let bestBlockDiff = Infinity;
+    for (const block of COMPANY_TIME_BLOCKS) {
+      const blockStart = timeToMinutes(block.start);
+      const blockEnd = blockStart + visitDuration;
+      if (blockStart >= wStart && blockEnd <= wEnd) {
+        const diff = Math.abs(blockStart - reqStart);
+        if (diff < bestBlockDiff) {
+          bestBlockDiff = diff;
+          bestBlockStart = blockStart;
         }
       }
     }
-  }
 
-  // Final fallback: If NO standard block fits the window, only then use a non-standard time
-  if (!bestSlot) {
-    for (const [wStart, wEnd] of windows) {
-      if (wEnd - wStart >= visitDuration) {
-        let closestStart: number;
-        if (reqStart < wStart) {
-          closestStart = wStart;
-        } else if (reqStart > (wEnd - visitDuration)) {
-          closestStart = wEnd - visitDuration;
-        } else {
-          closestStart = reqStart;
-        }
+    // If a company block fits inside this window, use it if within MAX_DIFF
+    if (bestBlockStart !== null && bestBlockDiff <= MAX_DIFF) {
+      if (!bestSlot || bestBlockDiff < bestSlot.distance) {
+        bestSlot = {
+          window: `${minutesToTime(bestBlockStart)}-${minutesToTime(bestBlockStart + visitDuration)}`,
+          distance: bestBlockDiff,
+        };
+      }
+      continue; // Company block found — no need for generic fallback for this window
+    }
 
-        const diffFallback = Math.abs(closestStart - reqStart);
-        if (diffFallback <= MAX_DIFF) {
-          if (!bestSlot || diffFallback < (bestSlot as any).distance) {
-            bestSlot = {
-              window: `${minutesToTime(closestStart)}-${minutesToTime(closestStart + visitDuration)}`,
-              distance: diffFallback,
-            };
-          }
-        }
+    // Step 3: No company block fits this window — use the clamped nearest start,
+    // snapped to 15-min boundary, still within the window.
+    const snapped15 = Math.round(clampedIdeal / 15) * 15;
+    const candidateStart = Math.max(wStart, Math.min(snapped15, wEnd - visitDuration));
+    if (candidateStart + visitDuration <= wEnd) {
+      const diff = Math.abs(candidateStart - reqStart);
+      if (diff <= MAX_DIFF && (!bestSlot || diff < bestSlot.distance)) {
+        bestSlot = {
+          window: `${minutesToTime(candidateStart)}-${minutesToTime(candidateStart + visitDuration)}`,
+          distance: diff,
+        };
       }
     }
   }
