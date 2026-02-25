@@ -170,7 +170,12 @@ function performFrontendMatch(
     datesByDay.get(abbrev)!.push(dateStr);
   }
 
+  console.log('[BD Matcher] datesByDay keys:', Array.from(datesByDay.keys()));
+  console.log('[BD Matcher] total dates in data:', Object.keys(employeeSummaryByDate).length);
+  console.log('[BD Matcher] sample date keys:', Object.keys(employeeSummaryByDate).slice(0, 3));
+  
   const activeVisits = visits.filter(v => v.selectedDays.length > 0);
+  console.log('[BD Matcher] activeVisits:', activeVisits.map(v => ({ days: v.selectedDays, start: v.timeStart, end: v.timeEnd })));
 
   const visitResults = activeVisits.map((v, visitIdx) => {
     const timeBlock: TimeBlock = { start: v.timeStart, end: v.timeEnd, label: `${v.timeStart}-${v.timeEnd}` };
@@ -178,11 +183,16 @@ function performFrontendMatch(
     const employeeSlotsByDay = new Map<string, Map<string, MatchedSlot>>();
     let totalEvaluated = 0;
 
+    console.log('[BD Matcher] visit timeBlock:', timeBlock, 'selectedDays:', v.selectedDays);
     for (const reqDay of v.selectedDays) {
       const dates = datesByDay.get(reqDay) || [];
+      console.log(`[BD Matcher] reqDay=${reqDay} → dates:`, dates);
       for (const dateStr of dates) {
         const employees = employeeSummaryByDate[dateStr] || [];
         totalEvaluated = Math.max(totalEvaluated, employees.length);
+        if (employees.length > 0) {
+          console.log(`[BD Matcher] date=${dateStr} employees=${employees.length}, sample freeWindows:`, employees.slice(0, 2).map(e => ({ name: e.employeeName, fw: e.freeWindows })));
+        }
         for (const emp of employees) {
           if (!emp.freeWindows || emp.freeWindows === '-' || emp.freeWindows === '') continue;
           if (!isFullyAvailableInTimeBlock(emp.freeWindows, timeBlock)) continue;
@@ -779,7 +789,17 @@ function ClientEnquiryMatcher({ employeeSummaryByDate }: { employeeSummaryByDate
       return;
     }
 
+    console.log('[BD Matcher] employeeSummaryByDate date count:', Object.keys(employeeSummaryByDate).length);
+    console.log('[BD Matcher] sample date keys:', Object.keys(employeeSummaryByDate).slice(0, 5));
+    const firstDate = Object.keys(employeeSummaryByDate)[0];
+    if (firstDate) {
+      const sample = (employeeSummaryByDate[firstDate] || []).slice(0, 1)[0];
+      console.log('[BD Matcher] sample employee on', firstDate, ':', sample ? { name: sample.employeeName, freeWindows: sample.freeWindows } : 'none');
+    }
+    console.log('[BD Matcher] visits state:', visits.map(v => ({ days: v.selectedDays, start: v.timeStart, end: v.timeEnd })));
+
     const result = performFrontendMatch(visits, clientName, postcode || undefined, employeeSummaryByDate);
+    console.log('[BD Matcher] result:', result.visitResults.map(vr => ({ label: vr.visitLabel, matchCount: vr.matches.length })));
     setMultiResults(result);
     setActiveResultTab('0');
 
