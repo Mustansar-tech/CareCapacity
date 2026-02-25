@@ -309,10 +309,24 @@ async function buildEmployeeWeeklyData(
 
 function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqEnd: number): boolean {
   if (!freeWindows || freeWindows === '-' || freeWindows === '') return false;
-  const windows = parseFreeWindows(freeWindows);
-  for (const [wStart, wEnd] of windows) {
-    if (wStart <= reqStart && wEnd >= reqEnd) return true;
+  
+  // Use the exact same logic as client/src/pages/bd-matrix.tsx (isFullyAvailableInTimeBlock)
+  const windows = freeWindows.split(',').map(w => w.trim()).filter(w => w);
+  
+  for (const window of windows) {
+    if (window.includes('-')) {
+      const parts = window.split('-').map(s => s.trim());
+      if (parts.length < 2) continue;
+      const windowStart = timeToMinutes(parts[0]);
+      const windowEnd = timeToMinutes(parts[parts.length - 1]);
+      
+      // Matrix grid uses windowStart <= blockStart && windowEnd >= blockEnd
+      if (windowStart <= reqStart && windowEnd >= reqEnd) {
+        return true;
+      }
+    }
   }
+  
   return false;
 }
 
