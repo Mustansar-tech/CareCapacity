@@ -505,12 +505,9 @@ function CareProMap({
 
       <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
         <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
-            <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
-          </div>
-          <span className="text-[10px] font-black text-pink-500">{femaleCount}</span>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
