@@ -265,19 +265,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         if (uniqueEmployees.length > 0 && uniqueClients.length > 0) {
           clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients`);
-          const response = await fetch('/api/travel-times/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employees: uniqueEmployees, clients: uniqueClients }),
-          });
-          if (response.ok) {
-            const travelData = await response.json();
-            if (travelData.results?.length > 0) {
-              seedTravelCache(travelData.results);
-              clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries`);
-            }
-          } else {
-            clientLogger.warn(`⚠️ Travel batch API failed (${response.status}) - using Haversine fallback`);
+          const response = await apiRequest('POST', '/api/travel-times/batch', { employees: uniqueEmployees, clients: uniqueClients });
+          const travelData = await response.json();
+          if (travelData.results?.length > 0) {
+            seedTravelCache(travelData.results);
+            clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries`);
           }
         }
       } catch (travelError) {
