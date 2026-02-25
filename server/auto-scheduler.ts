@@ -147,6 +147,15 @@ export class AutoScheduler {
       };
     }
 
+    // Pre-warm the travel time cache using ORS Matrix API (batch) before scheduling starts.
+    // This converts potentially thousands of individual ORS calls into a few batch requests,
+    // avoiding rate limits and ensuring the scheduler loop always hits the cache.
+    await this.travelService.prewarmTravelCache(
+      branchId,
+      employees.map(e => ({ id: e.employeeName, lat: e.homeLat, lng: e.homeLng, transportMode: e.transportMode })),
+      visits.map(v => ({ id: v.clientName, lat: v.clientLat, lng: v.clientLng }))
+    );
+
     // Sort visits by priority, then cluster by geography for better route efficiency
     const prioritizedVisits = this.clusterVisitsByGeography(this.prioritizeVisits(visits));
     logger.debug(`Clustered ${prioritizedVisits.length} visits by geographic proximity`);

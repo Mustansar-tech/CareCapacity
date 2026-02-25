@@ -34,11 +34,15 @@ The application is designed for care home scheduling teams and business developm
 - **Zod schemas:** Comprehensive data validation.
 - **Geocoding cache:** Multi-level fallback hierarchy for performance.
 - **Advanced Travel Logic:** Bypasses ORS (OpenRouteService) cache for "Walking" mode to ensure realistic estimates for care pros who often use public transport/lifts.
+- **Real Road Distance Routing:** Four-tier fallback chain for travel time calculation: (1) ORS Matrix API batch pre-warm, (2) ORS Directions API individual call, (3) OSRM free real-road routing via OpenStreetMap, (4) Haversine heuristic last resort only.
+- **Cache Pre-warming:** Before each scheduling run, all employee×client travel pairs are batch-fetched via ORS Matrix API (25×25 per call), converting potentially thousands of individual API calls into a few batch requests and eliminating rate-limit issues entirely.
+- **OSRM Fallback:** When ORS is unavailable or rate-limited, the system uses OSRM (Open Source Routing Machine) for real road distances using OpenStreetMap data — no API key required, completely free, and far more accurate than straight-line Haversine estimates.
 
 ### Performance Optimizations
 
 - **70-80% Faster File Processing:** Achieved through multi-level geocoding cache (exact postcode → district → area fallback), parallel batch processing, duplicate elimination, and smart fallback cache checks before API calls.
 - **Advanced Scheduling Memoization:** Significantly reduced optimization time by caching and reusing travel time calculations between identical location pairs, preventing redundant API/geometric calculations.
+- **ORS Rate Limit Elimination:** Replaced individual-per-pair ORS Directions API calls with ORS Matrix API batches in pre-warming phase. 30 staff × 100 clients now requires ~8 batch calls instead of ~3,000 individual calls.
 
 ### Feature Specifications
 

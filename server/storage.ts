@@ -517,7 +517,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveTravelTime(insertTravelTime: InsertTravelTimeCache): Promise<TravelTimeCache> {
-    const [result] = await db.insert(travelTimeCache).values(insertTravelTime).returning();
+    const [result] = await db.insert(travelTimeCache).values(insertTravelTime)
+      .onConflictDoUpdate({
+        target: [travelTimeCache.branchId, travelTimeCache.fromLat, travelTimeCache.fromLng, travelTimeCache.toLat, travelTimeCache.toLng, travelTimeCache.transportMode],
+        set: {
+          durationMinutes: insertTravelTime.durationMinutes,
+          distanceMeters: insertTravelTime.distanceMeters,
+          source: insertTravelTime.source,
+          cachedAt: new Date(),
+        }
+      })
+      .returning();
     return result;
   }
 

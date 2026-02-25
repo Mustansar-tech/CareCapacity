@@ -513,7 +513,7 @@ export const travelTimeCache = pgTable("travel_time_cache", {
   transportMode: text("transport_mode", { enum: ["car", "walking", "public"] }).default("car"),
   durationMinutes: integer("duration_minutes").notNull(),
   distanceMeters: integer("distance_meters"),
-  source: text("source", { enum: ["ors", "haversine", "heuristic"] }).notNull(), // Whether from API or heuristic fallback
+  source: text("source", { enum: ["ors", "ors-matrix", "osrm", "haversine", "heuristic"] }).notNull(), // Whether from API or heuristic fallback
   cachedAt: timestamp("cached_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueTravelTime: unique("unique_travel_time").on(
