@@ -513,10 +513,6 @@ function CareProMap({
           <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
           <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Active / On Map</span>
-        </div>
       </div>
     </div>
   );
