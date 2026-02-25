@@ -476,7 +476,7 @@ function matchEmployeesForVisit(
 
     if (matchedSlots.length === 0) continue;
 
-    const avgScore = totalScore / Math.max(requiredDays.length, 1);
+    const avgScore = totalScore / Math.max(matchedSlots.length, 1);
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
 
@@ -493,6 +493,10 @@ function matchEmployeesForVisit(
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
     else if (adjustedTimeMatches > 0) overallMatchType = 'adjusted-time';
+
+    if (matchedSlots.length < requiredDays.length && overallMatchType !== 'alternative-day') {
+      overallMatchType = 'adjusted-time';
+    }
 
     candidates.push({
       employeeName: empName,
