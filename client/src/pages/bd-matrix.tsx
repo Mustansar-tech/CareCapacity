@@ -18,7 +18,7 @@ import {
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
 } from "lucide-react";
-import type { ProcessingResult, EmployeeSummaryRecord } from "@shared/schema";
+import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
 
 // Company's 11 standardized time blocks
@@ -157,59 +157,80 @@ function dateToAbbrev(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
 }
 
+type GridMatrix = { dates: string[]; matrix: Record<string, Record<string, BDMatrixCell>> };
+
 function performFrontendMatch(
   visits: VisitFormData[],
   clientName: string,
   postcode: string | undefined,
-  employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>
+  gridMatrix: GridMatrix
 ): MultiVisitResult {
+  const { dates, matrix } = gridMatrix;
+
+  // Build day-abbrev → dates[] map using the exact same date strings the grid uses
   const datesByDay = new Map<string, string[]>();
-  for (const dateStr of Object.keys(employeeSummaryByDate)) {
+  for (const dateStr of dates) {
     const abbrev = dateToAbbrev(dateStr);
     if (!datesByDay.has(abbrev)) datesByDay.set(abbrev, []);
     datesByDay.get(abbrev)!.push(dateStr);
   }
 
-  console.log('[BD Matcher] datesByDay keys:', Array.from(datesByDay.keys()));
-  console.log('[BD Matcher] total dates in data:', Object.keys(employeeSummaryByDate).length);
-  console.log('[BD Matcher] sample date keys:', Object.keys(employeeSummaryByDate).slice(0, 3));
-  
   const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-  console.log('[BD Matcher] activeVisits:', activeVisits.map(v => ({ days: v.selectedDays, start: v.timeStart, end: v.timeEnd })));
 
   const visitResults = activeVisits.map((v, visitIdx) => {
-    const timeBlock: TimeBlock = { start: v.timeStart, end: v.timeEnd, label: `${v.timeStart}-${v.timeEnd}` };
+    const reqStart = timeToMinutes(v.timeStart);
+    const reqEnd = timeToMinutes(v.timeEnd);
+
+    // Find which COMPANY_TIME_BLOCKS cover the requested window (blockStart <= reqStart && blockEnd >= reqEnd)
+    // This is EXACTLY what the grid uses for each cell
+    const coveringBlocks = COMPANY_TIME_BLOCKS.filter(tb => {
+      const bStart = timeToMinutes(tb.start);
+      const bEnd = timeToMinutes(tb.end);
+      return bStart <= reqStart && bEnd >= reqEnd;
+    });
+
+    // If no block exactly covers it, find blocks with the most overlap (closest match)
+    const blockLabels = coveringBlocks.length > 0
+      ? coveringBlocks.map(tb => tb.label)
+      : COMPANY_TIME_BLOCKS
+          .filter(tb => {
+            const bStart = timeToMinutes(tb.start);
+            const bEnd = timeToMinutes(tb.end);
+            return bStart < reqEnd && bEnd > reqStart;
+          })
+          .map(tb => tb.label);
 
     const employeeSlotsByDay = new Map<string, Map<string, MatchedSlot>>();
     let totalEvaluated = 0;
 
-    console.log('[BD Matcher] visit timeBlock:', timeBlock, 'selectedDays:', v.selectedDays);
     for (const reqDay of v.selectedDays) {
-      const dates = datesByDay.get(reqDay) || [];
-      console.log(`[BD Matcher] reqDay=${reqDay} → dates:`, dates);
-      for (const dateStr of dates) {
-        const employees = employeeSummaryByDate[dateStr] || [];
-        totalEvaluated = Math.max(totalEvaluated, employees.length);
-        if (employees.length > 0) {
-          console.log(`[BD Matcher] date=${dateStr} employees=${employees.length}, sample freeWindows:`, employees.slice(0, 2).map(e => ({ name: e.employeeName, fw: e.freeWindows })));
-        }
-        for (const emp of employees) {
-          if (!emp.freeWindows || emp.freeWindows === '-' || emp.freeWindows === '') continue;
-          if (!isFullyAvailableInTimeBlock(emp.freeWindows, timeBlock)) continue;
+      const datesForDay = datesByDay.get(reqDay) || [];
+      for (const dateStr of datesForDay) {
+        // Collect employees from ALL matching time block cells for this date
+        // This reads DIRECTLY from the grid's pre-computed cell data
+        const seen = new Set<string>();
+        for (const blockLabel of blockLabels) {
+          const cell = matrix[dateStr]?.[blockLabel];
+          if (!cell) continue;
+          totalEvaluated = Math.max(totalEvaluated, cell.count);
+          for (const emp of cell.employees) {
+            if (seen.has(emp.name)) continue;
+            seen.add(emp.name);
 
-          if (!employeeSlotsByDay.has(emp.employeeName)) {
-            employeeSlotsByDay.set(emp.employeeName, new Map());
-          }
-          const slotMap = employeeSlotsByDay.get(emp.employeeName)!;
-          if (!slotMap.has(reqDay)) {
-            const d = new Date(dateStr + 'T12:00:00');
-            const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long' });
-            slotMap.set(reqDay, {
-              day: dateStr,
-              dayLabel,
-              availableWindow: `${v.timeStart}-${v.timeEnd}`,
-              matchType: 'exact',
-            });
+            if (!employeeSlotsByDay.has(emp.name)) {
+              employeeSlotsByDay.set(emp.name, new Map());
+            }
+            const slotMap = employeeSlotsByDay.get(emp.name)!;
+            if (!slotMap.has(reqDay)) {
+              const d = new Date(dateStr + 'T12:00:00');
+              const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long' });
+              slotMap.set(reqDay, {
+                day: dateStr,
+                dayLabel,
+                availableWindow: `${v.timeStart}-${v.timeEnd}`,
+                matchType: 'exact',
+              });
+            }
           }
         }
       }
@@ -217,20 +238,23 @@ function performFrontendMatch(
 
     const matches: MatchedEmployee[] = [];
     Array.from(employeeSlotsByDay.entries()).forEach(([empName, slotMap]) => {
+      // Only include employees available on ALL required days
       const coversAll = v.selectedDays.every(day => slotMap.has(day));
       if (!coversAll) return;
 
+      // Get gender/transport from the grid cell data
       let gender: string | undefined;
       let transportMode: string | undefined;
-      const contractedWeeklyHours = 0;
-      let totalScheduledHours = 0;
-      for (const dateStr of Object.keys(employeeSummaryByDate)) {
-        const emp = employeeSummaryByDate[dateStr].find(e => e.employeeName === empName);
-        if (emp) {
-          gender = emp.gender;
-          transportMode = emp.transportMode;
-          totalScheduledHours = (emp as any).scheduledHours || 0;
-          break;
+      outer: for (const dateStr of dates) {
+        for (const blockLabel of blockLabels) {
+          const cell = matrix[dateStr]?.[blockLabel];
+          if (!cell) continue;
+          const empInfo = cell.employees.find(e => e.name === empName);
+          if (empInfo) {
+            gender = empInfo.gender;
+            transportMode = empInfo.transportMode;
+            break outer;
+          }
         }
       }
 
@@ -240,8 +264,8 @@ function performFrontendMatch(
         matchScore: 100,
         gender,
         transportMode,
-        contractedWeeklyHours,
-        totalScheduledHours,
+        contractedWeeklyHours: 0,
+        totalScheduledHours: 0,
         remainingCapacity: 0,
         matchedSlots: Array.from(slotMap.values()),
       });
@@ -715,7 +739,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   );
 }
 
-function ClientEnquiryMatcher({ employeeSummaryByDate }: { employeeSummaryByDate?: Record<string, EmployeeSummaryRecord[]> }) {
+function ClientEnquiryMatcher({ gridMatrix }: { gridMatrix?: GridMatrix }) {
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [postcode, setPostcode] = useState('');
@@ -780,7 +804,7 @@ function ClientEnquiryMatcher({ employeeSummaryByDate }: { employeeSummaryByDate
   });
 
   const handleFindMatches = () => {
-    if (!employeeSummaryByDate || Object.keys(employeeSummaryByDate).length === 0) {
+    if (!gridMatrix || gridMatrix.dates.length === 0) {
       toast({
         title: "No Data Available",
         description: "Please upload and process Excel files first.",
@@ -789,17 +813,7 @@ function ClientEnquiryMatcher({ employeeSummaryByDate }: { employeeSummaryByDate
       return;
     }
 
-    console.log('[BD Matcher] employeeSummaryByDate date count:', Object.keys(employeeSummaryByDate).length);
-    console.log('[BD Matcher] sample date keys:', Object.keys(employeeSummaryByDate).slice(0, 5));
-    const firstDate = Object.keys(employeeSummaryByDate)[0];
-    if (firstDate) {
-      const sample = (employeeSummaryByDate[firstDate] || []).slice(0, 1)[0];
-      console.log('[BD Matcher] sample employee on', firstDate, ':', sample ? { name: sample.employeeName, freeWindows: sample.freeWindows } : 'none');
-    }
-    console.log('[BD Matcher] visits state:', visits.map(v => ({ days: v.selectedDays, start: v.timeStart, end: v.timeEnd })));
-
-    const result = performFrontendMatch(visits, clientName, postcode || undefined, employeeSummaryByDate);
-    console.log('[BD Matcher] result:', result.visitResults.map(vr => ({ label: vr.visitLabel, matchCount: vr.matches.length })));
+    const result = performFrontendMatch(visits, clientName, postcode || undefined, gridMatrix);
     setMultiResults(result);
     setActiveResultTab('0');
 
@@ -1476,7 +1490,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <Users className="w-6 h-6 text-blue-600" />
               BD Availability Matrix
             </CardTitle>
-            <ClientEnquiryMatcher employeeSummaryByDate={data?.employeeSummaryByDate} />
+            <ClientEnquiryMatcher gridMatrix={matrixData || undefined} />
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Quick view of staff availability across standard time blocks for business development decisions
