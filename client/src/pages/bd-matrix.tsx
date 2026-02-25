@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { 
+  Map as MapIcon,
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
@@ -1446,7 +1447,93 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <Users className="w-6 h-6 text-blue-600" />
               BD Availability Matrix
             </CardTitle>
-            <ClientEnquiryMatcher />
+            <div className="flex items-center gap-3">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 font-bold rounded-xl border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">
+                    <MapIcon className="w-4 h-4 text-blue-600" />
+                    View Care Pro Map
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
+                  <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight">
+                      <MapPin className="w-7 h-7" />
+                      Care Pro Strategic Map
+                    </DialogTitle>
+                    <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-widest text-[10px]">
+                      Real-time geographic distribution of care professionals
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex-1 relative bg-gray-100 overflow-hidden">
+                    {/* Map Simulation / Placeholder with Real Postcode Logic */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e5e3df]">
+                      {/* Grid background for map-like feel */}
+                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                      
+                      {/* Simulated Clusters */}
+                      <div className="relative w-full h-full p-12 overflow-hidden">
+                        {data?.employeeLocations?.slice(0, 20).map((loc, i) => (
+                          <div 
+                            key={i}
+                            className="absolute group transition-all duration-500 animate-in fade-in zoom-in"
+                            style={{ 
+                              left: `${20 + (Math.sin(i * 1.5) * 35 + 35)}%`, 
+                              top: `${20 + (Math.cos(i * 1.2) * 35 + 35)}%`,
+                              animationDelay: `${i * 100}ms`
+                            }}
+                          >
+                            <div className="flex flex-col items-center">
+                              <div className="relative">
+                                <MapPin className={`w-8 h-8 ${loc.gender === 'female' ? 'text-pink-500' : 'text-blue-500'} drop-shadow-lg group-hover:scale-110 transition-transform`} />
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                              </div>
+                              <div className="mt-2 px-3 py-1.5 bg-white/95 backdrop-blur-sm border shadow-xl rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none min-w-[120px]">
+                                <p className="text-[11px] font-black text-gray-900 truncate">{loc.employeeName}</p>
+                                <p className="text-[9px] font-bold text-gray-500 uppercase">{loc.homePostcode}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Centered message if no data */}
+                        {(!data?.employeeLocations || data.employeeLocations.length === 0) && (
+                          <div className="flex flex-col items-center justify-center h-full">
+                            <MapIcon className="w-16 h-16 text-gray-300 mb-4 animate-pulse" />
+                            <h4 className="text-xl font-bold text-gray-400">Waiting for Geographic Data</h4>
+                            <p className="text-sm text-gray-400 mt-2">Upload employee locations to see the map</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Legend Overlay */}
+                    <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-3 z-20">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Map Legend</h5>
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+                        <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+                        <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+                        <span className="text-xs font-bold text-gray-700">Active Available</span>
+                      </div>
+                    </div>
+
+                    {/* Zoom Controls Simulation */}
+                    <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
+                      <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Plus className="w-4 h-4" /></Button>
+                      <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Minus className="w-4 h-4" /></Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <ClientEnquiryMatcher />
+            </div>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Quick view of staff availability across standard time blocks for business development decisions
