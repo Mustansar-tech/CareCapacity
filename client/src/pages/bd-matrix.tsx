@@ -563,8 +563,15 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                   className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                                 >
                                                   <div className="flex justify-between items-start gap-2">
-                                                    <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate`} title={employeeMatch.employeeName}>
-                                                      {employeeMatch.employeeName}
+                                                    <div className="flex flex-col min-w-0">
+                                                      <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate`} title={employeeMatch.employeeName}>
+                                                        {employeeMatch.employeeName}
+                                                      </div>
+                                                      {employeeMatch.homePostcode && (
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                                          {employeeMatch.homePostcode}
+                                                        </div>
+                                                      )}
                                                     </div>
                                                     <div className="sr-only">
                                                       {Math.round(employeeMatch.matchScore)}%

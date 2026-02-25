@@ -29,6 +29,7 @@ export interface MatchedEmployee {
   matchScore: number;
   gender?: string;
   transportMode?: string;
+  homePostcode?: string;
   contractedWeeklyHours: number;
   totalScheduledHours: number;
   remainingCapacity: number;
@@ -265,6 +266,7 @@ async function buildEmployeeWeeklyData(
     contractedWeekly: number;
     gender?: string;
     transportMode?: string;
+    homePostcode?: string;
     homeLat?: number;
     homeLng?: number;
   }>();
@@ -274,6 +276,7 @@ async function buildEmployeeWeeklyData(
     let totalContractedDaily = 0;
     let gender: string | undefined;
     let transportMode: string | undefined;
+    let homePostcode: string | undefined;
 
     for (const dateStr of dates) {
       const summaries = employeeSummaryByDate[dateStr] || [];
@@ -296,15 +299,21 @@ async function buildEmployeeWeeklyData(
       contractedWeekly: Math.round(totalContractedDaily * 100) / 100,
       gender,
       transportMode,
+      homePostcode,
     });
   }
 
   if (branchId && storage) {
     for (const [empName, data] of Array.from(employeeWeeklyData.entries())) {
       const loc = await storage.getEmployeeLocationByName(branchId, empName);
-      if (loc && loc.homeLat && loc.homeLng) {
-        data.homeLat = parseFloat(loc.homeLat.toString());
-        data.homeLng = parseFloat(loc.homeLng.toString());
+      if (loc) {
+        if (loc.homeLat && loc.homeLng) {
+          data.homeLat = parseFloat(loc.homeLat.toString());
+          data.homeLng = parseFloat(loc.homeLng.toString());
+        }
+        if (loc.homePostcode) {
+          data.homePostcode = loc.homePostcode;
+        }
       }
     }
   }
@@ -505,6 +514,7 @@ function matchEmployeesForVisit(
       matchScore: finalScore,
       gender: weeklyData.gender,
       transportMode: weeklyData.transportMode,
+      homePostcode: weeklyData.homePostcode,
       contractedWeeklyHours: weeklyData.contractedWeekly,
       totalScheduledHours: weeklyData.totalScheduled,
       remainingCapacity,
