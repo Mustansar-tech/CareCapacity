@@ -377,8 +377,17 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   );
 }
 
+function normalizeGender(raw: string | undefined | null): 'female' | 'male' | null {
+  if (!raw) return null;
+  const v = raw.toLowerCase().trim();
+  if (v === 'female' || v === 'f' || v === 'miss' || v === 'ms' || v === 'mrs') return 'female';
+  if (v === 'male' || v === 'm' || v === 'mr') return 'male';
+  return null;
+}
+
 function makeIcon(gender: string) {
-  const color = gender === 'female' ? '#ec4899' : '#3b82f6';
+  const g = normalizeGender(gender);
+  const color = g === 'female' ? '#ec4899' : g === 'male' ? '#3b82f6' : '#9ca3af';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
     <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
     <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
@@ -407,6 +416,9 @@ function CareProMap({
     () => locations.filter(l => l.homeLat && l.homeLng),
     [locations]
   );
+
+  const femaleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'female').length, [validLocations]);
+  const maleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'male').length, [validLocations]);
 
   const center = useMemo<[number, number]>(() => {
     if (validLocations.length === 0) return [53.5, -1.5];
@@ -458,11 +470,18 @@ function CareProMap({
               <div className="text-center min-w-[140px]">
                 <p className="font-black text-sm text-gray-900">{loc.employeeName}</p>
                 <p className="text-xs font-bold text-gray-500 mt-0.5 uppercase">{loc.homePostcode}</p>
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <div className={`w-2 h-2 rounded-full ${loc.gender === 'female' ? 'bg-pink-500' : 'bg-blue-500'}`} />
-                  <span className="text-xs text-gray-600 capitalize">{loc.gender || 'Unknown'}</span>
+                <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
+                  {normalizeGender(loc.gender) && (
+                    <>
+                      <div className={`w-2 h-2 rounded-full ${normalizeGender(loc.gender) === 'female' ? 'bg-pink-500' : 'bg-blue-500'}`} />
+                      <span className="text-xs text-gray-600 capitalize">{normalizeGender(loc.gender)}</span>
+                    </>
+                  )}
+                  {loc.transportMode && normalizeGender(loc.gender) && (
+                    <span className="text-xs text-gray-400">•</span>
+                  )}
                   {loc.transportMode && (
-                    <span className="text-xs text-gray-400 ml-1">• {loc.transportMode}</span>
+                    <span className="text-xs text-gray-500 capitalize">{loc.transportMode}</span>
                   )}
                 </div>
               </div>
@@ -486,19 +505,24 @@ function CareProMap({
 
       <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
         <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+            <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
+          </div>
+          <span className="text-[10px] font-black text-pink-500">{femaleCount}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+            <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
+          </div>
+          <span className="text-[10px] font-black text-blue-500">{maleCount}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Active</span>
+          <span className="text-xs font-bold text-gray-700">Active / On Map</span>
         </div>
-        <p className="text-[9px] text-gray-400 mt-1 font-bold">{validLocations.length} care pros</p>
       </div>
     </div>
   );
