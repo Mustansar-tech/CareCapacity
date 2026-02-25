@@ -13,6 +13,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { 
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
@@ -185,9 +191,20 @@ function getMatchTypeBadge(matchType: string) {
     case 'exact':
       return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-700">Exact Match</Badge>;
     case 'adjusted-time':
-      return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700 flex items-center gap-1">
-        <Info className="w-3 h-3" /> Needs Adjustment
-      </Badge>;
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700 flex items-center gap-1 cursor-help">
+                <Info className="w-3 h-3" /> Needs Adjustment
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+              <p>Availability does not perfectly match standard blocks</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
     case 'alternative-day':
       return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700">Alternative Day</Badge>;
     default:
@@ -569,7 +586,16 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                       <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1`} title={employeeMatch.employeeName}>
                                                         {employeeMatch.employeeName}
                                                         {slotOnDay.matchType === 'adjusted-time' && (
-                                                          <Info className="w-3 h-3 text-orange-500" />
+                                                          <TooltipProvider>
+                                                            <Tooltip>
+                                                              <TooltipTrigger asChild>
+                                                                <Info className="w-3 h-3 text-orange-500 cursor-help" />
+                                                              </TooltipTrigger>
+                                                              <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                                                                <p>Needs Adjustment</p>
+                                                              </TooltipContent>
+                                                            </Tooltip>
+                                                          </TooltipProvider>
                                                         )}
                                                       </div>
                                                       {employeeMatch.homePostcode && (
