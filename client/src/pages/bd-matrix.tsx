@@ -18,7 +18,7 @@ import {
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
 } from "lucide-react";
-import type { ProcessingResult } from "@shared/schema";
+import type { ProcessingResult, EmployeeSummaryRecord } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
 
 // Company's 11 standardized time blocks
@@ -150,6 +150,106 @@ interface MatchedSlot {
   dayLabel: string;
   availableWindow: string;
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
+}
+
+function dateToAbbrev(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+}
+
+function performFrontendMatch(
+  visits: VisitFormData[],
+  clientName: string,
+  postcode: string | undefined,
+  employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>
+): MultiVisitResult {
+  const datesByDay = new Map<string, string[]>();
+  for (const dateStr of Object.keys(employeeSummaryByDate)) {
+    const abbrev = dateToAbbrev(dateStr);
+    if (!datesByDay.has(abbrev)) datesByDay.set(abbrev, []);
+    datesByDay.get(abbrev)!.push(dateStr);
+  }
+
+  const activeVisits = visits.filter(v => v.selectedDays.length > 0);
+
+  const visitResults = activeVisits.map((v, visitIdx) => {
+    const timeBlock: TimeBlock = { start: v.timeStart, end: v.timeEnd, label: `${v.timeStart}-${v.timeEnd}` };
+
+    const employeeSlotsByDay = new Map<string, Map<string, MatchedSlot>>();
+    let totalEvaluated = 0;
+
+    for (const reqDay of v.selectedDays) {
+      const dates = datesByDay.get(reqDay) || [];
+      for (const dateStr of dates) {
+        const employees = employeeSummaryByDate[dateStr] || [];
+        totalEvaluated = Math.max(totalEvaluated, employees.length);
+        for (const emp of employees) {
+          if (!emp.freeWindows || emp.freeWindows === '-' || emp.freeWindows === '') continue;
+          if (!isFullyAvailableInTimeBlock(emp.freeWindows, timeBlock)) continue;
+
+          if (!employeeSlotsByDay.has(emp.employeeName)) {
+            employeeSlotsByDay.set(emp.employeeName, new Map());
+          }
+          const slotMap = employeeSlotsByDay.get(emp.employeeName)!;
+          if (!slotMap.has(reqDay)) {
+            const d = new Date(dateStr + 'T12:00:00');
+            const dayLabel = d.toLocaleDateString('en-US', { weekday: 'long' });
+            slotMap.set(reqDay, {
+              day: dateStr,
+              dayLabel,
+              availableWindow: `${v.timeStart}-${v.timeEnd}`,
+              matchType: 'exact',
+            });
+          }
+        }
+      }
+    }
+
+    const matches: MatchedEmployee[] = [];
+    Array.from(employeeSlotsByDay.entries()).forEach(([empName, slotMap]) => {
+      const coversAll = v.selectedDays.every(day => slotMap.has(day));
+      if (!coversAll) return;
+
+      let gender: string | undefined;
+      let transportMode: string | undefined;
+      const contractedWeeklyHours = 0;
+      let totalScheduledHours = 0;
+      for (const dateStr of Object.keys(employeeSummaryByDate)) {
+        const emp = employeeSummaryByDate[dateStr].find(e => e.employeeName === empName);
+        if (emp) {
+          gender = emp.gender;
+          transportMode = emp.transportMode;
+          totalScheduledHours = (emp as any).scheduledHours || 0;
+          break;
+        }
+      }
+
+      matches.push({
+        employeeName: empName,
+        matchType: 'exact',
+        matchScore: 100,
+        gender,
+        transportMode,
+        contractedWeeklyHours,
+        totalScheduledHours,
+        remainingCapacity: 0,
+        matchedSlots: Array.from(slotMap.values()),
+      });
+    });
+
+    matches.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+
+    return {
+      visitLabel: `Visit ${visitIdx + 1}`,
+      visitIndex: visitIdx,
+      careProsRequired: v.careProsRequired,
+      genderPreferences: v.genderPreferences,
+      matches,
+      totalEmployeesEvaluated: totalEvaluated,
+    };
+  });
+
+  return { clientName, postcode, visitResults, totalVisits: visitResults.length };
 }
 
 interface MatchedEmployee {
@@ -605,7 +705,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   );
 }
 
-function ClientEnquiryMatcher() {
+function ClientEnquiryMatcher({ employeeSummaryByDate }: { employeeSummaryByDate?: Record<string, EmployeeSummaryRecord[]> }) {
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [postcode, setPostcode] = useState('');
@@ -669,79 +769,40 @@ function ClientEnquiryMatcher() {
     },
   });
 
-  const matchMutation = useMutation({
-    mutationFn: async () => {
-      const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-      if (activeVisits.length === 1 && activeVisits[0].careProsRequired === 1) {
-        const v = activeVisits[0];
-        const res = await apiRequest('POST', '/api/bd-matcher', {
-          clientName,
-          postcode: postcode || undefined,
-          genderPreference: v.genderPreferences[0] || 'any',
-          requiredDays: v.selectedDays,
-          preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-        });
-        const singleResult = await res.json();
-        return {
-          clientName,
-          postcode: postcode || undefined,
-          visitResults: [{
-            visitLabel: 'Visit 1',
-            visitIndex: 0,
-            careProsRequired: 1,
-            genderPreferences: v.genderPreferences,
-            matches: singleResult.matches,
-            totalEmployeesEvaluated: singleResult.totalEmployeesEvaluated,
-          }],
-          totalVisits: 1,
-        } as MultiVisitResult;
-      }
-
-      const visitPayloads = activeVisits.map((v, i) => ({
-        visitLabel: `Visit ${i + 1}`,
-        careProsRequired: v.careProsRequired,
-        genderPreferences: v.genderPreferences,
-        requiredDays: v.selectedDays,
-        preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-      }));
-
-      const res = await apiRequest('POST', '/api/bd-matcher/multi-visit', {
-        clientName,
-        postcode: postcode || undefined,
-        visits: visitPayloads,
-      });
-      return await res.json() as MultiVisitResult;
-    },
-    onSuccess: (data: MultiVisitResult) => {
-      setMultiResults(data);
-      setActiveResultTab('0');
-      const filledVisits = visits.filter(v => v.selectedDays.length > 0);
-      const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
-      saveEnquiryMutation.mutate({
-        criteria: {
-          clientName,
-          postcode: postcode || undefined,
-          visits: filledVisits.map((v, i) => ({
-            visitLabel: `Visit ${i + 1}`,
-            careProsRequired: v.careProsRequired,
-            genderPreferences: v.genderPreferences,
-            requiredDays: v.selectedDays,
-            preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-          })),
-        },
-        matchResult: data,
-        isSingleVisit: isSingle,
-      });
-      toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
-    },
-    onError: () => {
+  const handleFindMatches = () => {
+    if (!employeeSummaryByDate || Object.keys(employeeSummaryByDate).length === 0) {
       toast({
-        title: "Matching Failed",
-        description: "Could not find matches. Please make sure data has been uploaded and processed first.",
+        title: "No Data Available",
+        description: "Please upload and process Excel files first.",
         variant: "destructive",
       });
-    },
-  });
+      return;
+    }
+
+    const result = performFrontendMatch(visits, clientName, postcode || undefined, employeeSummaryByDate);
+    setMultiResults(result);
+    setActiveResultTab('0');
+
+    const filledVisits = visits.filter(v => v.selectedDays.length > 0);
+    const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
+    saveEnquiryMutation.mutate({
+      criteria: {
+        clientName,
+        postcode: postcode || undefined,
+        visits: filledVisits.map((v, i) => ({
+          visitLabel: `Visit ${i + 1}`,
+          careProsRequired: v.careProsRequired,
+          genderPreferences: v.genderPreferences,
+          requiredDays: v.selectedDays,
+          preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+        })),
+      },
+      matchResult: result,
+      isSingleVisit: isSingle,
+    });
+
+    toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${result.totalVisits} visit${result.totalVisits !== 1 ? 's' : ''}.` });
+  };
 
   const updateVisit = (index: number, visitData: VisitFormData) => {
     const newVisits = [...visits];
@@ -1157,16 +1218,12 @@ function ClientEnquiryMatcher() {
                       </span>
                     )}
                     <Button
-                      onClick={() => matchMutation.mutate()}
-                      disabled={!canSubmit || matchMutation.isPending}
+                      onClick={handleFindMatches}
+                      disabled={!canSubmit}
                       className="h-13 px-10 bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-700 hover:from-purple-800 hover:via-indigo-800 hover:to-blue-800 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-purple-500/25 gap-3 rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl hover:shadow-purple-500/30"
                     >
-                      {matchMutation.isPending ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Search className="w-5 h-5" />
-                      )}
-                      {matchMutation.isPending ? "Searching..." : "Find Best Matches"}
+                      <Search className="w-5 h-5" />
+                      Find Best Matches
                     </Button>
                   </div>
                 </div>
@@ -1399,7 +1456,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <Users className="w-6 h-6 text-blue-600" />
               BD Availability Matrix
             </CardTitle>
-            <ClientEnquiryMatcher />
+            <ClientEnquiryMatcher employeeSummaryByDate={data?.employeeSummaryByDate} />
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Quick view of staff availability across standard time blocks for business development decisions
