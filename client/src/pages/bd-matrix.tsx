@@ -374,6 +374,91 @@ function VisitForm({ visit, onChange }: { visit: VisitFormData; onChange: (v: Vi
   );
 }
 
+function CareProMap({ locations }: { locations: any[] }) {
+  const mapPoints = useMemo(() => {
+    if (!locations || locations.length === 0) return [];
+    
+    const valid = locations.filter(l => l.homeLat && l.homeLng);
+    if (valid.length === 0) return [];
+
+    const lats = valid.map(l => parseFloat(l.homeLat));
+    const lngs = valid.map(l => parseFloat(l.homeLng));
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    const latRange = maxLat - minLat || 0.1;
+    const lngRange = maxLng - minLng || 0.1;
+
+    return valid.map(l => ({
+      ...l,
+      x: ((parseFloat(l.homeLng) - minLng) / lngRange) * 80 + 10,
+      y: (1 - (parseFloat(l.homeLat) - minLat) / latRange) * 80 + 10
+    }));
+  }, [locations]);
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e5e3df]">
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      
+      <div className="relative w-full h-full p-12 overflow-hidden">
+        {mapPoints.map((loc, i) => (
+          <div 
+            key={loc.id || i}
+            className="absolute group transition-all duration-500 animate-in fade-in zoom-in"
+            style={{ 
+              left: `${loc.x}%`, 
+              top: `${loc.y}%`,
+              animationDelay: `${i * 50}ms`
+            }}
+          >
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <MapPin className={`w-8 h-8 ${loc.gender === 'female' ? 'text-pink-500' : 'text-blue-500'} drop-shadow-lg group-hover:scale-110 transition-transform`} />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+              </div>
+              <div className="mt-2 px-3 py-1.5 bg-white/95 backdrop-blur-sm border shadow-xl rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none min-w-[120px]">
+                <p className="text-[11px] font-black text-gray-900 truncate">{loc.employeeName}</p>
+                <p className="text-[9px] font-bold text-gray-500 uppercase">{loc.homePostcode}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {mapPoints.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full">
+            <MapIcon className="w-16 h-16 text-gray-300 mb-4 animate-pulse" />
+            <h4 className="text-xl font-bold text-gray-400">No Geographic Data Available</h4>
+            <p className="text-sm text-gray-400 mt-2">Ensure employee postcodes are uploaded and geocoded</p>
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-3 z-20">
+        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Map Legend</h5>
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Active Available</span>
+        </div>
+      </div>
+
+      <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
+        <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Plus className="w-4 h-4" /></Button>
+        <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Minus className="w-4 h-4" /></Button>
+      </div>
+    </div>
+  );
+}
+
 function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitResult; requiredDays?: string[] }) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
@@ -389,6 +474,11 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
   };
+
+  const { data: locations = [] } = useQuery<any[]>({
+    queryKey: ['/api/locations'],
+    enabled: !!data,
+  });
 
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
@@ -1466,69 +1556,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex-1 relative bg-gray-100 overflow-hidden">
-                    {/* Map Simulation / Placeholder with Real Postcode Logic */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#e5e3df]">
-                      {/* Grid background for map-like feel */}
-                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-                      
-                      {/* Simulated Clusters */}
-                      <div className="relative w-full h-full p-12 overflow-hidden">
-                        {data?.employeeLocations?.slice(0, 20).map((loc, i) => (
-                          <div 
-                            key={i}
-                            className="absolute group transition-all duration-500 animate-in fade-in zoom-in"
-                            style={{ 
-                              left: `${20 + (Math.sin(i * 1.5) * 35 + 35)}%`, 
-                              top: `${20 + (Math.cos(i * 1.2) * 35 + 35)}%`,
-                              animationDelay: `${i * 100}ms`
-                            }}
-                          >
-                            <div className="flex flex-col items-center">
-                              <div className="relative">
-                                <MapPin className={`w-8 h-8 ${loc.gender === 'female' ? 'text-pink-500' : 'text-blue-500'} drop-shadow-lg group-hover:scale-110 transition-transform`} />
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-                              </div>
-                              <div className="mt-2 px-3 py-1.5 bg-white/95 backdrop-blur-sm border shadow-xl rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none min-w-[120px]">
-                                <p className="text-[11px] font-black text-gray-900 truncate">{loc.employeeName}</p>
-                                <p className="text-[9px] font-bold text-gray-500 uppercase">{loc.homePostcode}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Centered message if no data */}
-                        {(!data?.employeeLocations || data.employeeLocations.length === 0) && (
-                          <div className="flex flex-col items-center justify-center h-full">
-                            <MapIcon className="w-16 h-16 text-gray-300 mb-4 animate-pulse" />
-                            <h4 className="text-xl font-bold text-gray-400">Waiting for Geographic Data</h4>
-                            <p className="text-sm text-gray-400 mt-2">Upload employee locations to see the map</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Legend Overlay */}
-                    <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-3 z-20">
-                      <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Map Legend</h5>
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
-                        <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
-                        <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm" />
-                        <span className="text-xs font-bold text-gray-700">Active Available</span>
-                      </div>
-                    </div>
-
-                    {/* Zoom Controls Simulation */}
-                    <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
-                      <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Plus className="w-4 h-4" /></Button>
-                      <Button size="icon" variant="secondary" className="rounded-xl shadow-xl bg-white/90 hover:bg-white"><Minus className="w-4 h-4" /></Button>
-                    </div>
+                    <CareProMap locations={locations} />
                   </div>
                 </DialogContent>
               </Dialog>
