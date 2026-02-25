@@ -174,11 +174,19 @@ function findClosestSlot(
   let bestSlot: { window: string; distance: number } | null = null;
   const MAX_DIFF = 150; // 2h30mins = 150 minutes
 
-  // Helper to check if a block matches exactly (09:15, 10:30, etc.)
-  const isStandardBlockStart = (mins: number) => {
-    return COMPANY_TIME_BLOCKS.some(b => timeToMinutes(b.start) === mins);
-  };
+  // First, check if the requested block is contained ANYWHERE in the free windows.
+  // This handles the "generic" match case where an employee has a broad window
+  // that covers the requested block, regardless of company block alignment.
+  for (const [wStart, wEnd] of windows) {
+    if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
+      return {
+        window: `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`,
+        distance: 0
+      };
+    }
+  }
 
+  // Fallback to searching around the requested time within the windows
   for (const [wStart, wEnd] of windows) {
     if (wEnd - wStart >= visitDuration) {
       // Try each company block start time that fits in this window
@@ -203,8 +211,7 @@ function findClosestSlot(
     }
   }
 
-  // Fallback: If NO standard block fits the window, only then use a non-standard time
-  // Note: We still respect MAX_DIFF here
+  // Final fallback: If NO standard block fits the window, only then use a non-standard time
   if (!bestSlot) {
     for (const [wStart, wEnd] of windows) {
       if (wEnd - wStart >= visitDuration) {
