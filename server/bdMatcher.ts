@@ -477,6 +477,11 @@ function matchEmployeesForVisit(
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
 
+    let transportBonus = 0;
+    if (weeklyData.transportMode?.toLowerCase() === 'car' || weeklyData.transportMode?.toLowerCase() === 'driver') {
+      transportBonus = 15;
+    }
+
     let travelBonus = 0;
     if (clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
       const latDiff = clientLocation.lat - weeklyData.homeLat;
@@ -485,7 +490,7 @@ function matchEmployeesForVisit(
       travelBonus = Math.max(0, 15 - (distance * 100)); 
     }
 
-    const finalScore = Math.round((avgScore * 0.4 + dayMatchRatio * 100 * 0.4 + capacityBonus * 0.1 + travelBonus * 0.1) * 100) / 100;
+    const finalScore = Math.round((avgScore * 0.35 + dayMatchRatio * 100 * 0.35 + capacityBonus * 0.1 + transportBonus * 0.1 + travelBonus * 0.1) * 100) / 100;
 
     let overallMatchType: 'exact' | 'adjusted-time' | 'alternative-day' = 'exact';
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
