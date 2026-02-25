@@ -575,19 +575,13 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                       {slotOnDay.availableWindow}
                                                     </div>
                                                   </div>
-                                                  <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                                    <div className="flex items-center gap-1">
-                                                      <BarChart3 className="w-3 h-3 opacity-50" />
-                                                      {remainingHours}h rem
-                                                    </div>
-                                                  </div>
                                                   <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
                                                     <div className="flex items-center gap-1.5">
                                                       <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                                       <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
                                                     </div>
                                                     <div className="font-bold text-gray-700 dark:text-gray-300 cursor-help" title={`Scheduled: ${employeeMatch.totalScheduledHours}h\nContracted: ${employeeMatch.contractedWeeklyHours}h\nRemaining: ${remainingHours}h`}>
-                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
+                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
                                                     </div>
                                                   </div>
                                                 </div>
