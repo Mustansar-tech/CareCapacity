@@ -574,12 +574,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                     <div className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border ${isExact ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50'}`}>
                                                       {slotOnDay.availableWindow}
                                                     </div>
-                                                    {showAdjustedTime && (
-                                                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50">
-                                                        <Clock className="w-3 h-3" />
-                                                        Sug: {slotOnDay.availableWindow.split('-')[0]}
-                                                      </div>
-                                                    )}
                                                   </div>
                                                   <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
                                                     <div className="flex items-center gap-1">
