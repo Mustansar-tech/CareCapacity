@@ -137,8 +137,7 @@ function findExactSlot(
   visitDuration: number
 ): string | null {
   for (const [wStart, wEnd] of windows) {
-    // A window is an "Exact" match if the requested start and end fit entirely inside it
-    if (reqStart >= wStart && (reqStart + visitDuration) <= wEnd) {
+    if (wStart <= reqStart && wEnd >= (reqStart + visitDuration)) {
       return `${minutesToTime(reqStart)}-${minutesToTime(reqStart + visitDuration)}`;
     }
   }
@@ -308,6 +307,15 @@ async function buildEmployeeWeeklyData(
   return { allEmployeeNames, employeeWeeklyData };
 }
 
+function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqEnd: number): boolean {
+  if (!freeWindows || freeWindows === '-' || freeWindows === '') return false;
+  const windows = parseFreeWindows(freeWindows);
+  for (const [wStart, wEnd] of windows) {
+    if (wStart <= reqStart && wEnd >= reqEnd) return true;
+  }
+  return false;
+}
+
 function matchEmployeesForVisit(
   genderPreference: 'male' | 'female' | 'any',
   requiredDays: string[],
@@ -337,7 +345,6 @@ function matchEmployeesForVisit(
   for (const empName of employeeNamesArray) {
     const weeklyData = employeeWeeklyData.get(empName)!;
     
-
     if (
       genderPreference &&
       genderPreference !== 'any' &&
@@ -365,29 +372,20 @@ function matchEmployeesForVisit(
         const empSummary = summaries.find(s => s.employeeName === empName);
         if (!empSummary) continue;
 
-        const freeWindows = parseFreeWindows(empSummary.freeWindows);
-        const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
-        const containedSlot = findContainedSlot(freeWindows, reqStart, reqEnd, visitDuration);
+        // NEW LOGIC: Use the exact same availability check as the BD Matrix grid
+        const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, reqStart, reqEnd);
 
-        if (exactSlot && bestScoreForDay < 100) {
+        if (isAvailable) {
           bestSlotForDay = {
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
-            availableWindow: exactSlot,
+            availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'exact',
           };
           bestScoreForDay = 100;
-        } else if (containedSlot && bestScoreForDay < 95) {
-          // New logic: if someone is available for a larger window that contains our requested block,
-          // it's almost an exact match (95 score).
-          bestSlotForDay = {
-            day: dateStr,
-            dayLabel: getDayLabel(dateStr),
-            availableWindow: containedSlot.window,
-            matchType: 'exact',
-          };
-          bestScoreForDay = 95;
-        } else if (!exactSlot && !containedSlot && bestScoreForDay < 80) {
+        } else {
+          // Fallback to adjusted time if not fully available in the requested block
+          const freeWindows = parseFreeWindows(empSummary.freeWindows);
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
             const score = Math.max(0, 80 - closestSlot.distance / 5);
@@ -421,20 +419,20 @@ function matchEmployeesForVisit(
         const empSummary = summaries.find(s => s.employeeName === empName);
         if (!empSummary) continue;
 
-        const freeWindows = parseFreeWindows(empSummary.freeWindows);
-        const exactSlot = findExactSlot(freeWindows, reqStart, reqEnd, visitDuration);
+        const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, reqStart, reqEnd);
 
-        if (exactSlot) {
+        if (isAvailable) {
           matchedSlots.push({
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
-            availableWindow: exactSlot,
+            availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'alternative-day',
           });
           alternativeDayMatches++;
           totalScore += 40;
           if (matchedSlots.length >= requiredDays.length) break;
         } else {
+          const freeWindows = parseFreeWindows(empSummary.freeWindows);
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
             matchedSlots.push({
@@ -457,16 +455,11 @@ function matchEmployeesForVisit(
     const dayMatchRatio = matchedSlots.filter(s => s.matchType === 'exact').length / Math.max(requiredDays.length, 1);
     const capacityBonus = Math.min(20, remainingCapacity * 2);
 
-    // Travel Score Component
     let travelBonus = 0;
     if (clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
-      // Direct distance calculation as proxy for travel time in BD matcher
       const latDiff = clientLocation.lat - weeklyData.homeLat;
       const lngDiff = clientLocation.lng - weeklyData.homeLng;
       const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
-      
-      // Assume ~0.01 degree is approx 1km. 10km radius for full bonus.
-      // Score decreases as distance increases.
       travelBonus = Math.max(0, 15 - (distance * 100)); 
     }
 
