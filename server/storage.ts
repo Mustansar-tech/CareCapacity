@@ -556,6 +556,7 @@ export class DatabaseStorage implements IStorage {
   async saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
     const [result] = await db.insert(clientEnquiries).values({
       ...enquiry,
+      isMultiVisit: enquiry.isMultiVisit ? 1 : 0,
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
     }).returning();
     return result;
@@ -740,8 +741,9 @@ export class MemStorage implements IStorage {
       genderPreference: enquiry.genderPreference ?? null,
       topMatch: enquiry.topMatch ?? null,
       results: enquiry.results ?? null,
+      visits: enquiry.visits ?? null,
+      isMultiVisit: enquiry.isMultiVisit ?? 0,
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
-      matchCount: enquiry.matchCount ?? 0,
       createdAt: new Date(),
     };
     this.clientEnquiriesMap.set(id, result);

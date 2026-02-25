@@ -664,6 +664,7 @@ function ClientEnquiryMatcher() {
         topMatch,
         results: data.matchResult,
         isMultiVisit: !data.isSingleVisit,
+        visits: data.criteria.visits, // Pass the full visits array for history
       });
       return res.json();
     },
@@ -914,12 +915,14 @@ function ClientEnquiryMatcher() {
                                 <h4 className="font-bold text-gray-400">No Matches Found</h4>
                               </div>
                             ) : (
-                              <MatchResultsGrid 
+                            <MatchResultsGrid 
                                 result={{
                                   ...viewingHistoryResult.results,
                                   visitResults: [vr]
                                 }} 
-                                requiredDays={viewingHistoryResult.criteria?.visits?.[vi]?.selectedDays || 
+                                requiredDays={viewingHistoryResult.visits?.[vi]?.requiredDays || 
+                                             viewingHistoryResult.visits?.[vi]?.selectedDays || 
+                                             viewingHistoryResult.criteria?.visits?.[vi]?.selectedDays || 
                                              viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || 
                                              viewingHistoryResult.requiredDays || []}
                               />
