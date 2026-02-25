@@ -497,9 +497,8 @@ function matchEmployeesForVisit(
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
     else if (adjustedTimeMatches > 0) overallMatchType = 'adjusted-time';
 
-    if (matchedSlots.length < requiredDays.length && overallMatchType !== 'alternative-day') {
-      overallMatchType = 'adjusted-time';
-    }
+    // Remove the logic that forces adjusted-time if some days are missing.
+    // This allows candidates to appear even if they don't cover the full week.
 
     candidates.push({
       employeeName: empName,
