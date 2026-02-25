@@ -207,15 +207,28 @@ function performFrontendMatch(
     let totalEvaluated = 0;
 
     for (const reqDay of v.selectedDays) {
-      const datesForDay = datesByDay.get(reqDay) || [];
+      // Normalize reqDay just in case
+      const normalizedReqDay = reqDay.toLowerCase().trim();
+      const datesForDay = datesByDay.get(normalizedReqDay) || [];
+      
+      console.log(`[BD Matcher] Processing reqDay: ${normalizedReqDay}, found ${datesForDay.length} dates:`, datesForDay);
+      
       for (const dateStr of datesForDay) {
         // Collect employees from ALL matching time block cells for this date
         // This reads DIRECTLY from the grid's pre-computed cell data
         const seen = new Set<string>();
         for (const blockLabel of blockLabels) {
           const cell = matrix[dateStr]?.[blockLabel];
-          if (!cell) continue;
+          if (!cell) {
+            console.log(`[BD Matcher] No cell found for date: ${dateStr}, block: ${blockLabel}`);
+            continue;
+          }
+          
           totalEvaluated = Math.max(totalEvaluated, cell.count);
+          if (cell.employees.length > 0) {
+            console.log(`[BD Matcher] Found ${cell.employees.length} employees in cell ${blockLabel} on ${dateStr}`);
+          }
+          
           for (const emp of cell.employees) {
             if (seen.has(emp.name)) continue;
             seen.add(emp.name);
