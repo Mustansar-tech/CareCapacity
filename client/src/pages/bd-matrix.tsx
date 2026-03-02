@@ -1461,14 +1461,39 @@ function ClientEnquiryMatcher() {
                   </div>
                 </div>
               </div>
-            ) : (
+            {multiResults ? (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  {multiResults.visitResults.map((vr, i) => (
+                    <Button
+                      key={i}
+                      variant={activeResultTab === String(i) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setActiveResultTab(String(i))}
+                      className={`gap-2 font-bold rounded-xl transition-all px-4 h-9 text-xs ${
+                        activeResultTab === String(i) 
+                          ? "bg-purple-600 text-white shadow-md shadow-purple-500/20" 
+                          : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
+                      }`}
+                    >
+                      <span className={`w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center ${
+                        activeResultTab === String(i) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                      }`}>
+                        {i + 1}
+                      </span>
+                      Visit {i + 1}
+                    </Button>
+                  ))}
+                </div>
                 <MatchResultsGrid 
-                  result={multiResults} 
-                  requiredDays={visits.flatMap(v => v.selectedDays)}
+                  result={{
+                    ...multiResults,
+                    visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
+                  }} 
+                  requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
                 />
               </div>
-            )}
+            ) : showHistory ? (
           </div>
 
         </DialogContent>
