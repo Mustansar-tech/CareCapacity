@@ -584,6 +584,22 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
       <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b p-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              // This relies on the parent's setMultiResults, but since MatchResultsGrid 
+              // is defined inside ClientEnquiryMatcher scope (or has access via props/context),
+              // we need to make sure we can trigger the back action.
+              // In this case, we'll assume the user wants to go back to the form.
+              window.dispatchEvent(new CustomEvent('bd-matcher-back'));
+            }} 
+            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-8 text-[10px]"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back
+          </Button>
+          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg" aria-hidden="true">
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
@@ -852,6 +868,13 @@ function ClientEnquiryMatcher() {
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
   const { toast } = useToast();
+
+  // Handle back button from grid
+  React.useEffect(() => {
+    const handleBack = () => setMultiResults(null);
+    window.addEventListener('bd-matcher-back', handleBack);
+    return () => window.removeEventListener('bd-matcher-back', handleBack);
+  }, []);
 
   const historyQuery = useQuery<any[]>({
     queryKey: ['/api/client-enquiries'],
@@ -1438,42 +1461,6 @@ function ClientEnquiryMatcher() {
               </div>
             ) : (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center justify-between px-2">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 rounded-xl shadow-sm">
-                      <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 tracking-tight leading-none uppercase">
-                        Enquiry Results: {clientName}
-                      </h3>
-                      <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-widest">
-                        {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} total
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setMultiResults(null)} 
-                      className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-4 h-9 text-xs"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      Back to Form
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowHistory(true)}
-                      className="text-xs font-bold gap-2 text-gray-500 hover:text-purple-600"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      History
-                    </Button>
-                  </div>
-                </div>
-
                 <MatchResultsGrid 
                   result={multiResults} 
                   requiredDays={visits.flatMap(v => v.selectedDays)}
