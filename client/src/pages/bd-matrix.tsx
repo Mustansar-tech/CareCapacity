@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { 
   Map as MapIcon,
-  Calendar, Users, Clock, Car, PersonStanding, 
+  Calendar, Users, User as LucideUser, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
@@ -1812,7 +1812,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                             <div className="flex items-start justify-between">
                                               <div className="flex items-start gap-4">
                                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${getGenderBgColorClass(employee.gender)}`}>
-                                                  <User className={`w-6 h-6 ${getGenderColorClass(employee.gender)}`} />
+                                                  <LucideUser className={`w-6 h-6 ${getGenderColorClass(employee.gender)}`} />
                                                 </div>
                                                 <div>
                                                   <h4 className={`text-lg font-black tracking-tight ${getGenderColorClass(employee.gender)}`}>
@@ -1927,7 +1927,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                                             <div className="flex items-start justify-between">
                                               <div className="flex items-start gap-4">
                                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${getGenderBgColorClass(employee.gender)}`}>
-                                                  <User className={`w-6 h-6 ${getGenderColorClass(employee.gender)}`} />
+                                                  <LucideUser className={`w-6 h-6 ${getGenderColorClass(employee.gender)}`} />
                                                 </div>
                                                 <div>
                                                   <h4 className={`text-lg font-black tracking-tight ${getGenderColorClass(employee.gender)}`}>
