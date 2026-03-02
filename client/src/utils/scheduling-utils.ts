@@ -52,19 +52,8 @@ function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
 
-// Get time-of-day congestion multiplier based on visit start time
-export function getTimeOfDayMultiplier(startTimeMinutes?: number): number {
-  if (startTimeMinutes === undefined) return 1.0; // Off-peak default
-  
-  const hours = startTimeMinutes / 60;
-  
-  // Morning peak (07:00–09:30): ×1.3
-  if (hours >= 7 && hours < 9.5) return 1.3;
-  
-  // School run / evening (15:30–18:30): ×1.25
-  if (hours >= 15.5 && hours < 18.5) return 1.25;
-  
-  // Off-peak: ×1.0
+// No peak-time adjustments — travel times are flat for all times of day
+export function getTimeOfDayMultiplier(_startTimeMinutes?: number): number {
   return 1.0;
 }
 
@@ -92,14 +81,10 @@ export function calculateTravelTime(
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 15;
   } else if (mode === 'walking') {
-    // Walkers are treated as public transport users (bus/train/lift mix), NOT pedestrians
-    // Formula: Haversine × 1.4 road factor (already applied above), 15 km/h avg speed, 15 min overhead, 15 min minimum
     const speedKmh = 15;
     const fixedOverheadMinutes = 15;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 15;
-    // Return early - walkers don't get congestion multiplier (public transport is steadier)
-    return Math.max(minTravelMinutes, Math.round(baseTravelMinutes));
   } else {
     baseTravelMinutes = (roadDistanceKm / 35) * 60;
     minTravelMinutes = 5;
@@ -139,9 +124,8 @@ export function getTravelMinutes(
     return 0;
   }
 
-  // Create cache key with rounded coordinates, mode, and time band for better hit rate
-  const timeBand = startTimeMinutes !== undefined ? Math.floor(startTimeMinutes / 60) : 'offpeak';
-  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}-${timeBand}`;
+  // Cache key: route + mode only (no time band — travel times are flat all day)
+  const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}`;
   
   // Check cache first
   const cached = travelTimeCache.get(cacheKey);
@@ -170,8 +154,7 @@ export function clearTravelCache(): void {
 }
 
 // Seed the travel time cache with real road distances fetched from the backend.
-// The backend returns ORS/OSRM base times. We apply the congestion multiplier for
-// each time band so the scheduler gets realistic times for any time of day.
+// Travel times are flat (no peak-time adjustments), so one entry per route+mode.
 export function seedTravelCache(
   entries: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }>
 ): void {
@@ -182,23 +165,8 @@ export function seedTravelCache(
     const tLat = Number(entry.toLat).toFixed(4);
     const tLng = Number(entry.toLng).toFixed(4);
     const mode = entry.mode as 'car' | 'walking' | 'public';
-    const baseDuration = entry.durationMinutes;
-
-    // Seed for the 'offpeak' key (no startTimeMinutes)
-    const offpeakKey = `${fLat},${fLng}-${tLat},${tLng}-${mode}-offpeak`;
-    travelTimeCache.set(offpeakKey, baseDuration);
-
-    // Seed for all 24 time bands with the appropriate congestion multiplier
-    for (let hour = 0; hour <= 23; hour++) {
-      const startTimeMinutes = hour * 60;
-      const multiplier = getTimeOfDayMultiplier(startTimeMinutes);
-      const adjusted = Math.max(
-        mode === 'car' ? 5 : 15,
-        Math.round(baseDuration * multiplier)
-      );
-      const key = `${fLat},${fLng}-${tLat},${tLng}-${mode}-${hour}`;
-      travelTimeCache.set(key, adjusted);
-    }
+    const key = `${fLat},${fLng}-${tLat},${tLng}-${mode}`;
+    travelTimeCache.set(key, entry.durationMinutes);
     seeded++;
   }
   console.log(`[Travel Cache] Seeded ${seeded} real-road entries (${travelTimeCache.size} total cache entries)`);
