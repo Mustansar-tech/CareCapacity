@@ -604,7 +604,15 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight">Enquiry Results</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight">Enquiry Results</h3>
+              {result.postcode && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white dark:bg-gray-800 rounded-full border shadow-sm" role="note" aria-label={`Location: ${result.postcode}`}>
+                  <MapPin className="w-3 h-3 text-purple-500" aria-hidden="true" />
+                  <span className="text-[9px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-wider">{result.postcode}</span>
+                </div>
+              )}
+            </div>
             <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-widest">{result.clientName || 'New Client'}</p>
           </div>
         </div>
@@ -618,12 +626,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
             >
               <X className="w-3 h-3" /> Clear Selections
             </Button>
-          )}
-          {result.postcode && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full border shadow-sm" role="note" aria-label={`Location: ${result.postcode}`}>
-              <MapPin className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-              <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{result.postcode}</span>
-            </div>
           )}
         </div>
       </div>
@@ -743,7 +745,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
 
                         return (
                           <td key={day} className="p-3 align-top min-w-[250px]">
-                            <ScrollArea className="h-[200px] pr-4">
+                            <ScrollArea className="h-[420px] pr-4">
                               <div className="space-y-3">
                                 {matchesToShow.length > 0 ? (
                                   matchesToShow.map((employeeMatch, matchIdx) => {
