@@ -470,7 +470,7 @@ function CareProMap({
             </Tooltip>
             <Popup>
               <div className="text-center min-w-[140px]">
-                <p className="font-black text-sm text-gray-900">{loc.employeeName}</p>
+                <p className="text-sm text-[#5d51d5] font-bold">{loc.employeeName}</p>
                 <p className="text-xs font-bold text-gray-500 mt-0.5 uppercase">{loc.homePostcode}</p>
                 <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
                   {normalizeGender(loc.gender) && (
@@ -491,7 +491,6 @@ function CareProMap({
           </Marker>
         ))}
       </MapContainer>
-
       <div className="absolute top-6 right-20 z-[1000]">
         {onRefresh && (
           <Button 
@@ -504,7 +503,6 @@ function CareProMap({
           </Button>
         )}
       </div>
-
       <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
         <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
         <div className="flex items-center gap-2">
