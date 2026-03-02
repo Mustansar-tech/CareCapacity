@@ -388,7 +388,7 @@ export default function Dashboard() {
         <CardContent>
           {/* Show intro cards only when no data exists */}
           {!processedData && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <Card className="glass hover-lift border-primary/20 bg-primary/5 transition-all duration-300">
                     <CardContent className="p-6 text-center">
                       <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
@@ -405,15 +405,6 @@ export default function Dashboard() {
                       </div>
                       <h3 className="font-bold text-lg mb-1">Guaranteed</h3>
                       <p className="text-xs text-muted-foreground leading-relaxed">Contracted hours and core data</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="glass hover-lift border-tertiary/20 bg-tertiary/5 transition-all duration-300">
-                    <CardContent className="p-6 text-center">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/20">
-                        <Users className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="font-bold text-lg mb-1">Client Data</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">Service requirements and locations</p>
                     </CardContent>
                   </Card>
                   <Card className="glass hover-lift border-orange-500/20 bg-orange-500/5 transition-all duration-300">
