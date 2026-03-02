@@ -520,7 +520,8 @@ export class TravelTimeService {
     if (nonCarEmployees.length > 0) {
       logger.info(`[Cache Pre-warm] Processing ${nonCarEmployees.length} walker/public employees via TravelTime API`);
 
-      for (const emp of nonCarEmployees) {
+      // Parallelize across employees
+      await Promise.all(nonCarEmployees.map(async (emp) => {
         // Find uncached clients for this employee
         const uncachedClients: Array<{ idx: number; client: typeof clientLocations[0] }> = [];
 
@@ -544,10 +545,8 @@ export class TravelTimeService {
           }
         }
 
-        if (uncachedClients.length === 0) continue;
+        if (uncachedClients.length === 0) return;
 
-        // Annotate each uncached client with its straight-line distance from the employee.
-        // This lets us split the batch: close clients (≤ 2 miles) → walking, far → public_transport.
         const uncachedWithDist = uncachedClients.map(b => ({
           ...b,
           distanceKm: this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: b.client.lat, lng: b.client.lng }),
@@ -602,37 +601,36 @@ export class TravelTimeService {
           return true;
         };
 
-        let matrixSuccess = false;
         if (this.hasTravelTimeCredentials()) {
-          const closeOk = await runMatrixGroup(closeClients, 'walking');
-          const farOk   = await runMatrixGroup(farClients, 'public_transport', 'walking');
-          matrixSuccess = closeOk && farOk;
-        }
-
-        // For any clients not covered by the matrix (API failed), fall back to heuristic
-        const allBatched = [...closeClients, ...farClients];
-        if (!matrixSuccess) {
-          logger.info(`[Cache Pre-warm] TravelTime Matrix failed - using heuristic for ${allBatched.length} pairs`);
-          for (const { client, distanceKm } of allBatched) {
-            const durationMinutes = this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
-            const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
-            try {
-              await storage.saveTravelTime({
-                branchId,
-                fromLat: emp.lat.toString(),
-                fromLng: emp.lng.toString(),
-                toLat: client.lat.toString(),
-                toLng: client.lng.toString(),
-                transportMode: emp.transportMode,
-                durationMinutes,
-                distanceMeters: Math.round(roadDistanceKm * 1000),
-                source: 'heuristic',
-              });
-              totalNew++;
-            } catch (_) {}
+          const [closeOk, farOk] = await Promise.all([
+            runMatrixGroup(closeClients, 'walking'),
+            runMatrixGroup(farClients, 'public_transport', 'walking')
+          ]);
+          
+          if (!closeOk || !farOk) {
+            const allBatched = [...closeClients, ...farClients];
+            logger.info(`[Cache Pre-warm] TravelTime Matrix failed - using heuristic for ${allBatched.length} pairs`);
+            for (const { client, distanceKm } of allBatched) {
+              const durationMinutes = this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
+              const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
+              try {
+                await storage.saveTravelTime({
+                  branchId,
+                  fromLat: emp.lat.toString(),
+                  fromLng: emp.lng.toString(),
+                  toLat: client.lat.toString(),
+                  toLng: client.lng.toString(),
+                  transportMode: emp.transportMode,
+                  durationMinutes,
+                  distanceMeters: Math.round(roadDistanceKm * 1000),
+                  source: 'heuristic',
+                });
+                totalNew++;
+              } catch (_) {}
+            }
           }
         }
-      }
+      }));
     }
 
     if (carEmployees.length === 0) {
