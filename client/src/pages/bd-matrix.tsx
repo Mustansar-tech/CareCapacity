@@ -584,22 +584,6 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
       <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b p-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => {
-              // This relies on the parent's setMultiResults, but since MatchResultsGrid 
-              // is defined inside ClientEnquiryMatcher scope (or has access via props/context),
-              // we need to make sure we can trigger the back action.
-              // In this case, we'll assume the user wants to go back to the form.
-              window.dispatchEvent(new CustomEvent('bd-matcher-back'));
-            }} 
-            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-8 text-[10px]"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Back
-          </Button>
-          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg" aria-hidden="true">
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
@@ -627,6 +611,22 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
               <X className="w-3 h-3" /> Clear Selections
             </Button>
           )}
+          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              // This relies on the parent's setMultiResults, but since MatchResultsGrid 
+              // is defined inside ClientEnquiryMatcher scope (or has access via props/context),
+              // we need to make sure we can trigger the back action.
+              // In this case, we'll assume the user wants to go back to the form.
+              window.dispatchEvent(new CustomEvent('bd-matcher-back'));
+            }} 
+            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-8 text-[10px]"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back
+          </Button>
         </div>
       </div>
       <div className="overflow-x-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
