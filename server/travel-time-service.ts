@@ -84,12 +84,12 @@ export class TravelTimeService {
     return Math.pow(excess / maxExcess, 2) * 100;
   }
 
-  private readonly WALK_THRESHOLD_KM = 3.2; // ~2 miles — closer than this, walking is faster than bus
+  private readonly WALK_THRESHOLD_KM = 1.6; // ~1 mile — closer than this, use TravelTime walking mode
 
   /**
    * Pick the TravelTime API transportation type based on straight-line distance.
-   * ≤ 2 miles (3.2 km): use 'walking' — quicker and more realistic than waiting for a bus
-   * >  2 miles (3.2 km): use 'public_transport' — bus/train is the realistic option
+   * ≤ 1 mile (1.6 km): use 'walking' — quicker and more realistic than waiting for a bus
+   * >  1 mile (1.6 km): use 'public_transport' — bus/train is the realistic option
    */
   private toTravelTimeTransport(distanceKm: number): string {
     return distanceKm <= this.WALK_THRESHOLD_KM ? 'walking' : 'public_transport';

@@ -622,8 +622,8 @@ function tryAssignVisitToWalker(
         return { success: false, reason: 'Too far from previous visit for walker (>4km)' };
       }
       
-      // Walker heuristic: <= 3.2km → walking speed; > 3.2km → transit
-      const walkTimeFromPrev = distFromPrev <= 3.2
+      // Walker heuristic: <= 1.6km (1 mile) → walking speed; > 1.6km → transit
+      const walkTimeFromPrev = distFromPrev <= 1.6
         ? Math.max(2, Math.ceil((distFromPrev * 1.2 / 5) * 60))
         : Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
       const prevEndMin = timeToMinutes(prevVisit.endTime);
@@ -655,19 +655,19 @@ function tryAssignVisitToWalker(
         walkerVisit.lat,
         walkerVisit.lng
       );
-      // Walker heuristic: <= 3.2km → walking speed; > 3.2km → transit
-      actualWalkTime = distFromPrev <= 3.2
+      // Walker heuristic: <= 1.6km (1 mile) → walking speed; > 1.6km → transit
+      actualWalkTime = distFromPrev <= 1.6
         ? Math.max(2, Math.ceil((distFromPrev * 1.2 / 5) * 60))
         : Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
     } else {
       // First visit - walk from home
-      actualWalkTime = best.distanceKm <= 3.2
+      actualWalkTime = best.distanceKm <= 1.6
         ? Math.max(2, Math.ceil((best.distanceKm * 1.2 / 5) * 60))
         : Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
     }
   } else {
     // First visit - walk from home
-    actualWalkTime = best.distanceKm <= 3.2
+    actualWalkTime = best.distanceKm <= 1.6
       ? Math.max(2, Math.ceil((best.distanceKm * 1.2 / 5) * 60))
       : Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
   }
