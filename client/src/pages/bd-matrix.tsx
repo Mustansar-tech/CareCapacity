@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
-  Tooltip,
+  Tooltip as ShadcnTooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
@@ -197,16 +197,16 @@ function getMatchTypeBadge(matchType: string) {
     case 'adjusted-time':
       return (
         <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700 flex items-center gap-1 cursor-help">
-                <Info className="w-3 h-3" /> Needs Adjustment
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
-              <p>Availability does not perfectly match standard blocks</p>
-            </TooltipContent>
-          </Tooltip>
+            <ShadcnTooltip>
+              <TooltipTrigger asChild>
+                <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-700 flex items-center gap-1 cursor-help">
+                  <Info className="w-3 h-3" /> Needs Adjustment
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                <p>Availability does not perfectly match standard blocks</p>
+              </TooltipContent>
+            </ShadcnTooltip>
         </TooltipProvider>
       );
     case 'alternative-day':
@@ -457,7 +457,6 @@ function CareProMap({
         scrollWheelZoom={true}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {validLocations.map((loc) => (
@@ -466,6 +465,9 @@ function CareProMap({
             position={[parseFloat(loc.homeLat), parseFloat(loc.homeLng)]}
             icon={makeIcon(loc.gender || '')}
           >
+            <Tooltip permanent direction="right" offset={[15, -20]} className="bg-white/90 border-none shadow-md font-bold text-[10px] px-2 py-1 rounded-md">
+              <span>{loc.homePostcode}</span>
+            </Tooltip>
             <Popup>
               <div className="text-center min-w-[140px]">
                 <p className="font-black text-sm text-gray-900">{loc.employeeName}</p>
@@ -732,14 +734,14 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                                         {employeeMatch.employeeName}
                                                         {slotOnDay.matchType === 'adjusted-time' && (
                                                           <TooltipProvider>
-                                                            <Tooltip>
+                                                            <ShadcnTooltip>
                                                               <TooltipTrigger asChild>
                                                                 <Info className="w-3 h-3 text-orange-500 cursor-help" />
                                                               </TooltipTrigger>
                                                               <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
                                                                 <p>Needs Adjustment</p>
                                                               </TooltipContent>
-                                                            </Tooltip>
+                                                            </ShadcnTooltip>
                                                           </TooltipProvider>
                                                         )}
                                                       </div>
