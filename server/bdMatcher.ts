@@ -41,6 +41,7 @@ export interface MatchedSlot {
   dayLabel: string;
   availableWindow: string;
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
+  cancelledVisits?: string;
 }
 
 export interface MatchResult {
@@ -427,12 +428,15 @@ function matchEmployeesForVisit(
         // NEW LOGIC: Use the exact same availability check as the BD Matrix grid
         const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, reqStart, reqEnd);
 
+        const cancelledVisitsStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
+
         if (isAvailable) {
           bestSlotForDay = {
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
             availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'exact',
+            cancelledVisits: cancelledVisitsStr,
           };
           bestScoreForDay = 100;
         } else {
@@ -453,6 +457,7 @@ function matchEmployeesForVisit(
                   dayLabel: getDayLabel(dateStr),
                   availableWindow: closestSlot.window,
                   matchType: 'adjusted-time',
+                  cancelledVisits: cancelledVisitsStr,
                 };
                 bestScoreForDay = score;
               }
@@ -479,6 +484,7 @@ function matchEmployeesForVisit(
         if (!empSummary) continue;
 
         const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, reqStart, reqEnd);
+        const altCancelledStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
 
         if (isAvailable) {
           matchedSlots.push({
@@ -486,6 +492,7 @@ function matchEmployeesForVisit(
             dayLabel: getDayLabel(dateStr),
             availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'alternative-day',
+            cancelledVisits: altCancelledStr,
           });
           alternativeDayMatches++;
           totalScore += 40;
@@ -499,6 +506,7 @@ function matchEmployeesForVisit(
               dayLabel: getDayLabel(dateStr),
               availableWindow: closestSlot.window,
               matchType: 'alternative-day',
+              cancelledVisits: altCancelledStr,
             });
             alternativeDayMatches++;
             totalScore += Math.max(0, 20 - closestSlot.distance / 10);
