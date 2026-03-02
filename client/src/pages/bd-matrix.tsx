@@ -1415,29 +1415,56 @@ function ClientEnquiryMatcher() {
               </div>
             ) : (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Results Header */}
-                <div className="flex items-center justify-between pb-5 border-b border-gray-200/60 dark:border-gray-800/60">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3.5 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40 rounded-2xl shadow-md shadow-green-500/10">
-                      <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-                        Matches for {clientName}
-                      </h3>
-                      <p className="text-xs font-black text-gray-500 mt-1 tracking-wider">
-                        {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot; {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => setMultiResults(null)} className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 px-4 py-2 h-auto">
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
-                  </Button>
-                </div>
-
                 {/* Results Tabs */}
                 <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-xl shadow-purple-500/5 overflow-hidden p-5">
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40 rounded-xl shadow-sm">
+                        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 tracking-tight leading-none">
+                          {clientName}
+                        </h3>
+                        <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-widest">
+                          {multiResults.totalVisits} visit{multiResults.totalVisits !== 1 ? 's' : ''} &middot; {multiResults.visitResults.reduce((sum, vr) => sum + vr.matches.length, 0)} total matches
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {showHistory ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setShowHistory(false)}
+                          className="text-xs font-bold gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          Back to Matcher
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setMultiResults(null)} 
+                          className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-4 h-9 text-xs"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          Back to Form
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowHistory(true)}
+                        className="text-xs font-bold gap-2 text-gray-500 hover:text-purple-600"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        History
+                      </Button>
+                    </div>
+                  </div>
+
                   <Tabs value={activeResultTab} onValueChange={setActiveResultTab} className="w-full">
                     <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1.5 h-auto flex-wrap gap-2 mb-6 rounded-2xl">
                       {multiResults.visitResults.map((vr, idx) => (
