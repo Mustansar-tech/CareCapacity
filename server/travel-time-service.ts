@@ -42,7 +42,7 @@ export class TravelTimeService {
 
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
     car:     { speedKmh: 35, overheadMinutes: 0,  minMinutes: 5  },
-    walking: { speedKmh: 5,  overheadMinutes: 2,  minMinutes: 5  },
+    walking: { speedKmh: 5,  overheadMinutes: 0,  minMinutes: 2  },
     public:  { speedKmh: 15, overheadMinutes: 5,  minMinutes: 5  },
   };
 

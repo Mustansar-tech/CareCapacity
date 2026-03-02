@@ -622,8 +622,10 @@ function tryAssignVisitToWalker(
         return { success: false, reason: 'Too far from previous visit for walker (>4km)' };
       }
       
-      // Walker travel time: public transport estimate (15 km/h + 12 min overhead, min 15 min)
-      const walkTimeFromPrev = Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
+      // Walker heuristic: <= 3.2km → walking speed; > 3.2km → transit
+      const walkTimeFromPrev = distFromPrev <= 3.2
+        ? Math.max(2, Math.ceil((distFromPrev * 1.2 / 5) * 60))
+        : Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
       const prevEndMin = timeToMinutes(prevVisit.endTime);
       const gapMinutes = visitStartMin - prevEndMin;
       
@@ -653,15 +655,21 @@ function tryAssignVisitToWalker(
         walkerVisit.lat,
         walkerVisit.lng
       );
-      // Walker travel time: public transport estimate (15 km/h + 12 min overhead, min 15 min)
-      actualWalkTime = Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
+      // Walker heuristic: <= 3.2km → walking speed; > 3.2km → transit
+      actualWalkTime = distFromPrev <= 3.2
+        ? Math.max(2, Math.ceil((distFromPrev * 1.2 / 5) * 60))
+        : Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
     } else {
-      // First visit - walk from home (public transport estimate)
-      actualWalkTime = Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
+      // First visit - walk from home
+      actualWalkTime = best.distanceKm <= 3.2
+        ? Math.max(2, Math.ceil((best.distanceKm * 1.2 / 5) * 60))
+        : Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
     }
   } else {
-    // First visit - walk from home (public transport estimate)
-    actualWalkTime = Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
+    // First visit - walk from home
+    actualWalkTime = best.distanceKm <= 3.2
+      ? Math.max(2, Math.ceil((best.distanceKm * 1.2 / 5) * 60))
+      : Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
   }
 
   // Create assigned visit with actual calculated walk time

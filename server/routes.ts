@@ -1260,9 +1260,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Apply road factor (1.2 for UK roads)
     const roadDistance = distance * 1.2;
     
-    if (mode === 'walking' || mode === 'public') {
-      const baseMins = (roadDistance / 15) * 60 + 15; // 15 km/h + 15 min overhead
-      return Math.max(15, Math.round(baseMins));
+    if (mode === 'walking') {
+      // Actual pedestrian walking: 5 km/h, no overhead, min 2 min
+      return Math.max(2, Math.round((roadDistance / 5) * 60));
+    }
+    if (mode === 'public') {
+      // Public transport: 15 km/h + 15 min overhead, min 15 min
+      return Math.max(15, Math.round((roadDistance / 15) * 60 + 15));
     }
     
     return Math.max(5, Math.round((roadDistance / 35) * 60)); // car: 35 km/h, min 5 min

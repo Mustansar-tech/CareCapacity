@@ -75,16 +75,16 @@ export function calculateTravelTime(
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 5;
   } else if (mode === 'public') {
-    // Public transport: 15 km/h with 15 min overhead (aligned with server-side config)
+    // Public transport: 15 km/h with 15 min overhead for bus wait/walk to stop
     const speedKmh = 15;
     const fixedOverheadMinutes = 15;
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
     minTravelMinutes = 15;
   } else if (mode === 'walking') {
-    const speedKmh = 15;
-    const fixedOverheadMinutes = 15;
-    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60 + fixedOverheadMinutes;
-    minTravelMinutes = 15;
+    // Actual pedestrian walking: 5 km/h, no fixed overhead, minimum 2 min
+    const speedKmh = 5;
+    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
+    minTravelMinutes = 2;
   } else {
     baseTravelMinutes = (roadDistanceKm / 35) * 60;
     minTravelMinutes = 5;
