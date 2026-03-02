@@ -528,13 +528,57 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
-  // Debug helper to ensure we're matching the right day strings
-  const getDayAbbrevFromDate = (dateStr: string) => {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+  // starred: key = "visitIndex-cpIdx-day", value = { employeeName, timeWindow }
+  const [starredMap, setStarredMap] = useState<Record<string, { employeeName: string; timeWindow: string }>>({});
+
+  const starKey = (visitIndex: number, cpIdx: number, day: string) => `${visitIndex}-${cpIdx}-${day}`;
+
+  const getStarred = (visitIndex: number, cpIdx: number, day: string) =>
+    starredMap[starKey(visitIndex, cpIdx, day)];
+
+  const toggleStar = (visitIndex: number, cpIdx: number, day: string, employeeName: string, timeWindow: string) => {
+    const key = starKey(visitIndex, cpIdx, day);
+    setStarredMap(prev => {
+      const existing = prev[key];
+      if (existing?.employeeName === employeeName) {
+        const next = { ...prev };
+        delete next[key];
+        // If unstarring a non-last CP, also clear any dependent CP stars for same visit/day
+        for (let i = cpIdx + 1; i <= 3; i++) {
+          delete next[starKey(visitIndex, i, day)];
+        }
+        return next;
+      }
+      const next = { ...prev, [key]: { employeeName, timeWindow } };
+      // Clear dependent CP stars when re-selecting
+      for (let i = cpIdx + 1; i <= 3; i++) {
+        delete next[starKey(visitIndex, i, day)];
+      }
+      return next;
+    });
+  };
+
+  const normalizeDay = (d: string) => {
+    const mapped: Record<string, string> = {
+      'thu': 'thu', 'thur': 'thu', 'thurs': 'thu',
+      'sat': 'sat', 'sun': 'sun', 'mon': 'mon',
+      'tue': 'tue', 'tues': 'tue', 'wed': 'wed', 'fri': 'fri'
+    };
+    return mapped[d] || d;
+  };
+
+  const matchesDay = (slot: MatchedSlot, day: string) => {
+    const date = new Date(slot.day + 'T12:00:00');
+    const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+    const normSlotDay = normalizeDay(dayAbbrev);
+    const normColumnDay = normalizeDay(day.toLowerCase());
+    const normLabelDay = normalizeDay(slot.dayLabel.toLowerCase().split(' ')[0]);
+    return normSlotDay === normColumnDay || normLabelDay === normColumnDay;
   };
 
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
+
+  const hasAnyStars = Object.keys(starredMap).length > 0;
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
@@ -548,12 +592,24 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
             <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-widest">{result.clientName || 'New Client'}</p>
           </div>
         </div>
-        {result.postcode && (
-          <div className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full border shadow-sm" role="note" aria-label={`Location: ${result.postcode}`}>
-            <MapPin className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-            <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{result.postcode}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {hasAnyStars && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStarredMap({})}
+              className="text-[10px] font-bold gap-1.5 h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
+            >
+              <X className="w-3 h-3" /> Clear Selections
+            </Button>
+          )}
+          {result.postcode && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-gray-800 rounded-full border shadow-sm" role="note" aria-label={`Location: ${result.postcode}`}>
+              <MapPin className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+              <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{result.postcode}</span>
+            </div>
+          )}
+        </div>
       </div>
       <div className="overflow-x-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
         <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
@@ -573,217 +629,185 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
             {result.visitResults.map((vr) => (
               <React.Fragment key={vr.visitIndex}>
                 {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
-                          const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                          const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
+                  const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                  const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
 
+                  return (
+                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                      <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                        <div className="space-y-4">
+                          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50 text-[#41589c]">
+                            CP{cpIdx + 1}: {genderLabel === "Female" ? "F" : genderLabel === "Male" ? "M" : genderLabel} Only
+                          </div>
+                          <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
+                            <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
+                            <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
+                            <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
+                            <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
+                          </div>
+                        </div>
+                      </td>
+                      {displayDays.map(day => {
+                        if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                              <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
-                                <div className="space-y-4">
-                                  <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50 text-[#41589c]">
-                                    CP{cpIdx + 1}: {genderLabel === "Female" ? "F" : genderLabel === "Male" ? "M" : genderLabel} Only
-                                  </div>
-                                  <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
-                                    <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
-                                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
-                                    <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
-                                    <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
-                                  </div>
-                                </div>
-                              </td>
-                              {displayDays.map(day => {
-                                if (!vr.matches || vr.matches.length === 0) {
-                                  return (
-                                    <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
-                                      <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
-                                        <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
-                                      </div>
-                                    </td>
-                                  );
-                                }
+                            <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
+                              <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
+                                <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
+                              </div>
+                            </td>
+                          );
+                        }
 
-                                // Absolute uniqueness across ALL CP rows for this specific visit on this specific day
-                                // We determine the final assignment for all previous CP slots to know who is "taken"
-                                const getTakenForDay = () => {
-                                  const taken: string[] = [];
-                                  // Iterate through all previous rows (cpIdx is the current row index)
-                                  for (let i = 0; i < cpIdx; i++) {
-                                    const pref = vr.genderPreferences[i] || 'any';
-                                    
-                                    // Find who would have been chosen for this previous slot
-                                    // This must mirror the actual display logic (first available match)
-                                    const assignedToPrev = vr.matches.find(m => {
-                                      // Must not have been taken by an even earlier slot in this same visit
-                                      if (taken.includes(m.employeeName)) return false;
-                                      
-                                      // Must match the gender preference of that slot
-                                      const isCorrectGender = pref === 'any' || m.gender?.toLowerCase() === pref.toLowerCase();
-                                      if (!isCorrectGender) return false;
-                                      
-                                      // Must be available on this specific day
-                                      return m.matchedSlots.some(s => {
-                                        const date = new Date(s.day + 'T12:00:00');
-                                        const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                                        return dayAbbrev === day;
-                                      });
-                                    });
+                        // Who is starred in previous CPs on this day (they are "taken")
+                        const takenByStarred: string[] = [];
+                        for (let i = 0; i < cpIdx; i++) {
+                          const prevStar = getStarred(vr.visitIndex, i, day);
+                          if (prevStar) takenByStarred.push(prevStar.employeeName);
+                        }
 
-                                    if (assignedToPrev) {
-                                      taken.push(assignedToPrev.employeeName);
-                                    }
-                                  }
-                                  return taken;
-                                };
+                        // Get the starred selection for the immediately preceding CP (for time-window filtering)
+                        const prevCPStar = cpIdx > 0 ? getStarred(vr.visitIndex, cpIdx - 1, day) : undefined;
 
-                                const uniqueTakenNames = getTakenForDay();
+                        // Current CP's starred selection for this day
+                        const currentStar = getStarred(vr.visitIndex, cpIdx, day);
 
-                                const isLastCP = cpIdx === vr.careProsRequired - 1;
+                        // Base filter: gender, has slot on day, not taken by starred previous CPs
+                        let allVisibleMatches = vr.matches.filter(m => {
+                          const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
+                          if (!isCorrectGender) return false;
+                          if (!m.matchedSlots.some(s => matchesDay(s, day))) return false;
+                          if (takenByStarred.includes(m.employeeName)) return false;
+                          return true;
+                        });
 
-                                const allVisibleMatches = vr.matches.filter(m => {
-                                  const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                                  const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
-                                  if (!isCorrectGender) return false;
+                        // If a previous CP has a star, only show matches with the EXACT same time window
+                        if (prevCPStar) {
+                          allVisibleMatches = allVisibleMatches.filter(m => {
+                            const slot = m.matchedSlots.find(s => matchesDay(s, day));
+                            return slot && slot.availableWindow === prevCPStar.timeWindow;
+                          });
+                        }
 
-                                  const hasSlotOnDay = m.matchedSlots.some(s => {
-                                    // Use a more robust check that handles both full date strings and day labels
-                                    const date = new Date(s.day + 'T12:00:00');
-                                    const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                                    
-                                    // Match against the column's day ID ('mon', 'tue', etc)
-                                    const columnDay = day.toLowerCase();
-                                    
-                                    // Normalize day abbreviations for comparison
-                                    const normalizeDay = (d: string) => {
-                                      const mapped: Record<string, string> = {
-                                        'thu': 'thu', 'thur': 'thu', 'thurs': 'thu',
-                                        'sat': 'sat', 'sun': 'sun', 'mon': 'mon', 
-                                        'tue': 'tue', 'tues': 'tue', 'wed': 'wed', 'fri': 'fri'
-                                      };
-                                      return mapped[d] || d;
-                                    };
+                        // Sort: exact first, then by score
+                        const sorted = [...allVisibleMatches].sort((a, b) => {
+                          const aExact = a.matchedSlots.some(s => s.matchType === 'exact' && matchesDay(s, day));
+                          const bExact = b.matchedSlots.some(s => s.matchType === 'exact' && matchesDay(s, day));
+                          if (aExact && !bExact) return -1;
+                          if (!aExact && bExact) return 1;
+                          return b.matchScore - a.matchScore;
+                        });
 
-                                    const normSlotDay = normalizeDay(dayAbbrev);
-                                    const normColumnDay = normalizeDay(columnDay);
-                                    const normLabelDay = normalizeDay(s.dayLabel.toLowerCase().split(' ')[0]);
+                        // If this CP has a star, only show that person; otherwise show all
+                        const matchesToShow = currentStar
+                          ? sorted.filter(m => m.employeeName === currentStar.employeeName)
+                          : sorted;
 
-                                    return normSlotDay === normColumnDay || normLabelDay === normColumnDay;
-                                  });
-                                  if (!hasSlotOnDay) return false;
+                        return (
+                          <td key={day} className="p-3 align-top min-w-[250px]">
+                            <ScrollArea className="h-[200px] pr-4">
+                              <div className="space-y-3">
+                                {matchesToShow.length > 0 ? (
+                                  matchesToShow.map((employeeMatch, matchIdx) => {
+                                    const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
+                                    if (!slotOnDay) return null;
 
-                                  return !uniqueTakenNames.includes(m.employeeName);
-                                });
+                                    const isExact = slotOnDay.matchType === 'exact';
+                                    const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
 
-                                // Rule:
-                                // 1. If not the last CP: Only show top 1 match.
-                                // 2. If the last CP: Show all available matches.
-                                // This ensures CP1/CP2 show fixed assignments while the final CP allows choice.
-                                const matchesToShow = isLastCP ? allVisibleMatches : allVisibleMatches.slice(0, 1);
+                                    const isStarred = currentStar?.employeeName === employeeMatch.employeeName;
 
-                                return (
-                                  <td key={day} className="p-3 align-top min-w-[250px]">
-                                    <ScrollArea className="h-[200px] pr-4">
-                                      <div className="space-y-3">
-                                        {matchesToShow.length > 0 ? (
-                                          matchesToShow
-                                            .sort((a, b) => {
-                                              const aExact = a.matchedSlots.some(s => s.matchType === 'exact' && (s.day.includes(day) || s.dayLabel.toLowerCase().startsWith(day.toLowerCase())));
-                                              const bExact = b.matchedSlots.some(s => s.matchType === 'exact' && (s.day.includes(day) || s.dayLabel.toLowerCase().startsWith(day.toLowerCase())));
-                                              if (aExact && !bExact) return -1;
-                                              if (!aExact && bExact) return 1;
-                                              return b.matchScore - a.matchScore;
-                                            })
-                                            .map((employeeMatch, matchIdx) => {
-                                              const slotOnDay = employeeMatch.matchedSlots.find(s => {
-                                                const dateStr = s.day;
-                                                const date = new Date(dateStr + 'T12:00:00');
-                                                const dayAbbrev = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-                                                return dayAbbrev === day.toLowerCase();
-                                              });
+                                    const genderColorClass = employeeMatch.gender?.toLowerCase() === 'female'
+                                      ? 'border-pink-200 bg-pink-50/50 dark:bg-pink-900/20 dark:border-pink-800/50'
+                                      : employeeMatch.gender?.toLowerCase() === 'male'
+                                        ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800/50'
+                                        : 'border-gray-200 dark:border-gray-800';
 
-                                              if (!slotOnDay) return null;
+                                    const nameColorClass = employeeMatch.gender?.toLowerCase() === 'female'
+                                      ? 'text-pink-700 dark:text-pink-400'
+                                      : employeeMatch.gender?.toLowerCase() === 'male'
+                                        ? 'text-blue-700 dark:text-blue-400'
+                                        : 'text-gray-900 dark:text-gray-100';
 
-                                              const isExact = slotOnDay.matchType === 'exact';
-                                              const rawGap = (employeeMatch as any).rawGap;
-                                              const travelInGap = (employeeMatch as any).travelInGap;
-                                              // Simplified logic: Show suggested time if it's not exact OR if it was found via adjusted/contained logic
-                                              const showAdjustedTime = slotOnDay.matchType === 'adjusted-time' || (slotOnDay.matchType === 'exact' && slotOnDay.availableWindow.includes('-'));
-
-                                              const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
-                                              const genderColorClass = employeeMatch.gender?.toLowerCase() === 'female' 
-                                                ? 'border-pink-200 bg-pink-50/50 dark:bg-pink-900/20 dark:border-pink-800/50' 
-                                                : employeeMatch.gender?.toLowerCase() === 'male'
-                                                  ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800/50'
-                                                  : 'border-gray-200 dark:border-gray-800';
-                                              
-                                              const nameColorClass = employeeMatch.gender?.toLowerCase() === 'female'
-                                                ? 'text-pink-700 dark:text-pink-400'
-                                                : employeeMatch.gender?.toLowerCase() === 'male'
-                                                  ? 'text-blue-700 dark:text-blue-400'
-                                                  : 'text-gray-900 dark:text-gray-100';
-                                              
-                                              return (
-                                                <div 
-                                                  key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                                  className={`bg-white dark:bg-gray-900 border ${matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
-                                                >
-                                                  <div className="flex justify-between items-start gap-2">
-                                                    <div className="flex flex-col min-w-0">
-                                                      <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1`} title={employeeMatch.employeeName}>
-                                                        {employeeMatch.employeeName}
-                                                        {slotOnDay.matchType === 'adjusted-time' && (
-                                                          <TooltipProvider>
-                                                            <ShadcnTooltip>
-                                                              <TooltipTrigger asChild>
-                                                                <Info className="w-3 h-3 text-orange-500 cursor-help" />
-                                                              </TooltipTrigger>
-                                                              <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
-                                                                <p>Needs Adjustment</p>
-                                                              </TooltipContent>
-                                                            </ShadcnTooltip>
-                                                          </TooltipProvider>
-                                                        )}
-                                                      </div>
-                                                      {employeeMatch.homePostcode && (
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                                          {employeeMatch.homePostcode}
-                                                        </div>
-                                                      )}
-                                                    </div>
-                                                    <div className="sr-only">
-                                                      {Math.round(employeeMatch.matchScore)}%
-                                                    </div>
-                                                  </div>
-                                                  <div className="flex flex-wrap gap-1.5">
-                                                    <div className={`inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm ${isExact ? 'bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700' : 'bg-orange-200 text-orange-950 border-orange-400 dark:bg-orange-800 dark:text-orange-50 dark:border-orange-600'}`}>
-                                                      {slotOnDay.availableWindow}
-                                                    </div>
-                                                  </div>
-                                                  <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
-                                                    <div className="flex items-center gap-1.5">
-                                                      <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                                      <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
-                                                    </div>
-                                                    <div className="font-bold text-gray-700 dark:text-gray-300 cursor-help" title={`Scheduled: ${employeeMatch.totalScheduledHours}h\nContracted: ${employeeMatch.contractedWeeklyHours}h\nRemaining: ${remainingHours}h`}>
-                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              );
-                                            })
-                                        ) : (
-                                          <div className="h-full min-h-[120px] flex flex-col items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/30 dark:bg-gray-900/20 p-4 text-center">
-                                            <Users className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2 opacity-20" />
-                                            <span className="text-gray-300 dark:text-gray-700 font-bold text-[10px] uppercase tracking-widest">No Matches</span>
-                                            <span className="text-[9px] text-gray-400 dark:text-gray-600 mt-1">Check constraints or day selection</span>
+                                    return (
+                                      <div
+                                        key={`${employeeMatch.employeeName}-${matchIdx}`}
+                                        className={`bg-white dark:bg-gray-900 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
+                                      >
+                                        <div className="flex justify-between items-start gap-2">
+                                          <div className="flex flex-col min-w-0 flex-1">
+                                            <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1`} title={employeeMatch.employeeName}>
+                                              {employeeMatch.employeeName}
+                                              {slotOnDay.matchType === 'adjusted-time' && (
+                                                <TooltipProvider>
+                                                  <ShadcnTooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <Info className="w-3 h-3 text-orange-500 cursor-help" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                                                      <p>Needs Adjustment</p>
+                                                    </TooltipContent>
+                                                  </ShadcnTooltip>
+                                                </TooltipProvider>
+                                              )}
+                                            </div>
+                                            {employeeMatch.homePostcode && (
+                                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                                {employeeMatch.homePostcode}
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
+                                          <TooltipProvider>
+                                            <ShadcnTooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  onClick={() => toggleStar(vr.visitIndex, cpIdx, day, employeeMatch.employeeName, slotOnDay.availableWindow)}
+                                                  className={`flex-shrink-0 p-1 rounded-md transition-all hover:scale-110 ${isStarred ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600 dark:hover:text-amber-500'}`}
+                                                  aria-label={isStarred ? 'Unselect this care pro' : 'Select this care pro for double-up'}
+                                                >
+                                                  <Star className={`w-4 h-4 ${isStarred ? 'fill-amber-400' : ''}`} />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                                                <p>{isStarred ? 'Click to deselect' : 'Select for double-up — filters other CPs to match this time'}</p>
+                                              </TooltipContent>
+                                            </ShadcnTooltip>
+                                          </TooltipProvider>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          <div className={`inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm ${isExact ? 'bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700' : 'bg-orange-200 text-orange-950 border-orange-400 dark:bg-orange-800 dark:text-orange-50 dark:border-orange-600'}`}>
+                                            {slotOnDay.availableWindow}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
+                                          <div className="flex items-center gap-1.5">
+                                            <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                            <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
+                                          </div>
+                                          <div className="font-bold text-gray-700 dark:text-gray-300 cursor-help" title={`Scheduled: ${employeeMatch.totalScheduledHours}h\nContracted: ${employeeMatch.contractedWeeklyHours}h\nRemaining: ${remainingHours}h`}>
+                                            {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="h-full min-h-[120px] flex flex-col items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/30 dark:bg-gray-900/20 p-4 text-center">
+                                    <Users className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2 opacity-20" />
+                                    <span className="text-gray-300 dark:text-gray-700 font-bold text-[10px] uppercase tracking-widest">
+                                      {prevCPStar ? 'No match at same time' : 'No Matches'}
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 dark:text-gray-600 mt-1">
+                                      {prevCPStar ? `Needs to be free at ${prevCPStar.timeWindow}` : 'Check constraints or day selection'}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </ScrollArea>
                           </td>
                         );
                       })}
-                            </tr>
-                          );
+                    </tr>
+                  );
                 })}
               </React.Fragment>
             ))}
