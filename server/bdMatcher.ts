@@ -387,9 +387,23 @@ function matchEmployeesForVisit(
       genderPreference &&
       genderPreference !== 'any' &&
       weeklyData.gender &&
+      (weeklyData.gender.trim().toLowerCase() === 'female' || weeklyData.gender.trim().toLowerCase() === 'f') &&
+      genderPreference.trim().toLowerCase() === 'female'
+    ) {
+      // Female matching female - perfect
+    } else if (
+      genderPreference &&
+      genderPreference !== 'any' &&
+      weeklyData.gender &&
       weeklyData.gender.trim().toLowerCase() !== genderPreference.trim().toLowerCase()
     ) {
-      continue;
+      // Special check for 'F' vs 'Female' or 'M' vs 'Male'
+      const normalizedEmpGender = weeklyData.gender.trim().toLowerCase().startsWith('f') ? 'female' : (weeklyData.gender.trim().toLowerCase().startsWith('m') ? 'male' : weeklyData.gender.trim().toLowerCase());
+      const normalizedPref = genderPreference.trim().toLowerCase();
+      
+      if (normalizedEmpGender !== normalizedPref) {
+        continue;
+      }
     }
 
     const remainingCapacity = Math.max(0, weeklyData.contractedWeekly - weeklyData.totalScheduled);
@@ -426,15 +440,22 @@ function matchEmployeesForVisit(
           const freeWindows = parseFreeWindows(empSummary.freeWindows);
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
-            const score = Math.max(0, 80 - closestSlot.distance / 5);
-            if (score > bestScoreForDay) {
-              bestSlotForDay = {
-                day: dateStr,
-                dayLabel: getDayLabel(dateStr),
-                availableWindow: closestSlot.window,
-                matchType: 'adjusted-time',
-              };
-              bestScoreForDay = score;
+            // ONLY consider this a match if it's one of the COMPANY_TIME_BLOCKS
+            const isBlockAligned = COMPANY_TIME_BLOCKS.some(block => 
+              timeToMinutes(block.start) === timeToMinutes(closestSlot.window.split('-')[0])
+            );
+
+            if (isBlockAligned) {
+              const score = Math.max(0, 80 - closestSlot.distance / 5);
+              if (score > bestScoreForDay) {
+                bestSlotForDay = {
+                  day: dateStr,
+                  dayLabel: getDayLabel(dateStr),
+                  availableWindow: closestSlot.window,
+                  matchType: 'adjusted-time',
+                };
+                bestScoreForDay = score;
+              }
             }
           }
         }
