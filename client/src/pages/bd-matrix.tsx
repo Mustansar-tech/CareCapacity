@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { 
   Map as MapIcon,
-  Calendar, Users, User as LucideUser, Clock, Car, PersonStanding, 
+  Calendar, Users, Clock, Car, PersonStanding, 
   Eye, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
@@ -1620,46 +1620,32 @@ export default function BDMatrix({ data }: BDMatrixProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="backdrop-blur-md bg-white/40 dark:bg-gray-900/40 border-white/20 dark:border-gray-800/20 shadow-2xl glass overflow-hidden rounded-3xl transition-all duration-500">
-        <CardHeader className="bg-white/30 dark:bg-gray-900/30 border-b border-white/10 dark:border-gray-800/10">
+      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-t-lg">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  BD Availability Matrix
-                </CardTitle>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-0.5">
-                  Business Development Intelligence
-                </p>
-              </div>
-            </div>
+            <CardTitle className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-3">
+              <Users className="w-6 h-6 text-blue-600" />
+              BD Availability Matrix
+            </CardTitle>
             <div className="flex items-center gap-3">
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 font-bold rounded-xl border-blue-200/50 bg-white/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all backdrop-blur-sm shadow-sm hover:shadow-md h-9">
-                    <MapIcon className="w-3.5 h-3.5 text-blue-600" />
+                  <Button variant="outline" size="sm" className="gap-2 font-bold rounded-xl border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">
+                    <MapIcon className="w-4 h-4 text-blue-600" />
                     View Care Pro Map
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0 rounded-3xl shadow-2xl glass">
-                  <DialogHeader className="p-8 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white relative overflow-hidden shrink-0">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
-                    <div className="relative z-10">
-                      <DialogTitle className="flex items-center gap-4 text-3xl font-black tracking-tight">
-                        <span className="p-3 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner flex items-center justify-center">
-                          <MapPin className="w-8 h-8 text-white" />
-                        </span>
-                        Care Pro Strategic Map
-                      </DialogTitle>
-                      <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-[0.2em] text-[10px] mt-4 ml-1">
-                        Real-time geographic distribution of care professionals
-                      </DialogDescription>
-                    </div>
+                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
+                  <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight">
+                      <MapPin className="w-7 h-7" />
+                      Care Pro Strategic Map
+                    </DialogTitle>
+                    <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-widest text-[10px]">
+                      Real-time geographic distribution of care professionals
+                    </DialogDescription>
                   </DialogHeader>
-                  <div className="flex-1 relative bg-gray-50 dark:bg-gray-950 overflow-hidden">
+                  <div className="flex-1 relative bg-gray-100 overflow-hidden">
                     <CareProMap 
                       locations={locations} 
                       onRefresh={() => refetchLocations()} 
@@ -1671,183 +1657,182 @@ export default function BDMatrix({ data }: BDMatrixProps) {
               <ClientEnquiryMatcher />
             </div>
           </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Quick view of staff availability across standard time blocks for business development decisions
+          </p>
         </CardHeader>
-        <CardContent className="p-6 bg-white/10 dark:bg-gray-900/10">
+        <CardContent className="p-4">
           {/* Legend */}
-          <div className="flex flex-wrap items-center gap-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Live Capacity Legend</span>
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-red-50/50 dark:bg-red-900/10 rounded-full border border-red-100/50 dark:border-red-900/20">
-              <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]"></div>
-              <span className="text-[11px] font-bold text-red-700 dark:text-red-400">Critical (0-1)</span>
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Legend:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">0-1 employees</span>
             </div>
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-yellow-50/50 dark:bg-yellow-900/10 rounded-full border border-yellow-100/50 dark:border-yellow-900/20">
-              <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]"></div>
-              <span className="text-[11px] font-bold text-yellow-700 dark:text-yellow-400">Limited (2-3)</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">2-3 employees</span>
             </div>
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-green-50/50 dark:bg-green-900/10 rounded-full border border-green-100/50 dark:border-green-900/20">
-              <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></div>
-              <span className="text-[11px] font-bold text-green-700 dark:text-green-400">Optimal (4+)</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">4+ employees</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* BD Matrix Grid with Filter as First Column */}
-      <Card className="backdrop-blur-md bg-white/40 dark:bg-gray-900/40 border-white/20 dark:border-gray-800/20 shadow-2xl glass overflow-hidden rounded-3xl transition-all duration-500">
+      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardContent className="p-0">
-          <div className="w-full overflow-x-auto overflow-y-auto max-h-[70vh] scroll-modern">
+          <div className="w-full overflow-x-auto overflow-y-auto max-h-[70vh]">
             <div className="min-w-[1000px]">
-              <table className="w-full border-separate border-spacing-0">
-                <thead className="sticky top-0 z-30">
-                  <tr className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-md">
-                    <th className="p-4 text-left font-bold text-gray-700 dark:text-gray-200 border-b border-white/10 dark:border-gray-800/50 sticky left-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl z-40 min-w-[200px] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
+                    <th className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 min-w-[180px]">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
                           <Filter className="w-4 h-4" />
-                          <span className="uppercase tracking-widest text-[10px] font-black">Control Center</span>
+                          Filter & Time Blocks
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
                             onClick={handleSelectAll}
                             variant="outline"
                             size="sm"
-                            className="text-[10px] h-7 px-3 font-bold rounded-lg border-blue-200/50 bg-white/50 hover:bg-blue-50 transition-all"
+                            className="text-xs h-6 px-2"
                           >
-                            Select All
+                            All
                           </Button>
                           <Button
                             onClick={handleSelectNone}
                             variant="outline"
                             size="sm"
-                            className="text-[10px] h-7 px-3 font-bold rounded-lg border-gray-200/50 bg-white/50 hover:bg-gray-50 transition-all"
+                            className="text-xs h-6 px-2"
                           >
-                            Clear
+                            None
                           </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="bg-blue-100/50 text-blue-700 border-blue-200/50 text-[10px] font-bold">
-                            {selectedTimeBlocks.size} Blocks Selected
-                          </Badge>
+                          <span className="text-xs text-gray-500">
+                            {selectedTimeBlocks.size} selected
+                          </span>
                         </div>
                       </div>
                     </th>
                     {dates.map(date => (
-                      <th key={date} className="p-4 text-center font-bold text-gray-700 dark:text-gray-200 border-b border-white/10 dark:border-gray-800/50 min-w-[120px] bg-white/30 dark:bg-gray-900/30">
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="p-2 bg-blue-500/10 rounded-lg text-blue-600 dark:text-blue-400">
-                            <Calendar className="w-4 h-4" />
-                          </div>
-                          <span className="text-xs font-black tracking-tight">{formatDateForDisplay(date)}</span>
-                          <span className="text-[10px] font-bold text-blue-600/70 dark:text-blue-400/70 uppercase tracking-tighter">{getDayOfWeek(date)}</span>
+                      <th key={date} className="p-3 text-center font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 min-w-[100px]">
+                        <div className="flex flex-col items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span className="text-xs">{formatDateForDisplay(date)}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{getDayOfWeek(date)}</span>
                         </div>
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 dark:divide-gray-800/50">
+                <tbody>
                   {/* Filtered View Row - Only show when filters are selected */}
                   {selectedTimeBlocks.size > 0 && filteredMatrixData && (
-                    <tr className="bg-blue-500/5 dark:bg-blue-500/10 backdrop-blur-sm group">
-                      <td className="p-4 font-bold border-r border-white/10 dark:border-gray-800/50 sticky left-0 bg-blue-50/90 dark:bg-blue-900/40 backdrop-blur-xl z-20 shadow-[4px_0_8px_-4px_rgba(59,130,246,0.1)]">
-                        <div className="flex flex-col gap-2">
+                    <tr className="bg-blue-50/50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700">
+                      <td className="p-3 font-medium text-blue-700 dark:text-blue-300 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-blue-50/90 dark:bg-blue-900/40 z-10">
+                        <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                            <span className="text-xs font-black text-blue-700 dark:text-blue-300 uppercase tracking-tight">Combined View</span>
+                            <Filter className="w-4 h-4 text-blue-500" />
+                            <span className="font-semibold text-sm">Available in ALL Selected</span>
                           </div>
-                          <div className="text-[10px] font-bold text-blue-600/70 dark:text-blue-400/70 italic">
-                            Showing employees available across all {selectedTimeBlocks.size} blocks
+                          <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                            {Array.from(selectedTimeBlocks).slice(0,3).map(block => (
+                              <div key={block} className="bg-blue-100 dark:bg-blue-800/30 px-1 py-0.5 rounded text-xs">
+                                {block}
+                              </div>
+                            ))}
+                            {selectedTimeBlocks.size > 3 && (
+                              <div className="text-xs text-blue-600">
+                                +{selectedTimeBlocks.size - 3} more
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
                       {filteredMatrixData.dates.map(date => {
                         const cell = filteredMatrixData.filteredMatrix[date];
                         return (
-                          <td key={`filtered-${date}`} className="p-2 border-r border-white/5 dark:border-gray-800/30 text-center transition-colors group-hover:bg-blue-500/5">
+                          <td key={`filtered-${date}`} className="p-1 border border-blue-200 dark:border-blue-600 text-center">
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className={`h-20 w-full justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${cell.colorClass} ${cell.count > 0 ? 'shadow-sm hover:shadow-xl cursor-pointer ring-2 ring-blue-400/20' : 'cursor-default grayscale-[0.5]'} rounded-2xl border-0`}
+                                  className={`h-16 w-full justify-center transition-all hover:scale-105 ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer' : 'cursor-default'} border-2 border-blue-300 dark:border-blue-600`}
                                   disabled={cell.count === 0}
                                 >
-                                  <div className="flex flex-col items-center gap-1.5">
-                                    <div className="p-1.5 bg-white/20 rounded-full backdrop-blur-md">
-                                      {getStatusIcon(cell.count)}
-                                    </div>
-                                    <span className="text-xl font-black tracking-tighter">{cell.count}</span>
+                                  <div className="flex flex-col items-center gap-1">
+                                    {getStatusIcon(cell.count)}
+                                    <span className="text-lg font-bold">{cell.count}</span>
                                     {cell.count > 0 && (
-                                      <span className="text-[8px] font-black uppercase tracking-widest opacity-60">View All</span>
+                                      <Eye className="w-3 h-3 opacity-60" />
                                     )}
                                   </div>
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden border-0 rounded-3xl shadow-2xl glass">
-                                <DialogHeader className="p-8 bg-gradient-to-br from-blue-600 to-indigo-700 text-white relative overflow-hidden shrink-0">
-                                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
-                                  <div className="relative z-10">
-                                    <DialogTitle className="flex items-center gap-4 text-3xl font-black tracking-tight">
-                                      <span className="p-3 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner flex items-center justify-center">
-                                        <Filter className="w-8 h-8 text-white" />
-                                      </span>
-                                      Strategic Match Results
-                                    </DialogTitle>
-                                    <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-[0.2em] text-[10px] mt-4 ml-1">
-                                      {formatDateForDisplay(date)} &bull; {cell.count} Cross-Available Personnel
-                                    </DialogDescription>
-                                  </div>
+                              <DialogContent className="max-w-4xl max-h-[80vh]">
+                                <DialogHeader>
+                                  <DialogTitle className="flex items-center gap-3">
+                                    <Filter className="w-5 h-5" />
+                                    Employees Available in ALL Selected Blocks
+                                  </DialogTitle>
+                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) &bull; {cell.count} employees available in all {selectedTimeBlocks.size} selected time blocks
+                                  </DialogDescription>
                                 </DialogHeader>
-                                <ScrollArea className="flex-1 p-6 bg-gray-50/50 dark:bg-gray-950/50">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <ScrollArea className="max-h-[60vh]">
+                                  <div className="space-y-3">
                                     {cell.employees.length === 0 ? (
-                                      <div className="col-span-full text-center py-16">
-                                        <XCircle className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-700" />
-                                        <h3 className="text-xl font-bold text-gray-400 uppercase tracking-widest">No Strategic Matches</h3>
-                                        <p className="text-gray-400 mt-2">Try selecting fewer or different time blocks</p>
+                                      <div className="text-center py-8 text-gray-500">
+                                        <XCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>No employees available in ALL selected time blocks</p>
                                       </div>
                                     ) : (
                                       cell.employees.map((employee, index) => (
-                                        <Card key={index} className="group hover-lift border-white/20 dark:border-gray-800/50 bg-white/50 dark:bg-gray-900/50 glass-card overflow-hidden transition-all duration-300 hover:ring-2 hover:ring-blue-500/20">
-                                          <CardContent className="p-5">
-                                            <div className="flex items-start justify-between">
-                                              <div className="flex items-start gap-4">
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${getGenderBgColorClass(employee.gender)}`}>
-                                                  <LucideUser className={`w-6 h-6 ${getGenderColorClass(employee.gender)}`} />
-                                                </div>
-                                                <div>
-                                                  <h4 className={`text-lg font-black tracking-tight ${getGenderColorClass(employee.gender)}`}>
-                                                    {employee.name}
-                                                  </h4>
-                                                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                    {employee.scheduledHours !== undefined && (
-                                                      <Badge variant="secondary" className="bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 font-bold text-[10px] px-2 py-0">
-                                                        {employee.scheduledHours.toFixed(1)}h Worked
-                                                      </Badge>
-                                                    )}
-                                                    <Badge variant="outline" className="font-bold text-[10px] px-2 py-0 border-green-200 text-green-600 dark:border-green-900/50 dark:text-green-400">
-                                                      Full Match
-                                                    </Badge>
-                                                  </div>
+                                        <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-3 flex-1">
+                                              <div className={`w-3 h-3 rounded-full mt-1 ${getGenderBgColorClass(employee.gender)}`}></div>
+                                              <div className="flex-1">
+                                                <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
+                                                  {employee.name}
+                                                </h4>
+                                                <div className="text-sm mt-1 flex flex-wrap items-center gap-1">
+                                                  {employee.scheduledHours !== undefined && (
+                                                    <span className="text-blue-600 dark:text-blue-400">
+                                                      {employee.scheduledHours.toFixed(1)}h scheduled
+                                                    </span>
+                                                  )}
+                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
+                                                    <span className="text-green-600 dark:text-green-400">
+                                                      Free: {employee.freeWindows}
+                                                    </span>
+                                                  )}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && (
+                                                    <span className="text-red-600 dark:text-red-400">
+                                                      Cancelled: {employee.cancelledVisits}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-3">
                                               <TransportModeIcon transportMode={employee.transportMode} />
+                                              <Badge variant="outline" className="text-xs">
+                                                Available
+                                              </Badge>
                                             </div>
-                                            
-                                            <div className="mt-4 space-y-2">
-                                              {employee.freeWindows && employee.freeWindows !== '-' && (
-                                                <div className="flex items-center gap-2 text-[11px] font-bold text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/20 p-2 rounded-xl">
-                                                  <Clock className="w-3 h-3" />
-                                                  <span>Continuous Free: {employee.freeWindows}</span>
-                                                </div>
-                                              )}
-                                              {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && (
-                                                <div className="flex items-center gap-2 text-[11px] font-bold text-red-700 dark:text-red-400 bg-red-50/50 dark:bg-red-900/20 p-2 rounded-xl">
-                                                  <XCircle className="w-3 h-3" />
-                                                  <span>Cancellations: {employee.cancelledVisits}</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </CardContent>
+                                          </div>
                                         </Card>
                                       ))
                                     )}
@@ -1863,17 +1848,16 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   
                   {/* Individual Time Block Rows */}
                   {COMPANY_TIME_BLOCKS.map((timeBlock, blockIndex) => (
-                    <tr key={timeBlock.label} className={`${blockIndex % 2 === 0 ? 'bg-white/10 dark:bg-gray-900/10' : 'bg-gray-50/5 dark:bg-gray-800/5'} hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-colors`}>
-                      <td className="p-4 border-r border-white/10 dark:border-gray-800/50 sticky left-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
-                        <div className="flex items-center gap-3">
+                    <tr key={timeBlock.label} className={blockIndex % 2 === 0 ? 'bg-white/50 dark:bg-gray-900/50' : 'bg-gray-50/50 dark:bg-gray-800/50'}>
+                      <td className="p-3 border-r border-gray-200 dark:border-gray-600 sticky left-0 bg-white/90 dark:bg-gray-900/90 z-10">
+                        <div className="flex items-center gap-2">
                           <Checkbox
                             id={`timeblock-${timeBlock.label}`}
                             checked={selectedTimeBlocks.has(timeBlock.label)}
                             onCheckedChange={(checked) => handleTimeBlockToggle(timeBlock.label, checked as boolean)}
-                            className="w-5 h-5 rounded-lg border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 transition-all shadow-sm"
                           />
-                          <label htmlFor={`timeblock-${timeBlock.label}`} className="font-black text-gray-700 dark:text-gray-200 cursor-pointer flex items-center gap-2 text-xs uppercase tracking-tight hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                            <Clock className="w-3.5 h-3.5 opacity-60" />
+                          <label htmlFor={`timeblock-${timeBlock.label}`} className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex items-center gap-2 text-sm">
+                            <Clock className="w-4 h-4 text-gray-500" />
                             {timeBlock.label}
                           </label>
                         </div>
@@ -1881,82 +1865,83 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                       {dates.map(date => {
                         const cell = matrix[date][timeBlock.label];
                         return (
-                          <td key={`${date}-${timeBlock.label}`} className="p-2 border-r border-white/5 dark:border-gray-800/30 text-center">
+                          <td key={`${date}-${timeBlock.label}`} className="p-1 border border-gray-200 dark:border-gray-600 text-center">
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className={`h-16 w-full justify-center transition-all duration-300 hover:scale-105 ${cell.colorClass} ${cell.count > 0 ? 'shadow-sm hover:shadow-lg cursor-pointer' : 'cursor-default grayscale-[0.3]'} rounded-xl border-0`}
+                                  className={`h-14 w-full justify-center transition-all hover:scale-105 ${cell.colorClass} ${cell.count > 0 ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
                                   disabled={cell.count === 0}
                                 >
                                   <div className="flex flex-col items-center gap-1">
-                                    <div className="p-1 bg-white/10 rounded-full">
-                                      {getStatusIcon(cell.count)}
-                                    </div>
-                                    <span className="text-base font-black tracking-tight">{cell.count}</span>
+                                    {getStatusIcon(cell.count)}
+                                    <span className="text-lg font-bold">{cell.count}</span>
+                                    {cell.count > 0 && (
+                                      <Eye className="w-3 h-3 opacity-60" />
+                                    )}
                                   </div>
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden border-0 rounded-3xl shadow-2xl glass">
-                                <DialogHeader className="p-8 bg-gradient-to-br from-indigo-600 to-purple-700 text-white relative overflow-hidden shrink-0">
-                                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
-                                  <div className="relative z-10">
-                                    <DialogTitle className="flex items-center gap-4 text-3xl font-black tracking-tight">
-                                      <span className="p-3 bg-white/20 rounded-2xl backdrop-blur-md shadow-inner flex items-center justify-center">
-                                        <Users className="w-8 h-8 text-white" />
-                                      </span>
-                                      Availability Profile
-                                    </DialogTitle>
-                                    <DialogDescription className="text-purple-100 font-bold opacity-90 uppercase tracking-[0.2em] text-[10px] mt-4 ml-1">
-                                      {formatDateForDisplay(date)} &bull; {timeBlock.label} &bull; {cell.count} Qualified Pros
-                                    </DialogDescription>
-                                  </div>
+                              <DialogContent className="max-w-4xl max-h-[80vh]">
+                                <DialogHeader>
+                                  <DialogTitle className="flex items-center gap-3">
+                                    <Users className="w-5 h-5" />
+                                    Available Employees - {timeBlock.label}
+                                  </DialogTitle>
+                                  <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+                                    {formatDateForDisplay(date)} ({getDayOfWeek(date)}) &bull; {cell.count} employees fully available
+                                  </DialogDescription>
                                 </DialogHeader>
-                                <ScrollArea className="flex-1 p-6 bg-gray-50/50 dark:bg-gray-950/50">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <ScrollArea className="max-h-[60vh]">
+                                  <div className="space-y-3">
                                     {cell.employees.length === 0 ? (
-                                      <div className="col-span-full text-center py-16">
-                                        <XCircle className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-700" />
-                                        <h3 className="text-xl font-bold text-gray-400 uppercase tracking-widest">No Availability Found</h3>
+                                      <div className="text-center py-8 text-gray-500">
+                                        <XCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>No employees fully available during this time block</p>
                                       </div>
                                     ) : (
                                       cell.employees.map((employee, index) => (
-                                        <Card key={index} className="group hover-lift border-white/20 dark:border-gray-800/50 bg-white/50 dark:bg-gray-900/50 glass-card overflow-hidden transition-all duration-300">
-                                          <CardContent className="p-5">
-                                            <div className="flex items-start justify-between">
-                                              <div className="flex items-start gap-4">
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${getGenderBgColorClass(employee.gender)}`}>
-                                                  <LucideUser className={`w-6 h-6 ${getGenderColorClass(employee.gender)}`} />
-                                                </div>
-                                                <div>
-                                                  <h4 className={`text-lg font-black tracking-tight ${getGenderColorClass(employee.gender)}`}>
-                                                    {employee.name}
-                                                  </h4>
-                                                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                    {employee.scheduledHours !== undefined && (
-                                                      <Badge variant="secondary" className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 font-bold text-[10px] px-2 py-0">
-                                                        {employee.scheduledHours.toFixed(1)}h Active
-                                                      </Badge>
-                                                    )}
-                                                    <Badge variant="outline" className="font-bold text-[10px] px-2 py-0 border-indigo-200 text-indigo-600 dark:border-indigo-900/50 dark:text-indigo-400">
-                                                      Ready
-                                                    </Badge>
-                                                  </div>
+                                        <Card key={index} className="p-4 border border-gray-200 dark:border-gray-700">
+                                          <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-3 flex-1">
+                                              <div className={`w-3 h-3 rounded-full mt-1 ${getGenderBgColorClass(employee.gender)}`}></div>
+                                              <div className="flex-1">
+                                                <h4 className={`font-medium ${getGenderColorClass(employee.gender)}`}>
+                                                  {employee.name}
+                                                </h4>
+                                                <div className="text-sm mt-1 flex flex-wrap items-center gap-1">
+                                                  {employee.scheduledHours !== undefined && (
+                                                    <span className="text-blue-600 dark:text-blue-400">
+                                                      {employee.scheduledHours.toFixed(1)}h scheduled
+                                                    </span>
+                                                  )}
+                                                  {employee.scheduledHours !== undefined && (employee.freeWindows && employee.freeWindows !== '-') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.freeWindows && employee.freeWindows !== '-' && (
+                                                    <span className="text-green-600 dark:text-green-400">
+                                                      Free: {employee.freeWindows}
+                                                    </span>
+                                                  )}
+                                                  {((employee.scheduledHours !== undefined) || (employee.freeWindows && employee.freeWindows !== '-')) && (employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—') && (
+                                                    <span className="text-gray-500">•</span>
+                                                  )}
+                                                  {employee.cancelledVisits && employee.cancelledVisits.trim() !== '' && employee.cancelledVisits !== '-' && employee.cancelledVisits !== 'None' && employee.cancelledVisits !== '—' && (
+                                                    <span className="text-red-600 dark:text-red-400">
+                                                      Cancelled: {employee.cancelledVisits}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-3">
                                               <TransportModeIcon transportMode={employee.transportMode} />
+                                              <Badge variant="outline" className="text-xs">
+                                                Available
+                                              </Badge>
                                             </div>
-                                            
-                                            <div className="mt-4 space-y-2">
-                                              {employee.freeWindows && employee.freeWindows !== '-' && (
-                                                <div className="flex items-center gap-2 text-[11px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 p-2 rounded-xl">
-                                                  <Clock className="w-3 h-3" />
-                                                  <span>Free Window: {employee.freeWindows}</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </CardContent>
+                                          </div>
                                         </Card>
                                       ))
                                     )}
