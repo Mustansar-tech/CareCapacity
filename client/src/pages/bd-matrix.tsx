@@ -984,14 +984,14 @@ function ClientEnquiryMatcher() {
         </DialogTrigger>
         <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-3xl">
           {/* Header */}
-          <div className="px-8 py-6 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 rounded-t-3xl relative overflow-hidden">
+          <div className="px-8 py-6 bg-[#f8f9ff] dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 rounded-t-3xl relative overflow-hidden">
             <div className="flex items-center justify-between relative z-10">
                   <div className="flex items-center gap-4">
                     <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                      <UserCheck className="w-7 h-7 text-purple-600" />
+                      <UserCheck className="w-7 h-7 text-[#5d51d5]" />
                     </div>
                     <div>
-                      <DialogTitle className="text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100">
+                      <DialogTitle className="text-2xl font-black tracking-tight text-[#5d51d5] dark:text-gray-100">
                         Client Enquiry Matcher
                       </DialogTitle>
                       <DialogDescription className="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest">
@@ -1618,10 +1618,10 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     <div className="space-y-6">
       {/* Header */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-t-lg">
+        <CardHeader className="bg-[#f8f9ff] dark:bg-gray-900/50 rounded-t-lg">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-3">
-              <Users className="w-6 h-6 text-blue-600" />
+            <CardTitle className="text-xl font-semibold text-[#5d51d5] flex items-center gap-3">
+              <Users className="w-6 h-6 text-[#5d51d5]" />
               BD Availability Matrix
             </CardTitle>
             <div className="flex items-center gap-3">
@@ -1633,9 +1633,9 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
-                  <DialogHeader className="p-6 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100">
-                      <MapPin className="w-7 h-7 text-blue-600" />
+                  <DialogHeader className="p-6 bg-[#f8f9ff] dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight text-[#5d51d5] dark:text-gray-100">
+                      <MapPin className="w-7 h-7 text-[#5d51d5]" />
                       Care Pro Strategic Map
                     </DialogTitle>
                     <DialogDescription className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">
