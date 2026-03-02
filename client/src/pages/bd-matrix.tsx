@@ -983,21 +983,18 @@ function ClientEnquiryMatcher() {
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-3xl">
-          {/* Glassmorphism Header */}
-          <div className="px-8 py-6 bg-gradient-to-br from-purple-600 via-indigo-700 to-purple-800 text-white rounded-t-3xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/5 backdrop-blur-sm" />
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-400/10 rounded-full blur-2xl" />
+          {/* Header */}
+          <div className="px-8 py-6 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 rounded-t-3xl relative overflow-hidden">
             <div className="flex items-center justify-between relative z-10">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white/15 rounded-2xl backdrop-blur-sm rotate-3 hover:rotate-0 transition-transform duration-300 shadow-lg shadow-purple-900/30">
-                      <UserCheck className="w-7 h-7 text-white" />
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                      <UserCheck className="w-7 h-7 text-purple-600" />
                     </div>
                     <div>
-                      <DialogTitle className="text-2xl font-black tracking-tight text-white bg-gradient-to-r from-white to-purple-200 bg-clip-text">
+                      <DialogTitle className="text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100">
                         Client Enquiry Matcher
                       </DialogTitle>
-                      <DialogDescription className="text-purple-200/80 text-xs font-bold mt-1 uppercase tracking-widest">
+                      <DialogDescription className="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest">
                         Care Capacity Intelligence
                       </DialogDescription>
                     </div>
@@ -1007,7 +1004,7 @@ function ClientEnquiryMatcher() {
                   variant="outline"
                   size="sm"
                   onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
-                  className="gap-2 font-bold text-xs border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm rounded-xl px-4 py-2 h-auto transition-all duration-300 shadow-lg shadow-purple-900/20"
+                  className="gap-2 font-bold text-xs border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl px-4 py-2 h-auto transition-all duration-300 shadow-sm"
                 >
                   {showHistory ? (
                     <><Search className="w-4 h-4" /> New Search</>
@@ -1636,12 +1633,12 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
-                  <DialogHeader className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight">
-                      <MapPin className="w-7 h-7" />
+                  <DialogHeader className="p-6 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100">
+                      <MapPin className="w-7 h-7 text-blue-600" />
                       Care Pro Strategic Map
                     </DialogTitle>
-                    <DialogDescription className="text-blue-100 font-bold opacity-90 uppercase tracking-widest text-[10px]">
+                    <DialogDescription className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">
                       Real-time geographic distribution of care professionals
                     </DialogDescription>
                   </DialogHeader>
