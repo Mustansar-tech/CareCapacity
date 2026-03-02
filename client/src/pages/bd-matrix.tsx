@@ -617,6 +617,24 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative group">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+            <input
+              type="text"
+              placeholder="Filter by name or specialty..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-[10px] font-bold w-[220px] focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500/50 transition-all placeholder:text-gray-400"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+              >
+                <X className="w-2.5 h-2.5 text-gray-400" />
+              </button>
+            )}
+          </div>
           {hasAnyStars && (
             <Button
               variant="outline"
@@ -712,12 +730,22 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                         // Current CP's starred selection for this day
                         const currentStar = getStarred(vr.visitIndex, cpIdx, day);
 
-                        // Base filter: gender, has slot on day, not taken by starred previous CPs
+                        // Base filter: gender, has slot on day, not taken by starred previous CPs, and search query
                         let allVisibleMatches = vr.matches.filter(m => {
                           const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
                           if (!isCorrectGender) return false;
                           if (!m.matchedSlots.some(s => matchesDay(s, day))) return false;
                           if (takenByStarred.includes(m.employeeName)) return false;
+                          
+                          // Search filter
+                          if (searchQuery) {
+                            const query = searchQuery.toLowerCase();
+                            const matchesName = m.employeeName.toLowerCase().includes(query);
+                            const matchesSpecialty = m.specialties?.some(s => s.toLowerCase().includes(query));
+                            const matchesTime = m.matchedSlots.some(s => s.availableWindow.toLowerCase().includes(query));
+                            if (!matchesName && !matchesSpecialty && !matchesTime) return false;
+                          }
+                          
                           return true;
                         });
 
@@ -867,6 +895,7 @@ function ClientEnquiryMatcher() {
   const [activeVisitTab, setActiveVisitTab] = useState('0');
   const [multiResults, setMultiResults] = useState<MultiVisitResult | null>(null);
   const [activeResultTab, setActiveResultTab] = useState('0');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
   const { toast } = useToast();
