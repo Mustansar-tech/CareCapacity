@@ -6,7 +6,7 @@ import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from './pipeline';
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
-import { travelTimeService, type TransportMode } from './travel-time-service';
+import { TravelTimeService, travelTimeService, type TransportMode } from './travel-time-service';
 
 import { logger } from "./logger";
 import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from "./bdMatcher";
@@ -1368,18 +1368,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ results: [] });
       }
 
-      // Pre-warm cache using ORS Matrix API (batch calls, avoids rate limits)
-      await travelTimeService.prewarmTravelCache(
-        branchId,
-        validEmployees.map((e, i) => ({ id: String(i), lat: e.lat, lng: e.lng, transportMode: (e.mode || 'car') as TransportMode })),
-        validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng }))
-      );
+      // Pre-warm cache — normalize mode values from DB/frontend to canonical 'car' | 'walking' | 'public'
+      const normalizedEmployees = validEmployees.map((e, i) => ({
+        id: String(i),
+        lat: e.lat,
+        lng: e.lng,
+        transportMode: TravelTimeService.normalizeMode(e.mode),
+      }));
+      const modeSummary = normalizedEmployees.reduce<Record<string, number>>((acc, e) => {
+        acc[e.transportMode] = (acc[e.transportMode] || 0) + 1;
+        return acc;
+      }, {});
+      logger.info(`[Travel Batch] Mode distribution: ${JSON.stringify(modeSummary)}`);
+      await travelTimeService.prewarmTravelCache(branchId, normalizedEmployees, validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng })));
 
       // Collect all results from cache and return to frontend
       const results: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }> = [];
 
       for (const emp of validEmployees) {
-        const mode = (emp.mode || 'car') as TransportMode;
+        const mode = TravelTimeService.normalizeMode(emp.mode);
         for (const client of validClients) {
           try {
             const cached = await storage.getTravelTime(

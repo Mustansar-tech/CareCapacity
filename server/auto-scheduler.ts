@@ -152,7 +152,7 @@ export class AutoScheduler {
     // avoiding rate limits and ensuring the scheduler loop always hits the cache.
     await this.travelService.prewarmTravelCache(
       branchId,
-      employees.map(e => ({ id: e.employeeName, lat: e.homeLat, lng: e.homeLng, transportMode: e.transportMode })),
+      employees.map(e => ({ id: e.employeeName, lat: e.homeLat, lng: e.homeLng, transportMode: TravelTimeService.normalizeMode(e.transportMode) })),
       visits.map(v => ({ id: v.clientName, lat: v.clientLat, lng: v.clientLng }))
     );
 

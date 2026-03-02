@@ -57,20 +57,11 @@ export class TravelTimeService {
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
 
-  private getTimeOfDayMultiplier(startTimeMinutes?: number): number {
-    if (startTimeMinutes === undefined) return 1.0;
-    const hours = startTimeMinutes / 60;
-    if (hours >= 7 && hours < 9.5) return 1.3;
-    if (hours >= 15.5 && hours < 18.5) return 1.25;
-    return 1.0;
-  }
-
-  private calculateHeuristicTravelTime(straightLineKm: number, mode: TransportMode, startTimeMinutes?: number): number {
+  private calculateHeuristicTravelTime(straightLineKm: number, mode: TransportMode): number {
     const roadDistanceKm = straightLineKm * this.ROAD_FACTOR;
     const config = this.MODE_CONFIG[mode] || this.MODE_CONFIG.car;
     const baseTravelMinutes = (roadDistanceKm / config.speedKmh) * 60 + config.overheadMinutes;
-    const congestionMultiplier = (mode === 'car') ? this.getTimeOfDayMultiplier(startTimeMinutes) : 1.0;
-    return Math.max(config.minMinutes, Math.round(baseTravelMinutes * congestionMultiplier));
+    return Math.max(config.minMinutes, Math.round(baseTravelMinutes));
   }
 
   private calculateHaversineDistance(from: Location, to: Location): number {
@@ -284,6 +275,20 @@ export class TravelTimeService {
     return null;
   }
 
+  /**
+   * Normalise any raw transport mode string from the database or frontend
+   * into one of the three canonical values: 'car' | 'walking' | 'public'.
+   * Walkers are treated identically to public transport users — they both
+   * rely on buses/trains between visits and use the TravelTime API.
+   */
+  static normalizeMode(raw: string | null | undefined): TransportMode {
+    const s = (raw || '').toLowerCase().trim();
+    if (s.includes('car') || s.includes('driv')) return 'car';
+    if (s.includes('public') || s.includes('bus') || s.includes('train') || s.includes('transit')) return 'public';
+    if (s.includes('walk') || s.includes('foot') || s.includes('pedestrian')) return 'walking';
+    return 'car';
+  }
+
   private isWalkerOrPublic(mode: TransportMode): boolean {
     return mode === 'walking' || mode === 'public';
   }
@@ -484,13 +489,14 @@ export class TravelTimeService {
   ): Promise<void> {
     if (employeeLocations.length === 0 || clientLocations.length === 0) return;
 
-    logger.info(`[Cache Pre-warm] Starting for ${employeeLocations.length} employees × ${clientLocations.length} clients`);
     const startTime = Date.now();
     let totalNew = 0;
     let totalHits = 0;
 
     const carEmployees = employeeLocations.filter(e => e.transportMode === 'car');
     const nonCarEmployees = employeeLocations.filter(e => this.isWalkerOrPublic(e.transportMode));
+
+    logger.info(`[Cache Pre-warm] Starting for ${employeeLocations.length} employees (${carEmployees.length} car, ${nonCarEmployees.length} walker/public) × ${clientLocations.length} clients`);
 
     // ── Walker / public: TravelTime Matrix API ──────────────────────────────
     if (nonCarEmployees.length > 0) {
