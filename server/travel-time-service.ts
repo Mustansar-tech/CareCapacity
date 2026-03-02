@@ -109,13 +109,14 @@ export class TravelTimeService {
     from: Location,
     to: Location,
     distanceKm: number,
-    departureTime?: Date
+    departureTime?: Date,
+    forceMode?: string
   ): Promise<{ durationMinutes: number } | null> {
     if (!this.hasTravelTimeCredentials()) return null;
 
     try {
       const departure = (departureTime || new Date()).toISOString();
-      const transportation = this.toTravelTimeTransport(distanceKm);
+      const transportation = forceMode ?? this.toTravelTimeTransport(distanceKm);
 
       const body = {
         locations: [
@@ -229,9 +230,14 @@ export class TravelTimeService {
 
       if (response.ok) {
         const data = await response.json();
-        const results = data?.results?.[0]?.locations || [];
+        const result0 = data?.results?.[0];
+        const reachable = result0?.locations || [];
+        const unreachable: string[] = result0?.unreachable || [];
+        if (unreachable.length > 0) {
+          logger.info(`TravelTime matrix (${travelType}): ${reachable.length} reachable, ${unreachable.length} unreachable destinations`);
+        }
         const resultMap = new Map<number, number>();
-        for (const loc of results) {
+        for (const loc of reachable) {
           const match = loc.id?.match(/^dest_(\d+)$/);
           if (!match) continue;
           const idx = parseInt(match[1], 10);
@@ -353,9 +359,15 @@ export class TravelTimeService {
     if (isNonCar) {
       const distanceKm = this.calculateHaversineDistance(from, to);
       const ttMode = this.toTravelTimeTransport(distanceKm);
-      const tt = await this.fetchTravelTimeSingle(from, to, distanceKm);
+      let tt = await this.fetchTravelTimeSingle(from, to, distanceKm);
+      let usedMode = ttMode;
+      if (!tt && ttMode === 'public_transport') {
+        logger.info(`TravelTime single (public_transport) unreachable for ${distanceKm.toFixed(2)}km — retrying with walking`);
+        tt = await this.fetchTravelTimeSingle(from, to, distanceKm, undefined, 'walking');
+        usedMode = 'walking';
+      }
       if (tt) {
-        logger.debug(`TravelTime single (${ttMode}, ${distanceKm.toFixed(2)}km): ${tt.durationMinutes} min`);
+        logger.debug(`TravelTime single (${usedMode}, ${distanceKm.toFixed(2)}km): ${tt.durationMinutes} min`);
         try {
           await storage.saveTravelTime({
             branchId, fromLat, fromLng, toLat, toLng,
@@ -546,14 +558,22 @@ export class TravelTimeService {
         logger.info(`[Cache Pre-warm] Emp ${emp.id}: ${closeClients.length} close (walking) + ${farClients.length} far (public_transport)`);
 
         // Helper to run one matrix call (one travel type) and save results
-        const runMatrixGroup = async (group: typeof uncachedWithDist, travelType: string): Promise<boolean> => {
+        const runMatrixGroup = async (group: typeof uncachedWithDist, travelType: string, fallbackType?: string): Promise<boolean> => {
           if (group.length === 0) return true;
           for (let bi = 0; bi < group.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
             const batch = group.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
             const destinations = batch.map(b => ({ lat: b.client.lat, lng: b.client.lng }));
-            const resultMap = await this.fetchTravelTimeMatrix(
+            let resultMap = await this.fetchTravelTimeMatrix(
               { lat: emp.lat, lng: emp.lng }, destinations, travelType
             );
+            let usedType = travelType;
+            if ((!resultMap || resultMap.size === 0) && fallbackType) {
+              logger.info(`[Cache Pre-warm] TravelTime Matrix (${travelType}) empty for emp ${emp.id} — retrying with ${fallbackType}`);
+              resultMap = await this.fetchTravelTimeMatrix(
+                { lat: emp.lat, lng: emp.lng }, destinations, fallbackType
+              );
+              usedType = fallbackType;
+            }
             if (resultMap && resultMap.size > 0) {
               for (let di = 0; di < batch.length; di++) {
                 const durationMinutes = resultMap.get(di);
@@ -573,9 +593,9 @@ export class TravelTimeService {
                   } catch (_) {}
                 }
               }
-              logger.debug(`[Cache Pre-warm] TravelTime Matrix (${travelType}): emp ${emp.id} → ${batch.length} clients, ${resultMap.size} results`);
+              logger.debug(`[Cache Pre-warm] TravelTime Matrix (${usedType}): emp ${emp.id} → ${batch.length} clients, ${resultMap.size} results`);
             } else {
-              logger.warn(`[Cache Pre-warm] TravelTime Matrix (${travelType}) returned no results for emp ${emp.id} — will fall back to heuristic`);
+              logger.warn(`[Cache Pre-warm] TravelTime Matrix (${travelType}${fallbackType ? `/${fallbackType}` : ''}) returned no results for emp ${emp.id} — will fall back to heuristic`);
               return false;
             }
           }
@@ -585,7 +605,7 @@ export class TravelTimeService {
         let matrixSuccess = false;
         if (this.hasTravelTimeCredentials()) {
           const closeOk = await runMatrixGroup(closeClients, 'walking');
-          const farOk   = await runMatrixGroup(farClients, 'public_transport');
+          const farOk   = await runMatrixGroup(farClients, 'public_transport', 'walking');
           matrixSuccess = closeOk && farOk;
         }
 
