@@ -1035,6 +1035,35 @@ function ClientEnquiryMatcher() {
                             {viewingHistoryResult.clientName}
                           </h3>
                           <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] px-3 py-1 uppercase tracking-widest rounded-xl shadow-md shadow-purple-500/20">Archived</Badge>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 gap-2 font-bold rounded-xl border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-xs ml-2"
+                            onClick={() => {
+                              // Close history view and set up the search fields
+                              setClientName(viewingHistoryResult.clientName);
+                              setPostcode(viewingHistoryResult.postcode || "");
+                              
+                              // Check both possible locations for the visits data
+                              const visitsToLoad = viewingHistoryResult.criteria?.visits || viewingHistoryResult.visits;
+                              
+                              if (visitsToLoad && Array.isArray(visitsToLoad)) {
+                                setVisits(visitsToLoad);
+                                setActiveVisitTab("0");
+                              }
+                              
+                              setShowHistory(false);
+                              setViewingHistoryResult(null);
+                              
+                              toast({
+                                title: "Search Populated",
+                                description: `Criteria for ${viewingHistoryResult.clientName} has been loaded.`,
+                              });
+                            }}
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+                            Re-run Search
+                          </Button>
                         </div>
                         <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-3">
                           <span className="flex items-center gap-1.5">
