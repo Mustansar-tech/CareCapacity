@@ -743,7 +743,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
 
                         return (
                           <td key={day} className="p-3 align-top min-w-[250px]">
-                            <div className="overflow-y-auto max-h-[420px] pr-1 space-y-3">
+                            <div className={`overflow-y-auto ${vr.careProsRequired > 1 ? 'max-h-[315px]' : 'max-h-[420px]'} pr-1 space-y-3`}>
                                 {matchesToShow.length > 0 ? (
                                   matchesToShow.map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
