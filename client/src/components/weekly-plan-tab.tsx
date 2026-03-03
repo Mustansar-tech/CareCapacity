@@ -249,13 +249,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           }
         });
 
-        // Collect unique client locations (one entry per unique lat/lng)
-        const uniqueClientMap = new Map<string, { lat: number; lng: number }>();
+        // Collect unique client locations grouped by (lat, lng, arrivalTime).
+        // Including the visit start time in the key means public transport workers
+        // get travel times for the exact arrival window — "arrive here by HH:MM" —
+        // not a generic 09:00 default. Car/walking times are time-independent so
+        // the extra entries per visit time don't affect them.
+        const timeToMinutes = (t: string): number => {
+          const [h, m] = (t || '').split(':').map(Number);
+          return ((isNaN(h) ? 0 : h) * 60) + (isNaN(m) ? 0 : m);
+        };
+        const uniqueClientMap = new Map<string, { lat: number; lng: number; arrivalTimeMinutes: number }>();
         visitsWithLocations.forEach(visit => {
           if (visit.lat && visit.lng) {
-            const key = `${visit.lat},${visit.lng}`;
+            const arrivalTimeMinutes = visit.startTime ? timeToMinutes(visit.startTime) : 9 * 60;
+            const key = `${visit.lat},${visit.lng},${arrivalTimeMinutes}`;
             if (!uniqueClientMap.has(key)) {
-              uniqueClientMap.set(key, { lat: visit.lat, lng: visit.lng });
+              uniqueClientMap.set(key, { lat: visit.lat, lng: visit.lng, arrivalTimeMinutes });
             }
           }
         });
@@ -265,7 +274,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         if (uniqueEmployees.length > 0 && uniqueClients.length > 0) {
           clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients`);
-          const response = await apiRequest('POST', '/api/travel-times/batch', { employees: uniqueEmployees, clients: uniqueClients });
+          const response = await apiRequest('POST', '/api/travel-times/batch', {
+            employees: uniqueEmployees,
+            clients: uniqueClients,
+            date: weekDates[0],
+          });
           const travelData = await response.json();
           if (travelData.results?.length > 0) {
             seedTravelCache(travelData.results);
