@@ -1,115 +1,81 @@
-# Care Capacity Dashboard - Intelligent Workforce Management System
+# Care Capacity Dashboard
 
-## Overview
+## Quick Reference
 
-The Care Capacity Dashboard is an intelligent, AI-powered scheduling platform designed to transform workforce management for care homes. It addresses critical operational challenges such as capacity blindness, scheduling complexity, fragmented data, and reactive management. By automating scheduling, optimizing routes using advanced algorithms (VRPTW), and providing predictive insights through machine learning, the system aims to improve care delivery, reduce operational costs, and identify new business opportunities. It turns fragmented Excel data into a unified source of truth, enabling proactive capacity planning and efficient resource allocation.
+Full documentation lives in two files:
+- **PROJECT.md** — architecture, schema, algorithms, API endpoints, constants
+- **GUIDE.md** — how to use every feature as an end user
+
+---
+
+## What This App Is
+
+A scheduling and route optimisation platform for Home Instead franchise branches. It ingests Excel exports from the care management system, geocodes every address, computes real road/transit travel times, and runs a VRPTW-based engine to produce a legally compliant, geographically efficient weekly care schedule.
+
+---
+
+## Tech Stack
+
+- **Frontend**: React 18 + TypeScript, Vite, shadcn/ui, TanStack Query v5, Wouter routing, Recharts, React Leaflet, Framer Motion
+- **Backend**: Express + TypeScript, Multer, ExcelJS, Zod
+- **Database**: PostgreSQL (Neon serverless) + Drizzle ORM
+- **APIs**: ORS Matrix (car pre-warm), ORS Directions (car fallback), OSRM (free car fallback), TravelTime API (walker/public transport, arrival_searches with correct date+time), Haversine (last resort)
+
+---
+
+## Architecture Decisions
+
+### Multi-Branch
+Every DB query is scoped to `branchId`. `BranchContext` provides the active branch globally. There is no cross-branch data access.
+
+### Scheduling Engine Runs Client-Side
+The VRPTW engine (`client/src/utils/scheduling-engine.ts`) runs in the browser to avoid server timeouts with large datasets. The server handles API orchestration and DB persistence.
+
+### Two-Phase Walker Scheduling
+1. **Phase 1**: Schedule with Haversine estimates (instant, no API calls).
+2. **Phase 2 (post-schedule)**: Call `POST /api/travel-times/refine-walker` with only the assigned walker/public pairs. Pairs are deduplicated by `{visitDate}-{from}-{to}-{mode}` so different days get separate TravelTime queries (weekends use weekend timetables). Results stored in a local date-keyed map — not the global session cache — to avoid cross-day contamination.
+
+### ORS Matrix for Car Routes
+Called via `POST /api/travel-times/batch` before scheduling. Batch size 50. Returns results for all employee×client pairs. DB-level travel cache is disabled — session cache only.
+
+### Travel Caps
+- Car: 45 minutes (`MAX_TRAVEL_TIME_MINUTES`)
+- Walker / public: 60 minutes (`MAX_TRAVEL_TIME_MINUTES_WALKER`)
+- Unreachable (ORS returns 9999) → visit goes to unallocated
+
+### TRAVEL_COMPRESSION_ALLOWANCE = 0
+Strict gap checking — no time compression. Visit time windows are fixed.
+
+---
 
 ## User Preferences
 
-The application is designed for care home scheduling teams and business development staff. It uses simple, everyday language focused on practical insights rather than technical implementation, with all technical complexity hidden behind intuitive interfaces and clear visualizations.
+- Plain language, no technical jargon in the UI
+- Care home scheduling teams and business development staff are the audience
+- Dark mode supported via class-based toggling
 
-## System Architecture
+---
 
-### Technology Stack
+## Key Files
 
-**Frontend:**
-- **React 18 + TypeScript:** For a modern, type-safe user interface.
-- **Vite:** Fast development with hot module replacement.
-- **ShadCN UI + Radix primitives:** Accessible and aesthetically pleasing components.
-- **TailwindCSS:** Custom glass-morphism design system.
-- **TanStack Query:** Intelligent server state management and caching.
-- **Recharts:** Interactive data visualization.
+| File | Role |
+|---|---|
+| `shared/schema.ts` | All DB tables, Zod schemas, shared TypeScript types |
+| `server/routes.ts` | All API endpoints |
+| `server/travel-time-service.ts` | Multi-API travel time logic |
+| `server/pipeline.ts` | Excel parsing, capacity calculation |
+| `server/bdMatcher.ts` | BD enquiry matching |
+| `client/src/utils/scheduling-engine.ts` | VRPTW engine |
+| `client/src/utils/scheduling-utils.ts` | Travel cache, helpers, constants |
+| `client/src/components/weekly-plan-tab.tsx` | Schedule UI + walker refinement flow |
+| `client/src/pages/dashboard.tsx` | Main multi-tab dashboard |
+| `client/src/pages/bd-matrix.tsx` | Business development heatmap + enquiry tool |
 
-**Backend:**
-- **Express.js + TypeScript:** RESTful API with comprehensive middleware.
-- **Drizzle ORM:** Type-safe PostgreSQL database operations.
-- **Multer:** Secure file upload handling with validation.
-- **ExcelJS:** Robust Excel file processing (read and write), via `xlsx-compat.ts` wrapper.
-- **Advanced fuzzy name matching:** With confidence scoring for data reconciliation.
-- **Sophisticated time window arithmetic:** For accurate capacity calculations.
-
-**Database & Storage:**
-- **PostgreSQL (Neon serverless):** Production-grade reliability.
-- **Session management:** With PostgreSQL session store.
-- **Zod schemas:** Comprehensive data validation.
-- **Geocoding cache:** Multi-level fallback hierarchy for performance.
-- **Advanced Travel Logic:** Bypasses ORS (OpenRouteService) cache for "Walking" mode to ensure realistic estimates for care pros who often use public transport/lifts.
-- **Real Road Distance Routing:** Four-tier fallback chain for travel time calculation: (1) ORS Matrix API batch pre-warm, (2) ORS Directions API individual call, (3) OSRM free real-road routing via OpenStreetMap, (4) Haversine heuristic last resort only.
-- **Cache Pre-warming:** Before each scheduling run, all employee×client travel pairs are batch-fetched via ORS Matrix API (25×25 per call), converting potentially thousands of individual API calls into a few batch requests and eliminating rate-limit issues entirely.
-- **OSRM Fallback:** When ORS is unavailable or rate-limited, the system uses OSRM (Open Source Routing Machine) for real road distances using OpenStreetMap data — no API key required, completely free, and far more accurate than straight-line Haversine estimates.
-
-### Performance Optimizations
-
-- **70-80% Faster File Processing:** Achieved through multi-level geocoding cache (exact postcode → district → area fallback), parallel batch processing, duplicate elimination, and smart fallback cache checks before API calls.
-- **Advanced Scheduling Memoization:** Significantly reduced optimization time by caching and reusing travel time calculations between identical location pairs, preventing redundant API/geometric calculations.
-- **ORS Rate Limit Elimination:** Replaced individual-per-pair ORS Directions API calls with ORS Matrix API batches in pre-warming phase. 30 staff × 100 clients now requires ~8 batch calls instead of ~3,000 individual calls.
-
-### Feature Specifications
-
-- **File Upload & Processing:** Handles four required Excel files (Availability Export, Care Pro Guaranteed Hours, Hours by Service Type, CG Data Export) with flexible column matching, status canonicalization, and robust error handling.
-- **Overview Tab:** Executive dashboard with 9 KPI cards (Net Capacity, Client Required, Scheduled Hours, Unavailability, Holidays, Sickness, etc.).
-- **Daily Capacity Tab:** Day-by-day analysis with a daily summary table, employee drill-down, gender-based color coding, and transport mode indicators.
-- **Employee Summary Tab:** Comprehensive metrics per employee, including contracted vs. scheduled hours, availability patterns, and free windows calculation.
-- **BD Matrix (Business Development):** A 7-day heatmap visually displaying employee availability for business development opportunities.
-  - **Client Enquiry Matcher (Multi-Visit):** Built-in tool (button in BD Matrix header) supporting up to 5 visit tabs per client. Each visit tab allows specifying: care pros required (1-3), per-CP gender preferences, required days, and preferred time window. Single "Find Matches" button runs matching across all visits simultaneously. Results display with tabbed output per visit. Supports both single-visit (backward compatible) and multi-visit matching. Backend services in `server/bdMatcher.ts`, APIs at `POST /api/bd-matcher` (single) and `POST /api/bd-matcher/multi-visit` (multi). History saves and displays multi-visit enquiries with per-visit result tabs.
-- **Schedules Tab:** Automated weekly planning using an enhanced VRPTW optimization engine. Features include:
-    - **Flexible Gap-Filling:** Optimized to allocate visits in tight windows (e.g., 2-minute buffers).
-    - **Travel Time Extra:** Intelligent "compression" logic that allows visits to be scheduled even if travel time exceeds available gaps by up to 15 minutes.
-    - **Geographic Clustering:** Grid-based approach (~2km cells) sorts visits by proximity within priority groups for better route efficiency.
-    - **Care Continuity Scoring:** 15% bonus for same employee-client pairings from previous days (10% for fuzzy matches), promoting consistent care relationships.
-    - **Statutory Rest Breaks:** 20-minute break injected after 6 hours of consecutive work, blocking visit allocation during break windows.
-    - **Shift Stability Scoring:** 10% bonus for compact, back-to-back schedules over fragmented shifts, reducing employee travel burden.
-    - **Constraint Enforcement:** Respects 9-hour daily care limits, weekly contracted hours, and gender preferences.
-    - **Visual Indicators:** Real-time feedback on travel compression and shift overflows in the dashboard.
-- **AI Insights Tab:** Provides predictive analytics, workload redistribution opportunities, staff optimization suggestions, and risk assessments with actionable insights.
-- **Analytics Tab:** Interactive visualizations (bar, line, area, pie charts) for daily comparisons, trend analysis, and data distribution, along with a data quality panel.
-- **Export Tab:** Comprehensive Excel reports including cleaned data, daily summary, and employee details.
-
-### Core Data Parsing & Validation Logic
-
-The system follows strict rules for data extraction and validation to ensure 100% accuracy in scheduled hours reporting:
-
-#### 1. Employee Name Resolution (The Fallback Chain)
-To prevent missing hours when data is incomplete:
-- **Primary Source:** "Actual Employee Name"
-- **Secondary Fallback:** "Planned Employee Name" (used if "Actual" is empty)
-- **Third Fallback:** "Service Requirement" metadata (used for shadowing/office hours)
-- This ensures employees like Palmer and Campbell (who often only have "Planned" entries) are always captured.
-
-#### 2. Scheduled Hours Calculation (Care Pro Guaranteed Hours)
-- **Validation:** Every row must have a name (either Actual or Planned) and valid timestamps.
-- **Ad-Hoc Injection:** Any employee found in the schedule file who is *not* in the main employee database is automatically "injected" as an ad-hoc employee.
-- **Zero-Hour Support:** Employees with 0 contracted weekly hours are fully supported and their scheduled visits are counted in all totals.
-- **Night Visit Exclusion:** Rows marked with "Night", "Sleep In", "Waking", or "Overnight" are excluded from capacity and scheduled totals per business rules.
-- **Cancellation Logic:** Only rows with a blank "Cancellation Description" are counted towards scheduled totals.
-
-#### 3. Capacity Formulas (Net Capacity)
-- **Gross Capacity:** Total available hours from Availability Export.
-- **Deductions:** (Unavailability + Sickness + Holidays).
-- **Net Capacity Formula:** strictly follows: `Gross Available Hours - Unavailability - Sickness - Holidays`.
-- **Capping Logic:** Deductions (Sickness/Holidays) are capped at the employee's daily contracted hours to prevent negative capacity.
-
-#### 4. Time Window Management
-- **Day-Killers:** Statuses like "Holiday" or "Sick" wipe out the entire day's capacity.
-- **Time-Killers:** Statuses like "Appointment" or "Personal" only subtract specific windows.
-- **Minimum Bookable Window:** Windows shorter than 45 minutes are ignored for capacity but still shown as unavailable.
-
-### Production Security (Feb 2026)
-
-- **Structured Logging:** All server files use centralized `server/logger.ts` that suppresses debug/info output in production, formats as JSON for log aggregation, and strips stack traces from error logs.
-- **Safe Error Responses:** API error responses use `safeErrorMessage()` helper to prevent internal error messages, stack traces, and file paths from reaching clients in production.
-- **Security Headers:** Comprehensive CSP, HSTS, and XSS protection configured.
-- **Rate Limiting:** Applied to all `/api` routes in production.
-
-### Data Privacy & Retention
-
-- **Privacy Guard Skill:** Strictly follow the `privacy-guard` skill to prevent PII and secret leakage in logs.
-- **Frontend Design Skill:** Generates creative, polished UI design that avoids generic AI aesthetics.
-- **Configurable Retention:** Default 3-month data retention with user-controlled cleanup options.
-- **Data Governance:** Secure session management and compliance-ready audit trails.
+---
 
 ## External Dependencies
 
-- **PostgreSQL (Neon serverless):** Primary database.
-- **Google Maps API:** Used for geocoding and travel time calculations.
-- **ExcelJS library:** For reading and writing Excel files (replaced xlsx@0.18.5 due to CVEs).
+- PostgreSQL (Neon serverless)
+- OpenRouteService API (ORS_API_KEY env var)
+- TravelTime API (TRAVELTIME_APP_ID + TRAVELTIME_API_KEY env vars)
+- Geocoding API (for postcode → lat/lng resolution)
