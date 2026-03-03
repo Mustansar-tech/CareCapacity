@@ -5,20 +5,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { 
   MapPin, Route, Clock, Car, Navigation, AlertTriangle, CheckCircle, 
   RefreshCw, Zap, Target, Users, Calendar, ArrowRight, Settings, Sliders,
-  AlertCircle, Info, XCircle, TrendingUp, BarChart3, Home, Play, Square
+  AlertCircle, Info, XCircle, TrendingUp, BarChart3, Home, Play, Square,
+  ChevronDown, ChevronUp, ShieldCheck, ShieldAlert, Database, Wifi
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface ScheduleQualityReport {
+  travelDataConfidencePercent: number;
+  realApiRoutes: number;
+  cachedRealRoutes: number;
+  heuristicRoutes: number;
+  totalRoutes: number;
+  compressionUsed: number;
+  travelCapRejections: number;
+  warning: string | null;
+}
 
 interface SchedulingTabProps {
   data: ProcessingResult | null;
@@ -127,6 +139,8 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   const [bufferMinutes, setBufferMinutes] = useState<number>(5);
   const [maxTravelBetweenVisits, setMaxTravelBetweenVisits] = useState<number>(30);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+  const [qualityReport, setQualityReport] = useState<ScheduleQualityReport | null>(null);
+  const [showQualityReport, setShowQualityReport] = useState<boolean>(false);
 
   const { toast } = useToast();
 
@@ -159,17 +173,25 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
+      if (result?.qualityReport) {
+        setQualityReport(result.qualityReport);
+        setShowQualityReport(false);
+      }
+      const confidence = result?.qualityReport?.travelDataConfidencePercent ?? 100;
       toast({
-        title: "Run Optimization Complete",
-        description: "Employee runs have been optimized with chaining logic."
+        title: "Schedule Generated",
+        description: confidence < 80
+          ? `Done — but only ${confidence}% of routes used real road data. Check the Quality Report below.`
+          : `Complete. Travel data confidence: ${confidence}%.`,
+        variant: confidence < 80 ? "destructive" : "default",
       });
       refetchOptimization();
     },
     onError: (error) => {
       toast({
-        title: "Run Optimization Failed",
-        description: "Unable to optimize runs. Please try again.",
+        title: "Optimization Failed",
+        description: "Unable to generate schedule. Please try again.",
         variant: "destructive"
       });
     }
@@ -258,10 +280,28 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-              <Calendar className="w-3 h-3 mr-1" />
-              {optimizationDate}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {qualityReport && (
+                <Badge
+                  variant="outline"
+                  className={`text-xs backdrop-blur-sm ${
+                    qualityReport.travelDataConfidencePercent >= 80
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-300 text-green-700 dark:text-green-400'
+                      : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 text-amber-700 dark:text-amber-400'
+                  }`}
+                >
+                  {qualityReport.travelDataConfidencePercent >= 80
+                    ? <ShieldCheck className="w-3 h-3 mr-1" />
+                    : <ShieldAlert className="w-3 h-3 mr-1" />
+                  }
+                  {qualityReport.travelDataConfidencePercent}% data confidence
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                <Calendar className="w-3 h-3 mr-1" />
+                {optimizationDate}
+              </Badge>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -392,6 +432,168 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
           </div>
         </CardContent>
       </Card>
+
+      {/* Warning Banner — shown when confidence is low */}
+      {qualityReport && qualityReport.travelDataConfidencePercent < 80 && (
+        <Alert variant="destructive" className="border-amber-300 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200">
+          <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-800 dark:text-amber-300">Travel Time Accuracy Warning</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-400">
+            {qualityReport.warning || `Only ${qualityReport.travelDataConfidencePercent}% of routes used real road data. ${qualityReport.heuristicRoutes} route(s) fell back to straight-line estimates which may be inaccurate in areas with barriers or complex road layouts.`}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Schedule Quality Report Panel */}
+      {qualityReport && (
+        <Card className="glass border border-gray-200 dark:border-gray-700">
+            <button className="w-full text-left" onClick={() => setShowQualityReport(!showQualityReport)}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium text-sm">Schedule Quality Report</span>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ml-2 ${
+                        qualityReport.travelDataConfidencePercent >= 80
+                          ? 'border-green-400 text-green-700 dark:text-green-400'
+                          : 'border-amber-400 text-amber-700 dark:text-amber-400'
+                      }`}
+                    >
+                      {qualityReport.travelDataConfidencePercent >= 80
+                        ? <CheckCircle className="w-3 h-3 mr-1 inline" />
+                        : <AlertTriangle className="w-3 h-3 mr-1 inline" />
+                      }
+                      {qualityReport.travelDataConfidencePercent}% confidence
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    {showQualityReport ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {showQualityReport ? 'Hide' : 'Show'} details
+                  </div>
+                </div>
+              </CardHeader>
+            </button>
+            {showQualityReport && (
+              <CardContent className="pt-0 pb-4">
+                {/* Travel Data Confidence Bar */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Travel Data Confidence</span>
+                    <span className={`text-sm font-bold ${
+                      qualityReport.travelDataConfidencePercent >= 80 ? 'text-green-600' : 'text-amber-600'
+                    }`}>
+                      {qualityReport.travelDataConfidencePercent}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={qualityReport.travelDataConfidencePercent}
+                    className="h-2"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Percentage of routes using real road data (API or verified cache). 100% is ideal.
+                  </p>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wifi className="w-3 h-3 text-green-600" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-400">Live API Routes</span>
+                    </div>
+                    <p className="text-xl font-bold text-green-700 dark:text-green-400">{qualityReport.realApiRoutes}</p>
+                    <p className="text-xs text-green-600 dark:text-green-500">Fresh from ORS/TravelTime</p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Database className="w-3 h-3 text-blue-600" />
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Cached Real Routes</span>
+                    </div>
+                    <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{qualityReport.cachedRealRoutes}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-500">Verified road data (cached)</p>
+                  </div>
+
+                  <div className={`p-3 rounded-lg border ${
+                    qualityReport.heuristicRoutes > 0
+                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertTriangle className={`w-3 h-3 ${qualityReport.heuristicRoutes > 0 ? 'text-amber-600' : 'text-gray-400'}`} />
+                      <span className={`text-xs font-medium ${qualityReport.heuristicRoutes > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500'}`}>
+                        Estimated Routes
+                      </span>
+                    </div>
+                    <p className={`text-xl font-bold ${qualityReport.heuristicRoutes > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400'}`}>
+                      {qualityReport.heuristicRoutes}
+                    </p>
+                    <p className={`text-xs ${qualityReport.heuristicRoutes > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-gray-400'}`}>
+                      Straight-line heuristic
+                    </p>
+                  </div>
+
+                  <div className={`p-3 rounded-lg border ${
+                    qualityReport.compressionUsed > 0
+                      ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className={`w-3 h-3 ${qualityReport.compressionUsed > 0 ? 'text-orange-600' : 'text-gray-400'}`} />
+                      <span className={`text-xs font-medium ${qualityReport.compressionUsed > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-gray-500'}`}>
+                        Time Compression
+                      </span>
+                    </div>
+                    <p className={`text-xl font-bold ${qualityReport.compressionUsed > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-gray-400'}`}>
+                      {qualityReport.compressionUsed}
+                    </p>
+                    <p className={`text-xs ${qualityReport.compressionUsed > 0 ? 'text-orange-600 dark:text-orange-500' : 'text-gray-400'}`}>
+                      Visits squeezed ≤15 min
+                    </p>
+                  </div>
+
+                  <div className={`p-3 rounded-lg border ${
+                    qualityReport.travelCapRejections > 0
+                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <XCircle className={`w-3 h-3 ${qualityReport.travelCapRejections > 0 ? 'text-red-600' : 'text-gray-400'}`} />
+                      <span className={`text-xs font-medium ${qualityReport.travelCapRejections > 0 ? 'text-red-700 dark:text-red-400' : 'text-gray-500'}`}>
+                        Cap Rejections
+                      </span>
+                    </div>
+                    <p className={`text-xl font-bold ${qualityReport.travelCapRejections > 0 ? 'text-red-700 dark:text-red-400' : 'text-gray-400'}`}>
+                      {qualityReport.travelCapRejections}
+                    </p>
+                    <p className={`text-xs ${qualityReport.travelCapRejections > 0 ? 'text-red-600 dark:text-red-500' : 'text-gray-400'}`}>
+                      Over 45-min travel limit
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Route className="w-3 h-3 text-gray-500" />
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Total Routes</span>
+                    </div>
+                    <p className="text-xl font-bold text-gray-700 dark:text-gray-300">{qualityReport.totalRoutes}</p>
+                    <p className="text-xs text-gray-500">Evaluated this run</p>
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-1">
+                  <p><strong className="text-gray-700 dark:text-gray-300">Live API Routes:</strong> Freshly fetched from OpenRouteService or TravelTime API — most accurate.</p>
+                  <p><strong className="text-gray-700 dark:text-gray-300">Cached Real Routes:</strong> Previously fetched from a real API and stored in the database — accurate.</p>
+                  <p><strong className="text-gray-700 dark:text-gray-300">Estimated Routes:</strong> Calculated from straight-line distance × 1.2 road factor. Less accurate in areas with barriers or complex road layouts.</p>
+                  <p><strong className="text-gray-700 dark:text-gray-300">Time Compression:</strong> Visits scheduled with up to 15 min of flexibility. Monitor these if caregivers report tight transitions.</p>
+                </div>
+              </CardContent>
+            )}
+        </Card>
+      )}
 
       {/* Optimization Results */}
       {runOptimization && (

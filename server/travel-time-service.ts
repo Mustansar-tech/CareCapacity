@@ -37,6 +37,14 @@ const TRAVELTIME_MATRIX_BATCH_SIZE = 20;
 const OSRM_TIMEOUT_MS = 8000;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
+export interface TravelTimeSessionStats {
+  cacheHits: number;
+  realApiCalls: number;
+  heuristicFallbacks: number;
+  totalRoutes: number;
+  realApiPercent: number;
+}
+
 export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
 
@@ -51,6 +59,22 @@ export class TravelTimeService {
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
+
+  private _sessionStats = { cacheHits: 0, realApiCalls: 0, heuristicFallbacks: 0 };
+
+  resetSessionStats(): void {
+    this._sessionStats = { cacheHits: 0, realApiCalls: 0, heuristicFallbacks: 0 };
+  }
+
+  getSessionStats(): TravelTimeSessionStats {
+    const total = this._sessionStats.cacheHits + this._sessionStats.realApiCalls + this._sessionStats.heuristicFallbacks;
+    const realAndCache = this._sessionStats.realApiCalls + this._sessionStats.cacheHits;
+    return {
+      ...this._sessionStats,
+      totalRoutes: total,
+      realApiPercent: total > 0 ? Math.round((realAndCache / total) * 100) : 100,
+    };
+  }
 
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -334,6 +358,11 @@ export class TravelTimeService {
         }
 
         if (useCache) {
+          if (isHeuristic) {
+            this._sessionStats.heuristicFallbacks++;
+          } else {
+            this._sessionStats.cacheHits++;
+          }
           return {
             fromLocation: from,
             toLocation: to,
@@ -379,6 +408,7 @@ export class TravelTimeService {
         } catch (e) {
           logger.error("Cache save (traveltime) failed:", e);
         }
+        this._sessionStats.realApiCalls++;
         return {
           fromLocation: from,
           toLocation: to,
@@ -405,6 +435,7 @@ export class TravelTimeService {
       } catch (e) {
         logger.error("Cache save (heuristic) failed:", e);
       }
+      this._sessionStats.heuristicFallbacks++;
       return {
         fromLocation: from,
         toLocation: to,
@@ -434,6 +465,7 @@ export class TravelTimeService {
           const distanceMeters = Math.round(data.routes[0].summary.distance);
           logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
           await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes, distanceMeters, source: 'ors' });
+          this._sessionStats.realApiCalls++;
           return {
             fromLocation: from,
             toLocation: to,
@@ -460,6 +492,7 @@ export class TravelTimeService {
       } catch (e) {
         logger.error("Cache save (OSRM) failed:", e);
       }
+      this._sessionStats.realApiCalls++;
       return {
         fromLocation: from,
         toLocation: to,
@@ -484,6 +517,7 @@ export class TravelTimeService {
       logger.error("Cache save (heuristic) failed:", e);
     }
 
+    this._sessionStats.heuristicFallbacks++;
     return {
       fromLocation: from,
       toLocation: to,

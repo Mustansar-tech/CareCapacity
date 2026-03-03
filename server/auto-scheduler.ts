@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { TravelTimeService } from "./travel-time-service";
+import { TravelTimeService, travelTimeService as travelTimeSingleton } from "./travel-time-service";
 import { logger } from './logger';
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
@@ -98,19 +98,30 @@ interface WeeklySchedule {
     averageUtilization: number;
     totalTravelTime: number;
   };
+  qualityReport: {
+    travelDataConfidencePercent: number;
+    realApiRoutes: number;
+    cachedRealRoutes: number;
+    heuristicRoutes: number;
+    totalRoutes: number;
+    compressionUsed: number;
+    travelCapRejections: number;
+    warning: string | null;
+  };
 }
 
 export class AutoScheduler {
   private travelService: TravelTimeService;
+  private bufferTime: number;
+  private maxTravelCapMinutes: number;
+  private _sessionCompressionUsed = 0;
+  private _sessionTravelCapRejections = 0;
 
   constructor() {
     this.travelService = new TravelTimeService(45, 35);
     this.bufferTime = 12;
     this.maxTravelCapMinutes = 45;
   }
-
-  private bufferTime: number;
-  private maxTravelCapMinutes: number;
 
   /**
    * Automatically schedule visits for a given date
@@ -124,6 +135,11 @@ export class AutoScheduler {
     if (!branchId) {
       throw new Error('scheduleDay requires branchId parameter - cannot schedule without branch context');
     }
+
+    // Reset per-run quality counters
+    this._sessionCompressionUsed = 0;
+    this._sessionTravelCapRejections = 0;
+    travelTimeSingleton.resetSessionStats();
 
     // Get employees available for this date
     const employees = await this.getAvailableEmployees(date, branchId);
@@ -143,7 +159,17 @@ export class AutoScheduler {
           totalUnassignedVisits: visits.length,
           averageUtilization: 0,
           totalTravelTime: 0,
-        }
+        },
+        qualityReport: {
+          travelDataConfidencePercent: 100,
+          realApiRoutes: 0,
+          cachedRealRoutes: 0,
+          heuristicRoutes: 0,
+          totalRoutes: 0,
+          compressionUsed: 0,
+          travelCapRejections: 0,
+          warning: null,
+        },
       };
     }
 
@@ -326,6 +352,12 @@ export class AutoScheduler {
 
     logger.debug(`Scheduling complete: ${totalAssigned} assigned, ${unassignedVisits.length} unassigned`);
 
+    const travelStats = travelTimeSingleton.getSessionStats();
+    const confidencePercent = travelStats.realApiPercent;
+    const qualityWarning = travelStats.heuristicFallbacks > 0 && confidencePercent < 80
+      ? `${travelStats.heuristicFallbacks} of ${travelStats.totalRoutes} routes used estimated (heuristic) travel times. Real-road accuracy is ${confidencePercent}%. Consider checking API connectivity.`
+      : null;
+
     return {
       date,
       employees: finalEmployees,
@@ -335,7 +367,17 @@ export class AutoScheduler {
         totalUnassignedVisits: unassignedVisits.length,
         averageUtilization: avgUtilization,
         totalTravelTime,
-      }
+      },
+      qualityReport: {
+        travelDataConfidencePercent: confidencePercent,
+        realApiRoutes: travelStats.realApiCalls,
+        cachedRealRoutes: travelStats.cacheHits,
+        heuristicRoutes: travelStats.heuristicFallbacks,
+        totalRoutes: travelStats.totalRoutes,
+        compressionUsed: this._sessionCompressionUsed,
+        travelCapRejections: this._sessionTravelCapRejections,
+        warning: qualityWarning,
+      },
     };
   }
 
@@ -764,7 +806,7 @@ export class AutoScheduler {
       // Rest break check: if employee needs a statutory break, only allow visits after break window
       const restBreakStatus = this.needsRestBreak(schedule);
       if (restBreakStatus.needed) {
-        const REST_BREAK_DURATION = 20;
+        const REST_BREAK_DURATION = 30;
         const breakEndTime = restBreakStatus.afterMinutes + REST_BREAK_DURATION;
         if (visit.startTime < breakEndTime && visit.startTime >= restBreakStatus.afterMinutes) {
           logger.debug(`   ${empName}: Visit at ${visit.startTime}min blocked by statutory rest break (${restBreakStatus.afterMinutes}-${breakEndTime}min)`);
@@ -781,6 +823,7 @@ export class AutoScheduler {
 
       if (travelTime > this.maxTravelCapMinutes && schedule.visits.length === 0) {
         logger.debug(`   ${empName}: REJECTED - home-to-visit travel (${travelTime.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        this._sessionTravelCapRejections++;
         continue;
       }
 
@@ -852,10 +895,12 @@ export class AutoScheduler {
       // HARD 45-MINUTE TRAVEL CAP: reject any leg exceeding the cap
       if (travelToPrev > this.maxTravelCapMinutes) {
         logger.debug(`   Insertion ${i}: REJECTED - travel from previous (${travelToPrev.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        this._sessionTravelCapRejections++;
         continue;
       }
       if (travelToNext > this.maxTravelCapMinutes) {
         logger.debug(`   Insertion ${i}: REJECTED - travel to next (${travelToNext.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        this._sessionTravelCapRejections++;
         continue;
       }
 
@@ -869,6 +914,7 @@ export class AutoScheduler {
         );
         if (travelHome > this.maxTravelCapMinutes) {
           logger.debug(`   Insertion ${i}: REJECTED - return home travel (${travelHome.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+          this._sessionTravelCapRejections++;
           continue;
         }
       }
@@ -877,9 +923,12 @@ export class AutoScheduler {
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10;
 
-      const maxCompression = 15; 
+      const maxCompression = 15;
+      const isUsingCompression = earliestStart + visit.durationMinutes > latestEnd && earliestStart + visit.durationMinutes <= latestEnd + maxCompression;
       if (earliestStart + visit.durationMinutes <= latestEnd + maxCompression) {
-        // Calculate score based on multiple factors
+        if (isUsingCompression) {
+          this._sessionCompressionUsed++;
+        }
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
 
         if (score > bestScore) {
