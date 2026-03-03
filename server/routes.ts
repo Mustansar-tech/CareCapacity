@@ -1356,10 +1356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/travel-times/batch', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const { employees, clients, date } = req.body as {
+      const { employees, clients } = req.body as {
         employees: Array<{ lat: number; lng: number; mode: string }>;
-        clients: Array<{ lat: number; lng: number; arrivalTimeMinutes?: number }>;
-        date?: string;
+        clients: Array<{ lat: number; lng: number }>;
       };
 
       if (!Array.isArray(employees) || !Array.isArray(clients)) {
@@ -1385,12 +1384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return acc;
       }, {});
       logger.info(`[Travel Batch] Mode distribution: ${JSON.stringify(modeSummary)}`);
-      await travelTimeService.prewarmTravelCache(
-        branchId,
-        normalizedEmployees,
-        validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng, arrivalTimeMinutes: c.arrivalTimeMinutes })),
-        date
-      );
+      await travelTimeService.prewarmTravelCache(branchId, normalizedEmployees, validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng })));
 
       // Collect all results from cache and return to frontend
       const results: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }> = [];
