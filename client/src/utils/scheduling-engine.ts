@@ -607,36 +607,27 @@ function tryAssignVisitToWalker(
       }
     }
 
-    // Check if consecutive visits are walkable AND if there's enough gap time
+    // Check if there is enough gap time to travel between consecutive visits.
+    // No hard distance cap — gap time is the real constraint for public transport workers.
     if (insertionIndex > 0) {
       const prevVisit = best.schedule.assignedVisits[insertionIndex - 1];
-      const distFromPrev = haversineDistance(
-        prevVisit.lat || best.schedule.homeLat,
-        prevVisit.lng || best.schedule.homeLng,
-        walkerVisit.lat,
-        walkerVisit.lng
-      );
-      
-      // Check distance is within walking range (4km max)
-      if (distFromPrev > 4) {
-        return { success: false, reason: 'Too far from previous visit for walker (>4km)' };
-      }
-      
-      // Walker heuristic: <= 1.6km (1 mile) → walking speed; > 1.6km → transit
-      const walkTimeFromPrev = distFromPrev <= 1.6
-        ? Math.max(2, Math.ceil((distFromPrev * 1.2 / 5) * 60))
-        : Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
       const prevEndMin = timeToMinutes(prevVisit.endTime);
       const gapMinutes = visitStartMin - prevEndMin;
-      
-      // Need at least walk time + 5 min buffer
-      if (gapMinutes < walkTimeFromPrev + 5) {
-        return { success: false, reason: `Gap too short for walk: ${gapMinutes}min gap, need ${walkTimeFromPrev + 5}min` };
+      // Use cached real travel time (TravelTime API / ORS) if available, otherwise heuristic
+      const travelTimeFromPrev = getTravelMinutes(
+        { lat: prevVisit.lat || best.schedule.homeLat, lng: prevVisit.lng || best.schedule.homeLng },
+        { lat: walkerVisit.lat, lng: walkerVisit.lng },
+        best.schedule.transportMode,
+        prevEndMin
+      );
+      // Need at least travel time + 5 min buffer
+      if (gapMinutes < travelTimeFromPrev + 5) {
+        return { success: false, reason: `Gap too short for transit: ${gapMinutes}min gap, need ${travelTimeFromPrev + 5}min` };
       }
     }
   }
 
-  // Calculate actual walking time from home or previous visit
+  // Calculate actual travel time from home or previous visit using cached API data
   let actualWalkTime = 0;
   if (best.schedule.assignedVisits.length > 0) {
     // Find where this visit would be inserted
@@ -646,30 +637,34 @@ function tryAssignVisitToWalker(
         insertionIndex = i + 1;
       }
     }
-    
+
     if (insertionIndex > 0) {
       const prevVisit = best.schedule.assignedVisits[insertionIndex - 1];
-      const distFromPrev = haversineDistance(
-        prevVisit.lat || best.schedule.homeLat,
-        prevVisit.lng || best.schedule.homeLng,
-        walkerVisit.lat,
-        walkerVisit.lng
+      const prevEndMin = timeToMinutes(prevVisit.endTime);
+      // Use cached real travel time (TravelTime API / ORS); falls back to heuristic if not cached
+      actualWalkTime = getTravelMinutes(
+        { lat: prevVisit.lat || best.schedule.homeLat, lng: prevVisit.lng || best.schedule.homeLng },
+        { lat: walkerVisit.lat, lng: walkerVisit.lng },
+        best.schedule.transportMode,
+        prevEndMin
       );
-      // Walker heuristic: <= 1.6km (1 mile) → walking speed; > 1.6km → transit
-      actualWalkTime = distFromPrev <= 1.6
-        ? Math.max(2, Math.ceil((distFromPrev * 1.2 / 5) * 60))
-        : Math.max(15, Math.ceil((distFromPrev * 1.2 / 15) * 60 + 12));
     } else {
-      // First visit - walk from home
-      actualWalkTime = best.distanceKm <= 1.6
-        ? Math.max(2, Math.ceil((best.distanceKm * 1.2 / 5) * 60))
-        : Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
+      // First visit — travel from home
+      actualWalkTime = getTravelMinutes(
+        { lat: best.schedule.homeLat, lng: best.schedule.homeLng },
+        { lat: walkerVisit.lat, lng: walkerVisit.lng },
+        best.schedule.transportMode,
+        visitStartMin
+      );
     }
   } else {
-    // First visit - walk from home
-    actualWalkTime = best.distanceKm <= 1.6
-      ? Math.max(2, Math.ceil((best.distanceKm * 1.2 / 5) * 60))
-      : Math.max(15, Math.ceil((best.distanceKm * 1.2 / 15) * 60 + 12));
+    // First visit — travel from home
+    actualWalkTime = getTravelMinutes(
+      { lat: best.schedule.homeLat, lng: best.schedule.homeLng },
+      { lat: walkerVisit.lat, lng: walkerVisit.lng },
+      best.schedule.transportMode,
+      visitStartMin
+    );
   }
 
   // Create assigned visit with actual calculated walk time
