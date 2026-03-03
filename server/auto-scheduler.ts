@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { TravelTimeService } from "./travel-time-service";
+import { TravelTimeService, type TravelSourceStats } from "./travel-time-service";
 import { logger } from './logger';
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
@@ -97,6 +97,7 @@ interface WeeklySchedule {
     totalUnassignedVisits: number;
     averageUtilization: number;
     totalTravelTime: number;
+    travelSources?: TravelSourceStats;
   };
 }
 
@@ -146,6 +147,9 @@ export class AutoScheduler {
         }
       };
     }
+
+    // Reset source stats for this scheduling run
+    this.travelService.resetSourceStats();
 
     // Pre-warm the travel time cache using ORS Matrix API (batch) before scheduling starts.
     // This converts potentially thousands of individual ORS calls into a few batch requests,
@@ -326,6 +330,9 @@ export class AutoScheduler {
 
     logger.debug(`Scheduling complete: ${totalAssigned} assigned, ${unassignedVisits.length} unassigned`);
 
+    const travelSources = this.travelService.getSourceStats();
+    logger.info(`[Travel Sources] ${JSON.stringify(travelSources)}`);
+
     return {
       date,
       employees: finalEmployees,
@@ -335,6 +342,7 @@ export class AutoScheduler {
         totalUnassignedVisits: unassignedVisits.length,
         averageUtilization: avgUtilization,
         totalTravelTime,
+        travelSources,
       }
     };
   }

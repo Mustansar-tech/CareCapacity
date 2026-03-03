@@ -1384,35 +1384,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return acc;
       }, {});
       logger.info(`[Travel Batch] Mode distribution: ${JSON.stringify(modeSummary)}`);
+      travelTimeService.resetSourceStats();
       await travelTimeService.prewarmTravelCache(branchId, normalizedEmployees, validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng })));
 
-      // Collect all results from cache and return to frontend
-      const results: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }> = [];
+      // Collect all results from in-memory session cache (DB cache is disabled — always fresh from API)
+      const sessionResults = travelTimeService.getSessionResults();
+      const travelSources = travelTimeService.getSourceStats();
 
-      for (const emp of validEmployees) {
-        const mode = TravelTimeService.normalizeMode(emp.mode);
-        for (const client of validClients) {
-          try {
-            const cached = await storage.getTravelTime(
-              branchId,
-              emp.lat.toString(), emp.lng.toString(),
-              client.lat.toString(), client.lng.toString(),
-              mode
-            );
-            if (cached) {
-              results.push({
-                fromLat: emp.lat, fromLng: emp.lng,
-                toLat: client.lat, toLng: client.lng,
-                mode,
-                durationMinutes: cached.durationMinutes,
-              });
-            }
-          } catch (_) {}
-        }
-      }
-
-      logger.info(`[Travel Batch] Returned ${results.length} travel times for ${validEmployees.length} employees × ${validClients.length} clients`);
-      res.json({ results });
+      logger.info(`[Travel Batch] Returned ${sessionResults.length} travel times for ${validEmployees.length} employees × ${validClients.length} clients. Sources: ${JSON.stringify(travelSources)}`);
+      res.json({ results: sessionResults, travelSources });
     } catch (error) {
       logger.error('Error in travel-times/batch:', error);
       res.status(500).json({ error: safeErrorMessage(error, 'Failed to fetch travel times') });

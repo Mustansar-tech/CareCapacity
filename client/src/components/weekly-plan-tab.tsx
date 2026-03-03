@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight } from "lucide-react";
+import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
@@ -56,6 +56,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
+  const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -271,6 +272,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             seedTravelCache(travelData.results);
             clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries`);
           }
+          if (travelData.travelSources) {
+            setTravelSources(travelData.travelSources);
+          }
         }
       } catch (travelError) {
         clientLogger.warn('⚠️ Real road travel pre-fetch failed - using Haversine fallback:', travelError);
@@ -450,6 +454,41 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Travel Data Sources panel */}
+      {travelSources && travelSources.total > 0 && (() => {
+        const sourceLabels: Record<string, { label: string; color: string }> = {
+          'ors':              { label: 'OpenRouteService',    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+          'ors-matrix':       { label: 'ORS Matrix',         color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+          'osrm':             { label: 'OSRM (OpenStreetMap)', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300' },
+          'traveltime':       { label: 'TravelTime API',     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+          'traveltime-matrix':{ label: 'TravelTime Matrix',  color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+          'heuristic':        { label: 'Heuristic Estimate', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+        };
+        const activeSources = Object.entries(travelSources).filter(([k, v]) => k !== 'total' && v > 0);
+        return (
+          <Card className="glass-card border-dashed">
+            <CardContent className="py-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
+                  <Info className="h-4 w-4" />
+                  <span>Travel data source ({travelSources.total} routes):</span>
+                </div>
+                {activeSources.map(([key, count]) => {
+                  const meta = sourceLabels[key] || { label: key, color: 'bg-gray-100 text-gray-800' };
+                  const pct = Math.round((count / travelSources.total) * 100);
+                  return (
+                    <span key={key} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.color}`}>
+                      {meta.label}
+                      <span className="opacity-70">({count} · {pct}%)</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Main Layout: Employee Picker (Left) + Weekly Run (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

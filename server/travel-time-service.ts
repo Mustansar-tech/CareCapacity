@@ -28,6 +28,17 @@ export interface TravelMatrix {
   travelTimeMinutes: number;
   feasible: boolean;
   penaltyScore: number;
+  source: string;
+}
+
+export interface TravelSourceStats {
+  ors: number;
+  'ors-matrix': number;
+  osrm: number;
+  traveltime: number;
+  'traveltime-matrix': number;
+  heuristic: number;
+  total: number;
 }
 
 export type TransportMode = "car" | "walking" | "public";
@@ -52,9 +63,51 @@ export class TravelTimeService {
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
+  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, total: 0 };
+  private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
+
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
+  }
+
+  resetSourceStats(): void {
+    this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, total: 0 };
+    this._sessionCache.clear();
+  }
+
+  getSourceStats(): TravelSourceStats {
+    return { ...this._sourceStats };
+  }
+
+  getSessionResults(): Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; source: string }> {
+    return Array.from(this._sessionCache.entries()).reduce<Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; source: string }>>((acc, [key, val]) => {
+      const parts = key.split(':');
+      if (parts.length === 5) {
+        acc.push({
+          fromLat: parseFloat(parts[0]),
+          fromLng: parseFloat(parts[1]),
+          toLat: parseFloat(parts[2]),
+          toLng: parseFloat(parts[3]),
+          mode: parts[4],
+          durationMinutes: val.durationMinutes,
+          source: val.source,
+        });
+      }
+      return acc;
+    }, []);
+  }
+
+  private sessionKey(fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): string {
+    return `${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}`;
+  }
+
+  private trackSource(source: string): void {
+    const key = source as keyof TravelSourceStats;
+    if (key in this._sourceStats) {
+      (this._sourceStats[key] as number)++;
+    }
+    this._sourceStats.total++;
   }
 
   private calculateHeuristicTravelTime(straightLineKm: number, mode: TransportMode): number {
@@ -316,7 +369,22 @@ export class TravelTimeService {
     const currentMaxTravel = this.isWalkerOrPublic(transportMode) ? 90 : this.maxTravelMinutes;
     const isNonCar = this.isWalkerOrPublic(transportMode);
 
-    // 1. Check cache — DISABLED: always fetch fresh from API
+    // 1a. Check in-memory session cache (resets each scheduling run — no persistence)
+    const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode);
+    const sessHit = this._sessionCache.get(sKey);
+    if (sessHit) {
+      return {
+        fromLocation: from,
+        toLocation: to,
+        distanceKm: (sessHit.distanceMeters || 0) / 1000,
+        travelTimeMinutes: sessHit.durationMinutes,
+        feasible: sessHit.durationMinutes <= currentMaxTravel,
+        penaltyScore: this.calculatePenalty(sessHit.durationMinutes),
+        source: sessHit.source,
+      };
+    }
+
+    // 1b. Check DB cache — DISABLED: always fetch fresh from API
     // // For walkers/public: accept traveltime or traveltime-matrix sources; reject old heuristic/ors entries
     // // For car: accept ors, ors-matrix, osrm, or heuristic
     // try {
@@ -380,6 +448,8 @@ export class TravelTimeService {
         // } catch (e) {
         //   logger.error("Cache save (traveltime) failed:", e);
         // }
+        this.trackSource('traveltime');
+        this._sessionCache.set(sKey, { durationMinutes: tt.durationMinutes, distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000), source: 'traveltime' });
         return {
           fromLocation: from,
           toLocation: to,
@@ -387,6 +457,7 @@ export class TravelTimeService {
           travelTimeMinutes: tt.durationMinutes,
           feasible: tt.durationMinutes <= currentMaxTravel,
           penaltyScore: this.calculatePenalty(tt.durationMinutes),
+          source: 'traveltime',
         };
       }
 
@@ -407,6 +478,8 @@ export class TravelTimeService {
       // } catch (e) {
       //   logger.error("Cache save (heuristic) failed:", e);
       // }
+      this.trackSource('heuristic');
+      this._sessionCache.set(sKey, { durationMinutes: travelTimeMinutes, distanceMeters: Math.round(roadDistanceKm * 1000), source: 'heuristic' });
       return {
         fromLocation: from,
         toLocation: to,
@@ -414,6 +487,7 @@ export class TravelTimeService {
         travelTimeMinutes,
         feasible: travelTimeMinutes <= currentMaxTravel,
         penaltyScore: this.calculatePenalty(travelTimeMinutes),
+        source: 'heuristic',
       };
     }
 
@@ -437,6 +511,8 @@ export class TravelTimeService {
           logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
           // Cache save DISABLED: always fetch fresh from API
           // await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes, distanceMeters, source: 'ors' });
+          this.trackSource('ors');
+          this._sessionCache.set(sKey, { durationMinutes, distanceMeters, source: 'ors' });
           return {
             fromLocation: from,
             toLocation: to,
@@ -444,6 +520,7 @@ export class TravelTimeService {
             travelTimeMinutes: durationMinutes,
             feasible: durationMinutes <= currentMaxTravel,
             penaltyScore: this.calculatePenalty(durationMinutes),
+            source: 'ors',
           };
         } else {
           const errorText = await response.text();
@@ -464,6 +541,8 @@ export class TravelTimeService {
       // } catch (e) {
       //   logger.error("Cache save (OSRM) failed:", e);
       // }
+      this.trackSource('osrm');
+      this._sessionCache.set(sKey, { durationMinutes: osrm.durationMinutes, distanceMeters: osrm.distanceMeters, source: 'osrm' });
       return {
         fromLocation: from,
         toLocation: to,
@@ -471,6 +550,7 @@ export class TravelTimeService {
         travelTimeMinutes: osrm.durationMinutes,
         feasible: osrm.durationMinutes <= currentMaxTravel,
         penaltyScore: this.calculatePenalty(osrm.durationMinutes),
+        source: 'osrm',
       };
     }
 
@@ -489,6 +569,8 @@ export class TravelTimeService {
     //   logger.error("Cache save (heuristic) failed:", e);
     // }
 
+    this.trackSource('heuristic');
+    this._sessionCache.set(sKey, { durationMinutes: travelTimeMinutes, distanceMeters: Math.round(roadDistanceKm * 1000), source: 'heuristic' });
     return {
       fromLocation: from,
       toLocation: to,
@@ -496,6 +578,7 @@ export class TravelTimeService {
       travelTimeMinutes,
       feasible: travelTimeMinutes <= currentMaxTravel,
       penaltyScore: this.calculatePenalty(travelTimeMinutes),
+      source: 'heuristic',
     };
   }
 
@@ -582,19 +665,10 @@ export class TravelTimeService {
                 const durationMinutes = resultMap.get(di);
                 const { client, distanceKm } = batch[di];
                 if (durationMinutes != null) {
-                  // Cache save DISABLED: always fetch fresh from API
-                  // try {
-                  //   await storage.saveTravelTime({
-                  //     branchId,
-                  //     fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
-                  //     toLat: client.lat.toString(), toLng: client.lng.toString(),
-                  //     transportMode: emp.transportMode,
-                  //     durationMinutes,
-                  //     distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000),
-                  //     source: 'traveltime-matrix',
-                  //   });
-                  //   totalNew++;
-                  // } catch (_) {}
+                  const distMeters = Math.round(distanceKm * this.ROAD_FACTOR * 1000);
+                  const sk = this.sessionKey(emp.lat.toString(), emp.lng.toString(), client.lat.toString(), client.lng.toString(), emp.transportMode);
+                  this._sessionCache.set(sk, { durationMinutes, distanceMeters: distMeters, source: 'traveltime-matrix' });
+                  this.trackSource('traveltime-matrix');
                   totalNew++;
                 }
               }
@@ -619,21 +693,10 @@ export class TravelTimeService {
             for (const { client, distanceKm } of allBatched) {
               const durationMinutes = this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
               const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
-              // Cache save DISABLED: always fetch fresh from API
-              // try {
-              //   await storage.saveTravelTime({
-              //     branchId,
-              //     fromLat: emp.lat.toString(),
-              //     fromLng: emp.lng.toString(),
-              //     toLat: client.lat.toString(),
-              //     toLng: client.lng.toString(),
-              //     transportMode: emp.transportMode,
-              //     durationMinutes,
-              //     distanceMeters: Math.round(roadDistanceKm * 1000),
-              //     source: 'heuristic',
-              //   });
-              //   totalNew++;
-              // } catch (_) {}
+              const distMeters = Math.round(roadDistanceKm * 1000);
+              const sk = this.sessionKey(emp.lat.toString(), emp.lng.toString(), client.lat.toString(), client.lng.toString(), emp.transportMode);
+              this._sessionCache.set(sk, { durationMinutes, distanceMeters: distMeters, source: 'heuristic' });
+              this.trackSource('heuristic');
               totalNew++;
             }
           }
@@ -710,21 +773,12 @@ export class TravelTimeService {
                   const durationSec = durations?.[ei2]?.[ci2];
                   const distMeters = distances?.[ei2]?.[ci2];
                   if (durationSec == null || distMeters == null) continue;
-                  // Cache save DISABLED: always fetch fresh from API
-                  // const emp = neededEmps[ei2];
-                  // const client = neededClients[ci2];
-                  // try {
-                  //   await storage.saveTravelTime({
-                  //     branchId,
-                  //     fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
-                  //     toLat: client.lat.toString(), toLng: client.lng.toString(),
-                  //     transportMode: 'car',
-                  //     durationMinutes: Math.max(2, Math.round(durationSec / 60)),
-                  //     distanceMeters: Math.round(distMeters),
-                  //     source: 'ors-matrix',
-                  //   });
-                  //   totalNew++;
-                  // } catch (_) {}
+                  const emp = neededEmps[ei2];
+                  const client = neededClients[ci2];
+                  const dMin = Math.max(2, Math.round(durationSec / 60));
+                  const sk = this.sessionKey(emp.lat.toString(), emp.lng.toString(), client.lat.toString(), client.lng.toString(), 'car');
+                  this._sessionCache.set(sk, { durationMinutes: dMin, distanceMeters: Math.round(distMeters), source: 'ors-matrix' });
+                  this.trackSource('ors-matrix');
                   totalNew++;
                 }
               }
@@ -745,37 +799,17 @@ export class TravelTimeService {
             for (const client of neededClients) {
               const osrm = await this.fetchOSRMRoute({ lat: emp.lat, lng: emp.lng }, { lat: client.lat, lng: client.lng });
               if (osrm) {
-                // Cache save DISABLED: always fetch fresh from API
-                // try {
-                //   await storage.saveTravelTime({
-                //     branchId,
-                //     fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
-                //     toLat: client.lat.toString(), toLng: client.lng.toString(),
-                //     transportMode: 'car',
-                //     durationMinutes: osrm.durationMinutes,
-                //     distanceMeters: osrm.distanceMeters,
-                //     source: 'osrm',
-                //   });
-                //   totalNew++;
-                // } catch (_) {}
+                const sk = this.sessionKey(emp.lat.toString(), emp.lng.toString(), client.lat.toString(), client.lng.toString(), 'car');
+                this._sessionCache.set(sk, { durationMinutes: osrm.durationMinutes, distanceMeters: osrm.distanceMeters, source: 'osrm' });
+                this.trackSource('osrm');
                 totalNew++;
               } else {
                 const distanceKm = this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: client.lat, lng: client.lng });
                 const durationMinutes = this.calculateHeuristicTravelTime(distanceKm, 'car');
                 const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
-                // Cache save DISABLED: always fetch fresh from API
-                // try {
-                //   await storage.saveTravelTime({
-                //     branchId,
-                //     fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
-                //     toLat: client.lat.toString(), toLng: client.lng.toString(),
-                //     transportMode: 'car',
-                //     durationMinutes,
-                //     distanceMeters: Math.round(roadDistanceKm * 1000),
-                //     source: 'heuristic',
-                //   });
-                //   totalNew++;
-                // } catch (_) {}
+                const sk = this.sessionKey(emp.lat.toString(), emp.lng.toString(), client.lat.toString(), client.lng.toString(), 'car');
+                this._sessionCache.set(sk, { durationMinutes, distanceMeters: Math.round(roadDistanceKm * 1000), source: 'heuristic' });
+                this.trackSource('heuristic');
                 totalNew++;
               }
             }
