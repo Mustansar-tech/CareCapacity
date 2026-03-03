@@ -630,10 +630,9 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full w-full" orientation="both">
-          <div className="min-w-max">
-            <table className="w-full border-collapse">
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        <div className="min-w-max">
+          <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
               <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
@@ -865,9 +864,35 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </tbody>
         </table>
       </div>
-    </ScrollArea>
-  </div>
-</div>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 14px;
+          width: 14px;
+          display: block !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+          box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #6b7280;
+          border-radius: 10px;
+          border: 3px solid #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #4b5563;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-track {
+          background: #1f2937;
+          box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #9ca3af;
+          border-color: #1f2937;
+        }
+      `}</style>
+    </div>
   );
 }
 
