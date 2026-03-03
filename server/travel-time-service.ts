@@ -593,12 +593,17 @@ export class TravelTimeService {
     ): Promise<void> => {
       if (departures.length === 0) return;
       for (let bi = 0; bi < departures.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
+        // Add delay to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
         const batch = departures.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
         const depLocations = batch.map(d => ({ lat: d.lat, lng: d.lng }));
         let resultMap = await this.fetchTravelTimeMatrix(arrivalLoc, depLocations, travelType, arrivalDeadline);
         let usedType = travelType;
         if ((!resultMap || resultMap.size === 0) && fallbackType) {
           logger.info(`[Cache Pre-warm] TravelTime Matrix (${travelType}) empty — retrying with ${fallbackType}`);
+          // Add delay before fallback
+          await new Promise(resolve => setTimeout(resolve, 1000));
           resultMap = await this.fetchTravelTimeMatrix(arrivalLoc, depLocations, fallbackType, arrivalDeadline);
           usedType = fallbackType;
         }
@@ -628,8 +633,8 @@ export class TravelTimeService {
     if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
       logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients (TravelTime arrival_searches)`);
 
-      // Per-client approach: for each client (arrival), query all employees (departures)
-      await Promise.all(clientLocations.map(async (arrivalClient) => {
+      // Sequential approach to respect rate limits
+      for (const arrivalClient of clientLocations) {
         const empWithDist = nonCarEmployees.map(emp => ({
           lat: emp.lat,
           lng: emp.lng,
@@ -644,11 +649,9 @@ export class TravelTimeService {
         const closeEmps = empWithDist.filter(e => e.distanceKm <= this.WALK_THRESHOLD_KM);
         const farEmps   = empWithDist.filter(e => e.distanceKm >  this.WALK_THRESHOLD_KM);
 
-        await Promise.all([
-          runTravelTimeArrivalGroup(arrivalClient, closeEmps, 'walking'),
-          runTravelTimeArrivalGroup(arrivalClient, farEmps, 'public_transport', 'walking'),
-        ]);
-      }));
+        await runTravelTimeArrivalGroup(arrivalClient, closeEmps, 'walking');
+        await runTravelTimeArrivalGroup(arrivalClient, farEmps, 'public_transport', 'walking');
+      }
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -689,7 +692,7 @@ export class TravelTimeService {
         logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (TravelTime, ${clientLocations.length} clients, modes: ${nonCarModes.join(',')})`);
 
         for (const mode of nonCarModes) {
-          await Promise.all(clientLocations.map(async (arrivalClient) => {
+          for (const arrivalClient of clientLocations) {
             const otherClients = clientLocations.filter(c => !(c.lat === arrivalClient.lat && c.lng === arrivalClient.lng));
             const withDist = otherClients.map(c => ({
               lat: c.lat,
@@ -703,11 +706,10 @@ export class TravelTimeService {
             }));
             const close = withDist.filter(d => d.distanceKm <= this.WALK_THRESHOLD_KM);
             const far   = withDist.filter(d => d.distanceKm >  this.WALK_THRESHOLD_KM);
-            await Promise.all([
-              runTravelTimeArrivalGroup(arrivalClient, close, 'walking'),
-              runTravelTimeArrivalGroup(arrivalClient, far, 'public_transport', 'walking'),
-            ]);
-          }));
+            
+            await runTravelTimeArrivalGroup(arrivalClient, close, 'walking');
+            await runTravelTimeArrivalGroup(arrivalClient, far, 'public_transport', 'walking');
+          }
         }
       }
     }
@@ -734,6 +736,9 @@ export class TravelTimeService {
       ];
       const srcIndices = sources.map((_, i) => i);
       const dstIndices = destinations.map((_, i) => sources.length + i);
+
+      // Add delay to respect ORS Free Tier rate limits (40 requests per minute)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
         method: 'POST',
