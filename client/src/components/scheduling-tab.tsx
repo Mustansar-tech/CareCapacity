@@ -32,6 +32,8 @@ interface ScheduleQualityReport {
   warning: string | null;
 }
 
+import { useBranch } from "@/contexts/BranchContext";
+
 interface SchedulingTabProps {
   data: ProcessingResult | null;
   selectedDate?: string | null;
@@ -44,6 +46,7 @@ interface RunOptimization {
   availableEmployees: EmployeeRunState[];
   visitCandidates: VisitCandidate[];
   optimizationStats: OptimizationStats;
+  qualityReport?: ScheduleQualityReport;
 }
 
 interface EmployeeRunState {
@@ -142,6 +145,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   const [qualityReport, setQualityReport] = useState<ScheduleQualityReport | null>(null);
   const [showQualityReport, setShowQualityReport] = useState<boolean>(false);
 
+  const { selectedBranchId } = useBranch();
   const { toast } = useToast();
 
   // Update optimization date when selectedDate changes
@@ -152,9 +156,19 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   }, [selectedDate]);
 
   // Query run optimization for selected date
-  const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization & { qualityReport?: ScheduleQualityReport }>({
-    queryKey: ['/api/run-optimization', optimizationDate],
-    queryFn: () => fetch(`/api/run-optimization/${optimizationDate}`).then(res => res.json()),
+  const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization>({
+    queryKey: ['/api/run-optimization', optimizationDate, selectedBranchId],
+    queryFn: () => {
+      const url = new URL(`/api/run-optimization/${optimizationDate}`, window.location.origin);
+      if (selectedBranchId) {
+        url.searchParams.append('branchId', selectedBranchId);
+      }
+      return fetch(url.toString()).then(res => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      });
+    },
+    enabled: !!optimizationDate && !!selectedBranchId,
   });
 
   // Update quality report when query data changes
@@ -252,7 +266,8 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
       settings: {
         maxCareMinutes,
         bufferMinutes,
-        maxTravelBetweenVisits
+        maxTravelBetweenVisits,
+        branchId: selectedBranchId
       }
     });
   };
@@ -603,7 +618,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
       )}
 
       {/* Optimization Results */}
-      {runOptimization && (
+      {runOptimization && runOptimization.optimizationStats && (
         <>
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

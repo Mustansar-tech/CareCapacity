@@ -499,6 +499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await autoScheduler.scheduleDay(date, branchId);
       res.json(result);
     } catch (error) {
+      if (error instanceof Error && error.message === 'branchId is required') {
+        return res.status(400).json({ error: 'branchId is required' });
+      }
       logger.error('Error fetching run optimization', error);
       res.status(500).json({ error: 'Failed to fetch optimization data' });
     }
