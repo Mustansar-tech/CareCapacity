@@ -272,39 +272,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         const uniqueEmployees = Array.from(uniqueEmployeeMap.values());
         const uniqueClients = Array.from(uniqueClientMap.values());
 
-        // For inter-visit legs (client A → client B), add each unique client location
-        // as an additional "source" for every transport mode used by any employee.
-        // This seeds cache entries so the scheduler can look up real travel times
-        // between consecutive visits rather than falling back to the heuristic.
-        const modesInSystem = new Set(uniqueEmployees.map(e => e.mode));
-        const uniqueClientLocationMap = new Map<string, { lat: number; lng: number }>();
-        visitsWithLocations.forEach(visit => {
-          if (visit.lat && visit.lng) {
-            const key = `${visit.lat},${visit.lng}`;
-            if (!uniqueClientLocationMap.has(key)) {
-              uniqueClientLocationMap.set(key, { lat: visit.lat, lng: visit.lng });
-            }
-          }
-        });
-        const clientsAsEmployees: Array<{ lat: number; lng: number; mode: string }> = [];
-        for (const clientLoc of uniqueClientLocationMap.values()) {
-          for (const mode of modesInSystem) {
-            clientsAsEmployees.push({ lat: clientLoc.lat, lng: clientLoc.lng, mode });
-          }
-        }
-        const allSources = [...uniqueEmployees, ...clientsAsEmployees];
-
-        if (allSources.length > 0 && uniqueClients.length > 0) {
-          clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees + ${clientsAsEmployees.length} client-as-source pairs × ${uniqueClients.length} destinations`);
+        if (uniqueEmployees.length > 0 && uniqueClients.length > 0) {
+          clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients`);
           const response = await apiRequest('POST', '/api/travel-times/batch', {
-            employees: allSources,
+            employees: uniqueEmployees,
             clients: uniqueClients,
             date: weekDates[0],
           });
           const travelData = await response.json();
           if (travelData.results?.length > 0) {
             seedTravelCache(travelData.results);
-            clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries (includes inter-visit pairs)`);
+            clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries`);
           }
         }
       } catch (travelError) {

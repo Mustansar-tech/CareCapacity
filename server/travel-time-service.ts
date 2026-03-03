@@ -410,17 +410,41 @@ export class TravelTimeService {
     const currentMaxTravel = this.isWalkerOrPublic(transportMode) ? 90 : this.maxTravelMinutes;
     const isNonCar = this.isWalkerOrPublic(transportMode);
 
-    // 1. Check cache (DISABLED)
-    /*
+    // 1. Check cache
+    // For walkers/public: accept traveltime or traveltime-matrix sources; reject old heuristic/ors entries
+    // For car: accept ors, ors-matrix, osrm, or heuristic
     try {
       const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
       if (cached) {
-        // ...
+        const isRealTravelTime = cached.source === 'traveltime' || cached.source === 'traveltime-matrix';
+        const isCarRealRoad = cached.source === 'ors' || cached.source === 'ors-matrix' || cached.source === 'osrm';
+        const isHeuristic = cached.source === 'heuristic';
+
+        let useCache = false;
+        if (isNonCar) {
+          useCache = isRealTravelTime || (isHeuristic && !this.hasTravelTimeCredentials());
+        } else {
+          useCache = isCarRealRoad || isHeuristic;
+        }
+
+        if (useCache) {
+          return {
+            fromLocation: from,
+            toLocation: to,
+            distanceKm: (cached.distanceMeters || 0) / 1000,
+            travelTimeMinutes: cached.durationMinutes,
+            feasible: cached.durationMinutes <= currentMaxTravel,
+            penaltyScore: this.calculatePenalty(cached.durationMinutes),
+          };
+        }
+
+        if (isNonCar && (isCarRealRoad || (isHeuristic && this.hasTravelTimeCredentials()))) {
+          logger.debug(`Refreshing stale cache for walker/public (${cached.source}) with TravelTime API`);
+        }
       }
     } catch (e) {
       logger.error("Cache lookup failed:", e);
     }
-    */
 
     // 2a. Walker / public transport — use TravelTime API (single search)
     // Distance is calculated first to pick the right TravelTime mode:
@@ -438,7 +462,6 @@ export class TravelTimeService {
       }
       if (tt) {
         logger.debug(`TravelTime single (${usedMode}, ${distanceKm.toFixed(2)}km): ${tt.durationMinutes} min`);
-        /*
         try {
           await storage.saveTravelTime({
             branchId, fromLat, fromLng, toLat, toLng,
@@ -450,7 +473,6 @@ export class TravelTimeService {
         } catch (e) {
           logger.error("Cache save (traveltime) failed:", e);
         }
-        */
         return {
           fromLocation: from,
           toLocation: to,
@@ -466,7 +488,6 @@ export class TravelTimeService {
       const travelTimeMinutes = this.calculateHeuristicTravelTime(distanceKm, transportMode);
       const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
       logger.debug(`Haversine heuristic (${transportMode}): ${travelTimeMinutes} min for ${roadDistanceKm.toFixed(2)} km`);
-      /*
       try {
         await storage.saveTravelTime({
           branchId, fromLat, fromLng, toLat, toLng,
@@ -478,7 +499,6 @@ export class TravelTimeService {
       } catch (e) {
         logger.error("Cache save (heuristic) failed:", e);
       }
-      */
       return {
         fromLocation: from,
         toLocation: to,
@@ -507,9 +527,7 @@ export class TravelTimeService {
           const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
           const distanceMeters = Math.round(data.routes[0].summary.distance);
           logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
-          /*
           await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes, distanceMeters, source: 'ors' });
-          */
           return {
             fromLocation: from,
             toLocation: to,
@@ -531,13 +549,11 @@ export class TravelTimeService {
     const osrm = await this.fetchOSRMRoute(from, to);
     if (osrm) {
       logger.debug(`OSRM result: ${osrm.durationMinutes} min, ${osrm.distanceMeters} m`);
-      /*
       try {
         await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes: osrm.durationMinutes, distanceMeters: osrm.distanceMeters, source: 'osrm' });
       } catch (e) {
         logger.error("Cache save (OSRM) failed:", e);
       }
-      */
       return {
         fromLocation: from,
         toLocation: to,
@@ -556,13 +572,11 @@ export class TravelTimeService {
     const config = this.MODE_CONFIG[transportMode] || this.MODE_CONFIG.car;
     logger.debug(`Haversine fallback (${transportMode}, ${config.speedKmh}km/h): ${travelTimeMinutes} min for ${roadDistanceKm.toFixed(2)} km`);
 
-    /*
     try {
       await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes: travelTimeMinutes, distanceMeters: Math.round(roadDistanceKm * 1000), source: 'heuristic' });
     } catch (e) {
       logger.error("Cache save (heuristic) failed:", e);
     }
-    */
 
     return {
       fromLocation: from,
@@ -677,15 +691,6 @@ export class TravelTimeService {
       }));
 
       logger.info(`[Cache Pre-warm] Uncached pairs: ${closeWalkingPairs.length} walking (≤${this.WALK_THRESHOLD_KM}km), ${farPublicPairs.length} public_transport (>${this.WALK_THRESHOLD_KM}km)`);
-
-      // Trigger cleanup of entries older than 3 days to keep DB size under control
-      try {
-        storage.cleanupOldTravelTimes(3).then(count => {
-          if (count > 0) logger.info(`[Cache Cleanup] Removed ${count} expired travel time entries`);
-        });
-      } catch (e) {
-        logger.error("Cache cleanup failed:", e);
-      }
 
       // ── Phase B: Close clients — per-employee walking matrix ─────────────
       // Group walking pairs by employee so we can do one matrix call per employee

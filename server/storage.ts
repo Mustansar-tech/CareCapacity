@@ -106,8 +106,6 @@ export interface IStorage {
   saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry>;
   getClientEnquiries(branchId: string, limit?: number): Promise<ClientEnquiry[]>;
   deleteClientEnquiry(id: string): Promise<void>;
-
-  cleanupOldTravelTimes(daysOld: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -455,19 +453,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async cleanupOldTravelTimes(daysOld: number): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-    let count = 0;
-    for (const [id, cache] of this.travelTimeCache.entries()) {
-      if (cache.cachedAt && cache.cachedAt <= cutoffDate) {
-        this.travelTimeCache.delete(id);
-        count++;
-      }
-    }
-    return count;
-  }
-
   async saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
     const [result] = await db
       .insert(weeklySchedules)
@@ -586,15 +571,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientEnquiry(id: string): Promise<void> {
     await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
-  }
-
-  async cleanupOldTravelTimes(daysOld: number = 7): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-    const result = await db
-      .delete(travelTimeCache)
-      .where(lte(travelTimeCache.cachedAt, cutoffDate));
-    return result.rowCount ?? 0;
   }
 }
 
