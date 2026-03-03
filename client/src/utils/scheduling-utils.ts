@@ -133,13 +133,21 @@ export function getTravelMinutes(
     return cached;
   }
 
-  // Not in API-seeded cache — heuristic disabled. Treat as unreachable so the
-  // scheduler rejects the assignment and the visit goes to unallocated.
-  // The pre-warm batch endpoint seeds all employee→client and client→client routes;
-  // if a pair is missing here it means the API said it was unreachable.
-  // return calculateTravelTime(haversineDistance({lat:fromLat,lng:fromLng},{lat:toLat,lng:toLng}), mode, startTimeMinutes);
-  travelTimeCache.set(cacheKey, 9999);
-  return 9999;
+  // Not in API-seeded cache:
+  // - Car: ORS Matrix covers 100% of car routes. A cache miss means the pair was
+  //   never requested or ORS failed — treat as unreachable so the scheduler skips it.
+  // - Walker/public: TravelTime may have rate-limited or returned unreachable; fall
+  //   back to Haversine estimate so the visit can still be assigned.
+  if (mode === 'car') {
+    travelTimeCache.set(cacheKey, 9999);
+    return 9999;
+  }
+
+  // Walker / public fallback — Haversine heuristic
+  const distKm = haversineDistance({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng });
+  const heuristic = calculateTravelTime(distKm, mode, startTimeMinutes);
+  travelTimeCache.set(cacheKey, heuristic);
+  return heuristic;
 }
 
 // Clear travel time cache (call when starting new scheduling run)

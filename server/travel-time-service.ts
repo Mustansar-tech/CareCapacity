@@ -452,18 +452,20 @@ export class TravelTimeService {
         };
       }
 
-      // 2b. TravelTime unreachable / API unavailable — mark as unreachable (no heuristic fallback)
-      logger.warn(`TravelTime API unavailable or unreachable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — marking unreachable, will go to unallocated`);
-      this.trackSource('unreachable');
-      this._sessionCache.set(sKey, { durationMinutes: 9999, distanceMeters: 0, source: 'unreachable' });
+      // 2b. TravelTime unavailable — fall back to Haversine heuristic for walker/public
+      const distKm = this.calculateHaversineDistance(from, to);
+      const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
+      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
+      this.trackSource('heuristic');
+      this._sessionCache.set(sKey, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
       return {
         fromLocation: from,
         toLocation: to,
-        distanceKm: 0,
-        travelTimeMinutes: 9999,
-        feasible: false,
-        penaltyScore: 9999,
-        source: 'unreachable',
+        distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
+        travelTimeMinutes: heuristicMinutes,
+        feasible: heuristicMinutes <= currentMaxTravel,
+        penaltyScore: this.calculatePenalty(heuristicMinutes),
+        source: 'heuristic',
       };
     }
 
@@ -615,16 +617,17 @@ export class TravelTimeService {
             this._sessionCache.set(sk, { durationMinutes, distanceMeters: Math.round(dep.distanceKm * this.ROAD_FACTOR * 1000), source: 'traveltime-matrix' });
             this.trackSource('traveltime-matrix');
           } else {
-            // Unreachable — mark with 9999 so scheduler rejects and routes to unallocated
-            this._sessionCache.set(sk, { durationMinutes: 9999, distanceMeters: 0, source: 'unreachable' });
-            this.trackSource('unreachable');
+            // TravelTime unreachable or API failed — use Haversine heuristic for walker/public
+            const heuristicMinutes = this.calculateHeuristicTravelTime(dep.distanceKm, dep.mode as TransportMode);
+            this._sessionCache.set(sk, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(dep.distanceKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
+            this.trackSource('heuristic');
           }
           totalNew++;
         }
         if (resultMap) {
           logger.debug(`[Cache Pre-warm] TravelTime Matrix (${usedType}): arrival (${arrivalLoc.lat.toFixed(4)},${arrivalLoc.lng.toFixed(4)}) ← ${batch.length} departures, ${resultMap.size} reachable`);
         } else {
-          logger.warn(`[Cache Pre-warm] TravelTime Matrix (${travelType}${fallbackType ? `/${fallbackType}` : ''}) API failure — marking ${batch.length} pairs as unreachable (no heuristic)`);
+          logger.warn(`[Cache Pre-warm] TravelTime Matrix (${travelType}${fallbackType ? `/${fallbackType}` : ''}) API failure — using Haversine heuristic for ${batch.length} walker/public pairs`);
         }
       }
     };
