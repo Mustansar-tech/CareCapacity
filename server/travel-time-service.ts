@@ -51,7 +51,7 @@ export class TravelTimeService {
   private readonly MODE_CONFIG: Record<TransportMode, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
     car:     { speedKmh: 35, overheadMinutes: 0,  minMinutes: 5  },
     walking: { speedKmh: 5,  overheadMinutes: 0,  minMinutes: 2  },
-    public:  { speedKmh: 15, overheadMinutes: 15,  minMinutes: 5  },
+    public:  { speedKmh: 15, overheadMinutes: 5,  minMinutes: 5  },
   };
 
   private readonly maxTravelMinutes: number;
@@ -81,30 +81,10 @@ export class TravelTimeService {
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
 
-  private getVariableRoadFactor(distanceKm: number): number {
-    if (distanceKm < 0.5) return 1.6;
-    if (distanceKm < 2.0) return 1.4;
-    if (distanceKm < 5.0) return 1.25;
-    return 1.15;
-  }
-
-  private getTimeOfDayMultiplier(hour: number): number {
-    // Morning peak: 07:30 - 09:30
-    if (hour >= 7.5 && hour <= 9.5) return 1.4;
-    // Afternoon peak: 16:00 - 18:30
-    if (hour >= 16 && hour <= 18.5) return 1.5;
-    // Midday quiet: 11:00 - 14:00
-    if (hour >= 11 && hour <= 14) return 0.9;
-    return 1.0;
-  }
-
-  private calculateHeuristicTravelTime(straightLineKm: number, mode: TransportMode, hour: number = 12): number {
-    const roadFactor = this.getVariableRoadFactor(straightLineKm);
-    const roadDistanceKm = straightLineKm * roadFactor;
+  private calculateHeuristicTravelTime(straightLineKm: number, mode: TransportMode): number {
+    const roadDistanceKm = straightLineKm * this.ROAD_FACTOR;
     const config = this.MODE_CONFIG[mode] || this.MODE_CONFIG.car;
-    const congestionMultiplier = this.getTimeOfDayMultiplier(hour);
-    
-    const baseTravelMinutes = (roadDistanceKm / config.speedKmh) * 60 * congestionMultiplier + config.overheadMinutes;
+    const baseTravelMinutes = (roadDistanceKm / config.speedKmh) * 60 + config.overheadMinutes;
     return Math.max(config.minMinutes, Math.round(baseTravelMinutes));
   }
 

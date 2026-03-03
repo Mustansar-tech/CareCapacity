@@ -53,35 +53,19 @@ function toRadians(degrees: number): number {
 }
 
 // No peak-time adjustments — travel times are flat for all times of day
-export function getTimeOfDayMultiplier(startTimeMinutes?: number): number {
-  if (startTimeMinutes === undefined) return 1.0;
-  const hour = startTimeMinutes / 60;
-  // Morning peak: 07:30 - 09:30
-  if (hour >= 7.5 && hour <= 9.5) return 1.4;
-  // Afternoon peak: 16:00 - 18:30
-  if (hour >= 16 && hour <= 18.5) return 1.5;
-  // Midday quiet: 11:00 - 14:00
-  if (hour >= 11 && hour <= 14) return 0.9;
+export function getTimeOfDayMultiplier(_startTimeMinutes?: number): number {
   return 1.0;
 }
 
-function getVariableRoadFactor(distanceKm: number): number {
-  if (distanceKm < 0.5) return 1.6;
-  if (distanceKm < 2.0) return 1.4;
-  if (distanceKm < 5.0) return 1.25;
-  return 1.15;
-}
-
 // Calculate travel time in minutes based on distance and transport mode
-// Uses heuristic approach: Haversine distance × variable road factor, mode-specific speeds
+// Uses heuristic approach: Haversine distance × 1.2 road factor, mode-specific speeds
 export function calculateTravelTime(
   distanceKm: number,
   mode: 'car' | 'walking' | 'public',
   startTimeMinutes?: number
 ): number {
-  // Apply road distance inflation
-  const roadFactor = getVariableRoadFactor(distanceKm);
-  const roadDistanceKm = distanceKm * roadFactor;
+  // Apply road distance inflation (straight-line × 1.2 for UK roads)
+  const roadDistanceKm = distanceKm * 1.2;
   
   let baseTravelMinutes: number;
   let minTravelMinutes: number;
@@ -102,8 +86,7 @@ export function calculateTravelTime(
     baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
     minTravelMinutes = 2;
   } else {
-    const speedKmh = 35;
-    baseTravelMinutes = (roadDistanceKm / speedKmh) * 60;
+    baseTravelMinutes = (roadDistanceKm / 35) * 60;
     minTravelMinutes = 5;
   }
   
