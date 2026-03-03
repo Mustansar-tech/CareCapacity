@@ -550,7 +550,26 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
         }
         return next;
       }
-      const next = { ...prev, [key]: { employeeName, timeWindow } };
+      
+      // When starring in CP2, we want to clear CP1's other time windows for this day
+      // Requirement: "if we star somone in cp2 it also elimnate other time windowes cp fom cp1"
+      const next = { ...prev };
+      
+      if (cpIdx === 1) { // CP2 (0-indexed)
+        const cp1Key = starKey(visitIndex, 0, day);
+        const cp1Star = prev[cp1Key];
+        if (cp1Star) {
+          // If CP1 is already starred, we ensure its timeWindow matches the selected CP2 window
+          // The filtering logic below handles the actual "elimination"
+        }
+      } else if (cpIdx === 0) { // CP1
+        const cp2Key = starKey(visitIndex, 1, day);
+        // If we change CP1, we might need to clear CP2 if it no longer fits, 
+        // but the current logic already clears dependent stars:
+      }
+
+      next[key] = { employeeName, timeWindow };
+
       // Clear dependent CP stars when re-selecting
       for (let i = cpIdx + 1; i <= 3; i++) {
         delete next[starKey(visitIndex, i, day)];
@@ -700,20 +719,23 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           );
                         }
 
-                        // Who is starred in previous CPs on this day (they are "taken")
+                        // Who is starred in other CPs on this day (they are "taken")
                         const takenByStarred: string[] = [];
-                        for (let i = 0; i < cpIdx; i++) {
-                          const prevStar = getStarred(vr.visitIndex, i, day);
-                          if (prevStar) takenByStarred.push(prevStar.employeeName);
+                        for (let i = 0; i < vr.careProsRequired; i++) {
+                          if (i === cpIdx) continue;
+                          const otherStar = getStarred(vr.visitIndex, i, day);
+                          if (otherStar) takenByStarred.push(otherStar.employeeName);
                         }
 
-                        // Get the starred selection for the immediately preceding CP (for time-window filtering)
-                        const prevCPStar = cpIdx > 0 ? getStarred(vr.visitIndex, cpIdx - 1, day) : undefined;
+                        // Get the starred selection for the other CP (for time-window filtering)
+                        // Requirement: If CP1 or CP2 is starred, the other must match that time window
+                        const otherCPIdx = cpIdx === 0 ? 1 : 0;
+                        const otherCPStar = getStarred(vr.visitIndex, otherCPIdx, day);
 
                         // Current CP's starred selection for this day
                         const currentStar = getStarred(vr.visitIndex, cpIdx, day);
 
-                        // Base filter: gender, has slot on day, not taken by starred previous CPs
+                        // Base filter: gender, has slot on day, not taken by starred other CPs
                         let allVisibleMatches = vr.matches.filter(m => {
                           const isCorrectGender = genderPref === 'any' || m.gender?.toLowerCase() === genderPref.toLowerCase();
                           if (!isCorrectGender) return false;
@@ -722,11 +744,12 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                           return true;
                         });
 
-                        // If a previous CP has a star, only show matches with the EXACT same time window
-                        if (prevCPStar) {
+                        // If the other CP has a star, only show matches with the EXACT same time window
+                        // This applies mutually to CP1 and CP2
+                        if (otherCPStar) {
                           allVisibleMatches = allVisibleMatches.filter(m => {
                             const slot = m.matchedSlots.find(s => matchesDay(s, day));
-                            return slot && slot.availableWindow === prevCPStar.timeWindow;
+                            return slot && slot.availableWindow === otherCPStar.timeWindow;
                           });
                         }
 
@@ -747,7 +770,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                         return (
                           <td key={day} className="p-3 align-top min-w-[250px]">
                             <ScrollArea className="h-[420px] pr-4">
-                              <div className="space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {matchesToShow.length > 0 ? (
                                   matchesToShow.map((employeeMatch, matchIdx) => {
                                     const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
@@ -843,10 +866,10 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
                                   <div className="h-full min-h-[120px] flex flex-col items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/30 dark:bg-gray-900/20 p-4 text-center">
                                     <Users className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2 opacity-20" />
                                     <span className="text-gray-300 dark:text-gray-700 font-bold text-[10px] uppercase tracking-widest">
-                                      {prevCPStar ? 'No match at same time' : 'No Matches'}
+                                      {otherCPStar ? 'No match at same time' : 'No Matches'}
                                     </span>
                                     <span className="text-[9px] text-gray-400 dark:text-gray-600 mt-1">
-                                      {prevCPStar ? `Needs to be free at ${prevCPStar.timeWindow}` : 'Check constraints or day selection'}
+                                      {otherCPStar ? `Needs to be free at ${otherCPStar.timeWindow}` : 'Check constraints or day selection'}
                                     </span>
                                   </div>
                                 )}
