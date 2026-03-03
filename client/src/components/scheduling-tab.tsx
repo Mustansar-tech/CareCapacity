@@ -152,10 +152,17 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   }, [selectedDate]);
 
   // Query run optimization for selected date
-  const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization>({
+  const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization & { qualityReport?: ScheduleQualityReport }>({
     queryKey: ['/api/run-optimization', optimizationDate],
     queryFn: () => fetch(`/api/run-optimization/${optimizationDate}`).then(res => res.json()),
   });
+
+  // Update quality report when query data changes
+  useEffect(() => {
+    if (runOptimization?.qualityReport) {
+      setQualityReport(runOptimization.qualityReport);
+    }
+  }, [runOptimization]);
 
   // Run optimization mutation
   const optimizeMutation = useMutation({

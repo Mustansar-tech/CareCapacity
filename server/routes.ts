@@ -491,6 +491,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auto-scheduler endpoints
+  app.get('/api/run-optimization/:date', async (req, res) => {
+    try {
+      const { date } = req.params;
+      const branchId = await resolveBranch(req);
+      const { autoScheduler } = await import("./auto-scheduler");
+      const result = await autoScheduler.scheduleDay(date, branchId);
+      res.json(result);
+    } catch (error) {
+      logger.error('Error fetching run optimization', error);
+      res.status(500).json({ error: 'Failed to fetch optimization data' });
+    }
+  });
+
   app.post('/api/run-optimization/optimize', async (req, res) => {
     try {
       const { date, maxCareMinutes, bufferMinutes, maxTravelBetweenVisits } = req.body;
