@@ -423,39 +423,12 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2a. Walker / public transport — use TravelTime API (arrival_searches)
-    // Distance is calculated first to pick the right TravelTime mode:
-    //   ≤ 1.6 km → walking API (accurate for short trips, no bus wait)
-    //   > 1.6 km → public_transport API (realistic for longer trips)
+    // 2a. Walker / public transport — TravelTime API DISABLED for ORS testing
+    // Using Haversine heuristic directly for all walker/public routes
     if (isNonCar) {
-      const distanceKm = this.calculateHaversineDistance(from, to);
-      const ttMode = this.toTravelTimeTransport(distanceKm);
-      let tt = await this.fetchTravelTimeSingle(from, to, distanceKm);
-      let usedMode = ttMode;
-      if (!tt && ttMode === 'public_transport') {
-        logger.info(`TravelTime single (public_transport) unreachable for ${distanceKm.toFixed(2)}km — retrying with walking`);
-        tt = await this.fetchTravelTimeSingle(from, to, distanceKm, undefined, 'walking');
-        usedMode = 'walking';
-      }
-      if (tt) {
-        logger.debug(`TravelTime single (${usedMode}, ${distanceKm.toFixed(2)}km): ${tt.durationMinutes} min`);
-        this.trackSource('traveltime');
-        this._sessionCache.set(sKey, { durationMinutes: tt.durationMinutes, distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000), source: 'traveltime' });
-        return {
-          fromLocation: from,
-          toLocation: to,
-          distanceKm: Math.round(distanceKm * this.ROAD_FACTOR * 100) / 100,
-          travelTimeMinutes: tt.durationMinutes,
-          feasible: tt.durationMinutes <= currentMaxTravel,
-          penaltyScore: this.calculatePenalty(tt.durationMinutes),
-          source: 'traveltime',
-        };
-      }
-
-      // 2b. TravelTime unavailable — fall back to Haversine heuristic for walker/public
       const distKm = this.calculateHaversineDistance(from, to);
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
-      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
+      logger.debug(`[Walker/public disabled] Haversine fallback for ${fromLat},${fromLng} → ${toLat},${toLng}: ${heuristicMinutes}min`);
       this.trackSource('heuristic');
       this._sessionCache.set(sKey, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
       return {
@@ -467,6 +440,15 @@ export class TravelTimeService {
         penaltyScore: this.calculatePenalty(heuristicMinutes),
         source: 'heuristic',
       };
+      // ── TravelTime single-search commented out for ORS testing ──
+      // const ttMode = this.toTravelTimeTransport(distKm);
+      // let tt = await this.fetchTravelTimeSingle(from, to, distKm);
+      // let usedMode = ttMode;
+      // if (!tt && ttMode === 'public_transport') {
+      //   tt = await this.fetchTravelTimeSingle(from, to, distKm, undefined, 'walking');
+      //   usedMode = 'walking';
+      // }
+      // if (tt) { ... return traveltime result ... }
     }
 
     // 3. Car — ORS Directions API
@@ -632,29 +614,15 @@ export class TravelTimeService {
       }
     };
 
-    // ── PHASE 1a: Walker/public employee → client (TravelTime arrival_searches) ──
-    if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
-      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients (TravelTime arrival_searches)`);
-
-      // Sequential approach to respect rate limits
-      for (const arrivalClient of clientLocations) {
-        const empWithDist = nonCarEmployees.map(emp => ({
-          lat: emp.lat,
-          lng: emp.lng,
-          distanceKm: this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng }),
-          fromLat: emp.lat.toString(),
-          fromLng: emp.lng.toString(),
-          toLat: arrivalClient.lat.toString(),
-          toLng: arrivalClient.lng.toString(),
-          mode: emp.transportMode,
-        }));
-
-        const closeEmps = empWithDist.filter(e => e.distanceKm <= this.WALK_THRESHOLD_KM);
-        const farEmps   = empWithDist.filter(e => e.distanceKm >  this.WALK_THRESHOLD_KM);
-
-        await runTravelTimeArrivalGroup(arrivalClient, closeEmps, 'walking');
-        await runTravelTimeArrivalGroup(arrivalClient, farEmps, 'public_transport', 'walking');
-      }
+    // ── PHASE 1a: Walker/public employee → client — DISABLED for ORS testing ──
+    // TravelTime API calls skipped; walker/public routes use Haversine heuristic via calculateTravelTime
+    // if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
+    //   for (const arrivalClient of clientLocations) {
+    //     ... runTravelTimeArrivalGroup calls ...
+    //   }
+    // }
+    if (nonCarEmployees.length > 0) {
+      logger.info(`[Cache Pre-warm] Phase 1a: SKIPPED (TravelTime disabled for ORS testing) — ${nonCarEmployees.length} walker/public employees will use Haversine heuristic`);
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -689,31 +657,12 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client via TravelTime arrival_searches
-      if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
-        const nonCarModes = Array.from(new Set(nonCarEmployees.map(e => e.transportMode)));
-        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (TravelTime, ${clientLocations.length} clients, modes: ${nonCarModes.join(',')})`);
-
-        for (const mode of nonCarModes) {
-          for (const arrivalClient of clientLocations) {
-            const otherClients = clientLocations.filter(c => !(c.lat === arrivalClient.lat && c.lng === arrivalClient.lng));
-            const withDist = otherClients.map(c => ({
-              lat: c.lat,
-              lng: c.lng,
-              distanceKm: this.calculateHaversineDistance({ lat: c.lat, lng: c.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng }),
-              fromLat: c.lat.toString(),
-              fromLng: c.lng.toString(),
-              toLat: arrivalClient.lat.toString(),
-              toLng: arrivalClient.lng.toString(),
-              mode,
-            }));
-            const close = withDist.filter(d => d.distanceKm <= this.WALK_THRESHOLD_KM);
-            const far   = withDist.filter(d => d.distanceKm >  this.WALK_THRESHOLD_KM);
-            
-            await runTravelTimeArrivalGroup(arrivalClient, close, 'walking');
-            await runTravelTimeArrivalGroup(arrivalClient, far, 'public_transport', 'walking');
-          }
-        }
+      // Phase 2b: Walker/public client→client — DISABLED for ORS testing
+      // if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
+      //   ... TravelTime arrival_searches for client→client walker/public ...
+      // }
+      if (nonCarEmployees.length > 0) {
+        logger.info(`[Cache Pre-warm] Phase 2b: SKIPPED (TravelTime disabled for ORS testing) — client→client walker/public will use Haversine heuristic`);
       }
     }
 
