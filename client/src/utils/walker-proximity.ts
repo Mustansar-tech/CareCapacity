@@ -16,9 +16,12 @@
 
 import type { ClientVisit } from "@shared/schema";
 
-// Maximum walking distance in kilometers
-// 4km = approx 45-50 min walk at average pace
-const MAX_WALKING_DISTANCE_KM = 4;
+// Maximum walking distance in kilometers before requiring public transport
+// 1.6km = approx 1 mile. Beyond this, we assume the "walker" uses public transport.
+const MAX_WALK_ONLY_DISTANCE_KM = 1.6;
+
+// Maximum total travel distance for a "walker" (including public transport)
+const MAX_TOTAL_TRAVEL_DISTANCE_KM = 10;
 
 // Fixed walking travel time for display (actual time not calculated)
 // Using average for 4km walk
@@ -33,6 +36,7 @@ export interface WalkerCandidate {
   capacityMinutes: number;
   usedMinutes: number;
   weeklyContractedMinutes: number;
+  weeklyUsedMinutes: number;
   weeklyUsedMinutes: number;
 }
 
@@ -82,8 +86,8 @@ function getPostcodeSector(postcode: string | undefined): string | null {
   return outward ? outward[1] : null;
 }
 
-// Check if visit is within walking proximity of employee
-// Returns true if visit is suitable for a walking employee
+// Check if visit is within walking or public transport proximity of employee
+// Returns true if visit is suitable for a walking employee (who uses buses for >1 mile)
 export function isWithinWalkingProximity(
   walker: WalkerCandidate,
   visit: VisitWithLocation
@@ -96,7 +100,7 @@ export function isWithinWalkingProximity(
     return true;
   }
   
-  // Second check: Physical distance within walking limit
+  // Second check: Physical distance within total travel limit
   const distanceKm = haversineDistance(
     walker.homeLat,
     walker.homeLng,
@@ -104,7 +108,8 @@ export function isWithinWalkingProximity(
     visit.lng
   );
   
-  if (distanceKm <= MAX_WALKING_DISTANCE_KM) {
+  // If it's more than 10km, even with public transport it's likely too far for a local walker
+  if (distanceKm <= MAX_TOTAL_TRAVEL_DISTANCE_KM) {
     return true;
   }
   
@@ -118,7 +123,7 @@ export function scoreWalkerMatch(
   visit: VisitWithLocation
 ): number {
   if (!isWithinWalkingProximity(walker, visit)) {
-    return -1; // Not walkable
+    return -1; // Not reachable
   }
   
   const distanceKm = haversineDistance(
@@ -129,15 +134,18 @@ export function scoreWalkerMatch(
   );
   
   // Score based on proximity (closer = higher score)
-  // Max score 1.0 at 0km, min score 0.0 at MAX_WALKING_DISTANCE_KM
-  const proximityScore = 1 - (distanceKm / MAX_WALKING_DISTANCE_KM);
+  // We use MAX_TOTAL_TRAVEL_DISTANCE_KM as the denominator now
+  const proximityScore = 1 - (distanceKm / MAX_TOTAL_TRAVEL_DISTANCE_KM);
   
   // Bonus for same postcode sector
   const walkerSector = getPostcodeSector((walker as any).homePostcode);
   const visitSector = getPostcodeSector(visit.postcode);
   const samePostcodeBonus = (walkerSector && visitSector && walkerSector === visitSector) ? 0.2 : 0;
   
-  return Math.min(1.0, proximityScore + samePostcodeBonus);
+  // Extra bonus if it's within "pure" walking distance (< 1.6km)
+  const walkOnlyBonus = (distanceKm <= MAX_WALK_ONLY_DISTANCE_KM) ? 0.3 : 0;
+  
+  return Math.min(1.0, proximityScore + samePostcodeBonus + walkOnlyBonus);
 }
 
 // Get all walkable visits for a walker, sorted by distance
