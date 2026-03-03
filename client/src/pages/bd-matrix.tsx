@@ -544,18 +544,9 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
       if (existing?.employeeName === employeeName) {
         const next = { ...prev };
         delete next[key];
-        // If unstarring a non-last CP, also clear any dependent CP stars for same visit/day
-        for (let i = cpIdx + 1; i <= 3; i++) {
-          delete next[starKey(visitIndex, i, day)];
-        }
         return next;
       }
-      const next = { ...prev, [key]: { employeeName, timeWindow } };
-      // Clear dependent CP stars when re-selecting
-      for (let i = cpIdx + 1; i <= 3; i++) {
-        delete next[starKey(visitIndex, i, day)];
-      }
-      return next;
+      return { ...prev, [key]: { employeeName, timeWindow } };
     });
   };
 
