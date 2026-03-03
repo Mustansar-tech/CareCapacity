@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
-import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
+import { SchedulingTab } from "@/components/scheduling-tab";
 import { useBranch } from "@/contexts/BranchContext";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
@@ -1431,8 +1431,12 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Schedules Tab */}
-          <TabsContent value="schedules" className="space-y-6 animate-fade-in" data-testid="content-schedules">
-            <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
+          <TabsContent value="schedules" data-testid="content-schedules">
+            <SchedulingTab 
+              data={filteredData || processedData} 
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+            />
           </TabsContent>
 
           </Tabs>
