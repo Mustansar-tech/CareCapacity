@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache } from "@/utils/scheduling-utils";
+import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache, haversineDistance, calculateTravelTime } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -662,14 +662,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               </div>
 
                               {/* First Arrow with Travel Time */}
-                              {dayVisits.length > 0 && (
-                                <div className="flex flex-col items-center">
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                    {dayVisits[0].travelTimeBefore}min
-                                  </span>
-                                  <ArrowRight className="h-5 w-5 text-gray-400" />
-                                </div>
-                              )}
+                              {dayVisits.length > 0 && (() => {
+                                const empLoc = employeeLocationMap.get(selectedEmployee || '');
+                                const firstVisit = dayVisits[0];
+                                let displayMin = firstVisit.travelTimeBefore;
+                                if (displayMin >= 999 && empLoc?.homeLat && empLoc?.homeLng && firstVisit.lat && firstVisit.lng) {
+                                  const mode: 'car' | 'walking' | 'public' = (empLoc.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
+                                  const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: firstVisit.lat, lng: firstVisit.lng });
+                                  displayMin = calculateTravelTime(dist, mode);
+                                }
+                                return (
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      {displayMin}min
+                                    </span>
+                                    <ArrowRight className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                );
+                              })()}
 
                               {/* Visits with Arrows */}
                               {dayVisits.map((visit, vIndex) => (
@@ -712,6 +722,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                       let travelToHome = 0;
                                       let travelFromHome = 0;
 
+                                      // Display-level helper: try API cache first, fall back to haversine for display only
+                                      const displayTravelMinutes = (
+                                        from: { lat: number; lng: number },
+                                        to: { lat: number; lng: number },
+                                        mode: 'car' | 'walking' | 'public',
+                                        timeMin: number
+                                      ): number => {
+                                        const api = getTravelMinutes(from, to, mode, timeMin);
+                                        if (api >= 999) {
+                                          const dist = haversineDistance(from, to);
+                                          return calculateTravelTime(dist, mode, timeMin);
+                                        }
+                                        return api;
+                                      };
+
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
                                         // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
@@ -721,21 +746,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                                         // Travel from current visit to home
                                         if (currentVisit.lat && currentVisit.lng) {
-                                          travelToHome = getTravelMinutes(
+                                          travelToHome = displayTravelMinutes(
                                             { lat: currentVisit.lat, lng: currentVisit.lng },
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                             mode,
-                                            currentEndMin // Use current visit end time for congestion (only for cars)
+                                            currentEndMin
                                           );
                                         }
 
                                         // Travel from home to next visit
                                         if (nextVisit.lat && nextVisit.lng) {
-                                          travelFromHome = getTravelMinutes(
+                                          travelFromHome = displayTravelMinutes(
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                             { lat: nextVisit.lat, lng: nextVisit.lng },
                                             mode,
-                                            nextStartMin // Use next visit start time for congestion (only for cars)
+                                            nextStartMin
                                           );
                                         }
                                       }
@@ -775,10 +800,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                     }
 
                                     // Normal travel between visits (gap < 90 minutes)
+                                    let interDisplayMin = nextVisit.travelTimeBefore;
+                                    if (interDisplayMin >= 999 && currentVisit.lat && currentVisit.lng && nextVisit.lat && nextVisit.lng) {
+                                      const empLocInter = employeeLocationMap.get(selectedEmployee || '');
+                                      const modeInter: 'car' | 'walking' | 'public' = (empLocInter?.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
+                                      const distInter = haversineDistance({ lat: currentVisit.lat, lng: currentVisit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng });
+                                      interDisplayMin = calculateTravelTime(distInter, modeInter);
+                                    }
                                     return (
                                       <div className="flex flex-col items-center">
                                         <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                          {nextVisit.travelTimeBefore}min
+                                          {interDisplayMin}min
                                         </span>
                                         <ArrowRight className="h-5 w-5 text-gray-400" />
                                       </div>
@@ -804,8 +836,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                     { lat: lastVisit.lat, lng: lastVisit.lng },
                                     { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
                                     mode,
-                                    lastVisitEndMin // Use last visit end time for congestion (only for cars)
+                                    lastVisitEndMin
                                   );
+                                  // Fallback to haversine for display if API cache is empty
+                                  if (travelToHome >= 999) {
+                                    const dist = haversineDistance({ lat: lastVisit.lat, lng: lastVisit.lng }, { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) });
+                                    travelToHome = calculateTravelTime(dist, mode, lastVisitEndMin);
+                                  }
                                 }
 
                                 return (
