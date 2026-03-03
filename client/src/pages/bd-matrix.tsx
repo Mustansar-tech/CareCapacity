@@ -746,7 +746,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
 
                         return (
                           <td key={day} className="p-3 align-top min-w-[250px]">
-                            <ScrollArea className="h-[420px] pr-4">
+                            <ScrollArea className="max-h-[420px] pr-4">
                               <div className="space-y-3">
                                 {matchesToShow.length > 0 ? (
                                   matchesToShow.map((employeeMatch, matchIdx) => {
