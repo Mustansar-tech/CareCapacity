@@ -413,16 +413,22 @@ export class TravelTimeService {
     // 1. Check cache
     // For walkers/public: accept traveltime or traveltime-matrix sources; reject old heuristic/ors entries
     // For car: accept ors, ors-matrix, osrm, or heuristic
+    // NOTE: Cache is time-agnostic except for public transport pre-warming.
+    // If the cache becomes too large, use storage.cleanupOldTravelTimes()
     try {
       const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
       if (cached) {
+        // Only reuse entries from the last 24 hours for public transport to keep it fresh
+        // Car/walking entries (ors/heuristic) are stable and don't need frequent refresh
+        const isRecent = !cached.cachedAt || (new Date().getTime() - new Date(cached.cachedAt).getTime() < 24 * 60 * 60 * 1000);
+        
         const isRealTravelTime = cached.source === 'traveltime' || cached.source === 'traveltime-matrix';
         const isCarRealRoad = cached.source === 'ors' || cached.source === 'ors-matrix' || cached.source === 'osrm';
         const isHeuristic = cached.source === 'heuristic';
 
         let useCache = false;
         if (isNonCar) {
-          useCache = isRealTravelTime || (isHeuristic && !this.hasTravelTimeCredentials());
+          useCache = (isRealTravelTime && isRecent) || (isHeuristic && !this.hasTravelTimeCredentials());
         } else {
           useCache = isCarRealRoad || isHeuristic;
         }
@@ -691,6 +697,15 @@ export class TravelTimeService {
       }));
 
       logger.info(`[Cache Pre-warm] Uncached pairs: ${closeWalkingPairs.length} walking (≤${this.WALK_THRESHOLD_KM}km), ${farPublicPairs.length} public_transport (>${this.WALK_THRESHOLD_KM}km)`);
+
+      // Trigger cleanup of entries older than 3 days to keep DB size under control
+      try {
+        storage.cleanupOldTravelTimes(3).then(count => {
+          if (count > 0) logger.info(`[Cache Cleanup] Removed ${count} expired travel time entries`);
+        });
+      } catch (e) {
+        logger.error("Cache cleanup failed:", e);
+      }
 
       // ── Phase B: Close clients — per-employee walking matrix ─────────────
       // Group walking pairs by employee so we can do one matrix call per employee
