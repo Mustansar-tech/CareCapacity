@@ -252,6 +252,11 @@ export function isInsertionFeasible(
       mode
     );
 
+    // If travel is unreachable (9999), the insertion is NOT feasible
+    if (travelFromPrev >= 9999) {
+      return false;
+    }
+
     if (travelFromPrev > MAX_TRAVEL_CAP_MINUTES) {
       return false;
     }
@@ -267,6 +272,11 @@ export function isInsertionFeasible(
       { lat: nextVisit.lat, lng: nextVisit.lng },
       mode
     );
+
+    // If travel is unreachable (9999), the insertion is NOT feasible
+    if (travelToNext >= 9999) {
+      return false;
+    }
 
     if (travelToNext > MAX_TRAVEL_CAP_MINUTES) {
       return false;

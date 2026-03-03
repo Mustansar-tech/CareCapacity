@@ -828,6 +828,11 @@ function assignVisitToBestEmployee(
         timeToMinutes(prev.endTime)
       );
 
+      // If travel is unreachable (9999), skip this candidate
+      if (travelFromPrev >= 9999) {
+        continue;
+      }
+
       if (travelFromPrev > 45) {
         continue;
       }
@@ -846,6 +851,11 @@ function assignVisitToBestEmployee(
         schedule.transportMode,
         visitStartMinInternal + adjustedVisit.durationMinutes
       );
+
+      // If travel is unreachable (9999), skip this candidate
+      if (travelToNext >= 9999) {
+        continue;
+      }
 
       if (travelToNext > 45) {
         continue;
@@ -889,7 +899,8 @@ function assignVisitToBestEmployee(
         schedule.transportMode,
         visitStartMinInternal
       );
-      if (distFromHome > 45) {
+      // If travel is unreachable (9999), skip this candidate
+      if (distFromHome >= 9999 || distFromHome > 45) {
         continue;
       }
       if (visitStartMinInternal < 600) {
@@ -991,12 +1002,18 @@ function assignVisitToBestEmployee(
           schedule.transportMode,
           lastEnd
         );
-        const pureRestToNew = rawGapToNew - travelToNew;
-
-        if (pureRestToNew < BREAK_DURATION_MINUTES) {
-          const neededStart = lastEnd + travelToNew + BREAK_DURATION_MINUTES;
-          clientLogger.log(`🛑 REST BREAK: ${schedule.employeeName} has worked ${(cumulativeCareMinutes/60).toFixed(1)}h - needs ${BREAK_DURATION_MINUTES}min break. Gap=${rawGapToNew}min, travel=${travelToNew}min, rest=${pureRestToNew}min. Visit ${adjustedVisit.clientName}@${adjustedVisit.startTime} blocked (earliest start: ${minutesToTime(neededStart)})`);
+        
+        // If travel is unreachable (9999), the rest break gap cannot be calculated reliably
+        if (travelToNew >= 9999) {
           blockedByRestBreak = true;
+        } else {
+          const pureRestToNew = rawGapToNew - travelToNew;
+
+          if (pureRestToNew < BREAK_DURATION_MINUTES) {
+            const neededStart = lastEnd + travelToNew + BREAK_DURATION_MINUTES;
+            clientLogger.log(`🛑 REST BREAK: ${schedule.employeeName} has worked ${(cumulativeCareMinutes/60).toFixed(1)}h - needs ${BREAK_DURATION_MINUTES}min break. Gap=${rawGapToNew}min, travel=${travelToNew}min, rest=${pureRestToNew}min. Visit ${adjustedVisit.clientName}@${adjustedVisit.startTime} blocked (earliest start: ${minutesToTime(neededStart)})`);
+            blockedByRestBreak = true;
+          }
         }
       }
 
