@@ -630,8 +630,10 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </Button>
         </div>
       </div>
-      <div className="overflow-x-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full w-full" orientation="both">
+          <div className="min-w-max">
+            <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
               <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
@@ -863,7 +865,9 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </tbody>
         </table>
       </div>
-    </div>
+    </ScrollArea>
+  </div>
+</div>
   );
 }
 
