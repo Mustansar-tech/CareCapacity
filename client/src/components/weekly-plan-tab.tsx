@@ -262,7 +262,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         visitsWithLocations.forEach(visit => {
           if (visit.lat && visit.lng) {
             const arrivalTimeMinutes = visit.startTime ? timeToMinutes(visit.startTime) : 9 * 60;
-            const key = `${visit.lat},${visit.lng},${arrivalTimeMinutes}`;
+          const key = `${visit.lat.toFixed(4)},${visit.lng.toFixed(4)},${arrivalTimeMinutes}`;
             if (!uniqueClientMap.has(key)) {
               uniqueClientMap.set(key, { lat: visit.lat, lng: visit.lng, arrivalTimeMinutes });
             }

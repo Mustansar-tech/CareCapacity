@@ -32,10 +32,10 @@ export interface TravelMatrix {
 
 export type TransportMode = "car" | "walking" | "public";
 
-const ORS_MATRIX_BATCH_SIZE = 25;
-const TRAVELTIME_MATRIX_BATCH_SIZE = 20;
-const OSRM_TIMEOUT_MS = 8000;
-const TRAVELTIME_TIMEOUT_MS = 10000;
+const ORS_MATRIX_BATCH_SIZE = 50;
+const TRAVELTIME_MATRIX_BATCH_SIZE = 40;
+const OSRM_TIMEOUT_MS = 5000;
+const TRAVELTIME_TIMEOUT_MS = 5000;
 
 export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
