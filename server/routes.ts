@@ -1414,7 +1414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
       const { pairs } = req.body as {
-        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string }>;
+        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number }>;
       };
 
       if (!Array.isArray(pairs) || pairs.length === 0) {
@@ -1432,8 +1432,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const to = { lat: pair.toLat, lng: pair.toLng };
         const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
 
+        // Convert arrivalTimeMinutes (e.g. 540 = 09:00) into a Date for today
+        let arrivalTime: Date | undefined;
+        if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
+          const d = new Date();
+          d.setHours(Math.floor(pair.arrivalTimeMinutes / 60), pair.arrivalTimeMinutes % 60, 0, 0);
+          arrivalTime = d;
+        }
+
+        const arrivalLabel = arrivalTime
+          ? `${String(arrivalTime.getHours()).padStart(2, '0')}:${String(arrivalTime.getMinutes()).padStart(2, '0')}`
+          : 'now';
+        logger.debug(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${normalizedMode}, arrive by ${arrivalLabel})`);
+
         try {
-          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode);
+          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
           if (result) {
             const key = `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
             results.push({

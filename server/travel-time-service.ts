@@ -362,7 +362,8 @@ export class TravelTimeService {
     branchId: string,
     from: Location,
     to: Location,
-    transportMode: TransportMode = "car"
+    transportMode: TransportMode = "car",
+    arrivalTime?: Date
   ): Promise<TravelMatrix> {
     const fromLat = from.lat.toString();
     const fromLng = from.lng.toString();
@@ -428,11 +429,11 @@ export class TravelTimeService {
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
       const ttMode = this.toTravelTimeTransport(distKm);
-      let tt = await this.fetchTravelTimeSingle(from, to, distKm);
+      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime);
       let usedMode = ttMode;
       if (!tt && ttMode === 'public_transport') {
         logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
-        tt = await this.fetchTravelTimeSingle(from, to, distKm, undefined, 'walking');
+        tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, 'walking');
         usedMode = 'walking';
       }
       if (tt) {

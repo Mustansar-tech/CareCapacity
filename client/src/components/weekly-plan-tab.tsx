@@ -313,7 +313,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // ── Phase 2: Refine walker/public routes with real TravelTime API ──
       // Collect only the routes that were actually assigned to walker/public employees.
       // This replaces the old "pre-warm everything" approach with targeted calls.
-      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string }>();
+      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number }>();
 
       Object.values(result.assignments).forEach(dayAssignments => {
         Object.entries(dayAssignments).forEach(([empName, visits]) => {
@@ -329,17 +329,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           (visits as AssignedVisit[]).forEach((visit, vIdx) => {
             if (!visit.lat || !visit.lng) return;
 
-            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number) => {
+            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number) => {
               const k = `${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
-              if (!walkerPairMap.has(k)) walkerPairMap.set(k, { fromLat: fLat, fromLng: fLng, toLat: tLat, toLng: tLng, mode });
+              if (!walkerPairMap.has(k)) walkerPairMap.set(k, { fromLat: fLat, fromLng: fLng, toLat: tLat, toLng: tLng, mode, arrivalTimeMinutes });
             };
 
-            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng);
+            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime));
             if (vIdx < visits.length - 1) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
-              if (next.lat && next.lng) addPair(visit.lat, visit.lng, next.lat, next.lng);
+              if (next.lat && next.lng) addPair(visit.lat, visit.lng, next.lat, next.lng, timeToMinutes(next.startTime));
             }
-            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng);
+            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng); // no arrival deadline for return home
           });
         });
       });
