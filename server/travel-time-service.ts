@@ -44,8 +44,8 @@ export interface TravelSourceStats {
 
 export type TransportMode = "car" | "walking" | "public";
 
-const ORS_MATRIX_BATCH_SIZE = 25;
-const TRAVELTIME_MATRIX_BATCH_SIZE = 20;
+const ORS_MATRIX_BATCH_SIZE = 50;
+const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
 const OSRM_TIMEOUT_MS = 8000;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
@@ -593,8 +593,8 @@ export class TravelTimeService {
     ): Promise<void> => {
       if (departures.length === 0) return;
       for (let bi = 0; bi < departures.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
-        // Add delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Add shorter delay and larger batches to speed up
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const batch = departures.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
         const depLocations = batch.map(d => ({ lat: d.lat, lng: d.lng }));
@@ -738,7 +738,7 @@ export class TravelTimeService {
       const dstIndices = destinations.map((_, i) => sources.length + i);
 
       // Add delay to respect ORS Free Tier rate limits (40 requests per minute)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
         method: 'POST',
