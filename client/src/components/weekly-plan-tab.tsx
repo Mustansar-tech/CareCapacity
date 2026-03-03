@@ -265,8 +265,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         const uniqueClients = Array.from(uniqueClientMap.values());
 
         if (uniqueEmployees.length > 0 && uniqueClients.length > 0) {
-          clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients`);
-          const response = await apiRequest('POST', '/api/travel-times/batch', { employees: uniqueEmployees, clients: uniqueClients });
+          // Find earliest visit start time across all visits for this week
+          const allStartTimes = allWeekVisits.map(v => v.startTime).filter(Boolean).sort();
+          const earliestStartTime = allStartTimes[0] || '08:00';
+          clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients. Arrival deadline: ${weekStart}T${earliestStartTime}`);
+          const response = await apiRequest('POST', '/api/travel-times/batch', {
+            employees: uniqueEmployees,
+            clients: uniqueClients,
+            weekStart,
+            earliestStartTime,
+          });
           const travelData = await response.json();
           if (travelData.results?.length > 0) {
             seedTravelCache(travelData.results);
@@ -464,6 +472,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           'traveltime':       { label: 'TravelTime API',     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
           'traveltime-matrix':{ label: 'TravelTime Matrix',  color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
           'heuristic':        { label: 'Heuristic Estimate', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+          'unreachable':      { label: 'No Route (unreachable)', color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
         };
         const activeSources = Object.entries(travelSources).filter(([k, v]) => k !== 'total' && v > 0);
         return (

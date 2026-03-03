@@ -815,9 +815,9 @@ function assignVisitToBestEmployee(
       insertionIndex++;
     }
 
-    // Travel feasibility checks with 15-minute compression allowance
-    // Allow visits even if travel slightly exceeds the gap (employee can leave a bit early or arrive a bit late)
-    const TRAVEL_COMPRESSION_ALLOWANCE = 15; // minutes of flexibility
+    // Travel feasibility checks — strict, no compression allowance
+    // Visits have fixed start times; travel must fit within the available gap exactly
+    const TRAVEL_COMPRESSION_ALLOWANCE = 0; // was 15 — removed, visits have fixed start times
 
     if (insertionIndex > 0) {
       const prev = schedule.assignedVisits[insertionIndex - 1];

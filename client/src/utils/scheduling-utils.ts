@@ -133,19 +133,13 @@ export function getTravelMinutes(
     return cached;
   }
 
-  // Calculate Haversine (straight-line) distance
-  const straightLineKm = haversineDistance(
-    { lat: fromLat, lng: fromLng },
-    { lat: toLat, lng: toLng }
-  );
-
-  // Use heuristic calculation with road factor, mode speeds, and time-of-day multiplier
-  const finalTravelMinutes = calculateTravelTime(straightLineKm, mode, startTimeMinutes);
-
-  // Store in cache
-  travelTimeCache.set(cacheKey, finalTravelMinutes);
-
-  return finalTravelMinutes;
+  // Not in API-seeded cache — heuristic disabled. Treat as unreachable so the
+  // scheduler rejects the assignment and the visit goes to unallocated.
+  // The pre-warm batch endpoint seeds all employee→client and client→client routes;
+  // if a pair is missing here it means the API said it was unreachable.
+  // return calculateTravelTime(haversineDistance({lat:fromLat,lng:fromLng},{lat:toLat,lng:toLng}), mode, startTimeMinutes);
+  travelTimeCache.set(cacheKey, 9999);
+  return 9999;
 }
 
 // Clear travel time cache (call when starting new scheduling run)

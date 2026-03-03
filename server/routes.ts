@@ -1356,9 +1356,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/travel-times/batch', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const { employees, clients } = req.body as {
+      const { employees, clients, weekStart, earliestStartTime } = req.body as {
         employees: Array<{ lat: number; lng: number; mode: string }>;
         clients: Array<{ lat: number; lng: number }>;
+        weekStart?: string;
+        earliestStartTime?: string;
       };
 
       if (!Array.isArray(employees) || !Array.isArray(clients)) {
@@ -1383,9 +1385,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         acc[e.transportMode] = (acc[e.transportMode] || 0) + 1;
         return acc;
       }, {});
-      logger.info(`[Travel Batch] Mode distribution: ${JSON.stringify(modeSummary)}`);
+      logger.info(`[Travel Batch] Mode distribution: ${JSON.stringify(modeSummary)}. Schedule: ${weekStart || 'no date'} @${earliestStartTime || '08:00'}`);
       travelTimeService.resetSourceStats();
-      await travelTimeService.prewarmTravelCache(branchId, normalizedEmployees, validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng })));
+      await travelTimeService.prewarmTravelCache(
+        branchId,
+        normalizedEmployees,
+        validClients.map((c, i) => ({ id: String(i), lat: c.lat, lng: c.lng })),
+        weekStart,
+        earliestStartTime
+      );
 
       // Collect all results from in-memory session cache (DB cache is disabled — always fresh from API)
       const sessionResults = travelTimeService.getSessionResults();
