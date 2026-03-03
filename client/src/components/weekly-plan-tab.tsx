@@ -391,7 +391,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       ? getTravelMinutes({ lat: prev.lat, lng: prev.lng }, { lat: visit.lat, lng: visit.lng }, mode)
                       : visit.travelTimeBefore;
                   }
-                  const travelWarning = newTravelTime > 45;
+                  const travelWarning = newTravelTime > 60; // 60-min cap for walker/public
                   if (travelWarning) warningCount++;
                   return { ...visit, travelTimeBefore: newTravelTime, travelWarning };
                 });

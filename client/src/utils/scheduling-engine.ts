@@ -8,7 +8,8 @@ import {
   type TimeWindow,
   isInsertionFeasible,
   getTravelMinutes, // Import getTravelMinutes
-  fitsInWindow // Import fitsInWindow
+  fitsInWindow, // Import fitsInWindow
+  MAX_TRAVEL_TIME_MINUTES_WALKER,
 } from './scheduling-utils';
 import {
   scoreVisitMatch,
@@ -900,8 +901,9 @@ function assignVisitToBestEmployee(
         schedule.transportMode,
         visitStartMinInternal
       );
-      // If travel is unreachable (9999), skip this candidate
-      if (distFromHome >= 9999 || distFromHome > 45) {
+      // If travel is unreachable (9999) or exceeds mode-specific cap, skip this candidate
+      const homeCap = schedule.transportMode === 'car' ? 45 : MAX_TRAVEL_TIME_MINUTES_WALKER;
+      if (distFromHome >= 9999 || distFromHome > homeCap) {
         continue;
       }
       if (visitStartMinInternal < 600) {
@@ -1050,6 +1052,9 @@ function assignVisitToBestEmployee(
   // Find the employee schedule
   const schedule = employeeSchedules.find(s => s.employeeName === best.employeeName)!;
 
+  // Mode-specific travel cap: car = 45 min, walker/public = 60 min
+  const travelCap = schedule.transportMode === 'car' ? 45 : MAX_TRAVEL_TIME_MINUTES_WALKER;
+
   // For first visit, ensure we calculate travel from home
   let actualTravelTimeBefore = best.travelFromPrev;
   const visitStartMinForTravel = timeToMinutes(best.adjustedVisit.startTime);
@@ -1059,13 +1064,13 @@ function assignVisitToBestEmployee(
       { lat: schedule.homeLat, lng: schedule.homeLng },
       { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
       schedule.transportMode,
-      visitStartMinForTravel // Pass start time for congestion multiplier
+      visitStartMinForTravel
     );
     clientLogger.log(`🏠 First visit travel calc: home(${schedule.homeLat}, ${schedule.homeLng}) → ${best.adjustedVisit.clientName}(${best.adjustedVisit.lat}, ${best.adjustedVisit.lng}) = ${actualTravelTimeBefore}min (${schedule.transportMode})`);
     
-    if (actualTravelTimeBefore > 45) {
-      clientLogger.log(`❌ REJECTED: Home-to-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap for ${best.adjustedVisit.clientName}`);
-      return { success: false, reason: `Home-to-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap` };
+    if (actualTravelTimeBefore > travelCap) {
+      clientLogger.log(`❌ REJECTED: Home-to-visit travel ${actualTravelTimeBefore}min exceeds ${travelCap}-min cap for ${best.adjustedVisit.clientName}`);
+      return { success: false, reason: `Home-to-visit travel ${actualTravelTimeBefore}min exceeds ${travelCap}-min cap` };
     }
   } else {
     // Check if there's a large gap (90+ minutes) suggesting a home break
@@ -1080,32 +1085,32 @@ function assignVisitToBestEmployee(
         { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
         { lat: schedule.homeLat, lng: schedule.homeLng },
         schedule.transportMode,
-        prevEndMin // Use previous visit end time for travel home
+        prevEndMin
       );
       const travelFromHome = getTravelMinutes(
         { lat: schedule.homeLat, lng: schedule.homeLng },
         { lat: best.adjustedVisit.lat || 0, lng: best.adjustedVisit.lng || 0 },
         schedule.transportMode,
-        visitStartMinForTravel // Use visit start time for travel from home
+        visitStartMinForTravel
       );
 
       actualTravelTimeBefore = travelFromHome;
       clientLogger.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
 
-      if (travelFromHome > 45) {
-        clientLogger.log(`❌ REJECTED: Home-return travel ${travelFromHome}min exceeds 45-min cap for ${best.adjustedVisit.clientName}`);
-        return { success: false, reason: `Home-return travel ${travelFromHome}min exceeds 45-min cap` };
+      if (travelFromHome > travelCap) {
+        clientLogger.log(`❌ REJECTED: Home-return travel ${travelFromHome}min exceeds ${travelCap}-min cap for ${best.adjustedVisit.clientName}`);
+        return { success: false, reason: `Home-return travel ${travelFromHome}min exceeds ${travelCap}-min cap` };
       }
-      if (travelToHome > 45) {
-        clientLogger.log(`❌ REJECTED: Visit-to-home travel ${travelToHome}min exceeds 45-min cap`);
-        return { success: false, reason: `Visit-to-home travel ${travelToHome}min exceeds 45-min cap` };
+      if (travelToHome > travelCap) {
+        clientLogger.log(`❌ REJECTED: Visit-to-home travel ${travelToHome}min exceeds ${travelCap}-min cap`);
+        return { success: false, reason: `Visit-to-home travel ${travelToHome}min exceeds ${travelCap}-min cap` };
       }
     }
   }
 
-  if (actualTravelTimeBefore > 45) {
-    clientLogger.log(`❌ REJECTED: Between-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap for ${best.adjustedVisit.clientName}`);
-    return { success: false, reason: `Between-visit travel ${actualTravelTimeBefore}min exceeds 45-min cap` };
+  if (actualTravelTimeBefore > travelCap) {
+    clientLogger.log(`❌ REJECTED: Between-visit travel ${actualTravelTimeBefore}min exceeds ${travelCap}-min cap for ${best.adjustedVisit.clientName}`);
+    return { success: false, reason: `Between-visit travel ${actualTravelTimeBefore}min exceeds ${travelCap}-min cap` };
   }
 
   // Create assigned visit using adjusted times

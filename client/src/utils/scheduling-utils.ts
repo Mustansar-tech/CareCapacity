@@ -1,7 +1,8 @@
 // Scheduling utility functions for VRPTW optimization
 import { clientLogger } from '@/lib/logger';
 
-export const MAX_TRAVEL_TIME_MINUTES = 45;
+export const MAX_TRAVEL_TIME_MINUTES = 45;        // Car employees
+export const MAX_TRAVEL_TIME_MINUTES_WALKER = 60; // Walker / public transport
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
