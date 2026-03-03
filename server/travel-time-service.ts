@@ -175,9 +175,9 @@ export class TravelTimeService {
   }
 
   /**
-   * TravelTime Matrix — batch walking or public transport times.
-   * travelType should be 'walking' or 'public_transport' — the caller decides
-   * based on distance so that short trips get walking times, long trips get transit times.
+   * TravelTime Matrix — batch walking times (departure_searches).
+   * Used for close clients (≤1.6 km) where walking is the realistic mode.
+   * One employee (source) → many client destinations.
    * Returns a map: destinationIndex → durationMinutes, or null on failure.
    */
   private async fetchTravelTimeMatrix(
@@ -254,6 +254,100 @@ export class TravelTimeService {
       }
     } catch (error) {
       logger.warn('TravelTime matrix fetch failed:', error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  /**
+   * TravelTime arrival_searches matrix — real-world public transport routing.
+   *
+   * Models the actual journey: employee walks to nearest bus stop → takes bus/train
+   * → walks from final stop to the client's address. This is what TravelTime's
+   * public_transport mode computes automatically.
+   *
+   * Uses arrival_searches (client-first) rather than departure_searches because
+   * we know exactly when the employee must ARRIVE (the visit start time).
+   * The API finds all valid journeys that reach the destination by arrival_time,
+   * checking real timetables for that date and time.
+   *
+   * destination  = client location (single arrival point)
+   * sources      = employee home locations (multiple potential departure points)
+   * arrivalTime  = the visit's scheduled start time on the schedule date
+   *
+   * Returns a map: sourceIndex → durationMinutes, or null on API failure.
+   */
+  private async fetchTravelTimeMatrixByArrival(
+    destination: { lat: number; lng: number },
+    sources: Array<{ lat: number; lng: number }>,
+    arrivalTime: Date
+  ): Promise<Map<number, number> | null> {
+    if (!this.hasTravelTimeCredentials() || sources.length === 0) return null;
+
+    try {
+      const arrival = arrivalTime.toISOString();
+
+      const locations = [
+        { id: 'dest', coords: { lat: destination.lat, lng: destination.lng } },
+        ...sources.map((s, i) => ({ id: `src_${i}`, coords: { lat: s.lat, lng: s.lng } })),
+      ];
+
+      const body = {
+        locations,
+        arrival_searches: [
+          {
+            id: 'matrix',
+            arrival_location_id: 'dest',
+            departure_location_ids: sources.map((_, i) => `src_${i}`),
+            transportation: { type: 'public_transport' },
+            arrival_time: arrival,
+            travel_time: 7200,
+            properties: ['travel_time'],
+          },
+        ],
+      };
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
+
+      const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
+        method: 'POST',
+        headers: {
+          'X-Application-Id': this.TRAVELTIME_APP_ID!,
+          'X-Api-Key': this.TRAVELTIME_API_KEY!,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const data = await response.json();
+        const result0 = data?.results?.[0];
+        const reachable = result0?.locations || [];
+        const unreachable: string[] = result0?.unreachable || [];
+        if (unreachable.length > 0) {
+          logger.info(`TravelTime arrival_matrix (public_transport): ${reachable.length} reachable, ${unreachable.length} unreachable sources (arriving by ${arrival})`);
+        }
+        const resultMap = new Map<number, number>();
+        for (const loc of reachable) {
+          const match = loc.id?.match(/^src_(\d+)$/);
+          if (!match) continue;
+          const idx = parseInt(match[1], 10);
+          const travelTimeSec = loc?.properties?.[0]?.travel_time;
+          if (travelTimeSec != null) {
+            resultMap.set(idx, Math.max(1, Math.round(travelTimeSec / 60)));
+          }
+        }
+        return resultMap;
+      } else {
+        const errText = await response.text();
+        logger.warn(`TravelTime arrival_matrix API error (${response.status}): ${errText.slice(0, 200)}`);
+        return null;
+      }
+    } catch (error) {
+      logger.warn('TravelTime arrival_matrix fetch failed:', error instanceof Error ? error.message : error);
       return null;
     }
   }
@@ -499,11 +593,18 @@ export class TravelTimeService {
    *
    * Car employees:    ORS Matrix → OSRM per-pair → Haversine
    * Walker/public:    TravelTime Matrix → TravelTime single → Haversine
+   *
+   * For public transport employees the routing model is:
+   *   walk from home → nearest bus/train stop → transit → walk from stop → client address
+   * This is what TravelTime's public_transport mode computes automatically.
+   * We use arrival_searches (client-first) so TravelTime queries real timetables
+   * for the exact moment the employee must arrive at the client — the visit start time.
    */
   async prewarmTravelCache(
     branchId: string,
     employeeLocations: Array<{ id: string; lat: number; lng: number; transportMode: TransportMode }>,
-    clientLocations: Array<{ id: string; lat: number; lng: number }>
+    clientLocations: Array<{ id: string; lat: number; lng: number; arrivalTimeMinutes?: number }>,
+    scheduleDate?: string
   ): Promise<void> {
     if (employeeLocations.length === 0 || clientLocations.length === 0) return;
 
@@ -511,22 +612,56 @@ export class TravelTimeService {
     let totalNew = 0;
     let totalHits = 0;
 
-    const carEmployees = employeeLocations.filter(e => e.transportMode === 'car');
-    const nonCarEmployees = employeeLocations.filter(e => this.isWalkerOrPublic(e.transportMode));
+    // Validate coordinates — skip employees/clients with zero or missing lat/lng
+    const validEmployees = employeeLocations.filter(e => {
+      if (!e.lat || !e.lng || e.lat === 0 || e.lng === 0) {
+        logger.warn(`[Cache Pre-warm] Skipping invalid coordinates for emp ${e.id} (lat=${e.lat}, lng=${e.lng})`);
+        return false;
+      }
+      return true;
+    });
+    const validClients = clientLocations.filter(c => {
+      if (!c.lat || !c.lng || c.lat === 0 || c.lng === 0) {
+        logger.warn(`[Cache Pre-warm] Skipping invalid coordinates for client ${c.id} (lat=${c.lat}, lng=${c.lng})`);
+        return false;
+      }
+      return true;
+    });
 
-    logger.info(`[Cache Pre-warm] Starting for ${employeeLocations.length} employees (${carEmployees.length} car, ${nonCarEmployees.length} walker/public) × ${clientLocations.length} clients`);
+    const carEmployees = validEmployees.filter(e => e.transportMode === 'car');
+    const nonCarEmployees = validEmployees.filter(e => this.isWalkerOrPublic(e.transportMode));
+
+    logger.info(`[Cache Pre-warm] Starting for ${validEmployees.length} employees (${carEmployees.length} car, ${nonCarEmployees.length} walker/public) × ${validClients.length} clients`);
 
     // ── Walker / public: TravelTime Matrix API ──────────────────────────────
-    if (nonCarEmployees.length > 0) {
+    if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
       logger.info(`[Cache Pre-warm] Processing ${nonCarEmployees.length} walker/public employees via TravelTime API`);
 
-      // Parallelize across employees
-      await Promise.all(nonCarEmployees.map(async (emp) => {
-        // Find uncached clients for this employee
-        const uncachedClients: Array<{ idx: number; client: typeof clientLocations[0] }> = [];
+      // Helper to build the arrival Date for a given visit's arrival time (minutes since midnight).
+      // Uses scheduleDate if provided, otherwise falls back to today.
+      const buildArrivalDate = (arrivalTimeMinutes: number): Date => {
+        const base = scheduleDate ? new Date(`${scheduleDate}T00:00:00`) : new Date();
+        base.setHours(0, 0, 0, 0);
+        base.setMinutes(arrivalTimeMinutes);
+        return base;
+      };
 
-        for (let ci = 0; ci < clientLocations.length; ci++) {
-          const client = clientLocations[ci];
+      // Default arrival time: 09:00 if a client has no visit time set
+      const DEFAULT_ARRIVAL_MINUTES = 9 * 60;
+
+      // ── Phase A: Collect uncached pairs across all non-car employees ─────
+      type UncachedPair = {
+        emp: typeof nonCarEmployees[0];
+        client: typeof validClients[0];
+        distanceKm: number;
+        arrivalTimeMinutes: number;
+      };
+
+      const closeWalkingPairs: UncachedPair[] = [];
+      const farPublicPairs: UncachedPair[] = [];
+
+      await Promise.all(nonCarEmployees.map(async (emp) => {
+        for (const client of validClients) {
           try {
             const cached = await storage.getTravelTime(
               branchId,
@@ -535,102 +670,162 @@ export class TravelTimeService {
               emp.transportMode
             );
             const isRealTravelTime = cached?.source === 'traveltime' || cached?.source === 'traveltime-matrix';
-            if (cached && (isRealTravelTime || !this.hasTravelTimeCredentials())) {
+            if (cached && isRealTravelTime) {
               totalHits++;
-            } else {
-              uncachedClients.push({ idx: ci, client });
+              continue;
             }
-          } catch (_) {
-            uncachedClients.push({ idx: ci, client });
-          }
-        }
+          } catch (_) {}
 
-        if (uncachedClients.length === 0) return;
+          const distanceKm = this.calculateHaversineDistance(
+            { lat: emp.lat, lng: emp.lng },
+            { lat: client.lat, lng: client.lng }
+          );
+          const arrivalTimeMinutes = client.arrivalTimeMinutes ?? DEFAULT_ARRIVAL_MINUTES;
 
-        const uncachedWithDist = uncachedClients.map(b => ({
-          ...b,
-          distanceKm: this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: b.client.lat, lng: b.client.lng }),
-        }));
-
-        const closeClients = uncachedWithDist.filter(b => b.distanceKm <= this.WALK_THRESHOLD_KM);
-        const farClients   = uncachedWithDist.filter(b => b.distanceKm >  this.WALK_THRESHOLD_KM);
-        logger.info(`[Cache Pre-warm] Emp ${emp.id}: ${closeClients.length} close (walking) + ${farClients.length} far (public_transport)`);
-
-        // Helper to run one matrix call (one travel type) and save results
-        const runMatrixGroup = async (group: typeof uncachedWithDist, travelType: string, fallbackType?: string): Promise<boolean> => {
-          if (group.length === 0) return true;
-          for (let bi = 0; bi < group.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
-            const batch = group.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
-            const destinations = batch.map(b => ({ lat: b.client.lat, lng: b.client.lng }));
-            let resultMap = await this.fetchTravelTimeMatrix(
-              { lat: emp.lat, lng: emp.lng }, destinations, travelType
-            );
-            let usedType = travelType;
-            if ((!resultMap || resultMap.size === 0) && fallbackType) {
-              logger.info(`[Cache Pre-warm] TravelTime Matrix (${travelType}) empty for emp ${emp.id} — retrying with ${fallbackType}`);
-              resultMap = await this.fetchTravelTimeMatrix(
-                { lat: emp.lat, lng: emp.lng }, destinations, fallbackType
-              );
-              usedType = fallbackType;
-            }
-            if (resultMap && resultMap.size > 0) {
-              for (let di = 0; di < batch.length; di++) {
-                const durationMinutes = resultMap.get(di);
-                const { client, distanceKm } = batch[di];
-                if (durationMinutes != null) {
-                  try {
-                    await storage.saveTravelTime({
-                      branchId,
-                      fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
-                      toLat: client.lat.toString(), toLng: client.lng.toString(),
-                      transportMode: emp.transportMode,
-                      durationMinutes,
-                      distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000),
-                      source: 'traveltime-matrix',
-                    });
-                    totalNew++;
-                  } catch (_) {}
-                }
-              }
-              logger.debug(`[Cache Pre-warm] TravelTime Matrix (${usedType}): emp ${emp.id} → ${batch.length} clients, ${resultMap.size} results`);
-            } else {
-              logger.warn(`[Cache Pre-warm] TravelTime Matrix (${travelType}${fallbackType ? `/${fallbackType}` : ''}) returned no results for emp ${emp.id} — will fall back to heuristic`);
-              return false;
-            }
-          }
-          return true;
-        };
-
-        if (this.hasTravelTimeCredentials()) {
-          const [closeOk, farOk] = await Promise.all([
-            runMatrixGroup(closeClients, 'walking'),
-            runMatrixGroup(farClients, 'public_transport', 'walking')
-          ]);
-          
-          if (!closeOk || !farOk) {
-            const allBatched = [...closeClients, ...farClients];
-            logger.info(`[Cache Pre-warm] TravelTime Matrix failed - using heuristic for ${allBatched.length} pairs`);
-            for (const { client, distanceKm } of allBatched) {
-              const durationMinutes = this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
-              const roadDistanceKm = distanceKm * this.ROAD_FACTOR;
-              try {
-                await storage.saveTravelTime({
-                  branchId,
-                  fromLat: emp.lat.toString(),
-                  fromLng: emp.lng.toString(),
-                  toLat: client.lat.toString(),
-                  toLng: client.lng.toString(),
-                  transportMode: emp.transportMode,
-                  durationMinutes,
-                  distanceMeters: Math.round(roadDistanceKm * 1000),
-                  source: 'heuristic',
-                });
-                totalNew++;
-              } catch (_) {}
-            }
+          if (distanceKm <= this.WALK_THRESHOLD_KM) {
+            closeWalkingPairs.push({ emp, client, distanceKm, arrivalTimeMinutes });
+          } else {
+            farPublicPairs.push({ emp, client, distanceKm, arrivalTimeMinutes });
           }
         }
       }));
+
+      logger.info(`[Cache Pre-warm] Uncached pairs: ${closeWalkingPairs.length} walking (≤${this.WALK_THRESHOLD_KM}km), ${farPublicPairs.length} public_transport (>${this.WALK_THRESHOLD_KM}km)`);
+
+      // ── Phase B: Close clients — per-employee walking matrix ─────────────
+      // Group walking pairs by employee so we can do one matrix call per employee
+      const walkByEmp = new Map<string, UncachedPair[]>();
+      for (const pair of closeWalkingPairs) {
+        if (!walkByEmp.has(pair.emp.id)) walkByEmp.set(pair.emp.id, []);
+        walkByEmp.get(pair.emp.id)!.push(pair);
+      }
+
+      await Promise.all(Array.from(walkByEmp.entries()).map(async ([, pairs]) => {
+        const emp = pairs[0].emp;
+        for (let bi = 0; bi < pairs.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
+          const batch = pairs.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
+          const destinations = batch.map((b: UncachedPair) => ({ lat: b.client.lat, lng: b.client.lng }));
+          const resultMap = await this.fetchTravelTimeMatrix(
+            { lat: emp.lat, lng: emp.lng }, destinations, 'walking'
+          );
+          for (let di = 0; di < batch.length; di++) {
+            const { client, distanceKm } = batch[di];
+            const durationMinutes = resultMap?.get(di);
+            const finalMinutes = durationMinutes ?? this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
+            const source = durationMinutes != null ? 'traveltime-matrix' : 'heuristic';
+            if (durationMinutes == null) {
+              logger.debug(`[Cache Pre-warm] Walking unreachable for emp ${emp.id} → client ${client.id} — using heuristic: ${finalMinutes} min`);
+            }
+            try {
+              await storage.saveTravelTime({
+                branchId,
+                fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
+                toLat: client.lat.toString(), toLng: client.lng.toString(),
+                transportMode: emp.transportMode,
+                durationMinutes: finalMinutes,
+                distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000),
+                source,
+              });
+              totalNew++;
+            } catch (_) {}
+          }
+        }
+      }));
+
+      // ── Phase C: Far clients — client-first public_transport arrival_searches ─
+      //
+      // We query TravelTime with arrival_searches instead of departure_searches.
+      // For each client, we ask: "which of my employees can reach this address
+      // by the visit start time, travelling by public transport?"
+      //
+      // TravelTime models the full journey automatically:
+      //   employee home → walk to bus stop → bus/train → walk from stop → client
+      //
+      // Grouping by (client + arrivalTime) lets us query all employees in one
+      // API call per client, keeping API usage efficient.
+
+      const publicByClientKey = new Map<string, {
+        client: typeof validClients[0];
+        arrivalDate: Date;
+        employees: Array<{ emp: typeof nonCarEmployees[0]; distanceKm: number }>;
+      }>();
+
+      for (const pair of farPublicPairs) {
+        const key = `${pair.client.lat},${pair.client.lng},${pair.arrivalTimeMinutes}`;
+        if (!publicByClientKey.has(key)) {
+          publicByClientKey.set(key, {
+            client: pair.client,
+            arrivalDate: buildArrivalDate(pair.arrivalTimeMinutes),
+            employees: [],
+          });
+        }
+        publicByClientKey.get(key)!.employees.push({ emp: pair.emp, distanceKm: pair.distanceKm });
+      }
+
+      const dateLabel = scheduleDate ?? 'today';
+
+      for (const group of Array.from(publicByClientKey.values())) {
+        const arrivalStr = group.arrivalDate.toTimeString().slice(0, 5);
+        logger.info(`[Cache Pre-warm] public_transport: ${group.employees.length} employees → client ${group.client.id}, must arrive by ${arrivalStr} on ${dateLabel}`);
+
+        // Batch employees (API limit per call)
+        for (let bi = 0; bi < group.employees.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
+          const empBatch = group.employees.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
+          const sources = empBatch.map((e: { emp: { lat: number; lng: number }; distanceKm: number }) => ({ lat: e.emp.lat, lng: e.emp.lng }));
+
+          const resultMap = await this.fetchTravelTimeMatrixByArrival(
+            { lat: group.client.lat, lng: group.client.lng },
+            sources,
+            group.arrivalDate
+          );
+
+          for (let si = 0; si < empBatch.length; si++) {
+            const { emp, distanceKm } = empBatch[si];
+            const durationMinutes = resultMap?.get(si);
+            const finalMinutes = durationMinutes ?? this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
+            const source = durationMinutes != null ? 'traveltime-matrix' : 'heuristic';
+            if (durationMinutes == null) {
+              logger.warn(`[Cache Pre-warm] public_transport unreachable for emp ${emp.id} → client ${group.client.id} (arrive by ${arrivalStr}) — using heuristic (walk+bus+walk estimate): ${finalMinutes} min`);
+            }
+            try {
+              await storage.saveTravelTime({
+                branchId,
+                fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
+                toLat: group.client.lat.toString(), toLng: group.client.lng.toString(),
+                transportMode: emp.transportMode,
+                durationMinutes: finalMinutes,
+                distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000),
+                source,
+              });
+              totalNew++;
+            } catch (_) {}
+          }
+        }
+      }
+    } else if (nonCarEmployees.length > 0 && !this.hasTravelTimeCredentials()) {
+      // No TravelTime credentials — use heuristic for all walker/public pairs
+      logger.warn('[Cache Pre-warm] No TravelTime credentials — using heuristic for all walker/public employees');
+      for (const emp of nonCarEmployees) {
+        for (const client of validClients) {
+          const distanceKm = this.calculateHaversineDistance(
+            { lat: emp.lat, lng: emp.lng },
+            { lat: client.lat, lng: client.lng }
+          );
+          const durationMinutes = this.calculateHeuristicTravelTime(distanceKm, emp.transportMode);
+          try {
+            await storage.saveTravelTime({
+              branchId,
+              fromLat: emp.lat.toString(), fromLng: emp.lng.toString(),
+              toLat: client.lat.toString(), toLng: client.lng.toString(),
+              transportMode: emp.transportMode,
+              durationMinutes,
+              distanceMeters: Math.round(distanceKm * this.ROAD_FACTOR * 1000),
+              source: 'heuristic',
+            });
+            totalNew++;
+          } catch (_) {}
+        }
+      }
     }
 
     if (carEmployees.length === 0) {

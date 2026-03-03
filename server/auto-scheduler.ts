@@ -153,7 +153,8 @@ export class AutoScheduler {
     await this.travelService.prewarmTravelCache(
       branchId,
       employees.map(e => ({ id: e.employeeName, lat: e.homeLat, lng: e.homeLng, transportMode: TravelTimeService.normalizeMode(e.transportMode) })),
-      visits.map(v => ({ id: v.clientName, lat: v.clientLat, lng: v.clientLng }))
+      visits.map(v => ({ id: v.clientName, lat: v.clientLat, lng: v.clientLng, arrivalTimeMinutes: v.startTime })),
+      date
     );
 
     // Sort visits by priority, then cluster by geography for better route efficiency
