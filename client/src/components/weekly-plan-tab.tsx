@@ -367,6 +367,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             });
             clientLogger.log(`✅ Walker refinement: ${refineData.stats?.traveltime || 0} via TravelTime, ${refineData.stats?.heuristic || 0} via heuristic`);
 
+            // Merge walker/public TravelTime stats into the travel source badge so it
+            // reflects ALL sources used (car ORS + walker TravelTime), not just car routes.
+            const ttAdded = refineData.stats?.traveltime || 0;
+            const hAdded  = refineData.stats?.heuristic  || 0;
+            if (ttAdded + hAdded > 0) {
+              setTravelSources(prev => {
+                const base = prev ?? { total: 0 };
+                return {
+                  ...base,
+                  traveltime: ((base['traveltime'] as number) || 0) + ttAdded,
+                  ...(hAdded > 0 ? { heuristic: ((base['heuristic'] as number) || 0) + hAdded } : {}),
+                  total: (base.total || 0) + ttAdded + hAdded,
+                };
+              });
+            }
+
             // Recompute travelTimeBefore for each walker/public visit using the date-keyed refined results.
             // Falls back to getTravelMinutes (Haversine) if a pair was not in the refine response.
             const refinedAssignments: typeof result.assignments = {};
