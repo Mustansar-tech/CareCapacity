@@ -38,6 +38,7 @@ interface AssignedVisit {
   lng?: number;
   travelTimeBefore: number;
   score: number;
+  travelWarning?: boolean;
 }
 
 interface WeeklyScheduleData {
@@ -57,6 +58,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
+  const [isRefiningWalkers, setIsRefiningWalkers] = useState(false);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -305,29 +307,133 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       return typedResult;
     },
     onSuccess: async (result) => {
+      // Show the schedule immediately with Haversine estimates while walker routes are refined
       setWeeklySchedule(result);
 
-      // Save to database
+      // ── Phase 2: Refine walker/public routes with real TravelTime API ──
+      // Collect only the routes that were actually assigned to walker/public employees.
+      // This replaces the old "pre-warm everything" approach with targeted calls.
+      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string }>();
+
+      Object.values(result.assignments).forEach(dayAssignments => {
+        Object.entries(dayAssignments).forEach(([empName, visits]) => {
+          const empLoc = employeeLocationMap.get(empName);
+          if (!empLoc?.homeLat || !empLoc?.homeLng) return;
+          const rawMode = (empLoc.transportMode || 'car').toLowerCase();
+          if (rawMode === 'car') return;
+          const mode = rawMode === 'public' ? 'public' : 'walking';
+
+          const homeLat = Number(empLoc.homeLat);
+          const homeLng = Number(empLoc.homeLng);
+
+          (visits as AssignedVisit[]).forEach((visit, vIdx) => {
+            if (!visit.lat || !visit.lng) return;
+
+            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number) => {
+              const k = `${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
+              if (!walkerPairMap.has(k)) walkerPairMap.set(k, { fromLat: fLat, fromLng: fLng, toLat: tLat, toLng: tLng, mode });
+            };
+
+            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng);
+            if (vIdx < visits.length - 1) {
+              const next = (visits as AssignedVisit[])[vIdx + 1];
+              if (next.lat && next.lng) addPair(visit.lat, visit.lng, next.lat, next.lng);
+            }
+            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng);
+          });
+        });
+      });
+
+      let finalResult = result;
+
+      if (walkerPairMap.size > 0) {
+        setIsRefiningWalkers(true);
+        const pairs = Array.from(walkerPairMap.values());
+        clientLogger.log(`🚶 Refining ${pairs.length} unique walker/public routes with TravelTime API`);
+
+        try {
+          const refineResponse = await apiRequest('POST', '/api/travel-times/refine-walker', { pairs });
+          const refineData = await refineResponse.json();
+
+          if (refineData.results?.length > 0) {
+            seedTravelCache(refineData.results);
+            clientLogger.log(`✅ Walker refinement: ${refineData.stats?.traveltime || 0} via TravelTime, ${refineData.stats?.heuristic || 0} via heuristic`);
+
+            // Recompute travelTimeBefore for each walker/public visit using the freshly seeded cache
+            const refinedAssignments: typeof result.assignments = {};
+            let warningCount = 0;
+
+            Object.entries(result.assignments).forEach(([date, dayAssignments]) => {
+              refinedAssignments[date] = {};
+              Object.entries(dayAssignments).forEach(([empName, visits]) => {
+                const empLoc = employeeLocationMap.get(empName);
+                if (!empLoc?.homeLat || !empLoc?.homeLng) {
+                  refinedAssignments[date][empName] = visits;
+                  return;
+                }
+                const rawMode = (empLoc.transportMode || 'car').toLowerCase();
+                if (rawMode === 'car') {
+                  refinedAssignments[date][empName] = visits;
+                  return;
+                }
+                const mode = (rawMode === 'public' ? 'public' : 'walking') as 'walking' | 'public';
+                const homeLat = Number(empLoc.homeLat);
+                const homeLng = Number(empLoc.homeLng);
+
+                refinedAssignments[date][empName] = (visits as AssignedVisit[]).map((visit, vIdx) => {
+                  if (!visit.lat || !visit.lng) return visit;
+                  let newTravelTime: number;
+                  if (vIdx === 0) {
+                    newTravelTime = getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode);
+                  } else {
+                    const prev = (visits as AssignedVisit[])[vIdx - 1];
+                    newTravelTime = (prev.lat && prev.lng)
+                      ? getTravelMinutes({ lat: prev.lat, lng: prev.lng }, { lat: visit.lat, lng: visit.lng }, mode)
+                      : visit.travelTimeBefore;
+                  }
+                  const travelWarning = newTravelTime > 45;
+                  if (travelWarning) warningCount++;
+                  return { ...visit, travelTimeBefore: newTravelTime, travelWarning };
+                });
+              });
+            });
+
+            finalResult = { ...result, assignments: refinedAssignments };
+            setWeeklySchedule(finalResult);
+
+            toast({
+              title: "Walker Routes Verified",
+              description: `${refineData.stats?.traveltime || 0} routes via TravelTime${warningCount > 0 ? `, ${warningCount} flagged as slow` : ''}`,
+            });
+          }
+        } catch (refineError) {
+          clientLogger.warn('⚠️ Walker refinement failed — schedule kept with Haversine estimates:', refineError);
+        }
+
+        setIsRefiningWalkers(false);
+      }
+
+      // Save the (potentially refined) schedule to the database
       try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
           weekStartDate: weekStart,
           weekEndDate: weekEnd,
-          scheduleData: result.assignments,
-          unallocatedVisits: result.unallocated,
-          metrics: result.metrics,
+          scheduleData: finalResult.assignments,
+          unallocatedVisits: finalResult.unallocated,
+          metrics: finalResult.metrics,
         });
 
         queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
 
         toast({
           title: "Schedule Generated & Saved",
-          description: `Assigned ${result.metrics.totalVisitsAssigned} visits across ${result.metrics.employeesUtilized} employees`,
+          description: `Assigned ${finalResult.metrics.totalVisitsAssigned} visits across ${finalResult.metrics.employeesUtilized} employees`,
         });
       } catch (error) {
         clientLogger.error('Failed to save schedule:', error);
         toast({
           title: "Schedule Generated",
-          description: `Assigned ${result.metrics.totalVisitsAssigned} visits (save failed)`,
+          description: `Assigned ${finalResult.metrics.totalVisitsAssigned} visits (save failed)`,
           variant: "destructive",
         });
       }
@@ -433,6 +539,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           )}
         </Button>
       </div>
+
+      {/* Walker refinement indicator */}
+      {isRefiningWalkers && (
+        <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Verifying walker travel times with TravelTime API…
+        </div>
+      )}
 
       {/* Metrics Card */}
       {weeklySchedule && (
@@ -686,7 +800,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 <div key={vIndex} className="flex items-center gap-2">
                                   {/* Visit Card - Compact Size */}
                                   <div 
-                                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
+                                    className={`bg-white dark:bg-gray-800 border rounded-lg p-2 hover:shadow-md transition-shadow ${visit.travelWarning ? 'border-amber-400 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700'}`}
                                     data-testid={`card-visit-${date}-${vIndex}`}
                                   >
                                     <div className="space-y-1">
@@ -697,6 +811,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         <Clock className="h-3 w-3" />
                                         {visit.startTime} - {visit.endTime}
                                       </div>
+                                      {visit.travelWarning && (
+                                        <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                          ⚠ Long travel
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
 

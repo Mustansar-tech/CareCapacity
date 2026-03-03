@@ -423,12 +423,36 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2a. Walker / public transport — TravelTime API DISABLED for ORS testing
-    // Using Haversine heuristic directly for all walker/public routes
+    // 2a. Walker / public transport — TravelTime API (arrival_searches)
+    // Distance decides the TravelTime mode: ≤ WALK_THRESHOLD_KM → walking, else public_transport
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
+      const ttMode = this.toTravelTimeTransport(distKm);
+      let tt = await this.fetchTravelTimeSingle(from, to, distKm);
+      let usedMode = ttMode;
+      if (!tt && ttMode === 'public_transport') {
+        logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
+        tt = await this.fetchTravelTimeSingle(from, to, distKm, undefined, 'walking');
+        usedMode = 'walking';
+      }
+      if (tt) {
+        logger.debug(`TravelTime single (${usedMode}, ${distKm.toFixed(2)}km): ${tt.durationMinutes} min`);
+        this.trackSource('traveltime');
+        this._sessionCache.set(sKey, { durationMinutes: tt.durationMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'traveltime' });
+        return {
+          fromLocation: from,
+          toLocation: to,
+          distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
+          travelTimeMinutes: tt.durationMinutes,
+          feasible: tt.durationMinutes <= currentMaxTravel,
+          penaltyScore: this.calculatePenalty(tt.durationMinutes),
+          source: 'traveltime',
+        };
+      }
+
+      // 2b. TravelTime unavailable — fall back to Haversine heuristic for walker/public
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
-      logger.debug(`[Walker/public disabled] Haversine fallback for ${fromLat},${fromLng} → ${toLat},${toLng}: ${heuristicMinutes}min`);
+      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
       this.trackSource('heuristic');
       this._sessionCache.set(sKey, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
       return {
@@ -440,15 +464,6 @@ export class TravelTimeService {
         penaltyScore: this.calculatePenalty(heuristicMinutes),
         source: 'heuristic',
       };
-      // ── TravelTime single-search commented out for ORS testing ──
-      // const ttMode = this.toTravelTimeTransport(distKm);
-      // let tt = await this.fetchTravelTimeSingle(from, to, distKm);
-      // let usedMode = ttMode;
-      // if (!tt && ttMode === 'public_transport') {
-      //   tt = await this.fetchTravelTimeSingle(from, to, distKm, undefined, 'walking');
-      //   usedMode = 'walking';
-      // }
-      // if (tt) { ... return traveltime result ... }
     }
 
     // 3. Car — ORS Directions API

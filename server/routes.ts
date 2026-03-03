@@ -1407,6 +1407,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post-schedule walker/public travel time refinement.
+  // Accepts the exact route pairs that were assigned to walker/public employees and returns
+  // real TravelTime API durations for those pairs only (~20-100 calls vs full pre-warm).
+  app.post('/api/travel-times/refine-walker', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const { pairs } = req.body as {
+        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string }>;
+      };
+
+      if (!Array.isArray(pairs) || pairs.length === 0) {
+        return res.json({ results: [] });
+      }
+
+      logger.info(`[Refine Walker] Refining ${pairs.length} walker/public route pairs via TravelTime API`);
+
+      const results: Array<{ key: string; fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; source: string }> = [];
+      let ttCount = 0;
+      let heuristicCount = 0;
+
+      for (const pair of pairs) {
+        const from = { lat: pair.fromLat, lng: pair.fromLng };
+        const to = { lat: pair.toLat, lng: pair.toLng };
+        const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
+
+        try {
+          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode);
+          if (result) {
+            const key = `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
+            results.push({
+              key,
+              fromLat: pair.fromLat,
+              fromLng: pair.fromLng,
+              toLat: pair.toLat,
+              toLng: pair.toLng,
+              mode: normalizedMode,
+              durationMinutes: result.travelTimeMinutes,
+              source: result.source || 'traveltime',
+            });
+            if (result.source === 'heuristic') heuristicCount++;
+            else ttCount++;
+          }
+        } catch (err) {
+          logger.warn(`[Refine Walker] Failed for pair ${pair.fromLat},${pair.fromLng} → ${pair.toLat},${pair.toLng}: ${err}`);
+        }
+
+        // Sequential with small delay to respect TravelTime rate limits
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+
+      logger.info(`[Refine Walker] Complete: ${ttCount} via TravelTime, ${heuristicCount} via heuristic, ${pairs.length - results.length} failed`);
+      res.json({ results, stats: { traveltime: ttCount, heuristic: heuristicCount } });
+    } catch (error) {
+      logger.error('Error in travel-times/refine-walker:', error);
+      res.status(500).json({ error: safeErrorMessage(error, 'Failed to refine walker travel times') });
+    }
+  });
+
   // Get all employee and client locations for scheduling
   app.get('/api/locations', async (req, res) => {
     try {

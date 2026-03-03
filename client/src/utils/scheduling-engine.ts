@@ -124,6 +124,7 @@ interface AssignedVisit {
   lng?: number;
   travelTimeBefore: number;
   score: number;
+  travelWarning?: boolean;
 }
 
 interface WeeklyScheduleResult {
