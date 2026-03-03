@@ -519,7 +519,7 @@ function CareProMap({
   );
 }
 
-function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitResult; requiredDays?: string[] }) {
+function MatchResultsGrid({ result, requiredDays = [], className = '' }: { result: MultiVisitResult; requiredDays?: string[]; className?: string }) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
@@ -582,7 +582,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
   const hasAnyStars = Object.keys(starredMap).length > 0;
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col">
+    <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col ${className}`}>
       <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b p-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg" aria-hidden="true">
@@ -630,10 +630,8 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full w-full" orientation="both">
-          <div className="min-w-max">
-            <table className="w-full border-collapse">
+      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
+        <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
               <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
@@ -865,9 +863,7 @@ function MatchResultsGrid({ result, requiredDays = [] }: { result: MultiVisitRes
           </tbody>
         </table>
       </div>
-    </ScrollArea>
-  </div>
-</div>
+    </div>
   );
 }
 
@@ -1099,9 +1095,9 @@ function ClientEnquiryMatcher() {
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-950/50">
+          <div className={`flex-1 min-h-0 bg-gray-50/50 dark:bg-gray-950/50 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-6'}`}>
             {multiResults ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col flex-1 min-h-0 gap-4 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-wrap items-center gap-2">
                   {multiResults.visitResults.map((vr, i) => (
                     <Button
@@ -1130,6 +1126,7 @@ function ClientEnquiryMatcher() {
                     visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
                   }}
                   requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
+                  className="flex-1 min-h-0"
                 />
               </div>
             ) : showHistory ? (
