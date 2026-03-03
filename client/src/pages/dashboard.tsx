@@ -22,8 +22,6 @@ import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import BDMatrix from "@/pages/bd-matrix";
-import { SchedulingTab } from "@/components/scheduling-tab";
-import { SimpleSchedulingTab } from "@/components/simple-scheduling-tab";
 
 
 
@@ -107,7 +105,6 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
-  const [activeSchedulingTab, setActiveSchedulingTab] = useState<"generator" | "report">("generator");
 
   const { toast } = useToast();
 
@@ -1435,48 +1432,7 @@ export default function Dashboard() {
 
           {/* Schedules Tab */}
           <TabsContent value="schedules" className="space-y-6 animate-fade-in" data-testid="content-schedules">
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-center bg-white/50 dark:bg-gray-800/50 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-700 w-fit self-center shadow-sm backdrop-blur-md">
-                <Button
-                  variant={activeSchedulingTab === "generator" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveSchedulingTab("generator")}
-                  className={`rounded-xl px-8 py-2.5 h-10 transition-all duration-500 font-bold ${
-                    activeSchedulingTab === "generator" 
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-105" 
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <Zap className="w-4 h-4 mr-2" />
-                  Weekly Schedule Generator
-                </Button>
-                <Button
-                  variant={activeSchedulingTab === "report" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveSchedulingTab("report")}
-                  className={`rounded-xl px-8 py-2.5 h-10 transition-all duration-500 font-bold ${
-                    activeSchedulingTab === "report" 
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg scale-105" 
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Schedule Quality Report
-                </Button>
-              </div>
-
-              <div className="transition-all duration-500 transform">
-                {activeSchedulingTab === "generator" ? (
-                  <SimpleSchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
-                ) : (
-                  <SchedulingTab data={filteredData || processedData} selectedDate={selectedDate} />
-                )}
-              </div>
-              
-              <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800">
-                <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
-              </div>
-            </div>
+            <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
           </Tabs>
