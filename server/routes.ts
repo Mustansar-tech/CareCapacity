@@ -1414,7 +1414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
       const { pairs } = req.body as {
-        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number }>;
+        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate?: string }>;
       };
 
       if (!Array.isArray(pairs) || pairs.length === 0) {
@@ -1432,23 +1432,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const to = { lat: pair.toLat, lng: pair.toLng };
         const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
 
-        // Convert arrivalTimeMinutes (e.g. 540 = 09:00) into a Date for today
+        // Build a Date using the actual visit date (for correct day-of-week timetable) and arrival time.
+        // If visitDate is "2026-03-08" (Saturday) the TravelTime API will use Saturday's bus schedule.
         let arrivalTime: Date | undefined;
         if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
-          const d = new Date();
-          d.setHours(Math.floor(pair.arrivalTimeMinutes / 60), pair.arrivalTimeMinutes % 60, 0, 0);
-          arrivalTime = d;
+          const base = pair.visitDate ? new Date(pair.visitDate) : new Date();
+          base.setHours(Math.floor(pair.arrivalTimeMinutes / 60), pair.arrivalTimeMinutes % 60, 0, 0);
+          arrivalTime = base;
         }
 
+        const dayLabel = pair.visitDate ?? 'today';
         const arrivalLabel = arrivalTime
-          ? `${String(arrivalTime.getHours()).padStart(2, '0')}:${String(arrivalTime.getMinutes()).padStart(2, '0')}`
+          ? `${String(arrivalTime.getHours()).padStart(2, '0')}:${String(arrivalTime.getMinutes()).padStart(2, '0')} on ${dayLabel}`
           : 'now';
         logger.debug(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${normalizedMode}, arrive by ${arrivalLabel})`);
 
         try {
           const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
           if (result) {
-            const key = `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
+            // Key includes visitDate so the frontend can look up by date — matches the client-side refinedMap key
+            const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
             results.push({
               key,
               fromLat: pair.fromLat,

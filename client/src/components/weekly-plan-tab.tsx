@@ -313,9 +313,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // ── Phase 2: Refine walker/public routes with real TravelTime API ──
       // Collect only the routes that were actually assigned to walker/public employees.
       // This replaces the old "pre-warm everything" approach with targeted calls.
-      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number }>();
+      // Key includes the visit date so Monday and Saturday pairs are kept separate —
+      // weekend bus timetables differ from weekday ones and must not be deduplicated together.
+      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate: string }>();
 
-      Object.values(result.assignments).forEach(dayAssignments => {
+      Object.entries(result.assignments).forEach(([date, dayAssignments]) => {
         Object.entries(dayAssignments).forEach(([empName, visits]) => {
           const empLoc = employeeLocationMap.get(empName);
           if (!empLoc?.homeLat || !empLoc?.homeLng) return;
@@ -330,8 +332,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (!visit.lat || !visit.lng) return;
 
             const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number) => {
-              const k = `${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
-              if (!walkerPairMap.has(k)) walkerPairMap.set(k, { fromLat: fLat, fromLng: fLng, toLat: tLat, toLng: tLng, mode, arrivalTimeMinutes });
+              // Include date in key: same locations on different days = separate API calls
+              const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
+              if (!walkerPairMap.has(k)) walkerPairMap.set(k, { fromLat: fLat, fromLng: fLng, toLat: tLat, toLng: tLng, mode, arrivalTimeMinutes, visitDate: date });
             };
 
             if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime));
@@ -339,7 +342,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
               if (next.lat && next.lng) addPair(visit.lat, visit.lng, next.lat, next.lng, timeToMinutes(next.startTime));
             }
-            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng); // no arrival deadline for return home
+            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined); // no arrival deadline for return home
           });
         });
       });
@@ -356,10 +359,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           const refineData = await refineResponse.json();
 
           if (refineData.results?.length > 0) {
-            seedTravelCache(refineData.results);
+            // Build a date-keyed lookup map so Monday and Saturday values are kept separate.
+            // Key format matches what the endpoint returns: "${visitDate}-${fromLat},${fromLng}-${toLat},${toLng}-${mode}"
+            const refinedMap = new Map<string, number>();
+            (refineData.results as Array<{ key: string; durationMinutes: number }>).forEach(r => {
+              refinedMap.set(r.key, r.durationMinutes);
+            });
             clientLogger.log(`✅ Walker refinement: ${refineData.stats?.traveltime || 0} via TravelTime, ${refineData.stats?.heuristic || 0} via heuristic`);
 
-            // Recompute travelTimeBefore for each walker/public visit using the freshly seeded cache
+            // Recompute travelTimeBefore for each walker/public visit using the date-keyed refined results.
+            // Falls back to getTravelMinutes (Haversine) if a pair was not in the refine response.
             const refinedAssignments: typeof result.assignments = {};
             let warningCount = 0;
 
@@ -380,15 +389,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const homeLat = Number(empLoc.homeLat);
                 const homeLng = Number(empLoc.homeLng);
 
+                const lookupRefined = (fLat: number, fLng: number, tLat: number, tLng: number): number | undefined => {
+                  const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
+                  return refinedMap.get(k);
+                };
+
                 refinedAssignments[date][empName] = (visits as AssignedVisit[]).map((visit, vIdx) => {
                   if (!visit.lat || !visit.lng) return visit;
                   let newTravelTime: number;
                   if (vIdx === 0) {
-                    newTravelTime = getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode);
+                    newTravelTime = lookupRefined(homeLat, homeLng, visit.lat, visit.lng)
+                      ?? getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   } else {
                     const prev = (visits as AssignedVisit[])[vIdx - 1];
                     newTravelTime = (prev.lat && prev.lng)
-                      ? getTravelMinutes({ lat: prev.lat, lng: prev.lng }, { lat: visit.lat, lng: visit.lng }, mode)
+                      ? (lookupRefined(prev.lat, prev.lng, visit.lat, visit.lng)
+                        ?? getTravelMinutes({ lat: prev.lat, lng: prev.lng }, { lat: visit.lat, lng: visit.lng }, mode))
                       : visit.travelTimeBefore;
                   }
                   const travelWarning = newTravelTime > 60; // 60-min cap for walker/public
