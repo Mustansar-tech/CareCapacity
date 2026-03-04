@@ -541,6 +541,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     }
                   }
 
+                  // Also unallocate if the departure leg (visit→home for break or end-of-day) exceeds cap.
+                  if (travelTimeAfter !== undefined && travelTimeAfter > WALKER_TRAVEL_CAP) {
+                    newlyUnallocated.push({
+                      id: visit.id,
+                      clientName: visit.clientName,
+                      startTime: visit.startTime,
+                      endTime: visit.endTime,
+                      durationMinutes: visit.durationMinutes,
+                      date,
+                      lat: visit.lat,
+                      lng: visit.lng,
+                      unallocatedReason: `Walker/public return travel ${travelTimeAfter}min exceeds 60-min cap`,
+                    });
+                    return;
+                  }
+
                   kept.push({ ...visit, travelTimeBefore: newTravelTime, travelTimeAfter });
                 });
 
