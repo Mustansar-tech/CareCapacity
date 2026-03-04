@@ -1607,7 +1607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         distKm <= 1.6 ? 'walking' : 'public_transport';
 
       const requestBody = {
-        _endpoint: 'POST https://api.traveltimeapp.com/v4/routes',
+        _endpoint: 'POST https://api.traveltimeapp.com/v4/time-filter',
         locations: [
           { id: 'origin', coords: { lat: fromLat, lng: fromLng } },
           { id: 'destination', coords: { lat: toLat, lng: toLng } },

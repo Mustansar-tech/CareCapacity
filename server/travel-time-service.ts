@@ -283,15 +283,9 @@ export class TravelTimeService {
 
       if (response.ok) {
         const data = await response.json();
-        // /v4/routes response: results[0].locations[] where each location has
-        // properties[0].travel_time (same shape as /v4/time-filter, different algorithm).
         const results = data?.results?.[0]?.locations;
         if (results && results.length > 0) {
-          const props = results[0]?.properties;
-          // routes returns properties as an array of objects (one per itinerary option)
-          const travelTimeSec = Array.isArray(props)
-            ? props[0]?.travel_time
-            : props?.travel_time;
+          const travelTimeSec = results[0]?.properties?.[0]?.travel_time;
           if (travelTimeSec != null) {
             return { durationMinutes: Math.max(1, Math.round(travelTimeSec / 60)) };
           }
@@ -455,12 +449,13 @@ export class TravelTimeService {
     const isNonCar = this.isWalkerOrPublic(transportMode);
 
     // 1a. Check in-memory session cache (resets each scheduling run — no persistence)
-    // For walker/public calls, include the date in the key so Saturday and Sunday (or
-    // different arrival times on the same day) never share a cached result — TravelTime
-    // uses day-specific timetables so cross-day reuse would return the wrong duration.
+    // For walker/public calls, include the full ISO timestamp (date + HH:MM) in the key
+    // so the same route at different times on the same day gets separate cache entries.
+    // TravelTime uses real timetables: ML6 0JH → ML6 8SY at 10:30 and at 15:30 on a
+    // Saturday can return very different durations depending on which buses are running.
     const timeRef = arrivalTime || departureTime;
-    const dateTag = (timeRef && isNonCar) ? `-${timeRef.toISOString().slice(0, 10)}` : '';
-    const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode) + dateTag;
+    const timeTag = (timeRef && isNonCar) ? `-${timeRef.toISOString().slice(0, 16)}` : '';
+    const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode) + timeTag;
     const sessHit = this._sessionCache.get(sKey);
     if (sessHit) {
       return {
