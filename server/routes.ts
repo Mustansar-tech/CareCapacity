@@ -1623,7 +1623,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }],
       };
 
-      const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
+      const [result, compare] = await Promise.all([
+        travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime),
+        travelTimeService.debugCompareBothEndpoints({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }, ttTransportType, arrivalTime),
+      ]);
 
       res.json({
         requestSent: requestBody,
@@ -1632,9 +1635,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bstActive,
         distanceKm: Math.round(distKm * 100) / 100,
         transportMode: ttTransportType,
+        // Results from both TravelTime endpoints side-by-side
+        results: {
+          'time-filter': compare.timeFilter,
+          'time-filter/fast': compare.timeFilterFast,
+          timePeriodUsedByFast: compare.timePeriod,
+          systemCurrentlyUses: compare.timeFilter,
+        },
         durationMinutes: result?.travelTimeMinutes ?? null,
         source: result?.source ?? null,
-        note: 'Paste isoTimestamp and coordinates into app.traveltimeplatform.com/api-playground/routes to verify',
+        note: 'Compare time-filter vs time-filter/fast to see which matches your playground result',
       });
     } catch (error) {
       logger.error('Error in travel-times/debug-single:', error);

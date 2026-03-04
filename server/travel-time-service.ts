@@ -881,6 +881,93 @@ export class TravelTimeService {
     }
     return feasibleClients.sort((a, b) => a.travelTime.travelTimeMinutes - b.travelTime.travelTimeMinutes);
   }
+
+  /**
+   * Debug helper: calls BOTH /v4/time-filter and /v4/time-filter/fast for the same
+   * origin→destination pair and returns both durations side-by-side.
+   * /v4/time-filter/fast uses time *periods* (weekday_morning etc.) not specific timestamps.
+   */
+  async debugCompareBothEndpoints(
+    from: { lat: number; lng: number },
+    to: { lat: number; lng: number },
+    transportType: string,
+    arrivalTime?: Date
+  ): Promise<{ timeFilter: number | null; timeFilterFast: number | null; timePeriod: string }> {
+    if (!this.hasTravelTimeCredentials()) return { timeFilter: null, timeFilterFast: null, timePeriod: 'n/a' };
+    const headers = {
+      'X-Application-Id': this.TRAVELTIME_APP_ID!,
+      'X-Api-Key': this.TRAVELTIME_API_KEY!,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    // --- /v4/time-filter (regular) ---
+    const regularBody = {
+      locations: [
+        { id: 'origin', coords: from },
+        { id: 'destination', coords: to },
+      ],
+      arrival_searches: [{
+        id: 'search',
+        arrival_location_id: 'destination',
+        departure_location_ids: ['origin'],
+        transportation: { type: transportType },
+        arrival_time: (arrivalTime || new Date()).toISOString(),
+        travel_time: 7200,
+        properties: ['travel_time'],
+      }],
+    };
+
+    // --- /v4/time-filter/fast (approximate time period) ---
+    const ref = arrivalTime || new Date();
+    const dow = ref.getUTCDay(); // 0=Sun, 6=Sat
+    const hour = ref.getUTCHours();
+    const isWeekend = dow === 0 || dow === 6;
+    const part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+    const timePeriod = `${isWeekend ? 'weekend' : 'weekday'}_${part}`;
+
+    const fastBody = {
+      locations: [
+        { id: 'origin', coords: from },
+        { id: 'destination', coords: to },
+      ],
+      arrival_one_to_many_search: {
+        id: 'search',
+        arrival_location_id: 'destination',
+        departure_location_ids: ['origin'],
+        transportation: { type: transportType },
+        arrival_time_period: timePeriod,
+        travel_time: 7200,
+        properties: ['travel_time'],
+      },
+    };
+
+    const [regularResp, fastResp] = await Promise.all([
+      fetch('https://api.traveltimeapp.com/v4/time-filter', { method: 'POST', headers, body: JSON.stringify(regularBody) }),
+      fetch('https://api.traveltimeapp.com/v4/time-filter/fast', { method: 'POST', headers, body: JSON.stringify(fastBody) }),
+    ]);
+
+    let timeFilter: number | null = null;
+    if (regularResp.ok) {
+      const d = await regularResp.json();
+      const sec = d?.results?.[0]?.locations?.[0]?.properties?.[0]?.travel_time;
+      if (sec != null) timeFilter = Math.round(sec / 60);
+    } else {
+      logger.warn(`[DebugCompare] time-filter error ${regularResp.status}: ${(await regularResp.text()).slice(0, 200)}`);
+    }
+
+    let timeFilterFast: number | null = null;
+    if (fastResp.ok) {
+      const d = await fastResp.json();
+      const locs = d?.results?.arrival_one_to_many_search?.[0]?.locations;
+      const sec = locs?.[0]?.properties?.[0]?.travel_time;
+      if (sec != null) timeFilterFast = Math.round(sec / 60);
+    } else {
+      logger.warn(`[DebugCompare] time-filter/fast error ${fastResp.status}: ${(await fastResp.text()).slice(0, 200)}`);
+    }
+
+    return { timeFilter, timeFilterFast, timePeriod };
+  }
 }
 
 export const travelTimeService = new TravelTimeService();
