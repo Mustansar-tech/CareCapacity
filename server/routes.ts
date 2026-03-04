@@ -1472,9 +1472,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
         }
 
-        const hh = arrivalTime ? String(arrivalTime.getUTCHours()).padStart(2, '0') : '--';
-        const mm = arrivalTime ? String(arrivalTime.getUTCMinutes()).padStart(2, '0') : '--';
-        const isoStr = arrivalTime ? arrivalTime.toISOString() : 'now';
+        // For return-home and break-departure legs, use depart_by instead of arrive_by.
+        // departureTimeMinutes carries the end time of the visit the worker just finished.
+        let departureTime: Date | undefined;
+        if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
+          departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
+        }
 
         // Compute Haversine distance to determine the actual TravelTime transport type.
         // This mirrors toTravelTimeTransport() in the service: ≤1.6km → walking, >1.6km → public_transport.
@@ -1488,10 +1491,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fromLabel = pair.fromPostcode ? `${pair.fromPostcode} (${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)})` : `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}`;
         const toLabel = pair.toPostcode ? `${pair.toPostcode} (${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)})` : `${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}`;
 
-        logger.info(`[Refine Walker] ${fromLabel} → ${toLabel} (${pairDistKm.toFixed(2)}km → TT:${ttType}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
+        if (departureTime) {
+          const hh = String(departureTime.getUTCHours()).padStart(2, '0');
+          const mm = String(departureTime.getUTCMinutes()).padStart(2, '0');
+          logger.info(`[Refine Walker] ${fromLabel} → ${toLabel} (${pairDistKm.toFixed(2)}km → TT:${ttType}, depart at ${hh}:${mm} UTC on ${pair.visitDate} = ${departureTime.toISOString()})`);
+        } else {
+          const hh = arrivalTime ? String(arrivalTime.getUTCHours()).padStart(2, '0') : '--';
+          const mm = arrivalTime ? String(arrivalTime.getUTCMinutes()).padStart(2, '0') : '--';
+          const isoStr = arrivalTime ? arrivalTime.toISOString() : 'now';
+          logger.info(`[Refine Walker] ${fromLabel} → ${toLabel} (${pairDistKm.toFixed(2)}km → TT:${ttType}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
+        }
 
         try {
-          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
+          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
           if (result) {
             // Key includes visitDate so the frontend can look up by date — matches the client-side refinedMap key
             const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;

@@ -346,7 +346,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // This replaces the old "pre-warm everything" approach with targeted calls.
       // Key includes the visit date so Monday and Saturday pairs are kept separate —
       // weekend bus timetables differ from weekday ones and must not be deduplicated together.
-      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate: string; fromPostcode?: string; toPostcode?: string }>();
+      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate: string; fromPostcode?: string; toPostcode?: string }>();
 
       Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
         Object.entries(dayAssignments).forEach(([empName, visits]) => {
@@ -362,7 +362,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           (visits as AssignedVisit[]).forEach((visit, vIdx) => {
             if (!visit.lat || !visit.lng) return;
 
-            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number, fPostcode?: string, tPostcode?: string) => {
+            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number, fPostcode?: string, tPostcode?: string, departureTimeMinutes?: number) => {
               // Include date in key: same locations on different days = separate API calls
               const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
               if (!walkerPairMap.has(k)) {
@@ -373,6 +373,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   toLng: tLng,
                   mode,
                   arrivalTimeMinutes,
+                  departureTimeMinutes,
                   visitDate: date,
                   fromPostcode: fPostcode,
                   toPostcode: tPostcode
@@ -395,13 +396,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const fromPostcode = gapMin > 90 ? homePostcode : visit.postcode;
                 addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime), fromPostcode, next.postcode);
                 // When there's a 90+ min break, the worker travels from the current visit back
-                // home — add this leg so its TravelTime result can be displayed in the break arrow.
+                // home — depart_by = visit end time (the worker leaves as soon as the visit ends).
                 if (gapMin > 90 && visit.lat && visit.lng) {
-                  addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode);
+                  addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode, timeToMinutes(visit.endTime));
                 }
               }
             }
-            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode); // no arrival deadline for return home
+            // Return home at end of day — depart_by = last visit end time.
+            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode, timeToMinutes(visit.endTime));
           });
         });
       });

@@ -165,31 +165,56 @@ export class TravelTimeService {
     to: Location,
     distanceKm: number,
     arrivalTime?: Date,
-    forceMode?: string
+    forceMode?: string,
+    departureTime?: Date
   ): Promise<{ durationMinutes: number } | null> {
     if (!this.hasTravelTimeCredentials()) return null;
 
     try {
-      const arrival = (arrivalTime || new Date()).toISOString();
       const transportation = forceMode ?? this.toTravelTimeTransport(distanceKm);
 
-      const body = {
-        locations: [
-          { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
-          { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
-        ],
-        arrival_searches: [
-          {
-            id: 'search',
-            arrival_location_id: 'destination',
-            departure_location_ids: ['origin'],
-            transportation: { type: transportation },
-            arrival_time: arrival,
-            travel_time: 7200,
-            properties: ['travel_time'],
-          },
-        ],
-      };
+      // Use departure_searches when a departure time is given (return-home / break-departure legs).
+      // Use arrival_searches when an arrival deadline is given (client visit legs).
+      let body: object;
+      if (departureTime) {
+        const departure = departureTime.toISOString();
+        body = {
+          locations: [
+            { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
+            { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
+          ],
+          departure_searches: [
+            {
+              id: 'search',
+              departure_location_id: 'origin',
+              arrival_location_ids: ['destination'],
+              transportation: { type: transportation },
+              departure_time: departure,
+              travel_time: 7200,
+              properties: ['travel_time'],
+            },
+          ],
+        };
+      } else {
+        const arrival = (arrivalTime || new Date()).toISOString();
+        body = {
+          locations: [
+            { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
+            { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
+          ],
+          arrival_searches: [
+            {
+              id: 'search',
+              arrival_location_id: 'destination',
+              departure_location_ids: ['origin'],
+              transportation: { type: transportation },
+              arrival_time: arrival,
+              travel_time: 7200,
+              properties: ['travel_time'],
+            },
+          ],
+        };
+      }
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
@@ -216,7 +241,7 @@ export class TravelTimeService {
             return { durationMinutes: Math.max(1, Math.round(travelTimeSec / 60)) };
           }
         }
-        logger.debug(`TravelTime single: origin unreachable to arrive by arrival time (${transportation}, ${distanceKm.toFixed(2)}km)`);
+        logger.debug(`TravelTime single: unreachable (${departureTime ? 'depart' : 'arrive'} ${transportation}, ${distanceKm.toFixed(2)}km)`);
         return null;
       } else {
         const errText = await response.text();
@@ -363,7 +388,8 @@ export class TravelTimeService {
     from: Location,
     to: Location,
     transportMode: TransportMode = "car",
-    arrivalTime?: Date
+    arrivalTime?: Date,
+    departureTime?: Date
   ): Promise<TravelMatrix> {
     const fromLat = from.lat.toString();
     const fromLng = from.lng.toString();
@@ -377,7 +403,8 @@ export class TravelTimeService {
     // For walker/public calls, include the date in the key so Saturday and Sunday (or
     // different arrival times on the same day) never share a cached result — TravelTime
     // uses day-specific timetables so cross-day reuse would return the wrong duration.
-    const dateTag = (arrivalTime && isNonCar) ? `-${arrivalTime.toISOString().slice(0, 10)}` : '';
+    const timeRef = arrivalTime || departureTime;
+    const dateTag = (timeRef && isNonCar) ? `-${timeRef.toISOString().slice(0, 10)}` : '';
     const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode) + dateTag;
     const sessHit = this._sessionCache.get(sKey);
     if (sessHit) {
@@ -433,11 +460,11 @@ export class TravelTimeService {
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
       const ttMode = this.toTravelTimeTransport(distKm);
-      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime);
+      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, undefined, departureTime);
       let usedMode = ttMode;
       if (!tt && ttMode === 'public_transport') {
         logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
-        tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, 'walking');
+        tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, 'walking', departureTime);
         usedMode = 'walking';
       }
       if (tt) {
