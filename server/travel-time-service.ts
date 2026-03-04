@@ -457,7 +457,7 @@ export class TravelTimeService {
     const timeTag = (timeRef && isNonCar) ? `-${timeRef.toISOString().slice(0, 16)}` : '';
     const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode) + timeTag;
     const sessHit = this._sessionCache.get(sKey);
-    if (sessHit) {
+    if (!isNonCar && sessHit) {
       return {
         fromLocation: from,
         toLocation: to,
@@ -520,7 +520,6 @@ export class TravelTimeService {
       if (tt) {
         logger.debug(`TravelTime single (${usedMode}, ${distKm.toFixed(2)}km): ${tt.durationMinutes} min`);
         this.trackSource('traveltime');
-        this._sessionCache.set(sKey, { durationMinutes: tt.durationMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'traveltime' });
         return {
           fromLocation: from,
           toLocation: to,
@@ -536,7 +535,6 @@ export class TravelTimeService {
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
       logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
       this.trackSource('heuristic');
-      this._sessionCache.set(sKey, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
       return {
         fromLocation: from,
         toLocation: to,
