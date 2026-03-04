@@ -37,6 +37,7 @@ interface AssignedVisit {
   lat?: number;
   lng?: number;
   travelTimeBefore: number;
+  travelTimeAfter?: number;
   score: number;
   travelWarning?: boolean;
 }
@@ -477,16 +478,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const homeLat = Number(empLoc.homeLat);
                 const homeLng = Number(empLoc.homeLng);
 
-                // Time tag must match what addPair builds: arrival pairs use `a${startTime}`,
-                // departure pairs use `d${endTime}`. lookupRefined is only called for arrival pairs.
+                // Arrival leg lookup: key uses `a${arrivalMin}`
                 const lookupRefined = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalMin: number): number | undefined => {
                   const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}-a${arrivalMin}`;
+                  return refinedMap.get(k);
+                };
+                // Departure leg lookup (visit→home for break or end-of-day): key uses `d${departureMin}`
+                const lookupRefinedDeparture = (fLat: number, fLng: number, tLat: number, tLng: number, departureMin: number): number | undefined => {
+                  const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}-d${departureMin}`;
                   return refinedMap.get(k);
                 };
 
                 refinedAssignments[date][empName] = (visits as AssignedVisit[]).map((visit, vIdx) => {
                   if (!visit.lat || !visit.lng) return visit;
                   const visitStartMin = timeToMinutes(visit.startTime);
+                  const visitEndMin = timeToMinutes(visit.endTime);
                   let newTravelTime: number;
                   if (vIdx === 0) {
                     newTravelTime = lookupRefined(homeLat, homeLng, visit.lat, visit.lng, visitStartMin)
@@ -501,9 +507,29 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     newTravelTime = lookupRefined(fromLat, fromLng, visit.lat, visit.lng, visitStartMin)
                       ?? getTravelMinutes({ lat: fromLat, lng: fromLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   }
+
+                  // Compute travelTimeAfter for departure legs (visit→home).
+                  // Used by the break and end-of-day display so each day shows its own
+                  // real time instead of a date-less cache value shared across all days.
+                  let travelTimeAfter: number | undefined;
+                  const isLastVisit = vIdx === visits.length - 1;
+                  if (visit.lat && visit.lng) {
+                    if (isLastVisit) {
+                      // End-of-day: last visit → home
+                      travelTimeAfter = lookupRefinedDeparture(visit.lat, visit.lng, homeLat, homeLng, visitEndMin);
+                    } else {
+                      const next = (visits as AssignedVisit[])[vIdx + 1];
+                      const gapToNext = timeToMinutes(next.startTime) - visitEndMin;
+                      if (gapToNext >= 90) {
+                        // Break: current visit → home (worker goes home during gap)
+                        travelTimeAfter = lookupRefinedDeparture(visit.lat, visit.lng, homeLat, homeLng, visitEndMin);
+                      }
+                    }
+                  }
+
                   const travelWarning = newTravelTime > 60; // 60-min cap for walker/public
                   if (travelWarning) warningCount++;
-                  return { ...visit, travelTimeBefore: newTravelTime, travelWarning };
+                  return { ...visit, travelTimeBefore: newTravelTime, travelTimeAfter, travelWarning };
                 });
               });
             });
@@ -973,8 +999,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         const currentEndMin = timeToMinutes(currentVisit.endTime);
                                         const nextStartMin = timeToMinutes(nextVisit.startTime);
 
-                                        // Travel from current visit to home
-                                        if (currentVisit.lat && currentVisit.lng) {
+                                        // Travel from current visit to home.
+                                        // Prefer the per-date refined value stored on the visit object —
+                                        // it is date-specific so Tuesday and Saturday show different times.
+                                        if (currentVisit.travelTimeAfter !== undefined) {
+                                          travelToHome = currentVisit.travelTimeAfter;
+                                        } else if (currentVisit.lat && currentVisit.lng) {
                                           travelToHome = displayTravelMinutes(
                                             { lat: currentVisit.lat, lng: currentVisit.lng },
                                             { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
@@ -1056,16 +1086,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                   const lastVisitEndMin = timeToMinutes(lastVisit.endTime);
 
-                                  travelToHome = getTravelMinutes(
-                                    { lat: lastVisit.lat, lng: lastVisit.lng },
-                                    { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
-                                    mode,
-                                    lastVisitEndMin
-                                  );
-                                  // Fallback to haversine for display if API cache is empty
-                                  if (travelToHome >= 999) {
-                                    const dist = haversineDistance({ lat: lastVisit.lat, lng: lastVisit.lng }, { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) });
-                                    travelToHome = calculateTravelTime(dist, mode, lastVisitEndMin);
+                                  // Prefer the per-date refined value — avoids the date-less cache
+                                  // where Saturday and Sunday would overwrite each other.
+                                  if (lastVisit.travelTimeAfter !== undefined) {
+                                    travelToHome = lastVisit.travelTimeAfter;
+                                  } else {
+                                    travelToHome = getTravelMinutes(
+                                      { lat: lastVisit.lat, lng: lastVisit.lng },
+                                      { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
+                                      mode,
+                                      lastVisitEndMin
+                                    );
+                                    // Fallback to haversine for display if API cache is empty
+                                    if (travelToHome >= 999) {
+                                      const dist = haversineDistance({ lat: lastVisit.lat, lng: lastVisit.lng }, { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) });
+                                      travelToHome = calculateTravelTime(dist, mode, lastVisitEndMin);
+                                    }
                                   }
                                 }
 
