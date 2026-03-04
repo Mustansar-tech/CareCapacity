@@ -1475,14 +1475,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hh = arrivalTime ? String(arrivalTime.getUTCHours()).padStart(2, '0') : '--';
         const mm = arrivalTime ? String(arrivalTime.getUTCMinutes()).padStart(2, '0') : '--';
         const isoStr = arrivalTime ? arrivalTime.toISOString() : 'now';
-        logger.info(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${normalizedMode}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
+
+        // Compute Haversine distance to determine the actual TravelTime transport type.
+        // This mirrors toTravelTimeTransport() in the service: ≤1.6km → walking, >1.6km → public_transport.
+        const R = 6371;
+        const dLat = (pair.toLat - pair.fromLat) * Math.PI / 180;
+        const dLng = (pair.toLng - pair.fromLng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(pair.fromLat * Math.PI / 180) * Math.cos(pair.toLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        const pairDistKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const ttType = normalizedMode === 'car' ? 'driving' : (pairDistKm <= 1.6 ? 'walking' : 'public_transport');
+
+        logger.info(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${pairDistKm.toFixed(2)}km → TT:${ttType}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
 
         try {
           const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
           if (result) {
             // Key includes visitDate so the frontend can look up by date — matches the client-side refinedMap key
             const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
-            logger.info(`[Refine Walker] ↳ ${result.travelTimeMinutes}min via ${result.source || 'traveltime'}`);
+            logger.info(`[Refine Walker] ↳ ${result.travelTimeMinutes}min via ${result.source || 'traveltime'} (TT transport: ${ttType})`);
             results.push({
               key,
               fromLat: pair.fromLat,
@@ -1544,9 +1554,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dayOfWeek = arrivalTime ? dayNames[arrivalTime.getUTCDay()] : null;
       const bstActive = arrivalTime ? isUkBst(arrivalTime) : false;
 
-      const distKm = Math.sqrt((toLat - fromLat) ** 2 + (toLng - fromLng) ** 2) * 111;
+      const R2 = 6371;
+      const dLat2 = (toLat - fromLat) * Math.PI / 180;
+      const dLng2 = (toLng - fromLng) * Math.PI / 180;
+      const a2 = Math.sin(dLat2 / 2) ** 2 + Math.cos(fromLat * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) * Math.sin(dLng2 / 2) ** 2;
+      const distKm = R2 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2));
       const ttTransportType = normalizedMode === 'car' ? 'driving' :
-        distKm < 1.6 ? 'walking' : 'public_transport';
+        distKm <= 1.6 ? 'walking' : 'public_transport';
 
       const requestBody = {
         locations: [
@@ -1571,10 +1585,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isoTimestamp,
         dayOfWeek,
         bstActive,
+        distanceKm: Math.round(distKm * 100) / 100,
         transportMode: ttTransportType,
         durationMinutes: result?.travelTimeMinutes ?? null,
         source: result?.source ?? null,
-        note: 'Paste isoTimestamp and coordinates into app.traveltimeplatform.com to verify',
+        note: 'Paste isoTimestamp and coordinates into app.traveltimeplatform.com/api-playground/routes to verify',
       });
     } catch (error) {
       logger.error('Error in travel-times/debug-single:', error);
