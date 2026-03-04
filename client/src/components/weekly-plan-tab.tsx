@@ -326,8 +326,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (vIdx === 0 || !visit.lat || !visit.lng) return visit;
             const prev = (visits as AssignedVisit[])[vIdx - 1];
             const gapMin = timeToMinutes(visit.startTime) - timeToMinutes(prev.endTime);
-            if (gapMin <= 90) return visit;
-            // Gap > 90 min → worker returns home → use home→client ORS time
+            if (gapMin < 90) return visit;
+            // Gap >= 90 min → worker returns home → use home→client ORS time
             const homeToClient = getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, 'car');
             return { ...visit, travelTimeBefore: homeToClient };
           });
@@ -393,17 +393,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (vIdx < visits.length - 1) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
               if (next.lat && next.lng) {
-                // If the gap between visits exceeds 90 minutes the worker has returned home
+                // If the gap between visits is 90 minutes or more the worker returns home
                 // during the break — use the home address as the departure point, not the
-                // previous client's address.
+                // previous client's address. Threshold matches scheduling-engine.ts (>= 90).
                 const gapMin = timeToMinutes(next.startTime) - timeToMinutes(visit.endTime);
-                const fromLat = gapMin > 90 ? homeLat : visit.lat;
-                const fromLng = gapMin > 90 ? homeLng : visit.lng;
-                const fromPostcode = gapMin > 90 ? homePostcode : visit.postcode;
+                const fromLat = gapMin >= 90 ? homeLat : visit.lat;
+                const fromLng = gapMin >= 90 ? homeLng : visit.lng;
+                const fromPostcode = gapMin >= 90 ? homePostcode : visit.postcode;
                 addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime), fromPostcode, next.postcode);
                 // When there's a 90+ min break, the worker travels from the current visit back
                 // home — depart_by = visit end time (the worker leaves as soon as the visit ends).
-                if (gapMin > 90 && visit.lat && visit.lng) {
+                if (gapMin >= 90 && visit.lat && visit.lng) {
                   addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode, timeToMinutes(visit.endTime));
                 }
               }
@@ -498,11 +498,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       ?? getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   } else {
                     const prev = (visits as AssignedVisit[])[vIdx - 1];
-                    // If the gap between visits exceeds 90 minutes the worker has returned home —
-                    // look up home→current (matches how the pair was built above), not prev→current.
+                    // If the gap is 90 minutes or more the worker has returned home —
+                    // look up home→current (matches addPair threshold above), not prev→current.
                     const gapMin = visitStartMin - timeToMinutes(prev.endTime);
-                    const fromLat = gapMin > 90 ? homeLat : (prev.lat ?? homeLat);
-                    const fromLng = gapMin > 90 ? homeLng : (prev.lng ?? homeLng);
+                    const fromLat = gapMin >= 90 ? homeLat : (prev.lat ?? homeLat);
+                    const fromLng = gapMin >= 90 ? homeLng : (prev.lng ?? homeLng);
                     newTravelTime = lookupRefined(fromLat, fromLng, visit.lat, visit.lng, visitStartMin)
                       ?? getTravelMinutes({ lat: fromLat, lng: fromLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   }
