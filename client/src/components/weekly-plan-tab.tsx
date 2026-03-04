@@ -994,7 +994,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         travelFromHome = nextVisit.travelTimeBefore ?? 0;
                                       }
 
-                                      const breakTime = gapMinutes - travelToHome - travelFromHome;
+                                      const breakTime = Math.max(0, gapMinutes - travelToHome - travelFromHome);
 
                                       return (
                                         <div className="flex items-center gap-2">
