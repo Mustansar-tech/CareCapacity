@@ -307,8 +307,39 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       return typedResult;
     },
     onSuccess: async (result) => {
-      // Show the schedule immediately with Haversine estimates while walker routes are refined
-      setWeeklySchedule(result);
+      // ── Phase 1.5: Post-break home-departure correction (car employees) ──
+      // The scheduling engine always uses prev_client → current_client for travelTimeBefore.
+      // For visits separated by more than 90 minutes (a break where the worker goes home),
+      // the realistic journey is home → current_client. The ORS Matrix already has this pair
+      // in the client-side travel cache — so no extra API calls are needed.
+      const correctedAssignments = { ...result.assignments };
+      Object.entries(result.assignments).forEach(([date, dayAssignments]) => {
+        Object.entries(dayAssignments).forEach(([empName, visits]) => {
+          const empLoc = employeeLocationMap.get(empName);
+          if (!empLoc?.homeLat || !empLoc?.homeLng) return;
+          const rawMode = (empLoc.transportMode || 'car').toLowerCase();
+          if (rawMode !== 'car') return; // walkers handled in Phase 2
+          const homeLat = Number(empLoc.homeLat);
+          const homeLng = Number(empLoc.homeLng);
+
+          const correctedVisits = (visits as AssignedVisit[]).map((visit, vIdx) => {
+            if (vIdx === 0 || !visit.lat || !visit.lng) return visit;
+            const prev = (visits as AssignedVisit[])[vIdx - 1];
+            const gapMin = timeToMinutes(visit.startTime) - timeToMinutes(prev.endTime);
+            if (gapMin <= 90) return visit;
+            // Gap > 90 min → worker returns home → use home→client ORS time
+            const homeToClient = getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, 'car');
+            return { ...visit, travelTimeBefore: homeToClient };
+          });
+
+          if (!correctedAssignments[date]) correctedAssignments[date] = {};
+          correctedAssignments[date][empName] = correctedVisits;
+        });
+      });
+      const correctedResult = { ...result, assignments: correctedAssignments };
+
+      // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
+      setWeeklySchedule(correctedResult);
 
       // ── Phase 2: Refine walker/public routes with real TravelTime API ──
       // Collect only the routes that were actually assigned to walker/public employees.
@@ -317,7 +348,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // weekend bus timetables differ from weekday ones and must not be deduplicated together.
       const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate: string }>();
 
-      Object.entries(result.assignments).forEach(([date, dayAssignments]) => {
+      Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
         Object.entries(dayAssignments).forEach(([empName, visits]) => {
           const empLoc = employeeLocationMap.get(empName);
           if (!empLoc?.homeLat || !empLoc?.homeLng) return;
@@ -355,7 +386,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         });
       });
 
-      let finalResult = result;
+      let finalResult = correctedResult;
 
       if (walkerPairMap.size > 0) {
         setIsRefiningWalkers(true);
@@ -392,11 +423,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             }
 
             // Recompute travelTimeBefore for each walker/public visit using the date-keyed refined results.
+            // Start from correctedResult so car employee break corrections (Phase 1.5) are preserved.
             // Falls back to getTravelMinutes (Haversine) if a pair was not in the refine response.
             const refinedAssignments: typeof result.assignments = {};
             let warningCount = 0;
 
-            Object.entries(result.assignments).forEach(([date, dayAssignments]) => {
+            Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
               refinedAssignments[date] = {};
               Object.entries(dayAssignments).forEach(([empName, visits]) => {
                 const empLoc = employeeLocationMap.get(empName);
@@ -441,7 +473,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               });
             });
 
-            finalResult = { ...result, assignments: refinedAssignments };
+            finalResult = { ...correctedResult, assignments: refinedAssignments };
             setWeeklySchedule(finalResult);
 
             toast({
