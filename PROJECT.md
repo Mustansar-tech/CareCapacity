@@ -340,4 +340,3 @@ Every database query is scoped to the active `branchId`. The `BranchContext` pro
 | `TRAVEL_COMPRESSION_ALLOWANCE` | 0 | `scheduling-engine.ts` | No time compression — strict gaps |
 | `WALK_THRESHOLD_KM` | 1.6 | `travel-time-service.ts` | Walking vs public transport switch |
 | ORS batch size | 50 | `travel-time-service.ts` | Max locations per ORS Matrix call |
-| Walker refinement delay | 400ms | `routes.ts` | Between-call delay for TravelTime rate limits |

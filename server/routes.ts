@@ -1469,8 +1469,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           logger.warn(`[Refine Walker] Failed for pair ${pair.fromLat},${pair.fromLng} → ${pair.toLat},${pair.toLng}: ${err}`);
         }
 
-        // Sequential with small delay to respect TravelTime rate limits
-        await new Promise(resolve => setTimeout(resolve, 400));
       }
 
       logger.info(`[Refine Walker] Complete: ${ttCount} via TravelTime, ${heuristicCount} via heuristic, ${pairs.length - results.length} failed`);
