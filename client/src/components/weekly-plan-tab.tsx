@@ -89,6 +89,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
 
+  // Client name → postcode lookup — used when building walker TravelTime pairs so the
+  // server can geocode destinations via TravelTime's own API (matching playground coordinates)
+  const clientPostcodeMap = new Map<string, string>(
+    (locationsData?.clients || [])
+      .filter(cl => cl.postcode)
+      .map(cl => [cl.clientName, cl.postcode as string])
+  );
+
   // Fetch visits for each day of the week
   const visitQueries = weekDates.map(date => 
     useQuery<ClientVisit[]>({
@@ -389,7 +397,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
             const homePostcode = empLoc.homePostcode || empLoc.postcode || '';
 
-            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime), homePostcode, visit.postcode);
+            const visitPostcode = clientPostcodeMap.get(visit.clientName);
+            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime), homePostcode, visitPostcode);
             if (vIdx < visits.length - 1) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
               if (next.lat && next.lng) {
@@ -399,17 +408,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const gapMin = timeToMinutes(next.startTime) - timeToMinutes(visit.endTime);
                 const fromLat = gapMin >= 90 ? homeLat : visit.lat;
                 const fromLng = gapMin >= 90 ? homeLng : visit.lng;
-                const fromPostcode = gapMin >= 90 ? homePostcode : visit.postcode;
-                addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime), fromPostcode, next.postcode);
+                const fromPostcode = gapMin >= 90 ? homePostcode : visitPostcode;
+                const nextPostcode = clientPostcodeMap.get(next.clientName);
+                addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime), fromPostcode, nextPostcode);
                 // When there's a 90+ min break, the worker travels from the current visit back
                 // home — depart_by = visit end time (the worker leaves as soon as the visit ends).
                 if (gapMin >= 90 && visit.lat && visit.lng) {
-                  addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode, timeToMinutes(visit.endTime));
+                  addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visitPostcode, homePostcode, timeToMinutes(visit.endTime));
                 }
               }
             }
             // Return home at end of day — depart_by = last visit end time.
-            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode, timeToMinutes(visit.endTime));
+            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visitPostcode, homePostcode, timeToMinutes(visit.endTime));
           });
         });
       });
