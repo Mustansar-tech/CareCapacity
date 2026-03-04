@@ -39,7 +39,6 @@ interface AssignedVisit {
   travelTimeBefore: number;
   travelTimeAfter?: number;
   score: number;
-  travelWarning?: boolean;
 }
 
 interface WeeklyScheduleData {
@@ -456,10 +455,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             }
 
             // Recompute travelTimeBefore for each walker/public visit using the date-keyed refined results.
+            // Any visit whose real travel time exceeds the 60-min walker cap is moved to unallocated.
             // Start from correctedResult so car employee break corrections (Phase 1.5) are preserved.
-            // Falls back to getTravelMinutes (Haversine) if a pair was not in the refine response.
+            const WALKER_TRAVEL_CAP = 60;
             const refinedAssignments: typeof result.assignments = {};
-            let warningCount = 0;
+            const newlyUnallocated: Array<ClientVisit & { unallocatedReason: string }> = [];
 
             Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
               refinedAssignments[date] = {};
@@ -489,10 +489,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   return refinedMap.get(k);
                 };
 
-                refinedAssignments[date][empName] = (visits as AssignedVisit[]).map((visit, vIdx) => {
-                  if (!visit.lat || !visit.lng) return visit;
+                const kept: AssignedVisit[] = [];
+                (visits as AssignedVisit[]).forEach((visit, vIdx) => {
+                  if (!visit.lat || !visit.lng) { kept.push(visit); return; }
                   const visitStartMin = timeToMinutes(visit.startTime);
                   const visitEndMin = timeToMinutes(visit.endTime);
+
                   let newTravelTime: number;
                   if (vIdx === 0) {
                     newTravelTime = lookupRefined(homeLat, homeLng, visit.lat, visit.lng, visitStartMin)
@@ -508,38 +510,55 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       ?? getTravelMinutes({ lat: fromLat, lng: fromLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   }
 
+                  // Move to unallocated if real travel time exceeds the 60-min walker cap.
+                  if (newTravelTime > WALKER_TRAVEL_CAP) {
+                    newlyUnallocated.push({
+                      id: visit.id,
+                      clientName: visit.clientName,
+                      startTime: visit.startTime,
+                      endTime: visit.endTime,
+                      durationMinutes: visit.durationMinutes,
+                      date,
+                      lat: visit.lat,
+                      lng: visit.lng,
+                      unallocatedReason: `Walker/public travel ${newTravelTime}min exceeds 60-min cap`,
+                    });
+                    return;
+                  }
+
                   // Compute travelTimeAfter for departure legs (visit→home).
                   // Used by the break and end-of-day display so each day shows its own
                   // real time instead of a date-less cache value shared across all days.
                   let travelTimeAfter: number | undefined;
                   const isLastVisit = vIdx === visits.length - 1;
-                  if (visit.lat && visit.lng) {
-                    if (isLastVisit) {
-                      // End-of-day: last visit → home
+                  if (isLastVisit) {
+                    travelTimeAfter = lookupRefinedDeparture(visit.lat, visit.lng, homeLat, homeLng, visitEndMin);
+                  } else {
+                    const next = (visits as AssignedVisit[])[vIdx + 1];
+                    const gapToNext = timeToMinutes(next.startTime) - visitEndMin;
+                    if (gapToNext >= 90) {
                       travelTimeAfter = lookupRefinedDeparture(visit.lat, visit.lng, homeLat, homeLng, visitEndMin);
-                    } else {
-                      const next = (visits as AssignedVisit[])[vIdx + 1];
-                      const gapToNext = timeToMinutes(next.startTime) - visitEndMin;
-                      if (gapToNext >= 90) {
-                        // Break: current visit → home (worker goes home during gap)
-                        travelTimeAfter = lookupRefinedDeparture(visit.lat, visit.lng, homeLat, homeLng, visitEndMin);
-                      }
                     }
                   }
 
-                  const travelWarning = newTravelTime > 60; // 60-min cap for walker/public
-                  if (travelWarning) warningCount++;
-                  return { ...visit, travelTimeBefore: newTravelTime, travelTimeAfter, travelWarning };
+                  kept.push({ ...visit, travelTimeBefore: newTravelTime, travelTimeAfter });
                 });
+
+                refinedAssignments[date][empName] = kept;
               });
             });
 
-            finalResult = { ...correctedResult, assignments: refinedAssignments };
+            const unallocatedCount = newlyUnallocated.length;
+            finalResult = {
+              ...correctedResult,
+              assignments: refinedAssignments,
+              unallocated: [...correctedResult.unallocated, ...newlyUnallocated],
+            };
             setWeeklySchedule(finalResult);
 
             toast({
               title: "Walker Routes Verified",
-              description: `${refineData.stats?.traveltime || 0} routes via TravelTime${warningCount > 0 ? `, ${warningCount} flagged as slow` : ''}`,
+              description: `${refineData.stats?.traveltime || 0} routes via TravelTime${unallocatedCount > 0 ? `, ${unallocatedCount} moved to unallocated (travel > 60min)` : ''}`,
             });
           }
         } catch (refineError) {
@@ -936,7 +955,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 <div key={vIndex} className="flex items-center gap-2">
                                   {/* Visit Card - Compact Size */}
                                   <div 
-                                    className={`bg-white dark:bg-gray-800 border rounded-lg p-2 hover:shadow-md transition-shadow ${visit.travelWarning ? 'border-amber-400 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700'}`}
+                                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
                                     data-testid={`card-visit-${date}-${vIndex}`}
                                   >
                                     <div className="space-y-1">
@@ -947,11 +966,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                         <Clock className="h-3 w-3" />
                                         {visit.startTime} - {visit.endTime}
                                       </div>
-                                      {visit.travelWarning && (
-                                        <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                                          ⚠ Long travel
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
 
