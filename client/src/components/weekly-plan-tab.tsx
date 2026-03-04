@@ -459,7 +459,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             // Start from correctedResult so car employee break corrections (Phase 1.5) are preserved.
             const WALKER_TRAVEL_CAP = 60;
             const refinedAssignments: typeof result.assignments = {};
-            const newlyUnallocated: Array<ClientVisit & { unallocatedReason: string }> = [];
+            let newlyUnallocated: Array<ClientVisit & { unallocatedReason: string }> = [];
 
             Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
               refinedAssignments[date] = {};
@@ -564,6 +564,89 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               });
             });
 
+            // ── Car-employee rescue pass ──────────────────────────────────────────────────
+            // Visits just moved to unallocated (walker travel > 60min) may fit into a car
+            // employee's existing schedule. The ORS matrix is already in the client-side
+            // cache — no extra API calls needed. For each unallocated visit, find the car
+            // employee with the smallest travel overhead who has a feasible gap.
+            if (newlyUnallocated.length > 0) {
+              const rescuedIds = new Set<string>();
+
+              for (const visit of newlyUnallocated) {
+                if (!visit.lat || !visit.lng || !visit.date) continue;
+                const visitStartMin = timeToMinutes(visit.startTime);
+                const visitEndMin   = timeToMinutes(visit.endTime);
+
+                let bestEmp: string | null = null;
+                let bestIdx = -1;
+                let bestTravelBefore = 0;
+                let bestTravelTotal  = Infinity;
+
+                for (const [empName, empVisits] of Object.entries(refinedAssignments[visit.date] || {}) as [string, AssignedVisit[]][]) {
+                  const empLoc = employeeLocationMap.get(empName);
+                  if (empLoc?.transportMode !== 'car') continue;
+                  if (!empLoc.homeLat || !empLoc.homeLng) continue;
+
+                  const sorted = [...empVisits].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+                  for (let i = 0; i <= sorted.length; i++) {
+                    const prev = i > 0 ? sorted[i - 1] : null;
+                    const next = i < sorted.length ? sorted[i] : null;
+
+                    const prevEndMin = prev ? timeToMinutes(prev.endTime) : 0;
+                    const fromLat   = prev?.lat  ?? Number(empLoc.homeLat);
+                    const fromLng   = prev?.lng  ?? Number(empLoc.homeLng);
+
+                    const tBefore = getTravelMinutes({ lat: fromLat, lng: fromLng }, { lat: visit.lat!, lng: visit.lng! }, 'car');
+                    if (tBefore >= 9999) continue;
+                    if (prevEndMin + tBefore > visitStartMin) continue;
+
+                    let tAfter = 0;
+                    if (next) {
+                      tAfter = getTravelMinutes({ lat: visit.lat!, lng: visit.lng! }, { lat: next.lat!, lng: next.lng! }, 'car');
+                      if (tAfter >= 9999) continue;
+                      if (visitEndMin + tAfter > timeToMinutes(next.startTime)) continue;
+                    }
+
+                    const totalTravel = tBefore + tAfter;
+                    if (totalTravel < bestTravelTotal) {
+                      bestTravelTotal  = totalTravel;
+                      bestTravelBefore = tBefore;
+                      bestEmp          = empName;
+                      bestIdx          = i;
+                    }
+                  }
+                }
+
+                if (bestEmp !== null) {
+                  const rescuedVisit: AssignedVisit = {
+                    id:              visit.id,
+                    clientName:      visit.clientName,
+                    startTime:       visit.startTime,
+                    endTime:         visit.endTime,
+                    durationMinutes: visit.durationMinutes,
+                    lat:             visit.lat,
+                    lng:             visit.lng,
+                    travelTimeBefore: bestTravelBefore,
+                    score:            0,
+                  };
+                  const sorted = [...(refinedAssignments[visit.date][bestEmp] || [])].sort(
+                    (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+                  );
+                  sorted.splice(bestIdx, 0, rescuedVisit);
+                  refinedAssignments[visit.date][bestEmp] = sorted;
+                  rescuedIds.add(visit.id);
+                  clientLogger.log(`🚗 Rescued ${visit.clientName} (${visit.date} ${visit.startTime}) → ${bestEmp}`);
+                }
+              }
+
+              if (rescuedIds.size > 0) {
+                newlyUnallocated = newlyUnallocated.filter(v => !rescuedIds.has(v.id));
+                clientLogger.log(`🚗 Car rescue: ${rescuedIds.size} visit(s) reassigned to car employees`);
+              }
+            }
+            // ─────────────────────────────────────────────────────────────────────────────
+
             const unallocatedCount = newlyUnallocated.length;
             finalResult = {
               ...correctedResult,
@@ -574,7 +657,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
             toast({
               title: "Walker Routes Verified",
-              description: `${refineData.stats?.traveltime || 0} routes via TravelTime${unallocatedCount > 0 ? `, ${unallocatedCount} moved to unallocated (travel > 60min)` : ''}`,
+              description: `${refineData.stats?.traveltime || 0} routes via TravelTime${unallocatedCount > 0 ? `, ${unallocatedCount} still unallocated` : ''}`,
             });
           }
         } catch (refineError) {
