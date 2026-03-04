@@ -1,5 +1,6 @@
 import { logger } from './logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
+import { travelTimeService } from './travel-time-service';
 
 export interface ClientEnquiryCriteria {
   clientName: string;
@@ -30,6 +31,7 @@ export interface MatchedEmployee {
   gender?: string;
   transportMode?: string;
   homePostcode?: string;
+  travelMinutes?: number;
   contractedWeeklyHours: number;
   totalScheduledHours: number;
   remainingCapacity: number;
@@ -362,9 +364,10 @@ function matchEmployeesForVisit(
   dates: string[],
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
   allEmployeeNames: Set<string>,
-  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homeLat?: number; homeLng?: number }>,
+  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homePostcode?: string; homeLat?: number; homeLng?: number }>,
   topN: number = 50,
-  clientLocation?: { lat: number; lng: number }
+  clientLocation?: { lat: number; lng: number },
+  travelTimeMap?: Map<string, number>
 ): MatchedEmployee[] {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
@@ -523,16 +526,32 @@ function matchEmployeesForVisit(
     const capacityBonus = Math.min(20, remainingCapacity * 2);
 
     let transportBonus = 0;
-    if (weeklyData.transportMode?.toLowerCase() === 'car' || weeklyData.transportMode?.toLowerCase() === 'driver') {
+    const isCar = weeklyData.transportMode?.toLowerCase() === 'car' || weeklyData.transportMode?.toLowerCase() === 'driver';
+    if (isCar) {
       transportBonus = 15;
     }
 
+    // Use real travel time from API map when available, otherwise fall back to straight-line estimate
     let travelBonus = 0;
-    if (clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
+    let travelMinutes: number | undefined;
+
+    if (travelTimeMap && travelTimeMap.has(empName)) {
+      const mins = travelTimeMap.get(empName)!;
+      travelMinutes = mins;
+      // Hard filter: car CPs >45 min, walker/public CPs >60 min
+      const maxAllowed = isCar ? 45 : 60;
+      if (mins > maxAllowed) continue;
+      // Score based on real travel time bands
+      if (mins <= 20) travelBonus = 15;
+      else if (mins <= 30) travelBonus = 10;
+      else if (mins <= 45) travelBonus = 5;
+      else travelBonus = 0;
+    } else if (clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
+      // Fallback to straight-line estimate when API result not available
       const latDiff = clientLocation.lat - weeklyData.homeLat;
       const lngDiff = clientLocation.lng - weeklyData.homeLng;
       const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
-      travelBonus = Math.max(0, 15 - (distance * 100)); 
+      travelBonus = Math.max(0, 15 - (distance * 100));
     }
 
     const finalScore = Math.round((avgScore * 0.35 + dayMatchRatio * 100 * 0.35 + capacityBonus * 0.1 + transportBonus * 0.1 + travelBonus * 0.1) * 100) / 100;
@@ -551,6 +570,7 @@ function matchEmployeesForVisit(
       gender: weeklyData.gender,
       transportMode: weeklyData.transportMode,
       homePostcode: weeklyData.homePostcode,
+      travelMinutes,
       contractedWeeklyHours: weeklyData.contractedWeekly,
       totalScheduledHours: weeklyData.totalScheduled,
       remainingCapacity,
@@ -566,6 +586,37 @@ function matchEmployeesForVisit(
   });
 
   return candidates.slice(0, topN);
+}
+
+async function buildTravelTimeMap(
+  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homeLat?: number; homeLng?: number }>,
+  clientCoords: { lat: number; lng: number },
+  branchId: string
+): Promise<Map<string, number>> {
+  const travelTimeMap = new Map<string, number>();
+  const entries = Array.from(employeeWeeklyData.entries());
+
+  const results = await Promise.allSettled(
+    entries.map(async ([empName, data]) => {
+      if (!data.homeLat || !data.homeLng) return;
+      const isCar = data.transportMode?.toLowerCase() === 'car' || data.transportMode?.toLowerCase() === 'driver';
+      const mode = isCar ? 'car' : (data.transportMode?.toLowerCase() === 'walking' ? 'walking' : 'public_transport');
+      try {
+        const from = { lat: data.homeLat, lng: data.homeLng };
+        const to = { lat: clientCoords.lat, lng: clientCoords.lng };
+        const result = await travelTimeService.calculateTravelTime(branchId, from, to, mode as any);
+        if (result && result.travelTimeMinutes < 9999) {
+          travelTimeMap.set(empName, Math.round(result.travelTimeMinutes));
+        }
+      } catch (err) {
+        logger.debug(`BD Matcher: travel time lookup failed for ${empName}: ${err}`);
+      }
+    })
+  );
+
+  const succeeded = results.filter(r => r.status === 'fulfilled').length;
+  logger.debug(`BD Matcher: travel time computed for ${succeeded}/${entries.length} CPs`);
+  return travelTimeMap;
 }
 
 export async function matchClientEnquiry(
@@ -609,6 +660,15 @@ export async function matchClientEnquiry(
     }
   }
 
+  let travelTimeMap: Map<string, number> | undefined;
+  if (branchId && clientCoords) {
+    try {
+      travelTimeMap = await buildTravelTimeMap(employeeWeeklyData, clientCoords, branchId);
+    } catch (err) {
+      logger.warn(`BD Matcher: travel time pre-computation failed, falling back to straight-line: ${err}`);
+    }
+  }
+
   const matches = matchEmployeesForVisit(
     criteria.genderPreference || 'any',
     criteria.requiredDays,
@@ -618,7 +678,8 @@ export async function matchClientEnquiry(
     allEmployeeNames,
     employeeWeeklyData,
     200,
-    clientCoords
+    clientCoords,
+    travelTimeMap
   );
 
   logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
@@ -683,6 +744,15 @@ export async function matchMultiVisitEnquiry(
     }
   }
 
+  let travelTimeMap: Map<string, number> | undefined;
+  if (branchId && clientCoords) {
+    try {
+      travelTimeMap = await buildTravelTimeMap(employeeWeeklyData, clientCoords, branchId);
+    } catch (err) {
+      logger.warn(`BD Multi-Visit Matcher: travel time pre-computation failed, falling back to straight-line: ${err}`);
+    }
+  }
+
   const visitResults: VisitMatchResult[] = [];
 
   for (let i = 0; i < criteria.visits.length; i++) {
@@ -706,7 +776,8 @@ export async function matchMultiVisitEnquiry(
         filteredNames,
         employeeWeeklyData,
         50, // Increase topN for multi-visit matches
-        clientCoords
+        clientCoords,
+        travelTimeMap
       );
 
       if (matches.length > 0) {
@@ -723,7 +794,8 @@ export async function matchMultiVisitEnquiry(
       allEmployeeNames,
       employeeWeeklyData,
       200, // Include all possible candidates regardless of day coverage
-      clientCoords
+      clientCoords,
+      travelTimeMap
     );
 
     const dedupedMatches: MatchedEmployee[] = [];

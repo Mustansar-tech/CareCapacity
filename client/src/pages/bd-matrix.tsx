@@ -169,6 +169,8 @@ interface MatchedEmployee {
   matchScore: number;
   gender?: string;
   transportMode?: string;
+  homePostcode?: string;
+  travelMinutes?: number;
   contractedWeeklyHours: number;
   totalScheduledHours: number;
   remainingCapacity: number;
@@ -832,6 +834,12 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
                                             {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
                                           </div>
                                         </div>
+                                        {employeeMatch.travelMinutes !== undefined && (
+                                          <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${employeeMatch.travelMinutes <= 20 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : employeeMatch.travelMinutes <= 35 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
+                                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
+                                            ~{employeeMatch.travelMinutes} min {(employeeMatch.transportMode?.toLowerCase() === 'car' || employeeMatch.transportMode?.toLowerCase() === 'driver') ? 'drive' : employeeMatch.transportMode?.toLowerCase() === 'walking' ? 'walk' : 'travel'}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })
