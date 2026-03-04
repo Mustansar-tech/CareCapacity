@@ -769,7 +769,7 @@ export class TravelTimeService {
    * @param skipSameCoords When true, skips entries where source and destination coords are identical.
    * Returns count of new entries stored.
    */
-  private async orsMatrixBatch(
+  async orsMatrixBatch(
     sources: Array<{ lat: number; lng: number; id?: string }>,
     destinations: Array<{ lat: number; lng: number; id?: string }>,
     skipSameCoords = false

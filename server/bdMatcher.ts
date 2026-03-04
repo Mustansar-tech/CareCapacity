@@ -589,33 +589,67 @@ function matchEmployeesForVisit(
 }
 
 async function buildTravelTimeMap(
-  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homeLat?: number; homeLng?: number }>,
+  employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homePostcode?: string; homeLat?: number; homeLng?: number }>,
   clientCoords: { lat: number; lng: number },
   branchId: string
 ): Promise<Map<string, number>> {
   const travelTimeMap = new Map<string, number>();
-  const entries = Array.from(employeeWeeklyData.entries());
 
-  const results = await Promise.allSettled(
-    entries.map(async ([empName, data]) => {
-      if (!data.homeLat || !data.homeLng) return;
-      const isCar = data.transportMode?.toLowerCase() === 'car' || data.transportMode?.toLowerCase() === 'driver';
-      const mode = isCar ? 'car' : (data.transportMode?.toLowerCase() === 'walking' ? 'walking' : 'public_transport');
-      try {
-        const from = { lat: data.homeLat, lng: data.homeLng };
-        const to = { lat: clientCoords.lat, lng: clientCoords.lng };
-        const result = await travelTimeService.calculateTravelTime(branchId, from, to, mode as any);
-        if (result && result.travelTimeMinutes < 9999) {
-          travelTimeMap.set(empName, Math.round(result.travelTimeMinutes));
+  // Separate CPs with known coordinates into car and walker/public groups
+  const carCPs: Array<[string, { lat: number; lng: number }]> = [];
+  const nonCarCPs: Array<[string, { lat: number; lng: number }, string]> = [];
+
+  for (const [empName, data] of Array.from(employeeWeeklyData.entries())) {
+    if (!data.homeLat || !data.homeLng) continue;
+    const isCar = data.transportMode?.toLowerCase() === 'car' || data.transportMode?.toLowerCase() === 'driver';
+    const coords = { lat: data.homeLat, lng: data.homeLng };
+    if (isCar) {
+      carCPs.push([empName, coords]);
+    } else {
+      const mode = data.transportMode?.toLowerCase() === 'walking' ? 'walking' : 'public_transport';
+      nonCarCPs.push([empName, coords, mode]);
+    }
+  }
+
+  // Car CPs: use ORS Matrix (single batch request for all car CPs → one destination)
+  // This avoids individual API calls and stays well within ORS rate limits
+  if (carCPs.length > 0) {
+    try {
+      const sources = carCPs.map(([, coords]) => coords);
+      const destinations = [clientCoords];
+      await travelTimeService.orsMatrixBatch(sources, destinations);
+      // Read results via calculateTravelTime — they will be cache hits now
+      for (const [empName, coords] of carCPs) {
+        try {
+          const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, 'car');
+          if (result && result.travelTimeMinutes < 9999) {
+            travelTimeMap.set(empName, Math.round(result.travelTimeMinutes));
+          }
+        } catch (err) {
+          logger.debug(`BD Matcher: car cache read failed for ${empName}: ${err}`);
         }
-      } catch (err) {
-        logger.debug(`BD Matcher: travel time lookup failed for ${empName}: ${err}`);
       }
-    })
-  );
+      logger.debug(`BD Matcher: ORS Matrix batch computed ${carCPs.length} car routes → ${travelTimeMap.size} results`);
+    } catch (err) {
+      logger.warn(`BD Matcher: ORS Matrix batch failed, car CPs will use straight-line fallback: ${err}`);
+    }
+  }
 
-  const succeeded = results.filter(r => r.status === 'fulfilled').length;
-  logger.debug(`BD Matcher: travel time computed for ${succeeded}/${entries.length} CPs`);
+  // Walker/public CPs: process sequentially with small delays to respect TravelTime API rate limits
+  for (const [empName, coords, mode] of nonCarCPs) {
+    try {
+      const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, mode as any);
+      if (result && result.travelTimeMinutes < 9999) {
+        travelTimeMap.set(empName, Math.round(result.travelTimeMinutes));
+      }
+    } catch (err) {
+      logger.debug(`BD Matcher: walker travel time failed for ${empName}: ${err}`);
+    }
+    // 150ms delay between walker calls to stay within TravelTime API rate limits
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+
+  logger.debug(`BD Matcher: travel time complete — ${travelTimeMap.size} total (${carCPs.length} car via matrix, ${nonCarCPs.length} walker/public sequential)`);
   return travelTimeMap;
 }
 
