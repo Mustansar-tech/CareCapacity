@@ -117,6 +117,35 @@ function normalizeFileName(fileName: string): string {
   return fileName.replace(/\s*\(\d+\)/g, '');
 }
 
+// Returns the last Sunday of a given month at 01:00 UTC (the moment BST transitions occur)
+function lastSundayOfMonth(year: number, month: number): Date {
+  const lastDay = new Date(Date.UTC(year, month + 1, 0));
+  const daysToSubtract = lastDay.getUTCDay();
+  const d = new Date(lastDay.getTime() - daysToSubtract * 86400000);
+  d.setUTCHours(1, 0, 0, 0);
+  return d;
+}
+
+// Returns true if the given UTC date falls within British Summer Time (UTC+1).
+// BST: last Sunday of March 01:00 UTC → last Sunday of October 01:00 UTC.
+function isUkBst(utcDate: Date): boolean {
+  const y = utcDate.getUTCFullYear();
+  return utcDate >= lastSundayOfMonth(y, 2) && utcDate < lastSundayOfMonth(y, 9);
+}
+
+// Converts a UK schedule time (dateStr = "YYYY-MM-DD", minutesFromMidnight) to a UTC Date.
+// Schedule times are always expressed in UK local time (GMT in winter, BST = UTC+1 in summer).
+// TravelTime API needs the UTC equivalent so it queries the correct day-of-week timetable.
+function ukScheduleTimeToUtc(dateStr: string, minutesFromMidnight: number): Date {
+  const hh = String(Math.floor(minutesFromMidnight / 60)).padStart(2, '0');
+  const mm = String(minutesFromMidnight % 60).padStart(2, '0');
+  const utcNaive = new Date(`${dateStr}T${hh}:${mm}:00Z`);
+  if (isUkBst(utcNaive)) {
+    return new Date(utcNaive.getTime() - 3600000);
+  }
+  return utcNaive;
+}
+
 // Import shared geocoding function from pipeline
 import { geocodeWithFallback } from './pipeline';
 
@@ -1432,20 +1461,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const to = { lat: pair.toLat, lng: pair.toLng };
         const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
 
-        // Build a Date using the actual visit date (for correct day-of-week timetable) and arrival time.
-        // If visitDate is "2026-03-08" (Saturday) the TravelTime API will use Saturday's bus schedule.
+        // Build a UTC Date from the UK local schedule time + the actual visit date.
+        // Using ukScheduleTimeToUtc ensures BST dates (April–October) send the correct
+        // UTC equivalent so TravelTime queries the right day-of-week timetable slot.
         let arrivalTime: Date | undefined;
-        if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
-          const base = pair.visitDate ? new Date(pair.visitDate) : new Date();
-          base.setHours(Math.floor(pair.arrivalTimeMinutes / 60), pair.arrivalTimeMinutes % 60, 0, 0);
-          arrivalTime = base;
+        if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
+          arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
+        } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
+          const today = new Date().toISOString().slice(0, 10);
+          arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
         }
 
-        const dayLabel = pair.visitDate ?? 'today';
-        const arrivalLabel = arrivalTime
-          ? `${String(arrivalTime.getHours()).padStart(2, '0')}:${String(arrivalTime.getMinutes()).padStart(2, '0')} on ${dayLabel}`
-          : 'now';
-        logger.debug(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${normalizedMode}, arrive by ${arrivalLabel})`);
+        const hh = arrivalTime ? String(arrivalTime.getUTCHours()).padStart(2, '0') : '--';
+        const mm = arrivalTime ? String(arrivalTime.getUTCMinutes()).padStart(2, '0') : '--';
+        const isoStr = arrivalTime ? arrivalTime.toISOString() : 'now';
+        logger.info(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${normalizedMode}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
 
         try {
           const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
@@ -1476,6 +1506,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error('Error in travel-times/refine-walker:', error);
       res.status(500).json({ error: safeErrorMessage(error, 'Failed to refine walker travel times') });
+    }
+  });
+
+  // Diagnostic endpoint: verify exactly what TravelTime receives for a single pair.
+  // POST body: { fromLat, fromLng, toLat, toLng, mode, visitDate?, arrivalTimeMinutes? }
+  // Returns the ISO timestamp sent, the day-of-week, whether BST applies, the transport
+  // type chosen, and the actual duration TravelTime returns — paste into TravelTime
+  // playground to confirm the numbers match.
+  app.post('/api/travel-times/debug-single', async (req, res) => {
+    try {
+      const branchId = await resolveBranch(req);
+      const { fromLat, fromLng, toLat, toLng, mode, visitDate, arrivalTimeMinutes } = req.body as {
+        fromLat: number; fromLng: number; toLat: number; toLng: number;
+        mode: string; visitDate?: string; arrivalTimeMinutes?: number;
+      };
+
+      if (fromLat == null || fromLng == null || toLat == null || toLng == null) {
+        return res.status(400).json({ error: 'fromLat, fromLng, toLat, toLng are required' });
+      }
+
+      const normalizedMode = TravelTimeService.normalizeMode(mode);
+      const from = { lat: fromLat, lng: fromLng };
+      const to = { lat: toLat, lng: toLng };
+
+      let arrivalTime: Date | undefined;
+      if (arrivalTimeMinutes !== undefined && arrivalTimeMinutes !== null && visitDate) {
+        arrivalTime = ukScheduleTimeToUtc(visitDate, arrivalTimeMinutes);
+      } else if (arrivalTimeMinutes !== undefined && arrivalTimeMinutes !== null) {
+        const today = new Date().toISOString().slice(0, 10);
+        arrivalTime = ukScheduleTimeToUtc(today, arrivalTimeMinutes);
+      }
+
+      const isoTimestamp = arrivalTime ? arrivalTime.toISOString() : null;
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayOfWeek = arrivalTime ? dayNames[arrivalTime.getUTCDay()] : null;
+      const bstActive = arrivalTime ? isUkBst(arrivalTime) : false;
+
+      const distKm = Math.sqrt((toLat - fromLat) ** 2 + (toLng - fromLng) ** 2) * 111;
+      const ttTransportType = normalizedMode === 'car' ? 'driving' :
+        distKm < 1.6 ? 'walking' : 'public_transport';
+
+      const requestBody = {
+        locations: [
+          { id: 'origin', coords: { lat: fromLat, lng: fromLng } },
+          { id: 'destination', coords: { lat: toLat, lng: toLng } },
+        ],
+        arrival_searches: [{
+          id: 'search',
+          arrival_location_id: 'destination',
+          departure_location_ids: ['origin'],
+          transportation: { type: ttTransportType },
+          arrival_time: isoTimestamp,
+          travel_time: 7200,
+          properties: ['travel_time'],
+        }],
+      };
+
+      const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
+
+      res.json({
+        requestSent: requestBody,
+        isoTimestamp,
+        dayOfWeek,
+        bstActive,
+        transportMode: ttTransportType,
+        durationMinutes: result?.travelTimeMinutes ?? null,
+        source: result?.source ?? null,
+        note: 'Paste isoTimestamp and coordinates into app.traveltimeplatform.com to verify',
+      });
+    } catch (error) {
+      logger.error('Error in travel-times/debug-single:', error);
+      res.status(500).json({ error: safeErrorMessage(error, 'Failed to run debug travel time check') });
     }
   });
 

@@ -221,7 +221,7 @@ The engine's `getTravelMinutes` function reads from an in-memory session cache p
 1. Collect every unique route pair assigned to walker/public employees (home→first visit, visit→visit, last visit→home).
 2. Deduplicate by `{visitDate}-{fromLat},{fromLng}-{toLat},{toLng}-{mode}` — crucially, pairs on different days are kept separate so Saturday uses Saturday's bus timetable, not Monday's.
 3. Call `POST /api/travel-times/refine-walker` with the pair list.
-4. Server calls TravelTime API sequentially (400ms delay between calls) using `arrival_searches` — "arrive at client's address by visit start time" — with the actual visit date so TravelTime queries the correct day-of-week schedule.
+4. Server calls TravelTime API sequentially using `arrival_searches` — "arrive at client's address by visit start time" — with the actual visit date so TravelTime queries the correct day-of-week schedule. Schedule times are treated as UK local time; BST dates (April–October) are converted to the correct UTC equivalent before being sent.
 5. Results are stored in a date-keyed local map and used to recompute `travelTimeBefore` for every walker visit.
 6. Visits where refined travel time exceeds 60 minutes are flagged with an amber warning badge.
 
@@ -259,7 +259,12 @@ Both the arrival time and the calendar date are passed so the query reflects the
 Applied only if TravelTime API credentials are absent or the call fails.
 
 ### Session Cache
-Each scheduling run starts with a reset session cache (`_sessionCache`). All API results are written to this cache during the run. The cache is keyed by `fromLat-fromLng-toLat-toLng-mode`. DB-level cache persistence is disabled — every run fetches fresh data.
+Each scheduling run starts with a reset session cache (`_sessionCache`). All API results are written to this cache during the run.
+
+- **Car routes**: cache key is `fromLat:fromLng:toLat:toLng:car` — timetable-independent so the same route is safe to reuse across days.
+- **Walker/public routes**: cache key appends the visit date — `fromLat:fromLng:toLat:toLng:public_transport-2026-03-08`. This prevents Saturday and Sunday results (or different arrival times on the same route) from colliding in the cache, since TravelTime returns day-specific timetables.
+
+DB-level cache persistence is disabled — every run fetches fresh data.
 
 ### Source Tracking
 The `travelSources` state in the UI aggregates counts from both the ORS pre-warm (car routes) and the TravelTime refinement (walker routes), displaying an accurate breakdown of all data sources used: ORS Matrix, TravelTime API, Heuristic, etc.
@@ -278,6 +283,7 @@ The `travelSources` state in the UI aggregates counts from both the ORS pre-warm
 | POST | `/api/geo/geocode-batch` | Geocode a batch of postcodes |
 | POST | `/api/travel-times/batch` | ORS Matrix pre-warm for car routes |
 | POST | `/api/travel-times/refine-walker` | TravelTime refinement for walker/public routes |
+| POST | `/api/travel-times/debug-single` | Diagnostic: returns exact ISO timestamp sent to TravelTime + real duration for one pair |
 | POST | `/api/weekly-schedule/generate` | (Legacy) server-side schedule generation |
 | POST | `/api/weekly-schedule/save` | Persist generated schedule to DB |
 | GET | `/api/weekly-schedule/latest` | Latest schedule for branch+week |

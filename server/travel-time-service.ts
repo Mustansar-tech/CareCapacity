@@ -374,7 +374,11 @@ export class TravelTimeService {
     const isNonCar = this.isWalkerOrPublic(transportMode);
 
     // 1a. Check in-memory session cache (resets each scheduling run — no persistence)
-    const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode);
+    // For walker/public calls, include the date in the key so Saturday and Sunday (or
+    // different arrival times on the same day) never share a cached result — TravelTime
+    // uses day-specific timetables so cross-day reuse would return the wrong duration.
+    const dateTag = (arrivalTime && isNonCar) ? `-${arrivalTime.toISOString().slice(0, 10)}` : '';
+    const sKey = this.sessionKey(fromLat, fromLng, toLat, toLng, transportMode) + dateTag;
     const sessHit = this._sessionCache.get(sKey);
     if (sessHit) {
       return {
