@@ -1321,9 +1321,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 shrink-0">
                                   Not optimal
                                 </Badge>
-                                <p className="text-[10px] text-muted-foreground italic line-clamp-2" title={visit.unallocatedReason}>
-                                  {visit.unallocatedReason}
-                                </p>
                               </div>
                             </div>
                           </div>
