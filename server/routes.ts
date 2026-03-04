@@ -1450,88 +1450,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ results: [] });
       }
 
-      logger.info(`[Refine Walker] Refining ${pairs.length} walker/public route pairs via TravelTime API (concurrent)`);
-
-      // Process every pair concurrently — all TravelTime API calls fire simultaneously.
-      // This reduces wall-clock time from O(n × latency) to O(max latency) per run.
-      const settled = await Promise.allSettled(pairs.map(async (pair) => {
-        const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
-
-        const from = { lat: pair.fromLat, lng: pair.fromLng };
-        const to = { lat: pair.toLat, lng: pair.toLng };
-
-        // Build a UTC Date from the UK local schedule time + the actual visit date.
-        let arrivalTime: Date | undefined;
-        if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
-          arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
-        } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
-          const today = new Date().toISOString().slice(0, 10);
-          arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
-        }
-
-        // For return-home and break-departure legs, use depart_by instead of arrive_by.
-        let departureTime: Date | undefined;
-        if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
-          departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
-        }
-
-        const R = 6371;
-        const dLat = (pair.toLat - pair.fromLat) * Math.PI / 180;
-        const dLng = (pair.toLng - pair.fromLng) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(pair.fromLat * Math.PI / 180) * Math.cos(pair.toLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-        const pairDistKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const ttType = normalizedMode === 'car' ? 'driving' : (pairDistKm <= 1.6 ? 'walking' : 'public_transport');
-
-        const fromLabel = `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}`;
-        const toLabel = `${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}`;
-
-        if (departureTime) {
-          const hh = String(departureTime.getUTCHours()).padStart(2, '0');
-          const mm = String(departureTime.getUTCMinutes()).padStart(2, '0');
-          logger.info(`[Refine Walker] ${fromLabel} → ${toLabel} (${pairDistKm.toFixed(2)}km → TT:${ttType}, depart at ${hh}:${mm} UTC on ${pair.visitDate} = ${departureTime.toISOString()})`);
-        } else {
-          const hh = arrivalTime ? String(arrivalTime.getUTCHours()).padStart(2, '0') : '--';
-          const mm = arrivalTime ? String(arrivalTime.getUTCMinutes()).padStart(2, '0') : '--';
-          const isoStr = arrivalTime ? arrivalTime.toISOString() : 'now';
-          logger.info(`[Refine Walker] ${fromLabel} → ${toLabel} (${pairDistKm.toFixed(2)}km → TT:${ttType}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
-        }
-
-        const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
-        if (!result) return null;
-
-        const timeTag = pair.departureTimeMinutes !== undefined
-          ? `d${pair.departureTimeMinutes}`
-          : pair.arrivalTimeMinutes !== undefined
-            ? `a${pair.arrivalTimeMinutes}`
-            : 'anon';
-        const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
-        logger.info(`[Refine Walker] ↳ ${result.travelTimeMinutes}min via ${result.source || 'traveltime'} (TT transport: ${ttType})`);
-
-        return {
-          key,
-          fromLat: pair.fromLat,
-          fromLng: pair.fromLng,
-          toLat: pair.toLat,
-          toLng: pair.toLng,
-          mode: normalizedMode,
-          durationMinutes: result.travelTimeMinutes,
-          source: result.source || 'traveltime',
-          timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
-          isHeuristic: result.source === 'heuristic',
-        };
-      }));
+      logger.info(`[Refine Walker] Refining ${pairs.length} walker/public route pairs via TravelTime API (throttled)`);
 
       const results: Array<{ key: string; fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; source: string }> = [];
       let ttCount = 0;
       let heuristicCount = 0;
 
-      for (const outcome of settled) {
-        if (outcome.status === 'fulfilled' && outcome.value) {
-          const { isHeuristic, ...entry } = outcome.value;
-          results.push(entry);
-          if (isHeuristic) heuristicCount++; else ttCount++;
-        } else if (outcome.status === 'rejected') {
-          logger.warn(`[Refine Walker] A pair failed: ${outcome.reason}`);
+      // Rate limiting: TravelTime Free/Basic plans typically allow 10-60 requests per minute.
+      // We process in chunks of 10 with a delay to stay under the limit and avoid 429 errors.
+      const CHUNK_SIZE = 10;
+      const CHUNK_DELAY_MS = 10000; // 10 seconds between chunks (60 requests per minute)
+
+      for (let i = 0; i < pairs.length; i += CHUNK_SIZE) {
+        const chunk = pairs.slice(i, i + CHUNK_SIZE);
+        logger.info(`[Refine Walker] Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(pairs.length / CHUNK_SIZE)}`);
+
+        const settled = await Promise.allSettled(chunk.map(async (pair) => {
+          const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
+          const from = { lat: pair.fromLat, lng: pair.fromLng };
+          const to = { lat: pair.toLat, lng: pair.toLng };
+
+          // Build a UTC Date from the UK local schedule time + the actual visit date.
+          let arrivalTime: Date | undefined;
+          if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
+            arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
+          } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
+            const today = new Date().toISOString().slice(0, 10);
+            arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
+          }
+
+          // For return-home and break-departure legs, use depart_by instead of arrive_by.
+          let departureTime: Date | undefined;
+          if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
+            departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
+          }
+
+          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
+          if (!result) return null;
+
+          const timeTag = pair.departureTimeMinutes !== undefined
+            ? `d${pair.departureTimeMinutes}`
+            : pair.arrivalTimeMinutes !== undefined
+              ? `a${pair.arrivalTimeMinutes}`
+              : 'anon';
+          const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
+          
+          return {
+            key,
+            fromLat: pair.fromLat,
+            fromLng: pair.fromLng,
+            toLat: pair.toLat,
+            toLng: pair.toLng,
+            mode: normalizedMode,
+            durationMinutes: result.travelTimeMinutes,
+            source: result.source || 'traveltime',
+            timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
+            isHeuristic: result.source === 'heuristic',
+          };
+        }));
+
+        for (const outcome of settled) {
+          if (outcome.status === 'fulfilled' && outcome.value) {
+            const { isHeuristic, ...entry } = outcome.value;
+            results.push(entry);
+            if (isHeuristic) heuristicCount++; else ttCount++;
+          } else if (outcome.status === 'rejected') {
+            logger.warn(`[Refine Walker] A pair failed: ${outcome.reason}`);
+          }
+        }
+
+        // Delay before next chunk, except for the last one
+        if (i + CHUNK_SIZE < pairs.length) {
+          logger.info(`[Refine Walker] Waiting ${CHUNK_DELAY_MS}ms for rate limit window...`);
+          await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY_MS));
         }
       }
 
