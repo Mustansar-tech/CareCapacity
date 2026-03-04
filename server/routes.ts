@@ -1443,7 +1443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
       const { pairs } = req.body as {
-        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate?: string; fromPostcode?: string; toPostcode?: string }>;
+        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate?: string }>;
       };
 
       if (!Array.isArray(pairs) || pairs.length === 0) {
@@ -1459,29 +1459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const pair of pairs) {
         const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
 
-        // For walker/public pairs: if postcodes are available, resolve them via TravelTime's
-        // own geocoding API so our coordinates match TravelTime's internal routing grid exactly.
-        // Small coordinate differences (third-party geocoder vs TravelTime geocoder) can change
-        // which bus stop is "nearest", shifting journey times by 10–15 min. Doing this at query
-        // time is safe: TravelTime geocoding results are cached in-memory per service instance.
-        let from = { lat: pair.fromLat, lng: pair.fromLng };
-        let to = { lat: pair.toLat, lng: pair.toLng };
-        if (normalizedMode !== 'car') {
-          if (pair.fromPostcode) {
-            const ttFrom = await travelTimeService.geocodePostcode(pair.fromPostcode);
-            if (ttFrom) {
-              logger.info(`[Refine Walker] TT geocode ${pair.fromPostcode}: (${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}) → (${ttFrom.lat.toFixed(4)},${ttFrom.lng.toFixed(4)})`);
-              from = ttFrom;
-            }
-          }
-          if (pair.toPostcode) {
-            const ttTo = await travelTimeService.geocodePostcode(pair.toPostcode);
-            if (ttTo) {
-              logger.info(`[Refine Walker] TT geocode ${pair.toPostcode}: (${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}) → (${ttTo.lat.toFixed(4)},${ttTo.lng.toFixed(4)})`);
-              to = ttTo;
-            }
-          }
-        }
+        const from = { lat: pair.fromLat, lng: pair.fromLng };
+        const to = { lat: pair.toLat, lng: pair.toLng };
 
         // Build a UTC Date from the UK local schedule time + the actual visit date.
         // Using ukScheduleTimeToUtc ensures BST dates (April–October) send the correct
@@ -1510,8 +1489,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pairDistKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const ttType = normalizedMode === 'car' ? 'driving' : (pairDistKm <= 1.6 ? 'walking' : 'public_transport');
 
-        const fromLabel = pair.fromPostcode ? `${pair.fromPostcode} (${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)})` : `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}`;
-        const toLabel = pair.toPostcode ? `${pair.toPostcode} (${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)})` : `${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}`;
+        const fromLabel = `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}`;
+        const toLabel = `${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}`;
 
         if (departureTime) {
           const hh = String(departureTime.getUTCHours()).padStart(2, '0');
