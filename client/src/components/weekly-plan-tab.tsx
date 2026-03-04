@@ -346,7 +346,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // This replaces the old "pre-warm everything" approach with targeted calls.
       // Key includes the visit date so Monday and Saturday pairs are kept separate —
       // weekend bus timetables differ from weekday ones and must not be deduplicated together.
-      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate: string }>();
+      const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate: string; fromPostcode?: string; toPostcode?: string }>();
 
       Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
         Object.entries(dayAssignments).forEach(([empName, visits]) => {
@@ -362,13 +362,27 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           (visits as AssignedVisit[]).forEach((visit, vIdx) => {
             if (!visit.lat || !visit.lng) return;
 
-            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number) => {
+            const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number, fPostcode?: string, tPostcode?: string) => {
               // Include date in key: same locations on different days = separate API calls
               const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
-              if (!walkerPairMap.has(k)) walkerPairMap.set(k, { fromLat: fLat, fromLng: fLng, toLat: tLat, toLng: tLng, mode, arrivalTimeMinutes, visitDate: date });
+              if (!walkerPairMap.has(k)) {
+                walkerPairMap.set(k, {
+                  fromLat: fLat,
+                  fromLng: fLng,
+                  toLat: tLat,
+                  toLng: tLng,
+                  mode,
+                  arrivalTimeMinutes,
+                  visitDate: date,
+                  fromPostcode: fPostcode,
+                  toPostcode: tPostcode
+                });
+              }
             };
 
-            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime));
+            const homePostcode = empLoc.postcode || '';
+
+            if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime), homePostcode, visit.postcode);
             if (vIdx < visits.length - 1) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
               if (next.lat && next.lng) {
@@ -378,10 +392,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const gapMin = timeToMinutes(next.startTime) - timeToMinutes(visit.endTime);
                 const fromLat = gapMin > 90 ? homeLat : visit.lat;
                 const fromLng = gapMin > 90 ? homeLng : visit.lng;
-                addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime));
+                const fromPostcode = gapMin > 90 ? homePostcode : visit.postcode;
+                addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime), fromPostcode, next.postcode);
               }
             }
-            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined); // no arrival deadline for return home
+            if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode); // no arrival deadline for return home
           });
         });
       });

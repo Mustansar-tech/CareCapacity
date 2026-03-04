@@ -1485,7 +1485,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pairDistKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const ttType = normalizedMode === 'car' ? 'driving' : (pairDistKm <= 1.6 ? 'walking' : 'public_transport');
 
-        logger.info(`[Refine Walker] ${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)} → ${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)} (${pairDistKm.toFixed(2)}km → TT:${ttType}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
+        const fromLabel = pair.fromPostcode ? `${pair.fromPostcode} (${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)})` : `${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}`;
+        const toLabel = pair.toPostcode ? `${pair.toPostcode} (${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)})` : `${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}`;
+
+        logger.info(`[Refine Walker] ${fromLabel} → ${toLabel} (${pairDistKm.toFixed(2)}km → TT:${ttType}, arrive by ${hh}:${mm} UTC on ${pair.visitDate ?? 'today'} = ${isoStr})`);
 
         try {
           const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime);
