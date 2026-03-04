@@ -340,7 +340,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime));
             if (vIdx < visits.length - 1) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
-              if (next.lat && next.lng) addPair(visit.lat, visit.lng, next.lat, next.lng, timeToMinutes(next.startTime));
+              if (next.lat && next.lng) {
+                // If the gap between visits exceeds 90 minutes the worker has returned home
+                // during the break — use the home address as the departure point, not the
+                // previous client's address.
+                const gapMin = timeToMinutes(next.startTime) - timeToMinutes(visit.endTime);
+                const fromLat = gapMin > 90 ? homeLat : visit.lat;
+                const fromLng = gapMin > 90 ? homeLng : visit.lng;
+                addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime));
+              }
             }
             if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined); // no arrival deadline for return home
           });
@@ -418,10 +426,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       ?? getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   } else {
                     const prev = (visits as AssignedVisit[])[vIdx - 1];
-                    newTravelTime = (prev.lat && prev.lng)
-                      ? (lookupRefined(prev.lat, prev.lng, visit.lat, visit.lng)
-                        ?? getTravelMinutes({ lat: prev.lat, lng: prev.lng }, { lat: visit.lat, lng: visit.lng }, mode))
-                      : visit.travelTimeBefore;
+                    // If the gap between visits exceeds 90 minutes the worker has returned home —
+                    // look up home→current (matches how the pair was built above), not prev→current.
+                    const gapMin = timeToMinutes(visit.startTime) - timeToMinutes(prev.endTime);
+                    const fromLat = gapMin > 90 ? homeLat : (prev.lat ?? homeLat);
+                    const fromLng = gapMin > 90 ? homeLng : (prev.lng ?? homeLng);
+                    newTravelTime = lookupRefined(fromLat, fromLng, visit.lat, visit.lng)
+                      ?? getTravelMinutes({ lat: fromLat, lng: fromLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   }
                   const travelWarning = newTravelTime > 60; // 60-min cap for walker/public
                   if (travelWarning) warningCount++;
