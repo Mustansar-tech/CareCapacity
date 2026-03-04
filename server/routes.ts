@@ -1482,6 +1482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (result) {
             // Key includes visitDate so the frontend can look up by date — matches the client-side refinedMap key
             const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
+            logger.info(`[Refine Walker] ↳ ${result.travelTimeMinutes}min via ${result.source || 'traveltime'}`);
             results.push({
               key,
               fromLat: pair.fromLat,
