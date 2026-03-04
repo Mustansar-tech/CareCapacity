@@ -507,15 +507,27 @@ function CareProMap({
         )}
       </div>
       <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
-        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
-        </div>
+        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">
+          {validLocations.length} CPs on Map
+        </h5>
+        {femaleCount > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm flex-shrink-0" />
+            <span className="text-xs font-bold text-gray-700">{femaleCount} Female</span>
+          </div>
+        )}
+        {maleCount > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm flex-shrink-0" />
+            <span className="text-xs font-bold text-gray-700">{maleCount} Male</span>
+          </div>
+        )}
+        {(validLocations.length - femaleCount - maleCount) > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 bg-gray-400 rounded-full border-2 border-white shadow-sm flex-shrink-0" />
+            <span className="text-xs font-bold text-gray-700">{validLocations.length - femaleCount - maleCount} Unknown</span>
+          </div>
+        )}
       </div>
     </div>
   );
