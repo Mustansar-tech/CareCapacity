@@ -66,7 +66,7 @@ export class TravelTimeService {
 
   private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
-  private _ttGeoCache: Map<string, { lat: number; lng: number }> = new Map();
+  private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
 
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -164,14 +164,16 @@ export class TravelTimeService {
   async geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
     if (!this.hasTravelTimeCredentials()) return null;
     const key = postcode.trim().toUpperCase().replace(/\s+/g, '');
-    if (this._ttGeoCache.has(key)) return this._ttGeoCache.get(key)!;
+    // Return cached result (including null for previously-failed lookups — avoids repeat calls)
+    if (this._ttGeoCache.has(key)) return this._ttGeoCache.get(key) ?? null;
     try {
-      const url = `https://api.traveltimeapp.com/v4/geocoding/search?query=${encodeURIComponent(postcode)}&within.country=GB`;
+      const url = `https://api.traveltimeapp.com/v4/geocoding/search?query=${encodeURIComponent(postcode)}&limit=1`;
       const response = await fetch(url, {
         headers: {
           'X-Application-Id': this.TRAVELTIME_APP_ID!,
           'X-Api-Key': this.TRAVELTIME_API_KEY!,
           'Accept': 'application/json',
+          'Accept-Language': 'en',
         },
       });
       if (response.ok) {
@@ -181,14 +183,21 @@ export class TravelTimeService {
           const [lng, lat] = feature.geometry.coordinates as [number, number];
           const result = { lat, lng };
           this._ttGeoCache.set(key, result);
+          logger.info(`[TT Geocode] ${postcode} → (${lat.toFixed(4)},${lng.toFixed(4)})`);
           return result;
         }
+        // No feature returned — cache null so we don't retry
+        logger.warn(`TravelTime geocoding: no result for "${postcode}"`);
+        this._ttGeoCache.set(key, null);
       } else {
         const errText = await response.text();
-        logger.warn(`TravelTime geocoding failed for "${postcode}" (${response.status}): ${errText.slice(0, 120)}`);
+        logger.warn(`TravelTime geocoding failed for "${postcode}" (${response.status}): ${errText.slice(0, 200)}`);
+        // Cache null to prevent hammering a failing endpoint with the same postcode
+        this._ttGeoCache.set(key, null);
       }
     } catch (e) {
       logger.warn(`TravelTime geocoding error for "${postcode}":`, e instanceof Error ? e.message : e);
+      this._ttGeoCache.set(key, null);
     }
     return null;
   }
