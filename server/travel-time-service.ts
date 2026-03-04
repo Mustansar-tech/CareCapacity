@@ -283,9 +283,15 @@ export class TravelTimeService {
 
       if (response.ok) {
         const data = await response.json();
+        // /v4/routes response: results[0].locations[] where each location has
+        // properties[0].travel_time (same shape as /v4/time-filter, different algorithm).
         const results = data?.results?.[0]?.locations;
         if (results && results.length > 0) {
-          const travelTimeSec = results[0]?.properties?.[0]?.travel_time;
+          const props = results[0]?.properties;
+          // routes returns properties as an array of objects (one per itinerary option)
+          const travelTimeSec = Array.isArray(props)
+            ? props[0]?.travel_time
+            : props?.travel_time;
           if (travelTimeSec != null) {
             return { durationMinutes: Math.max(1, Math.round(travelTimeSec / 60)) };
           }
