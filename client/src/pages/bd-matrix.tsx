@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -406,26 +406,6 @@ function makeIcon(gender: string) {
   });
 }
 
-function MapBoundsTracker({ locations, onBoundsChange }: { locations: any[]; onBoundsChange: (visible: any[]) => void }) {
-  const map = useMapEvents({
-    moveend: () => {
-      const bounds = map.getBounds();
-      onBoundsChange(locations.filter(l => bounds.contains([parseFloat(l.homeLat), parseFloat(l.homeLng)])));
-    },
-    zoomend: () => {
-      const bounds = map.getBounds();
-      onBoundsChange(locations.filter(l => bounds.contains([parseFloat(l.homeLat), parseFloat(l.homeLng)])));
-    },
-  });
-
-  useEffect(() => {
-    const bounds = map.getBounds();
-    onBoundsChange(locations.filter(l => bounds.contains([parseFloat(l.homeLat), parseFloat(l.homeLng)])));
-  }, [locations]);
-
-  return null;
-}
-
 function CareProMap({ 
   locations, 
   onRefresh, 
@@ -440,14 +420,8 @@ function CareProMap({
     [locations]
   );
 
-  const [visibleLocations, setVisibleLocations] = useState<any[]>(validLocations);
-
-  useEffect(() => {
-    setVisibleLocations(validLocations);
-  }, [validLocations]);
-
-  const femaleCount = useMemo(() => visibleLocations.filter(l => normalizeGender(l.gender) === 'female').length, [visibleLocations]);
-  const maleCount = useMemo(() => visibleLocations.filter(l => normalizeGender(l.gender) === 'male').length, [visibleLocations]);
+  const femaleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'female').length, [validLocations]);
+  const maleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'male').length, [validLocations]);
 
   const center = useMemo<[number, number]>(() => {
     if (validLocations.length === 0) return [53.5, -1.5];
@@ -488,7 +462,6 @@ function CareProMap({
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapBoundsTracker locations={validLocations} onBoundsChange={setVisibleLocations} />
         {validLocations.map((loc) => (
           <Marker
             key={loc.id}
@@ -534,27 +507,15 @@ function CareProMap({
         )}
       </div>
       <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
-        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">
-          {validLocations.length} CPs on Map
-        </h5>
-        {femaleCount > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm flex-shrink-0" />
-            <span className="text-xs font-bold text-gray-700">{femaleCount} Female</span>
-          </div>
-        )}
-        {maleCount > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm flex-shrink-0" />
-            <span className="text-xs font-bold text-gray-700">{maleCount} Male</span>
-          </div>
-        )}
-        {(validLocations.length - femaleCount - maleCount) > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 bg-gray-400 rounded-full border-2 border-white shadow-sm flex-shrink-0" />
-            <span className="text-xs font-bold text-gray-700">{validLocations.length - femaleCount - maleCount} Unknown</span>
-          </div>
-        )}
+        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
+          <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
+        </div>
       </div>
     </div>
   );
@@ -1738,6 +1699,22 @@ export default function BDMatrix({ data }: BDMatrixProps) {
           </p>
         </CardHeader>
         <CardContent className="p-4">
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Legend:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">0-1 employees</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">2-3 employees</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50"></div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">4+ employees</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
