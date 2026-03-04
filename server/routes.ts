@@ -1456,10 +1456,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let ttCount = 0;
       let heuristicCount = 0;
 
-      // Rate limiting: TravelTime free plan = ~60 requests/minute.
-      // Each chunk of 10 takes ~3s to process; 7s delay → 10 req per 10s = 60/min exactly.
+      // Rate limiting: TravelTime Free/Basic plans typically allow 10-60 requests per minute.
+      // We process in chunks of 10 with a delay to stay under the limit and avoid 429 errors.
       const CHUNK_SIZE = 10;
-      const CHUNK_DELAY_MS = 7000; // 7 seconds between chunks
+      const CHUNK_DELAY_MS = 10000; // 10 seconds between chunks (60 requests per minute)
 
       for (let i = 0; i < pairs.length; i += CHUNK_SIZE) {
         const chunk = pairs.slice(i, i + CHUNK_SIZE);
