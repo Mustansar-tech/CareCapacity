@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMapEvents } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -406,6 +406,26 @@ function makeIcon(gender: string) {
   });
 }
 
+function MapBoundsTracker({ locations, onBoundsChange }: { locations: any[]; onBoundsChange: (visible: any[]) => void }) {
+  const map = useMapEvents({
+    moveend: () => {
+      const bounds = map.getBounds();
+      onBoundsChange(locations.filter(l => bounds.contains([parseFloat(l.homeLat), parseFloat(l.homeLng)])));
+    },
+    zoomend: () => {
+      const bounds = map.getBounds();
+      onBoundsChange(locations.filter(l => bounds.contains([parseFloat(l.homeLat), parseFloat(l.homeLng)])));
+    },
+  });
+
+  useEffect(() => {
+    const bounds = map.getBounds();
+    onBoundsChange(locations.filter(l => bounds.contains([parseFloat(l.homeLat), parseFloat(l.homeLng)])));
+  }, [locations]);
+
+  return null;
+}
+
 function CareProMap({ 
   locations, 
   onRefresh, 
@@ -420,8 +440,14 @@ function CareProMap({
     [locations]
   );
 
-  const femaleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'female').length, [validLocations]);
-  const maleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'male').length, [validLocations]);
+  const [visibleLocations, setVisibleLocations] = useState<any[]>(validLocations);
+
+  useEffect(() => {
+    setVisibleLocations(validLocations);
+  }, [validLocations]);
+
+  const femaleCount = useMemo(() => visibleLocations.filter(l => normalizeGender(l.gender) === 'female').length, [visibleLocations]);
+  const maleCount = useMemo(() => visibleLocations.filter(l => normalizeGender(l.gender) === 'male').length, [visibleLocations]);
 
   const center = useMemo<[number, number]>(() => {
     if (validLocations.length === 0) return [53.5, -1.5];
@@ -462,6 +488,7 @@ function CareProMap({
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapBoundsTracker locations={validLocations} onBoundsChange={setVisibleLocations} />
         {validLocations.map((loc) => (
           <Marker
             key={loc.id}
