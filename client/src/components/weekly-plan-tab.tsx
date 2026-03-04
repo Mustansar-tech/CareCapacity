@@ -363,8 +363,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (!visit.lat || !visit.lng) return;
 
             const addPair = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalTimeMinutes?: number, fPostcode?: string, tPostcode?: string, departureTimeMinutes?: number) => {
-              // Include date in key: same locations on different days = separate API calls
-              const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
+              // Include date AND time in key: same route at different departure/arrival times on
+              // the same day must be separate API calls (e.g., break home at 11:30 vs 17:45).
+              const timeTag = departureTimeMinutes !== undefined
+                ? `d${departureTimeMinutes}`
+                : arrivalTimeMinutes !== undefined
+                  ? `a${arrivalTimeMinutes}`
+                  : 'anon';
+              const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}-${timeTag}`;
               if (!walkerPairMap.has(k)) {
                 walkerPairMap.set(k, {
                   fromLat: fLat,
@@ -421,7 +427,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
           if (refineData.results?.length > 0) {
             // Build a date-keyed lookup map so Monday and Saturday values are kept separate.
-            // Key format matches what the endpoint returns: "${visitDate}-${fromLat},${fromLng}-${toLat},${toLng}-${mode}"
+            // Key format matches what the endpoint returns: "${visitDate}-${fromLat},${fromLng}-${toLat},${toLng}-${mode}-${timeTag}"
+            // timeTag = `a${arrivalMin}` for arrival pairs, `d${departureMin}` for departure pairs.
             const refinedMap = new Map<string, number>();
             (refineData.results as Array<{ key: string; durationMinutes: number }>).forEach(r => {
               refinedMap.set(r.key, r.durationMinutes);
@@ -475,25 +482,28 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const homeLat = Number(empLoc.homeLat);
                 const homeLng = Number(empLoc.homeLng);
 
-                const lookupRefined = (fLat: number, fLng: number, tLat: number, tLng: number): number | undefined => {
-                  const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}`;
+                // Time tag must match what addPair builds: arrival pairs use `a${startTime}`,
+                // departure pairs use `d${endTime}`. lookupRefined is only called for arrival pairs.
+                const lookupRefined = (fLat: number, fLng: number, tLat: number, tLng: number, arrivalMin: number): number | undefined => {
+                  const k = `${date}-${fLat.toFixed(4)},${fLng.toFixed(4)}-${tLat.toFixed(4)},${tLng.toFixed(4)}-${mode}-a${arrivalMin}`;
                   return refinedMap.get(k);
                 };
 
                 refinedAssignments[date][empName] = (visits as AssignedVisit[]).map((visit, vIdx) => {
                   if (!visit.lat || !visit.lng) return visit;
+                  const visitStartMin = timeToMinutes(visit.startTime);
                   let newTravelTime: number;
                   if (vIdx === 0) {
-                    newTravelTime = lookupRefined(homeLat, homeLng, visit.lat, visit.lng)
+                    newTravelTime = lookupRefined(homeLat, homeLng, visit.lat, visit.lng, visitStartMin)
                       ?? getTravelMinutes({ lat: homeLat, lng: homeLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   } else {
                     const prev = (visits as AssignedVisit[])[vIdx - 1];
                     // If the gap between visits exceeds 90 minutes the worker has returned home —
                     // look up home→current (matches how the pair was built above), not prev→current.
-                    const gapMin = timeToMinutes(visit.startTime) - timeToMinutes(prev.endTime);
+                    const gapMin = visitStartMin - timeToMinutes(prev.endTime);
                     const fromLat = gapMin > 90 ? homeLat : (prev.lat ?? homeLat);
                     const fromLng = gapMin > 90 ? homeLng : (prev.lng ?? homeLng);
-                    newTravelTime = lookupRefined(fromLat, fromLng, visit.lat, visit.lng)
+                    newTravelTime = lookupRefined(fromLat, fromLng, visit.lat, visit.lng, visitStartMin)
                       ?? getTravelMinutes({ lat: fromLat, lng: fromLng }, { lat: visit.lat, lng: visit.lng }, mode);
                   }
                   const travelWarning = newTravelTime > 60; // 60-min cap for walker/public

@@ -1443,7 +1443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
       const { pairs } = req.body as {
-        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; visitDate?: string }>;
+        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate?: string; fromPostcode?: string; toPostcode?: string }>;
       };
 
       if (!Array.isArray(pairs) || pairs.length === 0) {
@@ -1505,8 +1505,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
           if (result) {
-            // Key includes visitDate so the frontend can look up by date — matches the client-side refinedMap key
-            const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}`;
+            // Key includes visitDate AND departure/arrival time so the same route at different
+            // times on the same day gets separate entries — matches the client-side refinedMap key.
+            const timeTag = pair.departureTimeMinutes !== undefined
+              ? `d${pair.departureTimeMinutes}`
+              : pair.arrivalTimeMinutes !== undefined
+                ? `a${pair.arrivalTimeMinutes}`
+                : 'anon';
+            const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
             logger.info(`[Refine Walker] ↳ ${result.travelTimeMinutes}min via ${result.source || 'traveltime'} (TT transport: ${ttType})`);
             results.push({
               key,
@@ -1517,6 +1523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               mode: normalizedMode,
               durationMinutes: result.travelTimeMinutes,
               source: result.source || 'traveltime',
+              timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
             });
             if (result.source === 'heuristic') heuristicCount++;
             else ttCount++;

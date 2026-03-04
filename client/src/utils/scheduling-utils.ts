@@ -6,6 +6,10 @@ export const MAX_TRAVEL_TIME_MINUTES_WALKER = 60; // Walker / public transport
 
 // Travel time cache for memoization - improves performance significantly
 const travelTimeCache = new Map<string, number>();
+// Secondary time-keyed cache for walker/public departure-time pairs.
+// Key: `${fromLat},${fromLng}-${toLat},${toLng}-${mode}-${timeMinutes}`
+// Seeded with TravelTime results that carry a specific departure/arrival time.
+const travelTimeCacheByTime = new Map<string, number>();
 
 // Convert HH:mm to minutes since midnight
 // For overnight visits (e.g., 22:00-02:00), end time wraps to next day
@@ -125,10 +129,19 @@ export function getTravelMinutes(
     return 0;
   }
 
+  // For walker/public: check time-specific cache first when a time is given.
+  // This ensures departure-time pairs (e.g., same route at 11:30 vs 17:45) return
+  // the correct TravelTime value for that exact departure slot.
+  if (mode !== 'car' && startTimeMinutes !== undefined) {
+    const timeKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}-${startTimeMinutes}`;
+    const timeCached = travelTimeCacheByTime.get(timeKey);
+    if (timeCached !== undefined) return timeCached;
+  }
+
   // Cache key: route + mode only (no time band — travel times are flat all day)
   const cacheKey = `${fromLat.toFixed(4)},${fromLng.toFixed(4)}-${toLat.toFixed(4)},${toLng.toFixed(4)}-${mode}`;
   
-  // Check cache first
+  // Check general cache
   const cached = travelTimeCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
@@ -154,12 +167,13 @@ export function getTravelMinutes(
 // Clear travel time cache (call when starting new scheduling run)
 export function clearTravelCache(): void {
   travelTimeCache.clear();
+  travelTimeCacheByTime.clear();
 }
 
 // Seed the travel time cache with real road distances fetched from the backend.
 // Travel times are flat (no peak-time adjustments), so one entry per route+mode.
 export function seedTravelCache(
-  entries: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }>
+  entries: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; timeMinutes?: number }>
 ): void {
   let seeded = 0;
   for (const entry of entries) {
@@ -170,9 +184,15 @@ export function seedTravelCache(
     const mode = entry.mode as 'car' | 'walking' | 'public';
     const key = `${fLat},${fLng}-${tLat},${tLng}-${mode}`;
     travelTimeCache.set(key, entry.durationMinutes);
+    // Also seed the time-keyed cache so same-route/different-departure-time pairs
+    // can each return the correct value when looked up with their specific time.
+    if (entry.timeMinutes !== undefined) {
+      const timeKey = `${fLat},${fLng}-${tLat},${tLng}-${mode}-${entry.timeMinutes}`;
+      travelTimeCacheByTime.set(timeKey, entry.durationMinutes);
+    }
     seeded++;
   }
-  console.log(`[Travel Cache] Seeded ${seeded} real-road entries (${travelTimeCache.size} total cache entries)`);
+  console.log(`[Travel Cache] Seeded ${seeded} real-road entries (${travelTimeCache.size} total, ${travelTimeCacheByTime.size} time-keyed)`);
 }
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
