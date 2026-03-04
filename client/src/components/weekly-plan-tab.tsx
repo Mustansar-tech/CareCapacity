@@ -394,6 +394,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const fromLng = gapMin > 90 ? homeLng : visit.lng;
                 const fromPostcode = gapMin > 90 ? homePostcode : visit.postcode;
                 addPair(fromLat, fromLng, next.lat, next.lng, timeToMinutes(next.startTime), fromPostcode, next.postcode);
+                // When there's a 90+ min break, the worker travels from the current visit back
+                // home — add this leg so its TravelTime result can be displayed in the break arrow.
+                if (gapMin > 90 && visit.lat && visit.lng) {
+                  addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode);
+                }
               }
             }
             if (vIdx === visits.length - 1) addPair(visit.lat, visit.lng, homeLat, homeLng, undefined, visit.postcode, homePostcode); // no arrival deadline for return home
@@ -419,6 +424,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             (refineData.results as Array<{ key: string; durationMinutes: number }>).forEach(r => {
               refinedMap.set(r.key, r.durationMinutes);
             });
+
+            // Seed TravelTime results into the shared travel cache so all display arrows
+            // (break-leg, return-home) also show real API values instead of Haversine.
+            // Cache key is route+mode without date — if Sat/Sun differ for the same pair
+            // the last-written value wins, which is fine for display purposes since
+            // scheduling validity already uses the per-date travelTimeBefore on each visit.
+            seedTravelCache(refineData.results as Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }>);
+
             clientLogger.log(`✅ Walker refinement: ${refineData.stats?.traveltime || 0} via TravelTime, ${refineData.stats?.heuristic || 0} via heuristic`);
 
             // Merge walker/public TravelTime stats into the travel source badge so it
@@ -963,15 +976,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                           );
                                         }
 
-                                        // Travel from home to next visit
-                                        if (nextVisit.lat && nextVisit.lng) {
-                                          travelFromHome = displayTravelMinutes(
-                                            { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
-                                            { lat: nextVisit.lat, lng: nextVisit.lng },
-                                            mode,
-                                            nextStartMin
-                                          );
-                                        }
+                                        // Travel from home to next visit — use the TravelTime-refined
+                                        // travelTimeBefore already stored on the next visit object.
+                                        // This is always set by the walker refinement phase (Home→nextVisit pair).
+                                        travelFromHome = nextVisit.travelTimeBefore ?? 0;
                                       }
 
                                       const breakTime = gapMinutes - travelToHome - travelFromHome;
