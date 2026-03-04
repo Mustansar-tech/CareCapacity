@@ -387,7 +387,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               }
             };
 
-            const homePostcode = empLoc.postcode || '';
+            const homePostcode = empLoc.homePostcode || empLoc.postcode || '';
 
             if (vIdx === 0) addPair(homeLat, homeLng, visit.lat, visit.lng, timeToMinutes(visit.startTime), homePostcode, visit.postcode);
             if (vIdx < visits.length - 1) {
