@@ -803,7 +803,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       )}
 
       {/* Metrics Card */}
-      {weeklySchedule && (
+      {weeklySchedule && !isRefiningWalkers && (
         <Card className="glass-card border-blue-200 dark:border-blue-800">
           <CardHeader>
             <CardTitle className="text-lg">Schedule Metrics</CardTitle>
@@ -843,6 +843,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           'unreachable':      { label: 'No Route (unreachable)', color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
         };
         const activeSources = Object.entries(travelSources).filter(([k, v]) => k !== 'total' && v > 0);
+        if (isRefiningWalkers) return null;
         return (
           <Card className="glass-card border-dashed">
             <CardContent className="py-3">
