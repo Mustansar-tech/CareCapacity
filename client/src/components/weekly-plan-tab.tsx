@@ -794,14 +794,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </Button>
       </div>
 
-      {/* Walker refinement indicator */}
-      {isRefiningWalkers && (
-        <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Verifying walker travel times with TravelTime API…
-        </div>
-      )}
-
       {/* Metrics Card */}
       {weeklySchedule && !isRefiningWalkers && (
         <Card className="glass-card border-blue-200 dark:border-blue-800">
