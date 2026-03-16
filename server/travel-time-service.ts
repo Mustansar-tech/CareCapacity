@@ -137,12 +137,12 @@ export class TravelTimeService {
     return Math.pow(excess / maxExcess, 2) * 100;
   }
 
-  private readonly WALK_THRESHOLD_KM = 1.6; // ~1 mile — closer than this, use WALK mode; farther uses TRANSIT
+  private readonly WALK_THRESHOLD_KM = 3.0; // ~1.9 miles — shorter distances use WALK; only try TRANSIT for 3+ km in rural Scotland
 
   /**
    * Pick the Google Maps travelMode based on straight-line distance.
-   * ≤ 1 mile (1.6 km): WALK — quicker and more realistic than waiting for a bus
-   * >  1 mile (1.6 km): TRANSIT — bus/train is the realistic option
+   * ≤ 3 km: WALK — realistic for rural UK where transit coverage is sparse
+   * >  3 km: TRANSIT — only try for longer distances (may fail in rural areas)
    */
   private toGoogleMapsMode(distanceKm: number): string {
     return distanceKm <= this.WALK_THRESHOLD_KM ? 'WALK' : 'TRANSIT';
@@ -156,8 +156,8 @@ export class TravelTimeService {
    * Google Maps Routes API — single point-to-point walking or transit time.
    * Uses computeRoutes: POST https://routes.googleapis.com/directions/v2:computeRoutes
    * Picks WALK vs TRANSIT automatically based on straight-line distance:
-   *   ≤ 1.6 km → WALK (time-independent, no arrival/departure time sent)
-   *   > 1.6 km → TRANSIT (uses arrivalTime or departureTime for real timetables)
+   *   ≤ 3.0 km → WALK (time-independent, no arrival/departure time sent)
+   *   > 3.0 km → TRANSIT (uses arrivalTime or departureTime for real timetables; may fail in rural areas)
    */
   private async fetchGoogleMapsRoute(
     from: Location,
@@ -444,7 +444,7 @@ export class TravelTimeService {
       let gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, undefined, departureTime);
       let usedMode = gmMode;
       if (!gm && gmMode === 'TRANSIT') {
-        logger.info(`Google Maps Routes (TRANSIT) unreachable for ${distKm.toFixed(2)}km — retrying with WALK`);
+        logger.debug(`Google Maps Routes (TRANSIT) unavailable for ${distKm.toFixed(2)}km — falling back to WALK`);
         gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, 'WALK', departureTime);
         usedMode = 'WALK';
       }
