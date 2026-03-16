@@ -111,7 +111,7 @@ Stores the raw (base64-encoded) Excel file buffers — one per upload type per b
 | transportMode | enum | `car` \| `walking` \| `public` |
 | gender | enum | `male` \| `female` — used for gender-matched care |
 
-Unique per `(branchId, employeeName)`. Geocoding happens on first save and is cached.
+**Fresh-data table** — records are **cleared and fully replaced** on every file upload, so only currently active employees (from the latest CG Data Export) ever appear. `geocode_cache` provides coordinate persistence so postcodes do not need to re-hit the geocoding API each time.
 
 ### `client_locations`
 | Column | Type | Notes |
@@ -120,6 +120,8 @@ Unique per `(branchId, employeeName)`. Geocoding happens on first save and is ca
 | addressLine | text | Full street address |
 | postcode | text | For geocoding |
 | lat, lng | text | Resolved coordinates |
+
+**Fresh-data table** — same as `employee_locations`: cleared and rebuilt from the latest Guaranteed Hours file on every upload.
 
 ### `visits`
 Individual care sessions: duration, preferred time window, priority, service type. Linked to `clientLocations` and scoped to a branch and date.
@@ -175,7 +177,7 @@ The system requires three (optionally four) Excel exports from the care manageme
    - Net capacity = gross − deductions
 4. **Scheduled hours** — Sum actual visit durations from Guaranteed Hours export.
 5. **KPI rollup** — Week-level sums across all employees and days.
-6. **Persist** — Write `capacity_analyses` record; upsert `employee_locations` and `client_locations`.
+6. **Persist** — Write `capacity_analyses` record; **clear then repopulate** `employee_locations` and `client_locations` fresh from the uploaded files (stale/terminated records never survive a new upload).
 
 ---
 

@@ -1623,8 +1623,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all employee and client locations for scheduling
-  // Returns only employees/clients with valid coordinates from the current branch
-  // Note: Database may contain historical/terminated records; use "Refresh Map Data" to get latest
+  // Data is always fresh — locations are cleared and repopulated from uploaded files each time.
+  // geocode_cache is the only persistent store; employee_locations/client_locations reflect the latest upload.
   app.get('/api/locations', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
@@ -1633,16 +1633,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllClientLocations(branchId)
       ]);
 
-      // Filter to only include records with valid coordinates (more robust than trusting DB)
+      // Only show employees/clients we successfully geocoded (have valid lat/lng)
       const validEmployees = employees.filter(e => e.homeLat && e.homeLng);
-      const validClients = clients.filter(c => c.clientLat && c.clientLng);
+      const validClients = clients.filter(c => c.lat && c.lng);
 
       res.json({
         employees: validEmployees,
         clients: validClients,
-        fetchedAt: new Date().toISOString(), // Add timestamp so user knows how fresh the data is
-        totalEmployeesInDB: employees.length, // Show total in DB for transparency
-        totalClientsInDB: clients.length
+        fetchedAt: new Date().toISOString(),
+        totalInUpload: employees.length,      // Total from the latest uploaded file (inc. un-geocoded)
+        totalClientsInUpload: clients.length,
       });
     } catch (error) {
       logger.error('Error fetching locations', error);

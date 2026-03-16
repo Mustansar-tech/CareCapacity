@@ -3405,9 +3405,14 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
   }
 
   try {
+    // FRESH DATA STRATEGY: Clear existing employee/client locations for this branch before
+    // repopulating from the uploaded file. This ensures terminated/inactive staff never linger.
+    const clearedEmployees = await storage.clearEmployeeLocations(branchId);
+    const clearedClients = await storage.clearClientLocations(branchId);
+    logger.debug(`Cleared ${clearedEmployees} old employee locations and ${clearedClients} old client locations for branch ${branchId} — repopulating fresh from uploaded files`);
+
     // Extract employee locations from CG Data Export
     const employeeLocationsMap = new Map<string, any>();
-    const employeesToGeocode: any[] = [];
 
     logger.debug(`Starting to iterate through ${cgData.length} CG Data rows...`);
     for (const row of cgData) {
@@ -3426,73 +3431,34 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
         gender = "female";
       }
 
-
       if (employeeName && postcode) {
         const normalizedTransport = toTransportMode(transportMode);
 
-        // Check if already geocoded in database
-        const existing = await storage.getEmployeeLocationByName(branchId, employeeName);
+        // Check geocode_cache (not employee_locations — we just cleared that)
+        const geocoded = await geocodeWithFallback(postcode, storage, branchId);
+        const locationData: any = {
+          branchId,
+          employeeName,
+          homePostcode: postcode,
+          transportMode: normalizedTransport,
+          gender,
+        };
 
-        if (existing && existing.homeLat && existing.homeLng) {
-          // Already geocoded - update with gender if missing
-          logger.debug(`Cache hit for ${employeeName} - using existing coordinates`);
-          const locationData = {
-            branchId, // Required for data isolation
-            employeeName,
-            homePostcode: postcode,
-            transportMode: normalizedTransport,
-            gender: gender, // Include gender from Title
-            homeLat: existing.homeLat,
-            homeLng: existing.homeLng,
-          };
-          employeeLocationsMap.set(employeeName, locationData);
-
-          // Update database if gender is missing
-          if (gender && !existing.gender) {
-            logger.debug(`  Updating gender for employee`);
-            await storage.upsertEmployeeLocation(locationData);
-          }
+        if (geocoded && geocoded.lat && geocoded.lng) {
+          locationData.homeLat = geocoded.lat;
+          locationData.homeLng = geocoded.lng;
+          logger.debug(`Geocoded ${employeeName} at ${postcode}`);
         } else {
-          // Need to geocode
-          logger.debug(`Cache miss for ${employeeName} - needs geocoding`);
-          const locationData = {
-            branchId, // Required for data isolation
-            employeeName,
-            homePostcode: postcode,
-            transportMode: normalizedTransport,
-            gender: gender, // Include gender from Title
-          };
-          employeeLocationsMap.set(employeeName, locationData);
-          employeesToGeocode.push(locationData);
+          logger.debug(`Could not geocode ${employeeName} at ${postcode}`);
         }
+
+        employeeLocationsMap.set(employeeName, locationData);
       }
     }
 
-    logger.debug(`Employee locations: ${employeeLocationsMap.size} total (${employeesToGeocode.length} need geocoding, ${employeeLocationsMap.size - employeesToGeocode.length} cached)`);
+    logger.debug(`Employee locations: ${employeeLocationsMap.size} from current upload file`);
 
-    // Geocode only new employee locations
-    if (employeesToGeocode.length > 0) {
-      logger.debug(`Geocoding ${employeesToGeocode.length} new employee postcodes...`);
-      for (const locationData of employeesToGeocode) {
-        try {
-          const geocoded = await geocodeWithFallback(locationData.homePostcode, storage, branchId);
-
-          if (geocoded && geocoded.lat && geocoded.lng) {
-            locationData.homeLat = geocoded.lat;
-            locationData.homeLng = geocoded.lng;
-            logger.debug(`Successfully geocoded ${locationData.employeeName}`);
-          } else {
-            logger.debug(`Failed to geocode ${locationData.employeeName} at ${locationData.homePostcode}`);
-          }
-        } catch (err) {
-          logger.debug(`Error geocoding ${locationData.employeeName}: ${err}`);
-        }
-      }
-    } else {
-      logger.debug(`All employee locations already cached - skipping geocoding API calls`);
-    }
-
-    // Store all employee locations (cached + newly geocoded)
+    // Store all fresh employee locations
     for (const locationData of Array.from(employeeLocationsMap.values())) {
       await storage.upsertEmployeeLocation(locationData);
     }

@@ -67,11 +67,13 @@ export interface IStorage {
   getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined>;
   getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined>;
   getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]>;
+  clearEmployeeLocations(branchId: string): Promise<number>; // Delete all for branch (called before fresh upload)
 
   upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation>;
   getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined>;
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(branchId: string): Promise<ClientLocation[]>;
+  clearClientLocations(branchId: string): Promise<number>; // Delete all for branch (called before fresh upload)
 
   saveVisit(visit: InsertVisit): Promise<Visit>;
   getVisitById(id: string): Promise<Visit | undefined>;
@@ -303,6 +305,11 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(employeeLocations).where(eq(employeeLocations.branchId, branchId));
   }
 
+  async clearEmployeeLocations(branchId: string): Promise<number> {
+    const result = await db.delete(employeeLocations).where(eq(employeeLocations.branchId, branchId));
+    return result.rowCount ?? 0;
+  }
+
   async upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation> {
     const [result] = await db
       .insert(clientLocations)
@@ -341,6 +348,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllClientLocations(branchId: string): Promise<ClientLocation[]> {
     return await db.select().from(clientLocations).where(eq(clientLocations.branchId, branchId));
+  }
+
+  async clearClientLocations(branchId: string): Promise<number> {
+    const result = await db.delete(clientLocations).where(eq(clientLocations.branchId, branchId));
+    return result.rowCount ?? 0;
   }
 
   async saveVisit(visit: InsertVisit): Promise<Visit> {
@@ -640,6 +652,11 @@ export class MemStorage implements IStorage {
   }
   async getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined> { return this.employeeLocations.get(id); }
   async getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]> { return Array.from(this.employeeLocations.values()).filter(l => l.branchId === branchId); }
+  async clearEmployeeLocations(branchId: string): Promise<number> {
+    let count = 0;
+    Array.from(this.employeeLocations.entries()).forEach(([id, l]) => { if (l.branchId === branchId) { this.employeeLocations.delete(id); count++; } });
+    return count;
+  }
 
   async upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation> {
     const id = randomUUID();
@@ -652,6 +669,11 @@ export class MemStorage implements IStorage {
   }
   async getClientLocationById(id: string): Promise<ClientLocation | undefined> { return this.clientLocations.get(id); }
   async getAllClientLocations(branchId: string): Promise<ClientLocation[]> { return Array.from(this.clientLocations.values()).filter(l => l.branchId === branchId); }
+  async clearClientLocations(branchId: string): Promise<number> {
+    let count = 0;
+    Array.from(this.clientLocations.entries()).forEach(([id, l]) => { if (l.branchId === branchId) { this.clientLocations.delete(id); count++; } });
+    return count;
+  }
 
   async saveVisit(visit: InsertVisit): Promise<Visit> {
     const id = randomUUID();
