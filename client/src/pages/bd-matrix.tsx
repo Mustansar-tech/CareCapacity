@@ -1072,10 +1072,10 @@ function ClientEnquiryMatcher() {
                       <UserCheck className="w-7 h-7 text-[#5d51d5]" />
                     </div>
                     <div>
-                      <DialogTitle className="text-2xl font-black tracking-tight text-[#5d51d5] dark:text-gray-100">
+                      <DialogTitle className="text-[28px] font-black tracking-tight text-gray-900 dark:text-gray-100 leading-tight">
                         Client Enquiry Matcher
                       </DialogTitle>
-                      <DialogDescription className="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest">
+                      <DialogDescription className="text-gray-500 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
                         Care Capacity Intelligence
                       </DialogDescription>
                     </div>
@@ -1278,12 +1278,12 @@ function ClientEnquiryMatcher() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between px-1 mb-3">
+                  <div className="flex items-center justify-between px-1 mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-8 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full shadow-md shadow-purple-500/20" />
-                      <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">Search Archives</h3>
+                      <h3 className="text-[20px] font-black text-gray-900 dark:text-gray-100 tracking-tight leading-tight">Search Archives</h3>
                     </div>
-                    <Badge className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-100 dark:to-gray-200 text-white dark:text-gray-900 font-black px-4 py-1.5 rounded-2xl text-[10px] tracking-widest shadow-md">
+                    <Badge className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-100 dark:to-gray-200 text-white dark:text-gray-900 font-black px-4 py-1.5 rounded-2xl text-[11px] tracking-[0.08em] shadow-md">
                       {historyQuery.data?.length || 0} RECORDS
                     </Badge>
                   </div>
@@ -1321,19 +1321,19 @@ function ClientEnquiryMatcher() {
                               <div className="flex items-start justify-between mb-4">
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2.5">
-                                    <h4 className="font-black text-lg text-gray-900 dark:text-gray-100 truncate max-w-[180px] tracking-tight">{enquiry.clientName}</h4>
+                                    <h4 className="font-black text-[16px] text-gray-900 dark:text-gray-100 truncate max-w-[180px] tracking-tight leading-tight">{enquiry.clientName}</h4>
                                     {isMultiVisit && (
-                                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-none font-bold text-[9px] px-1.5 h-4">
+                                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-none font-semibold text-[10px] px-2 h-5 leading-none">
                                         {visitCount} Visits
                                       </Badge>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-2 text-[11px] font-medium text-gray-400">
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
+                                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-500 dark:text-gray-400 mt-1">
+                                    <span className="flex items-center gap-1.5">
+                                      <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                                       {enquiry.postcode || 'No postcode'}
                                     </span>
-                                    <span className="w-1 h-1 rounded-full bg-gray-300" />
+                                    <span className="w-0.5 h-3.5 rounded-full bg-gray-300 dark:bg-gray-600" />
                                     <span>{new Date(enquiry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
                                   </div>
                                 </div>
@@ -1350,7 +1350,7 @@ function ClientEnquiryMatcher() {
                                 </Button>
                               </div>
                               <div className="flex items-center justify-between pt-4 border-t border-gray-100/60 dark:border-gray-800/60">
-                                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-black text-sm">
+                                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-black text-[13px]">
                                   <UserCheck className="w-4 h-4" />
                                   {enquiry.matchCount || 0} matches
                                 </div>
@@ -1372,7 +1372,7 @@ function ClientEnquiryMatcher() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2 grid grid-cols-2 gap-5">
                     <div className="space-y-2.5">
-                      <Label htmlFor="clientName" className="text-xs font-black uppercase tracking-widest text-gray-500">Client Name *</Label>
+                      <Label htmlFor="clientName" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400">Client Name *</Label>
                       <div className="relative group">
                         <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-300" />
                         <Input
@@ -1385,7 +1385,7 @@ function ClientEnquiryMatcher() {
                       </div>
                     </div>
                     <div className="space-y-2.5">
-                      <Label htmlFor="postcode" className="text-xs font-black uppercase tracking-widest text-gray-500">Postcode</Label>
+                      <Label htmlFor="postcode" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400">Postcode</Label>
                       <div className="relative group">
                         <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-300" />
                         <Input
@@ -1399,13 +1399,13 @@ function ClientEnquiryMatcher() {
                     </div>
                   </div>
                   <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-5 rounded-2xl border border-purple-200/50 dark:border-purple-800/30 shadow-md shadow-purple-500/5 flex flex-col justify-center backdrop-blur-sm">
-                    <div className="flex items-center gap-2.5 text-purple-700 dark:text-purple-300 font-black mb-2">
+                    <div className="flex items-center gap-2.5 text-purple-700 dark:text-purple-300 font-black mb-2.5">
                       <div className="p-1.5 bg-purple-200/50 dark:bg-purple-800/30 rounded-lg">
                         <Info className="w-4 h-4" />
                       </div>
-                      <h4 className="text-[10px] uppercase tracking-[0.2em]">Multi-Visit Support</h4>
+                      <h4 className="text-[11px] font-bold uppercase tracking-[0.1em]">Multi-Visit Support</h4>
                     </div>
-                    <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed font-bold">
+                    <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed font-medium">
                       Configure up to 5 visits with different time windows and gender preferences per visit.
                     </p>
                   </div>
@@ -1416,7 +1416,7 @@ function ClientEnquiryMatcher() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-8 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full shadow-md shadow-purple-500/20" />
-                      <h3 className="text-lg font-black tracking-tight">Visit Schedule</h3>
+                      <h3 className="text-[20px] font-black tracking-tight text-gray-900 dark:text-gray-100 leading-tight">Visit Schedule</h3>
                     </div>
                     {visits.length < 5 && (
                       <Button
@@ -1424,7 +1424,7 @@ function ClientEnquiryMatcher() {
                         variant="outline"
                         size="sm"
                         onClick={addVisitTab}
-                        className="h-9 gap-2 text-xs font-black border-gray-200/60 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all duration-300 tracking-wider uppercase"
+                        className="h-9 gap-2 text-[11px] font-black border-gray-200/60 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all duration-300 tracking-[0.08em] uppercase"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Add Visit
