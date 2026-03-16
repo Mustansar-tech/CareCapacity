@@ -213,41 +213,60 @@ export class TravelTimeService {
       });
       clearTimeout(timeout);
 
-      const rawText = await response.text();
-      logger.debug(`[Google Maps Routes] RESPONSE HTTP ${response.status}: ${rawText.slice(0, 500)}`);
+      // Log raw HTTP response FIRST
+      logger.info(`[Google Maps Routes] RESPONSE HTTP ${response.status} (${travelMode})`);
+      logger.debug(`[Google Maps Routes] RAW_RESPONSE (${response.status}): ${rawText.slice(0, 600)}`);
 
       if (response.ok) {
+        // Try to parse JSON
         let data: any;
         try {
           data = JSON.parse(rawText);
+          logger.debug(`[Google Maps Routes] PARSED_JSON: ${JSON.stringify(data).slice(0, 400)}`);
         } catch (parseErr) {
-          logger.warn(`[Google Maps Routes] PARSE ERROR (${travelMode}): ${parseErr instanceof Error ? parseErr.message : parseErr}`);
-          return { durationMinutes: 0, errorType: 'google-parse-error' };
+          const errorMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+          const errType = travelMode === 'TRANSIT' ? 'google-transit-parse-error' : 'google-parse-error';
+          logger.warn(`[Google Maps Routes] PARSE_ERROR (${travelMode}): ${errorMsg}`);
+          logger.warn(`[Google Maps Routes] RAW_BODY_ON_PARSE_ERROR: ${rawText.slice(0, 300)}`);
+          return { durationMinutes: 0, errorType: errType };
+        }
+
+        // Check if body is empty
+        if (!rawText || rawText.trim().length === 0) {
+          const errType = travelMode === 'TRANSIT' ? 'google-transit-empty-body' : 'google-empty-body';
+          logger.warn(`[Google Maps Routes] EMPTY_BODY (${travelMode})`);
+          return { durationMinutes: 0, errorType: errType };
         }
 
         // Check if routes array exists
         if (!data.routes || !Array.isArray(data.routes)) {
-          logger.warn(`[Google Maps Routes] NO_ROUTES (${travelMode}): routes field missing or not an array, response: ${rawText.slice(0, 300)}`);
-          return { durationMinutes: 0, errorType: 'google-no-route' };
+          const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
+          logger.warn(`[Google Maps Routes] NO_ROUTES (${travelMode}): routes field missing or not an array`);
+          logger.debug(`[Google Maps Routes] RESPONSE_STRUCTURE: ${JSON.stringify(Object.keys(data)).slice(0, 200)}`);
+          return { durationMinutes: 0, errorType: errType };
         }
 
         // Check if we have at least one route
         if (data.routes.length === 0) {
-          logger.warn(`[Google Maps Routes] EMPTY_ROUTES (${travelMode}): routes array empty`);
-          return { durationMinutes: 0, errorType: 'google-empty-response' };
+          const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
+          logger.warn(`[Google Maps Routes] EMPTY_ROUTES (${travelMode}): routes array is empty`);
+          return { durationMinutes: 0, errorType: errType };
         }
 
         const route = data.routes[0];
         const durationStr = route?.duration as string | undefined;
         if (!durationStr) {
-          logger.warn(`[Google Maps Routes] NO_DURATION (${travelMode}): route exists but no duration field, route: ${JSON.stringify(route).slice(0, 200)}`);
-          return { durationMinutes: 0, errorType: 'google-no-route' };
+          const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
+          logger.warn(`[Google Maps Routes] NO_DURATION (${travelMode}): route exists but duration field missing`);
+          logger.debug(`[Google Maps Routes] ROUTE_STRUCTURE: ${JSON.stringify(Object.keys(route)).slice(0, 200)}`);
+          return { durationMinutes: 0, errorType: errType };
         }
 
         const seconds = parseInt(durationStr.replace('s', ''), 10);
         if (isNaN(seconds)) {
-          logger.warn(`[Google Maps Routes] PARSE_DURATION_ERROR (${travelMode}): cannot parse duration "${durationStr}"`);
-          return { durationMinutes: 0, errorType: 'google-parse-error' };
+          const errType = travelMode === 'TRANSIT' ? 'google-transit-parse-error' : 'google-parse-error';
+          logger.warn(`[Google Maps Routes] PARSE_DURATION_ERROR (${travelMode}): cannot parse "${durationStr}"`);
+          return { durationMinutes: 0, errorType: errType };
         }
 
         const minutes = Math.max(1, Math.round(seconds / 60));
@@ -255,10 +274,13 @@ export class TravelTimeService {
           `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
           `${travelMode === 'TRANSIT' ? (hasDeparture ? `depart ${departureTime?.toISOString()}` : `arrive ${arrivalTime?.toISOString()}`) : ''} ` +
           `= ${minutes}min`);
+        logger.debug(`[Google Maps Routes] PARSED_DURATION: ${durationStr} → ${minutes}min`);
         return { durationMinutes: minutes };
       } else {
-        logger.warn(`[Google Maps Routes] HTTP_ERROR (${response.status}) ${travelMode}: ${rawText.slice(0, 300)}`);
-        return { durationMinutes: 0, errorType: 'google-api-error' };
+        const errType = travelMode === 'TRANSIT' ? 'google-transit-http-error' : 'google-http-error';
+        logger.warn(`[Google Maps Routes] HTTP_ERROR ${response.status} (${travelMode})`);
+        logger.warn(`[Google Maps Routes] ERROR_RESPONSE_BODY: ${rawText.slice(0, 400)}`);
+        return { durationMinutes: 0, errorType: errType };
       }
     } catch (error) {
       logger.warn(`[Google Maps Routes] FETCH_ERROR: ${error instanceof Error ? error.message : error}`);
@@ -485,7 +507,7 @@ export class TravelTimeService {
       
       if ((!gm || gm.durationMinutes === 0) && gmMode === 'TRANSIT') {
         transitErrorType = gm?.errorType;
-        logger.info(`[Google Maps Routes] TRANSIT unreachable for ${distKm.toFixed(2)}km (${transitErrorType || 'no-result'}) — retrying with WALK`);
+        logger.warn(`[Google Maps Routes] TRANSIT RETRY: Failed for ${distKm.toFixed(2)}km with error [${transitErrorType}] — attempting WALK fallback`);
         gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, 'WALK', departureTime);
         usedMode = 'WALK';
       }
