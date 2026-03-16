@@ -179,25 +179,17 @@ export class TravelTimeService {
       };
 
       // Walking is time-independent — no arrival/departure time sent.
-      // Transit: Google Maps Routes API may not support arrival_time for scheduled routes.
-      // Using departureTime (now) instead of arrivalTime (future), which is more reliable
-      // for real-time transit lookups. If scheduledDeparture is provided, use that instead.
+      // Transit supports both arrivalTime (arrive by) and departureTime (leave at).
       if (travelMode === 'TRANSIT') {
-        // Try departureTime first (NOW) as it's more reliable for transit lookups
-        body.departureTime = (departureTime || new Date()).toISOString();
-        // Note: If this fails, we fall back to WALK mode via calculateTravelTime()
+        if (departureTime) {
+          body.departureTime = departureTime.toISOString();
+        } else {
+          body.arrivalTime = (arrivalTime || new Date()).toISOString();
+        }
       }
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
-
-      // TravelTime equivalent: arrival_searches with arrival_time in ISO format
-      // TravelTime body example:
-      // { arrival_searches: [{ arrival_location_id: 'dest', departure_location_ids: ['origin'], 
-      //                       transportation: { type: 'public_transport' }, arrival_time: ISO, travel_time: 7200 }] }
-      // Google Maps Routes API equivalent:
-      const requestBody = JSON.stringify(body);
-      logger.debug(`[Google Maps Routes] Sending ${travelMode} request: ${from.lat.toFixed(4)},${from.lng.toFixed(4)} → ${to.lat.toFixed(4)},${to.lng.toFixed(4)}, body: ${requestBody.slice(0, 300)}`);
 
       const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
         method: 'POST',
@@ -206,7 +198,7 @@ export class TravelTimeService {
           'X-Goog-FieldMask': 'routes.duration',
           'Content-Type': 'application/json',
         },
-        body: requestBody,
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
       clearTimeout(timeout);
@@ -217,15 +209,14 @@ export class TravelTimeService {
         if (durationStr) {
           const seconds = parseInt(durationStr.replace('s', ''), 10);
           if (!isNaN(seconds)) {
-            logger.debug(`[Google Maps Routes] Success (${travelMode}): ${Math.max(1, Math.round(seconds / 60))} min`);
             return { durationMinutes: Math.max(1, Math.round(seconds / 60)) };
           }
         }
-        logger.debug(`[Google Maps Routes] No route returned (${travelMode}, ${distanceKm.toFixed(2)}km). Full response: ${JSON.stringify(data).slice(0, 300)}`);
+        logger.debug(`Google Maps Routes: no route returned (${travelMode}, ${distanceKm.toFixed(2)}km)`);
         return null;
       } else {
         const errText = await response.text();
-        logger.warn(`[Google Maps Routes] API error (${response.status}): ${errText.slice(0, 300)}`);
+        logger.warn(`Google Maps Routes API error (${response.status}): ${errText.slice(0, 200)}`);
         return null;
       }
     } catch (error) {
