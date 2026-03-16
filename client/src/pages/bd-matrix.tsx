@@ -1304,8 +1304,7 @@ function ClientEnquiryMatcher() {
                       <p className="text-[13px] text-gray-400 dark:text-gray-600">Searches will be saved here automatically.</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto -mx-8 px-8">
-                      <div className="inline-flex gap-5 min-w-full pb-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {historyQuery.data.map((enquiry: any) => {
                         const results = enquiry.results;
                         const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
@@ -1313,7 +1312,7 @@ function ClientEnquiryMatcher() {
                         return (
                           <div 
                             key={enquiry.id} 
-                            className="group relative flex-shrink-0 w-80 bg-gradient-to-br from-white to-gray-50 dark:from-gray-900/90 dark:to-gray-950 border border-gray-200 dark:border-gray-800/80 hover:border-purple-400/50 dark:hover:border-purple-600/40 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 hover:-translate-y-2 overflow-hidden"
+                            className="group relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-900/90 dark:to-gray-950 border border-gray-200 dark:border-gray-800/80 hover:border-purple-400/50 dark:hover:border-purple-600/40 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 hover:-translate-y-2 overflow-hidden"
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
@@ -1370,7 +1369,6 @@ function ClientEnquiryMatcher() {
                           </div>
                         );
                       })}
-                      </div>
                     </div>
                   )}
                 </div>
