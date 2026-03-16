@@ -19,7 +19,7 @@ A scheduling and route optimisation platform for Home Instead franchise branches
 - **Frontend**: React 18 + TypeScript, Vite, shadcn/ui, TanStack Query v5, Wouter routing, Recharts, React Leaflet, Framer Motion
 - **Backend**: Express + TypeScript, Multer, ExcelJS, Zod
 - **Database**: PostgreSQL (Neon serverless) + Drizzle ORM
-- **APIs**: ORS Matrix (car pre-warm), ORS Directions (car fallback), OSRM (free car fallback), TravelTime API (walker/public transport, arrival_searches with correct date+time), Haversine (last resort)
+- **APIs**: ORS Matrix (car pre-warm), ORS Directions (car fallback), OSRM (free car fallback), Google Maps Routes API (walker/public transport, computeRoutes with arrivalTime/departureTime), Haversine (last resort)
 
 ---
 
@@ -33,7 +33,7 @@ The VRPTW engine (`client/src/utils/scheduling-engine.ts`) runs in the browser t
 
 ### Two-Phase Walker Scheduling
 1. **Phase 1**: Schedule with Haversine estimates (instant, no API calls).
-2. **Phase 2 (post-schedule)**: Call `POST /api/travel-times/refine-walker` with only the assigned walker/public pairs. Pairs are deduplicated by `{visitDate}-{from}-{to}-{mode}` so different days get separate TravelTime queries (weekends use weekend timetables). Results stored in a local date-keyed map — not the global session cache — to avoid cross-day contamination.
+2. **Phase 2 (post-schedule)**: Call `POST /api/travel-times/refine-walker` with only the assigned walker/public pairs. Pairs are deduplicated by `{visitDate}-{from}-{to}-{mode}` so different days get separate Google Maps queries (weekends use weekend timetables). Results stored in a local date-keyed map — not the global session cache — to avoid cross-day contamination.
 
 ### ORS Matrix for Car Routes
 Called via `POST /api/travel-times/batch` before scheduling. Batch size 50. Returns results for all employee×client pairs. DB-level travel cache is disabled — session cache only.
@@ -77,5 +77,5 @@ Strict gap checking — no time compression. Visit time windows are fixed.
 
 - PostgreSQL (Neon serverless)
 - OpenRouteService API (ORS_API_KEY env var)
-- TravelTime API (TRAVELTIME_APP_ID + TRAVELTIME_API_KEY env vars)
+- Google Maps Routes API (GOOGLE_MAPS_API_KEY env var)
 - Geocoding API (for postcode → lat/lng resolution)

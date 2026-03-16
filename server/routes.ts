@@ -1438,7 +1438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Post-schedule walker/public travel time refinement.
   // Accepts the exact route pairs that were assigned to walker/public employees and returns
-  // real TravelTime API durations for those pairs only (~20-100 calls vs full pre-warm).
+  // real Google Maps Routes API durations for those pairs only (~20-100 calls vs full pre-warm).
   app.post('/api/travel-times/refine-walker', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
@@ -1450,95 +1450,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ results: [] });
       }
 
-      logger.info(`[Refine Walker] Refining ${pairs.length} walker/public route pairs via TravelTime API (throttled)`);
+      logger.info(`[Refine Walker] Refining ${pairs.length} walker/public route pairs via Google Maps API`);
 
       const results: Array<{ key: string; fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; source: string }> = [];
-      let ttCount = 0;
+      let gmCount = 0;
       let heuristicCount = 0;
 
-      // Rate limiting: TravelTime Free/Basic plans typically allow 10-60 requests per minute.
-      // We process in chunks of 10 with a delay to stay under the limit and avoid 429 errors.
-      const CHUNK_SIZE = 10;
-      const CHUNK_DELAY_MS = 7000; // 7 seconds between chunks
+      // Google Maps Routes API has generous quotas — process all pairs concurrently.
+      const settled = await Promise.allSettled(pairs.map(async (pair) => {
+        const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
+        const from = { lat: pair.fromLat, lng: pair.fromLng };
+        const to = { lat: pair.toLat, lng: pair.toLng };
 
-      for (let i = 0; i < pairs.length; i += CHUNK_SIZE) {
-        const chunk = pairs.slice(i, i + CHUNK_SIZE);
-        logger.info(`[Refine Walker] Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(pairs.length / CHUNK_SIZE)}`);
-
-        const settled = await Promise.allSettled(chunk.map(async (pair) => {
-          const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
-          const from = { lat: pair.fromLat, lng: pair.fromLng };
-          const to = { lat: pair.toLat, lng: pair.toLng };
-
-          // Build a UTC Date from the UK local schedule time + the actual visit date.
-          let arrivalTime: Date | undefined;
-          if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
-            arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
-          } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
-            const today = new Date().toISOString().slice(0, 10);
-            arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
-          }
-
-          // For return-home and break-departure legs, use depart_by instead of arrive_by.
-          let departureTime: Date | undefined;
-          if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
-            departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
-          }
-
-          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
-          if (!result) return null;
-
-          const timeTag = pair.departureTimeMinutes !== undefined
-            ? `d${pair.departureTimeMinutes}`
-            : pair.arrivalTimeMinutes !== undefined
-              ? `a${pair.arrivalTimeMinutes}`
-              : 'anon';
-          const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
-          
-          return {
-            key,
-            fromLat: pair.fromLat,
-            fromLng: pair.fromLng,
-            toLat: pair.toLat,
-            toLng: pair.toLng,
-            mode: normalizedMode,
-            durationMinutes: result.travelTimeMinutes,
-            source: result.source || 'traveltime',
-            timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
-            isHeuristic: result.source === 'heuristic',
-          };
-        }));
-
-        for (const outcome of settled) {
-          if (outcome.status === 'fulfilled' && outcome.value) {
-            const { isHeuristic, ...entry } = outcome.value;
-            results.push(entry);
-            if (isHeuristic) heuristicCount++; else ttCount++;
-          } else if (outcome.status === 'rejected') {
-            logger.warn(`[Refine Walker] A pair failed: ${outcome.reason}`);
-          }
+        // Build a UTC Date from the UK local schedule time + the actual visit date.
+        let arrivalTime: Date | undefined;
+        if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
+          arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
+        } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
+          const today = new Date().toISOString().slice(0, 10);
+          arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
         }
 
-        // Delay before next chunk, except for the last one
-        if (i + CHUNK_SIZE < pairs.length) {
-          logger.info(`[Refine Walker] Waiting ${CHUNK_DELAY_MS}ms for rate limit window...`);
-          await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY_MS));
+        // For return-home and break-departure legs, use departureTime instead of arrivalTime.
+        let departureTime: Date | undefined;
+        if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
+          departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
+        }
+
+        const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
+        if (!result) return null;
+
+        const timeTag = pair.departureTimeMinutes !== undefined
+          ? `d${pair.departureTimeMinutes}`
+          : pair.arrivalTimeMinutes !== undefined
+            ? `a${pair.arrivalTimeMinutes}`
+            : 'anon';
+        const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
+
+        return {
+          key,
+          fromLat: pair.fromLat,
+          fromLng: pair.fromLng,
+          toLat: pair.toLat,
+          toLng: pair.toLng,
+          mode: normalizedMode,
+          durationMinutes: result.travelTimeMinutes,
+          source: result.source || 'google-maps',
+          timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
+          isHeuristic: result.source === 'heuristic',
+        };
+      }));
+
+      for (const outcome of settled) {
+        if (outcome.status === 'fulfilled' && outcome.value) {
+          const { isHeuristic, ...entry } = outcome.value;
+          results.push(entry);
+          if (isHeuristic) heuristicCount++; else gmCount++;
+        } else if (outcome.status === 'rejected') {
+          logger.warn(`[Refine Walker] A pair failed: ${outcome.reason}`);
         }
       }
 
-      logger.info(`[Refine Walker] Complete: ${ttCount} via TravelTime, ${heuristicCount} via heuristic, ${pairs.length - results.length} failed`);
-      res.json({ results, stats: { traveltime: ttCount, heuristic: heuristicCount } });
+      logger.info(`[Refine Walker] Complete: ${gmCount} via Google Maps, ${heuristicCount} via heuristic, ${pairs.length - results.length} failed`);
+      res.json({ results, stats: { 'google-maps': gmCount, heuristic: heuristicCount } });
     } catch (error) {
       logger.error('Error in travel-times/refine-walker:', error);
       res.status(500).json({ error: safeErrorMessage(error, 'Failed to refine walker travel times') });
     }
   });
 
-  // Diagnostic endpoint: verify exactly what TravelTime receives for a single pair.
+  // Diagnostic endpoint: verify what Google Maps Routes API returns for a single pair.
   // POST body: { fromLat, fromLng, toLat, toLng, mode, visitDate?, arrivalTimeMinutes? }
   // Returns the ISO timestamp sent, the day-of-week, whether BST applies, the transport
-  // type chosen, and the actual duration TravelTime returns — paste into TravelTime
-  // playground to confirm the numbers match.
+  // mode chosen, and the actual duration Google Maps returns.
   app.post('/api/travel-times/debug-single', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
@@ -1573,48 +1557,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dLng2 = (toLng - fromLng) * Math.PI / 180;
       const a2 = Math.sin(dLat2 / 2) ** 2 + Math.cos(fromLat * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) * Math.sin(dLng2 / 2) ** 2;
       const distKm = R2 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2));
-      const ttTransportType = normalizedMode === 'car' ? 'driving' :
-        distKm <= 1.6 ? 'walking' : 'public_transport';
+      const gmTravelMode = normalizedMode === 'car' ? 'DRIVE' : distKm <= 1.6 ? 'WALK' : 'TRANSIT';
 
-      const requestBody = {
-        _endpoint: 'POST https://api.traveltimeapp.com/v4/time-filter',
-        locations: [
-          { id: 'origin', coords: { lat: fromLat, lng: fromLng } },
-          { id: 'destination', coords: { lat: toLat, lng: toLng } },
-        ],
-        arrival_searches: [{
-          id: 'search',
-          arrival_location_id: 'destination',
-          departure_location_ids: ['origin'],
-          transportation: { type: ttTransportType },
-          arrival_time: isoTimestamp,
-          travel_time: 7200,
-          properties: ['travel_time'],
-        }],
-      };
-
-      const [result, compare] = await Promise.all([
+      const [result, debug] = await Promise.all([
         travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime),
-        travelTimeService.debugCompareBothEndpoints({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }, ttTransportType, arrivalTime),
+        travelTimeService.debugGoogleMapsRoute({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }, gmTravelMode, arrivalTime),
       ]);
 
       res.json({
-        requestSent: requestBody,
         isoTimestamp,
         dayOfWeek,
         bstActive,
         distanceKm: Math.round(distKm * 100) / 100,
-        transportMode: ttTransportType,
-        // Results from both TravelTime endpoints side-by-side
-        results: {
-          'time-filter': compare.timeFilter,
-          'time-filter/fast': compare.timeFilterFast,
-          timePeriodUsedByFast: compare.timePeriod,
-          systemCurrentlyUses: compare.timeFilter,
-        },
+        travelMode: gmTravelMode,
+        googleMapsResult: debug.durationMinutes,
         durationMinutes: result?.travelTimeMinutes ?? null,
         source: result?.source ?? null,
-        note: 'Compare time-filter vs time-filter/fast to see which matches your playground result',
       });
     } catch (error) {
       logger.error('Error in travel-times/debug-single:', error);
