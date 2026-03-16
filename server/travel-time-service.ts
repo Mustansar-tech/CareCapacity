@@ -153,6 +153,25 @@ export class TravelTimeService {
   }
 
   /**
+   * Returns a sensible default departure time for TRANSIT queries when no schedule time is known.
+   * Uses 9am on the next upcoming weekday so Google returns real timetable results
+   * rather than "no service at midnight" empty responses.
+   */
+  private getDefaultTransitDepartureTime(): Date {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    // If it's already past 9am today, move to tomorrow
+    if (d <= new Date()) {
+      d.setDate(d.getDate() + 1);
+    }
+    // Skip weekends — most care schedules are weekdays
+    while (d.getDay() === 0 || d.getDay() === 6) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
+  }
+
+  /**
    * Google Maps Routes API — single point-to-point walking or transit time.
    * Uses computeRoutes: POST https://routes.googleapis.com/directions/v2:computeRoutes
    * Picks WALK vs TRANSIT automatically based on straight-line distance:
@@ -171,9 +190,6 @@ export class TravelTimeService {
 
     try {
       const travelMode = forceMode ?? this.toGoogleMapsMode(distanceKm);
-      const hasArrival = arrivalTime !== undefined;
-      const hasDeparture = departureTime !== undefined;
-      const timeType = hasDeparture ? 'departure' : hasArrival ? 'arrival' : 'none';
 
       const body: Record<string, unknown> = {
         origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
@@ -182,20 +198,20 @@ export class TravelTimeService {
       };
 
       // Walking is time-independent — no arrival/departure time sent.
-      // Transit supports both arrivalTime (arrive by) and departureTime (leave at).
+      // TRANSIT: Google Maps Routes API only supports departureTime, NOT arrivalTime.
+      // If only arrivalTime is given, treat it as a rough departure time (slight overestimate).
+      // If neither is given, use a smart default (9am next weekday) so Google returns
+      // real timetable results rather than empty "no service" responses.
       if (travelMode === 'TRANSIT') {
-        if (departureTime) {
-          body.departureTime = departureTime.toISOString();
-        } else if (arrivalTime) {
-          body.arrivalTime = arrivalTime.toISOString();
-        }
+        const deptTime = departureTime ?? arrivalTime ?? this.getDefaultTransitDepartureTime();
+        body.departureTime = deptTime.toISOString();
       }
 
       const bodyStr = JSON.stringify(body);
       logger.info(`[Google Maps Routes] REQUEST ${travelMode} ` +
         `origin=(${from.lat.toFixed(4)},${from.lng.toFixed(4)}) ` +
         `dest=(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
-        `${travelMode === 'TRANSIT' ? (hasDeparture ? `departureTime=${departureTime?.toISOString()}` : `arrivalTime=${arrivalTime?.toISOString()}`) : 'time-independent'}`);
+        `${travelMode === 'TRANSIT' ? `departureTime=${(departureTime ?? arrivalTime ?? this.getDefaultTransitDepartureTime()).toISOString()}` : 'time-independent'}`);
       logger.debug(`[Google Maps Routes] REQUEST body: ${bodyStr}`);
 
       const controller = new AbortController();
@@ -277,9 +293,9 @@ export class TravelTimeService {
         }
 
         const minutes = Math.max(1, Math.round(seconds / 60));
-        logger.info(`[Google Maps Routes] SUCCESS ${travelMode} ${timeType} ` +
+        logger.info(`[Google Maps Routes] SUCCESS ${travelMode} ` +
           `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
-          `${travelMode === 'TRANSIT' ? (hasDeparture ? `depart ${departureTime?.toISOString()}` : `arrive ${arrivalTime?.toISOString()}`) : ''} ` +
+          `${travelMode === 'TRANSIT' ? `depart ${(departureTime ?? arrivalTime ?? this.getDefaultTransitDepartureTime()).toISOString()}` : ''} ` +
           `= ${minutes}min`);
         logger.debug(`[Google Maps Routes] PARSED_DURATION: ${durationStr} → ${minutes}min`);
         return { durationMinutes: minutes };
@@ -512,11 +528,14 @@ export class TravelTimeService {
       let usedMode = gmMode;
       let transitErrorType: string | undefined;
       
+      // When TRANSIT fails for distances > threshold, do NOT retry with WALK.
+      // Walking speed (5 km/h) for a 5+ km journey gives 60+ minute results which
+      // are completely wrong — the heuristic at bus speed (15 km/h) is far more accurate.
+      // Note: if distKm ≤ WALK_THRESHOLD_KM, gmMode is already WALK so this branch never fires.
       if ((!gm || gm.durationMinutes === 0) && gmMode === 'TRANSIT') {
         transitErrorType = gm?.errorType;
-        logger.warn(`[Google Maps Routes] TRANSIT RETRY: Failed for ${distKm.toFixed(2)}km with error [${transitErrorType}] — attempting WALK fallback`);
-        gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, 'WALK', departureTime);
-        usedMode = 'WALK';
+        logger.warn(`[Google Maps Routes] TRANSIT failed for ${distKm.toFixed(2)}km [${transitErrorType}] — falling through to heuristic (bus speed)`);
+        gm = null; // Ensure we fall through to heuristic
       }
       if (gm && gm.durationMinutes > 0) {
         logger.debug(`[Google Maps Routes] (${usedMode}, ${distKm.toFixed(2)}km): ${gm.durationMinutes} min`);
@@ -935,13 +954,14 @@ export async function calculateTravelTime(
   branchId: string,
   employeeName: string,
   clientName: string,
-  transportMode: TransportMode = 'car'
+  transportMode: TransportMode = 'car',
+  departureTime?: Date
 ): Promise<number> {
   try {
     const employeeCoords = await getLocationCoordinates(branchId, employeeName, 'employee');
     const clientCoords = await getLocationCoordinates(branchId, clientName, 'client');
     if (!employeeCoords || !clientCoords) return 0;
-    const travelMatrix = await travelTimeService.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode);
+    const travelMatrix = await travelTimeService.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode, undefined, departureTime);
     return travelMatrix.travelTimeMinutes;
   } catch (error) {
     logger.error(`Error calculating travel time:`, error);
