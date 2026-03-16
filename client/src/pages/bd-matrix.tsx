@@ -1099,7 +1099,7 @@ function ClientEnquiryMatcher() {
           </div>
 
           {/* Content Area */}
-          <div className={`flex-1 min-h-0 bg-gradient-to-br from-white/50 to-gray-50/50 dark:from-gray-950/50 dark:to-gray-900/50 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-6'}`}>
+          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-8'}`}>
             {multiResults ? (
               <div className="flex flex-col flex-1 min-h-0 gap-4 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1278,30 +1278,33 @@ function ClientEnquiryMatcher() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between px-1 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-8 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full shadow-md shadow-purple-500/20" />
-                      <h3 className="text-[20px] font-black text-gray-900 dark:text-gray-100 tracking-tight leading-tight">Search Archives</h3>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-[22px] font-black text-gray-950 dark:text-gray-50 tracking-tight leading-tight">Search Archives</h3>
+                      <p className="text-[12px] text-gray-500 dark:text-gray-500 font-medium mt-0.5">Previously saved client enquiry searches</p>
                     </div>
-                    <Badge className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-100 dark:to-gray-200 text-white dark:text-gray-900 font-black px-4 py-1.5 rounded-2xl text-[11px] tracking-[0.08em] shadow-md">
-                      {historyQuery.data?.length || 0} RECORDS
-                    </Badge>
+                    <div className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-2 shadow-sm">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                      <span className="text-[12px] font-bold text-gray-700 dark:text-gray-300 tracking-wide">{historyQuery.data?.length || 0} <span className="text-gray-500 font-medium">records</span></span>
+                    </div>
                   </div>
                   
                   {historyQuery.isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
-                      <Loader2 className="w-10 h-10 animate-spin text-purple-600 mb-4" />
-                      <span className="text-sm font-bold text-gray-400 uppercase tracking-wider">Loading archives...</span>
+                    <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                      <Loader2 className="w-10 h-10 animate-spin text-purple-500 mb-4" />
+                      <span className="text-[13px] font-semibold text-gray-500">Loading archives...</span>
                     </div>
                   ) : !historyQuery.data?.length ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
-                      <History className="w-16 h-16 mx-auto mb-4 text-gray-200" />
-                      <h4 className="font-bold text-gray-400 mb-1">No Enquiries Yet</h4>
-                      <p className="text-xs text-gray-400">Searches will be saved here automatically.</p>
+                    <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">
+                      <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-2xl mb-4">
+                        <History className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h4 className="text-[15px] font-bold text-gray-700 dark:text-gray-300 mb-1">No Enquiries Yet</h4>
+                      <p className="text-[13px] text-gray-400 dark:text-gray-600">Searches will be saved here automatically.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {historyQuery.data.map((enquiry: any) => {
                         const results = enquiry.results;
                         const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
@@ -1373,6 +1376,8 @@ function ClientEnquiryMatcher() {
             ) : (
               <div className="space-y-8">
                 {/* Client Details */}
+                <div className="space-y-4">
+                  <h3 className="text-[12px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.12em]">Client Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2 grid grid-cols-2 gap-5">
                     <div className="space-y-2.5">
@@ -1402,25 +1407,26 @@ function ClientEnquiryMatcher() {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-5 rounded-2xl border border-purple-200/50 dark:border-purple-800/30 shadow-md shadow-purple-500/5 flex flex-col justify-center backdrop-blur-sm">
-                    <div className="flex items-center gap-2.5 text-purple-700 dark:text-purple-300 font-black mb-2.5">
-                      <div className="p-1.5 bg-purple-200/50 dark:bg-purple-800/30 rounded-lg">
-                        <Info className="w-4 h-4" />
+                  <div className="bg-white dark:bg-gray-900/60 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 shadow-sm flex flex-col justify-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-purple-600 rounded-l-2xl" />
+                    <div className="pl-4">
+                      <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 mb-2">
+                        <Info className="w-4 h-4 flex-shrink-0" />
+                        <h4 className="text-[12px] font-bold uppercase tracking-[0.1em]">Multi-Visit Support</h4>
                       </div>
-                      <h4 className="text-[11px] font-bold uppercase tracking-[0.1em]">Multi-Visit Support</h4>
+                      <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                        Configure up to 5 visits with different time windows and gender preferences per visit.
+                      </p>
                     </div>
-                    <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed font-medium">
-                      Configure up to 5 visits with different time windows and gender preferences per visit.
-                    </p>
                   </div>
+                </div>
                 </div>
 
                 {/* Visit Schedule */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-8 bg-gradient-to-b from-purple-600 to-indigo-600 rounded-full shadow-md shadow-purple-500/20" />
-                      <h3 className="text-[20px] font-black tracking-tight text-gray-900 dark:text-gray-100 leading-tight">Visit Schedule</h3>
+                    <div>
+                      <h3 className="text-[13px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.1em] mb-0.5">Visit Schedule</h3>
                     </div>
                     {visits.length < 5 && (
                       <Button
@@ -1482,29 +1488,32 @@ function ClientEnquiryMatcher() {
                 </div>
 
                 {/* Action Bar */}
-                <div className="flex justify-between items-center pt-6 border-t border-gray-200/60 dark:border-gray-800/60">
-                  <Button variant="ghost" onClick={handleReset} className="text-gray-400 hover:text-red-500 font-black text-xs uppercase tracking-widest gap-2 transition-all duration-300">
+                <div className="flex justify-between items-center pt-7 border-t border-gray-200 dark:border-gray-800/70">
+                  <Button
+                    variant="ghost"
+                    onClick={handleReset}
+                    className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold text-[12px] uppercase tracking-[0.08em] gap-2 transition-all duration-300 rounded-xl px-4 h-9"
+                  >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    Reset All
+                    Reset
                   </Button>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-5">
                     {activeVisits.length > 0 && (
-                      <span className="text-[11px] text-gray-400 font-black tracking-wider">
-                        {activeVisits.length} visit{activeVisits.length !== 1 ? 's' : ''} configured
-                        <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                      </span>
+                      <div className="flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 font-medium">
+                        <span className="inline-block w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                        <span>{activeVisits.length} visit{activeVisits.length !== 1 ? 's' : ''} ready</span>
+                      </div>
                     )}
                     <Button
                       onClick={() => matchMutation.mutate()}
                       disabled={!canSubmit || matchMutation.isPending}
-                      className="h-13 px-10 bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-700 hover:from-purple-800 hover:via-indigo-800 hover:to-blue-800 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-purple-500/25 gap-3 rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl hover:shadow-purple-500/30"
+                      className="h-12 px-10 bg-gradient-to-r from-[#5d51d5] to-[#4338ca] hover:from-[#4f46e5] hover:to-[#3730a3] text-white font-bold text-[13px] tracking-[0.06em] shadow-xl shadow-indigo-500/30 gap-3 rounded-2xl transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                     >
                       {matchMutation.isPending ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Searching...</>
                       ) : (
-                        <Search className="w-5 h-5" />
+                        <><Search className="w-4 h-4" /> Find Best Matches</>
                       )}
-                      {matchMutation.isPending ? "Searching..." : "Find Best Matches"}
                     </Button>
                   </div>
                 </div>
