@@ -849,50 +849,31 @@ export class TravelTimeService {
       }
     };
 
-    // ── PHASE 1a: Walker/public employee → client ─────────────────────────────
+    // ── PHASE 1a: Walker/public employee → client (ORS walking for short trips only) ──
     // Short trips (≤ 1.6 km): ORS foot-walking matrix batch
-    // Longer trips (> 1.6 km): TravelTime matrix (walking employees → 'walking', public → 'public_transport')
-    // Fallback: Haversine heuristic (handled inside each helper)
+    // Longer trips (> 1.6 km): DISABLED — will use Haversine via calculateTravelTime
     if (nonCarEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients`);
+      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients (ORS walking short trips only)`);
       for (const arrivalClient of clientLocations) {
-        // Partition departures by straight-line distance
-        const shortDeps: Array<{ lat: number; lng: number; id: string; mode: TransportMode }> = [];
-        const longWalkDeps: Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
-        const longPublicDeps: Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
+        const shortDepsWalk:   Array<{ lat: number; lng: number }> = [];
+        const shortDepsPublic: Array<{ lat: number; lng: number }> = [];
 
         for (const emp of nonCarEmployees) {
           const distKm = this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng });
           if (distKm <= this.WALK_THRESHOLD_KM) {
-            shortDeps.push({ lat: emp.lat, lng: emp.lng, id: emp.id, mode: emp.transportMode });
-          } else if (emp.transportMode === 'walking') {
-            longWalkDeps.push({ lat: emp.lat, lng: emp.lng, distanceKm: distKm, fromLat: emp.lat.toString(), fromLng: emp.lng.toString(), toLat: arrivalClient.lat.toString(), toLng: arrivalClient.lng.toString(), mode: emp.transportMode });
-          } else {
-            longPublicDeps.push({ lat: emp.lat, lng: emp.lng, distanceKm: distKm, fromLat: emp.lat.toString(), fromLng: emp.lng.toString(), toLat: arrivalClient.lat.toString(), toLng: arrivalClient.lng.toString(), mode: emp.transportMode });
+            if (emp.transportMode === 'walking') {
+              shortDepsWalk.push({ lat: emp.lat, lng: emp.lng });
+            } else {
+              shortDepsPublic.push({ lat: emp.lat, lng: emp.lng });
+            }
           }
         }
 
-        // Short: ORS walking matrix (one batch per client arrival)
-        if (shortDeps.length > 0) {
-          for (let bi = 0; bi < shortDeps.length; bi += ORS_MATRIX_BATCH_SIZE) {
-            const batch = shortDeps.slice(bi, bi + ORS_MATRIX_BATCH_SIZE);
-            // Group by employee transport mode for correct cache key
-            const walkingBatch = batch.filter(d => d.mode === 'walking');
-            const publicBatch = batch.filter(d => d.mode !== 'walking');
-            if (walkingBatch.length > 0) totalNew += await this.orsWalkingMatrixBatch(walkingBatch, [arrivalClient], 'walking');
-            if (publicBatch.length > 0) totalNew += await this.orsWalkingMatrixBatch(publicBatch, [arrivalClient], 'public');
-          }
-          logger.debug(`[Cache Pre-warm] Phase 1a ORS walking: ${shortDeps.length} short deps → client (${arrivalClient.lat.toFixed(4)},${arrivalClient.lng.toFixed(4)})`);
-        }
-
-        // Long walking: TravelTime walking
-        if (longWalkDeps.length > 0) {
-          await runTravelTimeArrivalGroup(arrivalClient, longWalkDeps, 'walking');
-        }
-
-        // Long public: TravelTime public_transport, retry walking on failure
-        if (longPublicDeps.length > 0) {
-          await runTravelTimeArrivalGroup(arrivalClient, longPublicDeps, 'public_transport', 'walking');
+        // Short trips: ORS walking matrix
+        if (shortDepsWalk.length > 0) totalNew += await this.orsWalkingMatrixBatch(shortDepsWalk, [arrivalClient], 'walking');
+        if (shortDepsPublic.length > 0) totalNew += await this.orsWalkingMatrixBatch(shortDepsPublic, [arrivalClient], 'public');
+        if (shortDepsWalk.length > 0 || shortDepsPublic.length > 0) {
+          logger.debug(`[Cache Pre-warm] Phase 1a ORS walking: ${shortDepsWalk.length + shortDepsPublic.length} short trips → client (${arrivalClient.lat.toFixed(4)},${arrivalClient.lng.toFixed(4)})`);
         }
       }
     }
@@ -929,19 +910,17 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client
+      // Phase 2b: Walker/public client→client (ORS walking for short trips only)
       // Short pairs (≤ 1.6 km): ORS foot-walking matrix
-      // Longer pairs (> 1.6 km): TravelTime matrix (separate for walking vs public_transport modes)
+      // Longer pairs (> 1.6 km): DISABLED — will use Haversine via calculateTravelTime
       if (nonCarEmployees.length > 0) {
         const hasWalkers = nonCarEmployees.some(e => e.transportMode === 'walking');
         const hasPublic  = nonCarEmployees.some(e => e.transportMode === 'public');
-        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients, walkers=${hasWalkers}, public=${hasPublic})`);
+        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients, ORS walking short trips only)`);
 
         for (const arrivalClient of clientLocations) {
           const shortDepsWalk:   Array<{ lat: number; lng: number }> = [];
           const shortDepsPublic: Array<{ lat: number; lng: number }> = [];
-          const longWalkDeps:    Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
-          const longPublicDeps:  Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
 
           for (const depClient of clientLocations) {
             if (depClient.lat === arrivalClient.lat && depClient.lng === arrivalClient.lng) continue;
@@ -949,17 +928,11 @@ export class TravelTimeService {
             if (distKm <= this.WALK_THRESHOLD_KM) {
               if (hasWalkers) shortDepsWalk.push(depClient);
               if (hasPublic)  shortDepsPublic.push(depClient);
-            } else {
-              const base = { lat: depClient.lat, lng: depClient.lng, distanceKm, fromLat: depClient.lat.toString(), fromLng: depClient.lng.toString(), toLat: arrivalClient.lat.toString(), toLng: arrivalClient.lng.toString() };
-              if (hasWalkers) longWalkDeps.push({ ...base, mode: 'walking' });
-              if (hasPublic)  longPublicDeps.push({ ...base, mode: 'public' });
             }
           }
 
           if (shortDepsWalk.length > 0)   totalNew += await this.orsWalkingMatrixBatch(shortDepsWalk, [arrivalClient], 'walking', true);
-          if (shortDepsPublic.length > 0)  totalNew += await this.orsWalkingMatrixBatch(shortDepsPublic, [arrivalClient], 'public', true);
-          if (longWalkDeps.length > 0)     await runTravelTimeArrivalGroup(arrivalClient, longWalkDeps, 'walking');
-          if (longPublicDeps.length > 0)   await runTravelTimeArrivalGroup(arrivalClient, longPublicDeps, 'public_transport', 'walking');
+          if (shortDepsPublic.length > 0) totalNew += await this.orsWalkingMatrixBatch(shortDepsPublic, [arrivalClient], 'public', true);
         }
       }
     }
