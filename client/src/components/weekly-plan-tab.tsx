@@ -831,43 +831,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </Card>
       )}
 
-      {/* Travel Data Sources panel */}
-      {travelSources && travelSources.total > 0 && (() => {
-        const sourceLabels: Record<string, { label: string; color: string }> = {
-          'ors':              { label: 'OpenRouteService',    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
-          'ors-matrix':       { label: 'ORS Matrix',         color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
-          'osrm':             { label: 'OSRM (OpenStreetMap)', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300' },
-          'traveltime':       { label: 'TravelTime API',     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
-          'traveltime-matrix':{ label: 'TravelTime Matrix',  color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
-          'heuristic':        { label: 'Heuristic Estimate', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
-          'unreachable':      { label: 'No Route (unreachable)', color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
-        };
-        const activeSources = Object.entries(travelSources).filter(([k, v]) => k !== 'total' && v > 0);
-        if (isRefiningWalkers) return null;
-        return (
-          <Card className="glass-card border-dashed">
-            <CardContent className="py-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
-                  <Info className="h-4 w-4" />
-                  <span>Travel data source ({travelSources.total} routes):</span>
-                </div>
-                {activeSources.map(([key, count]) => {
-                  const meta = sourceLabels[key] || { label: key, color: 'bg-gray-100 text-gray-800' };
-                  const pct = Math.round((count / travelSources.total) * 100);
-                  return (
-                    <span key={key} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.color}`}>
-                      {meta.label}
-                      <span className="opacity-70">({count} · {pct}%)</span>
-                    </span>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
       {/* Main Layout: Employee Picker (Left) + Weekly Run (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Employee Picker - Narrower width, increased height */}
