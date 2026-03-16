@@ -213,6 +213,9 @@ export class TravelTimeService {
       });
       clearTimeout(timeout);
 
+      // Get raw response text first
+      const rawText = await response.text();
+
       // Log raw HTTP response FIRST
       logger.info(`[Google Maps Routes] RESPONSE HTTP ${response.status} (${travelMode})`);
       logger.debug(`[Google Maps Routes] RAW_RESPONSE (${response.status}): ${rawText.slice(0, 600)}`);
