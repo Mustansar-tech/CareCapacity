@@ -245,7 +245,11 @@ export class TravelTimeService {
         if (!data.routes || !Array.isArray(data.routes)) {
           const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
           logger.warn(`[Google Maps Routes] NO_ROUTES (${travelMode}): routes field missing or not an array`);
+          logger.warn(`[Google Maps Routes] FULL_RESPONSE_BODY: ${rawText.slice(0, 600)}`);
           logger.debug(`[Google Maps Routes] RESPONSE_STRUCTURE: ${JSON.stringify(Object.keys(data)).slice(0, 200)}`);
+          if (data.error) {
+            logger.warn(`[Google Maps Routes] API_ERROR: ${JSON.stringify(data.error)}`);
+          }
           return { durationMinutes: 0, errorType: errType };
         }
 
