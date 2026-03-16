@@ -8,12 +8,14 @@
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker / public transport employees:
- *   Short trips (≤ 1.6 km / 1 mile):
- *     1. ORS foot-walking API — real pedestrian routing, no TravelTime call
- *     2. Haversine heuristic fallback (if ORS unavailable)
- *   Longer trips (> 1.6 km):
+ *   All distances:
  *     1. TravelTime API — walking (walking employees) or public_transport (public employees)
  *     2. Haversine heuristic fallback (if TravelTime fails or unavailable)
+ *   [ORS walking DISABLED — avoids rate-limit contention with car matrix batches]
+ *
+ * Prewarm (pre-cache phase):
+ *   Car pairs: ORS Matrix batches (Phases 1b, 2a)
+ *   Walker/public pairs: All use Haversine (no API pre-caching)
  */
 
 import { storage } from "./storage";
@@ -610,44 +612,11 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2. Walker / public transport
+    // 2. Walker / public transport — TravelTime API or Haversine fallback (ORS walking disabled)
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
 
-      // 2a. Short trips (≤ 1.6 km / 1 mile) → ORS foot-walking: accurate, no TravelTime call needed
-      if (distKm <= this.WALK_THRESHOLD_KM) {
-        const orsWalking = await this.fetchORSWalkingRoute(from, to);
-        if (orsWalking) {
-          logger.debug(`ORS walking (${distKm.toFixed(2)}km): ${orsWalking.durationMinutes} min`);
-          this.trackSource('ors-walking');
-          this._sessionCache.set(sKey, { durationMinutes: orsWalking.durationMinutes, distanceMeters: orsWalking.distanceMeters, source: 'ors-walking' });
-          return {
-            fromLocation: from,
-            toLocation: to,
-            distanceKm: orsWalking.distanceMeters / 1000,
-            travelTimeMinutes: orsWalking.durationMinutes,
-            feasible: orsWalking.durationMinutes <= currentMaxTravel,
-            penaltyScore: this.calculatePenalty(orsWalking.durationMinutes),
-            source: 'ors-walking',
-          };
-        }
-        // ORS unavailable for short trip — Haversine fallback
-        const hMin = this.calculateHeuristicTravelTime(distKm, transportMode);
-        logger.warn(`ORS walking unavailable for short trip (${distKm.toFixed(2)}km) — Haversine fallback: ${hMin}min`);
-        this.trackSource('heuristic');
-        this._sessionCache.set(sKey, { durationMinutes: hMin, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
-        return {
-          fromLocation: from,
-          toLocation: to,
-          distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
-          travelTimeMinutes: hMin,
-          feasible: hMin <= currentMaxTravel,
-          penaltyScore: this.calculatePenalty(hMin),
-          source: 'heuristic',
-        };
-      }
-
-      // 2b. Longer trips (> 1.6 km) → TravelTime API
+      // 2a. All distances → TravelTime API
       // Walking employees use TravelTime 'walking'; public employees use 'public_transport'
       const ttMode = transportMode === 'walking' ? 'walking' : 'public_transport';
       let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, ttMode, departureTime);
@@ -671,7 +640,7 @@ export class TravelTimeService {
         };
       }
 
-      // 2c. TravelTime unavailable — fall back to Haversine heuristic
+      // 2b. TravelTime unavailable — fall back to Haversine heuristic
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
       logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}, ${distKm.toFixed(2)}km) — Haversine fallback: ${heuristicMinutes}min`);
       this.trackSource('heuristic');
