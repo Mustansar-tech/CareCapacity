@@ -902,7 +902,7 @@ function ClientEnquiryMatcher() {
   const [activeResultTab, setActiveResultTab] = useState('0');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
-  const [sortByTravel, setSortByTravel] = useState(false);
+  const [sortByTravel, setSortByTravel] = useState(true);
   const { toast } = useToast();
 
   // Handle back button from grid
