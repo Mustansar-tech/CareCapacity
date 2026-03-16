@@ -1576,7 +1576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dLng2 = (toLng - fromLng) * Math.PI / 180;
       const a2 = Math.sin(dLat2 / 2) ** 2 + Math.cos(fromLat * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) * Math.sin(dLng2 / 2) ** 2;
       const distKm = R2 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2));
-      const gmTravelMode = normalizedMode === 'car' ? 'DRIVE' : distKm <= 3.0 ? 'WALK' : 'TRANSIT';
+      const gmTravelMode = normalizedMode === 'car' ? 'DRIVE' : distKm <= 1.6 ? 'WALK' : 'TRANSIT';
 
       const [result, debug] = await Promise.all([
         travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime),
