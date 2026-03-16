@@ -205,7 +205,7 @@ export class TravelTimeService {
         method: 'POST',
         headers: {
           'X-Goog-Api-Key': this.GOOGLE_MAPS_API_KEY!,
-          'X-Goog-FieldMask': 'routes.duration',
+          'X-Goog-FieldMask': 'routes.duration,routes.legs.duration',
           'Content-Type': 'application/json',
         },
         body: bodyStr,
