@@ -8,9 +8,12 @@
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker / public transport employees:
- *   1. TravelTime Matrix API (arrival_searches — arrive BY visit start time)
- *   2. TravelTime single search API (arrival_searches, individual fallback)
- *   [Heuristic DISABLED — unreachable pairs go to unallocated]
+ *   Short trips (≤ 1.6 km / 1 mile):
+ *     1. ORS foot-walking API — real pedestrian routing, no TravelTime call
+ *     2. Haversine heuristic fallback (if ORS unavailable)
+ *   Longer trips (> 1.6 km):
+ *     1. TravelTime API — walking (walking employees) or public_transport (public employees)
+ *     2. Haversine heuristic fallback (if TravelTime fails or unavailable)
  */
 
 import { storage } from "./storage";
@@ -34,6 +37,8 @@ export interface TravelMatrix {
 export interface TravelSourceStats {
   ors: number;
   'ors-matrix': number;
+  'ors-walking': number;
+  'ors-walking-matrix': number;
   osrm: number;
   traveltime: number;
   'traveltime-matrix': number;
@@ -64,7 +69,7 @@ export class TravelTimeService {
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
-  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, 'ors-walking': 0, 'ors-walking-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
 
@@ -74,7 +79,7 @@ export class TravelTimeService {
   }
 
   resetSourceStats(): void {
-    this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+    this._sourceStats = { ors: 0, 'ors-matrix': 0, 'ors-walking': 0, 'ors-walking-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();
   }
 
@@ -415,6 +420,106 @@ export class TravelTimeService {
   }
 
   /**
+   * ORS foot-walking Directions API — real pedestrian routing for short trips (≤ 1.6 km).
+   * Uses ORS key; returns null if ORS is unavailable so the caller can Haversine-fallback.
+   */
+  private async fetchORSWalkingRoute(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
+    if (!this.ORS_API_KEY) return null;
+    try {
+      const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking', {
+        method: 'POST',
+        headers: {
+          'Authorization': this.ORS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const durationMinutes = Math.max(1, Math.round(data.routes[0].summary.duration / 60));
+        const distanceMeters = Math.round(data.routes[0].summary.distance);
+        return { durationMinutes, distanceMeters };
+      } else {
+        const errText = await response.text();
+        logger.warn(`ORS walking API error (${response.status}): ${errText.slice(0, 200)}`);
+      }
+    } catch (error) {
+      logger.warn('ORS walking route fetch failed:', error instanceof Error ? error.message : error);
+    }
+    return null;
+  }
+
+  /**
+   * ORS foot-walking Matrix API — batch pedestrian routing for prewarm phase.
+   * Used for short (≤ 1.6 km) non-car pairs in prewarm. Falls back to Haversine on failure.
+   * @param mode  Transport mode label to use as the session-cache key ('walking' or 'public').
+   */
+  async orsWalkingMatrixBatch(
+    sources: Array<{ lat: number; lng: number; id?: string }>,
+    destinations: Array<{ lat: number; lng: number; id?: string }>,
+    mode: TransportMode = 'walking',
+    skipSameCoords = false
+  ): Promise<number> {
+    if (!this.ORS_API_KEY || sources.length === 0 || destinations.length === 0) return 0;
+    let added = 0;
+    try {
+      const allLocations = [
+        ...sources.map(e => [e.lng, e.lat]),
+        ...destinations.map(c => [c.lng, c.lat]),
+      ];
+      const srcIndices = sources.map((_, i) => i);
+      const dstIndices = destinations.map((_, i) => sources.length + i);
+
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const response = await fetch('https://api.openrouteservice.org/v2/matrix/foot-walking', {
+        method: 'POST',
+        headers: { 'Authorization': this.ORS_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations: allLocations, metrics: ['duration', 'distance'], sources: srcIndices, destinations: dstIndices }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const durations: (number | null)[][] = data.durations;
+        const distances: (number | null)[][] = data.distances;
+        for (let si = 0; si < sources.length; si++) {
+          for (let di = 0; di < destinations.length; di++) {
+            const src = sources[si];
+            const dst = destinations[di];
+            if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
+            const durationSec = durations?.[si]?.[di];
+            const distMeters = distances?.[si]?.[di];
+            if (durationSec == null || distMeters == null) continue;
+            const dMin = Math.max(1, Math.round(durationSec / 60));
+            const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), mode);
+            this._sessionCache.set(sk, { durationMinutes: dMin, distanceMeters: Math.round(distMeters), source: 'ors-walking-matrix' });
+            this.trackSource('ors-walking-matrix');
+            added++;
+          }
+        }
+        logger.debug(`[Cache Pre-warm] ORS Walking Matrix: ${sources.length}×${destinations.length} batch → ${added} entries`);
+      } else {
+        const errText = await response.text();
+        logger.warn(`[Cache Pre-warm] ORS Walking Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
+        for (const src of sources) {
+          for (const dst of destinations) {
+            if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
+            const distKm = this.calculateHaversineDistance({ lat: src.lat, lng: src.lng }, { lat: dst.lat, lng: dst.lng });
+            const hMin = this.calculateHeuristicTravelTime(distKm, 'walking');
+            const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), mode);
+            this._sessionCache.set(sk, { durationMinutes: hMin, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
+            this.trackSource('heuristic');
+            added++;
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn('[Cache Pre-warm] ORS Walking Matrix exception:', err instanceof Error ? err.message : err);
+    }
+    return added;
+  }
+
+  /**
    * Normalise any raw transport mode string from the database or frontend
    * into one of the three canonical values: 'car' | 'walking' | 'public'.
    * Walkers are treated identically to public transport users — they both
@@ -505,12 +610,47 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2a. Walker / public transport — TravelTime API (arrival_searches)
-    // Distance decides the TravelTime mode: ≤ WALK_THRESHOLD_KM → walking, else public_transport
+    // 2. Walker / public transport
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
-      const ttMode = this.toTravelTimeTransport(distKm);
-      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, undefined, departureTime);
+
+      // 2a. Short trips (≤ 1.6 km / 1 mile) → ORS foot-walking: accurate, no TravelTime call needed
+      if (distKm <= this.WALK_THRESHOLD_KM) {
+        const orsWalking = await this.fetchORSWalkingRoute(from, to);
+        if (orsWalking) {
+          logger.debug(`ORS walking (${distKm.toFixed(2)}km): ${orsWalking.durationMinutes} min`);
+          this.trackSource('ors-walking');
+          this._sessionCache.set(sKey, { durationMinutes: orsWalking.durationMinutes, distanceMeters: orsWalking.distanceMeters, source: 'ors-walking' });
+          return {
+            fromLocation: from,
+            toLocation: to,
+            distanceKm: orsWalking.distanceMeters / 1000,
+            travelTimeMinutes: orsWalking.durationMinutes,
+            feasible: orsWalking.durationMinutes <= currentMaxTravel,
+            penaltyScore: this.calculatePenalty(orsWalking.durationMinutes),
+            source: 'ors-walking',
+          };
+        }
+        // ORS unavailable for short trip — Haversine fallback
+        const hMin = this.calculateHeuristicTravelTime(distKm, transportMode);
+        logger.warn(`ORS walking unavailable for short trip (${distKm.toFixed(2)}km) — Haversine fallback: ${hMin}min`);
+        this.trackSource('heuristic');
+        this._sessionCache.set(sKey, { durationMinutes: hMin, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
+        return {
+          fromLocation: from,
+          toLocation: to,
+          distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
+          travelTimeMinutes: hMin,
+          feasible: hMin <= currentMaxTravel,
+          penaltyScore: this.calculatePenalty(hMin),
+          source: 'heuristic',
+        };
+      }
+
+      // 2b. Longer trips (> 1.6 km) → TravelTime API
+      // Walking employees use TravelTime 'walking'; public employees use 'public_transport'
+      const ttMode = transportMode === 'walking' ? 'walking' : 'public_transport';
+      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, ttMode, departureTime);
       let usedMode = ttMode;
       if (!tt && ttMode === 'public_transport') {
         logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
@@ -531,9 +671,9 @@ export class TravelTimeService {
         };
       }
 
-      // 2b. TravelTime unavailable — fall back to Haversine heuristic for walker/public
+      // 2c. TravelTime unavailable — fall back to Haversine heuristic
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
-      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
+      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}, ${distKm.toFixed(2)}km) — Haversine fallback: ${heuristicMinutes}min`);
       this.trackSource('heuristic');
       return {
         fromLocation: from,
@@ -709,15 +849,52 @@ export class TravelTimeService {
       }
     };
 
-    // ── PHASE 1a: Walker/public employee → client — DISABLED for ORS testing ──
-    // TravelTime API calls skipped; walker/public routes use Haversine heuristic via calculateTravelTime
-    // if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
-    //   for (const arrivalClient of clientLocations) {
-    //     ... runTravelTimeArrivalGroup calls ...
-    //   }
-    // }
+    // ── PHASE 1a: Walker/public employee → client ─────────────────────────────
+    // Short trips (≤ 1.6 km): ORS foot-walking matrix batch
+    // Longer trips (> 1.6 km): TravelTime matrix (walking employees → 'walking', public → 'public_transport')
+    // Fallback: Haversine heuristic (handled inside each helper)
     if (nonCarEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1a: SKIPPED (TravelTime disabled for ORS testing) — ${nonCarEmployees.length} walker/public employees will use Haversine heuristic`);
+      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients`);
+      for (const arrivalClient of clientLocations) {
+        // Partition departures by straight-line distance
+        const shortDeps: Array<{ lat: number; lng: number; id: string; mode: TransportMode }> = [];
+        const longWalkDeps: Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
+        const longPublicDeps: Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
+
+        for (const emp of nonCarEmployees) {
+          const distKm = this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng });
+          if (distKm <= this.WALK_THRESHOLD_KM) {
+            shortDeps.push({ lat: emp.lat, lng: emp.lng, id: emp.id, mode: emp.transportMode });
+          } else if (emp.transportMode === 'walking') {
+            longWalkDeps.push({ lat: emp.lat, lng: emp.lng, distanceKm: distKm, fromLat: emp.lat.toString(), fromLng: emp.lng.toString(), toLat: arrivalClient.lat.toString(), toLng: arrivalClient.lng.toString(), mode: emp.transportMode });
+          } else {
+            longPublicDeps.push({ lat: emp.lat, lng: emp.lng, distanceKm: distKm, fromLat: emp.lat.toString(), fromLng: emp.lng.toString(), toLat: arrivalClient.lat.toString(), toLng: arrivalClient.lng.toString(), mode: emp.transportMode });
+          }
+        }
+
+        // Short: ORS walking matrix (one batch per client arrival)
+        if (shortDeps.length > 0) {
+          for (let bi = 0; bi < shortDeps.length; bi += ORS_MATRIX_BATCH_SIZE) {
+            const batch = shortDeps.slice(bi, bi + ORS_MATRIX_BATCH_SIZE);
+            // Group by employee transport mode for correct cache key
+            const walkingBatch = batch.filter(d => d.mode === 'walking');
+            const publicBatch = batch.filter(d => d.mode !== 'walking');
+            if (walkingBatch.length > 0) totalNew += await this.orsWalkingMatrixBatch(walkingBatch, [arrivalClient], 'walking');
+            if (publicBatch.length > 0) totalNew += await this.orsWalkingMatrixBatch(publicBatch, [arrivalClient], 'public');
+          }
+          logger.debug(`[Cache Pre-warm] Phase 1a ORS walking: ${shortDeps.length} short deps → client (${arrivalClient.lat.toFixed(4)},${arrivalClient.lng.toFixed(4)})`);
+        }
+
+        // Long walking: TravelTime walking
+        if (longWalkDeps.length > 0) {
+          await runTravelTimeArrivalGroup(arrivalClient, longWalkDeps, 'walking');
+        }
+
+        // Long public: TravelTime public_transport, retry walking on failure
+        if (longPublicDeps.length > 0) {
+          await runTravelTimeArrivalGroup(arrivalClient, longPublicDeps, 'public_transport', 'walking');
+        }
+      }
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -752,12 +929,38 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client — DISABLED for ORS testing
-      // if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
-      //   ... TravelTime arrival_searches for client→client walker/public ...
-      // }
+      // Phase 2b: Walker/public client→client
+      // Short pairs (≤ 1.6 km): ORS foot-walking matrix
+      // Longer pairs (> 1.6 km): TravelTime matrix (separate for walking vs public_transport modes)
       if (nonCarEmployees.length > 0) {
-        logger.info(`[Cache Pre-warm] Phase 2b: SKIPPED (TravelTime disabled for ORS testing) — client→client walker/public will use Haversine heuristic`);
+        const hasWalkers = nonCarEmployees.some(e => e.transportMode === 'walking');
+        const hasPublic  = nonCarEmployees.some(e => e.transportMode === 'public');
+        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients, walkers=${hasWalkers}, public=${hasPublic})`);
+
+        for (const arrivalClient of clientLocations) {
+          const shortDepsWalk:   Array<{ lat: number; lng: number }> = [];
+          const shortDepsPublic: Array<{ lat: number; lng: number }> = [];
+          const longWalkDeps:    Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
+          const longPublicDeps:  Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }> = [];
+
+          for (const depClient of clientLocations) {
+            if (depClient.lat === arrivalClient.lat && depClient.lng === arrivalClient.lng) continue;
+            const distKm = this.calculateHaversineDistance({ lat: depClient.lat, lng: depClient.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng });
+            if (distKm <= this.WALK_THRESHOLD_KM) {
+              if (hasWalkers) shortDepsWalk.push(depClient);
+              if (hasPublic)  shortDepsPublic.push(depClient);
+            } else {
+              const base = { lat: depClient.lat, lng: depClient.lng, distanceKm, fromLat: depClient.lat.toString(), fromLng: depClient.lng.toString(), toLat: arrivalClient.lat.toString(), toLng: arrivalClient.lng.toString() };
+              if (hasWalkers) longWalkDeps.push({ ...base, mode: 'walking' });
+              if (hasPublic)  longPublicDeps.push({ ...base, mode: 'public' });
+            }
+          }
+
+          if (shortDepsWalk.length > 0)   totalNew += await this.orsWalkingMatrixBatch(shortDepsWalk, [arrivalClient], 'walking', true);
+          if (shortDepsPublic.length > 0)  totalNew += await this.orsWalkingMatrixBatch(shortDepsPublic, [arrivalClient], 'public', true);
+          if (longWalkDeps.length > 0)     await runTravelTimeArrivalGroup(arrivalClient, longWalkDeps, 'walking');
+          if (longPublicDeps.length > 0)   await runTravelTimeArrivalGroup(arrivalClient, longPublicDeps, 'public_transport', 'walking');
+        }
       }
     }
 
