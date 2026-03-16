@@ -1462,30 +1462,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const from = { lat: pair.fromLat, lng: pair.fromLng };
         const to = { lat: pair.toLat, lng: pair.toLng };
 
+        // Determine journey type and time anchor
+        const isArrivalJourney = pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null;
+        const isDepartureJourney = !isArrivalJourney && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null;
+        const journeyType = isArrivalJourney ? 'arrival' : isDepartureJourney ? 'departure' : 'unknown';
+        const timeAnchor = isArrivalJourney ? 'visit-start' : isDepartureJourney ? 'visit-end' : 'none';
+        const scheduleDate = pair.visitDate ?? new Date().toISOString().slice(0, 10);
+
         // Build a UTC Date from the UK local schedule time + the actual visit date.
         let arrivalTime: Date | undefined;
-        if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
-          arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
-        } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
-          const today = new Date().toISOString().slice(0, 10);
-          arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
+        if (isArrivalJourney && scheduleDate) {
+          arrivalTime = ukScheduleTimeToUtc(scheduleDate, pair.arrivalTimeMinutes!);
         }
 
         // For return-home and break-departure legs, use departureTime instead of arrivalTime.
         let departureTime: Date | undefined;
-        if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
-          departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
+        if (isDepartureJourney && scheduleDate) {
+          departureTime = ukScheduleTimeToUtc(scheduleDate, pair.departureTimeMinutes!);
         }
 
         const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
         if (!result) return null;
 
-        const timeTag = pair.departureTimeMinutes !== undefined
+        // Log journey semantics for debugging
+        logger.debug(`[Refine Walker] ${normalizedMode} ${journeyType} (${timeAnchor}): ` +
+          `(${from.lat.toFixed(4)}, ${from.lng.toFixed(4)}) → (${to.lat.toFixed(4)}, ${to.lng.toFixed(4)}) ` +
+          `on ${scheduleDate} at ${isArrivalJourney ? pair.arrivalTimeMinutes : pair.departureTimeMinutes}min ` +
+          `→ ${result.travelTimeMinutes}min (${result.source})`);
+
+        const timeTag = isDepartureJourney
           ? `d${pair.departureTimeMinutes}`
-          : pair.arrivalTimeMinutes !== undefined
+          : isArrivalJourney
             ? `a${pair.arrivalTimeMinutes}`
             : 'anon';
-        const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
+        const key = `${scheduleDate}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
 
         return {
           key,
@@ -1520,15 +1530,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Diagnostic endpoint: verify what Google Maps Routes API returns for a single pair.
-  // POST body: { fromLat, fromLng, toLat, toLng, mode, visitDate?, arrivalTimeMinutes? }
+  // POST body: { fromLat, fromLng, toLat, toLng, mode, visitDate?, arrivalTimeMinutes?, departureTimeMinutes? }
   // Returns the ISO timestamp sent, the day-of-week, whether BST applies, the transport
-  // mode chosen, and the actual duration Google Maps returns.
+  // mode chosen, journey type, and the actual duration Google Maps returns.
   app.post('/api/travel-times/debug-single', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const { fromLat, fromLng, toLat, toLng, mode, visitDate, arrivalTimeMinutes } = req.body as {
+      const { fromLat, fromLng, toLat, toLng, mode, visitDate, arrivalTimeMinutes, departureTimeMinutes } = req.body as {
         fromLat: number; fromLng: number; toLat: number; toLng: number;
-        mode: string; visitDate?: string; arrivalTimeMinutes?: number;
+        mode: string; visitDate?: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number;
       };
 
       if (fromLat == null || fromLng == null || toLat == null || toLng == null) {
@@ -1538,19 +1548,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedMode = TravelTimeService.normalizeMode(mode);
       const from = { lat: fromLat, lng: fromLng };
       const to = { lat: toLat, lng: toLng };
+      const scheduleDate = visitDate ?? new Date().toISOString().slice(0, 10);
+
+      // Determine journey type
+      const isArrivalJourney = arrivalTimeMinutes !== undefined && arrivalTimeMinutes !== null;
+      const isDepartureJourney = !isArrivalJourney && departureTimeMinutes !== undefined && departureTimeMinutes !== null;
+      const journeyType = isArrivalJourney ? 'home→client' : isDepartureJourney ? 'client→home' : 'unknown';
+      const timeAnchor = isArrivalJourney ? 'visit-start' : isDepartureJourney ? 'visit-end' : 'none';
 
       let arrivalTime: Date | undefined;
-      if (arrivalTimeMinutes !== undefined && arrivalTimeMinutes !== null && visitDate) {
-        arrivalTime = ukScheduleTimeToUtc(visitDate, arrivalTimeMinutes);
-      } else if (arrivalTimeMinutes !== undefined && arrivalTimeMinutes !== null) {
-        const today = new Date().toISOString().slice(0, 10);
-        arrivalTime = ukScheduleTimeToUtc(today, arrivalTimeMinutes);
+      if (isArrivalJourney && scheduleDate) {
+        arrivalTime = ukScheduleTimeToUtc(scheduleDate, arrivalTimeMinutes!);
       }
 
-      const isoTimestamp = arrivalTime ? arrivalTime.toISOString() : null;
+      let departureTime: Date | undefined;
+      if (isDepartureJourney && scheduleDate) {
+        departureTime = ukScheduleTimeToUtc(scheduleDate, departureTimeMinutes!);
+      }
+
+      const isoTimestamp = (arrivalTime || departureTime)?.toISOString() ?? null;
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const dayOfWeek = arrivalTime ? dayNames[arrivalTime.getUTCDay()] : null;
-      const bstActive = arrivalTime ? isUkBst(arrivalTime) : false;
+      const dayOfWeek = (arrivalTime || departureTime) ? dayNames[(arrivalTime || departureTime)!.getUTCDay()] : null;
+      const bstActive = (arrivalTime || departureTime) ? isUkBst(arrivalTime || departureTime!) : false;
 
       const R2 = 6371;
       const dLat2 = (toLat - fromLat) * Math.PI / 180;
@@ -1560,11 +1579,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const gmTravelMode = normalizedMode === 'car' ? 'DRIVE' : distKm <= 1.6 ? 'WALK' : 'TRANSIT';
 
       const [result, debug] = await Promise.all([
-        travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime),
+        travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime),
         travelTimeService.debugGoogleMapsRoute({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }, gmTravelMode, arrivalTime),
       ]);
 
       res.json({
+        journeyType,
+        timeAnchor,
+        scheduleDate,
+        timeMinutes: isArrivalJourney ? arrivalTimeMinutes : departureTimeMinutes,
         isoTimestamp,
         dayOfWeek,
         bstActive,

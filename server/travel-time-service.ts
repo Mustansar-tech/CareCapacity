@@ -171,6 +171,9 @@ export class TravelTimeService {
 
     try {
       const travelMode = forceMode ?? this.toGoogleMapsMode(distanceKm);
+      const hasArrival = arrivalTime !== undefined;
+      const hasDeparture = departureTime !== undefined;
+      const timeType = hasDeparture ? 'departure' : hasArrival ? 'arrival' : 'none';
 
       const body: Record<string, unknown> = {
         origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
@@ -183,8 +186,8 @@ export class TravelTimeService {
       if (travelMode === 'TRANSIT') {
         if (departureTime) {
           body.departureTime = departureTime.toISOString();
-        } else {
-          body.arrivalTime = (arrivalTime || new Date()).toISOString();
+        } else if (arrivalTime) {
+          body.arrivalTime = arrivalTime.toISOString();
         }
       }
 
@@ -209,7 +212,10 @@ export class TravelTimeService {
         if (durationStr) {
           const seconds = parseInt(durationStr.replace('s', ''), 10);
           if (!isNaN(seconds)) {
-            return { durationMinutes: Math.max(1, Math.round(seconds / 60)) };
+            const minutes = Math.max(1, Math.round(seconds / 60));
+            logger.debug(`Google Maps (${travelMode}, ${timeType}@${(hasArrival ? arrivalTime : departureTime)?.toISOString()}): ` +
+              `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) = ${minutes}min`);
+            return { durationMinutes: minutes };
           }
         }
         logger.debug(`Google Maps Routes: no route returned (${travelMode}, ${distanceKm.toFixed(2)}km)`);
