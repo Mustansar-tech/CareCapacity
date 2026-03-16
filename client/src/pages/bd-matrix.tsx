@@ -510,11 +510,11 @@ function CareProMap({
         <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Female Care Pro</span>
+          <span className="text-xs font-bold text-gray-700">Female Care Pro <span className="text-pink-600">({femaleCount})</span></span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Male Care Pro</span>
+          <span className="text-xs font-bold text-gray-700">Male Care Pro <span className="text-blue-600">({maleCount})</span></span>
         </div>
       </div>
     </div>
