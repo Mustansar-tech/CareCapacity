@@ -115,18 +115,27 @@ function getStatusIcon(count: number) {
   return <Users className="w-4 h-4" />;
 }
 
+// Normalize a raw transport mode string to 'car' | 'walking' | 'public'
+function normalizeTransportMode(raw?: string): 'car' | 'walking' | 'public' {
+  const s = (raw || '').toLowerCase().trim();
+  if (s.includes('walk') || s.includes('foot') || s.includes('pedestrian')) return 'walking';
+  if (s.includes('public') || s.includes('bus') || s.includes('train') || s.includes('transit')) return 'public';
+  // Explicitly known car patterns (including New Hire who hasn't been profiled yet)
+  return 'car';
+}
+
 function TransportModeIcon({ transportMode }: { transportMode?: string }) {
   if (!transportMode || transportMode.trim() === '') return null;
   
-  const mode = transportMode.toLowerCase();
+  const normalized = normalizeTransportMode(transportMode);
   
-  if (mode.includes('car') || mode.includes('driver')) {
+  if (normalized === 'car') {
     return (
       <div title="Car" aria-label="Transport mode: car" className="inline-block">
         <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />
       </div>
     );
-  } else if (mode.includes('walk')) {
+  } else if (normalized === 'walking') {
     return (
       <div title="Walking" aria-label="Transport mode: walking" className="inline-block">
         <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />
@@ -521,7 +530,7 @@ function CareProMap({
   );
 }
 
-function MatchResultsGrid({ result, requiredDays = [], className = '' }: { result: MultiVisitResult; requiredDays?: string[]; className?: string }) {
+function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTravel = false, onToggleSortByTravel }: { result: MultiVisitResult; requiredDays?: string[]; className?: string; sortByTravel?: boolean; onToggleSortByTravel?: () => void }) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
@@ -595,6 +604,18 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {onToggleSortByTravel && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleSortByTravel}
+              className={`text-[10px] font-bold gap-1.5 h-7 px-3 transition-all ${sortByTravel ? 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300' : 'border-gray-200 text-gray-600 dark:border-gray-600 dark:text-gray-400 hover:border-blue-300 hover:text-blue-600'}`}
+              title={sortByTravel ? 'Sorting by nearest first — click to sort by best match' : 'Click to sort by nearest first'}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
+              {sortByTravel ? 'Nearest First' : 'Best Match'}
+            </Button>
+          )}
           {hasAnyStars && (
             <Button
               variant="outline"
@@ -610,10 +631,6 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
             variant="outline" 
             size="sm" 
             onClick={() => {
-              // This relies on the parent's setMultiResults, but since MatchResultsGrid 
-              // is defined inside ClientEnquiryMatcher scope (or has access via props/context),
-              // we need to make sure we can trigger the back action.
-              // In this case, we'll assume the user wants to go back to the form.
               window.dispatchEvent(new CustomEvent('bd-matcher-back'));
             }} 
             className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-8 text-[10px]"
@@ -729,12 +746,17 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
                           });
                         }
 
-                        // Sort: exact first, then by score
+                        // Sort: exact first, then by score (or travel time if toggle active)
                         const sorted = [...allVisibleMatches].sort((a, b) => {
                           const aExact = a.matchedSlots.some(s => s.matchType === 'exact' && matchesDay(s, day));
                           const bExact = b.matchedSlots.some(s => s.matchType === 'exact' && matchesDay(s, day));
                           if (aExact && !bExact) return -1;
                           if (!aExact && bExact) return 1;
+                          if (sortByTravel) {
+                            const aTrav = a.travelMinutes ?? 9999;
+                            const bTrav = b.travelMinutes ?? 9999;
+                            if (aTrav !== bTrav) return aTrav - bTrav; // nearest first
+                          }
                           return b.matchScore - a.matchScore;
                         });
 
@@ -837,7 +859,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '' }: { resul
                                         {employeeMatch.travelMinutes !== undefined && (
                                           <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${employeeMatch.travelMinutes <= 20 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : employeeMatch.travelMinutes <= 35 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
                                             <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
-                                            ~{employeeMatch.travelMinutes} min {(employeeMatch.transportMode?.toLowerCase() === 'car' || employeeMatch.transportMode?.toLowerCase() === 'driver') ? 'drive' : employeeMatch.transportMode?.toLowerCase() === 'walking' ? 'walk' : 'travel'}
+                                            ~{employeeMatch.travelMinutes} min {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}
                                           </div>
                                         )}
                                       </div>
@@ -880,6 +902,7 @@ function ClientEnquiryMatcher() {
   const [activeResultTab, setActiveResultTab] = useState('0');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
+  const [sortByTravel, setSortByTravel] = useState(false);
   const { toast } = useToast();
 
   // Handle back button from grid
@@ -1131,6 +1154,8 @@ function ClientEnquiryMatcher() {
                   }}
                   requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
                   className="flex-1 min-h-0"
+                  sortByTravel={sortByTravel}
+                  onToggleSortByTravel={() => setSortByTravel(v => !v)}
                 />
               </div>
             ) : showHistory ? (
