@@ -19,7 +19,7 @@ A scheduling and route optimisation platform for Home Instead franchise branches
 - **Frontend**: React 18 + TypeScript, Vite, shadcn/ui, TanStack Query v5, Wouter routing, Recharts, React Leaflet, Framer Motion
 - **Backend**: Express + TypeScript, Multer, ExcelJS, Zod
 - **Database**: PostgreSQL (Neon serverless) + Drizzle ORM
-- **APIs**: ORS Matrix (car pre-warm), ORS Directions (car fallback), OSRM (free car fallback), TravelTime API (walker/public transport, arrival_searches with correct date+time), Haversine (last resort)
+- **APIs**: ORS Matrix (car pre-warm), ORS Directions (car fallback), OSRM (free car fallback), TravelTime API (walker/public transport, on-demand live routing), Haversine (walker/public prewarm + car last resort)
 
 ---
 

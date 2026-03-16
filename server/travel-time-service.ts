@@ -11,11 +11,10 @@
  *   All distances:
  *     1. TravelTime API — walking (walking employees) or public_transport (public employees)
  *     2. Haversine heuristic fallback (if TravelTime fails or unavailable)
- *   [ORS walking DISABLED — avoids rate-limit contention with car matrix batches]
  *
  * Prewarm (pre-cache phase):
  *   Car pairs: ORS Matrix batches (Phases 1b, 2a)
- *   Walker/public pairs: All use Haversine (no API pre-caching)
+ *   Walker/public pairs: Haversine heuristic (fast, no API calls, no rate-limit risk)
  */
 
 import { storage } from "./storage";
@@ -39,8 +38,6 @@ export interface TravelMatrix {
 export interface TravelSourceStats {
   ors: number;
   'ors-matrix': number;
-  'ors-walking': number;
-  'ors-walking-matrix': number;
   osrm: number;
   traveltime: number;
   'traveltime-matrix': number;
@@ -71,7 +68,7 @@ export class TravelTimeService {
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
-  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, 'ors-walking': 0, 'ors-walking-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
 
@@ -81,7 +78,7 @@ export class TravelTimeService {
   }
 
   resetSourceStats(): void {
-    this._sourceStats = { ors: 0, 'ors-matrix': 0, 'ors-walking': 0, 'ors-walking-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+    this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();
   }
 
@@ -422,106 +419,6 @@ export class TravelTimeService {
   }
 
   /**
-   * ORS foot-walking Directions API — real pedestrian routing for short trips (≤ 1.6 km).
-   * Uses ORS key; returns null if ORS is unavailable so the caller can Haversine-fallback.
-   */
-  private async fetchORSWalkingRoute(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
-    if (!this.ORS_API_KEY) return null;
-    try {
-      const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking', {
-        method: 'POST',
-        headers: {
-          'Authorization': this.ORS_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const durationMinutes = Math.max(1, Math.round(data.routes[0].summary.duration / 60));
-        const distanceMeters = Math.round(data.routes[0].summary.distance);
-        return { durationMinutes, distanceMeters };
-      } else {
-        const errText = await response.text();
-        logger.warn(`ORS walking API error (${response.status}): ${errText.slice(0, 200)}`);
-      }
-    } catch (error) {
-      logger.warn('ORS walking route fetch failed:', error instanceof Error ? error.message : error);
-    }
-    return null;
-  }
-
-  /**
-   * ORS foot-walking Matrix API — batch pedestrian routing for prewarm phase.
-   * Used for short (≤ 1.6 km) non-car pairs in prewarm. Falls back to Haversine on failure.
-   * @param mode  Transport mode label to use as the session-cache key ('walking' or 'public').
-   */
-  async orsWalkingMatrixBatch(
-    sources: Array<{ lat: number; lng: number; id?: string }>,
-    destinations: Array<{ lat: number; lng: number; id?: string }>,
-    mode: TransportMode = 'walking',
-    skipSameCoords = false
-  ): Promise<number> {
-    if (!this.ORS_API_KEY || sources.length === 0 || destinations.length === 0) return 0;
-    let added = 0;
-    try {
-      const allLocations = [
-        ...sources.map(e => [e.lng, e.lat]),
-        ...destinations.map(c => [c.lng, c.lat]),
-      ];
-      const srcIndices = sources.map((_, i) => i);
-      const dstIndices = destinations.map((_, i) => sources.length + i);
-
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const response = await fetch('https://api.openrouteservice.org/v2/matrix/foot-walking', {
-        method: 'POST',
-        headers: { 'Authorization': this.ORS_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locations: allLocations, metrics: ['duration', 'distance'], sources: srcIndices, destinations: dstIndices }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const durations: (number | null)[][] = data.durations;
-        const distances: (number | null)[][] = data.distances;
-        for (let si = 0; si < sources.length; si++) {
-          for (let di = 0; di < destinations.length; di++) {
-            const src = sources[si];
-            const dst = destinations[di];
-            if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
-            const durationSec = durations?.[si]?.[di];
-            const distMeters = distances?.[si]?.[di];
-            if (durationSec == null || distMeters == null) continue;
-            const dMin = Math.max(1, Math.round(durationSec / 60));
-            const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), mode);
-            this._sessionCache.set(sk, { durationMinutes: dMin, distanceMeters: Math.round(distMeters), source: 'ors-walking-matrix' });
-            this.trackSource('ors-walking-matrix');
-            added++;
-          }
-        }
-        logger.debug(`[Cache Pre-warm] ORS Walking Matrix: ${sources.length}×${destinations.length} batch → ${added} entries`);
-      } else {
-        const errText = await response.text();
-        logger.warn(`[Cache Pre-warm] ORS Walking Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
-        for (const src of sources) {
-          for (const dst of destinations) {
-            if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
-            const distKm = this.calculateHaversineDistance({ lat: src.lat, lng: src.lng }, { lat: dst.lat, lng: dst.lng });
-            const hMin = this.calculateHeuristicTravelTime(distKm, 'walking');
-            const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), mode);
-            this._sessionCache.set(sk, { durationMinutes: hMin, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
-            this.trackSource('heuristic');
-            added++;
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn('[Cache Pre-warm] ORS Walking Matrix exception:', err instanceof Error ? err.message : err);
-    }
-    return added;
-  }
-
-  /**
    * Normalise any raw transport mode string from the database or frontend
    * into one of the three canonical values: 'car' | 'walking' | 'public'.
    * Walkers are treated identically to public transport users — they both
@@ -612,7 +509,7 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2. Walker / public transport — TravelTime API or Haversine fallback (ORS walking disabled)
+    // 2. Walker / public transport — TravelTime API with Haversine fallback
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
 
@@ -818,12 +715,11 @@ export class TravelTimeService {
       }
     };
 
-    // ── PHASE 1a: Walker/public employee → client — DISABLED ──
-    // Short trips (≤ 1.6 km) and longer trips all use Haversine in prewarm.
-    // ORS walking kicks in during actual routing via calculateTravelTime (single point-to-point calls).
-    // This avoids rate-limit contention with ORS car matrix batches.
+    // ── PHASE 1a: Walker/public employee → client — Haversine prewarm only ──
+    // All walker/public pairs use Haversine in prewarm (no API calls, no rate-limit risk).
+    // TravelTime API is called on-demand during live routing via calculateTravelTime.
     if (nonCarEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — using Haversine heuristic, ORS walking in live routing`);
+      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — using Haversine heuristic (TravelTime on live routing)`);
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -858,11 +754,10 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client — DISABLED
-      // All pairs use Haversine in prewarm. ORS walking kicks in during actual routing.
-      // This avoids rate-limit contention with ORS car matrix batches.
+      // Phase 2b: Walker/public client→client — Haversine prewarm only
+      // All pairs use Haversine in prewarm; TravelTime API fires on-demand during live routing.
       if (nonCarEmployees.length > 0) {
-        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients) — using Haversine heuristic, ORS walking in live routing`);
+        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients) — using Haversine heuristic (TravelTime on live routing)`);
       }
     }
 
