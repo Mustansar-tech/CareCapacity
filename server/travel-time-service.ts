@@ -194,6 +194,12 @@ export class TravelTimeService {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
 
+      logger.info(`[Google Maps API] → POST /directions/v2:computeRoutes ` +
+        `origin=(${from.lat.toFixed(4)},${from.lng.toFixed(4)}) ` +
+        `dest=(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
+        `mode=${travelMode} ` +
+        `${travelMode === 'TRANSIT' ? (departureTime ? `departureTime=${departureTime.toISOString()}` : `arrivalTime=${arrivalTime?.toISOString() ?? 'N/A'}`) : '(time-independent)'}`);
+
       const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
         method: 'POST',
         headers: {
@@ -213,12 +219,15 @@ export class TravelTimeService {
           const seconds = parseInt(durationStr.replace('s', ''), 10);
           if (!isNaN(seconds)) {
             const minutes = Math.max(1, Math.round(seconds / 60));
-            logger.debug(`Google Maps (${travelMode}, ${timeType}@${(hasArrival ? arrivalTime : departureTime)?.toISOString()}): ` +
-              `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) = ${minutes}min`);
+            logger.info(`[Google Maps API] ✓ ${travelMode} ${timeType} ` +
+              `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
+              `@ ${(hasArrival ? arrivalTime : departureTime)?.toISOString() ?? 'N/A'} ` +
+              `= ${minutes}min`);
+            logger.debug(`[Google Maps Response] { duration: "${durationStr}", routes: 1 }`);
             return { durationMinutes: minutes };
           }
         }
-        logger.debug(`Google Maps Routes: no route returned (${travelMode}, ${distanceKm.toFixed(2)}km)`);
+        logger.warn(`Google Maps Routes: no duration in response (${travelMode}, ${distanceKm.toFixed(2)}km), response: ${JSON.stringify(data)}`);
         return null;
       } else {
         const errText = await response.text();
@@ -266,6 +275,11 @@ export class TravelTimeService {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
 
+      logger.info(`[Google Maps Matrix API] → POST /distancematrix/v2:computeRouteMatrix ` +
+        `${departureLocations.length} origins → 1 destination ` +
+        `mode=${travelMode} ` +
+        `${travelMode === 'TRANSIT' && arrivalTime ? `arrivalTime=${arrivalTime.toISOString()}` : '(time-independent)'}`);
+
       const response = await fetch('https://routes.googleapis.com/distancematrix/v2:computeRouteMatrix', {
         method: 'POST',
         headers: {
@@ -304,9 +318,7 @@ export class TravelTimeService {
           }
         }
 
-        if (unreachable > 0) {
-          logger.info(`Google Maps matrix (${travelMode}): ${reachable} reachable, ${unreachable} unreachable origins`);
-        }
+        logger.info(`[Google Maps Matrix API] ✓ ${travelMode}: ${reachable} reachable, ${unreachable} unreachable origins`);
         return resultMap;
       } else {
         const errText = await response.text();
