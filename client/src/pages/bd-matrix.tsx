@@ -1309,7 +1309,7 @@ function ClientEnquiryMatcher() {
                         return (
                           <div 
                             key={enquiry.id} 
-                            className="group bg-white/90 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/70 dark:border-gray-800/60 hover:border-purple-300 dark:hover:border-purple-700/60 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-md hover:shadow-xl hover:shadow-purple-500/15 hover:-translate-y-1.5 relative overflow-hidden"
+                            className="group relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-900/90 dark:to-gray-950 border border-gray-200 dark:border-gray-800/80 hover:border-purple-400/50 dark:hover:border-purple-600/40 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 hover:-translate-y-2 overflow-hidden"
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
@@ -1317,46 +1317,49 @@ function ClientEnquiryMatcher() {
                               }
                             }}
                           >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-indigo-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-[2] transition-transform duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-600/0 via-purple-500/0 to-indigo-600/0 group-hover:from-purple-500/5 group-hover:via-purple-400/3 group-hover:to-indigo-500/5 transition-all duration-500" />
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-400/15 to-indigo-400/10 rounded-full -mr-20 -mt-20 group-hover:scale-[1.5] transition-transform duration-700" />
                             <div className="relative z-10">
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2.5">
-                                    <h4 className="font-black text-[16px] text-gray-900 dark:text-gray-100 truncate max-w-[180px] tracking-tight leading-tight">{enquiry.clientName}</h4>
+                              <div className="flex items-start justify-between mb-5">
+                                <div className="space-y-2 flex-1 pr-4">
+                                  <div className="flex items-center gap-3">
+                                    <h4 className="font-black text-[17px] text-gray-950 dark:text-gray-50 truncate tracking-tight leading-tight">{enquiry.clientName}</h4>
                                     {isMultiVisit && (
-                                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-none font-semibold text-[10px] px-2 h-5 leading-none">
+                                      <Badge className="bg-gradient-to-r from-purple-500/20 to-indigo-500/15 text-purple-700 dark:from-purple-600/30 dark:to-indigo-600/25 dark:text-purple-300 border border-purple-300/30 dark:border-purple-500/30 font-bold text-[10px] px-3 h-6 leading-none rounded-full">
                                         {visitCount} Visits
                                       </Badge>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-500 dark:text-gray-400 mt-1">
-                                    <span className="flex items-center gap-1.5">
-                                      <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                                      {enquiry.postcode || 'No postcode'}
+                                  <div className="flex items-center gap-2.5 text-[13px] font-medium text-gray-600 dark:text-gray-400 mt-1.5">
+                                    <span className="flex items-center gap-1.5 flex-shrink-0">
+                                      <MapPin className="w-4 h-4 flex-shrink-0 text-purple-500/70" />
+                                      <span className="font-semibold">{enquiry.postcode || 'No postcode'}</span>
                                     </span>
-                                    <span className="w-0.5 h-3.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                                    <span>{new Date(enquiry.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                    <span className="w-1 h-1 rounded-full bg-gray-400 dark:bg-gray-600" />
+                                    <span className="text-gray-500 dark:text-gray-500">{new Date(enquiry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
                                   </div>
                                 </div>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                  className="h-8 w-8 rounded-lg flex-shrink-0 text-gray-400 hover:text-red-600 hover:bg-red-100/50 dark:hover:text-red-400 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-all"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     deleteEnquiryMutation.mutate(enquiry.id);
                                   }}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
-                              <div className="flex items-center justify-between pt-4 border-t border-gray-100/60 dark:border-gray-800/60">
-                                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-black text-[13px]">
-                                  <UserCheck className="w-4 h-4" />
-                                  {enquiry.matchCount || 0} matches
+                              <div className="flex items-center justify-between pt-5 border-t border-gray-200/60 dark:border-gray-800/40">
+                                <div className="flex items-center gap-2.5 text-purple-600 dark:text-purple-400 font-black text-[14px]">
+                                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-100/60 dark:bg-purple-900/40">
+                                    <UserCheck className="w-3 h-3" />
+                                  </div>
+                                  {enquiry.matchCount || 0} <span className="text-gray-500 dark:text-gray-500 font-medium">matches</span>
                                 </div>
-                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-all duration-300">
-                                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all duration-300" />
+                                <div className="h-8 w-8 rounded-full bg-purple-100/40 dark:bg-purple-900/20 flex items-center justify-center group-hover:bg-purple-200/50 dark:group-hover:bg-purple-800/30 transition-all duration-300 border border-purple-200/30 dark:border-purple-700/20">
+                                  <ArrowRight className="w-4 h-4 text-purple-500/70 dark:text-purple-400/70 group-hover:text-purple-700 dark:group-hover:text-purple-300 group-hover:translate-x-0.5 transition-all duration-300" />
                                 </div>
                               </div>
                             </div>
@@ -1373,28 +1376,28 @@ function ClientEnquiryMatcher() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2 grid grid-cols-2 gap-5">
                     <div className="space-y-2.5">
-                      <Label htmlFor="clientName" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400">Client Name *</Label>
+                      <Label htmlFor="clientName" className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-700 dark:text-gray-300">Client Name *</Label>
                       <div className="relative group">
-                        <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-300" />
+                        <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 transition-colors duration-300" />
                         <Input
                           id="clientName"
                           placeholder="e.g. Mrs Smith"
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
-                          className="pl-12 h-13 text-base bg-white/90 dark:bg-gray-900/70 backdrop-blur-sm border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600"
+                          className="pl-12 h-13 text-base font-medium bg-white dark:bg-gray-900/60 border border-gray-300 dark:border-gray-700/80 focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600 dark:placeholder:text-gray-600 placeholder:text-gray-400"
                         />
                       </div>
                     </div>
                     <div className="space-y-2.5">
-                      <Label htmlFor="postcode" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400">Postcode</Label>
+                      <Label htmlFor="postcode" className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-700 dark:text-gray-300">Postcode</Label>
                       <div className="relative group">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-300" />
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 transition-colors duration-300" />
                         <Input
                           id="postcode"
                           placeholder="e.g. SW1A 1AA"
                           value={postcode}
                           onChange={(e) => setPostcode(e.target.value)}
-                          className="pl-12 h-13 text-base bg-white/90 dark:bg-gray-900/70 backdrop-blur-sm border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600"
+                          className="pl-12 h-13 text-base font-medium bg-white dark:bg-gray-900/60 border border-gray-300 dark:border-gray-700/80 focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500 dark:focus:border-purple-500 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600 dark:placeholder:text-gray-600 placeholder:text-gray-400"
                         />
                       </div>
                     </div>
