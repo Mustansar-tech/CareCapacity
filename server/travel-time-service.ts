@@ -166,7 +166,7 @@ export class TravelTimeService {
     arrivalTime?: Date,
     forceMode?: string,
     departureTime?: Date
-  ): Promise<{ durationMinutes: number } | null> {
+  ): Promise<{ durationMinutes: number; errorType?: string } | null> {
     if (!this.hasGoogleMapsCredentials()) return null;
 
     try {
@@ -191,14 +191,15 @@ export class TravelTimeService {
         }
       }
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
-
-      logger.info(`[Google Maps API] → POST /directions/v2:computeRoutes ` +
+      const bodyStr = JSON.stringify(body);
+      logger.info(`[Google Maps Routes] REQUEST ${travelMode} ` +
         `origin=(${from.lat.toFixed(4)},${from.lng.toFixed(4)}) ` +
         `dest=(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
-        `mode=${travelMode} ` +
-        `${travelMode === 'TRANSIT' ? (departureTime ? `departureTime=${departureTime.toISOString()}` : `arrivalTime=${arrivalTime?.toISOString() ?? 'N/A'}`) : '(time-independent)'}`);
+        `${travelMode === 'TRANSIT' ? (hasDeparture ? `departureTime=${departureTime?.toISOString()}` : `arrivalTime=${arrivalTime?.toISOString()}`) : 'time-independent'}`);
+      logger.debug(`[Google Maps Routes] REQUEST body: ${bodyStr}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
 
       const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
         method: 'POST',
@@ -207,36 +208,61 @@ export class TravelTimeService {
           'X-Goog-FieldMask': 'routes.duration',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: bodyStr,
         signal: controller.signal,
       });
       clearTimeout(timeout);
 
+      const rawText = await response.text();
+      logger.debug(`[Google Maps Routes] RESPONSE HTTP ${response.status}: ${rawText.slice(0, 500)}`);
+
       if (response.ok) {
-        const data = await response.json();
-        const durationStr = data?.routes?.[0]?.duration as string | undefined;
-        if (durationStr) {
-          const seconds = parseInt(durationStr.replace('s', ''), 10);
-          if (!isNaN(seconds)) {
-            const minutes = Math.max(1, Math.round(seconds / 60));
-            logger.info(`[Google Maps API] ✓ ${travelMode} ${timeType} ` +
-              `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
-              `@ ${(hasArrival ? arrivalTime : departureTime)?.toISOString() ?? 'N/A'} ` +
-              `= ${minutes}min`);
-            logger.debug(`[Google Maps Response] { duration: "${durationStr}", routes: 1 }`);
-            return { durationMinutes: minutes };
-          }
+        let data: any;
+        try {
+          data = JSON.parse(rawText);
+        } catch (parseErr) {
+          logger.warn(`[Google Maps Routes] PARSE ERROR (${travelMode}): ${parseErr instanceof Error ? parseErr.message : parseErr}`);
+          return { durationMinutes: 0, errorType: 'google-parse-error' };
         }
-        logger.warn(`Google Maps Routes: no duration in response (${travelMode}, ${distanceKm.toFixed(2)}km), response: ${JSON.stringify(data)}`);
-        return null;
+
+        // Check if routes array exists
+        if (!data.routes || !Array.isArray(data.routes)) {
+          logger.warn(`[Google Maps Routes] NO_ROUTES (${travelMode}): routes field missing or not an array, response: ${rawText.slice(0, 300)}`);
+          return { durationMinutes: 0, errorType: 'google-no-route' };
+        }
+
+        // Check if we have at least one route
+        if (data.routes.length === 0) {
+          logger.warn(`[Google Maps Routes] EMPTY_ROUTES (${travelMode}): routes array empty`);
+          return { durationMinutes: 0, errorType: 'google-empty-response' };
+        }
+
+        const route = data.routes[0];
+        const durationStr = route?.duration as string | undefined;
+        if (!durationStr) {
+          logger.warn(`[Google Maps Routes] NO_DURATION (${travelMode}): route exists but no duration field, route: ${JSON.stringify(route).slice(0, 200)}`);
+          return { durationMinutes: 0, errorType: 'google-no-route' };
+        }
+
+        const seconds = parseInt(durationStr.replace('s', ''), 10);
+        if (isNaN(seconds)) {
+          logger.warn(`[Google Maps Routes] PARSE_DURATION_ERROR (${travelMode}): cannot parse duration "${durationStr}"`);
+          return { durationMinutes: 0, errorType: 'google-parse-error' };
+        }
+
+        const minutes = Math.max(1, Math.round(seconds / 60));
+        logger.info(`[Google Maps Routes] SUCCESS ${travelMode} ${timeType} ` +
+          `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
+          `${travelMode === 'TRANSIT' ? (hasDeparture ? `depart ${departureTime?.toISOString()}` : `arrive ${arrivalTime?.toISOString()}`) : ''} ` +
+          `= ${minutes}min`);
+        return { durationMinutes: minutes };
       } else {
-        const errText = await response.text();
-        logger.warn(`Google Maps Routes API error (${response.status}): ${errText.slice(0, 200)}`);
-        return null;
+        logger.warn(`[Google Maps Routes] HTTP_ERROR (${response.status}) ${travelMode}: ${rawText.slice(0, 300)}`);
+        return { durationMinutes: 0, errorType: 'google-api-error' };
       }
     } catch (error) {
-      logger.warn('Google Maps Routes fetch failed:', error instanceof Error ? error.message : error);
-      return null;
+      logger.warn(`[Google Maps Routes] FETCH_ERROR: ${error instanceof Error ? error.message : error}`);
+      return { durationMinutes: 0, errorType: 'google-fetch-error' };
     }
   }
 
@@ -455,13 +481,16 @@ export class TravelTimeService {
       const gmMode = this.toGoogleMapsMode(distKm);
       let gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, undefined, departureTime);
       let usedMode = gmMode;
-      if (!gm && gmMode === 'TRANSIT') {
-        logger.info(`Google Maps Routes (TRANSIT) unreachable for ${distKm.toFixed(2)}km — retrying with WALK`);
+      let transitErrorType: string | undefined;
+      
+      if ((!gm || gm.durationMinutes === 0) && gmMode === 'TRANSIT') {
+        transitErrorType = gm?.errorType;
+        logger.info(`[Google Maps Routes] TRANSIT unreachable for ${distKm.toFixed(2)}km (${transitErrorType || 'no-result'}) — retrying with WALK`);
         gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, 'WALK', departureTime);
         usedMode = 'WALK';
       }
-      if (gm) {
-        logger.debug(`Google Maps Routes (${usedMode}, ${distKm.toFixed(2)}km): ${gm.durationMinutes} min`);
+      if (gm && gm.durationMinutes > 0) {
+        logger.debug(`[Google Maps Routes] (${usedMode}, ${distKm.toFixed(2)}km): ${gm.durationMinutes} min`);
         this.trackSource('google-maps');
         return {
           fromLocation: from,
