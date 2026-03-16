@@ -8,9 +8,9 @@
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker / public transport employees:
- *   1. Google Maps Routes API (computeRoutes — single point-to-point)
- *   2. Google Maps Route Matrix API (computeRouteMatrix — batch, used by pre-warm helper)
- *   3. Haversine heuristic fallback (if Google Maps unavailable)
+ *   1. TravelTime Matrix API (arrival_searches — arrive BY visit start time)
+ *   2. TravelTime single search API (arrival_searches, individual fallback)
+ *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  */
 
 import { storage } from "./storage";
@@ -35,8 +35,8 @@ export interface TravelSourceStats {
   ors: number;
   'ors-matrix': number;
   osrm: number;
-  'google-maps': number;
-  'google-maps-matrix': number;
+  traveltime: number;
+  'traveltime-matrix': number;
   heuristic: number;
   unreachable: number;
   total: number;
@@ -45,9 +45,9 @@ export interface TravelSourceStats {
 export type TransportMode = "car" | "walking" | "public";
 
 const ORS_MATRIX_BATCH_SIZE = 50;
-const GOOGLE_MAPS_MATRIX_BATCH_SIZE = 100;
+const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
 const OSRM_TIMEOUT_MS = 8000;
-const GOOGLE_MAPS_TIMEOUT_MS = 10000;
+const TRAVELTIME_TIMEOUT_MS = 10000;
 
 export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
@@ -61,10 +61,12 @@ export class TravelTimeService {
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
-  private readonly GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+  private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
+  private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
-  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, 'google-maps': 0, 'google-maps-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
+  private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
 
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -72,7 +74,7 @@ export class TravelTimeService {
   }
 
   resetSourceStats(): void {
-    this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, 'google-maps': 0, 'google-maps-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+    this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();
   }
 
@@ -137,226 +139,142 @@ export class TravelTimeService {
     return Math.pow(excess / maxExcess, 2) * 100;
   }
 
-  private readonly WALK_THRESHOLD_KM = 1.6; // ~1 mile — closer than this, use WALK mode; farther uses TRANSIT
+  private readonly WALK_THRESHOLD_KM = 1.6; // ~1 mile — closer than this, use TravelTime walking mode
 
   /**
-   * Pick the Google Maps travelMode based on straight-line distance.
-   * ≤ 1 mile (1.6 km): WALK — quicker and more realistic than waiting for a bus
-   * >  1 mile (1.6 km): TRANSIT — bus/train is the realistic option
+   * Pick the TravelTime API transportation type based on straight-line distance.
+   * ≤ 1 mile (1.6 km): use 'walking' — quicker and more realistic than waiting for a bus
+   * >  1 mile (1.6 km): use 'public_transport' — bus/train is the realistic option
    */
-  private toGoogleMapsMode(distanceKm: number): string {
-    return distanceKm <= this.WALK_THRESHOLD_KM ? 'WALK' : 'TRANSIT';
+  private toTravelTimeTransport(distanceKm: number): string {
+    return distanceKm <= this.WALK_THRESHOLD_KM ? 'walking' : 'public_transport';
   }
 
-  private hasGoogleMapsCredentials(): boolean {
-    return !!this.GOOGLE_MAPS_API_KEY;
+  private hasTravelTimeCredentials(): boolean {
+    return !!(this.TRAVELTIME_APP_ID && this.TRAVELTIME_API_KEY);
   }
 
   /**
-   * Returns a sensible default departure time for TRANSIT queries when no schedule time is known.
-   * Uses 9am on the next upcoming weekday so Google returns real timetable results
-   * rather than "no service at midnight" empty responses.
+   * Geocode a UK postcode using TravelTime's own geocoding API.
+   * Crucially, the coordinates returned here are exactly what TravelTime uses internally
+   * when the playground resolves a postcode — so routing queries using these coordinates
+   * will match playground results instead of drifting due to third-party geocoder offsets.
+   * Results are cached in-memory for the lifetime of this service instance.
    */
-  private getDefaultTransitDepartureTime(): Date {
-    const d = new Date();
-    d.setHours(9, 0, 0, 0);
-    // If it's already past 9am today, move to tomorrow
-    if (d <= new Date()) {
-      d.setDate(d.getDate() + 1);
+  async geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
+    if (!this.hasTravelTimeCredentials()) return null;
+    const key = postcode.trim().toUpperCase().replace(/\s+/g, '');
+    // Return cached result (including null for previously-failed lookups — avoids repeat calls)
+    if (this._ttGeoCache.has(key)) return this._ttGeoCache.get(key) ?? null;
+    try {
+      const url = `https://api.traveltimeapp.com/v4/geocoding/search?query=${encodeURIComponent(postcode)}&limit=1`;
+      const response = await fetch(url, {
+        headers: {
+          'X-Application-Id': this.TRAVELTIME_APP_ID!,
+          'X-Api-Key': this.TRAVELTIME_API_KEY!,
+          'Accept': 'application/json',
+          'Accept-Language': 'en',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const feature = data?.features?.[0];
+        if (feature?.geometry?.coordinates) {
+          const [lng, lat] = feature.geometry.coordinates as [number, number];
+          const result = { lat, lng };
+          this._ttGeoCache.set(key, result);
+          logger.info(`[TT Geocode] ${postcode} → (${lat.toFixed(4)},${lng.toFixed(4)})`);
+          return result;
+        }
+        // No feature returned — cache null so we don't retry
+        logger.warn(`TravelTime geocoding: no result for "${postcode}"`);
+        this._ttGeoCache.set(key, null);
+      } else {
+        const errText = await response.text();
+        logger.warn(`TravelTime geocoding failed for "${postcode}" (${response.status}): ${errText.slice(0, 200)}`);
+        // Cache null to prevent hammering a failing endpoint with the same postcode
+        this._ttGeoCache.set(key, null);
+      }
+    } catch (e) {
+      logger.warn(`TravelTime geocoding error for "${postcode}":`, e instanceof Error ? e.message : e);
+      this._ttGeoCache.set(key, null);
     }
-    // Skip weekends — most care schedules are weekdays
-    while (d.getDay() === 0 || d.getDay() === 6) {
-      d.setDate(d.getDate() + 1);
-    }
-    return d;
+    return null;
   }
 
   /**
-   * Google Maps Routes API — single point-to-point walking or transit time.
-   * Uses computeRoutes: POST https://routes.googleapis.com/directions/v2:computeRoutes
-   * Picks WALK vs TRANSIT automatically based on straight-line distance:
-   *   ≤ 1.6 km → WALK (time-independent, no arrival/departure time sent)
-   *   > 1.6 km → TRANSIT (uses arrivalTime or departureTime for real timetables)
+   * TravelTime single-search API — point-to-point walking or public transport time.
+   * Uses arrival_searches: "arrive at destination BY arrivalTime, how long is the journey?"
+   * Picks walking vs public_transport automatically based on straight-line distance:
+   *   ≤ 1.6 km  → walking (faster, no bus waiting time)
+   *   > 1.6 km  → public_transport (bus/train is the realistic option)
    */
-  private async fetchGoogleMapsRoute(
+  private async fetchTravelTimeSingle(
     from: Location,
     to: Location,
     distanceKm: number,
     arrivalTime?: Date,
     forceMode?: string,
     departureTime?: Date
-  ): Promise<{ durationMinutes: number; errorType?: string } | null> {
-    if (!this.hasGoogleMapsCredentials()) return null;
+  ): Promise<{ durationMinutes: number } | null> {
+    if (!this.hasTravelTimeCredentials()) return null;
 
     try {
-      const travelMode = forceMode ?? this.toGoogleMapsMode(distanceKm);
+      const transportation = forceMode ?? this.toTravelTimeTransport(distanceKm);
 
-      const body: Record<string, unknown> = {
-        origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
-        destination: { location: { latLng: { latitude: to.lat, longitude: to.lng } } },
-        travelMode,
-      };
-
-      // Walking is time-independent — no arrival/departure time sent.
-      // TRANSIT: Google Maps Routes API only supports departureTime, NOT arrivalTime.
-      // If only arrivalTime is given, treat it as a rough departure time (slight overestimate).
-      // If neither is given, use a smart default (9am next weekday) so Google returns
-      // real timetable results rather than empty "no service" responses.
-      if (travelMode === 'TRANSIT') {
-        const deptTime = departureTime ?? arrivalTime ?? this.getDefaultTransitDepartureTime();
-        body.departureTime = deptTime.toISOString();
-      }
-
-      const bodyStr = JSON.stringify(body);
-      logger.info(`[Google Maps Routes] REQUEST ${travelMode} ` +
-        `origin=(${from.lat.toFixed(4)},${from.lng.toFixed(4)}) ` +
-        `dest=(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
-        `${travelMode === 'TRANSIT' ? `departureTime=${(departureTime ?? arrivalTime ?? this.getDefaultTransitDepartureTime()).toISOString()}` : 'time-independent'}`);
-      logger.debug(`[Google Maps Routes] REQUEST body: ${bodyStr}`);
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
-
-      const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
-        method: 'POST',
-        headers: {
-          'X-Goog-Api-Key': this.GOOGLE_MAPS_API_KEY!,
-          'X-Goog-FieldMask': 'routes.duration,routes.legs.duration',
-          'Content-Type': 'application/json',
-        },
-        body: bodyStr,
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      // Get raw response text first
-      const rawText = await response.text();
-
-      // Log raw HTTP response FIRST
-      logger.info(`[Google Maps Routes] RESPONSE HTTP ${response.status} (${travelMode})`);
-      logger.debug(`[Google Maps Routes] RAW_RESPONSE (${response.status}): ${rawText.slice(0, 600)}`);
-
-      if (response.ok) {
-        // Try to parse JSON
-        let data: any;
-        try {
-          data = JSON.parse(rawText);
-          logger.debug(`[Google Maps Routes] PARSED_JSON: ${JSON.stringify(data).slice(0, 400)}`);
-        } catch (parseErr) {
-          const errorMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-          const errType = travelMode === 'TRANSIT' ? 'google-transit-parse-error' : 'google-parse-error';
-          logger.warn(`[Google Maps Routes] PARSE_ERROR (${travelMode}): ${errorMsg}`);
-          logger.warn(`[Google Maps Routes] RAW_BODY_ON_PARSE_ERROR: ${rawText.slice(0, 300)}`);
-          return { durationMinutes: 0, errorType: errType };
-        }
-
-        // Check if body is empty
-        if (!rawText || rawText.trim().length === 0) {
-          const errType = travelMode === 'TRANSIT' ? 'google-transit-empty-body' : 'google-empty-body';
-          logger.warn(`[Google Maps Routes] EMPTY_BODY (${travelMode})`);
-          return { durationMinutes: 0, errorType: errType };
-        }
-
-        // Check if routes array exists
-        if (!data.routes || !Array.isArray(data.routes)) {
-          const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
-          logger.warn(`[Google Maps Routes] NO_ROUTES (${travelMode}): routes field missing or not an array`);
-          logger.warn(`[Google Maps Routes] FULL_RESPONSE_BODY: ${rawText.slice(0, 600)}`);
-          logger.debug(`[Google Maps Routes] RESPONSE_STRUCTURE: ${JSON.stringify(Object.keys(data)).slice(0, 200)}`);
-          if (data.error) {
-            logger.warn(`[Google Maps Routes] API_ERROR: ${JSON.stringify(data.error)}`);
-          }
-          return { durationMinutes: 0, errorType: errType };
-        }
-
-        // Check if we have at least one route
-        if (data.routes.length === 0) {
-          const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
-          logger.warn(`[Google Maps Routes] EMPTY_ROUTES (${travelMode}): routes array is empty`);
-          return { durationMinutes: 0, errorType: errType };
-        }
-
-        const route = data.routes[0];
-        const durationStr = route?.duration as string | undefined;
-        if (!durationStr) {
-          const errType = travelMode === 'TRANSIT' ? 'google-transit-no-route' : 'google-no-route';
-          logger.warn(`[Google Maps Routes] NO_DURATION (${travelMode}): route exists but duration field missing`);
-          logger.debug(`[Google Maps Routes] ROUTE_STRUCTURE: ${JSON.stringify(Object.keys(route)).slice(0, 200)}`);
-          return { durationMinutes: 0, errorType: errType };
-        }
-
-        const seconds = parseInt(durationStr.replace('s', ''), 10);
-        if (isNaN(seconds)) {
-          const errType = travelMode === 'TRANSIT' ? 'google-transit-parse-error' : 'google-parse-error';
-          logger.warn(`[Google Maps Routes] PARSE_DURATION_ERROR (${travelMode}): cannot parse "${durationStr}"`);
-          return { durationMinutes: 0, errorType: errType };
-        }
-
-        const minutes = Math.max(1, Math.round(seconds / 60));
-        logger.info(`[Google Maps Routes] SUCCESS ${travelMode} ` +
-          `(${from.lat.toFixed(4)},${from.lng.toFixed(4)})→(${to.lat.toFixed(4)},${to.lng.toFixed(4)}) ` +
-          `${travelMode === 'TRANSIT' ? `depart ${(departureTime ?? arrivalTime ?? this.getDefaultTransitDepartureTime()).toISOString()}` : ''} ` +
-          `= ${minutes}min`);
-        logger.debug(`[Google Maps Routes] PARSED_DURATION: ${durationStr} → ${minutes}min`);
-        return { durationMinutes: minutes };
+      // Use departure_searches when a departure time is given (return-home / break-departure legs).
+      // Use arrival_searches when an arrival deadline is given (client visit legs).
+      let body: object;
+      if (departureTime) {
+        const departure = departureTime.toISOString();
+        body = {
+          locations: [
+            { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
+            { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
+          ],
+          departure_searches: [
+            {
+              id: 'search',
+              departure_location_id: 'origin',
+              arrival_location_ids: ['destination'],
+              transportation: { type: transportation },
+              departure_time: departure,
+              travel_time: 7200,
+              properties: ['travel_time'],
+            },
+          ],
+        };
       } else {
-        const errType = travelMode === 'TRANSIT' ? 'google-transit-http-error' : 'google-http-error';
-        logger.warn(`[Google Maps Routes] HTTP_ERROR ${response.status} (${travelMode})`);
-        logger.warn(`[Google Maps Routes] ERROR_RESPONSE_BODY: ${rawText.slice(0, 400)}`);
-        return { durationMinutes: 0, errorType: errType };
-      }
-    } catch (error) {
-      logger.warn(`[Google Maps Routes] FETCH_ERROR: ${error instanceof Error ? error.message : error}`);
-      return { durationMinutes: 0, errorType: 'google-fetch-error' };
-    }
-  }
-
-  /**
-   * Google Maps Route Matrix API — batch travel times from N departure locations to one arrival.
-   * Uses computeRouteMatrix: POST https://routes.googleapis.com/distancematrix/v2:computeRouteMatrix
-   *
-   * travelMode should be 'WALK' or 'TRANSIT'.
-   * Returns a map: originIndex → durationMinutes, or null on API failure.
-   * Indices not in the map are unreachable (status code non-zero or no duration).
-   */
-  private async fetchGoogleMapsMatrix(
-    arrivalLocation: { lat: number; lng: number },
-    departureLocations: Array<{ lat: number; lng: number }>,
-    travelMode: string,
-    arrivalTime?: Date
-  ): Promise<Map<number, number> | null> {
-    if (!this.hasGoogleMapsCredentials() || departureLocations.length === 0) return null;
-
-    try {
-      const body: Record<string, unknown> = {
-        origins: departureLocations.map(d => ({
-          waypoint: { location: { latLng: { latitude: d.lat, longitude: d.lng } } },
-        })),
-        destinations: [{
-          waypoint: { location: { latLng: { latitude: arrivalLocation.lat, longitude: arrivalLocation.lng } } },
-        }],
-        travelMode,
-      };
-
-      // Walking is time-independent; transit uses arrivalTime for timetable accuracy.
-      if (travelMode === 'TRANSIT' && arrivalTime) {
-        body.arrivalTime = arrivalTime.toISOString();
+        const arrival = (arrivalTime || new Date()).toISOString();
+        body = {
+          locations: [
+            { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
+            { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
+          ],
+          arrival_searches: [
+            {
+              id: 'search',
+              arrival_location_id: 'destination',
+              departure_location_ids: ['origin'],
+              transportation: { type: transportation },
+              arrival_time: arrival,
+              travel_time: 7200,
+              properties: ['travel_time'],
+            },
+          ],
+        };
       }
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), GOOGLE_MAPS_TIMEOUT_MS);
+      const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
 
-      logger.info(`[Google Maps Matrix API] → POST /distancematrix/v2:computeRouteMatrix ` +
-        `${departureLocations.length} origins → 1 destination ` +
-        `mode=${travelMode} ` +
-        `${travelMode === 'TRANSIT' && arrivalTime ? `arrivalTime=${arrivalTime.toISOString()}` : '(time-independent)'}`);
-
-      const response = await fetch('https://routes.googleapis.com/distancematrix/v2:computeRouteMatrix', {
+      const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
         method: 'POST',
         headers: {
-          'X-Goog-Api-Key': this.GOOGLE_MAPS_API_KEY!,
-          'X-Goog-FieldMask': 'originIndex,destinationIndex,duration,status',
+          'X-Application-Id': this.TRAVELTIME_APP_ID!,
+          'X-Api-Key': this.TRAVELTIME_API_KEY!,
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -364,40 +282,108 @@ export class TravelTimeService {
       clearTimeout(timeout);
 
       if (response.ok) {
-        const elements = await response.json() as Array<{
-          originIndex: number;
-          destinationIndex: number;
-          duration?: string;
-          status?: { code: number };
-        }>;
-
-        const resultMap = new Map<number, number>();
-        let reachable = 0;
-        let unreachable = 0;
-
-        for (const el of elements) {
-          if (el.status?.code !== undefined && el.status.code !== 0) {
-            unreachable++;
-            continue;
-          }
-          if (el.duration) {
-            const seconds = parseInt(el.duration.replace('s', ''), 10);
-            if (!isNaN(seconds)) {
-              resultMap.set(el.originIndex, Math.max(1, Math.round(seconds / 60)));
-              reachable++;
-            }
+        const data = await response.json();
+        const results = data?.results?.[0]?.locations;
+        if (results && results.length > 0) {
+          const travelTimeSec = results[0]?.properties?.[0]?.travel_time;
+          if (travelTimeSec != null) {
+            return { durationMinutes: Math.max(1, Math.round(travelTimeSec / 60)) };
           }
         }
-
-        logger.info(`[Google Maps Matrix API] ✓ ${travelMode}: ${reachable} reachable, ${unreachable} unreachable origins`);
-        return resultMap;
+        logger.debug(`TravelTime single: unreachable (${departureTime ? 'depart' : 'arrive'} ${transportation}, ${distanceKm.toFixed(2)}km)`);
+        return null;
       } else {
         const errText = await response.text();
-        logger.warn(`Google Maps matrix API error (${response.status}): ${errText.slice(0, 200)}`);
+        logger.warn(`TravelTime single API error (${response.status}): ${errText.slice(0, 200)}`);
         return null;
       }
     } catch (error) {
-      logger.warn('Google Maps matrix fetch failed:', error instanceof Error ? error.message : error);
+      logger.warn('TravelTime single fetch failed:', error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  /**
+   * TravelTime Matrix (arrival_searches) — "arrive at arrivalLocation BY arrivalTime,
+   * departing from each of departureLocations — how long is each journey?"
+   *
+   * travelType should be 'walking' or 'public_transport'.
+   * Returns a map: departureLocationIndex → durationMinutes, or null on API failure.
+   * Indices not in the map are unreachable (no feasible route).
+   */
+  private async fetchTravelTimeMatrix(
+    arrivalLocation: { lat: number; lng: number },
+    departureLocations: Array<{ lat: number; lng: number }>,
+    travelType: string,
+    arrivalTime?: Date
+  ): Promise<Map<number, number> | null> {
+    if (!this.hasTravelTimeCredentials() || departureLocations.length === 0) return null;
+
+    try {
+      const arrival = (arrivalTime || new Date()).toISOString();
+
+      const locations = [
+        { id: 'arrival', coords: { lat: arrivalLocation.lat, lng: arrivalLocation.lng } },
+        ...departureLocations.map((d, i) => ({ id: `dep_${i}`, coords: { lat: d.lat, lng: d.lng } })),
+      ];
+
+      const body = {
+        locations,
+        arrival_searches: [
+          {
+            id: 'matrix',
+            arrival_location_id: 'arrival',
+            departure_location_ids: departureLocations.map((_, i) => `dep_${i}`),
+            transportation: { type: travelType },
+            arrival_time: arrival,
+            travel_time: 7200,
+            properties: ['travel_time'],
+          },
+        ],
+      };
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
+
+      const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
+        method: 'POST',
+        headers: {
+          'X-Application-Id': this.TRAVELTIME_APP_ID!,
+          'X-Api-Key': this.TRAVELTIME_API_KEY!,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const data = await response.json();
+        const result0 = data?.results?.[0];
+        const reachable = result0?.locations || [];
+        const unreachable: string[] = result0?.unreachable || [];
+        if (unreachable.length > 0) {
+          logger.info(`TravelTime matrix (${travelType}): ${reachable.length} reachable, ${unreachable.length} unreachable departures`);
+        }
+        const resultMap = new Map<number, number>();
+        for (const loc of reachable) {
+          const match = loc.id?.match(/^dep_(\d+)$/);
+          if (!match) continue;
+          const idx = parseInt(match[1], 10);
+          const travelTimeSec = loc?.properties?.[0]?.travel_time;
+          if (travelTimeSec != null) {
+            resultMap.set(idx, Math.max(1, Math.round(travelTimeSec / 60)));
+          }
+        }
+        return resultMap;
+      } else {
+        const errText = await response.text();
+        logger.warn(`TravelTime matrix API error (${response.status}): ${errText.slice(0, 200)}`);
+        return null;
+      }
+    } catch (error) {
+      logger.warn('TravelTime matrix fetch failed:', error instanceof Error ? error.message : error);
       return null;
     }
   }
@@ -519,41 +505,35 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2a. Walker / public transport — Google Maps Routes API
-    // Distance decides the mode: ≤ WALK_THRESHOLD_KM → WALK, else TRANSIT
+    // 2a. Walker / public transport — TravelTime API (arrival_searches)
+    // Distance decides the TravelTime mode: ≤ WALK_THRESHOLD_KM → walking, else public_transport
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
-      const gmMode = this.toGoogleMapsMode(distKm);
-      let gm = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, undefined, departureTime);
-      let usedMode = gmMode;
-      let transitErrorType: string | undefined;
-      
-      // When TRANSIT fails for distances > threshold, do NOT retry with WALK.
-      // Walking speed (5 km/h) for a 5+ km journey gives 60+ minute results which
-      // are completely wrong — the heuristic at bus speed (15 km/h) is far more accurate.
-      // Note: if distKm ≤ WALK_THRESHOLD_KM, gmMode is already WALK so this branch never fires.
-      if ((!gm || gm.durationMinutes === 0) && gmMode === 'TRANSIT') {
-        transitErrorType = gm?.errorType;
-        logger.warn(`[Google Maps Routes] TRANSIT failed for ${distKm.toFixed(2)}km [${transitErrorType}] — falling through to heuristic (bus speed)`);
-        gm = null; // Ensure we fall through to heuristic
+      const ttMode = this.toTravelTimeTransport(distKm);
+      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, undefined, departureTime);
+      let usedMode = ttMode;
+      if (!tt && ttMode === 'public_transport') {
+        logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
+        tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, 'walking', departureTime);
+        usedMode = 'walking';
       }
-      if (gm && gm.durationMinutes > 0) {
-        logger.debug(`[Google Maps Routes] (${usedMode}, ${distKm.toFixed(2)}km): ${gm.durationMinutes} min`);
-        this.trackSource('google-maps');
+      if (tt) {
+        logger.debug(`TravelTime single (${usedMode}, ${distKm.toFixed(2)}km): ${tt.durationMinutes} min`);
+        this.trackSource('traveltime');
         return {
           fromLocation: from,
           toLocation: to,
           distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
-          travelTimeMinutes: gm.durationMinutes,
-          feasible: gm.durationMinutes <= currentMaxTravel,
-          penaltyScore: this.calculatePenalty(gm.durationMinutes),
-          source: 'google-maps',
+          travelTimeMinutes: tt.durationMinutes,
+          feasible: tt.durationMinutes <= currentMaxTravel,
+          penaltyScore: this.calculatePenalty(tt.durationMinutes),
+          source: 'traveltime',
         };
       }
 
-      // 2b. Google Maps unavailable — fall back to Haversine heuristic for walker/public
+      // 2b. TravelTime unavailable — fall back to Haversine heuristic for walker/public
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
-      logger.warn(`Google Maps API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
+      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}) — using Haversine fallback: ${heuristicMinutes}min`);
       this.trackSource('heuristic');
       return {
         fromLocation: from,
@@ -682,36 +662,39 @@ export class TravelTimeService {
     const arrivalDeadline = new Date(`${dateStr}T${timeStr}:00`);
     logger.info(`[Cache Pre-warm] Starting for ${employeeLocations.length} employees (${carEmployees.length} car, ${nonCarEmployees.length} walker/public) × ${clientLocations.length} clients. Arrival deadline: ${arrivalDeadline.toISOString()}`);
 
-    // Helper: run a Google Maps Route Matrix batch and save results for a single arrival location.
-    // empOrClientEntries: array of {lat, lng, mode, cacheKey_from, cacheKey_to} representing departure locations.
-    // NOTE: Phase 1a and 2b (walker/public pre-warm) are currently disabled — this helper is kept
-    // ready for when those phases are re-enabled.
-    const runGoogleMapsArrivalGroup = async (
+    // Helper: run a TravelTime Matrix batch (arrival_searches) and save results for a single arrival location
+    // empOrClientEntries: array of {lat, lng, mode, cacheKey_from, cacheKey_to} representing departure locations
+    const runTravelTimeArrivalGroup = async (
       arrivalLoc: { lat: number; lng: number },
       departures: Array<{ lat: number; lng: number; distanceKm: number; fromLat: string; fromLng: string; toLat: string; toLng: string; mode: string }>,
-      travelMode: string,
-      fallbackMode?: string
+      travelType: string,
+      fallbackType?: string
     ): Promise<void> => {
       if (departures.length === 0) return;
-      for (let bi = 0; bi < departures.length; bi += GOOGLE_MAPS_MATRIX_BATCH_SIZE) {
-        const batch = departures.slice(bi, bi + GOOGLE_MAPS_MATRIX_BATCH_SIZE);
+      for (let bi = 0; bi < departures.length; bi += TRAVELTIME_MATRIX_BATCH_SIZE) {
+        // Add shorter delay and larger batches to speed up
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const batch = departures.slice(bi, bi + TRAVELTIME_MATRIX_BATCH_SIZE);
         const depLocations = batch.map(d => ({ lat: d.lat, lng: d.lng }));
-        let resultMap = await this.fetchGoogleMapsMatrix(arrivalLoc, depLocations, travelMode, arrivalDeadline);
-        let usedMode = travelMode;
-        if ((!resultMap || resultMap.size === 0) && fallbackMode) {
-          logger.info(`[Cache Pre-warm] Google Maps matrix (${travelMode}) empty — retrying with ${fallbackMode}`);
-          resultMap = await this.fetchGoogleMapsMatrix(arrivalLoc, depLocations, fallbackMode, arrivalDeadline);
-          usedMode = fallbackMode;
+        let resultMap = await this.fetchTravelTimeMatrix(arrivalLoc, depLocations, travelType, arrivalDeadline);
+        let usedType = travelType;
+        if ((!resultMap || resultMap.size === 0) && fallbackType) {
+          logger.info(`[Cache Pre-warm] TravelTime Matrix (${travelType}) empty — retrying with ${fallbackType}`);
+          // Add delay before fallback
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          resultMap = await this.fetchTravelTimeMatrix(arrivalLoc, depLocations, fallbackType, arrivalDeadline);
+          usedType = fallbackType;
         }
         for (let di = 0; di < batch.length; di++) {
           const dep = batch[di];
           const sk = this.sessionKey(dep.fromLat, dep.fromLng, dep.toLat, dep.toLng, dep.mode);
           if (resultMap && resultMap.has(di)) {
             const durationMinutes = resultMap.get(di)!;
-            this._sessionCache.set(sk, { durationMinutes, distanceMeters: Math.round(dep.distanceKm * this.ROAD_FACTOR * 1000), source: 'google-maps-matrix' });
-            this.trackSource('google-maps-matrix');
+            this._sessionCache.set(sk, { durationMinutes, distanceMeters: Math.round(dep.distanceKm * this.ROAD_FACTOR * 1000), source: 'traveltime-matrix' });
+            this.trackSource('traveltime-matrix');
           } else {
-            // Google Maps unreachable or API failed — use Haversine heuristic for walker/public
+            // TravelTime unreachable or API failed — use Haversine heuristic for walker/public
             const heuristicMinutes = this.calculateHeuristicTravelTime(dep.distanceKm, dep.mode as TransportMode);
             this._sessionCache.set(sk, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(dep.distanceKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
             this.trackSource('heuristic');
@@ -719,18 +702,22 @@ export class TravelTimeService {
           totalNew++;
         }
         if (resultMap) {
-          logger.debug(`[Cache Pre-warm] Google Maps matrix (${usedMode}): arrival (${arrivalLoc.lat.toFixed(4)},${arrivalLoc.lng.toFixed(4)}) ← ${batch.length} departures, ${resultMap.size} reachable`);
+          logger.debug(`[Cache Pre-warm] TravelTime Matrix (${usedType}): arrival (${arrivalLoc.lat.toFixed(4)},${arrivalLoc.lng.toFixed(4)}) ← ${batch.length} departures, ${resultMap.size} reachable`);
         } else {
-          logger.warn(`[Cache Pre-warm] Google Maps matrix (${travelMode}${fallbackMode ? `/${fallbackMode}` : ''}) API failure — using Haversine heuristic for ${batch.length} walker/public pairs`);
+          logger.warn(`[Cache Pre-warm] TravelTime Matrix (${travelType}${fallbackType ? `/${fallbackType}` : ''}) API failure — using Haversine heuristic for ${batch.length} walker/public pairs`);
         }
       }
     };
 
-    // ── PHASE 1a: Walker/public employee → client — DISABLED ──
-    // Walker/public routes use Haversine heuristic via calculateTravelTime on demand.
-    // Re-enable by calling runGoogleMapsArrivalGroup per client location when needed.
+    // ── PHASE 1a: Walker/public employee → client — DISABLED for ORS testing ──
+    // TravelTime API calls skipped; walker/public routes use Haversine heuristic via calculateTravelTime
+    // if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
+    //   for (const arrivalClient of clientLocations) {
+    //     ... runTravelTimeArrivalGroup calls ...
+    //   }
+    // }
     if (nonCarEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1a: SKIPPED — ${nonCarEmployees.length} walker/public employees will use Google Maps API on demand`);
+      logger.info(`[Cache Pre-warm] Phase 1a: SKIPPED (TravelTime disabled for ORS testing) — ${nonCarEmployees.length} walker/public employees will use Haversine heuristic`);
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -765,10 +752,12 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client — DISABLED
-      // Re-enable by calling runGoogleMapsArrivalGroup per client location when needed.
+      // Phase 2b: Walker/public client→client — DISABLED for ORS testing
+      // if (nonCarEmployees.length > 0 && this.hasTravelTimeCredentials()) {
+      //   ... TravelTime arrival_searches for client→client walker/public ...
+      // }
       if (nonCarEmployees.length > 0) {
-        logger.info(`[Cache Pre-warm] Phase 2b: SKIPPED — client→client walker/public will use Google Maps API on demand`);
+        logger.info(`[Cache Pre-warm] Phase 2b: SKIPPED (TravelTime disabled for ORS testing) — client→client walker/public will use Haversine heuristic`);
       }
     }
 
@@ -892,18 +881,90 @@ export class TravelTimeService {
   }
 
   /**
-   * Debug helper: calls Google Maps Routes API (computeRoutes) for a single pair
-   * and returns the duration so the diagnostic endpoint can show what the system uses.
+   * Debug helper: calls BOTH /v4/time-filter and /v4/time-filter/fast for the same
+   * origin→destination pair and returns both durations side-by-side.
+   * /v4/time-filter/fast uses time *periods* (weekday_morning etc.) not specific timestamps.
    */
-  async debugGoogleMapsRoute(
+  async debugCompareBothEndpoints(
     from: { lat: number; lng: number },
     to: { lat: number; lng: number },
-    travelMode: string,
+    transportType: string,
     arrivalTime?: Date
-  ): Promise<{ durationMinutes: number | null }> {
-    const distKm = this.calculateHaversineDistance(from, to);
-    const result = await this.fetchGoogleMapsRoute(from, to, distKm, arrivalTime, travelMode);
-    return { durationMinutes: result?.durationMinutes ?? null };
+  ): Promise<{ timeFilter: number | null; timeFilterFast: number | null; timePeriod: string }> {
+    if (!this.hasTravelTimeCredentials()) return { timeFilter: null, timeFilterFast: null, timePeriod: 'n/a' };
+    const headers = {
+      'X-Application-Id': this.TRAVELTIME_APP_ID!,
+      'X-Api-Key': this.TRAVELTIME_API_KEY!,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    // --- /v4/time-filter (regular) ---
+    const regularBody = {
+      locations: [
+        { id: 'origin', coords: from },
+        { id: 'destination', coords: to },
+      ],
+      arrival_searches: [{
+        id: 'search',
+        arrival_location_id: 'destination',
+        departure_location_ids: ['origin'],
+        transportation: { type: transportType },
+        arrival_time: (arrivalTime || new Date()).toISOString(),
+        travel_time: 7200,
+        properties: ['travel_time'],
+      }],
+    };
+
+    // --- /v4/time-filter/fast (approximate time period) ---
+    const ref = arrivalTime || new Date();
+    const dow = ref.getUTCDay(); // 0=Sun, 6=Sat
+    const hour = ref.getUTCHours();
+    const isWeekend = dow === 0 || dow === 6;
+    const part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+    const timePeriod = `${isWeekend ? 'weekend' : 'weekday'}_${part}`;
+
+    const fastBody = {
+      locations: [
+        { id: 'origin', coords: from },
+        { id: 'destination', coords: to },
+      ],
+      arrival_one_to_many_search: {
+        id: 'search',
+        arrival_location_id: 'destination',
+        departure_location_ids: ['origin'],
+        transportation: { type: transportType },
+        arrival_time_period: timePeriod,
+        travel_time: 7200,
+        properties: ['travel_time'],
+      },
+    };
+
+    const [regularResp, fastResp] = await Promise.all([
+      fetch('https://api.traveltimeapp.com/v4/time-filter', { method: 'POST', headers, body: JSON.stringify(regularBody) }),
+      fetch('https://api.traveltimeapp.com/v4/time-filter/fast', { method: 'POST', headers, body: JSON.stringify(fastBody) }),
+    ]);
+
+    let timeFilter: number | null = null;
+    if (regularResp.ok) {
+      const d = await regularResp.json();
+      const sec = d?.results?.[0]?.locations?.[0]?.properties?.[0]?.travel_time;
+      if (sec != null) timeFilter = Math.round(sec / 60);
+    } else {
+      logger.warn(`[DebugCompare] time-filter error ${regularResp.status}: ${(await regularResp.text()).slice(0, 200)}`);
+    }
+
+    let timeFilterFast: number | null = null;
+    if (fastResp.ok) {
+      const d = await fastResp.json();
+      const locs = d?.results?.arrival_one_to_many_search?.[0]?.locations;
+      const sec = locs?.[0]?.properties?.[0]?.travel_time;
+      if (sec != null) timeFilterFast = Math.round(sec / 60);
+    } else {
+      logger.warn(`[DebugCompare] time-filter/fast error ${fastResp.status}: ${(await fastResp.text()).slice(0, 200)}`);
+    }
+
+    return { timeFilter, timeFilterFast, timePeriod };
   }
 }
 
@@ -954,14 +1015,13 @@ export async function calculateTravelTime(
   branchId: string,
   employeeName: string,
   clientName: string,
-  transportMode: TransportMode = 'car',
-  departureTime?: Date
+  transportMode: TransportMode = 'car'
 ): Promise<number> {
   try {
     const employeeCoords = await getLocationCoordinates(branchId, employeeName, 'employee');
     const clientCoords = await getLocationCoordinates(branchId, clientName, 'client');
     if (!employeeCoords || !clientCoords) return 0;
-    const travelMatrix = await travelTimeService.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode, undefined, departureTime);
+    const travelMatrix = await travelTimeService.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode);
     return travelMatrix.travelTimeMinutes;
   } catch (error) {
     logger.error(`Error calculating travel time:`, error);

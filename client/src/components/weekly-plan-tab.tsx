@@ -341,7 +341,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
       setWeeklySchedule(correctedResult);
 
-      // ── Phase 2: Refine walker/public routes with real Google Maps Routes API ──
+      // ── Phase 2: Refine walker/public routes with real TravelTime API ──
       // Collect only the routes that were actually assigned to walker/public employees.
       // This replaces the old "pre-warm everything" approach with targeted calls.
       // Key includes the visit date so Monday and Saturday pairs are kept separate —
@@ -414,7 +414,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       if (walkerPairMap.size > 0) {
         setIsRefiningWalkers(true);
         const pairs = Array.from(walkerPairMap.values());
-        clientLogger.log(`🚶 Refining ${pairs.length} unique walker/public routes with Google Maps API`);
+        clientLogger.log(`🚶 Refining ${pairs.length} unique walker/public routes with TravelTime API`);
 
         try {
           const refineResponse = await apiRequest('POST', '/api/travel-times/refine-walker', { pairs });
@@ -429,25 +429,25 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               refinedMap.set(r.key, r.durationMinutes);
             });
 
-            // Seed Google Maps results into the shared travel cache so all display arrows
+            // Seed TravelTime results into the shared travel cache so all display arrows
             // (break-leg, return-home) also show real API values instead of Haversine.
             // Cache key is route+mode without date — if Sat/Sun differ for the same pair
             // the last-written value wins, which is fine for display purposes since
             // scheduling validity already uses the per-date travelTimeBefore on each visit.
             seedTravelCache(refineData.results as Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }>);
 
-            clientLogger.log(`✅ Walker refinement: ${refineData.stats?.['google-maps'] || 0} via Google Maps, ${refineData.stats?.heuristic || 0} via heuristic`);
+            clientLogger.log(`✅ Walker refinement: ${refineData.stats?.traveltime || 0} via TravelTime, ${refineData.stats?.heuristic || 0} via heuristic`);
 
-            // Merge walker/public Google Maps stats into the travel source badge so it
-            // reflects ALL sources used (car ORS + walker Google Maps), not just car routes.
-            const ttAdded = refineData.stats?.['google-maps'] || 0;
+            // Merge walker/public TravelTime stats into the travel source badge so it
+            // reflects ALL sources used (car ORS + walker TravelTime), not just car routes.
+            const ttAdded = refineData.stats?.traveltime || 0;
             const hAdded  = refineData.stats?.heuristic  || 0;
             if (ttAdded + hAdded > 0) {
               setTravelSources(prev => {
                 const base = prev ?? { total: 0 };
                 return {
                   ...base,
-                  'google-maps': ((base['google-maps'] as number) || 0) + ttAdded,
+                  traveltime: ((base['traveltime'] as number) || 0) + ttAdded,
                   ...(hAdded > 0 ? { heuristic: ((base['heuristic'] as number) || 0) + hAdded } : {}),
                   total: (base.total || 0) + ttAdded + hAdded,
                 };
@@ -798,7 +798,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       {isRefiningWalkers && (
         <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Verifying walker travel times with Google Maps API…
+          Verifying walker travel times with TravelTime API…
         </div>
       )}
 
@@ -837,8 +837,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           'ors':              { label: 'OpenRouteService',    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
           'ors-matrix':       { label: 'ORS Matrix',         color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
           'osrm':             { label: 'OSRM (OpenStreetMap)', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300' },
-          'google-maps':      { label: 'Google Maps API',     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
-          'google-maps-matrix':{ label: 'Google Maps Matrix',  color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+          'traveltime':       { label: 'TravelTime API',     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+          'traveltime-matrix':{ label: 'TravelTime Matrix',  color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
           'heuristic':        { label: 'Heuristic Estimate', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
           'unreachable':      { label: 'No Route (unreachable)', color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
         };

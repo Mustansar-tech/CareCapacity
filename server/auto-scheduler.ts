@@ -103,7 +103,6 @@ interface WeeklySchedule {
 
 export class AutoScheduler {
   private travelService: TravelTimeService;
-  private _currentScheduleDate: string | null = null;
 
   constructor() {
     this.travelService = new TravelTimeService(45, 35);
@@ -115,17 +114,6 @@ export class AutoScheduler {
   private maxTravelCapMinutes: number;
 
   /**
-   * Convert minutes-since-midnight to a real Date using the current schedule date.
-   * This lets Google Maps TRANSIT use real timetables rather than defaulting to "now".
-   */
-  private minutesToDate(minutesSinceMidnight: number): Date | undefined {
-    if (!this._currentScheduleDate) return undefined;
-    const d = new Date(`${this._currentScheduleDate}T00:00:00`);
-    d.setMinutes(d.getMinutes() + minutesSinceMidnight);
-    return d;
-  }
-
-  /**
    * Automatically schedule visits for a given date
    */
   async scheduleDay(date: string, branchId: string): Promise<WeeklySchedule> {
@@ -133,9 +121,6 @@ export class AutoScheduler {
     logger.debug(`   Date: ${date}`);
     logger.debug(`   BranchId: ${branchId}`);
     logger.debug(`================================================\n`);
-
-    // Store date so minutesToDate() can build real timestamps for Google Maps TRANSIT queries
-    this._currentScheduleDate = date;
 
     if (!branchId) {
       throw new Error('scheduleDay requires branchId parameter - cannot schedule without branch context');
@@ -795,14 +780,11 @@ export class AutoScheduler {
         }
       }
 
-      // Rough departure from home: estimate leaving 45 min before visit start
-      const homeDepMinutes = Math.max(0, visit.startTime - 45);
       const travelTime = await (this as any).calculateTravelTime(
         "default",
         employee.employeeName,
         visit.clientName,
-        employee.transportMode,
-        homeDepMinutes
+        employee.transportMode
       );
 
       if (travelTime > this.maxTravelCapMinutes && schedule.visits.length === 0) {
@@ -859,27 +841,19 @@ export class AutoScheduler {
         ? { lat: prevVisit.clientLat, lng: prevVisit.clientLng }
         : { lat: employee.homeLat, lng: employee.homeLng };
 
-      // Departure time = when the carer finishes the previous visit (or starts their shift)
-      const prevDepMinutes = prevVisit
-        ? prevVisit.actualEndTime
-        : (employee.availabilityWindows?.[0]?.start ?? visit.startTime);
       const travelToPrev = await (this as any).calculateTravelTime(
         "default",
         employee.employeeName,
         visit.clientName,
-        employee.transportMode,
-        prevDepMinutes
+        employee.transportMode
       );
 
-      // Departure from this visit = estimated end time (startTime + duration)
-      const visitEndMinutes = visit.startTime + visit.durationMinutes;
       const travelToNext = nextVisit 
         ? await (this as any).calculateTravelTime(
           "default",
           visit.clientName,
           nextVisit.clientName,
-          employee.transportMode,
-          visitEndMinutes
+          employee.transportMode
         )
         : 0;
 
@@ -899,8 +873,7 @@ export class AutoScheduler {
           "default",
           visit.clientName,
           employee.employeeName,
-          employee.transportMode,
-          visitEndMinutes
+          employee.transportMode
         );
         if (travelHome > this.maxTravelCapMinutes) {
           logger.debug(`   Insertion ${i}: REJECTED - return home travel (${travelHome.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
@@ -986,12 +959,10 @@ export class AutoScheduler {
     branchId: string,
     employeeName: string,
     clientName: string,
-    transportMode: 'car' | 'walking' | 'public' = 'car',
-    departureMinutes?: number
+    transportMode: 'car' | 'walking' | 'public' = 'car'
   ): Promise<number> {
     const { calculateTravelTime: travelFunc } = require('./travel-time-service');
-    const departureTime = departureMinutes !== undefined ? this.minutesToDate(departureMinutes) : undefined;
-    return await travelFunc(branchId, employeeName, clientName, transportMode, departureTime);
+    return await travelFunc(branchId, employeeName, clientName, transportMode);
   }
 
   private assignVisitToEmployee(
