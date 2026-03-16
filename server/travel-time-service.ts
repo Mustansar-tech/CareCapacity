@@ -849,33 +849,12 @@ export class TravelTimeService {
       }
     };
 
-    // ── PHASE 1a: Walker/public employee → client (ORS walking for short trips only) ──
-    // Short trips (≤ 1.6 km): ORS foot-walking matrix batch
-    // Longer trips (> 1.6 km): DISABLED — will use Haversine via calculateTravelTime
+    // ── PHASE 1a: Walker/public employee → client — DISABLED ──
+    // Short trips (≤ 1.6 km) and longer trips all use Haversine in prewarm.
+    // ORS walking kicks in during actual routing via calculateTravelTime (single point-to-point calls).
+    // This avoids rate-limit contention with ORS car matrix batches.
     if (nonCarEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients (ORS walking short trips only)`);
-      for (const arrivalClient of clientLocations) {
-        const shortDepsWalk:   Array<{ lat: number; lng: number }> = [];
-        const shortDepsPublic: Array<{ lat: number; lng: number }> = [];
-
-        for (const emp of nonCarEmployees) {
-          const distKm = this.calculateHaversineDistance({ lat: emp.lat, lng: emp.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng });
-          if (distKm <= this.WALK_THRESHOLD_KM) {
-            if (emp.transportMode === 'walking') {
-              shortDepsWalk.push({ lat: emp.lat, lng: emp.lng });
-            } else {
-              shortDepsPublic.push({ lat: emp.lat, lng: emp.lng });
-            }
-          }
-        }
-
-        // Short trips: ORS walking matrix
-        if (shortDepsWalk.length > 0) totalNew += await this.orsWalkingMatrixBatch(shortDepsWalk, [arrivalClient], 'walking');
-        if (shortDepsPublic.length > 0) totalNew += await this.orsWalkingMatrixBatch(shortDepsPublic, [arrivalClient], 'public');
-        if (shortDepsWalk.length > 0 || shortDepsPublic.length > 0) {
-          logger.debug(`[Cache Pre-warm] Phase 1a ORS walking: ${shortDepsWalk.length + shortDepsPublic.length} short trips → client (${arrivalClient.lat.toFixed(4)},${arrivalClient.lng.toFixed(4)})`);
-        }
-      }
+      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — using Haversine heuristic, ORS walking in live routing`);
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -910,30 +889,11 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client (ORS walking for short trips only)
-      // Short pairs (≤ 1.6 km): ORS foot-walking matrix
-      // Longer pairs (> 1.6 km): DISABLED — will use Haversine via calculateTravelTime
+      // Phase 2b: Walker/public client→client — DISABLED
+      // All pairs use Haversine in prewarm. ORS walking kicks in during actual routing.
+      // This avoids rate-limit contention with ORS car matrix batches.
       if (nonCarEmployees.length > 0) {
-        const hasWalkers = nonCarEmployees.some(e => e.transportMode === 'walking');
-        const hasPublic  = nonCarEmployees.some(e => e.transportMode === 'public');
-        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients, ORS walking short trips only)`);
-
-        for (const arrivalClient of clientLocations) {
-          const shortDepsWalk:   Array<{ lat: number; lng: number }> = [];
-          const shortDepsPublic: Array<{ lat: number; lng: number }> = [];
-
-          for (const depClient of clientLocations) {
-            if (depClient.lat === arrivalClient.lat && depClient.lng === arrivalClient.lng) continue;
-            const distKm = this.calculateHaversineDistance({ lat: depClient.lat, lng: depClient.lng }, { lat: arrivalClient.lat, lng: arrivalClient.lng });
-            if (distKm <= this.WALK_THRESHOLD_KM) {
-              if (hasWalkers) shortDepsWalk.push(depClient);
-              if (hasPublic)  shortDepsPublic.push(depClient);
-            }
-          }
-
-          if (shortDepsWalk.length > 0)   totalNew += await this.orsWalkingMatrixBatch(shortDepsWalk, [arrivalClient], 'walking', true);
-          if (shortDepsPublic.length > 0) totalNew += await this.orsWalkingMatrixBatch(shortDepsPublic, [arrivalClient], 'public', true);
-        }
+        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients) — using Haversine heuristic, ORS walking in live routing`);
       }
     }
 
