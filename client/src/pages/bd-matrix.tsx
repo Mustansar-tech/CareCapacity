@@ -1063,19 +1063,20 @@ function ClientEnquiryMatcher() {
             </div>
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-3xl">
+        <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-3xl bg-white dark:bg-gray-950">
           {/* Header */}
-          <div className="px-8 py-6 bg-[#f8f9ff] dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 rounded-t-3xl relative overflow-hidden">
+          <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
             <div className="flex items-center justify-between relative z-10">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                      <UserCheck className="w-7 h-7 text-[#5d51d5]" />
+                    <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
+                      <UserCheck className="w-6 h-6 text-[#5d51d5]" />
                     </div>
                     <div>
-                      <DialogTitle className="text-[28px] font-black tracking-tight text-gray-900 dark:text-gray-100 leading-tight">
+                      <DialogTitle className="text-[28px] font-black tracking-tight text-gray-950 dark:text-gray-50 leading-tight">
                         Client Enquiry Matcher
                       </DialogTitle>
-                      <DialogDescription className="text-gray-500 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
+                      <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
                         Care Capacity Intelligence
                       </DialogDescription>
                     </div>
@@ -1085,7 +1086,7 @@ function ClientEnquiryMatcher() {
                   variant="outline"
                   size="sm"
                   onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
-                  className="gap-2 font-bold text-xs border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl px-4 py-2 h-auto transition-all duration-300 shadow-sm"
+                  className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:border-gray-300 dark:hover:border-gray-600 rounded-xl px-4 py-2.5 h-auto transition-all duration-300 shadow-sm hover:shadow-md"
                 >
                   {showHistory ? (
                     <><Search className="w-4 h-4" /> New Search</>
@@ -1098,7 +1099,7 @@ function ClientEnquiryMatcher() {
           </div>
 
           {/* Content Area */}
-          <div className={`flex-1 min-h-0 bg-gray-50/50 dark:bg-gray-950/50 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-6'}`}>
+          <div className={`flex-1 min-h-0 bg-gradient-to-br from-white/50 to-gray-50/50 dark:from-gray-950/50 dark:to-gray-900/50 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-6'}`}>
             {multiResults ? (
               <div className="flex flex-col flex-1 min-h-0 gap-4 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1308,7 +1309,7 @@ function ClientEnquiryMatcher() {
                         return (
                           <div 
                             key={enquiry.id} 
-                            className="group bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/60 dark:border-gray-800/60 hover:border-purple-400 dark:hover:border-purple-600 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1 relative overflow-hidden"
+                            className="group bg-white/90 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/70 dark:border-gray-800/60 hover:border-purple-300 dark:hover:border-purple-700/60 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-md hover:shadow-xl hover:shadow-purple-500/15 hover:-translate-y-1.5 relative overflow-hidden"
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
@@ -1380,7 +1381,7 @@ function ClientEnquiryMatcher() {
                           placeholder="e.g. Mrs Smith"
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
-                          className="pl-12 h-13 text-base bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-gray-200/60 dark:border-gray-800/60 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 rounded-2xl transition-all duration-300 shadow-sm"
+                          className="pl-12 h-13 text-base bg-white/90 dark:bg-gray-900/70 backdrop-blur-sm border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600"
                         />
                       </div>
                     </div>
@@ -1393,7 +1394,7 @@ function ClientEnquiryMatcher() {
                           placeholder="e.g. SW1A 1AA"
                           value={postcode}
                           onChange={(e) => setPostcode(e.target.value)}
-                          className="pl-12 h-13 text-base bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-gray-200/60 dark:border-gray-800/60 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 rounded-2xl transition-all duration-300 shadow-sm"
+                          className="pl-12 h-13 text-base bg-white/90 dark:bg-gray-900/70 backdrop-blur-sm border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-600"
                         />
                       </div>
                     </div>
@@ -1424,7 +1425,7 @@ function ClientEnquiryMatcher() {
                         variant="outline"
                         size="sm"
                         onClick={addVisitTab}
-                        className="h-9 gap-2 text-[11px] font-black border-gray-200/60 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all duration-300 tracking-[0.08em] uppercase"
+                        className="h-9 gap-2 text-[11px] font-semibold border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white/50 dark:bg-gray-800/50 hover:border-purple-400 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl transition-all duration-300 tracking-[0.08em] uppercase shadow-sm hover:shadow-md"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Add Visit
@@ -1432,7 +1433,7 @@ function ClientEnquiryMatcher() {
                     )}
                   </div>
 
-                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-lg shadow-purple-500/5 overflow-hidden">
+                  <div className="bg-white/90 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl border border-gray-200/70 dark:border-gray-800/50 shadow-lg shadow-purple-500/5 overflow-hidden">
                     <Tabs value={activeVisitTab} onValueChange={setActiveVisitTab}>
                       <div className="px-5 pt-4 border-b border-gray-100/60 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
                         <TabsList className="bg-transparent p-0 h-auto flex-wrap gap-2 pb-px">
