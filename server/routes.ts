@@ -1623,6 +1623,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all employee and client locations for scheduling
+  // Returns only employees/clients with valid coordinates from the current branch
+  // Note: Database may contain historical/terminated records; use "Refresh Map Data" to get latest
   app.get('/api/locations', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
@@ -1631,9 +1633,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllClientLocations(branchId)
       ]);
 
+      // Filter to only include records with valid coordinates (more robust than trusting DB)
+      const validEmployees = employees.filter(e => e.homeLat && e.homeLng);
+      const validClients = clients.filter(c => c.clientLat && c.clientLng);
+
       res.json({
-        employees,
-        clients
+        employees: validEmployees,
+        clients: validClients,
+        fetchedAt: new Date().toISOString(), // Add timestamp so user knows how fresh the data is
+        totalEmployeesInDB: employees.length, // Show total in DB for transparency
+        totalClientsInDB: clients.length
       });
     } catch (error) {
       logger.error('Error fetching locations', error);
