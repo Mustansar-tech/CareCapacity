@@ -31,6 +31,7 @@ import {
   closestCenter,
   type DragStartEvent,
   type DragEndEvent,
+  type DragMoveEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { validateVisitDrop, findInsertionIndex, buildAssignedVisit, type DropValidation } from '@/utils/drag-drop-engine';
@@ -192,14 +193,14 @@ function DroppableUnallocatedZone({ date }: { date: string }) {
       ref={setNodeRef}
       className={`flex items-center gap-3 p-3 rounded-lg border-2 border-dashed transition-all duration-150 ${
         isOver
-          ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/30 scale-[1.01]'
+          ? 'border-red-400 bg-red-50 dark:bg-red-950/30 scale-[1.01]'
           : 'border-orange-300 bg-orange-50/50 dark:bg-orange-950/10 hover:border-orange-400'
       }`}
     >
-      <XCircle className={`h-5 w-5 ${isOver ? 'text-orange-600' : 'text-orange-400'}`} />
+      <XCircle className={`h-5 w-5 ${isOver ? 'text-red-600' : 'text-red-400'}`} />
       <div>
-        <p className="text-sm font-semibold text-orange-700 dark:text-orange-400">Return to Unallocated</p>
-        <p className="text-xs text-muted-foreground">Drop here to unassign this visit</p>
+        <p className="text-sm font-semibold text-red-700 dark:text-red-400">Return to Unallocated</p>
+        <p className="text-xs text-muted-foreground">Drop to unassign this visit</p>
       </div>
     </div>
   );
@@ -1237,6 +1238,32 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     setActiveVisit(null);
   }, []);
 
+  // Auto-scroll on drag near edges
+  const handleDragMove = useCallback((event: DragMoveEvent) => {
+    if (!event.over) return;
+    
+    const container = document.querySelector('[data-scroll-container]');
+    if (!container) return;
+
+    // Get the droppable target's position to estimate cursor location
+    const overElement = document.getElementById(event.over.id.toString());
+    if (!overElement) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const overRect = overElement.getBoundingClientRect();
+    const scrollThreshold = 100; // pixels from edge to trigger scroll
+    const scrollSpeed = 15; // pixels to scroll
+
+    // If over element is near top of viewport, scroll up
+    if (overRect.top < containerRect.top + scrollThreshold) {
+      container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+    }
+    // If over element is near bottom of viewport, scroll down
+    else if (overRect.bottom > containerRect.bottom - scrollThreshold) {
+      container.scrollTop += scrollSpeed;
+    }
+  }, []);
+
   if (!data) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1278,9 +1305,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
+      onDragMove={handleDragMove}
       collisionDetection={closestCenter}
     >
-    <div className="space-y-6">
+    <div className="space-y-6" data-scroll-container>
       {/* Header with Generate Button */}
       <div className="flex items-center justify-between">
         <div>
@@ -1741,17 +1769,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             <CardHeader className="pb-2 pt-3 px-4">
               <CardTitle className="text-base flex items-center gap-2">
                 <Target className="h-4 w-4 text-blue-500" />
-                {activeVisit.source === 'assigned' ? 'Reassigning:' : 'Assigning:'}
                 <span className="font-bold text-blue-600">{activeVisit.visit.clientName}</span>
-                {activeVisit.source === 'assigned' && (
-                  <Badge variant="secondary" className="text-xs ml-1">from {activeVisit.fromEmployee}</Badge>
-                )}
                 <Badge variant="outline" className="ml-auto text-xs">{activeVisit.visit.startTime}–{activeVisit.visit.endTime}</Badge>
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 {activeVisit.source === 'assigned'
-                  ? 'Drop on an employee to reassign, or return to unallocated'
-                  : 'Drop onto a green employee to assign this visit'}
+                  ? 'Drop on a highlighted day to reassign, or on "Return to Unallocated" below'
+                  : 'Drop on a highlighted employee day to assign'}
               </p>
             </CardHeader>
             <CardContent className="px-4 pb-3">
