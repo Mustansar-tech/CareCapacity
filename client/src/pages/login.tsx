@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, LogIn, Shield, AlertCircle } from "lucide-react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -24,6 +25,7 @@ export default function LoginPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const { login } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -36,6 +38,8 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
       toast({ title: "Welcome back", description: "You have successfully signed in." });
+      // Navigate to dashboard after successful login
+      navigate("/");
     } catch (err: any) {
       setLoginError(err.message || "Invalid email or password. Please try again.");
     } finally {
