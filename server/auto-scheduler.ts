@@ -751,6 +751,8 @@ export class AutoScheduler {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
     const rejectionReasons = new Map<string, string>(); // Track why each employee was rejected
+    
+    logger.debug(`\n   🔍 Trying to assign ${visit.clientName} (${String(Math.floor(visit.startTime / 60)).padStart(2, '0')}:${String(visit.startTime % 60).padStart(2, '0')}-${String(Math.floor(visit.endTime / 60)).padStart(2, '0')}:${String(visit.endTime % 60).padStart(2, '0')}, ${visit.durationMinutes}min) to ${employeeSchedules.size} employees`);
 
     for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
       const employee = schedule.employee;
@@ -825,7 +827,18 @@ export class AutoScheduler {
           };
         }
       } else {
-        rejectionReasons.set(empName, `Cannot find valid insertion point: visit does not fit in employee schedule or exceeds time window constraints`);
+        const gaps = schedule.visits.map((v: any, idx: number) => {
+          if (idx === 0) {
+            return `Before ${v.clientName}: gap = ${v.actualStartTime - visit.startTime}min`;
+          } else {
+            const prev = schedule.visits[idx - 1];
+            return `Between ${prev.clientName} & ${v.clientName}: gap = ${v.actualStartTime - prev.actualEndTime}min`;
+          }
+        }).join('; ');
+        const afterLast = schedule.visits.length > 0 
+          ? `After ${schedule.visits[schedule.visits.length - 1].clientName}: ${1440 - schedule.visits[schedule.visits.length - 1].actualEndTime}min`
+          : `Full day available: 840min`;
+        rejectionReasons.set(empName, `Cannot insert: ${gaps}. ${afterLast}. Visit needs ${visit.durationMinutes}min + 12min buffers`);
       }
     }
 
@@ -847,17 +860,27 @@ export class AutoScheduler {
       // Find most common reason
       let primaryReason = 'No suitable employee found';
       let maxCount = 0;
+      let topReasonType = '';
       reasonTypes.forEach((count, type) => {
         if (count > maxCount) {
           maxCount = count;
+          topReasonType = type;
           if (type === 'gender') primaryReason = 'Gender mismatch - no employees with matching gender preference';
           else if (type === 'travel') primaryReason = 'Travel time exceeds 45-min limit - all employees too far away';
           else if (type === 'timewindow') primaryReason = 'Time window conflicts - all employees have overlapping visits';
           else if (type === 'restbreak') primaryReason = 'Rest break conflict - visit lands during statutory break window';
-          else if (type === 'insertion') primaryReason = 'Cannot fit in schedule - no valid insertion point between existing visits';
+          else if (type === 'insertion') primaryReason = 'Cannot fit in schedule - no valid insertion point (insufficient gap between existing visits)';
           else primaryReason = 'Capacity exhausted - all employees at daily 9-hour limit';
         }
       });
+      
+      // Include the most common employee reason if available
+      if (topReasonType === 'insertion' && rejectionReasons.size > 0) {
+        const sampleReason = Array.from(rejectionReasons.values())[0];
+        if (sampleReason && sampleReason.includes('Between')) {
+          primaryReason = `Cannot fit: ${sampleReason}`;
+        }
+      }
       
       visit.rejectionReason = primaryReason;
     }
@@ -871,6 +894,11 @@ export class AutoScheduler {
 
     let bestInsertion: { index: number; score: number } | null = null;
     let bestScore = -1;
+    const timeMinutesToTime = (mins: number) => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
 
     // Try inserting at each possible position
     for (let i = 0; i <= visits.length; i++) {
@@ -900,11 +928,11 @@ export class AutoScheduler {
 
       // HARD 45-MINUTE TRAVEL CAP: reject any leg exceeding the cap
       if (travelToPrev > this.maxTravelCapMinutes) {
-        logger.debug(`   Insertion ${i}: REJECTED - travel from previous (${travelToPrev.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        logger.debug(`     Position ${i}: travel from ${prevLocation === employee.homeLat ? 'HOME' : `${prevVisit?.clientName}`} to ${visit.clientName} = ${travelToPrev.toFixed(0)}min > ${this.maxTravelCapMinutes}min CAP ❌`);
         continue;
       }
       if (travelToNext > this.maxTravelCapMinutes) {
-        logger.debug(`   Insertion ${i}: REJECTED - travel to next (${travelToNext.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+        logger.debug(`     Position ${i}: travel from ${visit.clientName} to ${nextVisit?.clientName || 'HOME'} = ${travelToNext.toFixed(0)}min > ${this.maxTravelCapMinutes}min CAP ❌`);
         continue;
       }
 
@@ -917,7 +945,7 @@ export class AutoScheduler {
           employee.transportMode
         );
         if (travelHome > this.maxTravelCapMinutes) {
-          logger.debug(`   Insertion ${i}: REJECTED - return home travel (${travelHome.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
+          logger.debug(`     Position ${i}: return home from ${visit.clientName} = ${travelHome.toFixed(0)}min > ${this.maxTravelCapMinutes}min CAP ❌`);
           continue;
         }
       }
@@ -925,16 +953,25 @@ export class AutoScheduler {
       const buffer = this.bufferTime;
       const earliestStart = prevVisit ? prevVisit.actualEndTime + travelToPrev + buffer : visit.startTime;
       const latestEnd = nextVisit ? nextVisit.actualStartTime - travelToNext - buffer : visit.endTime + 10;
+      const requiredDuration = visit.durationMinutes;
+      const availableWindow = latestEnd - earliestStart;
+      const gap = availableWindow - requiredDuration;
 
-      const maxCompression = 15; 
-      if (earliestStart + visit.durationMinutes <= latestEnd + maxCompression) {
+      const maxCompression = 15;
+      const fitsWithCompression = earliestStart + visit.durationMinutes <= latestEnd + maxCompression;
+
+      if (fitsWithCompression) {
         // Calculate score based on multiple factors
         const score = this.calculateInsertionScore(visit, employee, travelToPrev, travelToNext, i, visits.length);
+        logger.debug(`     Position ${i}: ${timeMinutesToTime(earliestStart)}-${timeMinutesToTime(earliestStart + visit.durationMinutes)} ✅ FITS (gap: ${gap}min, score: ${score.toFixed(3)})`);
 
         if (score > bestScore) {
           bestScore = score;
           bestInsertion = { index: i, score, travelTimeBefore: travelToPrev } as any;
         }
+      } else {
+        const deficit = (earliestStart + visit.durationMinutes) - (latestEnd + maxCompression);
+        logger.debug(`     Position ${i}: needs ${timeMinutesToTime(earliestStart)}-${timeMinutesToTime(earliestStart + visit.durationMinutes)}, available ${timeMinutesToTime(earliestStart)}-${timeMinutesToTime(latestEnd)} (deficit: ${deficit.toFixed(0)}min) ❌`);
       }
     }
 
