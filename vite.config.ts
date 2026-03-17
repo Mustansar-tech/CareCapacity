@@ -27,6 +27,25 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom"],
+          "ui-vendor": ["@radix-ui/react-dialog", "@radix-ui/react-tabs", "@radix-ui/react-select"],
+          "query": ["@tanstack/react-query"],
+          "charts": ["recharts"],
+          "utils": ["wouter", "framer-motion", "react-leaflet", "leaflet"],
+          "scheduling": ["@/utils/scheduling-engine", "@/utils/scheduling-scoring"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     fs: {
