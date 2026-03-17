@@ -283,62 +283,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
 
-  // Handle assignment from dialog (defined after locationsData to avoid initialization issues)
-  const handleAssignUnallocated = useCallback((empName: string, assignDate: string) => {
-    if (!assignmentDialog.visit || !assignmentDialog.visitDate || !weeklySchedule || !locationsData || !data) return;
-
-    const visit = assignmentDialog.visit;
-    const visitDate = assignmentDialog.visitDate;
-    const empLocation = locationsData.employees.find(e => e.employeeName === empName);
-    const existingVisits = (weeklySchedule.assignments[assignDate]?.[empName] || []) as AssignedVisit[];
-
-    // Build assigned visit
-    const visitShape: ClientVisit & { unallocatedReason?: string } = {
-      id: visit.id,
-      clientName: visit.clientName,
-      startTime: visit.startTime,
-      endTime: visit.endTime,
-      durationMinutes: visit.durationMinutes,
-      lat: visit.lat,
-      lng: visit.lng,
-    } as any;
-
-    const newVisit = buildAssignedVisit(visitShape, existingVisits, empLocation);
-    const insertIdx = findInsertionIndex(existingVisits, newVisit.startTime);
-    const updatedVisits = recalculateTravelTimes([
-      ...existingVisits.slice(0, insertIdx),
-      newVisit,
-      ...existingVisits.slice(insertIdx),
-    ], empLocation);
-
-    // Remove from unallocated
-    const updatedUnallocated = weeklySchedule.unallocated.filter(
-      v => !(v.id === visit.id && (v as any).date === visitDate)
-    );
-
-    const updatedSchedule: WeeklyScheduleData = {
-      ...weeklySchedule,
-      assignments: {
-        ...weeklySchedule.assignments,
-        [assignDate]: {
-          ...weeklySchedule.assignments[assignDate],
-          [empName]: updatedVisits,
-        },
-      },
-      unallocated: updatedUnallocated,
-      metrics: {
-        ...weeklySchedule.metrics,
-        totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned + 1,
-        totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated - 1,
-      },
-    };
-
-    setWeeklySchedule(updatedSchedule);
-    saveScheduleMutation.mutate(updatedSchedule);
-    setAssignmentDialog({ open: false });
-    toast({ title: 'Visit assigned', description: `${visit.clientName} → ${empName}` });
-  }, [assignmentDialog.visit, assignmentDialog.visitDate, weeklySchedule, locationsData, data, toast, saveScheduleMutation, recalculateTravelTimes]);
-
   // Fetch visits for each day of the week
   const visitQueries = weekDates.map(date => 
     useQuery<ClientVisit[]>({
@@ -958,6 +902,62 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
     },
   });
+
+  // Handle assignment from dialog (defined after saveScheduleMutation)
+  const handleAssignUnallocated = useCallback((empName: string, assignDate: string) => {
+    if (!assignmentDialog.visit || !assignmentDialog.visitDate || !weeklySchedule || !locationsData || !data) return;
+
+    const visit = assignmentDialog.visit;
+    const visitDate = assignmentDialog.visitDate;
+    const empLocation = locationsData.employees.find(e => e.employeeName === empName);
+    const existingVisits = (weeklySchedule.assignments[assignDate]?.[empName] || []) as AssignedVisit[];
+
+    // Build assigned visit
+    const visitShape: ClientVisit & { unallocatedReason?: string } = {
+      id: visit.id,
+      clientName: visit.clientName,
+      startTime: visit.startTime,
+      endTime: visit.endTime,
+      durationMinutes: visit.durationMinutes,
+      lat: visit.lat,
+      lng: visit.lng,
+    } as any;
+
+    const newVisit = buildAssignedVisit(visitShape, existingVisits, empLocation);
+    const insertIdx = findInsertionIndex(existingVisits, newVisit.startTime);
+    const updatedVisits = recalculateTravelTimes([
+      ...existingVisits.slice(0, insertIdx),
+      newVisit,
+      ...existingVisits.slice(insertIdx),
+    ], empLocation);
+
+    // Remove from unallocated
+    const updatedUnallocated = weeklySchedule.unallocated.filter(
+      v => !(v.id === visit.id && (v as any).date === visitDate)
+    );
+
+    const updatedSchedule: WeeklyScheduleData = {
+      ...weeklySchedule,
+      assignments: {
+        ...weeklySchedule.assignments,
+        [assignDate]: {
+          ...weeklySchedule.assignments[assignDate],
+          [empName]: updatedVisits,
+        },
+      },
+      unallocated: updatedUnallocated,
+      metrics: {
+        ...weeklySchedule.metrics,
+        totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned + 1,
+        totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated - 1,
+      },
+    };
+
+    setWeeklySchedule(updatedSchedule);
+    saveScheduleMutation.mutate(updatedSchedule);
+    setAssignmentDialog({ open: false });
+    toast({ title: 'Visit assigned', description: `${visit.clientName} → ${empName}` });
+  }, [assignmentDialog.visit, assignmentDialog.visitDate, weeklySchedule, locationsData, data, toast, saveScheduleMutation, recalculateTravelTimes]);
 
   // Load schedule for the current week being viewed
   const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<any>({
