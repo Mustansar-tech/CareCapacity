@@ -128,9 +128,6 @@ function UserMenu() {
           </div>
           <div className="hidden sm:block text-left">
             <p className="text-xs font-semibold text-foreground leading-none">{user.displayName}</p>
-            <Badge className={`text-[10px] mt-0.5 border-0 px-1 py-0 h-4 ${ROLE_STYLES[user.role]}`}>
-              {ROLE_LABELS[user.role]}
-            </Badge>
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
         </button>
