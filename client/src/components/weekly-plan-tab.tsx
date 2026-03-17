@@ -1288,19 +1288,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         {dayUnallocated.map((visit, index) => (
                           <div
                             key={`${visit.id}-${index}`}
-                            className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 opacity-60"
+                            className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2"
                             title={visit.unallocatedReason}
                           >
                             <div className="space-y-1">
-                              <p className="font-medium text-xs truncate" title={visit.clientName}>
+                              <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate" title={visit.clientName}>
                                 {visit.clientName}
                               </p>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300">
                                 <Clock className="h-3 w-3" />
                                 {visit.startTime}-{visit.endTime}
                               </div>
                               <div className="flex items-start gap-1 mt-1">
-                                <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 shrink-0 max-w-full break-words whitespace-normal">
+                                <Badge variant="outline" className="text-[10px] text-red-700 dark:text-red-400 border-red-300 bg-red-50 dark:bg-red-950 shrink-0 max-w-full break-words whitespace-normal">
                                   {visit.unallocatedReason || "Not optimal"}
                                 </Badge>
                               </div>
