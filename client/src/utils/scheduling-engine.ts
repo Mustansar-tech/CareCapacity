@@ -784,14 +784,16 @@ function assignVisitToBestEmployee(
     const validWindows = schedule.windows;
 
     if (validWindows.length === 0) {
-      rejectionReasons.set(schedule.employeeName, 'No availability on this date');
-      continue; // No valid windows available
+      // Should not happen since we only schedule available employees,
+      // but if it does, treat as scheduling conflict
+      rejectionReasons.set(schedule.employeeName, 'Scheduling conflict with existing visits');
+      continue;
     }
 
     // Try to adjust visit to fit in employee's windows (with tolerance)
     const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows, tolerance);
     if (!adjustedVisit) {
-      rejectionReasons.set(schedule.employeeName, 'Visit time does not fit available windows');
+      rejectionReasons.set(schedule.employeeName, 'Scheduling conflict with existing visits');
       continue; // Could not adjust visit to fit any window
     }
 
