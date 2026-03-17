@@ -31,7 +31,6 @@ import {
   closestCenter,
   type DragStartEvent,
   type DragEndEvent,
-  type DragMoveEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { validateVisitDrop, findInsertionIndex, buildAssignedVisit, type DropValidation } from '@/utils/drag-drop-engine';
@@ -73,57 +72,40 @@ type ActiveDrag =
 // Shared shape exposed from activeVisit for UI convenience
 type ActiveDragVisitShape = { clientName: string; startTime: string; endTime: string; date: string };
 
-// ─── Draggable unallocated visit card ──────────────────────────────────────
+// ─── Clickable unallocated visit card ──────────────────────────────────────
 
-function DraggableVisitCard({
+function UnallocatedVisitCard({
   visit,
-  index,
   date,
+  onAssign,
 }: {
   visit: ClientVisit & { unallocatedReason: string };
-  index: number;
   date: string;
+  onAssign: (visit: ClientVisit & { unallocatedReason: string }, date: string) => void;
 }) {
-  const dragId = `unallocated-${visit.id}-${date}-${index}`;
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: dragId,
-    data: { visit, date },
-  });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.3 : 1,
-    cursor: 'grab',
-  };
-
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 hover:shadow-md transition-all hover:border-red-400 select-none touch-none"
-      data-testid={`card-unallocated-${date}-${index}`}
-      title={visit.unallocatedReason}
+    <button
+      onClick={() => onAssign(visit, date)}
+      className="text-left w-full bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 hover:shadow-md hover:border-red-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+      data-testid={`card-unallocated-${date}-${visit.id}`}
+      title={`Click to assign: ${visit.unallocatedReason}`}
     >
       <div className="space-y-1">
-        <div className="flex items-center gap-1">
-          <GripVertical className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-          <p className="font-medium text-xs truncate" title={visit.clientName}>
-            {visit.clientName}
-          </p>
-        </div>
+        <p className="font-medium text-xs truncate" title={visit.clientName}>
+          {visit.clientName}
+        </p>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          {visit.startTime}-{visit.endTime}
+          {visit.startTime}–{visit.endTime}
         </div>
         <div className="flex items-start gap-1 mt-1">
           <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 shrink-0 max-w-full break-words whitespace-normal">
-            {visit.unallocatedReason || "Not optimal"}
+            {visit.unallocatedReason || "Not allocated"}
           </Badge>
         </div>
+        <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">Click to assign →</p>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -182,79 +164,24 @@ function DraggableAssignedVisitCard({
   );
 }
 
-// ─── Droppable unallocated zone (shown in overlay when dragging assigned visit) ─
+// ─── Droppable unallocate zone (for assigned visits) ──────────────────────
 
-function DroppableUnallocatedZone({ date }: { date: string }) {
-  const dropId = `drop-unallocated-${date}`;
-  const { setNodeRef, isOver } = useDroppable({ id: dropId, data: { type: 'unallocate', date } });
+function UnallocateDropZone() {
+  const dropId = `drop-unallocate-zone`;
+  const { setNodeRef, isOver } = useDroppable({ id: dropId, data: { type: 'unallocate' } });
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center gap-3 p-3 rounded-lg border-2 border-dashed transition-all duration-150 ${
+      className={`flex items-center gap-3 p-3 rounded-lg border-2 border-dashed transition-all ${
         isOver
-          ? 'border-red-400 bg-red-50 dark:bg-red-950/30 scale-[1.01]'
-          : 'border-orange-300 bg-orange-50/50 dark:bg-orange-950/10 hover:border-orange-400'
+          ? 'border-red-500 bg-red-100 dark:bg-red-950/50'
+          : 'border-red-300 bg-red-50 dark:bg-red-950/20'
       }`}
     >
-      <XCircle className={`h-5 w-5 ${isOver ? 'text-red-600' : 'text-red-400'}`} />
+      <XCircle className="h-5 w-5 text-red-500" />
       <div>
-        <p className="text-sm font-semibold text-red-700 dark:text-red-400">Return to Unallocated</p>
-        <p className="text-xs text-muted-foreground">Drop to unassign this visit</p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Droppable employee row in the assignment overlay ──────────────────────
-
-function DroppableEmployeeRow({
-  empName,
-  date,
-  validation,
-  gender,
-  transportMode,
-  visitCount,
-}: {
-  empName: string;
-  date: string;
-  validation: DropValidation | null;
-  gender?: string;
-  transportMode: string;
-  visitCount: number;
-}) {
-  const dropId = `drop-${empName}-${date}`;
-  const { setNodeRef, isOver } = useDroppable({ id: dropId, data: { empName, date } });
-  const isValid = validation?.valid ?? false;
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex items-center gap-3 p-2.5 rounded-lg border-2 transition-all duration-150 ${
-        isOver && isValid
-          ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 scale-[1.01]'
-          : isOver && !isValid
-          ? 'border-red-400 bg-red-50 dark:bg-red-950/30'
-          : isValid
-          ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/10 hover:border-emerald-300'
-          : 'border-red-200/50 bg-red-50/30 dark:bg-red-950/10 opacity-60'
-      }`}
-    >
-      <div className="shrink-0">
-        {isValid
-          ? <CheckCircle className="h-4 w-4 text-emerald-500" />
-          : <XCircle className="h-4 w-4 text-red-400" />
-        }
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${getGenderColorClass(gender)}`}>{empName}</p>
-        <p className="text-xs text-muted-foreground">
-          {isValid ? validation?.reason : validation?.reason || 'Cannot assign'}
-        </p>
-      </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Badge variant="outline" className="text-xs">{visitCount} visits</Badge>
-        <span className="text-xs text-muted-foreground">{transportMode === 'car' ? '🚗' : transportMode === 'public' ? '🚌' : '🚶'}</span>
+        <p className="font-semibold text-sm text-red-700 dark:text-red-300">Drop here to unallocate</p>
       </div>
     </div>
   );
@@ -271,9 +198,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
   const [isRefiningWalkers, setIsRefiningWalkers] = useState(false);
 
-  // Drag-drop state
+  // Drag-drop state (for assigned visits only)
   const [activeVisit, setActiveVisit] = useState<ActiveDrag | null>(null);
-  const [dropValidations, setDropValidations] = useState<Map<string, DropValidation>>(new Map());
+
+  // Assignment dialog state (for unallocated visits)
+  const [assignmentDialog, setAssignmentDialog] = useState<{
+    open: boolean;
+    visit?: ClientVisit & { unallocatedReason: string };
+    visitDate?: string;
+    selectedEmp?: string;
+    selectedDate?: string;
+  }>({ open: false });
 
   // Helper: recalculate travelTimeBefore for each visit in a list after one is removed/added
   const recalculateTravelTimes = useCallback((
@@ -305,76 +240,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     });
   }, []);
 
-  // Compute drop zone validations for all employees on the visit's day
-  const computeDropValidations = useCallback((
-    drag: ActiveDrag,
-    locationsData: { employees: EmployeeLocation[]; clients: ClientLocation[] } | undefined,
-    data: ProcessingResult | null,
-    schedule: WeeklyScheduleData | null
-  ) => {
-    if (!data || !schedule) return new Map<string, DropValidation>();
 
-    const visit = drag.visit;
-    const date = drag.date;
-    const fromEmployee = drag.source === 'assigned' ? drag.fromEmployee : null;
-    const dayEmployees = data.employeesByDate[date] || [];
-    const validations = new Map<string, DropValidation>();
-
-    for (const emp of dayEmployees) {
-      const empName = emp.employeeName;
-      const empLocation = locationsData?.employees.find(e => e.employeeName === empName);
-
-      // Exclude the visit being dragged from its source employee's used minutes
-      const existingVisits = (schedule.assignments[date]?.[empName] || []) as AssignedVisit[];
-      const filteredVisits = (empName === fromEmployee)
-        ? existingVisits.filter(v => v.id !== visit.id)
-        : existingVisits;
-      const usedMinutes = filteredVisits.reduce((sum, v) => sum + (v.durationMinutes || 0), 0);
-
-      const visitForValidation = drag.source === 'unallocated'
-        ? drag.visit as ClientVisit & { unallocatedReason?: string }
-        : {
-            id: visit.id,
-            clientName: visit.clientName,
-            startTime: visit.startTime,
-            endTime: visit.endTime,
-            durationMinutes: visit.durationMinutes,
-            lat: visit.lat,
-            lng: visit.lng,
-          } as ClientVisit & { unallocatedReason?: string };
-
-      const empSummary = {
-        employeeName: empName,
-        gender: emp.gender,
-        timeWindows: emp.timeWindows || '',
-        transportMode: empLocation?.transportMode || 'car',
-        contractedDailyHours: emp.contractedDailyHours || 0,
-        usedMinutes,
-        visits: filteredVisits,
-      };
-
-      const validation = validateVisitDrop(visitForValidation, empSummary, empLocation);
-      validations.set(`${empName}-${date}`, validation);
-    }
-
-    return validations;
-  }, []);
-
-  // DnD handlers
+  // DnD handlers (only for assigned visits - manual drag to reassign or unallocate)
   const handleDragStart = useCallback((event: DragStartEvent) => {
     if (!canEdit) {
       toast({ title: "Access Denied", description: "Only Schedulers and Admins can edit schedules", variant: "destructive" });
       return;
     }
     const raw = event.active.data.current as any;
-    let drag: ActiveDrag;
     if (raw?.source === 'assigned') {
-      drag = { source: 'assigned', visit: raw.visit as AssignedVisit, date: raw.date, fromEmployee: raw.fromEmployee };
-    } else {
-      drag = { source: 'unallocated', visit: raw.visit as ClientVisit & { unallocatedReason: string }, date: raw.date };
+      const drag: ActiveDrag = { source: 'assigned', visit: raw.visit as AssignedVisit, date: raw.date, fromEmployee: raw.fromEmployee };
+      setActiveVisit(drag);
     }
-    setActiveVisit(drag);
-    // Drop validations are computed by the useEffect watching activeVisit
   }, [canEdit, toast]);
 
   // Get week boundaries - default to current week if no date selected
@@ -405,6 +282,62 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeLocationMap = new Map(
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
+
+  // Handle assignment from dialog (defined after locationsData to avoid initialization issues)
+  const handleAssignUnallocated = useCallback((empName: string, assignDate: string) => {
+    if (!assignmentDialog.visit || !assignmentDialog.visitDate || !weeklySchedule || !locationsData || !data) return;
+
+    const visit = assignmentDialog.visit;
+    const visitDate = assignmentDialog.visitDate;
+    const empLocation = locationsData.employees.find(e => e.employeeName === empName);
+    const existingVisits = (weeklySchedule.assignments[assignDate]?.[empName] || []) as AssignedVisit[];
+
+    // Build assigned visit
+    const visitShape: ClientVisit & { unallocatedReason?: string } = {
+      id: visit.id,
+      clientName: visit.clientName,
+      startTime: visit.startTime,
+      endTime: visit.endTime,
+      durationMinutes: visit.durationMinutes,
+      lat: visit.lat,
+      lng: visit.lng,
+    } as any;
+
+    const newVisit = buildAssignedVisit(visitShape, existingVisits, empLocation);
+    const insertIdx = findInsertionIndex(existingVisits, newVisit.startTime);
+    const updatedVisits = recalculateTravelTimes([
+      ...existingVisits.slice(0, insertIdx),
+      newVisit,
+      ...existingVisits.slice(insertIdx),
+    ], empLocation);
+
+    // Remove from unallocated
+    const updatedUnallocated = weeklySchedule.unallocated.filter(
+      v => !(v.id === visit.id && (v as any).date === visitDate)
+    );
+
+    const updatedSchedule: WeeklyScheduleData = {
+      ...weeklySchedule,
+      assignments: {
+        ...weeklySchedule.assignments,
+        [assignDate]: {
+          ...weeklySchedule.assignments[assignDate],
+          [empName]: updatedVisits,
+        },
+      },
+      unallocated: updatedUnallocated,
+      metrics: {
+        ...weeklySchedule.metrics,
+        totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned + 1,
+        totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated - 1,
+      },
+    };
+
+    setWeeklySchedule(updatedSchedule);
+    saveScheduleMutation.mutate(updatedSchedule);
+    setAssignmentDialog({ open: false });
+    toast({ title: 'Visit assigned', description: `${visit.clientName} → ${empName}` });
+  }, [assignmentDialog.visit, assignmentDialog.visitDate, weeklySchedule, locationsData, data, toast, saveScheduleMutation, recalculateTravelTimes]);
 
   // Fetch visits for each day of the week
   const visitQueries = weekDates.map(date => 
@@ -1060,32 +993,23 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     }
   }, [savedSchedule, weekStart, weekEnd, isFetchingSchedule]);
 
-  // Recompute drop validations whenever a drag starts or the schedule changes
-  useEffect(() => {
-    if (!activeVisit) {
-      setDropValidations(new Map());
-      return;
-    }
-    const validations = computeDropValidations(activeVisit, locationsData, data, weeklySchedule);
-    setDropValidations(validations);
-  }, [activeVisit, locationsData, data, weeklySchedule, computeDropValidations]);
-
-  // Handle drop: move visit from unallocated → employee-day assignments
+  // Handle drop for assigned visits (manual reassignment or unallocate)
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { over } = event;
     const drag = activeVisit;
     setActiveVisit(null);
-    setDropValidations(new Map());
 
-    if (!over || !drag || !weeklySchedule) return;
+    if (!over || !drag || !weeklySchedule || drag.source !== 'assigned') return;
 
     const overData = over.data.current as any;
+    if (!overData) return;
+
     const visitId = drag.visit.id;
     const visitDate = drag.date;
+    const fromEmployee = drag.fromEmployee;
 
-    // ── Scenario A: DROP ON UNALLOCATE ZONE ───────────────────────────────────
-    if (overData?.type === 'unallocate' && drag.source === 'assigned') {
-      const { fromEmployee } = drag;
+    // ── Unallocate: drop on unallocate zone ────────────────────────────────────
+    if (overData.type === 'unallocate') {
       const sourceVisits = (weeklySchedule.assignments[visitDate]?.[fromEmployee] || []) as AssignedVisit[];
       const removedVisit = sourceVisits.find(v => v.id === visitId);
       if (!removedVisit) return;
@@ -1094,15 +1018,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       const empLocation = locationsData?.employees.find(e => e.employeeName === fromEmployee);
       const recalcVisits = recalculateTravelTimes(remainingVisits, empLocation);
 
-      // Build an unallocated entry from the assigned visit
       const unallocatedEntry: ClientVisit & { unallocatedReason: string; date: string } = {
-        id: drag.visit.id,
-        clientName: drag.visit.clientName,
-        startTime: drag.visit.startTime,
-        endTime: drag.visit.endTime,
-        durationMinutes: drag.visit.durationMinutes,
-        lat: drag.visit.lat,
-        lng: drag.visit.lng,
+        id: removedVisit.id,
+        clientName: removedVisit.clientName,
+        startTime: removedVisit.startTime,
+        endTime: removedVisit.endTime,
+        durationMinutes: removedVisit.durationMinutes,
+        lat: removedVisit.lat,
+        lng: removedVisit.lng,
         date: visitDate,
         unallocatedReason: 'Manually unallocated',
         gender: '',
@@ -1135,17 +1058,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       return;
     }
 
-    // ── Scenario B + C: DROP ON AN EMPLOYEE ROW ──────────────────────────────
+    // ── Reassign: drop on different employee ────────────────────────────────────
     const { empName, date } = overData as { empName: string; date: string };
-    const validationKey = `${empName}-${date}`;
-    const validation = dropValidations.get(validationKey);
+    if (!empName || !date) return;
 
-    if (!validation?.valid) {
-      toast({ title: 'Cannot assign visit', description: validation?.reason || 'This slot is not valid for this visit.', variant: 'destructive' });
-      return;
-    }
+    const destEmpLocation = locationsData?.employees.find(e => e.employeeName === empName);
+    const destExisting = (weeklySchedule.assignments[date]?.[empName] || []) as AssignedVisit[];
+    const destFiltered = empName === fromEmployee
+      ? destExisting.filter(v => v.id !== visitId)
+      : destExisting;
 
-    // Build the common "visit as ClientVisit" shape for buildAssignedVisit
     const visitShape: ClientVisit & { unallocatedReason?: string } = {
       id: drag.visit.id,
       clientName: drag.visit.clientName,
@@ -1154,114 +1076,55 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       durationMinutes: drag.visit.durationMinutes,
       lat: drag.visit.lat,
       lng: drag.visit.lng,
-      date: visitDate,
     } as any;
 
-    const destEmpLocation = locationsData?.employees.find(e => e.employeeName === empName);
-    const destExisting = (weeklySchedule.assignments[date]?.[empName] || []) as AssignedVisit[];
-
-    // Exclude visit from dest if it came from same employee (re-insertion)
-    const destExistingFiltered = (drag.source === 'assigned' && drag.fromEmployee === empName)
-      ? destExisting.filter(v => v.id !== visitId)
-      : destExisting;
-
-    const newVisit = buildAssignedVisit(visitShape, destExistingFiltered, destEmpLocation);
-    const insertIdx = findInsertionIndex(destExistingFiltered, newVisit.startTime);
-    const updatedDestVisits = recalculateTravelTimes([
-      ...destExistingFiltered.slice(0, insertIdx),
+    const newVisit = buildAssignedVisit(visitShape, destFiltered, destEmpLocation);
+    const insertIdx = findInsertionIndex(destFiltered, newVisit.startTime);
+    const destUpdated = recalculateTravelTimes([
+      ...destFiltered.slice(0, insertIdx),
       newVisit,
-      ...destExistingFiltered.slice(insertIdx),
+      ...destFiltered.slice(insertIdx),
     ], destEmpLocation);
 
     let updatedAssignments = {
       ...weeklySchedule.assignments,
       [date]: {
         ...weeklySchedule.assignments[date],
-        [empName]: updatedDestVisits,
+        [empName]: destUpdated,
       },
     };
 
-    let metricsDelta = { totalVisitsAssigned: 0, totalVisitsUnallocated: 0 };
+    // If reassigning to different employee, also update source
+    if (fromEmployee !== empName) {
+      const srcVisits = (weeklySchedule.assignments[visitDate]?.[fromEmployee] || []) as AssignedVisit[];
+      const srcRemaining = srcVisits.filter(v => v.id !== visitId);
+      const srcEmpLocation = locationsData?.employees.find(e => e.employeeName === fromEmployee);
+      const srcRecalc = recalculateTravelTimes(srcRemaining, srcEmpLocation);
 
-    if (drag.source === 'unallocated') {
-      // Scenario B: unallocated → employee
-      const updatedUnallocated = weeklySchedule.unallocated.filter(
-        v => !(v.id === visitId && (v as any).date === visitDate)
-      );
-      const updatedSchedule: WeeklyScheduleData = {
-        ...weeklySchedule,
-        assignments: updatedAssignments,
-        unallocated: updatedUnallocated,
-        metrics: {
-          ...weeklySchedule.metrics,
-          totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned + 1,
-          totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated - 1,
+      updatedAssignments = {
+        ...updatedAssignments,
+        [visitDate]: {
+          ...updatedAssignments[visitDate],
+          [fromEmployee]: srcRecalc,
         },
       };
-      setWeeklySchedule(updatedSchedule);
-      saveScheduleMutation.mutate(updatedSchedule);
-      toast({ title: 'Visit assigned', description: `${drag.visit.clientName} → ${empName}` });
-
-    } else {
-      // Scenario C: assigned → different employee (reassign)
-      const { fromEmployee } = drag;
-      if (fromEmployee !== empName) {
-        const srcVisits = (weeklySchedule.assignments[visitDate]?.[fromEmployee] || []) as AssignedVisit[];
-        const srcRemaining = srcVisits.filter(v => v.id !== visitId);
-        const srcEmpLocation = locationsData?.employees.find(e => e.employeeName === fromEmployee);
-        const srcRecalc = recalculateTravelTimes(srcRemaining, srcEmpLocation);
-
-        updatedAssignments = {
-          ...updatedAssignments,
-          [visitDate]: {
-            ...updatedAssignments[visitDate],
-            [fromEmployee]: srcRecalc,
-          },
-        };
-      }
-
-      const updatedSchedule: WeeklyScheduleData = {
-        ...weeklySchedule,
-        assignments: updatedAssignments,
-      };
-      setWeeklySchedule(updatedSchedule);
-      saveScheduleMutation.mutate(updatedSchedule);
-      const action = fromEmployee === empName ? 'Visit repositioned' : 'Visit reassigned';
-      const desc = fromEmployee === empName
-        ? `${drag.visit.clientName} reordered in ${empName}'s schedule`
-        : `${drag.visit.clientName}: ${fromEmployee} → ${empName}`;
-      toast({ title: action, description: desc });
     }
-  }, [activeVisit, dropValidations, weeklySchedule, locationsData, toast, saveScheduleMutation, recalculateTravelTimes]);
+
+    const updatedSchedule: WeeklyScheduleData = {
+      ...weeklySchedule,
+      assignments: updatedAssignments,
+    };
+
+    setWeeklySchedule(updatedSchedule);
+    saveScheduleMutation.mutate(updatedSchedule);
+    const msg = fromEmployee === empName
+      ? `${drag.visit.clientName} reordered in ${empName}'s schedule`
+      : `${drag.visit.clientName}: ${fromEmployee} → ${empName}`;
+    toast({ title: 'Visit reassigned', description: msg });
+  }, [activeVisit, weeklySchedule, locationsData, toast, saveScheduleMutation, recalculateTravelTimes]);
 
   const handleDragCancel = useCallback(() => {
     setActiveVisit(null);
-  }, []);
-
-  // Auto-scroll on drag near edges
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    if (!event.over) return;
-    
-    const container = document.querySelector('[data-scroll-container]');
-    if (!container) return;
-
-    // Get the droppable target's position to estimate cursor location
-    const overElement = document.getElementById(event.over.id.toString());
-    if (!overElement) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const overRect = overElement.getBoundingClientRect();
-    const scrollThreshold = 100; // pixels from edge to trigger scroll
-    const scrollSpeed = 15; // pixels to scroll
-
-    // If over element is near top of viewport, scroll up
-    if (overRect.top < containerRect.top + scrollThreshold) {
-      container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
-    }
-    // If over element is near bottom of viewport, scroll down
-    else if (overRect.bottom > containerRect.bottom - scrollThreshold) {
-      container.scrollTop += scrollSpeed;
-    }
   }, []);
 
   if (!data) {
@@ -1305,10 +1168,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
-      onDragMove={handleDragMove}
       collisionDetection={closestCenter}
     >
-    <div className="space-y-6" data-scroll-container>
+    <div className="space-y-6">
       {/* Header with Generate Button */}
       <div className="flex items-center justify-between">
         <div>
@@ -1762,55 +1624,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </div>
 
       {/* Unallocated Visits - Organized by Day */}
-      {/* ── Drop-zone overlay panel: shown while dragging ── */}
-      {activeVisit && data && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(720px,95vw)] shadow-2xl">
-          <Card className="border-2 border-blue-400 dark:border-blue-600 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
-            <CardHeader className="pb-2 pt-3 px-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Target className="h-4 w-4 text-blue-500" />
-                <span className="font-bold text-blue-600">{activeVisit.visit.clientName}</span>
-                <Badge variant="outline" className="ml-auto text-xs">{activeVisit.visit.startTime}–{activeVisit.visit.endTime}</Badge>
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {activeVisit.source === 'assigned'
-                  ? 'Drop on a highlighted day to reassign, or on "Return to Unallocated" below'
-                  : 'Drop on a highlighted employee day to assign'}
-              </p>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <ScrollArea className="max-h-56">
-                <div className="space-y-1.5">
-                  {/* Unallocate zone — only shown when dragging an already-assigned visit */}
-                  {activeVisit.source === 'assigned' && (
-                    <DroppableUnallocatedZone date={activeVisit.date} />
-                  )}
-                  {(data.employeesByDate[activeVisit.date] || []).map((emp) => {
-                    const empLocation = locationsData?.employees.find(e => e.employeeName === emp.employeeName);
-                    const existingCount = (weeklySchedule?.assignments[activeVisit.date]?.[emp.employeeName] || []).length;
-                    const validation = dropValidations.get(`${emp.employeeName}-${activeVisit.date}`) ?? null;
-                    return (
-                      <DroppableEmployeeRow
-                        key={emp.employeeName}
-                        empName={emp.employeeName}
-                        date={activeVisit.date}
-                        validation={validation}
-                        gender={emp.gender}
-                        transportMode={empLocation?.transportMode || 'car'}
-                        visitCount={existingCount}
-                      />
-                    );
-                  })}
-                  {(data.employeesByDate[activeVisit.date] || []).length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">No employees available on this day</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
         <Card className="glass-card border-red-200 dark:border-red-800">
           <CardHeader className="pb-3">
@@ -1847,14 +1660,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         </Badge>
                       </div>
 
-                      {/* Day's Unallocated Visits Grid — draggable cards */}
+                      {/* Day's Unallocated Visits Grid — clickable cards */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
-                        {dayUnallocated.map((visit, index) => (
-                          <DraggableVisitCard
-                            key={`${visit.id}-${index}`}
+                        {dayUnallocated.map((visit) => (
+                          <UnallocatedVisitCard
+                            key={visit.id}
                             visit={visit}
-                            index={index}
                             date={date}
+                            onAssign={(v, d) => setAssignmentDialog({ open: true, visit: v, visitDate: d })}
                           />
                         ))}
                       </div>
@@ -1866,18 +1679,60 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </CardContent>
         </Card>
       )}
+      {/* Unallocate drop zone (shown during reassignment drag) */}
+      {activeVisit && activeVisit.source === 'assigned' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[min(500px,95vw)]">
+          <UnallocateDropZone />
+        </div>
+      )}
     </div>
 
-    {/* DragOverlay: floating card while dragging */}
+    {/* Assignment Dialog */}
+    <Dialog open={assignmentDialog.open} onOpenChange={(open) => !open && setAssignmentDialog({ open: false })}>
+      <DialogContent className="max-w-xl max-h-96 overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            Assign {assignmentDialog.visit?.clientName} ({assignmentDialog.visit?.startTime}–{assignmentDialog.visit?.endTime})
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Select Employee</label>
+            <div className="grid gap-2 mt-2 max-h-48 overflow-y-auto">
+              {data?.employeesByDate[assignmentDialog.visitDate || weekDates[0]]?.map((emp) => (
+                <button
+                  key={emp.employeeName}
+                  onClick={() => {
+                    const firstAvailDate = weekDates.find(d => 
+                      (data.employeesByDate[d] || []).some(e => e.employeeName === emp.employeeName)
+                    );
+                    if (firstAvailDate) {
+                      handleAssignUnallocated(emp.employeeName, firstAvailDate);
+                    }
+                  }}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors text-left"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{emp.employeeName}</p>
+                    <p className="text-xs text-muted-foreground">{emp.gender}</p>
+                  </div>
+                  <Badge variant="outline">{emp.contractedDailyHours}h/day</Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* DragOverlay: floating card for assigned visits being dragged */}
     <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
-      {activeVisit && (
-        <div className={`border-2 rounded-lg p-2 shadow-2xl rotate-1 scale-105 w-44 pointer-events-none bg-white dark:bg-gray-800 ${
-          activeVisit.source === 'assigned' ? 'border-purple-400' : 'border-blue-400'
-        }`}>
+      {activeVisit && activeVisit.source === 'assigned' && (
+        <div className="border-2 border-purple-400 rounded-lg p-2 shadow-2xl rotate-1 scale-105 w-44 pointer-events-none bg-white dark:bg-gray-800">
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <GripVertical className={`h-3 w-3 shrink-0 ${activeVisit.source === 'assigned' ? 'text-purple-400' : 'text-blue-400'}`} />
-              <p className={`font-semibold text-xs truncate ${activeVisit.source === 'assigned' ? 'text-purple-700 dark:text-purple-300' : 'text-blue-700 dark:text-blue-300'}`}>
+              <GripVertical className="h-3 w-3 shrink-0 text-purple-400" />
+              <p className="font-semibold text-xs truncate text-purple-700 dark:text-purple-300">
                 {activeVisit.visit.clientName}
               </p>
             </div>
@@ -1885,9 +1740,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               <Clock className="h-3 w-3" />
               {activeVisit.visit.startTime}–{activeVisit.visit.endTime}
             </div>
-            <Badge className={`text-[10px] ${activeVisit.source === 'assigned' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
-              {activeVisit.source === 'assigned' ? 'Reassigning' : 'Drag to assign'}
-            </Badge>
+            <Badge className="text-[10px] bg-purple-100 text-purple-700">Drag to reassign</Badge>
           </div>
         </div>
       )}
