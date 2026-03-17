@@ -22,6 +22,11 @@ declare module 'express-session' {
 const isProduction = process.env.NODE_ENV === 'production';
 const app = express();
 
+// Trust proxy for secure cookies behind reverse proxy
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
 app.use(securityHeaders);
 
 app.use(express.json({ limit: '50mb' }));
