@@ -24,7 +24,7 @@ import {
 import { 
   Map as MapIcon,
   Calendar, Users, Clock, Car, PersonStanding, 
-  Eye, CheckCircle, AlertTriangle, XCircle, Filter,
+  Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
 } from "lucide-react";
@@ -424,6 +424,8 @@ function CareProMap({
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }) {
+  const [showPostcodes, setShowPostcodes] = useState(true);
+
   const validLocations = useMemo(
     () => locations.filter(l => l.homeLat && l.homeLng),
     [locations]
@@ -477,9 +479,11 @@ function CareProMap({
             position={[parseFloat(loc.homeLat), parseFloat(loc.homeLng)]}
             icon={makeIcon(loc.gender || '')}
           >
-            <Tooltip permanent direction="right" offset={[15, -20]} className="bg-white/90 border-none shadow-md font-bold text-[10px] px-2 py-1 rounded-md">
-              <span>{loc.homePostcode}</span>
-            </Tooltip>
+            {showPostcodes && (
+              <Tooltip permanent direction="right" offset={[15, -20]} className="bg-white/90 border-none shadow-md font-bold text-[10px] px-2 py-1 rounded-md">
+                <span>{loc.homePostcode}</span>
+              </Tooltip>
+            )}
             <Popup>
               <div className="text-center min-w-[140px]">
                 <p className="text-sm text-[#5d51d5] font-bold">{loc.employeeName}</p>
@@ -503,7 +507,24 @@ function CareProMap({
           </Marker>
         ))}
       </MapContainer>
-      <div className="absolute top-6 right-20 z-[1000]">
+      <div className="absolute top-6 right-20 z-[1000] flex gap-3">
+        <Button 
+          onClick={() => setShowPostcodes(!showPostcodes)}
+          className="bg-white/95 hover:bg-white text-gray-900 font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
+          title={showPostcodes ? 'Hide postcodes' : 'Show postcodes'}
+        >
+          {showPostcodes ? (
+            <>
+              <Eye className="w-4 h-4 text-blue-600" />
+              <span className="hidden sm:inline">Postcodes</span>
+            </>
+          ) : (
+            <>
+              <EyeOff className="w-4 h-4 text-gray-400" />
+              <span className="hidden sm:inline">Show</span>
+            </>
+          )}
+        </Button>
         {onRefresh && (
           <Button 
             onClick={onRefresh} 
