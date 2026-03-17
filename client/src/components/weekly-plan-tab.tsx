@@ -72,28 +72,46 @@ type ActiveDrag =
 // Shared shape exposed from activeVisit for UI convenience
 type ActiveDragVisitShape = { clientName: string; startTime: string; endTime: string; date: string };
 
-// ─── Clickable unallocated visit card ──────────────────────────────────────
+// ─── Draggable unallocated visit card ──────────────────────────────────────
 
-function UnallocatedVisitCard({
+function DraggableUnallocatedVisitCard({
   visit,
   date,
-  onAssign,
+  index,
 }: {
   visit: ClientVisit & { unallocatedReason: string };
   date: string;
-  onAssign: (visit: ClientVisit & { unallocatedReason: string }, date: string) => void;
+  index: number;
 }) {
+  const dragId = `unallocated-${visit.id}-${date}-${index}`;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: dragId,
+    data: { visit, date, source: 'unallocated' },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.3 : 1,
+    cursor: 'grab',
+  };
+
   return (
-    <button
-      onClick={() => onAssign(visit, date)}
-      className="text-left w-full bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 hover:shadow-md hover:border-red-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
-      data-testid={`card-unallocated-${date}-${visit.id}`}
-      title={`Click to assign: ${visit.unallocatedReason}`}
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 hover:shadow-md hover:border-red-400 transition-all select-none touch-none"
+      data-testid={`card-unallocated-${date}-${index}`}
+      title={`Drag to assign: ${visit.unallocatedReason}`}
     >
       <div className="space-y-1">
-        <p className="font-medium text-xs truncate" title={visit.clientName}>
-          {visit.clientName}
-        </p>
+        <div className="flex items-center gap-1">
+          <GripVertical className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <p className="font-medium text-xs truncate" title={visit.clientName}>
+            {visit.clientName}
+          </p>
+        </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
           {visit.startTime}–{visit.endTime}
@@ -103,9 +121,8 @@ function UnallocatedVisitCard({
             {visit.unallocatedReason || "Not allocated"}
           </Badge>
         </div>
-        <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">Click to assign →</p>
       </div>
-    </button>
+    </div>
   );
 }
 
