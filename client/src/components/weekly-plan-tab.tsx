@@ -299,7 +299,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         assignments: result.assignments,
         unallocated: result.unallocated.map((v: any) => ({
           ...v,
-          unallocatedReason: v.reason || v.unallocatedReason || "Not optimal for this run"
+          unallocatedReason: v.rejectionReason || v.reason || v.unallocatedReason || "Not optimal for this run"
         })),
         metrics: result.metrics
       };
@@ -1264,6 +1264,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             key={index} 
                             className="bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-lg p-2 hover:shadow-md transition-shadow"
                             data-testid={`card-unallocated-${date}-${index}`}
+                            title={visit.unallocatedReason}
                           >
                             <div className="space-y-1">
                               <p className="font-medium text-xs truncate" title={visit.clientName}>
@@ -1274,8 +1275,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 {visit.startTime}-{visit.endTime}
                               </div>
                               <div className="flex items-start gap-1 mt-1">
-                                <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 shrink-0">
-                                  Not optimal
+                                <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 shrink-0 max-w-full break-words whitespace-normal">
+                                  {visit.unallocatedReason || "Not optimal"}
                                 </Badge>
                               </div>
                             </div>

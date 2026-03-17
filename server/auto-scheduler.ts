@@ -70,6 +70,7 @@ interface SchedulingVisit {
   serviceType: string;
   preferredStartTime?: number;
   preferredEndTime?: number;
+  rejectionReason?: string; // Track why this visit couldn't be allocated
 }
 
 interface ScheduledVisit extends SchedulingVisit {
@@ -749,11 +750,13 @@ export class AutoScheduler {
   ): Promise<{ employeeName: string; score: number; insertionIndex: number } | null> {
     let bestMatch: { employeeName: string; score: number; insertionIndex: number } | null = null;
     let bestScore = -1;
+    const rejectionReasons = new Map<string, string>(); // Track why each employee was rejected
 
     for (const [empName, schedule] of Array.from(employeeSchedules.entries())) {
       const employee = schedule.employee;
 
       if (!this.isGenderMatch(employee.gender, visit.clientName)) {
+        rejectionReasons.set(empName, `Gender mismatch: employee is ${employee.gender || 'unknown'}, client requires ${this.getClientGenderPreference(visit.clientName)}`);
         continue;
       }
 
@@ -766,6 +769,7 @@ export class AutoScheduler {
       });
 
       if (hasTimeConflict) {
+        rejectionReasons.set(empName, `Time window conflict: employee has visit ${schedule.visits.find((v: any) => visit.startTime < v.actualEndTime && visit.endTime > v.actualStartTime)?.clientName || 'unknown'} at overlapping time`);
         continue;
       }
 
@@ -775,6 +779,7 @@ export class AutoScheduler {
         const REST_BREAK_DURATION = 20;
         const breakEndTime = restBreakStatus.afterMinutes + REST_BREAK_DURATION;
         if (visit.startTime < breakEndTime && visit.startTime >= restBreakStatus.afterMinutes) {
+          rejectionReasons.set(empName, `Rest break required: employee needs 30-min statutory break after ${restBreakStatus.afterMinutes}min of care (break window: ${restBreakStatus.afterMinutes}-${breakEndTime}min)`);
           logger.debug(`   ${empName}: Visit at ${visit.startTime}min blocked by statutory rest break (${restBreakStatus.afterMinutes}-${breakEndTime}min)`);
           continue;
         }
@@ -788,6 +793,7 @@ export class AutoScheduler {
       );
 
       if (travelTime > this.maxTravelCapMinutes && schedule.visits.length === 0) {
+        rejectionReasons.set(empName, `Exceeds travel cap: home to client requires ${travelTime.toFixed(0)}min (limit: ${this.maxTravelCapMinutes}min)`);
         logger.debug(`   ${empName}: REJECTED - home-to-visit travel (${travelTime.toFixed(0)} min) exceeds ${this.maxTravelCapMinutes} min cap`);
         continue;
       }
@@ -818,7 +824,42 @@ export class AutoScheduler {
             insertionIndex: insertion.index,
           };
         }
+      } else {
+        rejectionReasons.set(empName, `Cannot find valid insertion point: visit does not fit in employee schedule or exceeds time window constraints`);
       }
+    }
+
+    // If no match found, synthesize best reason across all rejections and attach to visit
+    if (!bestMatch && rejectionReasons.size > 0) {
+      // Count rejection types
+      const reasons = Array.from(rejectionReasons.values());
+      const reasonTypes = new Map<string, number>();
+      
+      reasons.forEach(reason => {
+        if (reason.includes('Gender mismatch')) reasonTypes.set('gender', (reasonTypes.get('gender') || 0) + 1);
+        else if (reason.includes('travel cap')) reasonTypes.set('travel', (reasonTypes.get('travel') || 0) + 1);
+        else if (reason.includes('Time window conflict')) reasonTypes.set('timewindow', (reasonTypes.get('timewindow') || 0) + 1);
+        else if (reason.includes('Rest break')) reasonTypes.set('restbreak', (reasonTypes.get('restbreak') || 0) + 1);
+        else if (reason.includes('insertion point')) reasonTypes.set('insertion', (reasonTypes.get('insertion') || 0) + 1);
+        else reasonTypes.set('capacity', (reasonTypes.get('capacity') || 0) + 1);
+      });
+      
+      // Find most common reason
+      let primaryReason = 'No suitable employee found';
+      let maxCount = 0;
+      reasonTypes.forEach((count, type) => {
+        if (count > maxCount) {
+          maxCount = count;
+          if (type === 'gender') primaryReason = 'Gender mismatch - no employees with matching gender preference';
+          else if (type === 'travel') primaryReason = 'Travel time exceeds 45-min limit - all employees too far away';
+          else if (type === 'timewindow') primaryReason = 'Time window conflicts - all employees have overlapping visits';
+          else if (type === 'restbreak') primaryReason = 'Rest break conflict - visit lands during statutory break window';
+          else if (type === 'insertion') primaryReason = 'Cannot fit in schedule - no valid insertion point between existing visits';
+          else primaryReason = 'Capacity exhausted - all employees at daily 9-hour limit';
+        }
+      });
+      
+      visit.rejectionReason = primaryReason;
     }
 
     return bestMatch;
