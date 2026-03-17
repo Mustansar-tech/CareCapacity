@@ -850,11 +850,7 @@ function assignVisitToBestEmployee(
         continue;
       }
 
-      if (travelFromPrev > 45) {
-        rejectionReasons.set(schedule.employeeName, 'Travel time exceeds limit');
-        continue;
-      }
-
+      // Check if travel fits in the available gap (don't reject just because it exceeds 45 min if there's time for it)
       const gap = visitStartMinInternal - timeToMinutes(prev.endTime);
       if (travelFromPrev > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
         rejectionReasons.set(schedule.employeeName, 'Insufficient time between visits for travel');
@@ -877,11 +873,7 @@ function assignVisitToBestEmployee(
         continue;
       }
 
-      if (travelToNext > 45) {
-        rejectionReasons.set(schedule.employeeName, 'Travel time exceeds limit');
-        continue;
-      }
-
+      // Check if travel fits in the available gap (don't reject just because it exceeds 45 min if there's time for it)
       const gap = timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes);
       if (travelToNext > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
         rejectionReasons.set(schedule.employeeName, 'Insufficient time between visits for travel');
