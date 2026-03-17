@@ -3,6 +3,20 @@ import * as XLSX from './xlsx-compat.js';
 import { startOfDay, endOfDay, format as fmt, addMinutes, parse as parseDate, format } from 'date-fns';
 import { logger } from './logger';
 
+/**
+ * Normalize employee names to match how they're normalized in pipeline.ts
+ * Ensures names match between capacity analysis and GH Excel schedule
+ */
+function normalizeName(name: string): string {
+  if (!name || name === "undefined" || name === "null") return "";
+  let s = String(name).toLowerCase();
+  s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
+  s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
+  s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
+  s = s.replace(/\s+/g, " ").trim();
+  return s.split(" ").filter(Boolean).sort().join(" ");
+}
+
 const START_COLS = [
   'Planned Start Date And Time',  // Primary column as requested
   'Service Requirement Start Date And Time',
@@ -442,10 +456,10 @@ export async function extractEmployeeVisitsFromGHExcel(
       const cancelRaw = pickCol(row, [CANCEL_COL]);
       if (String(cancelRaw ?? '').toLowerCase().includes('cancel')) continue;
 
-      // Get employee name
+      // Get employee name and normalize to match capacity analysis
       const empNameRaw = pickCol(row, EMP_NAME_COLS);
       if (!empNameRaw) continue;
-      const empName = String(empNameRaw).trim();
+      const empName = normalizeName(String(empNameRaw));
       if (!empName) continue;
 
       // Get client name
@@ -541,6 +555,8 @@ export async function extractEmployeeVisitsFromGHExcel(
     }
   }
 
-  logger.debug(`extractEmployeeVisitsFromGHExcel: built schedules for ${result.size} employees`);
+  logger.debug(`extractEmployeeVisitsFromGHExcel: built schedules for ${result.size} employees`, {
+    sampleNames: Array.from(result.keys()).slice(0, 5),
+  });
   return result;
 }

@@ -94,7 +94,12 @@ function getDeparturePoint(
   employeeScheduleMap: Map<string, Map<string, CpVisitEntry[]>>
 ): { lat: number; lng: number; source: 'home' | 'last-client'; postcode?: string } {
   const dayVisits = employeeScheduleMap.get(empName)?.get(dateStr);
+  
   if (!dayVisits || dayVisits.length === 0) {
+    logger.debug(`getDeparturePoint: no visits for ${empName} on ${dateStr}`, {
+      hasSchedule: employeeScheduleMap.has(empName),
+      availableDates: employeeScheduleMap.get(empName) ? Array.from(employeeScheduleMap.get(empName)!.keys()) : [],
+    });
     return { ...homeCoords, source: 'home' };
   }
 
@@ -108,13 +113,32 @@ function getDeparturePoint(
   }
 
   if (!lastVisit || !lastVisit.lat || !lastVisit.lng) {
+    logger.debug(`getDeparturePoint: no valid last visit for ${empName} on ${dateStr}`, {
+      lastVisit: lastVisit ? { endTime: lastVisit.endTime, lat: lastVisit.lat, lng: lastVisit.lng } : null,
+      enquiryStartMin: enquiryStartMinutes,
+      visitsCount: dayVisits.length,
+    });
     return { ...homeCoords, source: 'home' };
   }
 
   const gapMin = enquiryStartMinutes - timeToMinutes(lastVisit.endTime);
+  logger.debug(`getDeparturePoint: gap analysis for ${empName} on ${dateStr}`, {
+    gapMin,
+    enquiryStartMin: enquiryStartMinutes,
+    lastVisitEndTime: lastVisit.endTime,
+    lastVisitClient: lastVisit.clientName,
+  });
+  
   if (gapMin >= 90) {
+    logger.debug(`getDeparturePoint: gap >= 90 min, using home for ${empName}`);
     return { ...homeCoords, source: 'home' };
   }
+
+  logger.debug(`getDeparturePoint: gap < 90 min, using last client for ${empName}`, {
+    gapMin,
+    lastVisitClient: lastVisit.clientName,
+    postcode: lastVisit.postcode,
+  });
 
   return {
     lat: lastVisit.lat,

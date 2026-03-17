@@ -1763,11 +1763,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
         const ghBuffer = await getLatestGuaranteedBuffer(branchId);
+        logger.debug('BD Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
         if (ghBuffer) {
           const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
           const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+          logger.debug('BD Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
           employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
-          logger.debug('BD Matcher: built employee schedule map', { employees: employeeScheduleMap.size });
+          const empNames = Array.from(employeeScheduleMap.keys());
+          logger.debug('BD Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 10) });
+          // Log which employees matched
+          for (const emp of empNames) {
+            const dayCount = employeeScheduleMap.get(emp)?.size || 0;
+            logger.debug(`BD Matcher: ${emp} has ${dayCount} scheduled days`);
+          }
+        } else {
+          logger.warn('BD Matcher: no GH buffer available, will use home departure for all CPs');
         }
       } catch (err) {
         logger.warn(`BD Matcher: could not build employee schedule map (will use home departure): ${err}`);
@@ -1813,11 +1823,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
         const ghBuffer = await getLatestGuaranteedBuffer(branchId);
+        logger.debug('BD Multi-Visit Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
         if (ghBuffer) {
           const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
           const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+          logger.debug('BD Multi-Visit Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
           employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
-          logger.debug('BD Multi-Visit Matcher: built employee schedule map', { employees: employeeScheduleMap.size });
+          const empNames = Array.from(employeeScheduleMap.keys());
+          logger.debug('BD Multi-Visit Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 10) });
+          for (const emp of empNames) {
+            const dayCount = employeeScheduleMap.get(emp)?.size || 0;
+            logger.debug(`BD Multi-Visit Matcher: ${emp} has ${dayCount} scheduled days`);
+          }
+        } else {
+          logger.warn('BD Multi-Visit Matcher: no GH buffer available, will use home departure for all CPs');
         }
       } catch (err) {
         logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map (will use home departure): ${err}`);
