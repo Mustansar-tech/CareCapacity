@@ -897,8 +897,8 @@ function assignVisitToBestEmployee(
           continue;
         }
 
-        // For direct routes, cap at 45min, but allow slightly more if there's a moderate gap (suggesting potential home break)
-        const effectiveCap = gap >= 60 ? 50 : 45; // Allow 50min if there's a 60+ min gap
+        // For direct routes, cap at 45min, but allow much more if there's a gap (suggesting potential home break)
+        const effectiveCap = gap >= 60 ? 75 : 45; // Allow 75min if there's a 60+ min gap (home break scenario)
         if (travelFromPrev > effectiveCap) {
           rejectionReasons.set(schedule.employeeName, 'Travel time exceeds limit');
           continue;
@@ -974,8 +974,8 @@ function assignVisitToBestEmployee(
           continue;
         }
 
-        // For direct routes, cap at 45min, but allow slightly more if there's a moderate gap (suggesting potential home break)
-        const effectiveCapAfter = gap >= 60 ? 50 : 45; // Allow 50min if there's a 60+ min gap
+        // For direct routes, cap at 45min, but allow much more if there's a gap (suggesting potential home break)
+        const effectiveCapAfter = gap >= 60 ? 75 : 45; // Allow 75min if there's a 60+ min gap (home break scenario)
         if (travelToNext > effectiveCapAfter) {
           rejectionReasons.set(schedule.employeeName, 'Travel time exceeds limit');
           continue;
