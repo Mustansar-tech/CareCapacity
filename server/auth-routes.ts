@@ -29,6 +29,52 @@ const updateUserSchema = z.object({
 
 export function registerAuthRoutes(app: Express) {
 
+  // ─── Bootstrap: Create first admin user (only if no users exist) ────────────
+
+  app.post('/api/auth/bootstrap-admin', async (req: Request, res: Response) => {
+    try {
+      // Check if any users exist yet
+      const allUsers = await storage.getAllUsers();
+      if (allUsers.length > 0) {
+        return res.status(403).json({ message: 'Users already exist. Use /api/auth/login' });
+      }
+
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid email or password format' });
+      }
+
+      const { email, password } = parsed.data;
+
+      // Create admin user
+      const hash = await hashPassword(password);
+      const user = await storage.createUser({
+        email,
+        passwordHash: hash,
+        displayName: 'System Administrator',
+        role: 'admin',
+        isActive: 1,
+      } as any);
+
+      logger.info(`Bootstrap admin user created: ${email}`);
+
+      // Log in the new admin
+      req.session.userId = user.id;
+      req.session.userRole = user.role;
+
+      return res.json({
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        branches: [],
+      });
+    } catch (err) {
+      logger.error('Failed to bootstrap admin:', err);
+      return res.status(500).json({ message: 'Failed to create admin user' });
+    }
+  });
+
   // ─── Auth endpoints ─────────────────────────────────────────────────────────
 
   app.post('/api/auth/login', async (req: Request, res: Response) => {

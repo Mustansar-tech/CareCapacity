@@ -9,7 +9,8 @@ export type UserRole = typeof userRoles[number];
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  username: text("username"),
+  passwordHash: text("password").notNull(), // Maps to 'password' column in DB
   displayName: text("display_name").notNull(),
   role: text("role").notNull().default('viewer'),
   isActive: integer("is_active").notNull().default(1), // 1=active, 0=inactive
