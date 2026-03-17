@@ -3,19 +3,57 @@ import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, seria
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const userRoles = ['admin', 'manager', 'supervisor', 'viewer'] as const;
+export type UserRole = typeof userRoles[number];
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name").notNull(),
+  role: text("role").notNull().default('viewer'),
+  isActive: integer("is_active").notNull().default(1), // 1=active, 0=inactive
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  role: z.enum(userRoles).default('viewer'),
+  isActive: z.number().default(1),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// User-Branch assignments (many-to-many)
+export const userBranches = pgTable("user_branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").notNull().references(() => branches.id, { onDelete: 'cascade' }),
+}, (table) => ({
+  uniqueUserBranch: unique("unique_user_branch").on(table.userId, table.branchId),
+}));
+
+export const insertUserBranchSchema = createInsertSchema(userBranches).omit({ id: true });
+export type InsertUserBranch = z.infer<typeof insertUserBranchSchema>;
+export type UserBranch = typeof userBranches.$inferSelect;
+
+// Audit log for compliance
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  userEmail: text("user_email"),
+  branchId: varchar("branch_id"),
+  action: text("action").notNull(),
+  detail: text("detail"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, timestamp: true });
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
 
 // Branches table for multi-franchise support
 export const branches = pgTable("branches", {

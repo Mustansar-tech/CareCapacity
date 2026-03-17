@@ -56,19 +56,52 @@ Strict gap checking — no time compression. Visit time windows are fixed.
 
 ---
 
+## Authentication & RBAC
+
+Enterprise auth via express-session + bcrypt. Roles: `admin > manager > supervisor > viewer`.
+
+- **Seeding admin**: Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in Replit Secrets, plus `SESSION_SECRET`. On startup, the server creates the admin user if it doesn't exist.
+- `server/auth.ts`: `requireAuth`, `requireRole`, `auditLog` middleware
+- `server/auth-routes.ts`: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, user CRUD endpoints
+- `client/src/contexts/AuthContext.tsx`: global auth state, `useAuth()` hook
+- `client/src/pages/login.tsx`: enterprise login page
+- `client/src/pages/admin.tsx`: user management + audit log (admin only)
+- `shared/schema.ts`: `users`, `userBranches`, `auditLogs` tables added
+
+---
+
+## Drag-Drop Unallocated Visit Assignment
+
+Implemented with @dnd-kit/core in `weekly-plan-tab.tsx`:
+
+- Each unallocated visit card is draggable (grip handle icon, opacity ghost while dragging)
+- On drag start: validates all employees for the visit's day (time windows, daily capacity, travel caps)
+- A fixed drop-zone panel at the bottom shows employees with green (valid) or red (invalid) highlighting
+- On valid drop: inserts visit chronologically, removes from unallocated, auto-saves, shows toast
+- On invalid drop: toast with specific rejection reason
+- Engine: `client/src/utils/drag-drop-engine.ts` — `validateVisitDrop()`, `buildAssignedVisit()`, `findInsertionIndex()`
+
+---
+
 ## Key Files
 
 | File | Role |
 |---|---|
 | `shared/schema.ts` | All DB tables, Zod schemas, shared TypeScript types |
 | `server/routes.ts` | All API endpoints |
+| `server/auth.ts` | Auth middleware + admin seed |
+| `server/auth-routes.ts` | Auth + user management API |
+| `server/storage.ts` | IStorage interface + DbStorage + MemStorage |
 | `server/travel-time-service.ts` | Multi-API travel time logic |
 | `server/pipeline.ts` | Excel parsing, capacity calculation |
 | `server/bdMatcher.ts` | BD enquiry matching |
 | `client/src/utils/scheduling-engine.ts` | VRPTW engine |
 | `client/src/utils/scheduling-utils.ts` | Travel cache, helpers, constants |
-| `client/src/components/weekly-plan-tab.tsx` | Schedule UI + walker refinement flow |
+| `client/src/utils/drag-drop-engine.ts` | Drop validation, visit insertion helpers |
+| `client/src/components/weekly-plan-tab.tsx` | Schedule UI + drag-drop + walker refinement |
+| `client/src/contexts/AuthContext.tsx` | Global auth state |
 | `client/src/pages/dashboard.tsx` | Main multi-tab dashboard |
+| `client/src/pages/admin.tsx` | Admin user management panel |
 | `client/src/pages/bd-matrix.tsx` | Business development heatmap + enquiry tool |
 
 ---
@@ -79,3 +112,15 @@ Strict gap checking — no time compression. Visit time windows are fixed.
 - OpenRouteService API (ORS_API_KEY env var)
 - TravelTime API (TRAVELTIME_APP_ID + TRAVELTIME_API_KEY env vars)
 - Geocoding API (for postcode → lat/lng resolution)
+
+## Required Environment Secrets
+
+| Secret | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `SESSION_SECRET` | Express session signing key (any random string ≥32 chars) |
+| `ADMIN_EMAIL` | Email for the seeded admin user |
+| `ADMIN_PASSWORD` | Password for the seeded admin user (min 8 chars) |
+| `ORS_API_KEY` | OpenRouteService API key |
+| `TRAVELTIME_APP_ID` | TravelTime application ID |
+| `TRAVELTIME_API_KEY` | TravelTime API key |

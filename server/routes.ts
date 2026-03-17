@@ -7,9 +7,10 @@ import { parseExcelFiles, processCapacityData, generateExcelExport } from './pip
 import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
 import { TravelTimeService, travelTimeService, type TransportMode } from './travel-time-service';
-
 import { logger } from "./logger";
 import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from "./bdMatcher";
+import { registerAuthRoutes } from './auth-routes';
+import { requireAuth, auditLog } from './auth';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -150,6 +151,9 @@ function ukScheduleTimeToUtc(dateStr: string, minutesFromMidnight: number): Date
 import { geocodeWithFallback } from './pipeline';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Register auth routes (login, logout, me, admin user management)
+  registerAuthRoutes(app);
 
   // Health check endpoint for monitoring
   app.get('/health', async (_req, res) => {

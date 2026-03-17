@@ -1,9 +1,23 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { generalLimiter } from "./rate-limiter";
 import { securityHeaders } from "./security";
 import { logger } from "./logger";
+import { seedAdminUser } from "./auth";
+
+// Augment session type
+declare module 'express-session' {
+  interface SessionData {
+    userId?: string;
+    userRole?: string;
+    userEmail?: string;
+    displayName?: string;
+  }
+}
 
 const isProduction = process.env.NODE_ENV === 'production';
 const app = express();
@@ -12,6 +26,27 @@ app.use(securityHeaders);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Session setup using PostgreSQL store
+const PgSession = connectPgSimple(session);
+const sessionPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+app.use(session({
+  store: new PgSession({
+    pool: sessionPool,
+    tableName: 'session',
+    createTableIfMissing: true,
+  }),
+  secret: process.env.SESSION_SECRET || 'care-capacity-dashboard-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProduction,
+    httpOnly: true,
+    maxAge: 8 * 60 * 60 * 1000, // 8 hours — typical care shift length
+    sameSite: 'lax',
+  },
+}));
 
 if (isProduction) {
   app.use('/api', generalLimiter.middleware);
@@ -35,6 +70,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  await seedAdminUser();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -26,6 +26,9 @@ import {
   type InsertWeeklySchedule,
   type ClientEnquiry,
   type InsertClientEnquiry,
+  type UserBranch,
+  type AuditLog,
+  type InsertAuditLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -34,14 +37,31 @@ import {
   employeeLocations, clientLocations, visits, 
   routePlans, routeStops, geocodeCache, 
   weeklySchedules, branchSchedulingPreferences,
-  travelTimeCache, clientEnquiries
+  travelTimeCache, clientEnquiries,
+  userBranches, auditLogs,
 } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
+  // User auth methods
+  getUserById(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+
+  // User-Branch assignments
+  getUserBranches(userId: string): Promise<Branch[]>;
+  assignUserToBranch(userId: string, branchId: string): Promise<UserBranch>;
+  setUserBranches(userId: string, branchIds: string[]): Promise<void>;
+
+  // Audit log
+  createAuditLog(log: Omit<InsertAuditLog, 'timestamp'>): Promise<AuditLog>;
+  getAuditLogs(opts?: { branchId?: string; limit?: number }): Promise<AuditLog[]>;
+
+  // Legacy compat - keep for any remaining references
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
 
   // Branch methods
   getAllBranches(): Promise<Branch[]>;
@@ -111,19 +131,77 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
+
+  // ─── User auth methods ───────────────────────────────────────────────────────
+
+  async getUserById(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  // Legacy alias
+  async getUser(id: string): Promise<User | undefined> {
+    return this.getUserById(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
+  // Legacy alias
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return this.getUserByEmail(username);
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const [user] = await db.insert(users).values(insertUser as any).returning();
     return user;
+  }
+
+  async updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User> {
+    const [user] = await db.update(users).set(updates as any).where(eq(users.id, id)).returning();
+    if (!user) throw new Error(`User ${id} not found`);
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(users.email);
+  }
+
+  // ─── User-Branch assignments ─────────────────────────────────────────────────
+
+  async getUserBranches(userId: string): Promise<Branch[]> {
+    const assignments = await db.select().from(userBranches).where(eq(userBranches.userId, userId));
+    if (assignments.length === 0) return [];
+    const branchIds = assignments.map(a => a.branchId);
+    return db.select().from(branches).where(inArray(branches.id, branchIds));
+  }
+
+  async assignUserToBranch(userId: string, branchId: string): Promise<UserBranch> {
+    const [result] = await db.insert(userBranches).values({ userId, branchId })
+      .onConflictDoNothing().returning();
+    return result;
+  }
+
+  async setUserBranches(userId: string, branchIds: string[]): Promise<void> {
+    await db.delete(userBranches).where(eq(userBranches.userId, userId));
+    if (branchIds.length > 0) {
+      await db.insert(userBranches).values(branchIds.map(branchId => ({ userId, branchId })));
+    }
+  }
+
+  // ─── Audit log ────────────────────────────────────────────────────────────────
+
+  async createAuditLog(log: Omit<InsertAuditLog, 'timestamp'>): Promise<AuditLog> {
+    const [result] = await db.insert(auditLogs).values(log as any).returning();
+    return result;
+  }
+
+  async getAuditLogs(opts?: { branchId?: string; limit?: number }): Promise<AuditLog[]> {
+    const limit = opts?.limit ?? 200;
+    const query = db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).limit(limit);
+    return query;
   }
 
   async getAllBranches(): Promise<Branch[]> {
@@ -601,13 +679,32 @@ export class MemStorage implements IStorage {
   private branchSchedulingPreferences: Map<string, BranchSchedulingPreference> = new Map();
 
   async getUser(id: string): Promise<User | undefined> { return this.users.get(id); }
-  async getUserByUsername(username: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.username === username); }
+  async getUserById(id: string): Promise<User | undefined> { return this.users.get(id); }
+  async getUserByEmail(email: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.email === email); }
+  async getUserByUsername(username: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.email === username); }
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = { ...insertUser, id, createdAt: new Date() };
     this.users.set(id, user);
     return user;
   }
+  async updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) throw new Error(`User ${id} not found`);
+    const updated = { ...user, ...updates };
+    this.users.set(id, updated);
+    return updated;
+  }
+  async getAllUsers(): Promise<User[]> { return Array.from(this.users.values()); }
+  async getUserBranches(userId: string): Promise<Branch[]> { return []; }
+  async assignUserToBranch(userId: string, branchId: string): Promise<UserBranch> {
+    return { id: randomUUID(), userId, branchId, assignedAt: new Date() } as UserBranch;
+  }
+  async setUserBranches(userId: string, branchIds: string[]): Promise<void> {}
+  async createAuditLog(log: Omit<InsertAuditLog, 'timestamp'>): Promise<AuditLog> {
+    return { ...log, id: randomUUID(), timestamp: new Date(), detail: log.detail ?? null, branchId: log.branchId ?? null } as AuditLog;
+  }
+  async getAuditLogs(opts?: { branchId?: string; limit?: number }): Promise<AuditLog[]> { return []; }
 
   async getAllBranches(): Promise<Branch[]> { return []; }
   async getBranchById(id: string): Promise<Branch | undefined> { return undefined; }
@@ -764,6 +861,7 @@ export class MemStorage implements IStorage {
       topMatch: enquiry.topMatch ?? null,
       results: enquiry.results ?? null,
       visits: enquiry.visits ?? null,
+      matchCount: enquiry.matchCount ?? 0,
       isMultiVisit: enquiry.isMultiVisit ?? 0,
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
       createdAt: new Date(),

@@ -16,21 +16,40 @@ interface BranchContextType {
   branches: Branch[];
   isLoadingBranches: boolean;
   selectedBranch: Branch | null;
-  isReady: boolean; // True when branch is selected and ready to make API calls
+  isReady: boolean;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
 
 export function BranchProvider({ children }: { children: ReactNode }) {
   const [selectedBranchId, setSelectedBranchIdState] = useState<string | null>(() => {
-    // Load from localStorage on init
     return localStorage.getItem('selectedBranchId');
   });
 
-  // Fetch all branches
-  const { data: branches = [], isLoading: isLoadingBranches } = useQuery<Branch[]>({
+  // Fetch auth user to filter branches (may be null before login)
+  const { data: authUser } = useQuery<{ branches: Branch[] } | null>({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.status === 401) return null;
+        if (!res.ok) return null;
+        return res.json();
+      } catch { return null; }
+    },
+  });
+
+  // Fetch all branches as a fallback / source of truth
+  const { data: allBranches = [], isLoading: isLoadingBranches } = useQuery<Branch[]>({
     queryKey: ['/api/branches'],
   });
+
+  // Use user's assigned branches if available, otherwise all branches
+  const branches: Branch[] = authUser?.branches?.length
+    ? allBranches.filter(b => authUser.branches.some(ub => ub.id === b.id))
+    : allBranches;
 
   // Auto-select first branch if none selected and branches are loaded
   useEffect(() => {
