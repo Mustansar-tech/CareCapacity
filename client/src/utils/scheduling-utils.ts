@@ -286,9 +286,10 @@ export function isInsertionFeasible(
       return false;
     }
 
-    // Check if travel fits in the available gap (not a hardcoded 45-min cap)
-    // The key is: prevVisit.end + travel <= visit.start
-    // Allow travel if it fits within the gap, even if it's longer than 45 minutes
+    if (travelFromPrev > MAX_TRAVEL_CAP_MINUTES) {
+      return false;
+    }
+
     if (prevVisit.end + travelFromPrev > visit.start + COMPRESSION_ALLOWANCE) {
       return false;
     }
@@ -306,9 +307,10 @@ export function isInsertionFeasible(
       return false;
     }
 
-    // Check if travel fits in the available gap (not a hardcoded 45-min cap)
-    // The key is: visit.end + travel <= nextVisit.start
-    // Allow travel if it fits within the gap, even if it's longer than 45 minutes
+    if (travelToNext > MAX_TRAVEL_CAP_MINUTES) {
+      return false;
+    }
+
     if (visit.end + travelToNext > nextVisit.start + COMPRESSION_ALLOWANCE) {
       return false;
     }

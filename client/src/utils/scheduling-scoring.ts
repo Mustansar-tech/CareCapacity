@@ -84,11 +84,8 @@ export function scoreVisitMatch(
       ? getTravelMinutes({ lat: visit.lat, lng: visit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng }, mode, visit.end)
       : 0;
 
-    // Relaxed travel cap during scoring - allow up to 120 minutes (can be adjusted later)
-    // The actual feasibility check happens in assignVisitToBestEmployee with proper gap analysis
-    const SCORING_TRAVEL_CAP = 120; // Much higher than the 45-min operational cap to allow scoring of all positions
-    if (travelFrom > SCORING_TRAVEL_CAP || travelTo > SCORING_TRAVEL_CAP) {
-      continue; // Skip only truly unreachable positions (like 9999)
+    if (travelFrom > MAX_TRAVEL_TIME_MINUTES || travelTo > MAX_TRAVEL_TIME_MINUTES) {
+      continue;
     }
 
     const gap = calculateInsertionGap(
