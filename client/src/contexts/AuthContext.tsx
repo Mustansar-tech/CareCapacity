@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
-export type UserRole = 'admin' | 'manager' | 'supervisor' | 'viewer';
+export type UserRole = 'admin' | 'scheduler' | 'viewer';
 
 export interface AuthUser {
   id: string;
@@ -26,9 +26,8 @@ interface AuthContextType {
 }
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
-  admin: 4,
-  manager: 3,
-  supervisor: 2,
+  admin: 3,
+  scheduler: 2,
   viewer: 1,
 };
 
@@ -96,8 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resolvedUser = error ? null : (user ?? null);
   const isAuthenticated = !!resolvedUser;
-  const canEdit = hasRoleAtLeast('supervisor');
-  const canGenerate = hasRoleAtLeast('supervisor');
+  const canEdit = hasRoleAtLeast('scheduler');
+  const canGenerate = hasRoleAtLeast('scheduler');
   const isAdmin = hasRole('admin');
 
   return (

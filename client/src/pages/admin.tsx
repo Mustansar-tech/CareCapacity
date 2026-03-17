@@ -31,8 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   admin:      { label: 'Administrator', color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
-  manager:    { label: 'Manager',       color: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
-  supervisor: { label: 'Supervisor',    color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
+  scheduler:  { label: 'Scheduler',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
   viewer:     { label: 'Viewer',        color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
 };
 
@@ -74,7 +73,7 @@ const createUserSchema = z.object({
   email: z.string().email("Valid email required"),
   password: z.string().min(8, "At least 8 characters"),
   displayName: z.string().min(1, "Display name required"),
-  role: z.enum(['admin', 'manager', 'supervisor', 'viewer']),
+  role: z.enum(['admin', 'scheduler', 'viewer']),
   branchIds: z.array(z.string()).min(1, "Assign at least one branch"),
 });
 type CreateUserForm = z.infer<typeof createUserSchema>;
@@ -202,7 +201,7 @@ function CreateUserDialog({ branches, onCreated }: { branches: Branch[]; onCreat
 
 const editUserSchema = z.object({
   displayName: z.string().min(1),
-  role: z.enum(['admin', 'manager', 'supervisor', 'viewer']),
+  role: z.enum(['admin', 'scheduler', 'viewer']),
   branchIds: z.array(z.string()).min(1),
   newPassword: z.string().min(8).optional().or(z.literal('')),
 });

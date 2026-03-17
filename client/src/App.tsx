@@ -103,12 +103,11 @@ class ErrorBoundary extends Component<
 
 const ROLE_STYLES: Record<string, string> = {
   admin:      'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  manager:    'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-  supervisor: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  scheduler:  'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   viewer:     'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin', manager: 'Manager', supervisor: 'Supervisor', viewer: 'Viewer',
+  admin: 'Admin', scheduler: 'Scheduler', viewer: 'Viewer',
 };
 
 // ─── User Menu ────────────────────────────────────────────────────────────────

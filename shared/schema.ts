@@ -3,7 +3,7 @@ import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, seria
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const userRoles = ['admin', 'manager', 'supervisor', 'viewer'] as const;
+export const userRoles = ['admin', 'scheduler', 'viewer'] as const;
 export type UserRole = typeof userRoles[number];
 
 export const users = pgTable("users", {

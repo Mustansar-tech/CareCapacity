@@ -34,9 +34,8 @@ export function requireRole(...roles: UserRole[]) {
 }
 
 export const roleHierarchy: Record<UserRole, number> = {
-  admin: 4,
-  manager: 3,
-  supervisor: 2,
+  admin: 3,
+  scheduler: 2,
   viewer: 1,
 };
 
