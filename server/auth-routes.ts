@@ -133,22 +133,28 @@ export function registerAuthRoutes(app: Express) {
       req.session.userRole = user.role;
       req.session.userEmail = user.email;
       req.session.displayName = user.displayName;
+      req.session.touch(); // Mark session as modified
 
       // Save session to database before responding
-      req.session.save(async (err) => {
-        if (err) {
-          logger.error('Session save error', err);
-          return res.status(500).json({ message: 'Failed to establish session' });
-        }
+      return new Promise((resolve) => {
+        req.session.save(async (err) => {
+          if (err) {
+            logger.error('Session save error', err);
+            res.status(500).json({ message: 'Failed to establish session' });
+            return resolve(undefined);
+          }
 
-        await auditLog(user.id, user.email, null, 'LOGIN', `User logged in from ${req.ip}`);
+          await auditLog(user.id, user.email, null, 'LOGIN', `User logged in from ${req.ip}`);
 
-        return res.json({
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          role: user.role,
-          branches: await storage.getUserBranches(user.id),
+          const branches = await storage.getUserBranches(user.id);
+          res.json({
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+            role: user.role,
+            branches,
+          });
+          resolve(undefined);
         });
       });
     } catch (err) {
