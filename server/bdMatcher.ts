@@ -780,21 +780,32 @@ async function buildTravelTimeMap(
   // ── Individual path: last-client departure CPs (calculate per day, take max) ──
   for (const cp of individualCps) {
     let maxTravelMinutes: number | undefined;
+    let maxTravelSource: 'home' | 'last-client' | undefined;
+    let maxTravelPostcode: string | undefined;
+    let maxTravelDayLabel: string | undefined;
 
-    // Deduplicate departure coords to avoid redundant API calls
-    const uniqueCoords = new Map<string, { lat: number; lng: number }>();
+    // Deduplicate departure coords to avoid redundant API calls, but track original departure info
+    const uniqueCoords = new Map<string, { coords: { lat: number; lng: number }; deps: typeof cp.departures }>();
     for (const dep of cp.departures) {
       const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
-      if (!uniqueCoords.has(key)) uniqueCoords.set(key, dep.coords);
+      if (!uniqueCoords.has(key)) {
+        uniqueCoords.set(key, { coords: dep.coords, deps: [] });
+      }
+      uniqueCoords.get(key)!.deps.push(dep);
     }
 
-    for (const [, coords] of uniqueCoords) {
+    for (const [, { coords, deps }] of uniqueCoords) {
       try {
         const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
         if (result && result.travelTimeMinutes < 9999) {
           const mins = Math.round(result.travelTimeMinutes);
           if (maxTravelMinutes === undefined || mins > maxTravelMinutes) {
             maxTravelMinutes = mins;
+            // Track which departure produced the max
+            const firstDep = deps[0];
+            maxTravelSource = firstDep.source;
+            maxTravelPostcode = firstDep.postcode;
+            maxTravelDayLabel = firstDep.dayLabel;
           }
         }
       } catch (err) {
@@ -804,10 +815,16 @@ async function buildTravelTimeMap(
     }
 
     if (maxTravelMinutes !== undefined) {
+      // Build accurate summary based on which departure actually produced the max travel time
+      let departureSummary = 'home';
+      if (maxTravelSource === 'last-client' && maxTravelPostcode) {
+        departureSummary = `${maxTravelPostcode} (${maxTravelDayLabel})`;
+      }
+
       travelTimeMap.set(cp.empName, {
         travelMinutes: maxTravelMinutes,
-        departureSource: cp.overallSource,
-        departureSummary: cp.departureSummary,
+        departureSource: maxTravelSource || 'home',
+        departureSummary,
       });
     }
   }
