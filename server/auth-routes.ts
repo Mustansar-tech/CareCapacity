@@ -75,6 +75,39 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ─── Reset admin password (recovery endpoint) ────────────────────────────
+
+  app.post('/api/auth/reset-admin-password', async (req: Request, res: Response) => {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Invalid email or password format' });
+    }
+
+    const { email, password } = parsed.data;
+
+    // Only allow resetting if email is admin@homeinstead.com
+    if (email !== 'admin@homeinstead.com') {
+      return res.status(403).json({ message: 'Only admin@homeinstead.com can be reset via this endpoint' });
+    }
+
+    try {
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: 'Admin user not found' });
+      }
+
+      const hash = await hashPassword(password);
+      await storage.updateUser(user.id, { passwordHash: hash });
+
+      logger.info(`Admin password reset for ${email}`);
+
+      return res.json({ message: 'Admin password reset successfully' });
+    } catch (err) {
+      logger.error('Failed to reset admin password:', err);
+      return res.status(500).json({ message: 'Failed to reset password' });
+    }
+  });
+
   // ─── Auth endpoints ─────────────────────────────────────────────────────────
 
   app.post('/api/auth/login', async (req: Request, res: Response) => {
