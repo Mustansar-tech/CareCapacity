@@ -812,16 +812,35 @@ function assignVisitToBestEmployee(
       mode: schedule.transportMode,
     };
 
+    const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
+    
+    // Quick insertion index calc to check for home break scenarios BEFORE scoring check
+    let preCheckInsertionIndex = 0;
+    while (preCheckInsertionIndex < schedule.assignedVisits.length && 
+           timeToMinutes(schedule.assignedVisits[preCheckInsertionIndex].startTime) <= visitStartMinInternal) {
+      preCheckInsertionIndex++;
+    }
+    
+    // Check if there's a 90+ minute gap that suggests home break
+    let hasLargeGap = false;
+    if (preCheckInsertionIndex > 0) {
+      const prevEndMin = timeToMinutes(schedule.assignedVisits[preCheckInsertionIndex - 1].endTime);
+      if (visitStartMinInternal - prevEndMin >= 90) hasLargeGap = true;
+    }
+    if (!hasLargeGap && preCheckInsertionIndex < schedule.assignedVisits.length) {
+      const nextStartMin = timeToMinutes(schedule.assignedVisits[preCheckInsertionIndex].startTime);
+      const visitEndMin = visitStartMinInternal + adjustedVisit.durationMinutes;
+      if (nextStartMin - visitEndMin >= 90) hasLargeGap = true;
+    }
+
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
-    if (!matchScore || matchScore.score <= 0) {
+    if ((!matchScore || matchScore.score <= 0) && !hasLargeGap) {
       rejectionReasons.set(schedule.employeeName, 'Visit cannot fit between existing visits');
       continue;
     }
 
     // Travel limit removed - no hard cap on travel time to maximize visit coverage
     // Travel time is still factored into scoring (closer = higher score) but won't reject
-
-    const visitStartMinInternal = timeToMinutes(adjustedVisit.startTime);
 
     // Verify this insertion doesn't overlap with neighbors
     // ALSO check if travel time is feasible within the gap
