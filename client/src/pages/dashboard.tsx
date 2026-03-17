@@ -1362,8 +1362,8 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 7. Client Scheduled */}
-                <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
+                {/* 7. Client Scheduled - HIDDEN */}
+                {/* <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
@@ -1378,7 +1378,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Total hours scheduled</div>
                   </CardContent>
-                </Card>
+                </Card> */}
 
                 {/* 8. Other Scheduled */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
