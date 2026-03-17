@@ -842,6 +842,7 @@ function assignVisitToBestEmployee(
 
       // Check if there's a large gap (90+ minutes) indicating a home break
       if (gap >= 90) {
+        clientLogger.log(`🏠 Insertion from-prev: Gap >= 90min: ${prev.clientName}@${prev.endTime} → ${adjustedVisit.clientName}@${adjustedVisit.startTime} (${gap}min gap) for ${schedule.employeeName}`);
         // Home break scenario: check two separate travel legs
         const travelToHome = getTravelMinutes(
           { lat: prev.lat || 0, lng: prev.lng || 0 },
@@ -856,6 +857,8 @@ function assignVisitToBestEmployee(
           visitStartMinInternal
         );
 
+        clientLogger.log(`   → Travel: ${prev.clientName}→home=${travelToHome}min, home→${adjustedVisit.clientName}=${travelFromHome}min`);
+
         // Check each leg separately
         if (travelToHome >= 9999 || travelFromHome >= 9999) {
           rejectionReasons.set(schedule.employeeName, 'Travel time cannot be calculated');
@@ -866,9 +869,11 @@ function assignVisitToBestEmployee(
         const homeBreakTravelCap = schedule.transportMode === 'car' ? 60 : 75;
         
         if (travelToHome > homeBreakTravelCap || travelFromHome > homeBreakTravelCap) {
+          clientLogger.log(`   ✗ REJECTED: Home break travel exceeds ${homeBreakTravelCap}min cap (to=${travelToHome}, from=${travelFromHome})`);
           rejectionReasons.set(schedule.employeeName, 'Travel time exceeds limit');
           continue;
         }
+        clientLogger.log(`   ✓ Home break travel OK (to=${travelToHome}/${homeBreakTravelCap}, from=${travelFromHome}/${homeBreakTravelCap})`);
 
         // Check if there's enough time for the break between both travels
         const breakTime = gap - travelToHome - travelFromHome;
@@ -912,6 +917,7 @@ function assignVisitToBestEmployee(
 
       // Check if there's a large gap (90+ minutes) indicating a home break
       if (gap >= 90) {
+        clientLogger.log(`🏠 Insertion to-next: Gap >= 90min: ${adjustedVisit.clientName}@${adjustedVisit.endTime} → ${next.clientName}@${next.startTime} (${gap}min gap) for ${schedule.employeeName}`);
         // Home break scenario: check two separate travel legs
         const travelToHome = getTravelMinutes(
           { lat: adjustedVisit.lat || 0, lng: adjustedVisit.lng || 0 },
@@ -926,16 +932,23 @@ function assignVisitToBestEmployee(
           nextStartMin
         );
 
+        clientLogger.log(`   → Travel: ${adjustedVisit.clientName}→home=${travelToHome}min, home→${next.clientName}=${travelFromHome}min`);
+
         // Check each leg separately
         if (travelToHome >= 9999 || travelFromHome >= 9999) {
           rejectionReasons.set(schedule.employeeName, 'Travel time cannot be calculated');
           continue;
         }
 
-        if (travelToHome > 45 || travelFromHome > 45) {
+        // For home break scenarios, allow up to 60 minutes per leg since employee has rest time
+        const homeBreakTravelCap = schedule.transportMode === 'car' ? 60 : 75;
+        
+        if (travelToHome > homeBreakTravelCap || travelFromHome > homeBreakTravelCap) {
+          clientLogger.log(`   ✗ REJECTED: Home break travel exceeds ${homeBreakTravelCap}min cap (to=${travelToHome}, from=${travelFromHome})`);
           rejectionReasons.set(schedule.employeeName, 'Travel time exceeds limit');
           continue;
         }
+        clientLogger.log(`   ✓ Home break travel OK (to=${travelToHome}/${homeBreakTravelCap}, from=${travelFromHome}/${homeBreakTravelCap})`);
 
         // Check if there's enough time for the break between both travels
         const breakTime = gap - travelToHome - travelFromHome;
