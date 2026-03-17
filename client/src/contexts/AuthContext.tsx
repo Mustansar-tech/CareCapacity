@@ -61,8 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/auth/me'] });
+    onSuccess: (data) => {
+      // Immediately set the user data so navigation works without waiting for a refetch
+      qc.setQueryData(['/api/auth/me'], data);
     },
   });
 
