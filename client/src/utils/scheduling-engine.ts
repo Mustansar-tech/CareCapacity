@@ -1113,14 +1113,19 @@ function assignVisitToBestEmployee(
       return { success: false, reason: `Home-to-visit travel ${actualTravelTimeBefore}min exceeds ${travelCap}-min cap` };
     }
   } else {
-    // Check if there's a large gap (90+ minutes) suggesting a home break
+    // Direct travel from previous visit to this visit
+    actualTravelTimeBefore = best.travelFromPrev;
+    
+    // Optionally, check if there's a large gap (90+ minutes) where home break could be beneficial
+    // But we allow BOTH options: direct route OR home break route
     const prevVisit = schedule.assignedVisits[best.insertionIndex - 1];
     const prevEndMin = timeToMinutes(prevVisit.endTime);
     const currentStartMin = timeToMinutes(best.adjustedVisit.startTime);
     const gapMinutes = currentStartMin - prevEndMin;
 
     if (gapMinutes >= 90) {
-      // Large gap - employee goes home and returns
+      // Large gap - employee CAN go home, but it's optional
+      // Check if home break route also works and is better
       const travelToHome = getTravelMinutes(
         { lat: prevVisit.lat || 0, lng: prevVisit.lng || 0 },
         { lat: schedule.homeLat, lng: schedule.homeLng },
@@ -1134,16 +1139,25 @@ function assignVisitToBestEmployee(
         visitStartMinForTravel
       );
 
-      actualTravelTimeBefore = travelFromHome;
-      clientLogger.log(`🏠 Home break detected: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
-
-      if (travelFromHome > travelCap) {
-        clientLogger.log(`❌ REJECTED: Home-return travel ${travelFromHome}min exceeds ${travelCap}-min cap for ${best.adjustedVisit.clientName}`);
-        return { success: false, reason: `Home-return travel ${travelFromHome}min exceeds ${travelCap}-min cap` };
-      }
-      if (travelToHome > travelCap) {
-        clientLogger.log(`❌ REJECTED: Visit-to-home travel ${travelToHome}min exceeds ${travelCap}-min cap`);
-        return { success: false, reason: `Visit-to-home travel ${travelToHome}min exceeds ${travelCap}-min cap` };
+      // Use home break ONLY if:
+      // 1. Direct travel doesn't fit in the gap, AND
+      // 2. Home break route works
+      const directTravelFits = prevEndMin + best.travelFromPrev <= currentStartMin;
+      const homeBreakWorks = travelToHome <= travelCap && travelFromHome <= travelCap;
+      
+      if (!directTravelFits && homeBreakWorks) {
+        // Direct doesn't work, but home break does - use home break
+        actualTravelTimeBefore = travelFromHome;
+        clientLogger.log(`🏠 Home break used: ${prevVisit.clientName} → home (${travelToHome}min) + break (${gapMinutes - travelToHome - travelFromHome}min) + home → ${best.adjustedVisit.clientName} (${travelFromHome}min)`);
+      } else if (directTravelFits) {
+        // Direct travel fits - use it (most efficient)
+        clientLogger.log(`✅ Direct route: ${prevVisit.clientName} → ${best.adjustedVisit.clientName} (${best.travelFromPrev}min in ${gapMinutes}min gap)`);
+      } else if (homeBreakWorks) {
+        // Direct fits but home break works - prefer direct for efficiency
+        clientLogger.log(`✅ Direct route preferred: ${prevVisit.clientName} → ${best.adjustedVisit.clientName} (${best.travelFromPrev}min)`);
+      } else {
+        // Neither direct nor home break work
+        return { success: false, reason: `Insufficient travel time between visits` };
       }
     }
   }

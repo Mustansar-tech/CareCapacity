@@ -85,6 +85,9 @@ export function scoreVisitMatch(
       : 0;
 
     if (travelFrom > MAX_TRAVEL_TIME_MINUTES || travelTo > MAX_TRAVEL_TIME_MINUTES) {
+      if (visit.clientName && visit.clientName.includes('McLean')) {
+        console.log(`⏭️ SKIP insertion point ${i} for ${visit.clientName}: travel from=${travelFrom}, to=${travelTo}, max=${MAX_TRAVEL_TIME_MINUTES}`);
+      }
       continue;
     }
 
