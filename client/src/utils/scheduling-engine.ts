@@ -737,6 +737,9 @@ function assignVisitToBestEmployee(
     adjustedVisit: ClientVisit;
   }> = [];
 
+  // Track rejection reasons to return meaningful error messages
+  const rejectionReasons = new Map<string, string>();
+
   // Score visit for each employee
   // Use relaxed tolerance if passed as option (for later passes)
   const tolerance = (originalVisit as any)._relaxedPass ? RELAXED_TIME_TOLERANCE : TIME_FLEXIBILITY_MINUTES;
@@ -745,6 +748,7 @@ function assignVisitToBestEmployee(
   for (const schedule of employeeSchedules) {
     // Check gender preference match
     if (!isGenderMatch(schedule.gender, originalVisit.clientName)) {
+      rejectionReasons.set(schedule.employeeName, `Gender mismatch: ${schedule.employeeName} is ${schedule.gender || 'unknown'}, client requires ${originalVisit.clientName.includes('(F)') || originalVisit.clientName.includes('(M)') ? originalVisit.clientName.match(/\((F|M)\)/)?.[1] || 'specific' : 'no preference'}`);
       clientLogger.log(`⚠️ Gender mismatch: ${schedule.employeeName} (${schedule.gender || 'unknown'}) cannot serve ${originalVisit.clientName}`);
       continue; // Skip this employee - gender doesn't match client preference
     }
@@ -752,11 +756,13 @@ function assignVisitToBestEmployee(
     // ALWAYS check 9-hour daily limit regardless of pass
     const newTotalCareTime = schedule.usedCapacityMinutes + originalVisit.durationMinutes;
     if (newTotalCareTime > MAX_DAILY_CARE_MINUTES) {
+      rejectionReasons.set(schedule.employeeName, `Capacity exhausted: ${schedule.employeeName} would exceed 9-hour daily limit (${(newTotalCareTime/60).toFixed(1)}h > 9h)`);
       continue; // Skip - would exceed 9-hour daily limit
     }
     
     // Check capacity constraint
     if (!relaxedCapacity && wouldExceedCapacity(schedule, originalVisit.durationMinutes)) {
+      rejectionReasons.set(schedule.employeeName, `Insufficient capacity: ${schedule.employeeName} does not have availability window or weekly hours`);
       continue; // Skip - would exceed capacity (strict mode)
     }
     
@@ -765,9 +771,11 @@ function assignVisitToBestEmployee(
       const newWeeklyTotal = schedule.weeklyUsedMinutes + originalVisit.durationMinutes;
       // Still enforce daily capacity even in relaxed mode
       if (newTotalCareTime > schedule.totalCapacityMinutes + 120) { // Increased daily tolerance
+        rejectionReasons.set(schedule.employeeName, `Daily capacity exceeded: would exceed availability window`);
         continue; // Skip - would exceed daily availability
       }
       if (newWeeklyTotal > schedule.weeklyContractedMinutes + 180) { // Increased tolerance to 3 hours
+        rejectionReasons.set(schedule.employeeName, `Weekly capacity exceeded: ${(newWeeklyTotal/60).toFixed(1)}h > ${((schedule.weeklyContractedMinutes + 180)/60).toFixed(1)}h limit`);
         continue;
       }
     }
@@ -776,12 +784,14 @@ function assignVisitToBestEmployee(
     const validWindows = schedule.windows;
 
     if (validWindows.length === 0) {
+      rejectionReasons.set(schedule.employeeName, `No availability: ${schedule.employeeName} has no time windows on this date`);
       continue; // No valid windows available
     }
 
     // Try to adjust visit to fit in employee's windows (with tolerance)
     const adjustedVisit = adjustVisitToFitWindows(originalVisit, validWindows, tolerance);
     if (!adjustedVisit) {
+      rejectionReasons.set(schedule.employeeName, `Cannot fit window: visit time ${originalVisit.startTime}-${originalVisit.endTime} does not align with ${schedule.employeeName}'s availability`);
       continue; // Could not adjust visit to fit any window
     }
 
@@ -801,7 +811,10 @@ function assignVisitToBestEmployee(
     };
 
     const matchScore = scoreVisitMatch(scoringVisit, employeeRun, validWindows);
-    if (!matchScore || matchScore.score <= 0) continue;
+    if (!matchScore || matchScore.score <= 0) {
+      rejectionReasons.set(schedule.employeeName, `No valid insertion: visit cannot fit between existing visits for ${schedule.employeeName}`);
+      continue;
+    }
 
     // Travel limit removed - no hard cap on travel time to maximize visit coverage
     // Travel time is still factored into scoring (closer = higher score) but won't reject
@@ -831,15 +844,18 @@ function assignVisitToBestEmployee(
 
       // If travel is unreachable (9999), skip this candidate
       if (travelFromPrev >= 9999) {
+        rejectionReasons.set(schedule.employeeName, `Unreachable: cannot calculate travel from ${prev.clientName} to ${adjustedVisit.clientName}`);
         continue;
       }
 
       if (travelFromPrev > 45) {
+        rejectionReasons.set(schedule.employeeName, `Travel exceeds 45min cap: ${prev.clientName}→${adjustedVisit.clientName} = ${travelFromPrev}min`);
         continue;
       }
 
       const gap = visitStartMinInternal - timeToMinutes(prev.endTime);
       if (travelFromPrev > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
+        rejectionReasons.set(schedule.employeeName, `Insufficient gap: ${prev.clientName} ends at ${minutesToTime(timeToMinutes(prev.endTime))}, travel ${travelFromPrev}min, but visit starts at ${adjustedVisit.startTime}`);
         continue;
       }
     }
@@ -855,15 +871,18 @@ function assignVisitToBestEmployee(
 
       // If travel is unreachable (9999), skip this candidate
       if (travelToNext >= 9999) {
+        rejectionReasons.set(schedule.employeeName, `Unreachable: cannot calculate travel from ${adjustedVisit.clientName} to ${next.clientName}`);
         continue;
       }
 
       if (travelToNext > 45) {
+        rejectionReasons.set(schedule.employeeName, `Travel exceeds 45min cap: ${adjustedVisit.clientName}→${next.clientName} = ${travelToNext}min`);
         continue;
       }
 
       const gap = timeToMinutes(next.startTime) - (visitStartMinInternal + adjustedVisit.durationMinutes);
       if (travelToNext > gap + TRAVEL_COMPRESSION_ALLOWANCE) {
+        rejectionReasons.set(schedule.employeeName, `Insufficient gap: visit ends at ${minutesToTime(visitStartMinInternal + adjustedVisit.durationMinutes)}, travel ${travelToNext}min, but ${next.clientName} starts at ${next.startTime}`);
         continue;
       }
     }
@@ -1027,7 +1046,10 @@ function assignVisitToBestEmployee(
         clientLogger.log(`⚠️ REST WATCH: ${schedule.employeeName} will reach ${((cumulativeCareMinutes + adjustedVisit.durationMinutes)/60).toFixed(1)}h after ${adjustedVisit.clientName} - break needed after this visit`);
       }
     }
-    if (blockedByRestBreak) continue;
+    if (blockedByRestBreak) {
+      rejectionReasons.set(schedule.employeeName, `Rest break conflict: ${schedule.employeeName} needs 30-min break after ~5 hours of care`);
+      continue;
+    }
 
     candidates.push({
       employeeName: schedule.employeeName,
@@ -1039,9 +1061,31 @@ function assignVisitToBestEmployee(
     });
   }
 
-  // No feasible employees
+  // No feasible employees - synthesize the most common rejection reason
   if (candidates.length === 0) {
-    return { success: false, reason: 'No feasible employee (capacity/window/travel constraints)' };
+    const reasonCounts = new Map<string, number>();
+    const sampleReasons = new Map<string, string>();
+    
+    rejectionReasons.forEach((reason, emp) => {
+      // Extract the constraint type (first part before colon)
+      const constraint = reason.split(':')[0].trim();
+      reasonCounts.set(constraint, (reasonCounts.get(constraint) || 0) + 1);
+      if (!sampleReasons.has(constraint)) {
+        sampleReasons.set(constraint, reason);
+      }
+    });
+    
+    // Find the most common rejection reason
+    let topReason = 'Could not fit in any schedule';
+    let maxCount = 0;
+    reasonCounts.forEach((count, constraint) => {
+      if (count > maxCount) {
+        maxCount = count;
+        topReason = sampleReasons.get(constraint) || constraint;
+      }
+    });
+    
+    return { success: false, reason: topReason };
   }
 
   // Sort by score descending and pick the best
@@ -1892,7 +1936,7 @@ export function generateWeeklySchedule(
         visitEmployeeAssignments.get(visitKey)!.add(result.employeeName);
         clientLogger.log(`✅ [Desperation] Assigned ${visit.clientName} to ${result.employeeName}`);
       } else {
-        fifthPassUnallocated.push({ ...visit, reason: 'Could not fit in any schedule after all passes' });
+        fifthPassUnallocated.push({ ...visit, reason: result.reason || 'Could not fit in any schedule after all passes' });
       }
     }
     
