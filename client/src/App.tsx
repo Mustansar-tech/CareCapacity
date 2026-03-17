@@ -52,6 +52,29 @@ function Dashboard() {
 }
 
 function AdminPage() {
+  const { isAdmin } = useAuth();
+  const [, navigate] = useLocation();
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pt-20">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md">
+          <Shield className="h-16 w-16 text-red-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Only administrators can access this page.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return <PageSuspense><AdminModule /></PageSuspense>;
 }
 
