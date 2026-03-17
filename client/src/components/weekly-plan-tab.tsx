@@ -1247,48 +1247,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </div>
 
       {/* Unallocated Visits - Organized by Day */}
-      {/* ── Drop-zone overlay panel: shown while dragging ── */}
-      {activeVisit && data && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[min(700px,95vw)] shadow-2xl">
-          <Card className="border-2 border-blue-400 dark:border-blue-600 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md">
-            <CardHeader className="pb-2 pt-3 px-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Target className="h-4 w-4 text-blue-500" />
-                Assigning: <span className="font-bold text-blue-600">{activeVisit.clientName}</span>
-                <Badge variant="outline" className="ml-auto text-xs">{activeVisit.startTime}–{activeVisit.endTime}</Badge>
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Drop onto a green employee to assign this visit</p>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <ScrollArea className="max-h-52">
-                <div className="space-y-1.5">
-                  {(data.employeesByDate[activeVisit.date] || []).map((emp) => {
-                    const empLocation = locationsData?.employees.find(e => e.employeeName === emp.employeeName);
-                    const existingCount = (weeklySchedule?.assignments[activeVisit.date]?.[emp.employeeName] || []).length;
-                    return (
-                      <div key={emp.employeeName} className="flex items-center gap-3 p-2.5 rounded-lg border-2 border-gray-200 bg-gray-50/50 dark:bg-gray-950/10 opacity-60">
-                        <div className="shrink-0">⭘</div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-semibold truncate ${getGenderColorClass(emp.gender)}`}>{emp.employeeName}</p>
-                          <p className="text-xs text-muted-foreground">View only</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Badge variant="outline" className="text-xs">{existingCount} visits</Badge>
-                          <span className="text-xs text-muted-foreground">{empLocation?.transportMode === 'car' ? '🚗' : empLocation?.transportMode === 'public' ? '🚌' : '🚶'}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(data.employeesByDate[activeVisit.date] || []).length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">No employees available on this day</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
         <Card className="glass-card border-red-200 dark:border-red-800">
           <CardHeader className="pb-3">
