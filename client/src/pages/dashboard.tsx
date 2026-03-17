@@ -566,10 +566,10 @@ export default function Dashboard() {
           <div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
-          <TabsList className="grid w-full grid-cols-5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm h-auto overflow-hidden">
+          <TabsList className="flex w-full gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm h-auto overflow-hidden">
             <TabsTrigger
               value="overview"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5 ml-0.5 first:ml-0.5"
+              className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
@@ -577,7 +577,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="daily-capacity"
-              className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5 mx-0.5"
+              className="flex-1 data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
               data-testid="tab-daily-capacity"
             >
               <Calendar className="w-4 h-4 mr-2" />
@@ -585,7 +585,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="bd-matrix"
-              className="data-[state=active]:bg-tertiary data-[state=active]:text-tertiary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5 mx-0.5"
+              className="flex-1 data-[state=active]:bg-tertiary data-[state=active]:text-tertiary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
               data-testid="tab-bd-matrix"
             >
               <Users className="w-4 h-4 mr-2" />
@@ -593,7 +593,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="schedules"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5 mr-0.5 last:mr-0.5"
+              className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
               data-testid="tab-schedules"
             >
               <Calendar className="w-4 h-4 mr-2" />
