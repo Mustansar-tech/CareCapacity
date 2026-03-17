@@ -1,5 +1,6 @@
 import { logger } from './logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
+import type { CpVisitEntry } from './excel-visit-extractor';
 import { travelTimeService } from './travel-time-service';
 
 export interface ClientEnquiryCriteria {
@@ -32,6 +33,8 @@ export interface MatchedEmployee {
   transportMode?: string;
   homePostcode?: string;
   travelMinutes?: number;
+  departureSource?: 'home' | 'last-client';
+  departureSummary?: string;
   contractedWeeklyHours: number;
   totalScheduledHours: number;
   remainingCapacity: number;
@@ -68,9 +71,57 @@ export interface MultiVisitMatchResult {
   totalVisits: number;
 }
 
+interface TravelResult {
+  travelMinutes: number;
+  departureSource: 'home' | 'last-client';
+  departureSummary: string;
+}
+
 function timeToMinutes(timeStr: string): number {
   const parts = timeStr.split(':').map(Number);
   return parts[0] * 60 + (parts[1] || 0);
+}
+
+/**
+ * For a given employee+day, finds which departure point to use for travel time calculation.
+ * Mirrors the 90-minute gap rule used in weekly-plan-tab.tsx (lines 399-402).
+ */
+function getDeparturePoint(
+  empName: string,
+  dateStr: string,
+  enquiryStartMinutes: number,
+  homeCoords: { lat: number; lng: number },
+  employeeScheduleMap: Map<string, Map<string, CpVisitEntry[]>>
+): { lat: number; lng: number; source: 'home' | 'last-client'; postcode?: string } {
+  const dayVisits = employeeScheduleMap.get(empName)?.get(dateStr);
+  if (!dayVisits || dayVisits.length === 0) {
+    return { ...homeCoords, source: 'home' };
+  }
+
+  // Find the last visit that ends at or before the enquiry start
+  let lastVisit: CpVisitEntry | null = null;
+  for (const visit of dayVisits) {
+    const visitEndMin = timeToMinutes(visit.endTime);
+    if (visitEndMin <= enquiryStartMinutes) {
+      lastVisit = visit;
+    }
+  }
+
+  if (!lastVisit || !lastVisit.lat || !lastVisit.lng) {
+    return { ...homeCoords, source: 'home' };
+  }
+
+  const gapMin = enquiryStartMinutes - timeToMinutes(lastVisit.endTime);
+  if (gapMin >= 90) {
+    return { ...homeCoords, source: 'home' };
+  }
+
+  return {
+    lat: lastVisit.lat,
+    lng: lastVisit.lng,
+    source: 'last-client',
+    postcode: lastVisit.postcode,
+  };
 }
 
 function minutesToTime(mins: number): string {
@@ -367,7 +418,7 @@ function matchEmployeesForVisit(
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homePostcode?: string; homeLat?: number; homeLng?: number }>,
   topN: number = 50,
   clientLocation?: { lat: number; lng: number },
-  travelTimeMap?: Map<string, number>
+  travelTimeMap?: Map<string, TravelResult>
 ): MatchedEmployee[] {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
@@ -534,17 +585,21 @@ function matchEmployeesForVisit(
     // Use real travel time from API map when available, otherwise fall back to straight-line estimate
     let travelBonus = 0;
     let travelMinutes: number | undefined;
+    let departureSource: 'home' | 'last-client' | undefined;
+    let departureSummary: string | undefined;
 
     if (travelTimeMap && travelTimeMap.has(empName)) {
-      const mins = travelTimeMap.get(empName)!;
-      travelMinutes = mins;
+      const travelResult = travelTimeMap.get(empName)!;
+      travelMinutes = travelResult.travelMinutes;
+      departureSource = travelResult.departureSource;
+      departureSummary = travelResult.departureSummary;
       // Hard filter: car CPs >45 min, walker/public CPs >60 min
       const maxAllowed = isCar ? 45 : 60;
-      if (mins > maxAllowed) continue;
+      if (travelMinutes > maxAllowed) continue;
       // Score based on real travel time bands
-      if (mins <= 20) travelBonus = 15;
-      else if (mins <= 30) travelBonus = 10;
-      else if (mins <= 45) travelBonus = 5;
+      if (travelMinutes <= 20) travelBonus = 15;
+      else if (travelMinutes <= 30) travelBonus = 10;
+      else if (travelMinutes <= 45) travelBonus = 5;
       else travelBonus = 0;
     } else if (clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
       // Fallback to straight-line estimate when API result not available
@@ -560,9 +615,6 @@ function matchEmployeesForVisit(
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
     else if (adjustedTimeMatches > 0) overallMatchType = 'adjusted-time';
 
-    // Remove the logic that forces adjusted-time if some days are missing.
-    // This allows candidates to appear even if they don't cover the full week.
-
     candidates.push({
       employeeName: empName,
       matchType: overallMatchType,
@@ -571,6 +623,8 @@ function matchEmployeesForVisit(
       transportMode: weeklyData.transportMode,
       homePostcode: weeklyData.homePostcode,
       travelMinutes,
+      departureSource,
+      departureSummary,
       contractedWeeklyHours: weeklyData.contractedWeekly,
       totalScheduledHours: weeklyData.totalScheduled,
       remainingCapacity,
@@ -591,65 +645,150 @@ function matchEmployeesForVisit(
 async function buildTravelTimeMap(
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homePostcode?: string; homeLat?: number; homeLng?: number }>,
   clientCoords: { lat: number; lng: number },
-  branchId: string
-): Promise<Map<string, number>> {
-  const travelTimeMap = new Map<string, number>();
+  branchId: string,
+  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>,
+  requiredDays?: string[],
+  datesByDay?: Map<string, string[]>,
+  enquiryStartMinutes?: number
+): Promise<Map<string, TravelResult>> {
+  const travelTimeMap = new Map<string, TravelResult>();
 
-  // Separate CPs with known coordinates into car and walker/public groups
-  const carCPs: Array<[string, { lat: number; lng: number }]> = [];
-  const nonCarCPs: Array<[string, { lat: number; lng: number }, string]> = [];
+  const useScheduleAware = !!(employeeScheduleMap && requiredDays && datesByDay && enquiryStartMinutes !== undefined);
+
+  // Groups for batch processing
+  type BatchCp = { empName: string; isCar: boolean; mode: string; homeCoords: { lat: number; lng: number } };
+  type IndividualCp = { empName: string; isCar: boolean; mode: string; departures: Array<{ coords: { lat: number; lng: number }; source: 'home' | 'last-client'; postcode?: string; dayLabel: string }>; departureSummary: string; overallSource: 'home' | 'last-client' };
+
+  const homeBatchCps: BatchCp[] = [];
+  const individualCps: IndividualCp[] = [];
 
   for (const [empName, data] of Array.from(employeeWeeklyData.entries())) {
     if (!data.homeLat || !data.homeLng) continue;
     const isCar = data.transportMode?.toLowerCase() === 'car' || data.transportMode?.toLowerCase() === 'driver';
-    const coords = { lat: data.homeLat, lng: data.homeLng };
-    if (isCar) {
-      carCPs.push([empName, coords]);
+    const mode = isCar ? 'car' : (data.transportMode?.toLowerCase() === 'walking' ? 'walking' : 'public_transport');
+    const homeCoords = { lat: data.homeLat, lng: data.homeLng };
+
+    if (useScheduleAware) {
+      // Collect per-day departure points
+      const dayDepartures: Array<{ coords: { lat: number; lng: number }; source: 'home' | 'last-client'; postcode?: string; dayLabel: string }> = [];
+
+      for (const reqDay of requiredDays!) {
+        for (const dateStr of (datesByDay!.get(reqDay) || [])) {
+          const dep = getDeparturePoint(empName, dateStr, enquiryStartMinutes!, homeCoords, employeeScheduleMap!);
+          dayDepartures.push({
+            coords: { lat: dep.lat, lng: dep.lng },
+            source: dep.source,
+            postcode: dep.postcode,
+            dayLabel: reqDay.charAt(0).toUpperCase() + reqDay.slice(1),
+          });
+        }
+      }
+
+      if (dayDepartures.length === 0) {
+        // No relevant days — fall through to home batch
+        homeBatchCps.push({ empName, isCar, mode, homeCoords });
+        continue;
+      }
+
+      const lastClientDays = dayDepartures.filter(d => d.source === 'last-client');
+      const overallSource: 'home' | 'last-client' = lastClientDays.length > 0 ? 'last-client' : 'home';
+
+      if (overallSource === 'home') {
+        // All days depart from home — can batch with ORS Matrix
+        homeBatchCps.push({ empName, isCar, mode, homeCoords });
+      } else {
+        // At least one day departs from last client — calculate individually per day
+        const postcodes = [...new Set(lastClientDays.map(d => d.postcode).filter(Boolean))];
+        const dayLabels = [...new Set(lastClientDays.map(d => d.dayLabel))];
+        const postcodeStr = postcodes.length > 0 ? postcodes.join('/') : 'last client';
+        const departureSummary = `${postcodeStr} (${dayLabels.join('/')})`;
+        individualCps.push({ empName, isCar, mode, departures: dayDepartures, departureSummary, overallSource });
+      }
     } else {
-      const mode = data.transportMode?.toLowerCase() === 'walking' ? 'walking' : 'public_transport';
-      nonCarCPs.push([empName, coords, mode]);
+      homeBatchCps.push({ empName, isCar, mode, homeCoords });
     }
   }
 
-  // Car CPs: use ORS Matrix (single batch request for all car CPs → one destination)
-  // This avoids individual API calls and stays well within ORS rate limits
-  if (carCPs.length > 0) {
+  // ── Batch path: home-departure car CPs via ORS Matrix ──
+  const batchCarCPs = homeBatchCps.filter(c => c.isCar);
+  const batchNonCarCPs = homeBatchCps.filter(c => !c.isCar);
+
+  if (batchCarCPs.length > 0) {
     try {
-      const sources = carCPs.map(([, coords]) => coords);
-      const destinations = [clientCoords];
-      await travelTimeService.orsMatrixBatch(sources, destinations);
-      // Read results via calculateTravelTime — they will be cache hits now
-      for (const [empName, coords] of carCPs) {
+      const sources = batchCarCPs.map(c => c.homeCoords);
+      await travelTimeService.orsMatrixBatch(sources, [clientCoords]);
+      for (const cp of batchCarCPs) {
         try {
-          const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, 'car');
+          const result = await travelTimeService.calculateTravelTime(branchId, cp.homeCoords, clientCoords, 'car');
           if (result && result.travelTimeMinutes < 9999) {
-            travelTimeMap.set(empName, Math.round(result.travelTimeMinutes));
+            travelTimeMap.set(cp.empName, {
+              travelMinutes: Math.round(result.travelTimeMinutes),
+              departureSource: 'home',
+              departureSummary: 'home',
+            });
           }
         } catch (err) {
-          logger.debug(`BD Matcher: car cache read failed for ${empName}: ${err}`);
+          logger.debug(`BD Matcher: car batch read failed for ${cp.empName}: ${err}`);
         }
       }
-      logger.debug(`BD Matcher: ORS Matrix batch computed ${carCPs.length} car routes → ${travelTimeMap.size} results`);
+      logger.debug(`BD Matcher: ORS Matrix batch ${batchCarCPs.length} car CPs → ${travelTimeMap.size} results`);
     } catch (err) {
       logger.warn(`BD Matcher: ORS Matrix batch failed, car CPs will use straight-line fallback: ${err}`);
     }
   }
 
-  // Walker/public CPs: process sequentially with small delays to respect TravelTime API rate limits
-  for (const [empName, coords, mode] of nonCarCPs) {
+  for (const cp of batchNonCarCPs) {
     try {
-      const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, mode as any);
+      const result = await travelTimeService.calculateTravelTime(branchId, cp.homeCoords, clientCoords, cp.mode as any);
       if (result && result.travelTimeMinutes < 9999) {
-        travelTimeMap.set(empName, Math.round(result.travelTimeMinutes));
+        travelTimeMap.set(cp.empName, {
+          travelMinutes: Math.round(result.travelTimeMinutes),
+          departureSource: 'home',
+          departureSummary: 'home',
+        });
       }
     } catch (err) {
-      logger.debug(`BD Matcher: walker travel time failed for ${empName}: ${err}`);
+      logger.debug(`BD Matcher: walker travel time failed for ${cp.empName}: ${err}`);
     }
-    // 150ms delay between walker calls to stay within TravelTime API rate limits
     await new Promise(resolve => setTimeout(resolve, 150));
   }
 
-  logger.debug(`BD Matcher: travel time complete — ${travelTimeMap.size} total (${carCPs.length} car via matrix, ${nonCarCPs.length} walker/public sequential)`);
+  // ── Individual path: last-client departure CPs (calculate per day, take max) ──
+  for (const cp of individualCps) {
+    let maxTravelMinutes: number | undefined;
+
+    // Deduplicate departure coords to avoid redundant API calls
+    const uniqueCoords = new Map<string, { lat: number; lng: number }>();
+    for (const dep of cp.departures) {
+      const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
+      if (!uniqueCoords.has(key)) uniqueCoords.set(key, dep.coords);
+    }
+
+    for (const [, coords] of uniqueCoords) {
+      try {
+        const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
+        if (result && result.travelTimeMinutes < 9999) {
+          const mins = Math.round(result.travelTimeMinutes);
+          if (maxTravelMinutes === undefined || mins > maxTravelMinutes) {
+            maxTravelMinutes = mins;
+          }
+        }
+      } catch (err) {
+        logger.debug(`BD Matcher: schedule-aware travel failed for ${cp.empName}: ${err}`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (maxTravelMinutes !== undefined) {
+      travelTimeMap.set(cp.empName, {
+        travelMinutes: maxTravelMinutes,
+        departureSource: cp.overallSource,
+        departureSummary: cp.departureSummary,
+      });
+    }
+  }
+
+  logger.debug(`BD Matcher: travel time complete — ${travelTimeMap.size} total (${batchCarCPs.length} car batch, ${batchNonCarCPs.length} walker batch, ${individualCps.length} schedule-aware individual)`);
   return travelTimeMap;
 }
 
@@ -657,7 +796,8 @@ export async function matchClientEnquiry(
   criteria: ClientEnquiryCriteria,
   analysis: CapacityAnalysis,
   branchId?: string,
-  storage?: any
+  storage?: any,
+  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>
 ): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
@@ -694,10 +834,29 @@ export async function matchClientEnquiry(
     }
   }
 
-  let travelTimeMap: Map<string, number> | undefined;
+  // Build datesByDay map (day abbrev → actual dates) for schedule-aware departure
+  const datesByDay = new Map<string, string[]>();
+  for (const dateStr of dates) {
+    const dayAbbrev = getDayAbbrev(dateStr);
+    const existing = datesByDay.get(dayAbbrev) || [];
+    existing.push(dateStr);
+    datesByDay.set(dayAbbrev, existing);
+  }
+
+  const enquiryStartMinutes = timeToMinutes(criteria.preferredTimeWindow.start);
+
+  let travelTimeMap: Map<string, TravelResult> | undefined;
   if (branchId && clientCoords) {
     try {
-      travelTimeMap = await buildTravelTimeMap(employeeWeeklyData, clientCoords, branchId);
+      travelTimeMap = await buildTravelTimeMap(
+        employeeWeeklyData,
+        clientCoords,
+        branchId,
+        employeeScheduleMap,
+        criteria.requiredDays,
+        datesByDay,
+        enquiryStartMinutes
+      );
     } catch (err) {
       logger.warn(`BD Matcher: travel time pre-computation failed, falling back to straight-line: ${err}`);
     }
@@ -729,7 +888,8 @@ export async function matchMultiVisitEnquiry(
   criteria: MultiVisitCriteria,
   analysis: CapacityAnalysis,
   branchId?: string,
-  storage?: any
+  storage?: any,
+  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>
 ): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
@@ -778,19 +938,39 @@ export async function matchMultiVisitEnquiry(
     }
   }
 
-  let travelTimeMap: Map<string, number> | undefined;
-  if (branchId && clientCoords) {
-    try {
-      travelTimeMap = await buildTravelTimeMap(employeeWeeklyData, clientCoords, branchId);
-    } catch (err) {
-      logger.warn(`BD Multi-Visit Matcher: travel time pre-computation failed, falling back to straight-line: ${err}`);
-    }
+  // Build datesByDay for schedule-aware departure point calculation
+  const datesByDay = new Map<string, string[]>();
+  for (const dateStr of dates) {
+    const dayAbbrev = getDayAbbrev(dateStr);
+    const existing = datesByDay.get(dayAbbrev) || [];
+    existing.push(dateStr);
+    datesByDay.set(dayAbbrev, existing);
   }
 
   const visitResults: VisitMatchResult[] = [];
 
   for (let i = 0; i < criteria.visits.length; i++) {
     const visit = criteria.visits[i];
+
+    // Build per-visit schedule-aware travel time map (each visit may have different time/days)
+    let travelTimeMap: Map<string, TravelResult> | undefined;
+    if (branchId && clientCoords) {
+      try {
+        const enquiryStartMinutes = timeToMinutes(visit.preferredTimeWindow.start);
+        travelTimeMap = await buildTravelTimeMap(
+          employeeWeeklyData,
+          clientCoords,
+          branchId,
+          employeeScheduleMap,
+          visit.requiredDays,
+          datesByDay,
+          enquiryStartMinutes
+        );
+      } catch (err) {
+        logger.warn(`BD Multi-Visit Matcher: travel time pre-computation failed for visit ${i}: ${err}`);
+      }
+    }
+
     const cpMatches: MatchedEmployee[] = [];
 
     for (let cpIdx = 0; cpIdx < visit.careProsRequired; cpIdx++) {
@@ -809,7 +989,7 @@ export async function matchMultiVisitEnquiry(
         employeeSummaryByDate,
         filteredNames,
         employeeWeeklyData,
-        50, // Increase topN for multi-visit matches
+        50,
         clientCoords,
         travelTimeMap
       );
@@ -827,7 +1007,7 @@ export async function matchMultiVisitEnquiry(
       employeeSummaryByDate,
       allEmployeeNames,
       employeeWeeklyData,
-      200, // Include all possible candidates regardless of day coverage
+      200,
       clientCoords,
       travelTimeMap
     );

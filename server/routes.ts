@@ -1759,7 +1759,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTimeWindow,
       };
 
-      const result = await matchClientEnquiry(criteria, latestData, branchId, storage);
+      // Build per-CP visit schedule from the GH Excel buffer (schedule-aware departure points)
+      let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
+      try {
+        const ghBuffer = await getLatestGuaranteedBuffer(branchId);
+        if (ghBuffer) {
+          const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
+          const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+          employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
+          logger.debug('BD Matcher: built employee schedule map', { employees: employeeScheduleMap.size });
+        }
+      } catch (err) {
+        logger.warn(`BD Matcher: could not build employee schedule map (will use home departure): ${err}`);
+      }
+
+      const result = await matchClientEnquiry(criteria, latestData, branchId, storage, employeeScheduleMap);
       res.json(result);
     } catch (error) {
       logger.error('BD Matcher error', error);
@@ -1795,7 +1809,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       };
 
-      const result = await matchMultiVisitEnquiry(multiCriteria, latestData, branchId, storage);
+      // Build per-CP visit schedule from the GH Excel buffer (schedule-aware departure points)
+      let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
+      try {
+        const ghBuffer = await getLatestGuaranteedBuffer(branchId);
+        if (ghBuffer) {
+          const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
+          const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+          employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
+          logger.debug('BD Multi-Visit Matcher: built employee schedule map', { employees: employeeScheduleMap.size });
+        }
+      } catch (err) {
+        logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map (will use home departure): ${err}`);
+      }
+
+      const result = await matchMultiVisitEnquiry(multiCriteria, latestData, branchId, storage, employeeScheduleMap);
       res.json(result);
     } catch (error) {
       logger.error('BD Multi-Visit Matcher error', error);

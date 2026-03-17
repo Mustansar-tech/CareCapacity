@@ -381,3 +381,166 @@ export async function extractClientVisitsFromGHExcel(
   logger.debug(`Extracted ${finalVisits.length} client visits from Guaranteed Hours Excel for ${dateStr}`);
   return finalVisits;
 }
+
+// ─── Per-employee schedule extraction ────────────────────────────────────────
+// Used by the BD Matcher to determine realistic departure points.
+
+export interface CpVisitEntry {
+  clientName: string;
+  startTime: string;  // HH:MM
+  endTime: string;    // HH:MM
+  lat?: number;
+  lng?: number;
+  postcode?: string;
+}
+
+const EMP_NAME_COLS = [
+  'Actual Employee Name',
+  'Planned Employee Name',
+  'Employee Name',
+  'CAREGiver Name',
+];
+
+/**
+ * Reads the GH Excel buffer and builds a per-employee visit schedule.
+ * Returns Map<employeeName, Map<date(yyyy-MM-dd), CpVisitEntry[]>>
+ * sorted by startTime within each day.
+ */
+export async function extractEmployeeVisitsFromGHExcel(
+  ghWorkbookBuffer: Buffer,
+  weekDates: string[],
+  branchId: string,
+  storage: any
+): Promise<Map<string, Map<string, CpVisitEntry[]>>> {
+  const result = new Map<string, Map<string, CpVisitEntry[]>>();
+
+  try {
+    const wb = await XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
+    const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
+
+    const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
+      header: 1,
+      raw: true,
+      blankrows: false,
+    }) as any[][];
+
+    let headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
+    if (headerIdx < 0) headerIdx = 0;
+
+    const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
+    const data = rows2d.slice(headerIdx + 1).map(r => {
+      const o: Record<string, any> = {};
+      headers.forEach((h, i) => (o[h] = r[i]));
+      return o;
+    });
+
+    const weekDatesSet = new Set(weekDates);
+    const clientLocationCache = new Map<string, { lat?: string; lng?: string; postcode?: string }>();
+
+    for (const row of data) {
+      // Skip cancelled visits
+      const cancelRaw = pickCol(row, [CANCEL_COL]);
+      if (String(cancelRaw ?? '').toLowerCase().includes('cancel')) continue;
+
+      // Get employee name
+      const empNameRaw = pickCol(row, EMP_NAME_COLS);
+      if (!empNameRaw) continue;
+      const empName = String(empNameRaw).trim();
+      if (!empName) continue;
+
+      // Get client name
+      const clientNameRaw = pickCol(row, CLIENT_COLS);
+      if (!clientNameRaw) continue;
+      const clientName = String(clientNameRaw).trim();
+      if (!clientName) continue;
+
+      // Skip office/admin/non-care visits
+      const clientNameLower = clientName.toLowerCase();
+      if (OFFICE_VISIT_KEYWORDS.some(kw => clientNameLower.includes(kw))) continue;
+
+      // Get and validate start time
+      const startRaw = pickCol(row, START_COLS);
+      const startDate = toDate(startRaw);
+      if (!startDate) continue;
+
+      const visitDate = fmt(startDate, 'yyyy-MM-dd');
+      if (!weekDatesSet.has(visitDate)) continue;
+
+      // Get duration / end time
+      let durationMinutes = NaN;
+      for (const c of DUR_COLS) {
+        const val = Number(pickCol(row, [c]));
+        if (!isFinite(val) || val <= 0) continue;
+        durationMinutes = (c === 'Template Duration (Minutes)')
+          ? Math.round(val)
+          : Math.round(val * 60);
+        break;
+      }
+      if (!isFinite(durationMinutes) || durationMinutes <= 0) continue;
+
+      const endRaw = pickCol(row, END_COLS);
+      const endDate = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
+      if (!endDate) continue;
+
+      // Skip overnight visits
+      if (fmt(startDate, 'yyyy-MM-dd') !== fmt(endDate, 'yyyy-MM-dd')) continue;
+
+      const startTime = fmt(startDate, 'HH:mm');
+      const endTime = fmt(endDate, 'HH:mm');
+
+      // Get postcode from dedicated column or address
+      let postcode: string | undefined;
+      const postcodeRaw = pickCol(row, POSTCODE_COLS);
+      if (postcodeRaw) {
+        postcode = String(postcodeRaw).trim().toUpperCase();
+      } else {
+        const addressRaw = pickCol(row, ADDRESS_COLS);
+        if (addressRaw) {
+          const m = String(addressRaw).match(/([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})/i);
+          if (m) postcode = m[1].toUpperCase();
+        }
+      }
+
+      // Lookup client location with in-memory cache
+      if (!clientLocationCache.has(clientName)) {
+        try {
+          const loc = await storage.getClientLocationByName(branchId, clientName);
+          clientLocationCache.set(clientName, {
+            lat: loc?.lat ?? undefined,
+            lng: loc?.lng ?? undefined,
+            postcode: loc?.postcode ?? postcode,
+          });
+        } catch {
+          clientLocationCache.set(clientName, { postcode });
+        }
+      }
+      const clientLoc = clientLocationCache.get(clientName)!;
+
+      const entry: CpVisitEntry = {
+        clientName,
+        startTime,
+        endTime,
+        lat: clientLoc.lat ? Number(clientLoc.lat) : undefined,
+        lng: clientLoc.lng ? Number(clientLoc.lng) : undefined,
+        postcode: clientLoc.postcode || postcode,
+      };
+
+      if (!result.has(empName)) result.set(empName, new Map());
+      const dayMap = result.get(empName)!;
+      if (!dayMap.has(visitDate)) dayMap.set(visitDate, []);
+      dayMap.get(visitDate)!.push(entry);
+    }
+  } catch (err) {
+    logger.warn(`extractEmployeeVisitsFromGHExcel: failed: ${err}`);
+  }
+
+  // Sort visits by startTime within each day
+  for (const [, dayMap] of result) {
+    for (const [, visits] of dayMap) {
+      visits.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    }
+  }
+
+  logger.debug(`extractEmployeeVisitsFromGHExcel: built schedules for ${result.size} employees`);
+  return result;
+}
