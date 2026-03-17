@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info, GripVertical, CheckCircle, XCircle, Target } from "lucide-react";
+import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info, GripVertical, CheckCircle, XCircle, Target, Lock } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache, haversineDistance, calculateTravelTime, parseTimeWindows } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
@@ -175,6 +176,7 @@ function DroppableEmployeeRow({
 
 export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const { toast } = useToast();
+  const { canGenerate, canEdit } = useAuth();
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
@@ -223,10 +225,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // DnD handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    if (!canEdit) {
+      toast({ title: "Access Denied", description: "Only Schedulers and Admins can edit schedules", variant: "destructive" });
+      return;
+    }
     const { visit, date } = event.active.data.current as { visit: ClientVisit & { unallocatedReason: string }; date: string };
     const visitWithDate = { ...visit, date };
     setActiveVisit(visitWithDate);
-  }, []);
+  }, [canEdit, toast]);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -1046,7 +1052,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
         <Button
           onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending || allWeekVisits.length === 0}
+          disabled={generateMutation.isPending || allWeekVisits.length === 0 || !canGenerate}
+          title={!canGenerate ? "Only Schedulers and Admins can generate schedules" : ""}
           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           data-testid="button-generate-weekly"
         >
@@ -1054,6 +1061,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Generating...
+            </>
+          ) : !canGenerate ? (
+            <>
+              <Lock className="h-4 w-4 mr-2" />
+              View Only
             </>
           ) : (
             <>

@@ -10,7 +10,7 @@ import { TravelTimeService, travelTimeService, type TransportMode } from './trav
 import { logger } from "./logger";
 import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from "./bdMatcher";
 import { registerAuthRoutes } from './auth-routes';
-import { requireAuth, auditLog } from './auth';
+import { requireAuth, requireRoleAtLeast, auditLog } from './auth';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -1307,7 +1307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Weekly schedule generation endpoint
-  app.post('/api/weekly-schedule/generate', async (req, res) => {
+  app.post('/api/weekly-schedule/generate', requireAuth, requireRoleAtLeast('scheduler'), async (req, res) => {
     try {
       const { weekStartDate } = req.body;
       const branchId = await resolveBranch(req);
@@ -1707,7 +1707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save/update weekly schedule
-  app.post('/api/weekly-schedule/save', async (req, res) => {
+  app.post('/api/weekly-schedule/save', requireAuth, requireRoleAtLeast('scheduler'), async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
       const { weekStartDate, weekEndDate, scheduleData, unallocatedVisits, metrics } = req.body;
