@@ -511,10 +511,10 @@ function CareProMap({
           </Marker>
         ))}
       </MapContainer>
-      <div className="absolute top-6 right-20 z-[1000] flex gap-3">
+      <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-2">
         <Button 
           onClick={() => setShowPostcodes(!showPostcodes)}
-          className="bg-white/95 hover:bg-white text-gray-900 font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
+          className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
           title={showPostcodes ? 'Hide postcodes' : 'Show postcodes'}
         >
           {showPostcodes ? (
@@ -533,10 +533,10 @@ function CareProMap({
           <Button 
             onClick={onRefresh} 
             disabled={isRefreshing}
-            className="bg-white/95 hover:bg-white text-gray-900 font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
+            className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
           >
             <RefreshCw className={`w-4 h-4 text-purple-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Map Data'}
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
         )}
       </div>
@@ -1747,13 +1747,17 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-none rounded-none bg-transparent">
-                  <div className="absolute top-6 right-6 z-50 p-4 rounded-2xl bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-gray-200/50 dark:border-gray-800/50 shadow-lg">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-[#5d51d5]" />
-                        <h2 className="text-lg font-black tracking-tight text-[#5d51d5] dark:text-gray-100">Care Pro Map</h2>
+                  <div className="absolute top-8 left-8 z-50 p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-gradient-to-br from-[#5d51d5] to-indigo-600 rounded-xl">
+                          <MapPin className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex flex-col">
+                          <h2 className="text-xl font-black tracking-tight text-gray-900 dark:text-white">Care Pro Map</h2>
+                          <p className="text-gray-500 dark:text-gray-400 font-bold text-[10px] uppercase tracking-[0.08em]">Geographic Distribution</p>
+                        </div>
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 font-semibold text-[9px] uppercase tracking-widest">Real-time distribution</p>
                     </div>
                   </div>
                   <div className="flex-1 relative bg-gray-100 overflow-hidden">
