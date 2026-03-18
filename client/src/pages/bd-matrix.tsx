@@ -1746,16 +1746,16 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                     View Care Pro Map
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
-                  <DialogHeader className="p-6 bg-[#f8f9ff] dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-                    <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight text-[#5d51d5] dark:text-gray-100">
-                      <MapPin className="w-7 h-7 text-[#5d51d5]" />
-                      Care Pro Strategic Map
-                    </DialogTitle>
-                    <DialogDescription className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">
-                      Real-time geographic distribution of care professionals
-                    </DialogDescription>
-                  </DialogHeader>
+                <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-none rounded-none bg-transparent">
+                  <div className="absolute top-6 right-6 z-50 p-4 rounded-2xl bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-gray-200/50 dark:border-gray-800/50 shadow-lg">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-[#5d51d5]" />
+                        <h2 className="text-lg font-black tracking-tight text-[#5d51d5] dark:text-gray-100">Care Pro Map</h2>
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400 font-semibold text-[9px] uppercase tracking-widest">Real-time distribution</p>
+                    </div>
+                  </div>
                   <div className="flex-1 relative bg-gray-100 overflow-hidden">
                     <CareProMap 
                       locations={locations} 
