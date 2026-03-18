@@ -689,7 +689,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
         <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
@@ -1833,7 +1833,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
       {/* BD Matrix Grid with Filter as First Column */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardContent className="p-0">
-          <div className="w-full overflow-y-auto max-h-[70vh]">
+          <div className="w-full overflow-x-auto overflow-y-auto max-h-[70vh]">
             <div className="min-w-[1000px]">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
