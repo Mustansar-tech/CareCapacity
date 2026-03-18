@@ -1771,7 +1771,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-none rounded-none bg-transparent">
-                  <div className="fixed top-8 left-8 z-50 p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl">
+                  <div className="absolute top-8 left-8 z-[1000] p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl pointer-events-auto">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-gradient-to-br from-[#5d51d5] to-indigo-600 rounded-xl">
