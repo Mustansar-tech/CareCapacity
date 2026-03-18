@@ -60,32 +60,10 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
         {/* Premium gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900" />
         
-        {/* Animated background elements */}
+        {/* Subtle animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <motion.div
-            className="absolute top-0 -left-96 w-[800px] h-[800px] bg-blue-600/15 rounded-full blur-3xl"
-            animate={{ 
-              x: [0, 50, 0],
-              y: [0, 30, 0]
-            }}
-            transition={{ 
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute bottom-0 -right-96 w-[800px] h-[800px] bg-emerald-600/15 rounded-full blur-3xl"
-            animate={{ 
-              x: [0, -50, 0],
-              y: [0, -30, 0]
-            }}
-            transition={{ 
-              duration: 10,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
+          <div className="absolute top-0 -left-96 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 -right-96 w-[800px] h-[800px] bg-emerald-600/10 rounded-full blur-3xl" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-blue-500/5 rounded-full blur-3xl" />
         </div>
 
@@ -102,31 +80,16 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             transition={{ duration: 1, ease: "easeOut", type: "spring", stiffness: 100, damping: 15 }}
             className="relative"
           >
-            {/* Multi-layer glow effect */}
+            {/* Subtle glow effect */}
             <motion.div
-              className="absolute -inset-20 bg-gradient-to-r from-blue-600/40 via-emerald-500/40 to-blue-600/40 rounded-full blur-3xl"
+              className="absolute -inset-20 bg-gradient-to-r from-blue-600/30 via-emerald-500/30 to-blue-600/30 rounded-full blur-3xl"
               animate={{ 
-                opacity: [0.4, 0.7, 0.4],
-                scale: [1, 1.2, 1]
-              }}
-              transition={{ 
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            />
-            
-            <motion.div
-              className="absolute -inset-12 bg-gradient-to-r from-blue-500/20 via-emerald-400/20 to-blue-500/20 rounded-full blur-2xl"
-              animate={{ 
-                opacity: [0.3, 0.6, 0.3],
-                scale: [1.1, 1.3, 1.1]
+                opacity: [0.3, 0.5, 0.3]
               }}
               transition={{ 
                 duration: 5,
                 repeat: Infinity,
-                ease: "easeInOut",
-                delay: 0.5
+                ease: "easeInOut"
               }}
             />
             
@@ -137,10 +100,10 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
                 boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1)"
               }}
               animate={{ 
-                y: [0, -15, 0]
+                y: [0, -8, 0]
               }}
               transition={{ 
-                duration: 5,
+                duration: 6,
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
@@ -150,10 +113,10 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
                 alt="Care Capacity Dashboard"
                 className="w-[280px] h-[280px] object-contain drop-shadow-2xl"
                 animate={{ 
-                  scale: [1, 1.08, 1]
+                  scale: [1, 1.03, 1]
                 }}
                 transition={{ 
-                  duration: 4,
+                  duration: 5,
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
