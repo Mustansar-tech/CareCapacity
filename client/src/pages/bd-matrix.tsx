@@ -1179,7 +1179,7 @@ function ClientEnquiryMatcher() {
                       <UserCheck className="w-6 h-6 text-[#5d51d5]" />
                     </div>
                     <div>
-                      <DialogTitle className="text-[28px] font-black tracking-tight text-gray-950 dark:text-gray-50 leading-tight">
+                      <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
                         Client Enquiry Matcher
                       </DialogTitle>
                       <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
