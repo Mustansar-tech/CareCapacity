@@ -238,9 +238,9 @@ function Router() {
   const { isReady, isLoadingBranches } = useBranch();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-20">
+      <main className="animate-fade-in pt-20 overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
