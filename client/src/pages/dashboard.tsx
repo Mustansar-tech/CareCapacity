@@ -1157,7 +1157,7 @@ export default function Dashboard() {
 
             {/* Data Period Information inside Overview */}
             <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info-overview">
-              <CardContent className="pt-6">
+              <CardContent className="p-6 pt-[8px] pb-[8px]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
