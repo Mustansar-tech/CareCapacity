@@ -109,6 +109,7 @@ export interface IStorage {
   saveCpScheduledVisits(visits: InsertCpScheduledVisit[]): Promise<void>;
   getCpScheduledVisitsByBranch(branchId: string, dates: string[]): Promise<CpScheduledVisit[]>;
   deleteCpScheduledVisitsByBranch(branchId: string): Promise<void>;
+  replaceCpScheduledVisits(branchId: string, visits: InsertCpScheduledVisit[]): Promise<void>;
 
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
   getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]>;
@@ -504,6 +505,19 @@ export class DatabaseStorage implements IStorage {
     await db.delete(cpScheduledVisits).where(eq(cpScheduledVisits.branchId, branchId));
   }
 
+  async replaceCpScheduledVisits(branchId: string, visitRows: InsertCpScheduledVisit[]): Promise<void> {
+    // Atomic delete + insert in a single transaction to avoid empty-state window
+    await db.transaction(async (tx) => {
+      await tx.delete(cpScheduledVisits).where(eq(cpScheduledVisits.branchId, branchId));
+      if (visitRows.length > 0) {
+        const BATCH = 500;
+        for (let i = 0; i < visitRows.length; i += BATCH) {
+          await tx.insert(cpScheduledVisits).values(visitRows.slice(i, i + BATCH));
+        }
+      }
+    });
+  }
+
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
     const [result] = await db.insert(routePlans).values(plan).returning();
     return result;
@@ -834,6 +848,10 @@ export class MemStorage implements IStorage {
   }
   async deleteCpScheduledVisitsByBranch(branchId: string): Promise<void> {
     Array.from(this.cpVisits.entries()).forEach(([id, v]) => { if (v.branchId === branchId) this.cpVisits.delete(id); });
+  }
+  async replaceCpScheduledVisits(branchId: string, visitRows: InsertCpScheduledVisit[]): Promise<void> {
+    await this.deleteCpScheduledVisitsByBranch(branchId);
+    await this.saveCpScheduledVisits(visitRows);
   }
 
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {

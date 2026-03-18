@@ -347,8 +347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const scheduleMap = await extractEmployeeVisitsFromGHExcel(
             guaranteedFile.buffer, weekDates, requestedBranchId, storage
           );
-          // Delete old CP visits for this branch, then insert fresh ones
-          await storage.deleteCpScheduledVisitsByBranch(requestedBranchId);
+          // Atomically replace CP visits for this branch (delete + insert in one transaction)
           const visitRows: import('@shared/schema').InsertCpScheduledVisit[] = [];
           for (const [cpName, dayMap] of scheduleMap) {
             for (const [date, entries] of dayMap) {
@@ -367,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
-          await storage.saveCpScheduledVisits(visitRows);
+          await storage.replaceCpScheduledVisits(requestedBranchId, visitRows);
           logger.info('Persisted CP scheduled visits to database', {
             branchId: requestedBranchId, employees: scheduleMap.size, totalVisits: visitRows.length
           });
