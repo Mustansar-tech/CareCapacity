@@ -632,6 +632,7 @@ export default function Dashboard() {
                 {isProcessing ? (
                   <TableSkeleton rows={7} />
                 ) : (
+                  <div className="w-full overflow-x-auto scroll-modern">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -823,6 +824,7 @@ export default function Dashboard() {
                       )) || []}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
 
                 {/* Drilldown Table */}
