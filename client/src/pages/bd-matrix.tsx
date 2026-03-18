@@ -406,7 +406,6 @@ function makeIcon(gender: string) {
     <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
     <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
     <circle cx="16" cy="16" r="4" fill="${color}"/>
-    <circle cx="24" cy="8" r="5" fill="#22c55e" stroke="white" stroke-width="2"/>
   </svg>`;
   return L.divIcon({
     html: svg,
@@ -426,7 +425,7 @@ function CareProMap({
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }) {
-  const [showPostcodes, setShowPostcodes] = useState(true);
+  const [showPostcodes, setShowPostcodes] = useState(false);
 
   const validLocations = useMemo(
     () => locations.filter(l => l.homeLat && l.homeLng),
