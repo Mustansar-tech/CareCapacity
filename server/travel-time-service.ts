@@ -108,6 +108,24 @@ export class TravelTimeService {
     return `${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}`;
   }
 
+  /**
+   * Read pre-warmed travel data directly from session cache (for cars with ORS Matrix pre-warm).
+   * Avoids making individual API calls — returns cached data or null if not found.
+   */
+  getCachedTravelTime(from: Location, to: Location, mode: string): { durationMinutes: number; distanceMeters: number; source: string } | null {
+    const sk = this.sessionKey(from.lat.toString(), from.lng.toString(), to.lat.toString(), to.lng.toString(), mode);
+    const cached = this._sessionCache.get(sk);
+    return cached || null;
+  }
+
+  /**
+   * Public OSRM fallback — use when ORS Matrix cache miss occurs.
+   * Free, reliable fallback to real roads if ORS pre-warm failed.
+   */
+  async fetchOSRMRouteFallback(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
+    return this.fetchOSRMRoute(from, to);
+  }
+
   private trackSource(source: string): void {
     const key = source as keyof TravelSourceStats;
     if (key in this._sourceStats) {

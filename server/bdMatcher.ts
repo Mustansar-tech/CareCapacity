@@ -893,7 +893,46 @@ async function buildTravelTimeMap(
 
     for (const [, { coords, deps }] of uniqueCoords) {
       try {
-        const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
+        let result;
+        
+        // For cars: read directly from pre-warmed ORS Matrix cache (no individual API calls)
+        // For walkers/public: use calculateTravelTime (TravelTime API or heuristic)
+        if (cp.isCar) {
+          // Cars have been pre-warmed via ORS Matrix batch
+          // Directly query the session cache without making individual API calls
+          const cacheData = travelTimeService.getCachedTravelTime(coords, clientCoords, 'car');
+          if (cacheData) {
+            result = {
+              fromLocation: coords,
+              toLocation: clientCoords,
+              distanceKm: (cacheData.distanceMeters || 0) / 1000,
+              travelTimeMinutes: cacheData.durationMinutes,
+              feasible: cacheData.durationMinutes <= 45, // car max travel threshold
+              penaltyScore: 0,
+              source: cacheData.source,
+            };
+          } else {
+            // Cache miss (should not happen if pre-warm succeeded) — use OSRM-only fallback
+            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} — using OSRM fallback`);
+            const osrmData = await travelTimeService.fetchOSRMRouteFallback(coords, clientCoords);
+            if (osrmData) {
+              result = {
+                fromLocation: coords,
+                toLocation: clientCoords,
+                distanceKm: osrmData.distanceMeters / 1000,
+                travelTimeMinutes: osrmData.durationMinutes,
+                feasible: osrmData.durationMinutes <= 45,
+                penaltyScore: 0,
+                source: 'osrm',
+              };
+            }
+          }
+        } else {
+          // Walkers/public: use TravelTime API with heuristic fallback
+          result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
+          await new Promise(resolve => setTimeout(resolve, 100)); // Throttle TravelTime API calls
+        }
+        
         if (result && result.travelTimeMinutes < 9999) {
           const mins = Math.round(result.travelTimeMinutes);
           if (maxTravelMinutes === undefined || mins > maxTravelMinutes) {
@@ -907,10 +946,6 @@ async function buildTravelTimeMap(
         }
       } catch (err) {
         logger.debug(`BD Matcher: schedule-aware travel failed for ${cp.empName}: ${err}`);
-      }
-      // Only throttle for walkers/public; cars use cached ORS data
-      if (cp.mode !== 'car') {
-        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
