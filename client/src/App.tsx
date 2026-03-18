@@ -207,7 +207,7 @@ function Navigation() {
               <img
                 src={homeInsteadLogo}
                 alt="Care Capacity Dashboard"
-                className="h-16 w-16 rounded-full object-cover border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
+                className="h-12 w-auto rounded-lg object-contain border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
               />
             </div>
             <div className="hidden sm:block">

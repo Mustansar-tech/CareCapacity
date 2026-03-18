@@ -74,12 +74,12 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative"
           >
-            <div className="absolute inset-0 bg-white/20 rounded-3xl blur-xl scale-110" />
-            <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-full p-0 shadow-2xl overflow-hidden flex items-center justify-center w-64 h-64">
+            <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl scale-110" />
+            <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-0 shadow-2xl overflow-hidden flex items-center justify-center w-96 h-48">
               <img
                 src={splashLogo}
                 alt="Care Capacity Dashboard"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain px-6"
               />
             </div>
           </motion.div>
