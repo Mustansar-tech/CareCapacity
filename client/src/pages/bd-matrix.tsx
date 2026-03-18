@@ -1811,24 +1811,6 @@ export default function BDMatrix({ data }: BDMatrixProps) {
             Quick view of staff availability across standard time blocks for business development decisions
           </p>
         </CardHeader>
-        <CardContent className="p-4">
-          {/* Legend */}
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Legend:</span>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">0-1 employees</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800/50"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">2-3 employees</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">4+ employees</span>
-            </div>
-          </div>
-        </CardContent>
       </Card>
       {/* BD Matrix Grid with Filter as First Column */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
