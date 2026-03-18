@@ -625,16 +625,6 @@ function matchEmployeesForVisit(
       departureSource = travelResult.departureSource;
       departureSummary = travelResult.departureSummary;
       
-      // Use per-day departure info if available (for schedule-aware CPs with different departures per day)
-      if (travelResult.departureSummaryByDay) {
-        const dayKey = reqDay.toLowerCase(); // mon, tue, wed, etc.
-        const dayInfo = travelResult.departureSummaryByDay.get(dayKey);
-        if (dayInfo) {
-          departureSource = dayInfo.source;
-          departureSummary = dayInfo.summary;
-        }
-      }
-      
       // Hard filter: car CPs >45 min, walker/public CPs >60 min
       const maxAllowed = isCar ? 45 : 60;
       if (travelMinutes > maxAllowed) continue;
@@ -657,6 +647,22 @@ function matchEmployeesForVisit(
     if (alternativeDayMatches > 0) overallMatchType = 'alternative-day';
     else if (adjustedTimeMatches > 0) overallMatchType = 'adjusted-time';
 
+    // For schedule-aware CPs, use the departure info from the first matched day
+    let finalDepartureSummary = departureSummary;
+    let finalDepartureSource = departureSource;
+    if (travelTimeMap && travelTimeMap.has(empName) && matchedSlots.length > 0) {
+      const travelResult = travelTimeMap.get(empName)!;
+      if (travelResult.departureSummaryByDay) {
+        const firstSlot = matchedSlots[0];
+        const slotDayAbbrev = getDayAbbrev(firstSlot.day).toLowerCase();
+        const dayInfo = travelResult.departureSummaryByDay.get(slotDayAbbrev);
+        if (dayInfo) {
+          finalDepartureSummary = dayInfo.summary;
+          finalDepartureSource = dayInfo.source;
+        }
+      }
+    }
+
     candidates.push({
       employeeName: empName,
       matchType: overallMatchType,
@@ -665,8 +671,8 @@ function matchEmployeesForVisit(
       transportMode: weeklyData.transportMode,
       homePostcode: weeklyData.homePostcode,
       travelMinutes,
-      departureSource,
-      departureSummary,
+      departureSource: finalDepartureSource,
+      departureSummary: finalDepartureSummary,
       contractedWeeklyHours: weeklyData.contractedWeekly,
       totalScheduledHours: weeklyData.totalScheduled,
       remainingCapacity,
