@@ -790,34 +790,65 @@ async function buildTravelTimeMap(
     }
   }
 
-  // ── Batch path: home-departure car CPs via ORS Matrix ──
+  // ── SINGLE ORS Matrix batch pre-warm: ALL car sources (home + last-client) → enquiry ──
   const batchCarCPs = homeBatchCps.filter(c => c.isCar);
   const batchNonCarCPs = homeBatchCps.filter(c => !c.isCar);
+  const carIndividualCps = individualCps.filter(c => c.isCar);
 
-  if (batchCarCPs.length > 0) {
-    try {
-      const sources = batchCarCPs.map(c => c.homeCoords);
-      await travelTimeService.orsMatrixBatch(sources, [clientCoords]);
-      for (const cp of batchCarCPs) {
-        try {
-          const result = await travelTimeService.calculateTravelTime(branchId, cp.homeCoords, clientCoords, 'car');
-          if (result && result.travelTimeMinutes < 9999) {
-            travelTimeMap.set(cp.empName, {
-              travelMinutes: Math.round(result.travelTimeMinutes),
-              departureSource: 'home',
-              departureSummary: 'home',
-            });
-          }
-        } catch (err) {
-          logger.debug(`BD Matcher: car batch read failed for ${cp.empName}: ${err}`);
-        }
-      }
-      logger.debug(`BD Matcher: ORS Matrix batch ${batchCarCPs.length} car CPs → ${travelTimeMap.size} results`);
-    } catch (err) {
-      logger.warn(`BD Matcher: ORS Matrix batch failed, car CPs will use straight-line fallback: ${err}`);
+  // Collect all unique car departure coords (home + last-client)
+  const allCarSources: Array<{ lat: number; lng: number }> = [];
+  const seenSources = new Set<string>();
+
+  // 1. Add home departure coords
+  for (const cp of batchCarCPs) {
+    const key = `${cp.homeCoords.lat.toFixed(5)},${cp.homeCoords.lng.toFixed(5)}`;
+    if (!seenSources.has(key)) {
+      allCarSources.push(cp.homeCoords);
+      seenSources.add(key);
     }
   }
 
+  // 2. Add last-client departure coords
+  for (const cp of carIndividualCps) {
+    for (const dep of cp.departures) {
+      if (dep.source === 'last-client') {
+        const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
+        if (!seenSources.has(key)) {
+          allCarSources.push(dep.coords);
+          seenSources.add(key);
+        }
+      }
+    }
+  }
+
+  // 3. ONE ORS Matrix batch: all car sources → enquiry postcode
+  if (allCarSources.length > 0) {
+    try {
+      logger.debug(`BD Matcher: pre-warming ORS Matrix for ${allCarSources.length} unique car locations (home + last-client) → enquiry`);
+      await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
+    } catch (err) {
+      logger.warn(`BD Matcher: ORS Matrix batch failed, cars will use OSRM fallback: ${err}`);
+    }
+  }
+
+  // ── Home departure cars: read from cache ──
+  for (const cp of batchCarCPs) {
+    try {
+      const cacheData = travelTimeService.getCachedTravelTime(cp.homeCoords, clientCoords, 'car');
+      if (cacheData && cacheData.durationMinutes < 9999) {
+        travelTimeMap.set(cp.empName, {
+          travelMinutes: cacheData.durationMinutes,
+          departureSource: 'home',
+          departureSummary: 'home',
+        });
+      }
+    } catch (err) {
+      logger.debug(`BD Matcher: car batch read failed for ${cp.empName}: ${err}`);
+    }
+  }
+  logger.debug(`BD Matcher: ${batchCarCPs.length} home-departure cars → ${Array.from(travelTimeMap.entries()).filter(([, v]) => v.departureSource === 'home').length} cached results`);
+
+  // ── Non-car home departures: use TravelTime API / heuristic ──
   for (const cp of batchNonCarCPs) {
     try {
       const result = await travelTimeService.calculateTravelTime(branchId, cp.homeCoords, clientCoords, cp.mode as any);
@@ -832,35 +863,6 @@ async function buildTravelTimeMap(
       logger.debug(`BD Matcher: walker travel time failed for ${cp.empName}: ${err}`);
     }
     await new Promise(resolve => setTimeout(resolve, 150));
-  }
-
-  // ── Pre-warm ORS Matrix for last-client departures (car only) ──
-  // Collect unique last-client coords from cars only (walkers/public use different calculation)
-  const carIndividualCps = individualCps.filter(c => c.isCar);
-  if (carIndividualCps.length > 0) {
-    const lastClientCoords: Array<{ lat: number; lng: number }> = [];
-    const seenCoords = new Set<string>();
-    for (const cp of carIndividualCps) {
-      for (const dep of cp.departures) {
-        if (dep.source === 'last-client') {
-          const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
-          if (!seenCoords.has(key)) {
-            lastClientCoords.push(dep.coords);
-            seenCoords.add(key);
-          }
-        }
-      }
-    }
-    
-    // Pre-warm: last-client → enquiry postcode (ORS Matrix batch)
-    if (lastClientCoords.length > 0) {
-      try {
-        logger.debug(`BD Matcher: pre-warming ORS Matrix for ${lastClientCoords.length} unique last-client locations → enquiry`);
-        await travelTimeService.orsMatrixBatch(lastClientCoords, [clientCoords]);
-      } catch (err) {
-        logger.warn(`BD Matcher: ORS Matrix pre-warm for last-client departures failed: ${err}`);
-      }
-    }
   }
 
   // ── Individual path: last-client departure CPs (calculate per day, take max) ──
