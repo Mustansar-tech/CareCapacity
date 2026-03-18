@@ -417,9 +417,9 @@ export default function AdminPage() {
 
         {/* Back Button */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="mb-6"
+          className="mb-6 flex justify-end"
         >
           <Button 
             onClick={() => navigate('/')}
