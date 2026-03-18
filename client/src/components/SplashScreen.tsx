@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import homeInsteadLogo from "@/assets/logo.png";
+import splashLogo from "@/assets/splash-logo.png";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -77,7 +77,7 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             <div className="absolute inset-0 bg-white/20 rounded-3xl blur-xl scale-110" />
             <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-full p-0 shadow-2xl overflow-hidden flex items-center justify-center w-64 h-64">
               <img
-                src={homeInsteadLogo}
+                src={splashLogo}
                 alt="Care Capacity Dashboard"
                 className="w-full h-full object-cover"
               />
