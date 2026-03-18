@@ -1800,9 +1800,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
         const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
-        logger.info('BD Matcher: querying CP visits from DB', { dates: analysisDateKeys.length, branchId });
+        logger.info('BD Matcher: querying CP visits from DB', { 
+          dates: analysisDateKeys.length, 
+          datesSample: analysisDateKeys.slice(0, 5),
+          branchId,
+          requiredDays: req.body.requiredDays
+        });
         const dbVisits = await storage.getCpScheduledVisitsByBranch(branchId, analysisDateKeys);
-        logger.info('BD Matcher: DB CP visits retrieved', { count: dbVisits.length });
+        logger.info('BD Matcher: DB CP visits retrieved', { 
+          count: dbVisits.length,
+          cpNamesSample: dbVisits.length > 0 ? [...new Set(dbVisits.slice(0, 10).map(v => v.cpName))] : []
+        });
         if (dbVisits.length > 0) {
           employeeScheduleMap = new Map();
           for (const v of dbVisits) {
@@ -1824,12 +1832,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               visits.sort((a, b) => a.startTime.localeCompare(b.startTime));
             }
           }
-          logger.info('BD Matcher: built schedule map from DB', { employees: employeeScheduleMap.size });
+          logger.info('BD Matcher: built schedule map from DB', { 
+            employees: employeeScheduleMap.size,
+            sample: Array.from(employeeScheduleMap.keys()).slice(0, 5)
+          });
         } else {
-          logger.warn('BD Matcher: no CP visits in DB for these dates — CPs will default to home departure. Upload Excel files to enable schedule-aware departure.');
+          logger.warn('BD Matcher: no CP visits in DB for these dates — CPs will default to home departure.', {
+            queryDates: analysisDateKeys.length,
+            branchId,
+            requiredDays: req.body.requiredDays
+          });
         }
       } catch (err) {
-        logger.warn(`BD Matcher: could not build employee schedule map from DB: ${err}`);
+        logger.error(`BD Matcher: could not build employee schedule map from DB`, { error: String(err), stack: err instanceof Error ? err.stack : null });
       }
 
       const result = await matchClientEnquiry(criteria, latestData, branchId, storage, employeeScheduleMap);
