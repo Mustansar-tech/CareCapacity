@@ -998,11 +998,19 @@ export async function matchClientEnquiry(
         }
       }
 
-      // 4. Pre-warm ORS Matrix: all cars → all destinations (batched)
+      // 4. Pre-warm ORS Matrix: all cars → all destinations (split into chunks to respect 3500 route limit)
       if (carHomeCoords.length > 0 && allDestinationCoords.length > 0) {
         const { travelTimeService } = await import('./travel-time-service');
         logger.debug(`BD Matcher: pre-warming ORS Matrix for ${carHomeCoords.length} car homes × ${allDestinationCoords.length} destinations`);
-        await travelTimeService.orsMatrixBatch(carHomeCoords, allDestinationCoords);
+        
+        // ORS Matrix limit: 3500 routes per request (sources × destinations)
+        // Split sources into chunks of 50 to stay under limit
+        const sourceChunkSize = Math.max(1, Math.floor(3500 / allDestinationCoords.length));
+        for (let i = 0; i < carHomeCoords.length; i += sourceChunkSize) {
+          const sourceChunk = carHomeCoords.slice(i, i + sourceChunkSize);
+          logger.debug(`BD Matcher: ORS batch ${Math.floor(i / sourceChunkSize) + 1}/${Math.ceil(carHomeCoords.length / sourceChunkSize)} (${sourceChunk.length} sources)`);
+          await travelTimeService.orsMatrixBatch(sourceChunk, allDestinationCoords);
+        }
       }
 
       // 5. Now calculate travel times (will use cached ORS Matrix data, no individual API calls)
