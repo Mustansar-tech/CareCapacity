@@ -1755,7 +1755,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
     <div className="space-y-6">
       {/* Header */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
-        <CardHeader className="bg-[#f8f9ff] dark:bg-gray-900/50 rounded-t-lg">
+        <CardHeader className="bg-[#f8f9ff] dark:bg-gray-900/50 rounded-t-lg pt-[8px] pb-[8px]">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-semibold text-[#5d51d5] flex items-center gap-3">
               <Users className="w-6 h-6 text-[#5d51d5]" />
