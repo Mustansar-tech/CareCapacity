@@ -7,9 +7,12 @@
  *   3. OSRM public API (real road, free, no key)
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
- * Walker / public transport employees:
+ * Walker employees:
+ *   Uses ONLY Haversine heuristic (no TravelTime API)
+ *
+ * Public transport employees:
  *   All distances:
- *     1. TravelTime API — walking (walking employees) or public_transport (public employees)
+ *     1. TravelTime API — public_transport
  *     2. Haversine heuristic fallback (if TravelTime fails or unavailable)
  *
  * Prewarm (pre-cache phase):
@@ -177,59 +180,53 @@ export class TravelTimeService {
   }
 
   /**
-   * Geocode a UK postcode using TravelTime's own geocoding API.
-   * Crucially, the coordinates returned here are exactly what TravelTime uses internally
-   * when the playground resolves a postcode — so routing queries using these coordinates
-   * will match playground results instead of drifting due to third-party geocoder offsets.
-   * Results are cached in-memory for the lifetime of this service instance.
+   * [COMMENTED OUT] TravelTime geocoding API
+   * TravelTime API is disabled for walkers. Using Haversine heuristic only.
    */
   async geocodePostcode(postcode: string): Promise<{ lat: number; lng: number } | null> {
-    if (!this.hasTravelTimeCredentials()) return null;
-    const key = postcode.trim().toUpperCase().replace(/\s+/g, '');
-    // Return cached result (including null for previously-failed lookups — avoids repeat calls)
-    if (this._ttGeoCache.has(key)) return this._ttGeoCache.get(key) ?? null;
-    try {
-      const url = `https://api.traveltimeapp.com/v4/geocoding/search?query=${encodeURIComponent(postcode)}&limit=1`;
-      const response = await fetch(url, {
-        headers: {
-          'X-Application-Id': this.TRAVELTIME_APP_ID!,
-          'X-Api-Key': this.TRAVELTIME_API_KEY!,
-          'Accept': 'application/json',
-          'Accept-Language': 'en',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const feature = data?.features?.[0];
-        if (feature?.geometry?.coordinates) {
-          const [lng, lat] = feature.geometry.coordinates as [number, number];
-          const result = { lat, lng };
-          this._ttGeoCache.set(key, result);
-          logger.info(`[TT Geocode] ${postcode} → (${lat.toFixed(4)},${lng.toFixed(4)})`);
-          return result;
-        }
-        // No feature returned — cache null so we don't retry
-        logger.warn(`TravelTime geocoding: no result for "${postcode}"`);
-        this._ttGeoCache.set(key, null);
-      } else {
-        const errText = await response.text();
-        logger.warn(`TravelTime geocoding failed for "${postcode}" (${response.status}): ${errText.slice(0, 200)}`);
-        // Cache null to prevent hammering a failing endpoint with the same postcode
-        this._ttGeoCache.set(key, null);
-      }
-    } catch (e) {
-      logger.warn(`TravelTime geocoding error for "${postcode}":`, e instanceof Error ? e.message : e);
-      this._ttGeoCache.set(key, null);
-    }
+    // if (!this.hasTravelTimeCredentials()) return null;
+    // const key = postcode.trim().toUpperCase().replace(/\s+/g, '');
+    // // Return cached result (including null for previously-failed lookups — avoids repeat calls)
+    // if (this._ttGeoCache.has(key)) return this._ttGeoCache.get(key) ?? null;
+    // try {
+    //   const url = `https://api.traveltimeapp.com/v4/geocoding/search?query=${encodeURIComponent(postcode)}&limit=1`;
+    //   const response = await fetch(url, {
+    //     headers: {
+    //       'X-Application-Id': this.TRAVELTIME_APP_ID!,
+    //       'X-Api-Key': this.TRAVELTIME_API_KEY!,
+    //       'Accept': 'application/json',
+    //       'Accept-Language': 'en',
+    //     },
+    //   });
+    //   if (response.ok) {
+    //     const data = await response.json();
+    //     const feature = data?.features?.[0];
+    //     if (feature?.geometry?.coordinates) {
+    //       const [lng, lat] = feature.geometry.coordinates as [number, number];
+    //       const result = { lat, lng };
+    //       this._ttGeoCache.set(key, result);
+    //       logger.info(`[TT Geocode] ${postcode} → (${lat.toFixed(4)},${lng.toFixed(4)})`);
+    //       return result;
+    //     }
+    //     // No feature returned — cache null so we don't retry
+    //     logger.warn(`TravelTime geocoding: no result for "${postcode}"`);
+    //     this._ttGeoCache.set(key, null);
+    //   } else {
+    //     const errText = await response.text();
+    //     logger.warn(`TravelTime geocoding failed for "${postcode}" (${response.status}): ${errText.slice(0, 200)}`);
+    //     // Cache null to prevent hammering a failing endpoint with the same postcode
+    //     this._ttGeoCache.set(key, null);
+    //   }
+    // } catch (e) {
+    //   logger.warn(`TravelTime geocoding error for "${postcode}":`, e instanceof Error ? e.message : e);
+    //   this._ttGeoCache.set(key, null);
+    // }
     return null;
   }
 
   /**
-   * TravelTime single-search API — point-to-point walking or public transport time.
-   * Uses arrival_searches: "arrive at destination BY arrivalTime, how long is the journey?"
-   * Picks walking vs public_transport automatically based on straight-line distance:
-   *   ≤ 1.6 km  → walking (faster, no bus waiting time)
-   *   > 1.6 km  → public_transport (bus/train is the realistic option)
+   * [COMMENTED OUT] TravelTime single-search API
+   * TravelTime API is disabled for walkers. Using Haversine heuristic only.
    */
   private async fetchTravelTimeSingle(
     from: Location,
@@ -239,99 +236,96 @@ export class TravelTimeService {
     forceMode?: string,
     departureTime?: Date
   ): Promise<{ durationMinutes: number } | null> {
-    if (!this.hasTravelTimeCredentials()) return null;
-
-    try {
-      const transportation = forceMode ?? this.toTravelTimeTransport(distanceKm);
-
-      // Use departure_searches when a departure time is given (return-home / break-departure legs).
-      // Use arrival_searches when an arrival deadline is given (client visit legs).
-      let body: object;
-      if (departureTime) {
-        const departure = departureTime.toISOString();
-        body = {
-          locations: [
-            { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
-            { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
-          ],
-          departure_searches: [
-            {
-              id: 'search',
-              departure_location_id: 'origin',
-              arrival_location_ids: ['destination'],
-              transportation: { type: transportation },
-              departure_time: departure,
-              travel_time: 7200,
-              properties: ['travel_time'],
-            },
-          ],
-        };
-      } else {
-        const arrival = (arrivalTime || new Date()).toISOString();
-        body = {
-          locations: [
-            { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
-            { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
-          ],
-          arrival_searches: [
-            {
-              id: 'search',
-              arrival_location_id: 'destination',
-              departure_location_ids: ['origin'],
-              transportation: { type: transportation },
-              arrival_time: arrival,
-              travel_time: 7200,
-              properties: ['travel_time'],
-            },
-          ],
-        };
-      }
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
-
-      const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
-        method: 'POST',
-        headers: {
-          'X-Application-Id': this.TRAVELTIME_APP_ID!,
-          'X-Api-Key': this.TRAVELTIME_API_KEY!,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (response.ok) {
-        const data = await response.json();
-        const results = data?.results?.[0]?.locations;
-        if (results && results.length > 0) {
-          const travelTimeSec = results[0]?.properties?.[0]?.travel_time;
-          if (travelTimeSec != null) {
-            return { durationMinutes: Math.max(1, Math.round(travelTimeSec / 60)) };
-          }
-        }
-        logger.debug(`TravelTime single: unreachable (${departureTime ? 'depart' : 'arrive'} ${transportation}, ${distanceKm.toFixed(2)}km)`);
-        return null;
-      } else {
-        const errText = await response.text();
-        logger.warn(`TravelTime single API error (${response.status}): ${errText.slice(0, 200)}`);
-        return null;
-      }
-    } catch (error) {
-      logger.warn('TravelTime single fetch failed:', error instanceof Error ? error.message : error);
-      return null;
-    }
+    // if (!this.hasTravelTimeCredentials()) return null;
+    //
+    // try {
+    //   const transportation = forceMode ?? this.toTravelTimeTransport(distanceKm);
+    //
+    //   // Use departure_searches when a departure time is given (return-home / break-departure legs).
+    //   // Use arrival_searches when an arrival deadline is given (client visit legs).
+    //   let body: object;
+    //   if (departureTime) {
+    //     const departure = departureTime.toISOString();
+    //     body = {
+    //       locations: [
+    //         { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
+    //         { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
+    //       ],
+    //       departure_searches: [
+    //         {
+    //           id: 'search',
+    //           departure_location_id: 'origin',
+    //           arrival_location_ids: ['destination'],
+    //           transportation: { type: transportation },
+    //           departure_time: departure,
+    //           travel_time: 7200,
+    //           properties: ['travel_time'],
+    //         },
+    //       ],
+    //     };
+    //   } else {
+    //     const arrival = (arrivalTime || new Date()).toISOString();
+    //     body = {
+    //       locations: [
+    //         { id: 'origin', coords: { lat: from.lat, lng: from.lng } },
+    //         { id: 'destination', coords: { lat: to.lat, lng: to.lng } },
+    //       ],
+    //       arrival_searches: [
+    //         {
+    //           id: 'search',
+    //           arrival_location_id: 'destination',
+    //           departure_location_ids: ['origin'],
+    //           transportation: { type: transportation },
+    //           arrival_time: arrival,
+    //           travel_time: 7200,
+    //           properties: ['travel_time'],
+    //         },
+    //       ],
+    //     };
+    //   }
+    //
+    //   const controller = new AbortController();
+    //   const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
+    //
+    //   const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
+    //     method: 'POST',
+    //     headers: {
+    //       'X-Application-Id': this.TRAVELTIME_APP_ID!,
+    //       'X-Api-Key': this.TRAVELTIME_API_KEY!,
+    //       'Content-Type': 'application/json',
+    //       'Accept': 'application/json',
+    //     },
+    //     body: JSON.stringify(body),
+    //     signal: controller.signal,
+    //   });
+    //   clearTimeout(timeout);
+    //
+    //   if (response.ok) {
+    //     const data = await response.json();
+    //     const results = data?.results?.[0]?.locations;
+    //     if (results && results.length > 0) {
+    //       const travelTimeSec = results[0]?.properties?.[0]?.travel_time;
+    //       if (travelTimeSec != null) {
+    //         return { durationMinutes: Math.max(1, Math.round(travelTimeSec / 60)) };
+    //       }
+    //     }
+    //     logger.debug(`TravelTime single: unreachable (${departureTime ? 'depart' : 'arrive'} ${transportation}, ${distanceKm.toFixed(2)}km)`);
+    //     return null;
+    //   } else {
+    //     const errText = await response.text();
+    //     logger.warn(`TravelTime single API error (${response.status}): ${errText.slice(0, 200)}`);
+    //     return null;
+    //   }
+    // } catch (error) {
+    //   logger.warn('TravelTime single fetch failed:', error instanceof Error ? error.message : error);
+    //   return null;
+    // }
+    return null;
   }
 
   /**
-   * TravelTime Matrix (arrival_searches) — "arrive at arrivalLocation BY arrivalTime,
-   * departing from each of departureLocations — how long is each journey?"
-   *
-   * travelType should be 'walking' or 'public_transport'.
-   * Returns a map: departureLocationIndex → durationMinutes, or null on API failure.
-   * Indices not in the map are unreachable (no feasible route).
+   * [COMMENTED OUT] TravelTime Matrix API
+   * TravelTime API is disabled for walkers. Using Haversine heuristic only.
    */
   private async fetchTravelTimeMatrix(
     arrivalLocation: { lat: number; lng: number },
@@ -339,75 +333,76 @@ export class TravelTimeService {
     travelType: string,
     arrivalTime?: Date
   ): Promise<Map<number, number> | null> {
-    if (!this.hasTravelTimeCredentials() || departureLocations.length === 0) return null;
-
-    try {
-      const arrival = (arrivalTime || new Date()).toISOString();
-
-      const locations = [
-        { id: 'arrival', coords: { lat: arrivalLocation.lat, lng: arrivalLocation.lng } },
-        ...departureLocations.map((d, i) => ({ id: `dep_${i}`, coords: { lat: d.lat, lng: d.lng } })),
-      ];
-
-      const body = {
-        locations,
-        arrival_searches: [
-          {
-            id: 'matrix',
-            arrival_location_id: 'arrival',
-            departure_location_ids: departureLocations.map((_, i) => `dep_${i}`),
-            transportation: { type: travelType },
-            arrival_time: arrival,
-            travel_time: 7200,
-            properties: ['travel_time'],
-          },
-        ],
-      };
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
-
-      const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
-        method: 'POST',
-        headers: {
-          'X-Application-Id': this.TRAVELTIME_APP_ID!,
-          'X-Api-Key': this.TRAVELTIME_API_KEY!,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (response.ok) {
-        const data = await response.json();
-        const result0 = data?.results?.[0];
-        const reachable = result0?.locations || [];
-        const unreachable: string[] = result0?.unreachable || [];
-        if (unreachable.length > 0) {
-          logger.info(`TravelTime matrix (${travelType}): ${reachable.length} reachable, ${unreachable.length} unreachable departures`);
-        }
-        const resultMap = new Map<number, number>();
-        for (const loc of reachable) {
-          const match = loc.id?.match(/^dep_(\d+)$/);
-          if (!match) continue;
-          const idx = parseInt(match[1], 10);
-          const travelTimeSec = loc?.properties?.[0]?.travel_time;
-          if (travelTimeSec != null) {
-            resultMap.set(idx, Math.max(1, Math.round(travelTimeSec / 60)));
-          }
-        }
-        return resultMap;
-      } else {
-        const errText = await response.text();
-        logger.warn(`TravelTime matrix API error (${response.status}): ${errText.slice(0, 200)}`);
-        return null;
-      }
-    } catch (error) {
-      logger.warn('TravelTime matrix fetch failed:', error instanceof Error ? error.message : error);
-      return null;
-    }
+    // if (!this.hasTravelTimeCredentials() || departureLocations.length === 0) return null;
+    //
+    // try {
+    //   const arrival = (arrivalTime || new Date()).toISOString();
+    //
+    //   const locations = [
+    //     { id: 'arrival', coords: { lat: arrivalLocation.lat, lng: arrivalLocation.lng } },
+    //     ...departureLocations.map((d, i) => ({ id: `dep_${i}`, coords: { lat: d.lat, lng: d.lng } })),
+    //   ];
+    //
+    //   const body = {
+    //     locations,
+    //     arrival_searches: [
+    //       {
+    //         id: 'matrix',
+    //         arrival_location_id: 'arrival',
+    //         departure_location_ids: departureLocations.map((_, i) => `dep_${i}`),
+    //         transportation: { type: travelType },
+    //         arrival_time: arrival,
+    //         travel_time: 7200,
+    //         properties: ['travel_time'],
+    //       },
+    //     ],
+    //   };
+    //
+    //   const controller = new AbortController();
+    //   const timeout = setTimeout(() => controller.abort(), TRAVELTIME_TIMEOUT_MS);
+    //
+    //   const response = await fetch('https://api.traveltimeapp.com/v4/time-filter', {
+    //     method: 'POST',
+    //     headers: {
+    //       'X-Application-Id': this.TRAVELTIME_APP_ID!,
+    //       'X-Api-Key': this.TRAVELTIME_API_KEY!,
+    //       'Content-Type': 'application/json',
+    //       'Accept': 'application/json',
+    //     },
+    //     body: JSON.stringify(body),
+    //     signal: controller.signal,
+    //   });
+    //   clearTimeout(timeout);
+    //
+    //   if (response.ok) {
+    //     const data = await response.json();
+    //     const result0 = data?.results?.[0];
+    //     const reachable = result0?.locations || [];
+    //     const unreachable: string[] = result0?.unreachable || [];
+    //     if (unreachable.length > 0) {
+    //       logger.info(`TravelTime matrix (${travelType}): ${reachable.length} reachable, ${unreachable.length} unreachable departures`);
+    //     }
+    //     const resultMap = new Map<number, number>();
+    //     for (const loc of reachable) {
+    //       const match = loc.id?.match(/^dep_(\d+)$/);
+    //       if (!match) continue;
+    //       const idx = parseInt(match[1], 10);
+    //       const travelTimeSec = loc?.properties?.[0]?.travel_time;
+    //       if (travelTimeSec != null) {
+    //         resultMap.set(idx, Math.max(1, Math.round(travelTimeSec / 60)));
+    //       }
+    //     }
+    //     return resultMap;
+    //   } else {
+    //     const errText = await response.text();
+    //     logger.warn(`TravelTime matrix API error (${response.status}): ${errText.slice(0, 200)}`);
+    //     return null;
+    //   }
+    // } catch (error) {
+    //   logger.warn('TravelTime matrix fetch failed:', error instanceof Error ? error.message : error);
+    //   return null;
+    // }
+    return null;
   }
 
   /**
@@ -527,37 +522,51 @@ export class TravelTimeService {
     //   logger.error("Cache lookup failed:", e);
     // }
 
-    // 2. Walker / public transport — TravelTime API with Haversine fallback
+    // 2. Walker / public transport — Use Haversine heuristic for walkers, TravelTime for public transport
     if (isNonCar) {
       const distKm = this.calculateHaversineDistance(from, to);
 
-      // 2a. All distances → TravelTime API
-      // Walking employees use TravelTime 'walking'; public employees use 'public_transport'
-      const ttMode = transportMode === 'walking' ? 'walking' : 'public_transport';
-      let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, ttMode, departureTime);
-      let usedMode = ttMode;
-      if (!tt && ttMode === 'public_transport') {
-        logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
-        tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, 'walking', departureTime);
-        usedMode = 'walking';
-      }
-      if (tt) {
-        logger.debug(`TravelTime single (${usedMode}, ${distKm.toFixed(2)}km): ${tt.durationMinutes} min`);
-        this.trackSource('traveltime');
+      // 2a. For walkers: Use ONLY Haversine (TravelTime API disabled for walkers)
+      if (transportMode === 'walking') {
+        const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
+        logger.debug(`Walker travel time (Haversine only, ${distKm.toFixed(2)}km): ${heuristicMinutes}min`);
+        this.trackSource('heuristic');
         return {
           fromLocation: from,
           toLocation: to,
           distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
-          travelTimeMinutes: tt.durationMinutes,
-          feasible: tt.durationMinutes <= currentMaxTravel,
-          penaltyScore: this.calculatePenalty(tt.durationMinutes),
-          source: 'traveltime',
+          travelTimeMinutes: heuristicMinutes,
+          feasible: heuristicMinutes <= currentMaxTravel,
+          penaltyScore: this.calculatePenalty(heuristicMinutes),
+          source: 'heuristic',
         };
       }
 
-      // 2b. TravelTime unavailable — fall back to Haversine heuristic
+      // 2b. For public transport: Try TravelTime API with Haversine fallback
+      // [COMMENTED OUT] TravelTime API calls for public transport
+      // const ttMode = 'public_transport';
+      // let tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, ttMode, departureTime);
+      // if (!tt) {
+      //   logger.info(`TravelTime single (public_transport) unreachable for ${distKm.toFixed(2)}km — retrying with walking`);
+      //   tt = await this.fetchTravelTimeSingle(from, to, distKm, arrivalTime, 'walking', departureTime);
+      // }
+      // if (tt) {
+      //   logger.debug(`TravelTime single (${ttMode}, ${distKm.toFixed(2)}km): ${tt.durationMinutes} min`);
+      //   this.trackSource('traveltime');
+      //   return {
+      //     fromLocation: from,
+      //     toLocation: to,
+      //     distanceKm: Math.round(distKm * this.ROAD_FACTOR * 100) / 100,
+      //     travelTimeMinutes: tt.durationMinutes,
+      //     feasible: tt.durationMinutes <= currentMaxTravel,
+      //     penaltyScore: this.calculatePenalty(tt.durationMinutes),
+      //     source: 'traveltime',
+      //   };
+      // }
+
+      // Fall back to Haversine heuristic
       const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, transportMode);
-      logger.warn(`TravelTime API unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} (${transportMode}, ${distKm.toFixed(2)}km) — Haversine fallback: ${heuristicMinutes}min`);
+      logger.debug(`Public transport travel time (Haversine fallback, ${distKm.toFixed(2)}km): ${heuristicMinutes}min`);
       this.trackSource('heuristic');
       return {
         fromLocation: from,
