@@ -784,8 +784,9 @@ export class TravelTimeService {
       const srcIndices = sources.map((_, i) => i);
       const dstIndices = destinations.map((_, i) => sources.length + i);
 
-      // Add delay to respect ORS Free Tier rate limits (40 requests per minute)
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Add delay to respect ORS Free Tier rate limits (40 requests per minute = 1500ms per request)
+      // 800ms is conservative; use 1500ms for strict compliance at ~40/min
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
         method: 'POST',
