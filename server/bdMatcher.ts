@@ -76,6 +76,8 @@ interface TravelResult {
   travelMinutes: number;
   departureSource: 'home' | 'last-client';
   departureSummary: string;
+  // Per-day departure info for schedule-aware CPs (used when displaying results for specific days)
+  departureSummaryByDay?: Map<string, { source: 'home' | 'last-client'; summary: string }>;
 }
 
 function timeToMinutes(timeStr: string): number {
@@ -622,6 +624,17 @@ function matchEmployeesForVisit(
       travelMinutes = travelResult.travelMinutes;
       departureSource = travelResult.departureSource;
       departureSummary = travelResult.departureSummary;
+      
+      // Use per-day departure info if available (for schedule-aware CPs with different departures per day)
+      if (travelResult.departureSummaryByDay) {
+        const dayKey = reqDay.toLowerCase(); // mon, tue, wed, etc.
+        const dayInfo = travelResult.departureSummaryByDay.get(dayKey);
+        if (dayInfo) {
+          departureSource = dayInfo.source;
+          departureSummary = dayInfo.summary;
+        }
+      }
+      
       // Hard filter: car CPs >45 min, walker/public CPs >60 min
       const maxAllowed = isCar ? 45 : 60;
       if (travelMinutes > maxAllowed) continue;
@@ -789,6 +802,17 @@ async function buildTravelTimeMap(
     let maxTravelPostcode: string | undefined;
     let maxTravelDayLabel: string | undefined;
 
+    // Build per-day departure info (for showing correct postcode on each day)
+    const departureSummaryByDay = new Map<string, { source: 'home' | 'last-client'; summary: string }>();
+    for (const dep of cp.departures) {
+      const dayLabel = dep.dayLabel.toLowerCase(); // Mon, Tue, etc.
+      let summary = 'home';
+      if (dep.source === 'last-client' && dep.postcode) {
+        summary = `${dep.postcode} (${dep.dayLabel})`;
+      }
+      departureSummaryByDay.set(dayLabel, { source: dep.source, summary });
+    }
+
     // Deduplicate departure coords to avoid redundant API calls, but track original departure info
     const uniqueCoords = new Map<string, { coords: { lat: number; lng: number }; deps: typeof cp.departures }>();
     for (const dep of cp.departures) {
@@ -830,6 +854,7 @@ async function buildTravelTimeMap(
         travelMinutes: maxTravelMinutes,
         departureSource: maxTravelSource || 'home',
         departureSummary,
+        departureSummaryByDay,
       });
     }
   }
