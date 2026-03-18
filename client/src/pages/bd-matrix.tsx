@@ -173,6 +173,7 @@ interface MatchedSlot {
   departureSummary?: string;
   departureSource?: 'home' | 'last-client';
   travelMinutes?: number;
+  nextVisit?: { startTime: string; endTime: string } | null;
 }
 
 interface MatchedEmployee {
@@ -919,6 +920,29 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                   from {slotOnDay.departureSummary || employeeMatch.departureSummary}
                                                 </div>
                                               )}
+                                            </div>
+                                          );
+                                        })()}
+                                        {slotOnDay.nextVisit && (() => {
+                                          const [slotEndH, slotEndM] = slotOnDay.availableWindow.split('-')[1]?.split(':').map(Number) ?? [0, 0];
+                                          const slotEndMins = slotEndH * 60 + slotEndM;
+                                          const [nextH, nextM] = slotOnDay.nextVisit.startTime.split(':').map(Number);
+                                          const nextStartMins = nextH * 60 + nextM;
+                                          const gapMins = nextStartMins - slotEndMins;
+                                          const gapHrs = Math.floor(gapMins / 60);
+                                          const gapRemMins = gapMins % 60;
+                                          const gapLabel = gapHrs > 0
+                                            ? `${gapHrs}h${gapRemMins > 0 ? ` ${gapRemMins}m` : ''} gap`
+                                            : `${gapMins}m gap`;
+                                          const gapColor = gapMins >= 60
+                                            ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300'
+                                            : gapMins >= 30
+                                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
+                                              : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300';
+                                          return (
+                                            <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${gapColor}`}>
+                                              <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                              Next {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime} · {gapLabel}
                                             </div>
                                           );
                                         })()}

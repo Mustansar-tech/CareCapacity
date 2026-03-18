@@ -53,6 +53,8 @@ export interface MatchedSlot {
   departureSource?: 'home' | 'last-client';
   // Actual travel minutes for THIS day's departure point
   travelMinutes?: number;
+  // First scheduled visit on this day that starts after the proposed visit ends
+  nextVisit?: { startTime: string; endTime: string } | null;
 }
 
 export interface MatchResult {
@@ -477,6 +479,20 @@ function getSlotDepartureInfo(empName: string, dateStr: string, travelTimeMap?: 
   return {};
 }
 
+function getNextVisitAfter(
+  empName: string,
+  dateStr: string,
+  afterMinutes: number,
+  employeeScheduleMap: Map<string, Map<string, CpVisitEntry[]>>
+): { startTime: string; endTime: string } | null {
+  const normalizedName = normalizeName(empName);
+  const dayVisits = employeeScheduleMap.get(normalizedName)?.get(dateStr);
+  if (!dayVisits || dayVisits.length === 0) return null;
+  const sorted = [...dayVisits].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  const next = sorted.find(v => timeToMinutes(v.startTime) > afterMinutes);
+  return next ? { startTime: next.startTime, endTime: next.endTime } : null;
+}
+
 function matchEmployeesForVisit(
   genderPreference: 'male' | 'female' | 'any',
   requiredDays: string[],
@@ -487,7 +503,8 @@ function matchEmployeesForVisit(
   employeeWeeklyData: Map<string, { totalScheduled: number; contractedWeekly: number; gender?: string; transportMode?: string; homePostcode?: string; homeLat?: number; homeLng?: number }>,
   topN: number = 50,
   clientLocation?: { lat: number; lng: number },
-  travelTimeMap?: Map<string, TravelResult>
+  travelTimeMap?: Map<string, TravelResult>,
+  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>
 ): MatchedEmployee[] {
   const reqStart = timeToMinutes(preferredTimeWindow.start);
   const reqEnd = timeToMinutes(preferredTimeWindow.end);
@@ -594,6 +611,9 @@ function matchEmployeesForVisit(
       }
 
       if (bestSlotForDay) {
+        if (employeeScheduleMap) {
+          bestSlotForDay.nextVisit = getNextVisitAfter(empName, bestSlotForDay.day, reqEnd, employeeScheduleMap);
+        }
         matchedSlots.push(bestSlotForDay);
         totalScore += bestScoreForDay;
         if (bestSlotForDay.matchType === 'exact') exactDayMatches++;
@@ -615,12 +635,14 @@ function matchEmployeesForVisit(
 
         if (isAvailable) {
           const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
+          const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, reqEnd, employeeScheduleMap) : undefined;
           matchedSlots.push({
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
             availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'alternative-day',
             cancelledVisits: altCancelledStr,
+            nextVisit,
             ...depInfo,
           });
           alternativeDayMatches++;
@@ -631,12 +653,14 @@ function matchEmployeesForVisit(
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
             const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
+            const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, reqEnd, employeeScheduleMap) : undefined;
             matchedSlots.push({
               day: dateStr,
               dayLabel: getDayLabel(dateStr),
               availableWindow: closestSlot.window,
               matchType: 'alternative-day',
               cancelledVisits: altCancelledStr,
+              nextVisit,
               ...depInfo,
             });
             alternativeDayMatches++;
@@ -1079,7 +1103,8 @@ export async function matchClientEnquiry(
     employeeWeeklyData,
     200,
     clientCoords,
-    travelTimeMap
+    travelTimeMap,
+    employeeScheduleMap
   );
 
   logger.debug(`BD Matcher: evaluated ${allEmployeeNames.size} employees, returning ${matches.length} matches`);
@@ -1198,7 +1223,8 @@ export async function matchMultiVisitEnquiry(
         employeeWeeklyData,
         50,
         clientCoords,
-        travelTimeMap
+        travelTimeMap,
+        employeeScheduleMap
       );
 
       if (matches.length > 0) {
@@ -1216,7 +1242,8 @@ export async function matchMultiVisitEnquiry(
       employeeWeeklyData,
       200,
       clientCoords,
-      travelTimeMap
+      travelTimeMap,
+      employeeScheduleMap
     );
 
     const dedupedMatches: MatchedEmployee[] = [];
