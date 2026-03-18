@@ -54,12 +54,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const res = await apiRequest('POST', '/api/auth/login', { email, password });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || 'Login failed');
+      try {
+        const res = await apiRequest('POST', '/api/auth/login', { email, password });
+        return res.json();
+      } catch (err: any) {
+        // Extract the error message from the thrown error
+        const errorMsg = err.message || 'Login failed';
+        // Parse the error if it's in format "401: {json}"
+        if (errorMsg.includes(':')) {
+          try {
+            const jsonStr = errorMsg.split(': ')[1];
+            const parsed = JSON.parse(jsonStr);
+            throw new Error(parsed.message || 'Login failed');
+          } catch {
+            throw new Error(errorMsg);
+          }
+        }
+        throw new Error(errorMsg);
       }
-      return res.json();
     },
     onSuccess: (data) => {
       // Immediately set the user data so navigation works without waiting for a refetch
@@ -69,7 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest('POST', '/api/auth/logout', {});
+      try {
+        await apiRequest('POST', '/api/auth/logout', {});
+      } catch (err: any) {
+        // Ignore errors on logout (e.g., already logged out)
+        console.debug('Logout error:', err.message);
+      }
     },
     onSuccess: () => {
       qc.setQueryData(['/api/auth/me'], null);
