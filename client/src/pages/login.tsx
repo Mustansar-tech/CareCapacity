@@ -191,10 +191,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Version tag */}
-        <p className="text-center text-xs text-muted-foreground/60 mt-4">
-          Home Instead Care Capacity Dashboard · Enterprise Edition
-        </p>
       </motion.div>
     </div>
   );
