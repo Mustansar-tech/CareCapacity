@@ -29,6 +29,8 @@ import {
   type UserBranch,
   type AuditLog,
   type InsertAuditLog,
+  type CpScheduledVisit,
+  type InsertCpScheduledVisit,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -39,6 +41,7 @@ import {
   weeklySchedules, branchSchedulingPreferences,
   travelTimeCache, clientEnquiries,
   userBranches, auditLogs,
+  cpScheduledVisits,
 } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 
@@ -101,6 +104,11 @@ export interface IStorage {
   getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
   listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]>;
   clearAllVisits(branchId: string): Promise<any>;
+
+  // CP Scheduled Visits (from GH Excel, persisted at upload time for BD Matcher)
+  saveCpScheduledVisits(visits: InsertCpScheduledVisit[]): Promise<void>;
+  getCpScheduledVisitsByBranch(branchId: string, dates: string[]): Promise<CpScheduledVisit[]>;
+  deleteCpScheduledVisitsByBranch(branchId: string): Promise<void>;
 
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
   getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]>;
@@ -475,6 +483,27 @@ export class DatabaseStorage implements IStorage {
     return await db.delete(visits).where(eq(visits.branchId, branchId));
   }
 
+  async saveCpScheduledVisits(visitRows: InsertCpScheduledVisit[]): Promise<void> {
+    if (visitRows.length === 0) return;
+    // Insert in batches of 500 to avoid query size limits
+    const BATCH = 500;
+    for (let i = 0; i < visitRows.length; i += BATCH) {
+      await db.insert(cpScheduledVisits).values(visitRows.slice(i, i + BATCH));
+    }
+  }
+
+  async getCpScheduledVisitsByBranch(branchId: string, dates: string[]): Promise<CpScheduledVisit[]> {
+    if (dates.length === 0) return [];
+    return await db
+      .select()
+      .from(cpScheduledVisits)
+      .where(and(eq(cpScheduledVisits.branchId, branchId), inArray(cpScheduledVisits.date, dates)));
+  }
+
+  async deleteCpScheduledVisitsByBranch(branchId: string): Promise<void> {
+    await db.delete(cpScheduledVisits).where(eq(cpScheduledVisits.branchId, branchId));
+  }
+
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
     const [result] = await db.insert(routePlans).values(plan).returning();
     return result;
@@ -790,6 +819,22 @@ export class MemStorage implements IStorage {
   async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.clientId === clientId && v.date === date); }
   async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId); }
   async clearAllVisits(branchId: string): Promise<any> { Array.from(this.visits.values()).forEach(v => { if (v.branchId === branchId) this.visits.delete(v.id); }); }
+
+  // CP Scheduled Visits - in-memory implementation
+  private cpVisits: Map<string, CpScheduledVisit> = new Map();
+  async saveCpScheduledVisits(visitRows: InsertCpScheduledVisit[]): Promise<void> {
+    for (const v of visitRows) {
+      const id = randomUUID();
+      this.cpVisits.set(id, { ...v, id, clientLat: v.clientLat ?? null, clientLng: v.clientLng ?? null, clientPostcode: v.clientPostcode ?? null });
+    }
+  }
+  async getCpScheduledVisitsByBranch(branchId: string, dates: string[]): Promise<CpScheduledVisit[]> {
+    const dateSet = new Set(dates);
+    return Array.from(this.cpVisits.values()).filter(v => v.branchId === branchId && dateSet.has(v.date));
+  }
+  async deleteCpScheduledVisitsByBranch(branchId: string): Promise<void> {
+    Array.from(this.cpVisits.entries()).forEach(([id, v]) => { if (v.branchId === branchId) this.cpVisits.delete(id); });
+  }
 
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
     const id = randomUUID();

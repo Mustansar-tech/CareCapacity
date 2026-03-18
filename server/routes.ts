@@ -338,6 +338,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logger.info('Clearing old visits data', { displayName: branch.displayName });
       await storage.clearAllVisits(requestedBranchId);
 
+      // Persist CP scheduled visits from GH Excel for BD Matcher departure-point logic
+      // This replaces the expensive on-demand GH Excel re-parsing that happened on every enquiry
+      try {
+        const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
+        const weekDates = result.dailySummary?.map(d => d.date) ?? [];
+        if (weekDates.length > 0) {
+          const scheduleMap = await extractEmployeeVisitsFromGHExcel(
+            guaranteedFile.buffer, weekDates, requestedBranchId, storage
+          );
+          // Delete old CP visits for this branch, then insert fresh ones
+          await storage.deleteCpScheduledVisitsByBranch(requestedBranchId);
+          const visitRows: import('@shared/schema').InsertCpScheduledVisit[] = [];
+          for (const [cpName, dayMap] of scheduleMap) {
+            for (const [date, entries] of dayMap) {
+              for (const entry of entries) {
+                visitRows.push({
+                  branchId: requestedBranchId,
+                  cpName,
+                  clientName: entry.clientName,
+                  clientLat: entry.lat != null ? String(entry.lat) : null,
+                  clientLng: entry.lng != null ? String(entry.lng) : null,
+                  clientPostcode: entry.postcode ?? null,
+                  date,
+                  startTime: entry.startTime,
+                  endTime: entry.endTime,
+                });
+              }
+            }
+          }
+          await storage.saveCpScheduledVisits(visitRows);
+          logger.info('Persisted CP scheduled visits to database', {
+            branchId: requestedBranchId, employees: scheduleMap.size, totalVisits: visitRows.length
+          });
+        }
+      } catch (cpErr) {
+        logger.warn('Failed to persist CP scheduled visits (non-fatal):', cpErr);
+      }
+
       // Persist processed data to database with derived week boundaries
       try {
         if (result.dailySummary && result.dailySummary.length > 0) {
@@ -1759,49 +1797,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTimeWindow,
       };
 
-      // Build per-CP visit schedule from the GH Excel buffer (schedule-aware departure points)
+      // Build per-CP visit schedule from DB (persisted at upload time for schedule-aware departure points)
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
-        const ghBuffer = await getLatestGuaranteedBuffer(branchId);
-        logger.info('BD Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
-        if (ghBuffer) {
-          const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
-          const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
-          logger.info('BD Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
-          
-          // Log capacity analysis employees (normalize names to match GH Excel)
-          const normalizeName = (name: string) => {
-            if (!name || name === "undefined" || name === "null") return "";
-            let s = String(name).toLowerCase();
-            s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
-            s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
-            s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
-            s = s.replace(/\s+/g, " ").trim();
-            return s.split(" ").filter(Boolean).sort().join(" ");
-          };
-          
-          const capacityAnalysisEmps = new Set<string>();
-          for (const dateKey of analysisDateKeys) {
-            const dateRecords = (latestData.employeeSummaryByDate as Record<string, any>)[dateKey] || [];
-            for (const rec of dateRecords) {
-              const normalizedEmpName = normalizeName(rec.employeeName);
-              if (normalizedEmpName) capacityAnalysisEmps.add(normalizedEmpName);
+        const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+        logger.info('BD Matcher: querying CP visits from DB', { dates: analysisDateKeys.length, branchId });
+        const dbVisits = await storage.getCpScheduledVisitsByBranch(branchId, analysisDateKeys);
+        logger.info('BD Matcher: DB CP visits retrieved', { count: dbVisits.length });
+        if (dbVisits.length > 0) {
+          employeeScheduleMap = new Map();
+          for (const v of dbVisits) {
+            if (!employeeScheduleMap.has(v.cpName)) employeeScheduleMap.set(v.cpName, new Map());
+            const dayMap = employeeScheduleMap.get(v.cpName)!;
+            if (!dayMap.has(v.date)) dayMap.set(v.date, []);
+            dayMap.get(v.date)!.push({
+              clientName: v.clientName,
+              startTime: v.startTime,
+              endTime: v.endTime,
+              lat: v.clientLat ? Number(v.clientLat) : undefined,
+              lng: v.clientLng ? Number(v.clientLng) : undefined,
+              postcode: v.clientPostcode ?? undefined,
+            });
+          }
+          // Sort each day's visits by startTime
+          for (const dayMap of employeeScheduleMap.values()) {
+            for (const visits of dayMap.values()) {
+              visits.sort((a, b) => a.startTime.localeCompare(b.startTime));
             }
           }
-          logger.info('BD Matcher: capacity analysis employees', { count: capacityAnalysisEmps.size, sample: Array.from(capacityAnalysisEmps).slice(0, 5) });
-          
-          employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
-          const empNames = Array.from(employeeScheduleMap.keys());
-          logger.info('BD Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 5) });
-          
-          // Check intersection
-          const intersection = empNames.filter(n => capacityAnalysisEmps.has(n));
-          logger.info('BD Matcher: name matching result', { scheduleEmps: empNames.length, capacityEmps: capacityAnalysisEmps.size, matched: intersection.length, matchedSample: intersection.slice(0, 5) });
+          logger.info('BD Matcher: built schedule map from DB', { employees: employeeScheduleMap.size });
         } else {
-          logger.warn('BD Matcher: no GH buffer available, will use home departure for all CPs');
+          logger.warn('BD Matcher: no CP visits in DB for these dates — CPs will default to home departure. Upload Excel files to enable schedule-aware departure.');
         }
       } catch (err) {
-        logger.warn(`BD Matcher: could not build employee schedule map: ${err}`);
+        logger.warn(`BD Matcher: could not build employee schedule map from DB: ${err}`);
       }
 
       const result = await matchClientEnquiry(criteria, latestData, branchId, storage, employeeScheduleMap);
@@ -1840,49 +1869,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       };
 
-      // Build per-CP visit schedule from the GH Excel buffer (schedule-aware departure points)
+      // Build per-CP visit schedule from DB (persisted at upload time for schedule-aware departure points)
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
-        const ghBuffer = await getLatestGuaranteedBuffer(branchId);
-        logger.info('BD Multi-Visit Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
-        if (ghBuffer) {
-          const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
-          const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
-          logger.info('BD Multi-Visit Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
-          
-          // Log capacity analysis employees (normalize names to match GH Excel)
-          const normalizeName = (name: string) => {
-            if (!name || name === "undefined" || name === "null") return "";
-            let s = String(name).toLowerCase();
-            s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
-            s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
-            s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
-            s = s.replace(/\s+/g, " ").trim();
-            return s.split(" ").filter(Boolean).sort().join(" ");
-          };
-          
-          const capacityAnalysisEmps = new Set<string>();
-          for (const dateKey of analysisDateKeys) {
-            const dateRecords = (latestData.employeeSummaryByDate as Record<string, any>)[dateKey] || [];
-            for (const rec of dateRecords) {
-              const normalizedEmpName = normalizeName(rec.employeeName);
-              if (normalizedEmpName) capacityAnalysisEmps.add(normalizedEmpName);
+        const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+        logger.info('BD Multi-Visit Matcher: querying CP visits from DB', { dates: analysisDateKeys.length, branchId });
+        const dbVisits = await storage.getCpScheduledVisitsByBranch(branchId, analysisDateKeys);
+        logger.info('BD Multi-Visit Matcher: DB CP visits retrieved', { count: dbVisits.length });
+        if (dbVisits.length > 0) {
+          employeeScheduleMap = new Map();
+          for (const v of dbVisits) {
+            if (!employeeScheduleMap.has(v.cpName)) employeeScheduleMap.set(v.cpName, new Map());
+            const dayMap = employeeScheduleMap.get(v.cpName)!;
+            if (!dayMap.has(v.date)) dayMap.set(v.date, []);
+            dayMap.get(v.date)!.push({
+              clientName: v.clientName,
+              startTime: v.startTime,
+              endTime: v.endTime,
+              lat: v.clientLat ? Number(v.clientLat) : undefined,
+              lng: v.clientLng ? Number(v.clientLng) : undefined,
+              postcode: v.clientPostcode ?? undefined,
+            });
+          }
+          // Sort each day's visits by startTime
+          for (const dayMap of employeeScheduleMap.values()) {
+            for (const visits of dayMap.values()) {
+              visits.sort((a, b) => a.startTime.localeCompare(b.startTime));
             }
           }
-          logger.info('BD Multi-Visit Matcher: capacity analysis employees', { count: capacityAnalysisEmps.size, sample: Array.from(capacityAnalysisEmps).slice(0, 5) });
-          
-          employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
-          const empNames = Array.from(employeeScheduleMap.keys());
-          logger.info('BD Multi-Visit Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 5) });
-          
-          // Check intersection
-          const intersection = empNames.filter(n => capacityAnalysisEmps.has(n));
-          logger.info('BD Multi-Visit Matcher: name matching result', { scheduleEmps: empNames.length, capacityEmps: capacityAnalysisEmps.size, matched: intersection.length, matchedSample: intersection.slice(0, 5) });
+          logger.info('BD Multi-Visit Matcher: built schedule map from DB', { employees: employeeScheduleMap.size });
         } else {
-          logger.warn('BD Multi-Visit Matcher: no GH buffer available, will use home departure for all CPs');
+          logger.warn('BD Multi-Visit Matcher: no CP visits in DB for these dates — CPs will default to home departure.');
         }
       } catch (err) {
-        logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map: ${err}`);
+        logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map from DB: ${err}`);
       }
 
       const result = await matchMultiVisitEnquiry(multiCriteria, latestData, branchId, storage, employeeScheduleMap);

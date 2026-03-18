@@ -624,3 +624,28 @@ export const insertClientEnquirySchema = createInsertSchema(clientEnquiries).omi
 
 export type InsertClientEnquiry = z.infer<typeof insertClientEnquirySchema>;
 export type ClientEnquiry = typeof clientEnquiries.$inferSelect;
+
+// CP Scheduled Visits - persisted from Guaranteed Hours Excel on each upload
+// Used by BD Matcher to determine realistic departure points (90-min gap rule)
+export const cpScheduledVisits = pgTable("cp_scheduled_visits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  cpName: text("cp_name").notNull(), // Normalized employee name (lowercase, sorted words)
+  clientName: text("client_name").notNull(),
+  clientLat: text("client_lat"),
+  clientLng: text("client_lng"),
+  clientPostcode: text("client_postcode"),
+  date: text("date").notNull(), // yyyy-MM-dd
+  startTime: text("start_time").notNull(), // HH:MM
+  endTime: text("end_time").notNull(), // HH:MM
+}, (table) => ({
+  branchDateIdx: index("cp_visit_branch_date_idx").on(table.branchId, table.date),
+  branchCpIdx: index("cp_visit_branch_cp_idx").on(table.branchId, table.cpName),
+}));
+
+export const insertCpScheduledVisitSchema = createInsertSchema(cpScheduledVisits).omit({
+  id: true,
+});
+
+export type InsertCpScheduledVisit = z.infer<typeof insertCpScheduledVisitSchema>;
+export type CpScheduledVisit = typeof cpScheduledVisits.$inferSelect;
