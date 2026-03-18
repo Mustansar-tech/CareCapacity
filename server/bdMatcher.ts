@@ -2,6 +2,7 @@ import { logger } from './logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
 import type { CpVisitEntry } from './excel-visit-extractor';
 import { travelTimeService } from './travel-time-service';
+import { normalizeName } from './shared-utils';
 
 export interface ClientEnquiryCriteria {
   clientName: string;
@@ -93,12 +94,16 @@ function getDeparturePoint(
   homeCoords: { lat: number; lng: number },
   employeeScheduleMap: Map<string, Map<string, CpVisitEntry[]>>
 ): { lat: number; lng: number; source: 'home' | 'last-client'; postcode?: string } {
-  const dayVisits = employeeScheduleMap.get(empName)?.get(dateStr);
+  // Normalize employee name to match DB keys
+  const normalizedName = normalizeName(empName);
+  const dayVisits = employeeScheduleMap.get(normalizedName)?.get(dateStr);
   
   if (!dayVisits || dayVisits.length === 0) {
     logger.debug(`getDeparturePoint: no visits for ${empName} on ${dateStr}`, {
-      hasSchedule: employeeScheduleMap.has(empName),
-      availableDates: employeeScheduleMap.get(empName) ? Array.from(employeeScheduleMap.get(empName)!.keys()) : [],
+      normalized: normalizedName,
+      hasSchedule: employeeScheduleMap.has(normalizedName),
+      availableDates: employeeScheduleMap.get(normalizedName) ? Array.from(employeeScheduleMap.get(normalizedName)!.keys()) : [],
+      scheduleMapKeys: Array.from(employeeScheduleMap.keys()).slice(0, 5),
     });
     return { ...homeCoords, source: 'home' };
   }
@@ -692,13 +697,13 @@ async function buildTravelTimeMap(
     const mode = isCar ? 'car' : (data.transportMode?.toLowerCase() === 'walking' ? 'walking' : 'public_transport');
     const homeCoords = { lat: data.homeLat, lng: data.homeLng };
 
-    if (useScheduleAware) {
+    if (useScheduleAware && employeeScheduleMap) {
       // Collect per-day departure points
       const dayDepartures: Array<{ coords: { lat: number; lng: number }; source: 'home' | 'last-client'; postcode?: string; dayLabel: string }> = [];
 
       for (const reqDay of requiredDays!) {
         for (const dateStr of (datesByDay!.get(reqDay) || [])) {
-          const dep = getDeparturePoint(empName, dateStr, enquiryStartMinutes!, homeCoords, employeeScheduleMap!);
+          const dep = getDeparturePoint(empName, dateStr, enquiryStartMinutes!, homeCoords, employeeScheduleMap);
           dayDepartures.push({
             coords: { lat: dep.lat, lng: dep.lng },
             source: dep.source,
