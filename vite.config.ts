@@ -30,13 +30,30 @@ export default defineConfig({
     minify: "esbuild",
     rollupOptions: {
       output: {
-        manualChunks: {
-          "react-vendor": ["react", "react-dom"],
-          "ui-vendor": ["@radix-ui/react-dialog", "@radix-ui/react-tabs", "@radix-ui/react-select"],
-          "query": ["@tanstack/react-query"],
-          "charts": ["recharts"],
-          "utils": ["wouter", "framer-motion", "react-leaflet", "leaflet"],
-          "scheduling": ["@/utils/scheduling-engine", "@/utils/scheduling-scoring"],
+        manualChunks(id) {
+          // Core dependencies that must be in critical path
+          if (id.includes('react') && !id.includes('react-')) {
+            return 'react-vendor';
+          }
+          if (id.includes('@radix-ui/react-dialog') || id.includes('@radix-ui/react-tabs') || id.includes('@radix-ui/react-select')) {
+            return 'ui-vendor';
+          }
+          if (id.includes('@tanstack/react-query')) {
+            return 'query';
+          }
+          // Defer non-critical features to separate chunks
+          if (id.includes('recharts')) {
+            return 'charts';
+          }
+          if (id.includes('leaflet') || id.includes('react-leaflet')) {
+            return 'maps';
+          }
+          if (id.includes('framer-motion')) {
+            return 'animations';
+          }
+          if (id.includes('scheduling-engine') || id.includes('scheduling-scoring')) {
+            return 'scheduling';
+          }
         },
       },
     },
