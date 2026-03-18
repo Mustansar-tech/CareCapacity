@@ -170,6 +170,9 @@ interface MatchedSlot {
   availableWindow: string;
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
   cancelledVisits?: string;
+  departureSummary?: string;
+  departureSource?: 'home' | 'last-client';
+  travelMinutes?: number;
 }
 
 interface MatchedEmployee {
@@ -878,19 +881,23 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
                                           </div>
                                         </div>
-                                        {employeeMatch.travelMinutes !== undefined && (
-                                          <div className="flex flex-col gap-0.5">
-                                            <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${employeeMatch.travelMinutes <= 20 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : employeeMatch.travelMinutes <= 35 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
-                                              <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
-                                              ~{employeeMatch.travelMinutes} min {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}
-                                            </div>
-                                            {(slotOnDay.departureSummary || employeeMatch.departureSummary) && (
-                                              <div className={`text-[8px] font-semibold px-1.5 py-0.5 rounded w-fit ${(slotOnDay.departureSource || employeeMatch.departureSource) === 'last-client' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
-                                                from {slotOnDay.departureSummary || employeeMatch.departureSummary}
+                                        {(slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
+                                          // Use per-day travel time when available (schedule-aware CPs); fall back to global max
+                                          const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes!;
+                                          return (
+                                            <div className="flex flex-col gap-0.5">
+                                              <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${displayMins <= 20 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : displayMins <= 35 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
+                                                <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
+                                                ~{displayMins} min {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}
                                               </div>
-                                            )}
-                                          </div>
-                                        )}
+                                              {(slotOnDay.departureSummary || employeeMatch.departureSummary) && (
+                                                <div className={`text-[8px] font-semibold px-1.5 py-0.5 rounded w-fit ${(slotOnDay.departureSource || employeeMatch.departureSource) === 'last-client' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                                  from {slotOnDay.departureSummary || employeeMatch.departureSummary}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     );
                                   })

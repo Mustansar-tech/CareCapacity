@@ -51,6 +51,8 @@ export interface MatchedSlot {
   // Departure info specific to this day (for schedule-aware CPs)
   departureSummary?: string;
   departureSource?: 'home' | 'last-client';
+  // Actual travel minutes for THIS day's departure point
+  travelMinutes?: number;
 }
 
 export interface MatchResult {
@@ -81,6 +83,8 @@ interface TravelResult {
   departureSummary: string;
   // Per-day departure info for schedule-aware CPs (used when displaying results for specific days)
   departureSummaryByDay?: Map<string, { source: 'home' | 'last-client'; summary: string }>;
+  // Per-day travel minutes — key is day abbrev (mon, tue, etc.), value is actual travel for that day's departure
+  travelMinutesByDay?: Map<string, number>;
 }
 
 function timeToMinutes(timeStr: string): number {
@@ -445,21 +449,30 @@ function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqE
 /**
  * Helper to get departure info for a specific date
  */
-function getSlotDepartureInfo(empName: string, dateStr: string, travelTimeMap?: Map<string, TravelResult>): { departureSummary?: string; departureSource?: 'home' | 'last-client' } {
+function getSlotDepartureInfo(empName: string, dateStr: string, travelTimeMap?: Map<string, TravelResult>): { departureSummary?: string; departureSource?: 'home' | 'last-client'; travelMinutes?: number } {
   if (!travelTimeMap || !travelTimeMap.has(empName)) {
     return {};
   }
   const travelResult = travelTimeMap.get(empName)!;
+  const dayAbbrev = getDayAbbrev(dateStr).toLowerCase();
+
+  // Per-day travel minutes (schedule-aware individual CPs)
+  const dayTravelMinutes = travelResult.travelMinutesByDay?.get(dayAbbrev);
+
   if (!travelResult.departureSummaryByDay) {
     return { 
       departureSummary: travelResult.departureSummary, 
-      departureSource: travelResult.departureSource 
+      departureSource: travelResult.departureSource,
+      travelMinutes: dayTravelMinutes ?? travelResult.travelMinutes,
     };
   }
-  const dayAbbrev = getDayAbbrev(dateStr).toLowerCase();
   const dayInfo = travelResult.departureSummaryByDay.get(dayAbbrev);
   if (dayInfo) {
-    return { departureSummary: dayInfo.summary, departureSource: dayInfo.source };
+    return { 
+      departureSummary: dayInfo.summary, 
+      departureSource: dayInfo.source,
+      travelMinutes: dayTravelMinutes ?? travelResult.travelMinutes,
+    };
   }
   return {};
 }
@@ -894,61 +907,58 @@ async function buildTravelTimeMap(
       uniqueCoords.get(key)!.deps.push(dep);
     }
 
-    for (const [, { coords, deps }] of uniqueCoords) {
+    // Build a per-unique-coord travel time map (cache reads only — no API calls for cars)
+    const coordTravelMap = new Map<string, number>(); // coordKey → durationMinutes
+
+    for (const [coordKey, { coords, deps }] of uniqueCoords) {
       try {
-        let result;
-        
-        // For cars: read directly from pre-warmed ORS Matrix cache (no individual API calls)
-        // For walkers/public: use calculateTravelTime (TravelTime API or heuristic)
+        let mins: number | undefined;
+
         if (cp.isCar) {
-          // Cars have been pre-warmed via ORS Matrix batch
-          // Directly query the session cache without making individual API calls
+          // Cars: read directly from pre-warmed ORS Matrix cache (no individual API calls)
           const cacheData = travelTimeService.getCachedTravelTime(coords, clientCoords, 'car');
           if (cacheData) {
-            result = {
-              fromLocation: coords,
-              toLocation: clientCoords,
-              distanceKm: (cacheData.distanceMeters || 0) / 1000,
-              travelTimeMinutes: cacheData.durationMinutes,
-              feasible: cacheData.durationMinutes <= 45, // car max travel threshold
-              penaltyScore: 0,
-              source: cacheData.source,
-            };
+            mins = cacheData.durationMinutes;
+            logger.info(`BD Matcher [${cp.empName}]: ${deps[0].source} (${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}) → enquiry = ${mins}min [${cacheData.source}]`);
           } else {
-            // Cache miss (should not happen if pre-warm succeeded) — use OSRM-only fallback
-            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} — using OSRM fallback`);
+            // Cache miss — OSRM fallback (free, no quota)
+            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — using OSRM fallback`);
             const osrmData = await travelTimeService.fetchOSRMRouteFallback(coords, clientCoords);
             if (osrmData) {
-              result = {
-                fromLocation: coords,
-                toLocation: clientCoords,
-                distanceKm: osrmData.distanceMeters / 1000,
-                travelTimeMinutes: osrmData.durationMinutes,
-                feasible: osrmData.durationMinutes <= 45,
-                penaltyScore: 0,
-                source: 'osrm',
-              };
+              mins = osrmData.durationMinutes;
+              logger.info(`BD Matcher [${cp.empName}]: ${deps[0].source} OSRM fallback = ${mins}min`);
             }
           }
         } else {
           // Walkers/public: use TravelTime API with heuristic fallback
-          result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
-          await new Promise(resolve => setTimeout(resolve, 100)); // Throttle TravelTime API calls
-        }
-        
-        if (result && result.travelTimeMinutes < 9999) {
-          const mins = Math.round(result.travelTimeMinutes);
-          if (maxTravelMinutes === undefined || mins > maxTravelMinutes) {
-            maxTravelMinutes = mins;
-            // Track which departure produced the max
-            const firstDep = deps[0];
-            maxTravelSource = firstDep.source;
-            maxTravelPostcode = firstDep.postcode;
-            maxTravelDayLabel = firstDep.dayLabel;
+          const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          if (result && result.travelTimeMinutes < 9999) {
+            mins = Math.round(result.travelTimeMinutes);
           }
+        }
+
+        if (mins !== undefined && mins < 9999) {
+          coordTravelMap.set(coordKey, mins);
         }
       } catch (err) {
         logger.debug(`BD Matcher: schedule-aware travel failed for ${cp.empName}: ${err}`);
+      }
+    }
+
+    // Compute per-day travel time using the actual departure coord for that day.
+    // Show the travel for the SPECIFIC day's departure point, not a global max.
+    // Use max only as the final single number shown in the card (worst-case across required days).
+    for (const dep of cp.departures) {
+      const coordKey = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
+      const mins = coordTravelMap.get(coordKey);
+      if (mins !== undefined) {
+        if (maxTravelMinutes === undefined || mins > maxTravelMinutes) {
+          maxTravelMinutes = mins;
+          maxTravelSource = dep.source;
+          maxTravelPostcode = dep.postcode;
+          maxTravelDayLabel = dep.dayLabel;
+        }
       }
     }
 
@@ -959,11 +969,24 @@ async function buildTravelTimeMap(
         departureSummary = `${maxTravelPostcode} (${maxTravelDayLabel})`;
       }
 
+      // Build per-day travel minutes map so the UI can show the correct travel time per badge
+      const travelMinutesByDay = new Map<string, number>();
+      for (const dep of cp.departures) {
+        const coordKey = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
+        const mins = coordTravelMap.get(coordKey);
+        if (mins !== undefined) {
+          // Map each day abbrev (from dayLabel) to the travel time for that day's departure
+          const dayAbbrev = dep.dayLabel?.toLowerCase().slice(0, 3) ?? '';
+          if (dayAbbrev) travelMinutesByDay.set(dayAbbrev, mins);
+        }
+      }
+
       travelTimeMap.set(cp.empName, {
         travelMinutes: maxTravelMinutes,
         departureSource: maxTravelSource || 'home',
         departureSummary,
         departureSummaryByDay,
+        travelMinutesByDay: travelMinutesByDay.size > 0 ? travelMinutesByDay : undefined,
       });
     }
   }
