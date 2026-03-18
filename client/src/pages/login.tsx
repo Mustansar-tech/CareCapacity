@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import homeInsteadLogo from "@/assets/logo.png";
+import homeInsteadLogo from "@/assets/splash-logo.png";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -73,11 +73,11 @@ export default function LoginPage() {
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-lg" />
+                  <div className="absolute inset-0 bg-blue-500/10 rounded-lg blur-lg" />
                   <img
                     src={homeInsteadLogo}
-                    alt="Home Instead"
-                    className="relative h-20 w-20 rounded-full object-cover border-2 border-white/60 shadow-xl"
+                    alt="Care Capacity"
+                    className="relative h-16 max-w-xs object-contain"
                   />
                 </div>
               </div>
