@@ -1763,24 +1763,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
         const ghBuffer = await getLatestGuaranteedBuffer(branchId);
-        logger.debug('BD Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
+        logger.info('BD Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
         if (ghBuffer) {
           const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
           const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
-          logger.debug('BD Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
+          logger.info('BD Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
+          
+          // Log capacity analysis employees (normalize names to match GH Excel)
+          const normalizeName = (name: string) => {
+            if (!name || name === "undefined" || name === "null") return "";
+            let s = String(name).toLowerCase();
+            s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
+            s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
+            s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
+            s = s.replace(/\s+/g, " ").trim();
+            return s.split(" ").filter(Boolean).sort().join(" ");
+          };
+          
+          const capacityAnalysisEmps = new Set<string>();
+          for (const dateKey of analysisDateKeys) {
+            const dateRecords = (latestData.employeeSummaryByDate as Record<string, any>)[dateKey] || [];
+            for (const rec of dateRecords) {
+              const normalizedEmpName = normalizeName(rec.employeeName);
+              if (normalizedEmpName) capacityAnalysisEmps.add(normalizedEmpName);
+            }
+          }
+          logger.info('BD Matcher: capacity analysis employees', { count: capacityAnalysisEmps.size, sample: Array.from(capacityAnalysisEmps).slice(0, 5) });
+          
           employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
           const empNames = Array.from(employeeScheduleMap.keys());
-          logger.debug('BD Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 10) });
-          // Log which employees matched
-          for (const emp of empNames) {
-            const dayCount = employeeScheduleMap.get(emp)?.size || 0;
-            logger.debug(`BD Matcher: ${emp} has ${dayCount} scheduled days`);
-          }
+          logger.info('BD Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 5) });
+          
+          // Check intersection
+          const intersection = empNames.filter(n => capacityAnalysisEmps.has(n));
+          logger.info('BD Matcher: name matching result', { scheduleEmps: empNames.length, capacityEmps: capacityAnalysisEmps.size, matched: intersection.length, matchedSample: intersection.slice(0, 5) });
         } else {
           logger.warn('BD Matcher: no GH buffer available, will use home departure for all CPs');
         }
       } catch (err) {
-        logger.warn(`BD Matcher: could not build employee schedule map (will use home departure): ${err}`);
+        logger.warn(`BD Matcher: could not build employee schedule map: ${err}`);
       }
 
       const result = await matchClientEnquiry(criteria, latestData, branchId, storage, employeeScheduleMap);
@@ -1823,23 +1844,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
         const ghBuffer = await getLatestGuaranteedBuffer(branchId);
-        logger.debug('BD Multi-Visit Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
+        logger.info('BD Multi-Visit Matcher: GH buffer status', { hasBuffer: !!ghBuffer, bytes: ghBuffer?.length });
         if (ghBuffer) {
           const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
           const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
-          logger.debug('BD Multi-Visit Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
+          logger.info('BD Multi-Visit Matcher: analysis dates for extraction', { dates: analysisDateKeys, count: analysisDateKeys.length });
+          
+          // Log capacity analysis employees (normalize names to match GH Excel)
+          const normalizeName = (name: string) => {
+            if (!name || name === "undefined" || name === "null") return "";
+            let s = String(name).toLowerCase();
+            s = s.replace(/\(.*?\)/g, ""); // remove parentheses content
+            s = s.replace(/[^a-z\s]/g, " "); // keep letters and spaces
+            s = s.replace(/\b(mr|mrs|miss|ms|dr)\b/g, " "); // remove titles
+            s = s.replace(/\s+/g, " ").trim();
+            return s.split(" ").filter(Boolean).sort().join(" ");
+          };
+          
+          const capacityAnalysisEmps = new Set<string>();
+          for (const dateKey of analysisDateKeys) {
+            const dateRecords = (latestData.employeeSummaryByDate as Record<string, any>)[dateKey] || [];
+            for (const rec of dateRecords) {
+              const normalizedEmpName = normalizeName(rec.employeeName);
+              if (normalizedEmpName) capacityAnalysisEmps.add(normalizedEmpName);
+            }
+          }
+          logger.info('BD Multi-Visit Matcher: capacity analysis employees', { count: capacityAnalysisEmps.size, sample: Array.from(capacityAnalysisEmps).slice(0, 5) });
+          
           employeeScheduleMap = await extractEmployeeVisitsFromGHExcel(ghBuffer, analysisDateKeys, branchId, storage);
           const empNames = Array.from(employeeScheduleMap.keys());
-          logger.debug('BD Multi-Visit Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 10) });
-          for (const emp of empNames) {
-            const dayCount = employeeScheduleMap.get(emp)?.size || 0;
-            logger.debug(`BD Multi-Visit Matcher: ${emp} has ${dayCount} scheduled days`);
-          }
+          logger.info('BD Multi-Visit Matcher: extracted schedule map', { employees: employeeScheduleMap.size, names: empNames.slice(0, 5) });
+          
+          // Check intersection
+          const intersection = empNames.filter(n => capacityAnalysisEmps.has(n));
+          logger.info('BD Multi-Visit Matcher: name matching result', { scheduleEmps: empNames.length, capacityEmps: capacityAnalysisEmps.size, matched: intersection.length, matchedSample: intersection.slice(0, 5) });
         } else {
           logger.warn('BD Multi-Visit Matcher: no GH buffer available, will use home departure for all CPs');
         }
       } catch (err) {
-        logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map (will use home departure): ${err}`);
+        logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map: ${err}`);
       }
 
       const result = await matchMultiVisitEnquiry(multiCriteria, latestData, branchId, storage, employeeScheduleMap);
