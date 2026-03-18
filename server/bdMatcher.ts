@@ -808,15 +808,15 @@ async function buildTravelTimeMap(
     }
   }
 
-  // 2. Add last-client departure coords
+  // 2. Add ALL departure coords from carIndividualCps (both home days + last-client days)
+  // These CPs have mixed days — some depart from home, some from last client.
+  // We must pre-warm ALL their departure coords or cache misses happen on home-departure days.
   for (const cp of carIndividualCps) {
     for (const dep of cp.departures) {
-      if (dep.source === 'last-client') {
-        const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
-        if (!seenSources.has(key)) {
-          allCarSources.push(dep.coords);
-          seenSources.add(key);
-        }
+      const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
+      if (!seenSources.has(key)) {
+        allCarSources.push(dep.coords);
+        seenSources.add(key);
       }
     }
   }
@@ -824,8 +824,9 @@ async function buildTravelTimeMap(
   // 3. ONE ORS Matrix batch: all car sources → enquiry postcode
   if (allCarSources.length > 0) {
     try {
-      logger.debug(`BD Matcher: pre-warming ORS Matrix for ${allCarSources.length} unique car locations (home + last-client) → enquiry`);
+      logger.info(`BD Matcher: ORS Matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
       await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
+      logger.info(`BD Matcher: ORS Matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
     } catch (err) {
       logger.warn(`BD Matcher: ORS Matrix batch failed, cars will use OSRM fallback: ${err}`);
     }

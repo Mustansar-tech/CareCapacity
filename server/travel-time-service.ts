@@ -831,7 +831,7 @@ export class TravelTimeService {
             added++;
           }
         }
-        logger.debug(`[Cache Pre-warm] ORS Matrix: ${sources.length}×${destinations.length} batch → ${added} entries`);
+        logger.info(`[Cache Pre-warm] ORS Matrix: ${sources.length}×${destinations.length} batch → ${added} entries cached`);
       } else {
         const errText = await response.text();
         logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
