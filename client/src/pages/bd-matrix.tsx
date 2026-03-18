@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-l
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -1771,6 +1771,17 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-none rounded-none bg-transparent">
+                  {/* Close Button */}
+                  <DialogClose asChild>
+                    <button
+                      className="absolute top-8 right-8 z-[1001] w-10 h-10 rounded-full bg-white/95 dark:bg-gray-800/95 hover:bg-white dark:hover:bg-gray-800 shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 pointer-events-auto"
+                      title="Close map"
+                    >
+                      <X className="w-5 h-5 text-gray-900 dark:text-white" />
+                    </button>
+                  </DialogClose>
+
+                  {/* Header */}
                   <div className="absolute top-8 left-8 z-[1000] p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl pointer-events-auto">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-3">
