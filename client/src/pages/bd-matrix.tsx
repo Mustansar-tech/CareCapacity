@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ import {
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
-  History, Trash2, Plus, Minus, BarChart3, Info, X, Activity
+  History, Trash2, Plus, Minus, BarChart3, Info, X, Activity, ZoomIn, ZoomOut
 } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -419,6 +419,28 @@ function makeIcon(gender: string) {
   });
 }
 
+function ZoomControls() {
+  const map = useMap();
+  return (
+    <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-2">
+      <Button
+        onClick={() => map.zoomIn()}
+        className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl h-10 w-10 p-0"
+        title="Zoom in"
+      >
+        <ZoomIn className="w-5 h-5 text-blue-600" />
+      </Button>
+      <Button
+        onClick={() => map.zoomOut()}
+        className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl h-10 w-10 p-0"
+        title="Zoom out"
+      >
+        <ZoomOut className="w-5 h-5 text-purple-600" />
+      </Button>
+    </div>
+  );
+}
+
 function CareProMap({ 
   locations, 
   onRefresh, 
@@ -473,6 +495,7 @@ function CareProMap({
         zoom={10}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
+        zoomControl={false}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -510,8 +533,9 @@ function CareProMap({
             </Popup>
           </Marker>
         ))}
+        <ZoomControls />
       </MapContainer>
-      <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-2">
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
         <Button 
           onClick={() => setShowPostcodes(!showPostcodes)}
           className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
@@ -1747,7 +1771,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-none rounded-none bg-transparent">
-                  <div className="absolute top-8 left-8 z-50 p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl">
+                  <div className="fixed top-8 left-8 z-50 p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-gradient-to-br from-[#5d51d5] to-indigo-600 rounded-xl">
