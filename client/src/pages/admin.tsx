@@ -4,9 +4,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
+import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
-  Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw
+  Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -381,6 +382,7 @@ function EditUserDialog({ user, branches, onUpdated }: { user: AdminUser; branch
 export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('users');
+  const [, navigate] = useLocation();
   const qc = useQueryClient();
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<AdminUser[]>({
@@ -412,6 +414,22 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <div className="max-w-6xl mx-auto px-4 pt-28 pb-12">
+
+        {/* Back Button */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-6"
+        >
+          <Button 
+            onClick={() => navigate('/')}
+            variant="outline"
+            className="gap-2 h-10"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </motion.div>
 
         {/* Page header */}
         <motion.div
