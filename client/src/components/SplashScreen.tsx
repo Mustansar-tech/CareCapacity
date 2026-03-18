@@ -69,19 +69,51 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
 
         <div className="relative z-10 flex flex-col items-center gap-8 px-8">
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="relative"
+            initial={{ scale: 0.5, opacity: 0, y: -20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="relative mb-4"
           >
-            <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl scale-110" />
-            <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center justify-center w-96 h-48">
-              <img
+            {/* Floating glow effect */}
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-emerald-500/30 to-blue-500/30 rounded-3xl blur-2xl scale-125"
+              animate={{ 
+                opacity: [0.5, 0.8, 0.5],
+                scale: [1.2, 1.3, 1.2]
+              }}
+              transition={{ 
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            />
+            
+            {/* Logo container */}
+            <motion.div
+              className="relative bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl p-8 shadow-2xl flex items-center justify-center w-[520px] h-[340px]"
+              animate={{ 
+                y: [0, -8, 0]
+              }}
+              transition={{ 
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              <motion.img
                 src={splashLogo}
                 alt="Care Capacity Dashboard"
-                className="max-w-full max-h-full object-contain rounded-xl"
+                className="max-w-full max-h-full object-contain rounded-2xl"
+                animate={{ 
+                  scale: [1, 1.05, 1]
+                }}
+                transition={{ 
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
               />
-            </div>
+            </motion.div>
           </motion.div>
 
           <motion.div
