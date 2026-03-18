@@ -77,7 +77,7 @@ export default function LoginPage() {
                   <img
                     src={homeInsteadLogo}
                     alt="Care Capacity"
-                    className="relative h-16 max-w-xs object-contain"
+                    className="relative h-16 max-w-xs object-contain rounded-xl"
                   />
                 </div>
               </div>

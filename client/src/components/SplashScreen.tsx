@@ -79,7 +79,7 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
               <img
                 src={splashLogo}
                 alt="Care Capacity Dashboard"
-                className="w-full h-full object-contain px-6"
+                className="w-full h-full object-contain px-6 rounded-lg"
               />
             </div>
           </motion.div>
