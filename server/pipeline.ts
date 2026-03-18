@@ -3204,7 +3204,15 @@ export async function processCapacityData(
         // Calculate free windows using our capacity windows utility
         let freeWindows = "";
         try {
-          if (availabilityWindows) {
+          // CRITICAL FIX: Check if employee has any fully unavailable status (Holiday, Sick, etc.)
+          // If they do AND they don't have "Available" status on the same day, they should have no availability
+          const hasFullyUnavailableStatus = empData.hasUnavailableStatus && !empData.hasAvailableStatus;
+          
+          if (hasFullyUnavailableStatus) {
+            // Employee is on Holiday/Sick/etc. with no available time - zero capacity
+            logger.debug(`EXCLUDING fully unavailable employee from capacity: ${employeeName} on ${dateStr} (status: Holiday/Sick/etc.)`);
+            freeWindows = "";
+          } else if (availabilityWindows) {
             // EXCLUDE night windows from capacity display
             // Only include day windows (06:00-22:00)
             const allWindows = availabilityWindows
