@@ -12,7 +12,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { SplashScreen } from "@/components/SplashScreen";
 import homeInsteadLogo from "@/assets/logo.png";
-import { Component, ErrorInfo, ReactNode, useState } from "react";
+import { Component, ErrorInfo, ReactNode, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Shield, LogOut, ChevronDown, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -197,7 +197,7 @@ function Navigation() {
             className="flex items-center gap-3 cursor-pointer group transition-all duration-300 hover:scale-102"
             onClick={() => navigate('/')}
             role="link"
-            aria-label="Navigate to Care Capacity Dashboard"
+            aria-label="Care Capacity Dashboard - Workforce Intelligence"
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') navigate('/');
@@ -292,6 +292,18 @@ function App() {
     const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
     return !hasSeenSplash;
   });
+
+  useEffect(() => {
+    const fixRadixFocusGuards = () => {
+      document.querySelectorAll<HTMLElement>('span[aria-hidden="true"][tabindex="0"]').forEach(el => {
+        el.setAttribute('tabindex', '-1');
+      });
+    };
+    fixRadixFocusGuards();
+    const observer = new MutationObserver(() => fixRadixFocusGuards());
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   const handleSplashComplete = () => {
     sessionStorage.setItem('hasSeenSplash', 'true');

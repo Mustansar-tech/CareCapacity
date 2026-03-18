@@ -8,17 +8,20 @@ import { cn } from "@/lib/utils"
 const ToastProvider = ToastPrimitives.Provider
 
 const ToastViewport = React.forwardRef<
-  React.ElementRef<typeof ToastPrimitives.Viewport>,
+  HTMLElement,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Viewport
-    ref={ref}
+    asChild
+    ref={ref as React.Ref<HTMLOListElement>}
     className={cn(
       "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
       className
     )}
     {...props}
-  />
+  >
+    <section aria-label="Notifications" />
+  </ToastPrimitives.Viewport>
 ))
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
@@ -39,16 +42,19 @@ const toastVariants = cva(
 )
 
 const Toast = React.forwardRef<
-  React.ElementRef<typeof ToastPrimitives.Root>,
+  HTMLDivElement,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
     VariantProps<typeof toastVariants>
 >(({ className, variant, ...props }, ref) => {
   return (
     <ToastPrimitives.Root
-      ref={ref}
+      asChild
+      ref={ref as React.Ref<HTMLLIElement>}
       className={cn(toastVariants({ variant }), className)}
       {...props}
-    />
+    >
+      <div />
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
