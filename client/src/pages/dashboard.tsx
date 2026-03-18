@@ -328,11 +328,11 @@ export default function Dashboard() {
     : [];
 
   return (
-    <div className="min-h-screen bg-background scroll-modern" data-testid="dashboard-container">
+    <div className="h-screen w-screen bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
       {/* Hero Section with Modern Layout - Only show on Overview tab */}
       {activeTab === "overview" && (
-        <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border">
-          <div className="max-w-7xl mx-auto px-lg py-3xl text-center">
+        <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border shrink-0">
+          <div className="w-full px-lg py-6 text-center">
             <h1 className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2">
               Welcome to Care Capacity Dashboard
             </h1>
@@ -344,7 +344,7 @@ export default function Dashboard() {
       )}
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-lg py-12 animate-fade-in">
+      <div className="w-full flex-1 px-lg py-4 overflow-y-auto animate-fade-in flex flex-col">
         {/* Compact Upload Toggle - Shows when no data is loaded */}
         {!processedData && (
           <div className="mb-6 animate-fade-in">
@@ -563,9 +563,9 @@ export default function Dashboard() {
 
         {/* Results Tabs - Always show when data exists */}
         {processedData && (
-          <div>
+          <div className="w-full flex-1 flex flex-col">
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6" data-testid="results-tabs">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col" data-testid="results-tabs">
           <TabsList className="flex w-full gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm h-auto overflow-hidden">
             <TabsTrigger
               value="overview"
@@ -602,7 +602,7 @@ export default function Dashboard() {
           </TabsList>
 
           {/* Daily Capacity Tab */}
-          <TabsContent value="daily-capacity" className="space-y-6 animate-fade-in" data-testid="content-daily-capacity">
+          <TabsContent value="daily-capacity" className="space-y-4 animate-fade-in flex-1 overflow-y-auto" data-testid="content-daily-capacity">
             <Card className="glass">
               <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
                 <CardTitle className="flex items-center justify-between">
@@ -965,14 +965,16 @@ export default function Dashboard() {
 
 
           {/* BD Matrix Tab */}
-          <TabsContent value="bd-matrix" data-testid="content-bd-matrix">
-            <BDMatrix
-              data={filteredData || processedData}
-            />
+          <TabsContent value="bd-matrix" className="flex-1 overflow-hidden" data-testid="content-bd-matrix">
+            <div className="h-full overflow-hidden">
+              <BDMatrix
+                data={filteredData || processedData}
+              />
+            </div>
           </TabsContent>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6 animate-fade-in" data-testid="content-overview">
+          <TabsContent value="overview" className="space-y-4 animate-fade-in flex-1 overflow-y-auto" data-testid="content-overview">
             {/* Compact Upload Toggle in Overview */}
             <div className="mb-6">
               <Button
@@ -1431,7 +1433,7 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* Schedules Tab */}
-          <TabsContent value="schedules" className="space-y-6 animate-fade-in" data-testid="content-schedules">
+          <TabsContent value="schedules" className="animate-fade-in flex-1 overflow-y-auto" data-testid="content-schedules">
             <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
           </TabsContent>
 
