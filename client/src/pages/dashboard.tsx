@@ -1172,7 +1172,7 @@ export default function Dashboard() {
                           value={selectedWeekId || "latest"}
                           onValueChange={handleWeekChange}
                         >
-                          <SelectTrigger className="w-80" data-testid="week-selector">
+                          <SelectTrigger className="w-80" data-testid="week-selector" aria-label="Select week">
                             <SelectValue placeholder="Select a week" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1235,6 +1235,7 @@ export default function Dashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label="Refresh dashboard data"
                       onClick={() => {
                         toast({
                           title: "Data Refreshed",
@@ -1243,7 +1244,7 @@ export default function Dashboard() {
                       }}
                       className="hover:bg-blue-50 dark:hover:bg-blue-900/20"
                     >
-                      <RefreshCw className="w-4 h-4" />
+                      <RefreshCw className="w-4 h-4" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>

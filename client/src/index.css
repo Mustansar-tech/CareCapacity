@@ -17,7 +17,7 @@
   --card-border: hsl(210 12% 89%);
   
   /* Interactive elements */
-  --primary: hsl(214 100% 59%);
+  --primary: hsl(214 100% 44%);
   --primary-container: hsl(214 100% 95%);
   --primary-foreground: hsl(0 0% 100%);
   --on-primary-container: hsl(214 100% 20%);
@@ -41,7 +41,7 @@
   
   /* Neutral tones */
   --muted: hsl(210 6% 94%);
-  --muted-foreground: hsl(210 4% 53%);
+  --muted-foreground: hsl(210 6% 40%);
   --border: hsl(210 12% 89%);
   --input: hsl(210 6% 97%);
   --ring: hsl(214 100% 59%);

@@ -79,6 +79,8 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
               <img
                 src={splashLogo}
                 alt="Care Capacity Dashboard"
+                width={352}
+                height={176}
                 className="max-w-full max-h-full object-contain rounded-xl"
               />
             </div>

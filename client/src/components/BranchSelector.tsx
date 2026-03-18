@@ -44,7 +44,7 @@ export function BranchSelector() {
         value={selectedBranchId || undefined}
         onValueChange={setSelectedBranchId}
       >
-        <SelectTrigger className="border-0 bg-transparent text-sm font-medium focus:ring-0 px-0 h-auto" data-testid="select-branch-trigger">
+        <SelectTrigger className="border-0 bg-transparent text-sm font-medium focus:ring-0 px-0 h-auto" data-testid="select-branch-trigger" aria-label="Select branch">
           <SelectValue placeholder="Select branch..." />
         </SelectTrigger>
         <SelectContent className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-white/20 dark:border-white/10">

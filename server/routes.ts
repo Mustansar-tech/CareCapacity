@@ -152,6 +152,12 @@ import { geocodeWithFallback } from './pipeline';
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  // Valid robots.txt so crawlers can parse it correctly
+  app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain');
+    res.send('User-agent: *\nDisallow: /api/\nDisallow: /health\nAllow: /\n');
+  });
+
   // Register auth routes (login, logout, me, admin user management)
   registerAuthRoutes(app);
 
