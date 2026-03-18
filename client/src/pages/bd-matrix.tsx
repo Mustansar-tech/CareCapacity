@@ -942,7 +942,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           return (
                                             <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${gapColor}`}>
                                               <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                              Next {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime} · {gapLabel}
+                                              Next visit {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime} · {gapLabel}
                                             </div>
                                           );
                                         })()}

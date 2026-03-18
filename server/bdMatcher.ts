@@ -612,7 +612,9 @@ function matchEmployeesForVisit(
 
       if (bestSlotForDay) {
         if (employeeScheduleMap) {
-          bestSlotForDay.nextVisit = getNextVisitAfter(empName, bestSlotForDay.day, reqEnd, employeeScheduleMap);
+          const slotEndStr = bestSlotForDay.availableWindow.split('-')[1];
+          const slotEndMins = slotEndStr ? timeToMinutes(slotEndStr) : reqEnd;
+          bestSlotForDay.nextVisit = getNextVisitAfter(empName, bestSlotForDay.day, slotEndMins, employeeScheduleMap);
         }
         matchedSlots.push(bestSlotForDay);
         totalScore += bestScoreForDay;
@@ -653,7 +655,9 @@ function matchEmployeesForVisit(
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
             const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
-            const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, reqEnd, employeeScheduleMap) : undefined;
+            const altSlotEndStr = closestSlot.window.split('-')[1];
+            const altSlotEndMins = altSlotEndStr ? timeToMinutes(altSlotEndStr) : reqEnd;
+            const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altSlotEndMins, employeeScheduleMap) : undefined;
             matchedSlots.push({
               day: dateStr,
               dayLabel: getDayLabel(dateStr),
