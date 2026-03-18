@@ -1142,7 +1142,6 @@ function ClientEnquiryMatcher() {
             </div>
             <div className="text-left">
               <div className="text-sm font-black tracking-wide">Client Enquiry Matcher</div>
-              <div className="text-[10px] font-medium text-purple-200/80 tracking-widest uppercase">Care Intelligence</div>
             </div>
           </Button>
         </DialogTrigger>
