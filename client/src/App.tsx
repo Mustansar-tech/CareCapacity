@@ -190,7 +190,7 @@ function Navigation() {
 
   return (
     <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
-      <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-2 shadow-2xl">
+      <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-2 shadow-2xl pt-[1px] pb-[1px]">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div
