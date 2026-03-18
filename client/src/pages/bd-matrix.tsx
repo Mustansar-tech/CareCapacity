@@ -1746,7 +1746,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                     View Care Pro Map
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0">
+                <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
                   <DialogHeader className="p-6 bg-[#f8f9ff] dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
                     <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight text-[#5d51d5] dark:text-gray-100">
                       <MapPin className="w-7 h-7 text-[#5d51d5]" />
