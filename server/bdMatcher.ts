@@ -834,6 +834,35 @@ async function buildTravelTimeMap(
     await new Promise(resolve => setTimeout(resolve, 150));
   }
 
+  // ── Pre-warm ORS Matrix for last-client departures (car only) ──
+  // Collect unique last-client coords from cars only (walkers/public use different calculation)
+  const carIndividualCps = individualCps.filter(c => c.isCar);
+  if (carIndividualCps.length > 0) {
+    const lastClientCoords: Array<{ lat: number; lng: number }> = [];
+    const seenCoords = new Set<string>();
+    for (const cp of carIndividualCps) {
+      for (const dep of cp.departures) {
+        if (dep.source === 'last-client') {
+          const key = `${dep.coords.lat.toFixed(5)},${dep.coords.lng.toFixed(5)}`;
+          if (!seenCoords.has(key)) {
+            lastClientCoords.push(dep.coords);
+            seenCoords.add(key);
+          }
+        }
+      }
+    }
+    
+    // Pre-warm: last-client → enquiry postcode (ORS Matrix batch)
+    if (lastClientCoords.length > 0) {
+      try {
+        logger.debug(`BD Matcher: pre-warming ORS Matrix for ${lastClientCoords.length} unique last-client locations → enquiry`);
+        await travelTimeService.orsMatrixBatch(lastClientCoords, [clientCoords]);
+      } catch (err) {
+        logger.warn(`BD Matcher: ORS Matrix pre-warm for last-client departures failed: ${err}`);
+      }
+    }
+  }
+
   // ── Individual path: last-client departure CPs (calculate per day, take max) ──
   for (const cp of individualCps) {
     let maxTravelMinutes: number | undefined;
@@ -879,7 +908,10 @@ async function buildTravelTimeMap(
       } catch (err) {
         logger.debug(`BD Matcher: schedule-aware travel failed for ${cp.empName}: ${err}`);
       }
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Only throttle for walkers/public; cars use cached ORS data
+      if (cp.mode !== 'car') {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
     if (maxTravelMinutes !== undefined) {
@@ -958,62 +990,10 @@ export async function matchClientEnquiry(
   let travelTimeMap: Map<string, TravelResult> | undefined;
   if (branchId && clientCoords) {
     try {
-      // Pre-warm ORS Matrix for ALL car routes (home + schedule-aware client departures)
-      // This eliminates individual API calls during buildTravelTimeMap
-      const carHomeCoords: Array<{ lat: number; lng: number }> = [];
-      const allDestinationCoords: Array<{ lat: number; lng: number }> = [];
-      const seenDests = new Set<string>();
-
-      // 1. Collect all car employee home coords
-      for (const [, data] of Array.from(employeeWeeklyData.entries())) {
-        const isCar = data.transportMode?.toLowerCase() === 'car' || data.transportMode?.toLowerCase() === 'driver';
-        if (isCar && data.homeLat && data.homeLng) {
-          carHomeCoords.push({ lat: data.homeLat, lng: data.homeLng });
-        }
-      }
-
-      // 2. Add enquiry client location as a destination
-      if (clientCoords) {
-        const destKey = `${clientCoords.lat.toFixed(5)},${clientCoords.lng.toFixed(5)}`;
-        if (!seenDests.has(destKey)) {
-          allDestinationCoords.push(clientCoords);
-          seenDests.add(destKey);
-        }
-      }
-
-      // 3. Add all unique client locations from schedule-aware departures
-      if (employeeScheduleMap) {
-        for (const dayMap of employeeScheduleMap.values()) {
-          for (const visits of dayMap.values()) {
-            for (const visit of visits) {
-              if (visit.lat && visit.lng) {
-                const destKey = `${visit.lat.toFixed(5)},${visit.lng.toFixed(5)}`;
-                if (!seenDests.has(destKey)) {
-                  allDestinationCoords.push({ lat: visit.lat, lng: visit.lng });
-                  seenDests.add(destKey);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // 4. Pre-warm ORS Matrix: all cars → all destinations (split into chunks to respect 3500 route limit)
-      if (carHomeCoords.length > 0 && allDestinationCoords.length > 0) {
-        const { travelTimeService } = await import('./travel-time-service');
-        logger.debug(`BD Matcher: pre-warming ORS Matrix for ${carHomeCoords.length} car homes × ${allDestinationCoords.length} destinations`);
-        
-        // ORS Matrix limit: 3500 routes per request (sources × destinations)
-        // Split sources into chunks of 50 to stay under limit
-        const sourceChunkSize = Math.max(1, Math.floor(3500 / allDestinationCoords.length));
-        for (let i = 0; i < carHomeCoords.length; i += sourceChunkSize) {
-          const sourceChunk = carHomeCoords.slice(i, i + sourceChunkSize);
-          logger.debug(`BD Matcher: ORS batch ${Math.floor(i / sourceChunkSize) + 1}/${Math.ceil(carHomeCoords.length / sourceChunkSize)} (${sourceChunk.length} sources)`);
-          await travelTimeService.orsMatrixBatch(sourceChunk, allDestinationCoords);
-        }
-      }
-
-      // 5. Now calculate travel times (will use cached ORS Matrix data, no individual API calls)
+      // Build travel times with integrated pre-warming:
+      // - Stage 1a: home → enquiry (ORS Matrix batch for cars)
+      // - Stage 1b: last-client → enquiry (ORS Matrix batch for cars)
+      // - Walkers/public use heuristic fallback (no ORS pre-warm)
       travelTimeMap = await buildTravelTimeMap(
         employeeWeeklyData,
         clientCoords,
