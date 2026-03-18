@@ -884,9 +884,9 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                               <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
                                               ~{employeeMatch.travelMinutes} min {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}
                                             </div>
-                                            {employeeMatch.departureSummary && (
-                                              <div className={`text-[8px] font-semibold px-1.5 py-0.5 rounded w-fit ${employeeMatch.departureSource === 'last-client' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
-                                                from {employeeMatch.departureSummary}
+                                            {(slotOnDay.departureSummary || employeeMatch.departureSummary) && (
+                                              <div className={`text-[8px] font-semibold px-1.5 py-0.5 rounded w-fit ${(slotOnDay.departureSource || employeeMatch.departureSource) === 'last-client' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                                from {slotOnDay.departureSummary || employeeMatch.departureSummary}
                                               </div>
                                             )}
                                           </div>

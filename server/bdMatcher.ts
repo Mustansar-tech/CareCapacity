@@ -48,6 +48,9 @@ export interface MatchedSlot {
   availableWindow: string;
   matchType: 'exact' | 'adjusted-time' | 'alternative-day';
   cancelledVisits?: string;
+  // Departure info specific to this day (for schedule-aware CPs)
+  departureSummary?: string;
+  departureSource?: 'home' | 'last-client';
 }
 
 export interface MatchResult {
@@ -439,6 +442,28 @@ function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqE
   return false;
 }
 
+/**
+ * Helper to get departure info for a specific date
+ */
+function getSlotDepartureInfo(empName: string, dateStr: string, travelTimeMap?: Map<string, TravelResult>): { departureSummary?: string; departureSource?: 'home' | 'last-client' } {
+  if (!travelTimeMap || !travelTimeMap.has(empName)) {
+    return {};
+  }
+  const travelResult = travelTimeMap.get(empName)!;
+  if (!travelResult.departureSummaryByDay) {
+    return { 
+      departureSummary: travelResult.departureSummary, 
+      departureSource: travelResult.departureSource 
+    };
+  }
+  const dayAbbrev = getDayAbbrev(dateStr).toLowerCase();
+  const dayInfo = travelResult.departureSummaryByDay.get(dayAbbrev);
+  if (dayInfo) {
+    return { departureSummary: dayInfo.summary, departureSource: dayInfo.source };
+  }
+  return {};
+}
+
 function matchEmployeesForVisit(
   genderPreference: 'male' | 'female' | 'any',
   requiredDays: string[],
@@ -516,12 +541,14 @@ function matchEmployeesForVisit(
         const cancelledVisitsStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
 
         if (isAvailable) {
+          const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
           bestSlotForDay = {
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
             availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'exact',
             cancelledVisits: cancelledVisitsStr,
+            ...depInfo,
           };
           bestScoreForDay = 100;
         } else {
@@ -537,12 +564,14 @@ function matchEmployeesForVisit(
             if (isBlockAligned) {
               const score = Math.max(0, 80 - closestSlot.distance / 5);
               if (score > bestScoreForDay) {
+                const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
                 bestSlotForDay = {
                   day: dateStr,
                   dayLabel: getDayLabel(dateStr),
                   availableWindow: closestSlot.window,
                   matchType: 'adjusted-time',
                   cancelledVisits: cancelledVisitsStr,
+                  ...depInfo,
                 };
                 bestScoreForDay = score;
               }
@@ -572,12 +601,14 @@ function matchEmployeesForVisit(
         const altCancelledStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
 
         if (isAvailable) {
+          const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
           matchedSlots.push({
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
             availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
             matchType: 'alternative-day',
             cancelledVisits: altCancelledStr,
+            ...depInfo,
           });
           alternativeDayMatches++;
           totalScore += 40;
@@ -586,12 +617,14 @@ function matchEmployeesForVisit(
           const freeWindows = parseFreeWindows(empSummary.freeWindows);
           const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
           if (closestSlot) {
+            const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
             matchedSlots.push({
               day: dateStr,
               dayLabel: getDayLabel(dateStr),
               availableWindow: closestSlot.window,
               matchType: 'alternative-day',
               cancelledVisits: altCancelledStr,
+              ...depInfo,
             });
             alternativeDayMatches++;
             totalScore += Math.max(0, 20 - closestSlot.distance / 10);
