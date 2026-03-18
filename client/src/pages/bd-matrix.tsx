@@ -1778,7 +1778,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                           <MapPin className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                          <h2 className="text-xl font-black tracking-tight text-gray-900 dark:text-white">Care Pro Map</h2>
+                          <h2 className="text-xl tracking-tight text-gray-900 dark:text-white font-semibold">Care Pro Map</h2>
                           <p className="text-gray-500 dark:text-gray-400 font-bold text-[10px] uppercase tracking-[0.08em]">Geographic Distribution</p>
                         </div>
                       </div>
@@ -1819,7 +1819,6 @@ export default function BDMatrix({ data }: BDMatrixProps) {
           </div>
         </CardContent>
       </Card>
-
       {/* BD Matrix Grid with Filter as First Column */}
       <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
         <CardContent className="p-0">
