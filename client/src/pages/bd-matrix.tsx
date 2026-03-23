@@ -460,6 +460,35 @@ function CareProMap({
     [locations]
   );
 
+  // Apply a small radial jitter to markers that share identical coordinates so
+  // they are all individually visible instead of stacking on top of each other.
+  const jitteredLocations = useMemo(() => {
+    const JITTER_RADIUS = 0.00035; // ~35 m — small enough to look grouped, large enough to click
+    const coordKey = (loc: any) =>
+      `${parseFloat(loc.homeLat).toFixed(6)},${parseFloat(loc.homeLng).toFixed(6)}`;
+
+    // Group by exact coordinate
+    const groups = new Map<string, any[]>();
+    for (const loc of validLocations) {
+      const key = coordKey(loc);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(loc);
+    }
+
+    return validLocations.map(loc => {
+      const key = coordKey(loc);
+      const group = groups.get(key)!;
+      if (group.length === 1) return { ...loc, _jLat: parseFloat(loc.homeLat), _jLng: parseFloat(loc.homeLng) };
+      const idx = group.indexOf(loc);
+      const angle = (2 * Math.PI * idx) / group.length;
+      return {
+        ...loc,
+        _jLat: parseFloat(loc.homeLat) + JITTER_RADIUS * Math.cos(angle),
+        _jLng: parseFloat(loc.homeLng) + JITTER_RADIUS * Math.sin(angle),
+      };
+    });
+  }, [validLocations]);
+
   const femaleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'female').length, [validLocations]);
   const maleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'male').length, [validLocations]);
 
@@ -503,10 +532,10 @@ function CareProMap({
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {validLocations.map((loc) => (
+        {jitteredLocations.map((loc) => (
           <Marker
             key={loc.id}
-            position={[parseFloat(loc.homeLat), parseFloat(loc.homeLng)]}
+            position={[loc._jLat, loc._jLng]}
             icon={makeIcon(loc.gender || '')}
           >
             {showPostcodes && (
