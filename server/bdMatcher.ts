@@ -712,7 +712,7 @@ function matchEmployeesForVisit(
                   { lat: nv.lat, lng: nv.lng },
                   weeklyData.transportMode
                 );
-                if (forwardMins > gapMins + 20) {
+                if (forwardMins >= 30 || forwardMins > gapMins + 20) {
                   bestSlotForDay = null;
                 } else {
                   bestSlotForDay.forwardTravelMinutes = forwardMins;
@@ -782,7 +782,7 @@ function matchEmployeesForVisit(
             if (gapMins < 90) {
               if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                 const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
-                if (fwdMins > gapMins + 20) continue;
+                if (fwdMins >= 30 || fwdMins > gapMins + 20) continue;
                 altFwdMins = fwdMins;
                 if (fwdMins > gapMins + 5) altFwdWarning = true;
               } else {
@@ -827,7 +827,7 @@ function matchEmployeesForVisit(
               if (gapMins < 90) {
                 if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                   const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
-                  if (fwdMins > gapMins + 20) continue;
+                  if (fwdMins >= 30 || fwdMins > gapMins + 20) continue;
                   altAdjFwdMins = fwdMins;
                   if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
                 } else {
