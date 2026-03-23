@@ -405,20 +405,41 @@ function normalizeGender(raw: string | undefined | null): 'female' | 'male' | nu
   return null;
 }
 
-function makeIcon(gender: string) {
+function makeIcon(gender: string, name: string = '') {
   const g = normalizeGender(gender);
-  const color = g === 'female' ? '#ec4899' : g === 'male' ? '#3b82f6' : '#9ca3af';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-    <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
-    <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
-    <circle cx="16" cy="16" r="4" fill="${color}"/>
+  const color    = g === 'female' ? '#db2777' : g === 'male' ? '#2563eb' : '#6b7280';
+  const shadow   = g === 'female' ? '#9d174d' : g === 'male' ? '#1e40af' : '#374151';
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('');
+
+  const filterId = `ds-${g ?? 'u'}`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="56" viewBox="0 0 44 56">
+    <defs>
+      <filter id="${filterId}" x="-30%" y="-20%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="${shadow}" flood-opacity="0.35"/>
+      </filter>
+    </defs>
+    <!-- pin body -->
+    <path d="M22 2C12.06 2 4 10.06 4 20c0 13.5 18 33 18 33S40 33.5 40 20C40 10.06 31.94 2 22 2z"
+          fill="${color}" filter="url(#${filterId})"/>
+    <!-- inner white circle -->
+    <circle cx="22" cy="20" r="13" fill="white"/>
+    <!-- initials -->
+    <text x="22" y="25" text-anchor="middle"
+          font-family="system-ui,sans-serif" font-weight="700"
+          font-size="${initials.length > 1 ? 9 : 12}" fill="${color}" letter-spacing="0.5">${initials}</text>
   </svg>`;
+
   return L.divIcon({
     html: svg,
     className: '',
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
-    popupAnchor: [0, -40],
+    iconSize:    [44, 56],
+    iconAnchor:  [22, 56],
+    popupAnchor: [0, -58],
   });
 }
 
@@ -536,7 +557,7 @@ function CareProMap({
           <Marker
             key={loc.id}
             position={[loc._jLat, loc._jLng]}
-            icon={makeIcon(loc.gender || '')}
+            icon={makeIcon(loc.gender || '', loc.employeeName || '')}
           >
             {showPostcodes && (
               <Tooltip permanent direction="right" offset={[15, -20]} className="bg-white/90 border-none shadow-md font-bold text-[10px] px-2 py-1 rounded-md">
