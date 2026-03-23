@@ -145,6 +145,11 @@ export class TravelTimeService {
     return this.fetchOSRMRoute(from, to);
   }
 
+  /** Returns true if an ORS API key is configured (Matrix calls will succeed). */
+  hasORSKey(): boolean {
+    return !!this.ORS_API_KEY;
+  }
+
   /**
    * Direct ORS Directions API call (driving-car profile).
    * Falls back to OSRM if the ORS API key is missing or the call fails.

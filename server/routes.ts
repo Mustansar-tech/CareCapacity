@@ -1803,6 +1803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       nextPostcode: string | undefined;
       nextCoords: { lat: number; lng: number } | null;
       gapMins: number;
+      resolvedCoords?: { lat: number; lng: number };
     };
     const pending: PendingSlot[] = [];
 
@@ -1829,59 +1830,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     if (pending.length === 0) return;
 
-    logger.info(`[FWD-ORS] refining ${pending.length} car slots (geocoding ${pending.filter(p => !p.nextCoords && p.nextPostcode).length} missing postcodes)`);
+    const missingGeoCount = pending.filter(p => !p.nextCoords && p.nextPostcode).length;
+    logger.info(`[FWD-ORS] ${pending.length} car slot(s) to refine — geocoding ${missingGeoCount} missing postcode(s)`);
 
-    // Slots marked for rejection (forward travel ≥30 min confirmed after geocoding)
-    const rejectedSlots = new Set<import('./bdMatcher').MatchedSlot>();
-
-    await Promise.all(pending.map(async ({ match, slot, nextPostcode, nextCoords, gapMins }) => {
-      try {
-        // Step 1: resolve next-visit coords if not already available
-        let toCoords = nextCoords;
-        if (!toCoords && nextPostcode) {
-          const geo = await geocodeWithFallback(nextPostcode, storage, branchId);
-          if (geo?.lat && geo?.lng) {
-            toCoords = { lat: parseFloat(String(geo.lat)), lng: parseFloat(String(geo.lng)) };
-          }
+    // Phase 1: Geocode any missing next-visit coords in parallel
+    await Promise.all(pending.map(async (p) => {
+      if (p.nextCoords) {
+        p.resolvedCoords = p.nextCoords;
+        return;
+      }
+      if (p.nextPostcode) {
+        const geo = await geocodeWithFallback(p.nextPostcode, storage, branchId);
+        if (geo?.lat && geo?.lng) {
+          p.resolvedCoords = { lat: parseFloat(String(geo.lat)), lng: parseFloat(String(geo.lng)) };
         }
-        if (!toCoords) return; // genuinely unresolvable — leave warning as-is
-
-        // Step 2: Haversine pre-check.
-        // If ≥30 min the carer is too far away — reject the slot outright (no ORS call needed).
-        const heuristicMins = travelTimeService.heuristicEstimate(clientCoords, toCoords, 'car');
-        if (heuristicMins >= 30) {
-          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: heuristic=${heuristicMins}min ≥30 — rejecting slot`);
-          rejectedSlots.add(slot);
-          return;
-        }
-
-        // Step 3: ORS Directions (falls back to OSRM) for borderline slots only (<30 min haversine)
-        const result = await travelTimeService.fetchORSDirections(clientCoords, toCoords);
-
-        let finalMins: number;
-        if (result) {
-          finalMins = result.durationMinutes;
-          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: ors=${finalMins}min gap=${gapMins}min warn=${finalMins > gapMins + 5}`);
-        } else {
-          finalMins = heuristicMins;
-          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: heuristic=${finalMins}min gap=${gapMins}min (ORS+OSRM unavailable)`);
-        }
-
-        // If ORS/OSRM returns a road time ≥30 min, reject too
-        if (finalMins >= 30) {
-          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: road=${finalMins}min ≥30 — rejecting slot`);
-          rejectedSlots.add(slot);
-          return;
-        }
-
-        slot.forwardTravelMinutes = finalMins;
-        slot.forwardTravelWarning = finalMins > gapMins + 5;
-      } catch (e) {
-        logger.warn(`[FWD-ORS] refinement failed for ${slot.day} ${slot.availableWindow}`, { error: String(e) });
       }
     }));
 
-    // Remove rejected slots from each employee; remove employees with no slots left
+    // Phase 2: Haversine pre-filter — reject slots ≥30 min straight-line, keep the rest for ORS
+    const rejectedSlots = new Set<import('./bdMatcher').MatchedSlot>();
+    const orsQueue: PendingSlot[] = [];
+
+    for (const p of pending) {
+      if (!p.resolvedCoords) continue; // genuinely unresolvable — leave warning as-is
+
+      const heuristicMins = travelTimeService.heuristicEstimate(clientCoords, p.resolvedCoords, 'car');
+      if (heuristicMins >= 30) {
+        logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: heuristic=${heuristicMins}min ≥30 — rejected`);
+        rejectedSlots.add(p.slot);
+      } else {
+        p.slot.forwardTravelMinutes = heuristicMins; // best-effort until ORS confirms
+        orsQueue.push(p);
+      }
+    }
+
+    // Phase 3: Single ORS Matrix call — 1 source (client) × N destinations (next visits)
+    // This replaces N individual ORS Directions calls with one batch request.
+    if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
+      const destinations = orsQueue.map(p => p.resolvedCoords!);
+      logger.info(`[FWD-ORS] ORS Matrix batch: 1×${destinations.length} (client → next visits)`);
+      try {
+        await travelTimeService.orsMatrixBatch([clientCoords], destinations);
+
+        // Read results from session cache (populated by orsMatrixBatch)
+        for (const p of orsQueue) {
+          const cached = travelTimeService.getCachedTravelTime(
+            clientCoords,
+            p.resolvedCoords!,
+            'car'
+          );
+          if (cached) {
+            const roadMins = cached.durationMinutes;
+            if (roadMins >= 30) {
+              logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: matrix=${roadMins}min ≥30 — rejected`);
+              rejectedSlots.add(p.slot);
+            } else {
+              p.slot.forwardTravelMinutes = roadMins;
+              p.slot.forwardTravelWarning = roadMins > p.gapMins + 5;
+              logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: matrix=${roadMins}min gap=${p.gapMins}min warn=${p.slot.forwardTravelWarning}`);
+            }
+          }
+          // If cache miss (ORS Matrix failed), the haversine value set in Phase 2 stays
+        }
+      } catch (e) {
+        logger.warn('[FWD-ORS] ORS Matrix batch failed — haversine values retained', { error: String(e) });
+        // Haversine values already set in Phase 2 remain as fallback
+      }
+    }
+
+    // Phase 4: Remove rejected slots; drop employees left with no slots
     if (rejectedSlots.size > 0) {
       logger.info(`[FWD-ORS] removing ${rejectedSlots.size} slot(s) with forward travel ≥30 min`);
       for (const match of matches) {
