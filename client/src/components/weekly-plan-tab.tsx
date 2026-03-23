@@ -736,7 +736,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Load schedule for the current week being viewed
   const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<any>({
-    queryKey: ['/api/weekly-schedule', weekStart, (data as any)?.branchId], // Access branchId safely
+    queryKey: ['/api/weekly-schedule', weekStart], // branchId is added by default fetcher
     enabled: !!data && !!weekStart,
   });
 
