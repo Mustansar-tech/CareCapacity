@@ -1796,14 +1796,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     type RefinementTask = { slot: import('./bdMatcher').MatchedSlot; nextCoords: { lat: number; lng: number }; gapMins: number };
     const tasks: RefinementTask[] = [];
 
+    logger.info('[FWD-OSRM] refine called', {
+      matchCount: matches.length,
+      modes: matches.map(m => ({ name: m.employeeName, mode: m.transportMode, slots: m.matchedSlots.length }))
+    });
+
     for (const match of matches) {
       const mode = (match.transportMode || '').toLowerCase();
       const isCar = mode === 'car' || mode === 'driver';
-      if (!isCar) continue;
+      if (!isCar) {
+        logger.info(`[FWD-OSRM] skip non-car: ${match.employeeName} (mode=${match.transportMode})`);
+        continue;
+      }
 
       for (const slot of match.matchedSlots) {
         const nv = slot.nextVisit;
-        if (!nv || nv.lat == null || nv.lng == null) continue;
+        if (!nv || nv.lat == null || nv.lng == null) {
+          logger.info(`[FWD-OSRM] skip slot ${match.employeeName} ${slot.day} — no nextVisit coords (nv=${JSON.stringify(nv)})`);
+          continue;
+        }
 
         // Parse gap from availableWindow end → nextVisit start
         const endStr = slot.availableWindow.split('-')[1] ?? '';
@@ -1817,12 +1828,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
+    logger.info('[FWD-OSRM] refinement queued tasks', {
+      tasks: tasks.length,
+      clientCoords,
+      slots: tasks.map(t => ({ day: t.slot.day, window: t.slot.availableWindow, gap: t.gapMins, nextCoords: t.nextCoords }))
+    });
+
     if (tasks.length === 0) return;
 
     await Promise.all(tasks.map(async ({ slot, nextCoords, gapMins }) => {
       try {
         const osrm = await travelTimeService.fetchOSRMRouteFallback(clientCoords, nextCoords);
-        if (!osrm) return; // OSRM unavailable — leave heuristic values
+        if (!osrm) {
+          logger.warn(`[FWD-OSRM] no result for slot ${slot.day} ${slot.availableWindow}`);
+          return; // OSRM unavailable — leave heuristic values
+        }
         const realMins = Math.round(osrm.durationMinutes);
         slot.forwardTravelMinutes = realMins;
         // Re-evaluate warning with real road time (same thresholds as matcher eligibility check)
@@ -1831,8 +1851,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           slot.forwardTravelWarning = false;
         }
-        logger.debug(`[FWD-OSRM] slot ${slot.day} ${slot.availableWindow}: osrm=${realMins}min, gap=${gapMins}min, warning=${slot.forwardTravelWarning}`);
-      } catch {
+        logger.info(`[FWD-OSRM] slot ${slot.day} ${slot.availableWindow}: osrm=${realMins}min, gap=${gapMins}min, warning=${slot.forwardTravelWarning}`);
+      } catch (e) {
+        logger.warn(`[FWD-OSRM] OSRM call failed for slot ${slot.day}`, { error: String(e) });
         // Leave heuristic values intact if OSRM call fails
       }
     }));
