@@ -8,7 +8,7 @@ import { storage } from "./storage";
 import { getCanonicalWeekBoundaries, type ProcessingResult } from "@shared/schema";
 import { TravelTimeService, travelTimeService, type TransportMode } from './travel-time-service';
 import { logger } from "./logger";
-import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from "./bdMatcher";
+import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria, type MatchedEmployee } from "./bdMatcher";
 import { registerAuthRoutes } from './auth-routes';
 import { requireAuth, requireRoleAtLeast, auditLog } from './auth';
 
@@ -1780,6 +1780,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * Refine forward-travel times for car-driver matched slots using OSRM real-road data.
+   * Runs after the BD Matcher has selected slots; replaces the heuristic forwardTravelMinutes
+   * with a real road estimate and re-evaluates forwardTravelWarning using the same thresholds
+   * that were applied during the matching eligibility check (> gap+20 → hard flag, > gap+5 → warning).
+   *
+   * Only runs for car/driver transport mode — walking and public-transit heuristics are reasonable.
+   * OSRM calls run in parallel (one per unique next-visit location within 90-min gap).
+   */
+  async function refineForwardTravelWithOSRM(
+    matches: MatchedEmployee[],
+    clientCoords: { lat: number; lng: number }
+  ): Promise<void> {
+    type RefinementTask = { slot: import('./bdMatcher').MatchedSlot; nextCoords: { lat: number; lng: number }; gapMins: number };
+    const tasks: RefinementTask[] = [];
+
+    for (const match of matches) {
+      const mode = (match.transportMode || '').toLowerCase();
+      const isCar = mode === 'car' || mode === 'driver';
+      if (!isCar) continue;
+
+      for (const slot of match.matchedSlots) {
+        const nv = slot.nextVisit;
+        if (!nv || nv.lat == null || nv.lng == null) continue;
+
+        // Parse gap from availableWindow end → nextVisit start
+        const endStr = slot.availableWindow.split('-')[1] ?? '';
+        const [endH, endM] = endStr.split(':').map(Number);
+        const [nvH, nvM] = nv.startTime.split(':').map(Number);
+        if (isNaN(endH) || isNaN(endM) || isNaN(nvH) || isNaN(nvM)) continue;
+        const gapMins = (nvH * 60 + nvM) - (endH * 60 + endM);
+        if (gapMins >= 90) continue; // large gap — forward-travel rule doesn't apply
+
+        tasks.push({ slot, nextCoords: { lat: nv.lat, lng: nv.lng }, gapMins });
+      }
+    }
+
+    if (tasks.length === 0) return;
+
+    await Promise.all(tasks.map(async ({ slot, nextCoords, gapMins }) => {
+      try {
+        const osrm = await travelTimeService.fetchOSRMRouteFallback(clientCoords, nextCoords);
+        if (!osrm) return; // OSRM unavailable — leave heuristic values
+        const realMins = Math.round(osrm.durationMinutes);
+        slot.forwardTravelMinutes = realMins;
+        // Re-evaluate warning with real road time (same thresholds as matcher eligibility check)
+        if (realMins > gapMins + 5) {
+          slot.forwardTravelWarning = true;
+        } else {
+          slot.forwardTravelWarning = false;
+        }
+        logger.debug(`[FWD-OSRM] slot ${slot.day} ${slot.availableWindow}: osrm=${realMins}min, gap=${gapMins}min, warning=${slot.forwardTravelWarning}`);
+      } catch {
+        // Leave heuristic values intact if OSRM call fails
+      }
+    }));
+  }
+
   app.post('/api/bd-matcher', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
@@ -1854,6 +1912,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await matchClientEnquiry(criteria, latestData, branchId, storage, employeeScheduleMap);
+
+      // Refine forward travel times for car drivers using OSRM real-road data.
+      // The heuristic used during matching is kept for eligibility filtering; here we
+      // replace it with actual road time for display purposes only.
+      if (criteria.postcode && result.matches.length > 0) {
+        try {
+          const geocoded = await geocodeWithFallback(criteria.postcode, storage, branchId);
+          if (geocoded?.lat && geocoded?.lng) {
+            const clientCoords = { lat: parseFloat(geocoded.lat), lng: parseFloat(geocoded.lng) };
+            await refineForwardTravelWithOSRM(result.matches, clientCoords);
+          }
+        } catch (refineErr) {
+          logger.warn('BD Matcher: OSRM forward-travel refinement failed (non-fatal)', { error: String(refineErr) });
+        }
+      }
+
       res.json(result);
     } catch (error) {
       logger.error('BD Matcher error', error);
@@ -1926,6 +2000,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await matchMultiVisitEnquiry(multiCriteria, latestData, branchId, storage, employeeScheduleMap);
+
+      // Refine forward travel times for car drivers across all visit results using OSRM.
+      if (multiCriteria.postcode && result.visitResults?.length > 0) {
+        try {
+          const geocoded = await geocodeWithFallback(multiCriteria.postcode, storage, branchId);
+          if (geocoded?.lat && geocoded?.lng) {
+            const clientCoords = { lat: parseFloat(geocoded.lat), lng: parseFloat(geocoded.lng) };
+            const allMatches = result.visitResults.flatMap(vr => vr.matches);
+            await refineForwardTravelWithOSRM(allMatches, clientCoords);
+          }
+        } catch (refineErr) {
+          logger.warn('BD Multi-Visit Matcher: OSRM forward-travel refinement failed (non-fatal)', { error: String(refineErr) });
+        }
+      }
+
       res.json(result);
     } catch (error) {
       logger.error('BD Multi-Visit Matcher error', error);
