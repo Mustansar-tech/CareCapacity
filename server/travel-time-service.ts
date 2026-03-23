@@ -80,6 +80,22 @@ export class TravelTimeService {
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
 
+  /**
+   * Synchronous haversine-based travel estimate using this service's exact MODE_CONFIG and ROAD_FACTOR.
+   * Use for in-process scheduling checks (e.g. BD Matcher forward-travel rule) where async API
+   * calls are not practical inside a tight inner loop.
+   */
+  heuristicEstimate(
+    from: { lat: number; lng: number },
+    to: { lat: number; lng: number },
+    transportMode: string | undefined
+  ): number {
+    const raw = (transportMode || 'walking').toLowerCase();
+    const mode: TransportMode = raw === 'car' || raw === 'driver' ? 'car' : raw === 'walking' ? 'walking' : 'public';
+    const straightLineKm = this.calculateHaversineDistance(from, to);
+    return this.calculateHeuristicTravelTime(straightLineKm, mode);
+  }
+
   resetSourceStats(): void {
     this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();

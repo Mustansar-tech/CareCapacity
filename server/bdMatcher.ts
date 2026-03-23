@@ -1,7 +1,7 @@
 import { logger } from './logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
 import type { CpVisitEntry } from './excel-visit-extractor';
-import { travelTimeService, estimateTravelMinutesSync } from './travel-time-service';
+import { travelTimeService } from './travel-time-service';
 import { normalizeName } from './shared-utils';
 
 export interface ClientEnquiryCriteria {
@@ -193,29 +193,24 @@ function getEarliestStartAfterBreak(
 
   if (priorVisits.length === 0) return null;
 
-  let blockStart = timeToMinutes(priorVisits[0].startTime);
-  let blockEnd = timeToMinutes(priorVisits[0].endTime);
-  let maxBlockMins = blockEnd - blockStart;
-  let maxBlockEnd = blockEnd;
+  // Walk backwards from the most recent prior visit to build the LAST continuous block.
+  // Gaps > MAX_GAP_IN_BLOCK (30 min) are treated as breaks that reset continuity.
+  // Only the last block matters: any earlier 5h block's break was served by the inter-block gap.
+  let blockEnd = timeToMinutes(priorVisits[priorVisits.length - 1].endTime);
+  let blockStart = timeToMinutes(priorVisits[priorVisits.length - 1].startTime);
 
-  for (let i = 1; i < priorVisits.length; i++) {
-    const vStart = timeToMinutes(priorVisits[i].startTime);
+  for (let i = priorVisits.length - 2; i >= 0; i--) {
     const vEnd = timeToMinutes(priorVisits[i].endTime);
-    if (vStart - blockEnd <= MAX_GAP_IN_BLOCK) {
-      blockEnd = vEnd;
-      const dur = blockEnd - blockStart;
-      if (dur > maxBlockMins) {
-        maxBlockMins = dur;
-        maxBlockEnd = blockEnd;
-      }
-    } else {
+    const vStart = timeToMinutes(priorVisits[i].startTime);
+    if (blockStart - vEnd <= MAX_GAP_IN_BLOCK) {
       blockStart = vStart;
-      blockEnd = vEnd;
+    } else {
+      break;
     }
   }
 
-  if (maxBlockMins >= CONTINUOUS_LIMIT) {
-    return maxBlockEnd + BREAK_DURATION;
+  if (blockEnd - blockStart >= CONTINUOUS_LIMIT) {
+    return blockEnd + BREAK_DURATION;
   }
   return null;
 }
@@ -706,7 +701,7 @@ function matchEmployeesForVisit(
             const gapMins = nextStartMins - slotEndMins;
             if (gapMins < 90) {
               if (nv.lat && nv.lng && clientLocation) {
-                const forwardMins = estimateTravelMinutesSync(
+                const forwardMins = travelTimeService.heuristicEstimate(
                   clientLocation,
                   { lat: nv.lat, lng: nv.lng },
                   weeklyData.transportMode
@@ -775,7 +770,7 @@ function matchEmployeesForVisit(
             const gapMins = timeToMinutes(nextVisit.startTime) - altEffectiveEnd;
             if (gapMins < 90) {
               if (nextVisit.lat && nextVisit.lng && clientLocation) {
-                const fwdMins = estimateTravelMinutesSync(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                 if (fwdMins > gapMins + 20) continue;
                 if (fwdMins > gapMins + 5) altFwdWarning = true;
               } else {
@@ -817,7 +812,7 @@ function matchEmployeesForVisit(
               const gapMins = timeToMinutes(nextVisit.startTime) - altSlotEndMins;
               if (gapMins < 90) {
                 if (nextVisit.lat && nextVisit.lng && clientLocation) {
-                  const fwdMins = estimateTravelMinutesSync(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                  const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                   if (fwdMins > gapMins + 20) continue;
                   if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
                 } else {
