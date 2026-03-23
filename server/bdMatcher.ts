@@ -55,6 +55,8 @@ export interface MatchedSlot {
   travelMinutes?: number;
   // First scheduled visit on this day that starts after the proposed visit ends
   nextVisit?: { startTime: string; endTime: string; lat?: number; lng?: number; postcode?: string } | null;
+  // True when travel to next visit uses 5-20 min more than the available gap (accepted but flagged)
+  forwardTravelWarning?: boolean;
 }
 
 export interface MatchResult {
@@ -619,11 +621,14 @@ function matchEmployeesForVisit(
     let exactDayMatches = 0;
     let adjustedTimeMatches = 0;
     let alternativeDayMatches = 0;
+    // Track whether any required day was hard-excluded by Rule 1 or 2 (dates existed but all blocked)
+    let anyRequiredDayHardExcluded = false;
 
     for (const reqDay of requiredDays) {
       const matchingDates = datesByDay.get(reqDay) || [];
       let bestSlotForDay: MatchedSlot | null = null;
       let bestScoreForDay = -1;
+      let dayHadHardExclusion = false;
 
       for (const dateStr of matchingDates) {
         const summaries = employeeSummaryByDate[dateStr] || [];
@@ -631,18 +636,19 @@ function matchEmployeesForVisit(
         if (!empSummary) continue;
 
         // Rule 1: Exclude if any unavailability (annual leave, sick, etc.)
-        if (empSummary.unavailability > 0) continue;
+        if (empSummary.unavailability > 0) { dayHadHardExclusion = true; continue; }
 
         // Rule 2: Exclude if daily scheduled hours already at or above 9 hours
-        if (empSummary.scheduledHours >= 9) continue;
+        if (empSummary.scheduledHours >= 9) { dayHadHardExclusion = true; continue; }
 
         // Rule 3: Break rule — if CP has 5+ continuous hours before the enquiry slot,
         // they need a 30-min break first; shift to the next available company time block.
         let effectiveReqStart = reqStart;
+        let earliestAfterBreak: number | null = null;
         if (employeeScheduleMap) {
-          const earliestAfterBreak = getEarliestStartAfterBreak(empName, dateStr, reqStart, employeeScheduleMap);
+          earliestAfterBreak = getEarliestStartAfterBreak(empName, dateStr, reqStart, employeeScheduleMap);
           if (earliestAfterBreak !== null && reqStart < earliestAfterBreak) {
-            const nextBlock = COMPANY_TIME_BLOCKS.find(b => timeToMinutes(b.start) >= earliestAfterBreak);
+            const nextBlock = COMPANY_TIME_BLOCKS.find(b => timeToMinutes(b.start) >= earliestAfterBreak!);
             if (!nextBlock) continue;
             effectiveReqStart = timeToMinutes(nextBlock.start);
           }
@@ -650,7 +656,6 @@ function matchEmployeesForVisit(
         const effectiveReqEnd = effectiveReqStart + visitDuration;
 
         const cancelledVisitsStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
-
         const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, effectiveReqStart, effectiveReqEnd);
 
         if (isAvailable) {
@@ -672,8 +677,11 @@ function matchEmployeesForVisit(
           const freeWindows = parseFreeWindows(empSummary.freeWindows);
           const closestSlot = findClosestSlot(freeWindows, effectiveReqStart, effectiveReqEnd, visitDuration);
           if (closestSlot) {
+            // Fix 4b: ensure fallback slot respects the mandatory break lower bound
+            const closestSlotStart = timeToMinutes(closestSlot.window.split('-')[0]);
+            if (earliestAfterBreak !== null && closestSlotStart < earliestAfterBreak) continue;
             const isBlockAligned = COMPANY_TIME_BLOCKS.some(block =>
-              timeToMinutes(block.start) === timeToMinutes(closestSlot.window.split('-')[0])
+              timeToMinutes(block.start) === closestSlotStart
             );
             if (isBlockAligned) {
               const score = Math.max(0, 80 - closestSlot.distance / 5);
@@ -694,6 +702,9 @@ function matchEmployeesForVisit(
         }
       }
 
+      // If all dates for this required day were hard-excluded by Rules 1/2, mark accordingly
+      if (dayHadHardExclusion && !bestSlotForDay) anyRequiredDayHardExcluded = true;
+
       if (bestSlotForDay) {
         if (employeeScheduleMap) {
           const slotEndStr = bestSlotForDay.availableWindow.split('-')[1];
@@ -701,8 +712,8 @@ function matchEmployeesForVisit(
           bestSlotForDay.nextVisit = getNextVisitAfter(empName, bestSlotForDay.day, slotEndMins, employeeScheduleMap);
 
           // Rule 4: Forward travel check — if gap to next visit < 90 min, verify the CP
-          // can travel from the enquiry postcode to the next visit in time.
-          // Allow up to 5 min over; reject if > 20 min over.
+          // can travel from enquiry location to next visit in time.
+          // ≤5 min over gap: accept silently. 5–20 min over: accept with warning flag. >20 min over: reject.
           const nv = bestSlotForDay.nextVisit;
           if (nv && nv.lat && nv.lng && clientLocation) {
             const nextStartMins = timeToMinutes(nv.startTime);
@@ -715,6 +726,8 @@ function matchEmployeesForVisit(
               );
               if (forwardMins > gapMins + 20) {
                 bestSlotForDay = null;
+              } else if (forwardMins > gapMins + 5) {
+                bestSlotForDay.forwardTravelWarning = true;
               }
             }
           }
@@ -729,7 +742,9 @@ function matchEmployeesForVisit(
       }
     }
 
-    if (matchedSlots.length === 0) {
+    // If any required day was hard-excluded by unavailability or 9-hr cap, do not fall through
+    // to alternative-day matching — the carer cannot cover the required days.
+    if (matchedSlots.length === 0 && !anyRequiredDayHardExcluded) {
       for (const dateStr of dates) {
         const dayAbbrev = getDayAbbrev(dateStr);
         if (requiredDays.includes(dayAbbrev)) continue;
@@ -745,10 +760,11 @@ function matchEmployeesForVisit(
 
         // Rule 3: Break rule for alternative days
         let altEffectiveStart = reqStart;
+        let altEarliestAfterBreak: number | null = null;
         if (employeeScheduleMap) {
-          const earliestAfterBreak = getEarliestStartAfterBreak(empName, dateStr, reqStart, employeeScheduleMap);
-          if (earliestAfterBreak !== null && reqStart < earliestAfterBreak) {
-            const nextBlock = COMPANY_TIME_BLOCKS.find(b => timeToMinutes(b.start) >= earliestAfterBreak);
+          altEarliestAfterBreak = getEarliestStartAfterBreak(empName, dateStr, reqStart, employeeScheduleMap);
+          if (altEarliestAfterBreak !== null && reqStart < altEarliestAfterBreak) {
+            const nextBlock = COMPANY_TIME_BLOCKS.find(b => timeToMinutes(b.start) >= altEarliestAfterBreak!);
             if (!nextBlock) continue;
             altEffectiveStart = timeToMinutes(nextBlock.start);
           }
@@ -763,11 +779,13 @@ function matchEmployeesForVisit(
           const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altEffectiveEnd, employeeScheduleMap) : undefined;
 
           // Rule 4: Forward travel check for alternative days
+          let altFwdWarning = false;
           if (nextVisit?.lat && nextVisit?.lng && clientLocation) {
             const gapMins = timeToMinutes(nextVisit.startTime) - altEffectiveEnd;
             if (gapMins < 90) {
               const fwdMins = haversineEstimateMinutes(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
               if (fwdMins > gapMins + 20) continue;
+              if (fwdMins > gapMins + 5) altFwdWarning = true;
             }
           }
 
@@ -778,6 +796,7 @@ function matchEmployeesForVisit(
             matchType: 'alternative-day',
             cancelledVisits: altCancelledStr,
             nextVisit,
+            forwardTravelWarning: altFwdWarning || undefined,
             ...depInfo,
           });
           alternativeDayMatches++;
@@ -787,17 +806,23 @@ function matchEmployeesForVisit(
           const freeWindows = parseFreeWindows(empSummary.freeWindows);
           const closestSlot = findClosestSlot(freeWindows, altEffectiveStart, altEffectiveEnd, visitDuration);
           if (closestSlot) {
+            // Fix 4b: enforce mandatory break lower bound in fallback slot for alternative days
+            const closestSlotStart = timeToMinutes(closestSlot.window.split('-')[0]);
+            if (altEarliestAfterBreak !== null && closestSlotStart < altEarliestAfterBreak) continue;
+
             const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
             const altSlotEndStr = closestSlot.window.split('-')[1];
             const altSlotEndMins = altSlotEndStr ? timeToMinutes(altSlotEndStr) : altEffectiveEnd;
             const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altSlotEndMins, employeeScheduleMap) : undefined;
 
             // Rule 4: Forward travel check for alternative days (adjusted slot)
+            let altAdjFwdWarning = false;
             if (nextVisit?.lat && nextVisit?.lng && clientLocation) {
               const gapMins = timeToMinutes(nextVisit.startTime) - altSlotEndMins;
               if (gapMins < 90) {
                 const fwdMins = haversineEstimateMinutes(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                 if (fwdMins > gapMins + 20) continue;
+                if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
               }
             }
 
@@ -808,6 +833,7 @@ function matchEmployeesForVisit(
               matchType: 'alternative-day',
               cancelledVisits: altCancelledStr,
               nextVisit,
+              forwardTravelWarning: altAdjFwdWarning || undefined,
               ...depInfo,
             });
             alternativeDayMatches++;
