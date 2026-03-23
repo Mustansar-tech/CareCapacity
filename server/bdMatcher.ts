@@ -705,7 +705,10 @@ function matchEmployeesForVisit(
           if (nv) {
             const nextStartMins = timeToMinutes(nv.startTime);
             const gapMins = nextStartMins - slotEndMins;
-            if (gapMins < 90) {
+            if (gapMins >= 90) {
+              // Gap is too large to be relevant — hide next visit from card
+              bestSlotForDay.nextVisit = undefined;
+            } else {
               if (nv.lat != null && nv.lng != null && clientLocation) {
                 const forwardMins = travelTimeService.heuristicEstimate(
                   clientLocation,
