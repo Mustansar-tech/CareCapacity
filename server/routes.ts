@@ -1840,12 +1840,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Step 2: ORS Directions API (falls back to OSRM internally)
         const result = await travelTimeService.fetchORSDirections(clientCoords, toCoords);
-        if (!result) return; // ORS + OSRM both unavailable — leave heuristic values
 
-        const realMins = result.durationMinutes;
-        slot.forwardTravelMinutes = realMins;
-        slot.forwardTravelWarning = realMins > gapMins + 5;
-        logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: ors=${realMins}min gap=${gapMins}min warn=${slot.forwardTravelWarning}`);
+        let finalMins: number;
+        if (result) {
+          finalMins = result.durationMinutes;
+          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: ors=${finalMins}min gap=${gapMins}min warn=${finalMins > gapMins + 5}`);
+        } else {
+          // ORS + OSRM both unavailable — use haversine heuristic so we always show a value
+          finalMins = travelTimeService.heuristicEstimate(clientCoords, toCoords, 'car');
+          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: heuristic=${finalMins}min gap=${gapMins}min (ORS+OSRM unavailable)`);
+        }
+        slot.forwardTravelMinutes = finalMins;
+        slot.forwardTravelWarning = finalMins > gapMins + 5;
       } catch (e) {
         logger.warn(`[FWD-ORS] refinement failed for ${slot.day} ${slot.availableWindow}`, { error: String(e) });
         // Leave heuristic values intact
