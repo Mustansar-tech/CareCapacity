@@ -780,9 +780,12 @@ function matchEmployeesForVisit(
           // If coords unavailable for a short gap, flag for manual check (conservative).
           let altFwdWarning = false;
           let altFwdMins: number | undefined;
+          let nextVisitForSlot2 = nextVisit;
           if (nextVisit) {
             const gapMins = timeToMinutes(nextVisit.startTime) - altEffectiveEnd;
-            if (gapMins < 90) {
+            if (gapMins >= 90) {
+              nextVisitForSlot2 = undefined; // gap too large — hide from card
+            } else {
               if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                 const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                 if (fwdMins >= 30 || fwdMins > gapMins + 20) continue;
@@ -800,7 +803,7 @@ function matchEmployeesForVisit(
             availableWindow: `${minutesToTime(altEffectiveStart)}-${minutesToTime(altEffectiveEnd)}`,
             matchType: 'alternative-day',
             cancelledVisits: altCancelledStr,
-            nextVisit,
+            nextVisit: nextVisitForSlot2,
             forwardTravelWarning: altFwdWarning || undefined,
             forwardTravelMinutes: altFwdMins,
             ...depInfo,
@@ -825,9 +828,12 @@ function matchEmployeesForVisit(
             // If coords unavailable for a short gap, flag for manual check (conservative).
             let altAdjFwdWarning = false;
             let altAdjFwdMins: number | undefined;
+            let nextVisitForSlot3 = nextVisit;
             if (nextVisit) {
               const gapMins = timeToMinutes(nextVisit.startTime) - altSlotEndMins;
-              if (gapMins < 90) {
+              if (gapMins >= 90) {
+                nextVisitForSlot3 = undefined; // gap too large — hide from card
+              } else {
                 if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                   const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                   if (fwdMins >= 30 || fwdMins > gapMins + 20) continue;
@@ -845,7 +851,7 @@ function matchEmployeesForVisit(
               availableWindow: closestSlot.window,
               matchType: 'alternative-day',
               cancelledVisits: altCancelledStr,
-              nextVisit,
+              nextVisit: nextVisitForSlot3,
               forwardTravelWarning: altAdjFwdWarning || undefined,
               forwardTravelMinutes: altAdjFwdMins,
               ...depInfo,

@@ -1803,13 +1803,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       nextPostcode: string | undefined;
       nextCoords: { lat: number; lng: number } | null;
       gapMins: number;
+      isCar: boolean;
+      transportMode: string;
       resolvedCoords?: { lat: number; lng: number };
     };
     const pending: PendingSlot[] = [];
 
     for (const match of matches) {
       const isCar = TravelTimeService.normalizeMode(match.transportMode) === 'car';
-      if (!isCar) continue;
+      // Include car (ORS Matrix) and walking (haversine only) — skip public transport
+      if (!isCar && TravelTimeService.normalizeMode(match.transportMode) !== 'walking') continue;
 
       for (const slot of match.matchedSlots) {
         const nv = slot.nextVisit;
@@ -1824,14 +1827,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const hasCoords = nv.lat != null && nv.lng != null;
         const coords = hasCoords ? { lat: nv.lat!, lng: nv.lng! } : null;
-        pending.push({ match, slot, nextPostcode: nv.postcode, nextCoords: coords, gapMins });
+        pending.push({ match, slot, nextPostcode: nv.postcode, nextCoords: coords, gapMins, isCar, transportMode: match.transportMode });
       }
     }
 
     if (pending.length === 0) return;
 
     const missingGeoCount = pending.filter(p => !p.nextCoords && p.nextPostcode).length;
-    logger.info(`[FWD-ORS] ${pending.length} car slot(s) to refine — geocoding ${missingGeoCount} missing postcode(s)`);
+    logger.info(`[FWD-ORS] ${pending.length} slot(s) to refine (car+walker) — geocoding ${missingGeoCount} missing postcode(s)`);
 
     // Phase 1: Geocode any missing next-visit coords in parallel
     await Promise.all(pending.map(async (p) => {
@@ -1847,25 +1850,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }));
 
-    // Phase 2: Haversine pre-filter — reject slots ≥30 min straight-line, keep the rest for ORS
+    // Phase 2: Mode-aware filter using haversine.
+    //   Car:    heuristic ≥30 min → reject (too far). <30 → queue for ORS Matrix.
+    //   Walker: heuristic >gap+20 → reject (can't make it). Otherwise → set value directly (no ORS).
     const rejectedSlots = new Set<import('./bdMatcher').MatchedSlot>();
     const orsQueue: PendingSlot[] = [];
 
     for (const p of pending) {
       if (!p.resolvedCoords) continue; // genuinely unresolvable — leave warning as-is
 
-      const heuristicMins = travelTimeService.heuristicEstimate(clientCoords, p.resolvedCoords, 'car');
-      if (heuristicMins >= 30) {
-        logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: heuristic=${heuristicMins}min ≥30 — rejected`);
-        rejectedSlots.add(p.slot);
+      const mode = TravelTimeService.normalizeMode(p.transportMode);
+      const heuristicMins = travelTimeService.heuristicEstimate(clientCoords, p.resolvedCoords, mode);
+
+      if (p.isCar) {
+        if (heuristicMins >= 30) {
+          logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: car heuristic=${heuristicMins}min ≥30 — rejected`);
+          rejectedSlots.add(p.slot);
+        } else {
+          p.slot.forwardTravelMinutes = heuristicMins; // best-effort until ORS Matrix confirms
+          orsQueue.push(p);
+        }
       } else {
-        p.slot.forwardTravelMinutes = heuristicMins; // best-effort until ORS confirms
-        orsQueue.push(p);
+        // Walker: apply walking haversine directly — no ORS needed
+        if (heuristicMins > p.gapMins + 20) {
+          logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: walk heuristic=${heuristicMins}min >gap+20 (${p.gapMins + 20}) — rejected`);
+          rejectedSlots.add(p.slot);
+        } else {
+          p.slot.forwardTravelMinutes = heuristicMins;
+          p.slot.forwardTravelWarning = heuristicMins > p.gapMins + 5 ? true : undefined;
+          logger.info(`[FWD-ORS] ${p.slot.day} ${p.slot.availableWindow}: walk heuristic=${heuristicMins}min gap=${p.gapMins}min warn=${!!p.slot.forwardTravelWarning}`);
+        }
       }
     }
 
-    // Phase 3: Single ORS Matrix call — 1 source (client) × N destinations (next visits)
-    // This replaces N individual ORS Directions calls with one batch request.
+    // Phase 3: Single ORS Matrix call for car slots — 1 source (client) × N destinations (next visits)
     if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
       const destinations = orsQueue.map(p => p.resolvedCoords!);
       logger.info(`[FWD-ORS] ORS Matrix batch: 1×${destinations.length} (client → next visits)`);
