@@ -463,7 +463,7 @@ function CareProMap({
   // Apply a small radial jitter to markers that share identical coordinates so
   // they are all individually visible instead of stacking on top of each other.
   const jitteredLocations = useMemo(() => {
-    const JITTER_RADIUS = 0.00035; // ~35 m — small enough to look grouped, large enough to click
+    const JITTER_RADIUS = 0.008; // ~800 m radius — clearly separates markers at zoom-10 view
     const coordKey = (loc: any) =>
       `${parseFloat(loc.homeLat).toFixed(6)},${parseFloat(loc.homeLng).toFixed(6)}`;
 
