@@ -169,13 +169,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   const availableEmployees = Array.from(employeeMap.values());
 
-  // Get employees with assignments from the weekly schedule (exclude ad-hoc)
+  // Get employees with assignments from the weekly schedule (exclude ad-hoc and 0-GH)
   const employeesWithAssignments = weeklySchedule 
     ? Array.from(new Set(
         Object.values(weeklySchedule.assignments)
           .flatMap(dateAssignments => Object.keys(dateAssignments))
       ))
-      .filter(empName => !adHocEmployees.has(empName))
+      .filter(empName => !adHocEmployees.has(empName) && (employeeWeeklyHoursMap.get(empName) || 0) > 0)
       .sort()
     : [];
 
