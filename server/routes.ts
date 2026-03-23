@@ -1838,7 +1838,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         if (!toCoords) return; // still no coords after geocode attempt
 
-        // Step 2: ORS Directions API (falls back to OSRM internally)
+        // Step 2: Haversine pre-check — if heuristic says ≥30 min, skip ORS entirely.
+        // The real road time will be at least as long, so an ORS call would not change
+        // the outcome (slot still gets flagged). This conserves ORS API quota.
+        const heuristicMins = travelTimeService.heuristicEstimate(clientCoords, toCoords, 'car');
+        if (heuristicMins >= 30) {
+          slot.forwardTravelMinutes = heuristicMins;
+          slot.forwardTravelWarning = heuristicMins > gapMins + 5;
+          logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: heuristic=${heuristicMins}min ≥30 — skipping ORS`);
+          return;
+        }
+
+        // Step 3: ORS Directions API (falls back to OSRM internally) for short-travel slots
         const result = await travelTimeService.fetchORSDirections(clientCoords, toCoords);
 
         let finalMins: number;
@@ -1847,7 +1858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: ors=${finalMins}min gap=${gapMins}min warn=${finalMins > gapMins + 5}`);
         } else {
           // ORS + OSRM both unavailable — use haversine heuristic so we always show a value
-          finalMins = travelTimeService.heuristicEstimate(clientCoords, toCoords, 'car');
+          finalMins = heuristicMins;
           logger.info(`[FWD-ORS] ${slot.day} ${slot.availableWindow}: heuristic=${finalMins}min gap=${gapMins}min (ORS+OSRM unavailable)`);
         }
         slot.forwardTravelMinutes = finalMins;
