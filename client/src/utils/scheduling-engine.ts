@@ -1434,8 +1434,8 @@ export function generateWeeklySchedule(
         totalCapacityMinutes: calculateTotalCapacity(windows),
         usedCapacityMinutes: 0,
         assignedVisits: [],
-        homeLat: emp.homeLat || 55.9533, // Edinburgh fallback
-        homeLng: emp.homeLng || -3.1883,
+        homeLat: emp.homeLat || null,
+        homeLng: emp.homeLng || null,
         transportMode: mode,
         weeklyContractedMinutes: weeklyContractedMap.get(emp.employeeName) || 0,
         weeklyUsedMinutes: weeklyUsedMap.get(emp.employeeName) || 0,

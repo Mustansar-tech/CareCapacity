@@ -67,8 +67,8 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
   const employeeRun: EmployeeRun | null = selectedEmp && selectedEmployee ? (() => {
     // Get employee location data from ProcessingResult
     const empLocation = data?.employeeLocations?.find(e => e.employeeName === selectedEmployee);
-    const empLat = empLocation?.homeLat ?? 55.9533; // Default to Edinburgh if not geocoded
-    const empLng = empLocation?.homeLng ?? -3.1883;
+    const empLat = empLocation?.homeLat ?? null;
+    const empLng = empLocation?.homeLng ?? null;
 
     // Determine transport mode from location data or employee summary
     const transportMode = empLocation?.transportMode?.toLowerCase().includes('car') ? 'car' : 
@@ -76,10 +76,10 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
                          selectedEmpSummary?.transportMode?.toLowerCase().includes('car') ? 'car' : 
                          selectedEmpSummary?.transportMode?.toLowerCase().includes('walk') ? 'walking' : 'walking';
 
-    if (empLocation?.homeLat && empLocation?.homeLng) {
+    if (empLat && empLng) {
       clientLogger.log(`✅ Using geocoded location for ${selectedEmployee}: ${empLat}, ${empLng}`);
     } else {
-      clientLogger.warn(`⚠️ Missing location data for ${selectedEmployee}, using default coordinates`);
+      clientLogger.warn(`⚠️ No geocoded location for ${selectedEmployee} — distance calculations skipped`);
     }
 
     return {
@@ -110,11 +110,11 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
         unallocatedVisits.map(v => {
           // Get client location data from ProcessingResult
           const clientLocation = data?.clientLocations?.find(c => c.clientName === v.clientName);
-          const clientLat = clientLocation?.lat ?? 55.9533; // Default to Edinburgh if not geocoded
-          const clientLng = clientLocation?.lng ?? -3.1883;
+          const clientLat = clientLocation?.lat ?? null;
+          const clientLng = clientLocation?.lng ?? null;
 
-          if (!clientLocation?.lat || !clientLocation?.lng) {
-            clientLogger.warn(`Missing location data for ${v.clientName} or ${selectedEmployee}`);
+          if (!clientLat || !clientLng) {
+            clientLogger.warn(`No geocoded location for client ${v.clientName} — excluded from distance ranking`);
           }
 
           return {
@@ -142,8 +142,8 @@ export function SimpleSchedulingTab({ data, selectedDate }: SimpleSchedulingTabP
 
     // Get client location data from ProcessingResult
     const clientLocation = data?.clientLocations?.find(c => c.clientName === visit.clientName);
-    const clientLat = clientLocation?.lat ?? 55.9533; // Default to Edinburgh if not geocoded
-    const clientLng = clientLocation?.lng ?? -3.1883;
+    const clientLat = clientLocation?.lat ?? null;
+    const clientLng = clientLocation?.lng ?? null;
 
     const visitData: AssignedVisit = {
       clientName: visit.clientName,

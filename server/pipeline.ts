@@ -76,12 +76,12 @@ function normalizeBranchName(branchName: string): string {
   return branchMap[normalized] || normalized.replace(/\s+/g, '-');
 }
 
-// Enhanced geocoding with fallback hierarchy
+// Geocoding via postcodes.io API only — no fallbacks, no approximations.
+// Returns null if the postcode cannot be resolved exactly.
 export async function geocodeWithFallback(postcode: string, storage: any, branchId: string): Promise<any> {
   const normalizedPostcode = postcode.trim().toUpperCase();
-  const prefix = normalizedPostcode.substring(0, 2);
 
-  // Step 1: Try exact postcode from cache (branch-scoped)
+  // Step 1: Exact postcode from cache (branch-scoped, previously confirmed via API)
   const cached = await storage.getGeocode(branchId, `postcode:${normalizedPostcode}`);
   if (cached) {
     return {
@@ -94,7 +94,7 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
     };
   }
 
-  // Step 2: Try exact postcode from API
+  // Step 2: Exact postcode from postcodes.io API
   try {
     const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
     if (response.ok) {
@@ -103,9 +103,8 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
         const lat = data.result.latitude.toString();
         const lng = data.result.longitude.toString();
 
-        // Cache the exact result
         await storage.saveGeocode({
-          branchId: branchId!, // Required for cache isolation
+          branchId: branchId!,
           key: `postcode:${normalizedPostcode}`,
           lat,
           lng,
@@ -123,98 +122,13 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
       }
     }
   } catch (err) {
-    logger.debug(`Exact postcode geocoding failed for ${normalizedPostcode}, trying fallback...`);
+    logger.warn(`Geocoding API call failed for ${normalizedPostcode}: ${err}`);
   }
 
-  // Step 3: Try postcode district (first part)
-  const parts = normalizedPostcode.split(' ');
-  if (parts.length >= 2) {
-    const district = parts[0];
-
-    // Check cache for district (branch-scoped)
-    const districtCached = await storage.getGeocode(branchId, `district:${district}`);
-    if (districtCached) {
-      return {
-        query: normalizedPostcode,
-        type: 'postcode',
-        lat: districtCached.lat,
-        lng: districtCached.lng,
-        source: 'cache-district',
-        approximate: true
-      };
-    }
-
-    // Try district from API
-    try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(district)}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.status === 200 && data.result) {
-          const lat = data.result.latitude.toString();
-          const lng = data.result.longitude.toString();
-
-          // Cache the district result
-          await storage.saveGeocode({
-            branchId: branchId!, // Required for cache isolation
-            key: `district:${district}`,
-            lat,
-            lng,
-            source: 'postcodes.io'
-          });
-
-          return {
-            query: normalizedPostcode,
-            type: 'postcode',
-            lat,
-            lng,
-            source: 'postcodes.io-district',
-            approximate: true
-          };
-        }
-      }
-    } catch (err) {
-      logger.debug(`District geocoding failed for ${district}, trying area fallback...`);
-    }
-  }
-
-  // Step 4: Default to approximate city center based on postcode prefix
-  const fallbackLocations: Record<string, {lat: string, lng: string, name: string}> = {
-    'EH': { lat: '55.9533', lng: '-3.1883', name: 'Edinburgh' },  // Edinburgh
-    'G': { lat: '55.8642', lng: '-4.2518', name: 'Glasgow' },      // Glasgow
-    'AB': { lat: '57.1497', lng: '-2.0943', name: 'Aberdeen' },    // Aberdeen
-    'DD': { lat: '56.4620', lng: '-2.9707', name: 'Dundee' },      // Dundee
-    'IV': { lat: '57.4778', lng: '-4.2247', name: 'Inverness' },   // Inverness
-    'KY': { lat: '56.1165', lng: '-3.1359', name: 'Fife' },        // Fife
-    'PH': { lat: '56.3959', lng: '-3.4370', name: 'Perth' },       // Perth
-    'FK': { lat: '56.1165', lng: '-3.7836', name: 'Falkirk' },     // Falkirk
-  };
-
-  const fallback = fallbackLocations[prefix];
-  if (fallback) {
-    logger.debug(`Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
-    // NOTE: deliberately NOT caching this fallback — storing a whole-area centroid would
-    // poison the cache and return the wrong city-centre point for every other postcode
-    // in the same area that would otherwise resolve correctly via the API.
-    return {
-      query: normalizedPostcode,
-      type: 'postcode',
-      lat: fallback.lat,
-      lng: fallback.lng,
-      source: 'fallback-' + fallback.name.toLowerCase(),
-      approximate: true
-    };
-  }
-
-  // Step 5: Ultimate fallback to Edinburgh city center
-  logger.debug(`Using ultimate fallback (Edinburgh) for unknown postcode: ${normalizedPostcode}`);
-  return {
-    query: normalizedPostcode,
-    type: 'postcode',
-    lat: '55.9533',
-    lng: '-3.1883',
-    source: 'fallback-edinburgh',
-    approximate: true
-  };
+  // No fallback — return null so the caller can mark the record as un-geocoded
+  // rather than storing an incorrect city-centre approximation.
+  logger.warn(`Geocoding failed for postcode "${normalizedPostcode}" — no coordinates stored`);
+  return null;
 }
 
 // Postcode normalization helper function
