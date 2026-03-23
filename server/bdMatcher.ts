@@ -54,7 +54,7 @@ export interface MatchedSlot {
   // Actual travel minutes for THIS day's departure point
   travelMinutes?: number;
   // First scheduled visit on this day that starts after the proposed visit ends
-  nextVisit?: { startTime: string; endTime: string } | null;
+  nextVisit?: { startTime: string; endTime: string; lat?: number; lng?: number; postcode?: string } | null;
 }
 
 export interface MatchResult {
@@ -168,6 +168,69 @@ function minutesToTime(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+function haversineEstimateMinutes(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  transportMode?: string
+): number {
+  const R = 6371;
+  const toRad = (d: number) => d * Math.PI / 180;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
+  const distKm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R * 1.2;
+  const mode = transportMode?.toLowerCase();
+  const speedKmh = (mode === 'car' || mode === 'driver') ? 35 : mode === 'walking' ? 5 : 15;
+  return Math.max(2, Math.round(distKm / speedKmh * 60));
+}
+
+function getEarliestStartAfterBreak(
+  empName: string,
+  dateStr: string,
+  enquiryStartMins: number,
+  scheduleMap: Map<string, Map<string, CpVisitEntry[]>>
+): number | null {
+  const CONTINUOUS_LIMIT = 300;
+  const BREAK_DURATION = 30;
+  const MAX_GAP_IN_BLOCK = 30;
+
+  const normalizedName = normalizeName(empName);
+  const dayVisits = scheduleMap.get(normalizedName)?.get(dateStr);
+  if (!dayVisits || dayVisits.length === 0) return null;
+
+  const priorVisits = dayVisits
+    .filter(v => timeToMinutes(v.endTime) <= enquiryStartMins)
+    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+  if (priorVisits.length === 0) return null;
+
+  let blockStart = timeToMinutes(priorVisits[0].startTime);
+  let blockEnd = timeToMinutes(priorVisits[0].endTime);
+  let maxBlockMins = blockEnd - blockStart;
+  let maxBlockEnd = blockEnd;
+
+  for (let i = 1; i < priorVisits.length; i++) {
+    const vStart = timeToMinutes(priorVisits[i].startTime);
+    const vEnd = timeToMinutes(priorVisits[i].endTime);
+    if (vStart - blockEnd <= MAX_GAP_IN_BLOCK) {
+      blockEnd = vEnd;
+      const dur = blockEnd - blockStart;
+      if (dur > maxBlockMins) {
+        maxBlockMins = dur;
+        maxBlockEnd = blockEnd;
+      }
+    } else {
+      blockStart = vStart;
+      blockEnd = vEnd;
+    }
+  }
+
+  if (maxBlockMins >= CONTINUOUS_LIMIT) {
+    return maxBlockEnd + BREAK_DURATION;
+  }
+  return null;
 }
 
 function parseFreeWindows(freeWindows: string): Array<[number, number]> {
@@ -484,13 +547,15 @@ function getNextVisitAfter(
   dateStr: string,
   afterMinutes: number,
   employeeScheduleMap: Map<string, Map<string, CpVisitEntry[]>>
-): { startTime: string; endTime: string } | null {
+): { startTime: string; endTime: string; lat?: number; lng?: number; postcode?: string } | null {
   const normalizedName = normalizeName(empName);
   const dayVisits = employeeScheduleMap.get(normalizedName)?.get(dateStr);
   if (!dayVisits || dayVisits.length === 0) return null;
   const sorted = [...dayVisits].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
   const next = sorted.find(v => timeToMinutes(v.startTime) > afterMinutes);
-  return next ? { startTime: next.startTime, endTime: next.endTime } : null;
+  return next
+    ? { startTime: next.startTime, endTime: next.endTime, lat: next.lat, lng: next.lng, postcode: next.postcode }
+    : null;
 }
 
 function matchEmployeesForVisit(
@@ -565,32 +630,51 @@ function matchEmployeesForVisit(
         const empSummary = summaries.find(s => s.employeeName === empName);
         if (!empSummary) continue;
 
-        // NEW LOGIC: Use the exact same availability check as the BD Matrix grid
-        const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, reqStart, reqEnd);
+        // Rule 1: Exclude if any unavailability (annual leave, sick, etc.)
+        if (empSummary.unavailability > 0) continue;
+
+        // Rule 2: Exclude if daily scheduled hours already at or above 9 hours
+        if (empSummary.scheduledHours >= 9) continue;
+
+        // Rule 3: Break rule — if CP has 5+ continuous hours before the enquiry slot,
+        // they need a 30-min break first; shift to the next available company time block.
+        let effectiveReqStart = reqStart;
+        if (employeeScheduleMap) {
+          const earliestAfterBreak = getEarliestStartAfterBreak(empName, dateStr, reqStart, employeeScheduleMap);
+          if (earliestAfterBreak !== null && reqStart < earliestAfterBreak) {
+            const nextBlock = COMPANY_TIME_BLOCKS.find(b => timeToMinutes(b.start) >= earliestAfterBreak);
+            if (!nextBlock) continue;
+            effectiveReqStart = timeToMinutes(nextBlock.start);
+          }
+        }
+        const effectiveReqEnd = effectiveReqStart + visitDuration;
 
         const cancelledVisitsStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
 
+        const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, effectiveReqStart, effectiveReqEnd);
+
         if (isAvailable) {
-          const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
-          bestSlotForDay = {
-            day: dateStr,
-            dayLabel: getDayLabel(dateStr),
-            availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
-            matchType: 'exact',
-            cancelledVisits: cancelledVisitsStr,
-            ...depInfo,
-          };
-          bestScoreForDay = 100;
+          const mType = effectiveReqStart === reqStart ? 'exact' : 'adjusted-time';
+          const score = mType === 'exact' ? 100 : 85;
+          if (score > bestScoreForDay) {
+            const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
+            bestSlotForDay = {
+              day: dateStr,
+              dayLabel: getDayLabel(dateStr),
+              availableWindow: `${minutesToTime(effectiveReqStart)}-${minutesToTime(effectiveReqEnd)}`,
+              matchType: mType,
+              cancelledVisits: cancelledVisitsStr,
+              ...depInfo,
+            };
+            bestScoreForDay = score;
+          }
         } else {
-          // Fallback to adjusted time if not fully available in the requested block
           const freeWindows = parseFreeWindows(empSummary.freeWindows);
-          const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
+          const closestSlot = findClosestSlot(freeWindows, effectiveReqStart, effectiveReqEnd, visitDuration);
           if (closestSlot) {
-            // ONLY consider this a match if it's one of the COMPANY_TIME_BLOCKS
-            const isBlockAligned = COMPANY_TIME_BLOCKS.some(block => 
+            const isBlockAligned = COMPANY_TIME_BLOCKS.some(block =>
               timeToMinutes(block.start) === timeToMinutes(closestSlot.window.split('-')[0])
             );
-
             if (isBlockAligned) {
               const score = Math.max(0, 80 - closestSlot.distance / 5);
               if (score > bestScoreForDay) {
@@ -615,11 +699,33 @@ function matchEmployeesForVisit(
           const slotEndStr = bestSlotForDay.availableWindow.split('-')[1];
           const slotEndMins = slotEndStr ? timeToMinutes(slotEndStr) : reqEnd;
           bestSlotForDay.nextVisit = getNextVisitAfter(empName, bestSlotForDay.day, slotEndMins, employeeScheduleMap);
+
+          // Rule 4: Forward travel check — if gap to next visit < 90 min, verify the CP
+          // can travel from the enquiry postcode to the next visit in time.
+          // Allow up to 5 min over; reject if > 20 min over.
+          const nv = bestSlotForDay.nextVisit;
+          if (nv && nv.lat && nv.lng && clientLocation) {
+            const nextStartMins = timeToMinutes(nv.startTime);
+            const gapMins = nextStartMins - slotEndMins;
+            if (gapMins < 90) {
+              const forwardMins = haversineEstimateMinutes(
+                clientLocation,
+                { lat: nv.lat, lng: nv.lng },
+                weeklyData.transportMode
+              );
+              if (forwardMins > gapMins + 20) {
+                bestSlotForDay = null;
+              }
+            }
+          }
         }
-        matchedSlots.push(bestSlotForDay);
-        totalScore += bestScoreForDay;
-        if (bestSlotForDay.matchType === 'exact') exactDayMatches++;
-        else adjustedTimeMatches++;
+
+        if (bestSlotForDay) {
+          matchedSlots.push(bestSlotForDay);
+          totalScore += bestScoreForDay;
+          if (bestSlotForDay.matchType === 'exact') exactDayMatches++;
+          else adjustedTimeMatches++;
+        }
       }
     }
 
@@ -632,16 +738,43 @@ function matchEmployeesForVisit(
         const empSummary = summaries.find(s => s.employeeName === empName);
         if (!empSummary) continue;
 
-        const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, reqStart, reqEnd);
+        // Rule 1: Exclude if any unavailability on this alternative day
+        if (empSummary.unavailability > 0) continue;
+        // Rule 2: Exclude if daily scheduled hours >= 9 on this alternative day
+        if (empSummary.scheduledHours >= 9) continue;
+
+        // Rule 3: Break rule for alternative days
+        let altEffectiveStart = reqStart;
+        if (employeeScheduleMap) {
+          const earliestAfterBreak = getEarliestStartAfterBreak(empName, dateStr, reqStart, employeeScheduleMap);
+          if (earliestAfterBreak !== null && reqStart < earliestAfterBreak) {
+            const nextBlock = COMPANY_TIME_BLOCKS.find(b => timeToMinutes(b.start) >= earliestAfterBreak);
+            if (!nextBlock) continue;
+            altEffectiveStart = timeToMinutes(nextBlock.start);
+          }
+        }
+        const altEffectiveEnd = altEffectiveStart + visitDuration;
+
         const altCancelledStr = empSummary.cancelledVisits && empSummary.cancelledVisits !== '—' ? empSummary.cancelledVisits : undefined;
+        const isAvailable = isFullyAvailableInTimeBlock(empSummary.freeWindows, altEffectiveStart, altEffectiveEnd);
 
         if (isAvailable) {
           const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
-          const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, reqEnd, employeeScheduleMap) : undefined;
+          const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altEffectiveEnd, employeeScheduleMap) : undefined;
+
+          // Rule 4: Forward travel check for alternative days
+          if (nextVisit?.lat && nextVisit?.lng && clientLocation) {
+            const gapMins = timeToMinutes(nextVisit.startTime) - altEffectiveEnd;
+            if (gapMins < 90) {
+              const fwdMins = haversineEstimateMinutes(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+              if (fwdMins > gapMins + 20) continue;
+            }
+          }
+
           matchedSlots.push({
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
-            availableWindow: `${preferredTimeWindow.start}-${preferredTimeWindow.end}`,
+            availableWindow: `${minutesToTime(altEffectiveStart)}-${minutesToTime(altEffectiveEnd)}`,
             matchType: 'alternative-day',
             cancelledVisits: altCancelledStr,
             nextVisit,
@@ -652,12 +785,22 @@ function matchEmployeesForVisit(
           if (matchedSlots.length >= requiredDays.length) break;
         } else {
           const freeWindows = parseFreeWindows(empSummary.freeWindows);
-          const closestSlot = findClosestSlot(freeWindows, reqStart, reqEnd, visitDuration);
+          const closestSlot = findClosestSlot(freeWindows, altEffectiveStart, altEffectiveEnd, visitDuration);
           if (closestSlot) {
             const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
             const altSlotEndStr = closestSlot.window.split('-')[1];
-            const altSlotEndMins = altSlotEndStr ? timeToMinutes(altSlotEndStr) : reqEnd;
+            const altSlotEndMins = altSlotEndStr ? timeToMinutes(altSlotEndStr) : altEffectiveEnd;
             const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altSlotEndMins, employeeScheduleMap) : undefined;
+
+            // Rule 4: Forward travel check for alternative days (adjusted slot)
+            if (nextVisit?.lat && nextVisit?.lng && clientLocation) {
+              const gapMins = timeToMinutes(nextVisit.startTime) - altSlotEndMins;
+              if (gapMins < 90) {
+                const fwdMins = haversineEstimateMinutes(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                if (fwdMins > gapMins + 20) continue;
+              }
+            }
+
             matchedSlots.push({
               day: dateStr,
               dayLabel: getDayLabel(dateStr),
