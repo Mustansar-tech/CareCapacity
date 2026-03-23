@@ -1,7 +1,7 @@
 import { logger } from './logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
 import type { CpVisitEntry } from './excel-visit-extractor';
-import { travelTimeService } from './travel-time-service';
+import { travelTimeService, estimateTravelMinutesSync } from './travel-time-service';
 import { normalizeName } from './shared-utils';
 
 export interface ClientEnquiryCriteria {
@@ -172,21 +172,6 @@ function minutesToTime(mins: number): string {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
-function haversineEstimateMinutes(
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number },
-  transportMode?: string
-): number {
-  const R = 6371;
-  const toRad = (d: number) => d * Math.PI / 180;
-  const dLat = toRad(to.lat - from.lat);
-  const dLng = toRad(to.lng - from.lng);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
-  const distKm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R * 1.2;
-  const mode = transportMode?.toLowerCase();
-  const speedKmh = (mode === 'car' || mode === 'driver') ? 35 : mode === 'walking' ? 5 : 15;
-  return Math.max(2, Math.round(distKm / speedKmh * 60));
-}
 
 function getEarliestStartAfterBreak(
   empName: string,
@@ -714,19 +699,24 @@ function matchEmployeesForVisit(
           // Rule 4: Forward travel check — if gap to next visit < 90 min, verify the CP
           // can travel from enquiry location to next visit in time.
           // ≤5 min over gap: accept silently. 5–20 min over: accept with warning flag. >20 min over: reject.
+          // If coordinates are unavailable: flag for manual verification (conservative).
           const nv = bestSlotForDay.nextVisit;
-          if (nv && nv.lat && nv.lng && clientLocation) {
+          if (nv) {
             const nextStartMins = timeToMinutes(nv.startTime);
             const gapMins = nextStartMins - slotEndMins;
             if (gapMins < 90) {
-              const forwardMins = haversineEstimateMinutes(
-                clientLocation,
-                { lat: nv.lat, lng: nv.lng },
-                weeklyData.transportMode
-              );
-              if (forwardMins > gapMins + 20) {
-                bestSlotForDay = null;
-              } else if (forwardMins > gapMins + 5) {
+              if (nv.lat && nv.lng && clientLocation) {
+                const forwardMins = estimateTravelMinutesSync(
+                  clientLocation,
+                  { lat: nv.lat, lng: nv.lng },
+                  weeklyData.transportMode
+                );
+                if (forwardMins > gapMins + 20) {
+                  bestSlotForDay = null;
+                } else if (forwardMins > gapMins + 5) {
+                  bestSlotForDay.forwardTravelWarning = true;
+                }
+              } else {
                 bestSlotForDay.forwardTravelWarning = true;
               }
             }
@@ -778,14 +768,19 @@ function matchEmployeesForVisit(
           const depInfo = getSlotDepartureInfo(empName, dateStr, travelTimeMap);
           const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altEffectiveEnd, employeeScheduleMap) : undefined;
 
-          // Rule 4: Forward travel check for alternative days
+          // Rule 4: Forward travel check for alternative days.
+          // If coords unavailable for a short gap, flag for manual check (conservative).
           let altFwdWarning = false;
-          if (nextVisit?.lat && nextVisit?.lng && clientLocation) {
+          if (nextVisit) {
             const gapMins = timeToMinutes(nextVisit.startTime) - altEffectiveEnd;
             if (gapMins < 90) {
-              const fwdMins = haversineEstimateMinutes(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
-              if (fwdMins > gapMins + 20) continue;
-              if (fwdMins > gapMins + 5) altFwdWarning = true;
+              if (nextVisit.lat && nextVisit.lng && clientLocation) {
+                const fwdMins = estimateTravelMinutesSync(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                if (fwdMins > gapMins + 20) continue;
+                if (fwdMins > gapMins + 5) altFwdWarning = true;
+              } else {
+                altFwdWarning = true;
+              }
             }
           }
 
@@ -815,14 +810,19 @@ function matchEmployeesForVisit(
             const altSlotEndMins = altSlotEndStr ? timeToMinutes(altSlotEndStr) : altEffectiveEnd;
             const nextVisit = employeeScheduleMap ? getNextVisitAfter(empName, dateStr, altSlotEndMins, employeeScheduleMap) : undefined;
 
-            // Rule 4: Forward travel check for alternative days (adjusted slot)
+            // Rule 4: Forward travel check for alternative days (adjusted slot).
+            // If coords unavailable for a short gap, flag for manual check (conservative).
             let altAdjFwdWarning = false;
-            if (nextVisit?.lat && nextVisit?.lng && clientLocation) {
+            if (nextVisit) {
               const gapMins = timeToMinutes(nextVisit.startTime) - altSlotEndMins;
               if (gapMins < 90) {
-                const fwdMins = haversineEstimateMinutes(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
-                if (fwdMins > gapMins + 20) continue;
-                if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
+                if (nextVisit.lat && nextVisit.lng && clientLocation) {
+                  const fwdMins = estimateTravelMinutesSync(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                  if (fwdMins > gapMins + 20) continue;
+                  if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
+                } else {
+                  altAdjFwdWarning = true;
+                }
               }
             }
 
