@@ -692,9 +692,13 @@ function matchEmployeesForVisit(
           bestSlotForDay.nextVisit = getNextVisitAfter(empName, bestSlotForDay.day, slotEndMins, employeeScheduleMap);
 
           // Rule 4: Forward travel check — if gap to next visit < 90 min, verify the CP
-          // can travel from enquiry location to next visit in time.
-          // ≤5 min over gap: accept silently. 5–20 min over: accept with warning flag. >20 min over: reject.
-          // If coordinates are unavailable: flag for manual verification (conservative).
+          // can travel from enquiry location to next visit in time (same mode as inbound).
+          //   ≤5 min over gap  → accept silently
+          //   5–20 min over    → accept, set forwardTravelWarning = true
+          //   >20 min over     → reject slot
+          // When next-visit or client coordinates are missing but gap < 90 min,
+          // we cannot verify feasibility so we flag the slot for manual check
+          // (conservative approach: include but alert, not silently bypass).
           const nv = bestSlotForDay.nextVisit;
           if (nv) {
             const nextStartMins = timeToMinutes(nv.startTime);
@@ -712,6 +716,7 @@ function matchEmployeesForVisit(
                   bestSlotForDay.forwardTravelWarning = true;
                 }
               } else {
+                // Coordinates unavailable — cannot compute; flag for manual verification
                 bestSlotForDay.forwardTravelWarning = true;
               }
             }

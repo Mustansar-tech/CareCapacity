@@ -1073,36 +1073,3 @@ export async function calculateTravelTime(
   }
 }
 
-/**
- * Synchronous haversine-based travel estimate using the same constants as TravelTimeService.
- * Intended for in-process scheduling checks (e.g. BD Matcher forward-travel rule) where
- * async API calls are not practical inside a tight inner loop.
- *
- * Uses exact MODE_CONFIG: car 35 km/h / min 5 min, walking 5 km/h / min 2 min,
- * public 15 km/h + 5 min overhead / min 5 min. ROAD_FACTOR = 1.2.
- */
-export function estimateTravelMinutesSync(
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number },
-  transportMode: string | undefined
-): number {
-  const ROAD_FACTOR = 1.2;
-  const MODE_CONFIG: Record<string, { speedKmh: number; overheadMinutes: number; minMinutes: number }> = {
-    car:     { speedKmh: 35, overheadMinutes: 0,  minMinutes: 5 },
-    driver:  { speedKmh: 35, overheadMinutes: 0,  minMinutes: 5 },
-    walking: { speedKmh: 5,  overheadMinutes: 0,  minMinutes: 2 },
-    public:  { speedKmh: 15, overheadMinutes: 5,  minMinutes: 5 },
-  };
-  const mode = (transportMode || 'walking').toLowerCase();
-  const config = MODE_CONFIG[mode] || MODE_CONFIG.walking;
-
-  const R = 6371;
-  const toRad = (d: number) => d * Math.PI / 180;
-  const dLat = toRad(to.lat - from.lat);
-  const dLng = toRad(to.lng - from.lng);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
-  const straightLineKm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R;
-  const roadDistanceKm = straightLineKm * ROAD_FACTOR;
-  const baseTravelMinutes = (roadDistanceKm / config.speedKmh) * 60 + config.overheadMinutes;
-  return Math.max(config.minMinutes, Math.round(baseTravelMinutes));
-}
