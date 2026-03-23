@@ -94,19 +94,6 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
     };
   }
 
-  // Step 1.5: Try fallback cache for this prefix (OPTIMIZATION: avoid repeated API calls for same area)
-  const fallbackCached = await storage.getGeocode(branchId, `fallback:${prefix}`);
-  if (fallbackCached) {
-    return {
-      query: normalizedPostcode,
-      type: 'postcode',
-      lat: fallbackCached.lat,
-      lng: fallbackCached.lng,
-      source: 'cache-fallback',
-      approximate: true
-    };
-  }
-
   // Step 2: Try exact postcode from API
   try {
     const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
@@ -205,16 +192,9 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
   const fallback = fallbackLocations[prefix];
   if (fallback) {
     logger.debug(`Using fallback location for ${normalizedPostcode}: ${fallback.name} (very approximate)`);
-
-    // Cache the fallback to avoid repeated lookups
-    await storage.saveGeocode({
-      branchId: branchId!, // Required for cache isolation
-      key: `fallback:${prefix}`,
-      lat: fallback.lat,
-      lng: fallback.lng,
-      source: 'fallback'
-    });
-
+    // NOTE: deliberately NOT caching this fallback — storing a whole-area centroid would
+    // poison the cache and return the wrong city-centre point for every other postcode
+    // in the same area that would otherwise resolve correctly via the API.
     return {
       query: normalizedPostcode,
       type: 'postcode',
