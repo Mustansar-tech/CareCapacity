@@ -157,8 +157,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       adHocEmployees.add(emp.employeeName);
     }
 
-    // Only include employees with real availability (not ad-hoc) and time windows
-    if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc') {
+    // Only include employees with real availability (not ad-hoc), time windows, and guaranteed hours > 0
+    if (emp.timeWindows && emp.timeWindows.trim() !== '' && emp.status !== 'Ad-hoc' && (employeeWeeklyHoursMap.get(emp.employeeName) || 0) > 0) {
       const existing = employeeMap.get(emp.employeeName);
       // Keep the entry with more contracted hours (prefer non-ad-hoc entries)
       if (!existing || emp.contractedDailyHours > (existing.contractedDailyHours || 0)) {
@@ -194,23 +194,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       clientLogger.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
 
       // Prepare employee data with locations and weekly hours
+      // Employees with 0 GH (guaranteed hours) are excluded — they have no contracted capacity
       const employeesWithLocations = Object.entries(data?.employeesByDate || {}).flatMap(([date, empList]) => 
-        empList.map(emp => {
-          const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
-          // Get weekly contracted hours from the employee weekly hours map
-          const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
-          return {
-            employeeName: emp.employeeName,
-            date,
-            timeWindows: emp.timeWindows,
-            homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
-            homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
-            transportMode: location?.transportMode || undefined,
-            weeklyContractedHours: weeklyHours,
-            // Include gender for client matching
-            gender: emp.gender || (location ? location.gender : undefined), // Use gender from emp (preferred) or location (fallback)
-          };
-        })
+        empList
+          .filter(emp => (employeeWeeklyHoursMap.get(emp.employeeName) || 0) > 0)
+          .map(emp => {
+            const location = locationsData?.employees.find(loc => loc.employeeName === emp.employeeName);
+            const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+            return {
+              employeeName: emp.employeeName,
+              date,
+              timeWindows: emp.timeWindows,
+              homeLat: location?.homeLat ? Number(location.homeLat) : undefined,
+              homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
+              transportMode: location?.transportMode || undefined,
+              weeklyContractedHours: weeklyHours,
+              gender: emp.gender || (location ? location.gender : undefined),
+            };
+          })
       );
 
       // Add location data to visits
