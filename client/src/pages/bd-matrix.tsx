@@ -174,6 +174,8 @@ interface MatchedSlot {
   departureSource?: 'home' | 'last-client';
   travelMinutes?: number;
   nextVisit?: { startTime: string; endTime: string } | null;
+  forwardTravelWarning?: boolean;
+  forwardTravelMinutes?: number;
 }
 
 interface MatchedEmployee {
@@ -939,10 +941,24 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             : gapMins >= 30
                                               ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
                                               : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300';
+                                          const modeLabel = normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive';
                                           return (
-                                            <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${gapColor}`}>
-                                              <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                              Next visit {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime} · {gapLabel}
+                                            <div className="flex flex-col gap-0.5">
+                                              <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${gapColor}`}>
+                                                <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                Next visit {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime} · {gapLabel}
+                                              </div>
+                                              {slotOnDay.forwardTravelMinutes !== undefined ? (
+                                                <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${slotOnDay.forwardTravelWarning ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
+                                                  <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                                  ~{slotOnDay.forwardTravelMinutes} min {modeLabel} to next{slotOnDay.forwardTravelWarning ? ' ⚠' : ''}
+                                                </div>
+                                              ) : slotOnDay.forwardTravelWarning ? (
+                                                <div className="flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                                                  <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                  Travel time unverified
+                                                </div>
+                                              ) : null}
                                             </div>
                                           );
                                         })()}
