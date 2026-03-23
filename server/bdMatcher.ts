@@ -704,7 +704,7 @@ function matchEmployeesForVisit(
             const nextStartMins = timeToMinutes(nv.startTime);
             const gapMins = nextStartMins - slotEndMins;
             if (gapMins < 90) {
-              if (nv.lat && nv.lng && clientLocation) {
+              if (nv.lat != null && nv.lng != null && clientLocation) {
                 const forwardMins = travelTimeService.heuristicEstimate(
                   clientLocation,
                   { lat: nv.lat, lng: nv.lng },
@@ -774,7 +774,7 @@ function matchEmployeesForVisit(
           if (nextVisit) {
             const gapMins = timeToMinutes(nextVisit.startTime) - altEffectiveEnd;
             if (gapMins < 90) {
-              if (nextVisit.lat && nextVisit.lng && clientLocation) {
+              if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                 const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                 if (fwdMins > gapMins + 20) continue;
                 if (fwdMins > gapMins + 5) altFwdWarning = true;
@@ -816,7 +816,7 @@ function matchEmployeesForVisit(
             if (nextVisit) {
               const gapMins = timeToMinutes(nextVisit.startTime) - altSlotEndMins;
               if (gapMins < 90) {
-                if (nextVisit.lat && nextVisit.lng && clientLocation) {
+                if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                   const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
                   if (fwdMins > gapMins + 20) continue;
                   if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
