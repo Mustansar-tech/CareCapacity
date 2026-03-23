@@ -2208,14 +2208,24 @@ export async function processCapacityData(
         return;
       }
       
-      const hrs =
+      let hrs =
         row.Hours !== undefined && row.Hours !== null
           ? Number(row.Hours)
           : hoursBetween(row["Start Time"], row["End Time"]);
 
+      // Sick/Holiday/Unavailable rows frequently have no Start/End times in the
+      // spreadsheet, so hoursBetween returns NaN. Drop the row only when it is
+      // an Available row with no computable hours (genuinely bad data). For any
+      // other status we keep the row with hrs = 0 — it still needs to reach
+      // allAvailabilityWithMatching so employeeAbsenceDates can record that the
+      // date has an absence, which blocks the proportional-daily rule from firing.
       if (isNaN(hrs)) {
-        warnings.push(`Availability row ${i + 1}: cannot compute hours`);
-        return;
+        const rowStatus = canonicalStatus(row.Type);
+        if (rowStatus === "Available") {
+          warnings.push(`Availability row ${i + 1}: cannot compute hours`);
+          return;
+        }
+        hrs = 0; // absence row with no hours — keep it, treat as 0 h
       }
 
       availabilityFiltered.push({
@@ -2252,6 +2262,24 @@ export async function processCapacityData(
     }
     const dateStr = format(row.parsedDate, "yyyy-MM-dd");
     employeeDays.get(key)!.add(dateStr);
+  });
+
+  // Pre-compute dates that have ANY non-Available status row per employee.
+  // The proportional rule must NOT fire on these dates — even when an Available
+  // row also exists for the same date (e.g. partial sick day). If a date has
+  // BOTH an Available row and a Sick row, the day is considered an absence day
+  // and standardDaily is used for all rows on that date.
+  const employeeAbsenceDates = new Map<string, Set<string>>();
+  allAvailabilityWithMatching.forEach((row) => {
+    if (canonicalStatus(row.Type) === "Available") return; // skip pure-available rows
+    const key = row.matchedEmployee
+      ? row.matchedEmployee.normalizedName
+      : normalizeName(row["CAREGiver Name"]);
+    if (!employeeAbsenceDates.has(key)) {
+      employeeAbsenceDates.set(key, new Set());
+    }
+    const dateStr = format(row.parsedDate, "yyyy-MM-dd");
+    employeeAbsenceDates.get(key)!.add(dateStr);
   });
 
   // Step 4: Create merged data (original pipeline approach)
@@ -2322,21 +2350,26 @@ export async function processCapacityData(
       // Only triggered when the employee genuinely works different lengths on different available days.
       const hasVariableShifts = allDayHours.length > 1 && allDayHours.some(h => Math.abs(h - avgDayHours) > 0.25);
 
-      // Apply proportional rule ONLY when:
-      //   a) the employee truly has variable shift lengths (hasVariableShifts), AND
-      //   b) this specific date has Available hours (todayHours > 0).
-      // For sick/holiday/unavailable days (todayHours === 0) we cannot know what
-      // this day's proportional share should be from availability data alone, so
-      // we fall back to the uniform standardDaily spread. This prevents desired-
-      // hours from being incorrectly set to 0 on absence days.
-      if (hasVariableShifts && totalWeekHours > 0 && todayHours > 0) {
+      // Apply proportional rule ONLY when ALL of the following hold:
+      //   a) the employee genuinely has variable shift lengths across their Available days
+      //   b) this specific date has Available hours in the availability data (todayHours > 0)
+      //   c) this date has NO absence/non-Available rows (sick, holiday, unavailability, etc.)
+      //
+      // Rule (c) is critical: if a date has BOTH an Available row AND a Sick row (even a
+      // partial sick day), the whole date is treated as an absence day and standardDaily
+      // is used for every row on that date — including the Available row. This ensures
+      // desired hours on absence days are always weeklyHours ÷ contractedDays, never
+      // inflated or deflated by the variable-shift proportions of those particular hours.
+      const dateHasAbsence = employeeAbsenceDates.get(key)?.has(currentDate) ?? false;
+      if (hasVariableShifts && totalWeekHours > 0 && todayHours > 0 && !dateHasAbsence) {
         const proportion = todayHours / totalWeekHours;
         contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
         logger.info(`[PROPORTIONAL] ${row.matchedEmployee.originalName} on ${currentDate}: todayHrs=${todayHours}, totalWeekHrs=${totalWeekHours}, proportion=${proportion.toFixed(3)}, daily=${contractedDailyHours}h (standard=${standardDaily}h)`);
       } else {
         contractedDailyHours = standardDaily;
-        if (hasVariableShifts && todayHours === 0) {
-          logger.info(`[PROPORTIONAL-FALLBACK] ${row.matchedEmployee.originalName} on ${currentDate}: no Available row for this date (status=${canonicalStatus(row.Type)}), using standardDaily=${standardDaily}h`);
+        if (hasVariableShifts) {
+          const reason = dateHasAbsence ? `absence on date (status=${canonicalStatus(row.Type)})` : `todayHrs=0`;
+          logger.info(`[PROPORTIONAL-FALLBACK] ${row.matchedEmployee.originalName} on ${currentDate}: ${reason}, using standardDaily=${standardDaily}h`);
         }
       }
     }
