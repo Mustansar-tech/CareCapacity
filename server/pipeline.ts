@@ -2290,11 +2290,15 @@ export async function processCapacityData(
       const daysAvailable = employeeDays.get(key)!.size;
       const standardDaily = Math.round((row.matchedEmployee.weeklyHours / daysAvailable) * 100) / 100;
       
-      // Build a per-day hours map using the "Hours" column from the spreadsheet
-      // This is the most reliable source as it comes directly from the export
+      // Build a per-day hours map using ONLY "Available" status rows.
+      // Sick/Holiday/Unavailable rows are intentionally excluded so they cannot
+      // distort variable-shift detection or the proportional spread of contracted hours.
       const perDayHours = new Map<string, number>();
       allAvailabilityWithMatching
-        .filter(r => (r.matchedEmployee?.normalizedName || normalizeName(r["CAREGiver Name"])) === key)
+        .filter(r => {
+          const rKey = r.matchedEmployee?.normalizedName || normalizeName(r["CAREGiver Name"]);
+          return rKey === key && canonicalStatus(r.Type) === "Available";
+        })
         .forEach(r => {
           const d = format(r.parsedDate, "yyyy-MM-dd");
           // Use the Hours column directly; fall back to computing from time
@@ -2302,25 +2306,38 @@ export async function processCapacityData(
             ? Number(r.Hours)
             : hoursBetween(r["Start Time"], r["End Time"]);
           if (isNaN(hrs) || hrs <= 0) return;
-          // Sum hours per day (in case of multiple rows for the same day)
+          // Sum hours per day (in case of multiple Available rows for the same day)
           perDayHours.set(d, (perDayHours.get(d) || 0) + hrs);
         });
 
       const currentDate = format(row.parsedDate, "yyyy-MM-dd");
+      // todayHours is the Available hours for this specific date.
+      // Will be 0 for full-day sick/holiday/unavailable rows (no Available row that day).
       const todayHours = perDayHours.get(currentDate) || 0;
       const allDayHours = Array.from(perDayHours.values());
       const totalWeekHours = allDayHours.reduce((a, b) => a + b, 0);
       const avgDayHours = allDayHours.length > 0 ? totalWeekHours / allDayHours.length : 0;
 
-      // Detect variable shifts: if any day's hours differ from the average by more than 0.25h (15 mins)
+      // Detect variable shifts: if any Available day's hours differ from the average by >0.25h (15 min).
+      // Only triggered when the employee genuinely works different lengths on different available days.
       const hasVariableShifts = allDayHours.length > 1 && allDayHours.some(h => Math.abs(h - avgDayHours) > 0.25);
 
-      if (hasVariableShifts && totalWeekHours > 0) {
+      // Apply proportional rule ONLY when:
+      //   a) the employee truly has variable shift lengths (hasVariableShifts), AND
+      //   b) this specific date has Available hours (todayHours > 0).
+      // For sick/holiday/unavailable days (todayHours === 0) we cannot know what
+      // this day's proportional share should be from availability data alone, so
+      // we fall back to the uniform standardDaily spread. This prevents desired-
+      // hours from being incorrectly set to 0 on absence days.
+      if (hasVariableShifts && totalWeekHours > 0 && todayHours > 0) {
         const proportion = todayHours / totalWeekHours;
         contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
         logger.info(`[PROPORTIONAL] ${row.matchedEmployee.originalName} on ${currentDate}: todayHrs=${todayHours}, totalWeekHrs=${totalWeekHours}, proportion=${proportion.toFixed(3)}, daily=${contractedDailyHours}h (standard=${standardDaily}h)`);
       } else {
         contractedDailyHours = standardDaily;
+        if (hasVariableShifts && todayHours === 0) {
+          logger.info(`[PROPORTIONAL-FALLBACK] ${row.matchedEmployee.originalName} on ${currentDate}: no Available row for this date (status=${canonicalStatus(row.Type)}), using standardDaily=${standardDaily}h`);
+        }
       }
     }
 
