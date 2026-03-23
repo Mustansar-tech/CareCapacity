@@ -145,6 +145,38 @@ export class TravelTimeService {
     return this.fetchOSRMRoute(from, to);
   }
 
+  /**
+   * Direct ORS Directions API call (driving-car profile).
+   * Falls back to OSRM if the ORS API key is missing or the call fails.
+   */
+  async fetchORSDirections(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
+    if (this.ORS_API_KEY) {
+      try {
+        const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+          method: 'POST',
+          headers: {
+            'Authorization': this.ORS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
+          const distanceMeters = Math.round(data.routes[0].summary.distance);
+          this.trackSource('ors');
+          return { durationMinutes, distanceMeters };
+        }
+        const errorText = await response.text();
+        logger.warn(`[ORS Directions] API error (${response.status}): ${errorText.slice(0, 200)} — falling back to OSRM`);
+      } catch (err) {
+        logger.warn('[ORS Directions] request failed — falling back to OSRM', { error: String(err) });
+      }
+    }
+    // Fallback to OSRM when ORS key missing or call fails
+    return this.fetchOSRMRoute(from, to);
+  }
+
   private trackSource(source: string): void {
     const key = source as keyof TravelSourceStats;
     if (key in this._sourceStats) {
