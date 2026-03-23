@@ -169,6 +169,26 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   const availableEmployees = Array.from(employeeMap.values());
 
+  // Build the list of GH employees who are fully absent this week (no time windows on any day)
+  // These are shown greyed-out at the bottom of the sidebar for awareness.
+  const absentGhEmployeeMap = new Map<string, { gh: number; status: string }>();
+  Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
+    if (
+      (employeeWeeklyHoursMap.get(emp.employeeName) || 0) > 0 &&
+      emp.status !== 'Ad-hoc' &&
+      !employeeMap.has(emp.employeeName) &&
+      !absentGhEmployeeMap.has(emp.employeeName)
+    ) {
+      absentGhEmployeeMap.set(emp.employeeName, {
+        gh: employeeWeeklyHoursMap.get(emp.employeeName) || 0,
+        status: emp.status || 'Unavailable',
+      });
+    }
+  });
+  const absentGhEmployees = Array.from(absentGhEmployeeMap.entries())
+    .map(([name, info]) => ({ name, ...info }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   // Get employees with assignments from the weekly schedule (exclude ad-hoc and 0-GH)
   const employeesWithAssignments = weeklySchedule 
     ? Array.from(new Set(
@@ -948,6 +968,51 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   ) : (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       No employees found matching "{searchTerm}"
+                    </div>
+                  )}
+
+                  {/* Absent GH employees — greyed out, non-clickable */}
+                  {absentGhEmployees.filter(e =>
+                    e.name.toLowerCase().includes(searchTerm.toLowerCase())
+                  ).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-dashed border-muted-foreground/30">
+                      <p className="text-xs text-muted-foreground mb-2 px-1 font-medium uppercase tracking-wide">
+                        Absent this week
+                      </p>
+                      {absentGhEmployees
+                        .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(emp => {
+                          const gender = employeeGenderMap.get(emp.name) || '';
+                          const isHoliday = emp.status.toLowerCase().includes('holiday') || emp.status.toLowerCase().includes('annual');
+                          const isSick = emp.status.toLowerCase().includes('sick');
+                          const badgeClass = isHoliday
+                            ? 'text-amber-600 border-amber-400'
+                            : isSick
+                              ? 'text-red-600 border-red-400'
+                              : 'text-orange-600 border-orange-400';
+                          const badgeLabel = isHoliday ? 'Holiday' : isSick ? 'Sick' : 'Unavailable';
+                          return (
+                            <div
+                              key={emp.name}
+                              className="flex items-center gap-2 p-3 rounded-lg opacity-50 bg-gray-50 dark:bg-gray-800 border-2 border-transparent cursor-default"
+                            >
+                              <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={emp.name}>
+                                  {emp.name}
+                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs text-muted-foreground">
+                                    {emp.gh.toFixed(1)}h / week
+                                  </span>
+                                  <Badge variant="outline" className={`text-xs ${badgeClass}`}>
+                                    {badgeLabel}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
