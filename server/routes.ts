@@ -1484,8 +1484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Post-schedule walker/public travel time refinement.
-  // Accepts the exact route pairs that were assigned to walker/public employees and returns
-  // real TravelTime API durations for those pairs only (~20-100 calls vs full pre-warm).
+  // Disabled: walkers now use Haversine heuristic only, with no live routing.
   app.post('/api/travel-times/refine-walker', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
@@ -1497,84 +1496,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ results: [] });
       }
 
-      logger.info(`[Refine Walker] Refining ${pairs.length} walker/public route pairs via TravelTime API (throttled)`);
-
-      const results: Array<{ key: string; fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number; source: string }> = [];
-      let ttCount = 0;
-      let heuristicCount = 0;
-
-      // Rate limiting: TravelTime Free/Basic plans typically allow 10-60 requests per minute.
-      // We process in chunks of 10 with a delay to stay under the limit and avoid 429 errors.
-      const CHUNK_SIZE = 10;
-      const CHUNK_DELAY_MS = 7000; // 7 seconds between chunks
-
-      for (let i = 0; i < pairs.length; i += CHUNK_SIZE) {
-        const chunk = pairs.slice(i, i + CHUNK_SIZE);
-        logger.info(`[Refine Walker] Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(pairs.length / CHUNK_SIZE)}`);
-
-        const settled = await Promise.allSettled(chunk.map(async (pair) => {
-          const normalizedMode = TravelTimeService.normalizeMode(pair.mode);
-          const from = { lat: pair.fromLat, lng: pair.fromLng };
-          const to = { lat: pair.toLat, lng: pair.toLng };
-
-          // Build a UTC Date from the UK local schedule time + the actual visit date.
-          let arrivalTime: Date | undefined;
-          if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null && pair.visitDate) {
-            arrivalTime = ukScheduleTimeToUtc(pair.visitDate, pair.arrivalTimeMinutes);
-          } else if (pair.arrivalTimeMinutes !== undefined && pair.arrivalTimeMinutes !== null) {
-            const today = new Date().toISOString().slice(0, 10);
-            arrivalTime = ukScheduleTimeToUtc(today, pair.arrivalTimeMinutes);
-          }
-
-          // For return-home and break-departure legs, use depart_by instead of arrive_by.
-          let departureTime: Date | undefined;
-          if (!arrivalTime && pair.departureTimeMinutes !== undefined && pair.departureTimeMinutes !== null && pair.visitDate) {
-            departureTime = ukScheduleTimeToUtc(pair.visitDate, pair.departureTimeMinutes);
-          }
-
-          const result = await travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime, departureTime);
-          if (!result) return null;
-
-          const timeTag = pair.departureTimeMinutes !== undefined
-            ? `d${pair.departureTimeMinutes}`
-            : pair.arrivalTimeMinutes !== undefined
-              ? `a${pair.arrivalTimeMinutes}`
-              : 'anon';
-          const key = `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${normalizedMode}-${timeTag}`;
-          
-          return {
-            key,
-            fromLat: pair.fromLat,
-            fromLng: pair.fromLng,
-            toLat: pair.toLat,
-            toLng: pair.toLng,
-            mode: normalizedMode,
-            durationMinutes: result.travelTimeMinutes,
-            source: result.source || 'traveltime',
-            timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
-            isHeuristic: result.source === 'heuristic',
-          };
-        }));
-
-        for (const outcome of settled) {
-          if (outcome.status === 'fulfilled' && outcome.value) {
-            const { isHeuristic, ...entry } = outcome.value;
-            results.push(entry);
-            if (isHeuristic) heuristicCount++; else ttCount++;
-          } else if (outcome.status === 'rejected') {
-            logger.warn(`[Refine Walker] A pair failed: ${outcome.reason}`);
-          }
-        }
-
-        // Delay before next chunk, except for the last one
-        if (i + CHUNK_SIZE < pairs.length) {
-          logger.info(`[Refine Walker] Waiting ${CHUNK_DELAY_MS}ms for rate limit window...`);
-          await new Promise(resolve => setTimeout(resolve, CHUNK_DELAY_MS));
-        }
-      }
-
-      logger.info(`[Refine Walker] Complete: ${ttCount} via TravelTime, ${heuristicCount} via heuristic, ${pairs.length - results.length} failed`);
-      res.json({ results, stats: { traveltime: ttCount, heuristic: heuristicCount } });
+      logger.info(`[Refine Walker] TravelTime disabled; returning Haversine heuristic for ${pairs.length} route pairs`);
+      const results = pairs.map((pair) => {
+        const from = { lat: pair.fromLat, lng: pair.fromLng };
+        const to = { lat: pair.toLat, lng: pair.toLng };
+        const durationMinutes = travelTimeService.heuristicEstimate(from, to, pair.mode);
+        const timeTag = pair.departureTimeMinutes !== undefined
+          ? `d${pair.departureTimeMinutes}`
+          : pair.arrivalTimeMinutes !== undefined
+            ? `a${pair.arrivalTimeMinutes}`
+            : 'anon';
+        return {
+          key: `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${TravelTimeService.normalizeMode(pair.mode)}-${timeTag}`,
+          fromLat: pair.fromLat,
+          fromLng: pair.fromLng,
+          toLat: pair.toLat,
+          toLng: pair.toLng,
+          mode: TravelTimeService.normalizeMode(pair.mode),
+          durationMinutes,
+          source: 'heuristic',
+          timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
+        };
+      });
+      res.json({ results, stats: { traveltime: 0, heuristic: results.length } });
     } catch (error) {
       logger.error('Error in travel-times/refine-walker:', error);
       res.status(500).json({ error: safeErrorMessage(error, 'Failed to refine walker travel times') });
