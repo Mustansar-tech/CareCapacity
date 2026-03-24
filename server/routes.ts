@@ -1483,48 +1483,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Post-schedule walker/public travel time refinement.
-  // Disabled: walkers now use Haversine heuristic only, with no live routing.
-  app.post('/api/travel-times/refine-walker', async (req, res) => {
-    try {
-      const branchId = await resolveBranch(req);
-      const { pairs } = req.body as {
-        pairs: Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate?: string }>;
-      };
-
-      if (!Array.isArray(pairs) || pairs.length === 0) {
-        return res.json({ results: [] });
-      }
-
-      logger.info(`[Refine Walker] TravelTime disabled; returning Haversine heuristic for ${pairs.length} route pairs`);
-      const results = pairs.map((pair) => {
-        const from = { lat: pair.fromLat, lng: pair.fromLng };
-        const to = { lat: pair.toLat, lng: pair.toLng };
-        const durationMinutes = travelTimeService.heuristicEstimate(from, to, pair.mode);
-        const timeTag = pair.departureTimeMinutes !== undefined
-          ? `d${pair.departureTimeMinutes}`
-          : pair.arrivalTimeMinutes !== undefined
-            ? `a${pair.arrivalTimeMinutes}`
-            : 'anon';
-        return {
-          key: `${pair.visitDate ?? ''}-${pair.fromLat.toFixed(4)},${pair.fromLng.toFixed(4)}-${pair.toLat.toFixed(4)},${pair.toLng.toFixed(4)}-${TravelTimeService.normalizeMode(pair.mode)}-${timeTag}`,
-          fromLat: pair.fromLat,
-          fromLng: pair.fromLng,
-          toLat: pair.toLat,
-          toLng: pair.toLng,
-          mode: TravelTimeService.normalizeMode(pair.mode),
-          durationMinutes,
-          source: 'heuristic',
-          timeMinutes: pair.departureTimeMinutes ?? pair.arrivalTimeMinutes,
-        };
-      });
-      res.json({ results, stats: { traveltime: 0, heuristic: results.length } });
-    } catch (error) {
-      logger.error('Error in travel-times/refine-walker:', error);
-      res.status(500).json({ error: safeErrorMessage(error, 'Failed to refine walker travel times') });
-    }
-  });
-
   // Diagnostic endpoint: verify exactly what TravelTime receives for a single pair.
   // POST body: { fromLat, fromLng, toLat, toLng, mode, visitDate?, arrivalTimeMinutes? }
   // Returns the ISO timestamp sent, the day-of-week, whether BST applies, the transport
