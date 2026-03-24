@@ -897,23 +897,11 @@ export class TravelTimeService {
       } else {
         const errText = await response.text();
         logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
-        // No heuristic fallback — OSRM per-pair as secondary attempt
-        for (const src of sources) {
-          for (const dst of destinations) {
-            if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
-            const osrm = await this.fetchOSRMRoute({ lat: src.lat, lng: src.lng }, { lat: dst.lat, lng: dst.lng });
-            if (osrm) {
-              const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
-              this._sessionCache.set(sk, { durationMinutes: osrm.durationMinutes, distanceMeters: osrm.distanceMeters, source: 'osrm' });
-              this.trackSource('osrm');
-              added++;
-            }
-            // If OSRM also fails, pair is not stored → client-side returns 9999 → unallocated
-          }
-        }
+        return added;
       }
     } catch (err) {
       logger.warn('[Cache Pre-warm] ORS Matrix exception:', err instanceof Error ? err.message : err);
+      return added;
     }
     return added;
   }
