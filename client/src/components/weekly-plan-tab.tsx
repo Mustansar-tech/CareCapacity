@@ -228,7 +228,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               homeLng: location?.homeLng ? Number(location.homeLng) : undefined,
               transportMode: location?.transportMode || undefined,
               weeklyContractedHours: weeklyHours,
-              gender: emp.gender || (location ? location.gender : undefined),
+              gender: emp.gender || location?.gender || undefined,
             };
           })
       );

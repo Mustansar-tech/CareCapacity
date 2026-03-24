@@ -1274,6 +1274,7 @@ export function generateWeeklySchedule(
     homeLng?: number;
     transportMode?: string;
     weeklyContractedHours?: number;
+    gender?: string;
   }>,
   weekDates: string[]
 ): WeeklyScheduleResult {
@@ -1420,7 +1421,7 @@ export function generateWeeklySchedule(
 
       // Extract gender from employee data (processed in pipeline.ts from CG Data)
       // Check multiple sources for gender data
-      const gender = (emp as any).gender || undefined;
+      const gender = emp.gender || undefined;
 
       // Log gender data for debugging
       if (!gender) {
@@ -1434,8 +1435,8 @@ export function generateWeeklySchedule(
         totalCapacityMinutes: calculateTotalCapacity(windows),
         usedCapacityMinutes: 0,
         assignedVisits: [],
-        homeLat: emp.homeLat || null,
-        homeLng: emp.homeLng || null,
+        homeLat: emp.homeLat ?? 0,
+        homeLng: emp.homeLng ?? 0,
         transportMode: mode,
         weeklyContractedMinutes: weeklyContractedMap.get(emp.employeeName) || 0,
         weeklyUsedMinutes: weeklyUsedMap.get(emp.employeeName) || 0,

@@ -1721,7 +1721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const hasCoords = nv.lat != null && nv.lng != null;
         const coords = hasCoords ? { lat: nv.lat!, lng: nv.lng! } : null;
-        pending.push({ match, slot, nextPostcode: nv.postcode, nextCoords: coords, gapMins, isCar, transportMode: match.transportMode });
+        pending.push({ match, slot, nextPostcode: nv.postcode, nextCoords: coords, gapMins, isCar, transportMode: match.transportMode ?? 'car' });
       }
     }
 
