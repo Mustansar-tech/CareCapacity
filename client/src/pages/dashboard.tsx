@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronDown } from "lucide-react";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
   TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target
@@ -860,33 +862,60 @@ export default function Dashboard() {
                         <TableRow className="hover:bg-transparent border-b-2">
                           <TableHead data-testid="drilldown-header-employee" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Employee</TableHead>
                           <TableHead data-testid="drilldown-header-status" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">
-                            <Select
-                              value={statusFilter.length === 1 ? statusFilter[0] : "all"}
-                              onValueChange={(value) => {
-                                if (value === "all") {
-                                  setStatusFilter([]);
-                                } else {
-                                  setStatusFilter([value]);
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="h-8 w-[180px] border-dashed bg-white dark:bg-gray-900">
-                                <SelectValue placeholder="Status (Filter)" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-[220px] justify-between border-dashed bg-white dark:bg-gray-900"
+                                >
+                                  <span className="truncate">
+                                    {statusFilter.length === 0
+                                      ? `All Statuses (${selectedDayDetailsRaw.length})`
+                                      : `${statusFilter.length} status${statusFilter.length > 1 ? "es" : ""} selected`}
+                                  </span>
+                                  <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[220px] p-2" align="start">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start mb-1"
+                                  onClick={() => setStatusFilter([])}
+                                >
                                   All Statuses ({selectedDayDetailsRaw.length})
-                                </SelectItem>
-                                {availableStatuses.map(status => {
-                                  const count = selectedDayDetailsRaw.filter(emp => emp.status === status).length;
-                                  return (
-                                    <SelectItem key={status} value={status}>
-                                      {status} ({count})
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
+                                </Button>
+                                <div className="max-h-64 overflow-y-auto space-y-1">
+                                  {availableStatuses.map(status => {
+                                    const count = selectedDayDetailsRaw.filter(emp => emp.status === status).length;
+                                    const isSelected = statusFilter.includes(status);
+                                    return (
+                                      <Button
+                                        key={status}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full justify-start gap-2"
+                                        onClick={() => {
+                                          setStatusFilter(prev =>
+                                            prev.includes(status)
+                                              ? prev.filter(s => s !== status)
+                                              : [...prev, status]
+                                          );
+                                        }}
+                                      >
+                                        <span className={`h-4 w-4 flex items-center justify-center rounded-sm border ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40'}`}>
+                                          {isSelected && <Check className="h-3 w-3" />}
+                                        </span>
+                                        <span className="flex-1 text-left">
+                                          {status} ({count})
+                                        </span>
+                                      </Button>
+                                    );
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </TableHead>
                           <TableHead data-testid="drilldown-header-time-window" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Time Window(s)</TableHead>
                           <TableHead data-testid="drilldown-header-contracted-daily" className="text-center font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Desired Hours</TableHead>
