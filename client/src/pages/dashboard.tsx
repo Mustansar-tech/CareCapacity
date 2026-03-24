@@ -256,8 +256,6 @@ export default function Dashboard() {
         cgData: null
       });
 
-      // Don't invalidate queries to prevent auto-refresh
-      // queryClient.invalidateQueries({ queryKey: ['/api/history'] });
       toast({
         title: "Processing Complete",
         description: "Your capacity data has been analyzed successfully."
@@ -287,7 +285,6 @@ export default function Dashboard() {
 
   // Process files
   const handleProcessFiles = useCallback(async () => {
-    // Update validation to check for 3 files instead of 4
     const allFilesSelected = files.availability && files.guaranteed && files.cgData;
 
     if (!allFilesSelected) {
@@ -304,10 +301,8 @@ export default function Dashboard() {
     const formData = new FormData();
     formData.append('availability', files.availability!);
     formData.append('guaranteed', files.guaranteed!);
-    // Demand file is no longer appended
     formData.append('cgData', files.cgData!);
 
-    // Include branch ID in the form data
     if (selectedBranchId) {
       formData.append('branchId', selectedBranchId);
     }
@@ -422,7 +417,7 @@ export default function Dashboard() {
                 </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6"> {/* Changed grid columns to 3 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
             {/* Availability Export */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
@@ -514,7 +509,6 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <Button
               onClick={handleProcessFiles}
-              // Update disabled condition to reflect 3 files
               disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
               className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               data-testid="button-process"
@@ -648,8 +642,6 @@ export default function Dashboard() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
-                        {/* Hidden column - Available */}
-                        {false && <TableHead data-testid="header-available">Available</TableHead>}
                         <TableHead data-testid="header-desired-hours" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
@@ -744,11 +736,6 @@ export default function Dashboard() {
                               return `${weekday} ${dateStr}`;
                             })()}
                           </TableCell>
-
-                          {/* Hidden column - Available */}
-                          {false && <TableCell data-testid={`cell-available-${index}`}>
-                            {fmtH(day.availableHours)}
-                          </TableCell>}
 
                           <TableCell className="text-right" data-testid={`cell-desired-hours-${index}`}>
                             <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-100">
@@ -1048,7 +1035,6 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Changed grid columns to 3 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   {/* Availability Export */}
                   <div className="space-y-3">
@@ -1139,7 +1125,6 @@ export default function Dashboard() {
                 <div className="flex justify-center gap-4">
                   <Button
                     onClick={handleProcessFiles}
-                    // Update disabled condition to reflect 3 files
                     disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
                     className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white px-6 py-2 font-semibold shadow-lg disabled:opacity-50"
                     data-testid="button-process-overview"
@@ -1399,25 +1384,7 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 7. Client Scheduled - HIDDEN */}
-                {/* <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                        <Clock className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
-                      {(filteredData || processedData)?.kpis.clientScheduledHoursSum}h
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Total hours scheduled</div>
-                  </CardContent>
-                </Card> */}
-
-                {/* 8. Other Scheduled */}
+                {/* 7. Other Scheduled */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">

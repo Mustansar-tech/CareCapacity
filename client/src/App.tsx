@@ -209,7 +209,6 @@ function Navigation() {
                 alt="Care Capacity Dashboard"
                 width={48}
                 height={48}
-                fetchPriority="high"
                 className="h-12 w-auto rounded-lg object-contain border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
               />
             </div>
