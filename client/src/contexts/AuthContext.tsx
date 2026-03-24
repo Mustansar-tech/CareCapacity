@@ -57,9 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const res = await apiRequest('POST', '/api/auth/login', { email, password });
         return res.json();
-      } catch (err: any) {
-        // Extract the error message from the thrown error
-        const errorMsg = err.message || 'Login failed';
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : 'Login failed';
         // Parse the error if it's in format "401: {json}"
         if (errorMsg.includes(':')) {
           try {
@@ -83,9 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async () => {
       try {
         await apiRequest('POST', '/api/auth/logout', {});
-      } catch (err: any) {
-        // Ignore errors on logout (e.g., already logged out)
-        console.debug('Logout error:', err.message);
+      } catch {
+        // Silently ignore logout errors (e.g., session already expired)
       }
     },
     onSuccess: () => {

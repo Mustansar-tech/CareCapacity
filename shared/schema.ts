@@ -333,6 +333,29 @@ export interface WeeklyScheduleMetrics {
   employeesUtilized: number;
 }
 
+// ── History list item returned by GET /api/history ────────────────────────────
+export interface CapacityAnalysisSummary {
+  id: string;
+  branchId: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  uploadedAt: string;
+  kpis: ProcessingResult['kpis'];
+  dailySummary: DailySummaryRecord[];
+  employeesByDate: Record<string, EmployeeDailyDetail[]>;
+  employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>;
+  warnings?: string[];
+}
+
+// ── ProcessingResult augmented with DB metadata (returned by /api/history/latest) ──
+export interface ProcessingResultWithMeta extends ProcessingResult {
+  id: string;
+  branchId: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  uploadedAt: string;
+}
+
 // Validation schemas
 export const availabilitySchema = z.object({
   "CAREGiver Name": z.string().min(1, "CAREGiver Name is required"),

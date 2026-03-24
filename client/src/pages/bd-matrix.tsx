@@ -28,7 +28,7 @@ import {
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
   History, Trash2, Plus, Minus, BarChart3, Info, X, Activity, ZoomIn, ZoomOut
 } from "lucide-react";
-import type { ProcessingResult } from "@shared/schema";
+import type { ProcessingResult, ClientEnquiry, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
 
 // Company's 11 standardized time blocks
@@ -195,9 +195,31 @@ interface MatchedEmployee {
 }
 
 interface MatchResult {
-  criteria: any;
   matches: MatchedEmployee[];
   totalEmployeesEvaluated: number;
+}
+
+interface SavedVisitResult {
+  visitLabel?: string;
+  visitIndex?: number;
+  careProsRequired?: number;
+  genderPreferences?: string[];
+  matches?: MatchedEmployee[];
+  totalEmployeesEvaluated?: number;
+}
+
+interface HistoryViewResult {
+  clientName: string;
+  postcode?: string | null;
+  genderPreference?: string | null;
+  requiredDays?: string[];
+  createdAt?: Date | null;
+  criteria?: { visits?: Array<{ selectedDays?: string[]; requiredDays?: string[] }> } | null;
+  visits?: Array<{ requiredDays?: string[]; selectedDays?: string[] }> | null;
+  visitResults?: SavedVisitResult[];
+  totalVisits?: number;
+  matches?: MatchedEmployee[];
+  results?: (MultiVisitResult & { totalEmployeesEvaluated?: number }) | null;
 }
 
 const DAY_OPTIONS = [
@@ -449,7 +471,7 @@ function CareProMap({
   onRefresh, 
   isRefreshing 
 }: { 
-  locations: any[];
+  locations: EmployeeLocation[];
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }) {
@@ -464,11 +486,11 @@ function CareProMap({
   // they are all individually visible instead of stacking on top of each other.
   const jitteredLocations = useMemo(() => {
     const JITTER_RADIUS = 0.0003; // ~30 m — only separates markers when zoomed in close; won't push coastal markers into sea
-    const coordKey = (loc: any) =>
-      `${parseFloat(loc.homeLat).toFixed(6)},${parseFloat(loc.homeLng).toFixed(6)}`;
+    const coordKey = (loc: EmployeeLocation) =>
+      `${parseFloat(loc.homeLat!).toFixed(6)},${parseFloat(loc.homeLng!).toFixed(6)}`;
 
     // Group by exact coordinate
-    const groups = new Map<string, any[]>();
+    const groups = new Map<string, EmployeeLocation[]>();
     for (const loc of validLocations) {
       const key = coordKey(loc);
       if (!groups.has(key)) groups.set(key, []);
@@ -478,13 +500,13 @@ function CareProMap({
     return validLocations.map(loc => {
       const key = coordKey(loc);
       const group = groups.get(key)!;
-      if (group.length === 1) return { ...loc, _jLat: parseFloat(loc.homeLat), _jLng: parseFloat(loc.homeLng) };
+      if (group.length === 1) return { ...loc, _jLat: parseFloat(loc.homeLat!), _jLng: parseFloat(loc.homeLng!) };
       const idx = group.indexOf(loc);
       const angle = (2 * Math.PI * idx) / group.length;
       return {
         ...loc,
-        _jLat: parseFloat(loc.homeLat) + JITTER_RADIUS * Math.cos(angle),
-        _jLng: parseFloat(loc.homeLng) + JITTER_RADIUS * Math.sin(angle),
+        _jLat: parseFloat(loc.homeLat!) + JITTER_RADIUS * Math.cos(angle),
+        _jLng: parseFloat(loc.homeLng!) + JITTER_RADIUS * Math.sin(angle),
       };
     });
   }, [validLocations]);
@@ -494,8 +516,8 @@ function CareProMap({
 
   const center = useMemo<[number, number]>(() => {
     if (validLocations.length === 0) return [53.5, -1.5];
-    const avgLat = validLocations.reduce((s, l) => s + parseFloat(l.homeLat), 0) / validLocations.length;
-    const avgLng = validLocations.reduce((s, l) => s + parseFloat(l.homeLng), 0) / validLocations.length;
+    const avgLat = validLocations.reduce((s, l) => s + parseFloat(l.homeLat!), 0) / validLocations.length;
+    const avgLng = validLocations.reduce((s, l) => s + parseFloat(l.homeLng!), 0) / validLocations.length;
     return [avgLat, avgLng];
   }, [validLocations]);
 
@@ -1030,7 +1052,7 @@ function ClientEnquiryMatcher() {
   const [multiResults, setMultiResults] = useState<MultiVisitResult | null>(null);
   const [activeResultTab, setActiveResultTab] = useState('0');
   const [showHistory, setShowHistory] = useState(false);
-  const [viewingHistoryResult, setViewingHistoryResult] = useState<any | null>(null);
+  const [viewingHistoryResult, setViewingHistoryResult] = useState<HistoryViewResult | null>(null);
   const [sortByTravel, setSortByTravel] = useState(true);
   const { toast } = useToast();
 
@@ -1041,21 +1063,20 @@ function ClientEnquiryMatcher() {
     return () => window.removeEventListener('bd-matcher-back', handleBack);
   }, []);
 
-  const historyQuery = useQuery<any[]>({
+  const historyQuery = useQuery<ClientEnquiry[]>({
     queryKey: ['/api/client-enquiries'],
     enabled: open,
   });
 
   const saveEnquiryMutation = useMutation({
-    mutationFn: async (data: { criteria: any; matchResult: any; isSingleVisit: boolean }) => {
+    mutationFn: async (data: { criteria: { clientName: string; postcode?: string; visits?: unknown[] }; matchResult: MultiVisitResult; isSingleVisit: boolean }) => {
       const totalMatches = data.matchResult.visitResults
-        ? data.matchResult.visitResults.reduce((sum: number, vr: any) => sum + (vr.matches?.length || 0), 0)
-        : data.matchResult.matches?.length || 0;
-      const topMatch = data.matchResult.visitResults
-        ? data.matchResult.visitResults[0]?.matches?.[0]?.employeeName || null
-        : data.matchResult.matches?.[0]?.employeeName || null;
+        ? data.matchResult.visitResults.reduce((sum: number, vr) => sum + (vr.matches?.length || 0), 0)
+        : 0;
+      const topMatch = data.matchResult.visitResults?.[0]?.matches?.[0]?.employeeName || null;
 
-      const firstVisit = data.criteria.visits?.[0];
+      type CriteriaVisit = { preferredTimeWindow?: { start: string; end: string }; genderPreferences?: string[]; requiredDays?: string[] };
+      const firstVisit = data.criteria.visits?.[0] as CriteriaVisit | undefined;
 
       let durationMinutes = 60;
       if (firstVisit?.preferredTimeWindow?.start && firstVisit?.preferredTimeWindow?.end) {
@@ -1313,7 +1334,7 @@ function ClientEnquiryMatcher() {
                               const visitsToLoad = viewingHistoryResult.criteria?.visits || viewingHistoryResult.visits;
                               
                               if (visitsToLoad && Array.isArray(visitsToLoad)) {
-                                setVisits(visitsToLoad);
+                                setVisits(visitsToLoad as VisitFormData[]);
                                 setActiveVisitTab("0");
                               }
                               
@@ -1357,7 +1378,7 @@ function ClientEnquiryMatcher() {
                     {viewingHistoryResult.visitResults ? (
                       <Tabs defaultValue="0" className="w-full">
                         <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1 mb-4">
-                          {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
+                          {viewingHistoryResult.visitResults.map((vr, vi) => (
                             <TabsTrigger key={vi} value={String(vi)} className="px-4 py-2 text-xs font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-sm rounded-lg transition-all">
                               <div className="flex items-center gap-2">
                                 <span>{vr.visitLabel || `Visit ${vi + 1}`}</span>
@@ -1368,7 +1389,7 @@ function ClientEnquiryMatcher() {
                             </TabsTrigger>
                           ))}
                         </TabsList>
-                        {viewingHistoryResult.visitResults.map((vr: any, vi: number) => (
+                        {viewingHistoryResult.visitResults.map((vr, vi) => (
                           <TabsContent key={vi} value={String(vi)} className="mt-0 space-y-4">
                             <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/30 text-xs font-bold text-gray-500">
                               <span className="flex items-center gap-1.5">
@@ -1390,8 +1411,8 @@ function ClientEnquiryMatcher() {
                             <MatchResultsGrid 
                                 result={{
                                   ...viewingHistoryResult.results,
-                                  visitResults: [vr]
-                                }} 
+                                  visitResults: [vr] as MultiVisitResult['visitResults']
+                                } as MultiVisitResult} 
                                 requiredDays={viewingHistoryResult.visits?.[vi]?.requiredDays || 
                                              viewingHistoryResult.visits?.[vi]?.selectedDays || 
                                              viewingHistoryResult.criteria?.visits?.[vi]?.selectedDays || 
@@ -1458,8 +1479,8 @@ function ClientEnquiryMatcher() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {historyQuery.data.map((enquiry: any) => {
-                        const results = enquiry.results;
+                      {historyQuery.data.map((enquiry) => {
+                        const results = enquiry.results as { visitResults?: SavedVisitResult[]; totalVisits?: number } | null;
                         const isMultiVisit = results?.visitResults && results.visitResults.length > 0;
                         const visitCount = isMultiVisit ? results.totalVisits : 1;
                         return (
@@ -1469,7 +1490,7 @@ function ClientEnquiryMatcher() {
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
-                                setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, criteria: enquiry.criteria, requiredDays: enquiry.requiredDays, genderPreference: enquiry.genderPreference });
+                                setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference } as HistoryViewResult);
                               }
                             }}
                           >
@@ -1683,7 +1704,7 @@ function ClientEnquiryMatcher() {
 export default function BDMatrix({ data }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
 
-  const { data: locationsData, refetch: refetchLocations, isFetching: isFetchingLocations } = useQuery<{ employees: any[]; clients: any[] }>({
+  const { data: locationsData, refetch: refetchLocations, isFetching: isFetchingLocations } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
     queryKey: ['/api/locations'],
   });
   const locations = locationsData?.employees ?? [];

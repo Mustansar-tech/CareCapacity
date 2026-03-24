@@ -192,7 +192,7 @@ export function seedTravelCache(
     }
     seeded++;
   }
-  console.log(`[Travel Cache] Seeded ${seeded} real-road entries (${travelTimeCache.size} total, ${travelTimeCacheByTime.size} time-keyed)`);
+  clientLogger.log(`[Travel Cache] Seeded ${seeded} real-road entries (${travelTimeCache.size} total, ${travelTimeCacheByTime.size} time-keyed)`);
 }
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings

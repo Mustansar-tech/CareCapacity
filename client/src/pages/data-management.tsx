@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, Shield, Clock, Database, AlertTriangle, CheckCircle, Eye } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import type { CapacityAnalysisSummary } from '@shared/schema';
 
 interface CleanupPreview {
   cutoffDate: string;
@@ -16,6 +17,11 @@ interface CleanupPreview {
   analysesToKeep: number;
   oldestAnalysis: string | null;
   newestAnalysis: string | null;
+}
+
+interface CleanupResult {
+  deletedAnalyses: number;
+  cutoffMonths: number;
 }
 
 export default function DataManagement() {
@@ -30,14 +36,17 @@ export default function DataManagement() {
   });
 
   // Get all historical data for overview
-  const { data: allData } = useQuery<any[]>({
+  const { data: allData } = useQuery<CapacityAnalysisSummary[]>({
     queryKey: ['/api/history'],
   });
 
   // Cleanup mutation
-  const cleanupMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/cleanup', { months: selectedMonths }),
-    onSuccess: (data: any) => {
+  const cleanupMutation = useMutation<CleanupResult>({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/cleanup', { months: selectedMonths });
+      return res.json();
+    },
+    onSuccess: (data) => {
       toast({
         title: "Data Cleanup Successful",
         description: `Deleted ${data.deletedAnalyses} old analyses (older than ${data.cutoffMonths} months)`
@@ -46,7 +55,7 @@ export default function DataManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/cleanup/preview'] });
       setShowDeleteDialog(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "Cleanup Failed",

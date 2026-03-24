@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info, Lock } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache, haversineDistance, calculateTravelTime, parseTimeWindows } from "@/utils/scheduling-utils";
-import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation } from "@shared/schema";
+import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation, WeeklySchedule, EmployeeDailyDetail } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
@@ -62,7 +62,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
-  const [isRefiningWalkers, setIsRefiningWalkers] = useState(false);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -148,7 +147,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Get all unique employees who have real availability in the week (exclude ad-hoc)
   // Use a Map to deduplicate by employee name and prefer records with more data
-  const employeeMap = new Map<string, any>();
+  const employeeMap = new Map<string, EmployeeDailyDetail>();
   const adHocEmployees = new Set<string>();
 
   Object.values(data?.employeesByDate || {}).flat().forEach(emp => {
@@ -319,10 +318,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       clientLogger.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
 
-      // Ensure reason is mapped to unallocatedReason to satisfy type safety
+      type EngineUnallocated = ClientVisit & { rejectionReason?: string; reason?: string; unallocatedReason?: string };
       const typedResult: WeeklyScheduleData = {
         assignments: result.assignments,
-        unallocated: result.unallocated.map((v: any) => ({
+        unallocated: (result.unallocated as EngineUnallocated[]).map(v => ({
           ...v,
           unallocatedReason: v.rejectionReason || v.reason || v.unallocatedReason || "Not optimal for this run"
         })),
@@ -432,13 +431,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         });
       });
 
-      let finalResult = correctedResult;
+      const finalResult = correctedResult;
 
-      if (walkerPairMap.size > 0) {
-        setIsRefiningWalkers(false);
-      }
-
-      // Save the (potentially refined) schedule to the database
+      // Save the schedule to the database
       try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
           weekStartDate: weekStart,
@@ -469,9 +464,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const saveScheduleMutation = useMutation({
     mutationFn: async (schedule: WeeklyScheduleData) => {
       await apiRequest('POST', '/api/weekly-schedule/save', {
-        branchId: (data as any)?.branchId,
-        weekStart,
-        weekEnd,
+        weekStartDate: weekStart,
+        weekEndDate: weekEnd,
         scheduleData: schedule.assignments,
         unallocatedVisits: schedule.unallocated,
         metrics: schedule.metrics,
@@ -481,7 +475,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   });
 
   // Load schedule for the current week being viewed
-  const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<any>({
+  const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<WeeklySchedule | null>({
     queryKey: ['/api/weekly-schedule', weekStart], // branchId is added by default fetcher
     enabled: !!data && !!weekStart,
   });
@@ -499,8 +493,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       clientLogger.log(`📅 Loading saved schedule for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule({
         assignments: savedSchedule.scheduleData as Record<string, Record<string, AssignedVisit[]>>,
-        unallocated: savedSchedule.unallocatedVisits || [],
-        metrics: savedSchedule.metrics || {
+        unallocated: (savedSchedule.unallocatedVisits as (ClientVisit & { unallocatedReason: string })[]) || [],
+        metrics: (savedSchedule.metrics as { totalVisitsAssigned: number; totalVisitsUnallocated: number; averageTravelTimePerVisit: number; employeesUtilized: number }) || {
           totalVisitsAssigned: 0,
           totalVisitsUnallocated: 0,
           averageTravelTimePerVisit: 0,
@@ -588,7 +582,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </div>
 
       {/* Metrics Card */}
-      {weeklySchedule && !isRefiningWalkers && (
+      {weeklySchedule && (
         <Card className="glass-card border-blue-200 dark:border-blue-800">
           <CardHeader>
             <CardTitle className="text-lg">Schedule Metrics</CardTitle>

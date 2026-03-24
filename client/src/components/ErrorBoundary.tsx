@@ -29,22 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!import.meta.env.PROD) {
       console.error('Error caught by boundary:', error, errorInfo);
     }
-    
     this.setState({ error, errorInfo });
-  }
-
-  private logErrorToService(error: Error, errorInfo: ErrorInfo) {
-    // Implement error logging service integration
-    const errorReport = {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    };
-    
-    // Error report available for monitoring service integration
   }
 
   private handleReset = () => {

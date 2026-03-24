@@ -102,7 +102,7 @@ function CreateUserDialog({ branches, onCreated }: { branches: Branch[]; onCreat
       setOpen(false);
       onCreated();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: 'Failed to create user', description: err.message, variant: 'destructive' });
     },
   });
@@ -223,15 +223,22 @@ function EditUserDialog({ user, branches, onUpdated }: { user: AdminUser; branch
     resolver: zodResolver(editUserSchema),
     defaultValues: {
       displayName: user.displayName,
-      role: user.role as any,
+      role: user.role as EditUserForm['role'],
       branchIds: user.branches.map(b => b.id),
       newPassword: '',
     },
   });
 
+  type UpdateUserPayload = {
+    displayName: string;
+    role: EditUserForm['role'];
+    branchIds: string[];
+    newPassword?: string;
+  };
+
   const mutation = useMutation({
     mutationFn: async (data: EditUserForm) => {
-      const payload: any = { displayName: data.displayName, role: data.role, branchIds: data.branchIds };
+      const payload: UpdateUserPayload = { displayName: data.displayName, role: data.role, branchIds: data.branchIds };
       if (data.newPassword) payload.newPassword = data.newPassword;
       const res = await apiRequest('PATCH', `/api/admin/users/${user.id}`, payload);
       if (!res.ok) {
@@ -245,7 +252,7 @@ function EditUserDialog({ user, branches, onUpdated }: { user: AdminUser; branch
       setOpen(false);
       onUpdated();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: 'Failed to update user', description: err.message, variant: 'destructive' });
     },
   });
@@ -260,7 +267,7 @@ function EditUserDialog({ user, branches, onUpdated }: { user: AdminUser; branch
       toast({ title: user.isActive ? 'User deactivated' : 'User reactivated' });
       onUpdated();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: 'Failed', description: err.message, variant: 'destructive' });
     },
   });

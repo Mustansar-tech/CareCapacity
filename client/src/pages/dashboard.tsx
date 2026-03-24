@@ -17,7 +17,7 @@ import {
   TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { ProcessingResult } from "@shared/schema";
+import type { ProcessingResult, CapacityAnalysisSummary, ProcessingResultWithMeta } from "@shared/schema";
 import { useBranch } from "@/contexts/BranchContext";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
@@ -125,16 +125,14 @@ export default function Dashboard() {
   }, []);
 
   // Query to get all historical weeks for the dropdown
-  const { data: allHistoryData } = useQuery<any[]>({
+  const { data: allHistoryData } = useQuery<CapacityAnalysisSummary[]>({
     queryKey: ['/api/history'],
-    enabled: true, // Enable to populate week selector
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
-
   // Query to load latest data automatically
-  const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResult>({
+  const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResultWithMeta>({
     queryKey: ['/api/history/latest'],
     enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData, // Only fetch if not processing and no files selected
     refetchOnWindowFocus: false, // Prevent refetch when window regains focus
@@ -152,7 +150,7 @@ export default function Dashboard() {
 
   // Clear processed data if it doesn't match current branch
   useEffect(() => {
-    if (latestData && (latestData as any).branchId !== selectedBranchId) {
+    if (latestData && latestData.branchId !== selectedBranchId) {
       clientLogger.log('🧹 Clearing stale data from different branch');
       setProcessedData(null);
       setFilteredData(null);
@@ -161,14 +159,13 @@ export default function Dashboard() {
 
   // Auto-load latest data when component mounts or when we don't have data
   useEffect(() => {
-    // Only auto-load if data belongs to current branch
-    if (latestData && !processedData && !selectedWeekId && (latestData as any).branchId === selectedBranchId) {
+    if (latestData && !processedData && !selectedWeekId && latestData.branchId === selectedBranchId) {
       setProcessedData({
         kpis: latestData.kpis,
-        dailySummary: latestData.dailySummary as any,
-        employeesByDate: latestData.employeesByDate as any,
-        employeeSummaryByDate: latestData.employeeSummaryByDate as any,
-        warnings: latestData.warnings as any,
+        dailySummary: latestData.dailySummary,
+        employeesByDate: latestData.employeesByDate,
+        employeeSummaryByDate: latestData.employeeSummaryByDate,
+        warnings: latestData.warnings,
       });
       setSelectedDate(latestData.dailySummary?.[0]?.date || null);
       toast({
@@ -194,14 +191,14 @@ export default function Dashboard() {
 
     try {
       setSelectedWeekId(value);
-      const analysis = allHistoryData?.find((item: any) => item.id === value);
+      const analysis = allHistoryData?.find(item => item.id === value);
       if (analysis) {
         setProcessedData({
           kpis: analysis.kpis,
-          dailySummary: analysis.dailySummary as any,
-          employeesByDate: analysis.employeesByDate as any,
-          employeeSummaryByDate: analysis.employeeSummaryByDate as any,
-          warnings: analysis.warnings as any,
+          dailySummary: analysis.dailySummary,
+          employeesByDate: analysis.employeesByDate,
+          employeeSummaryByDate: analysis.employeeSummaryByDate,
+          warnings: analysis.warnings,
         });
         setSelectedDate(analysis.dailySummary?.[0]?.date || null);
         setFilteredData(null); // Clear any filters

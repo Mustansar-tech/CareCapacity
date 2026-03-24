@@ -40,8 +40,8 @@ export default function LoginPage() {
       toast({ title: "Welcome back", description: "You have successfully signed in." });
       // Navigate to dashboard after successful login
       navigate("/");
-    } catch (err: any) {
-      setLoginError(err.message || "Invalid email or password. Please try again.");
+    } catch (err: unknown) {
+      setLoginError(err instanceof Error ? err.message : "Invalid email or password. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

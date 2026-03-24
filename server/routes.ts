@@ -851,7 +851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Merge cached and newly geocoded results
       const results = [...cachedResults, ...newResults];
 
-      // TODO: Process full addresses using Mapbox/Google Maps when needed
+      // Full-address geocoding is not implemented; only postcodes are supported.
       for (const address of addresses) {
         results.push({
           query: address,
@@ -881,7 +881,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const originsCoords = origins.map((o: any) => [parseFloat(o.lng), parseFloat(o.lat)]);
       const destinationsCoords = destinations.map((d: any) => [parseFloat(d.lng), parseFloat(d.lat)]);
 
-      // TODO: Add OpenRouteService API key via environment variable
       const ORS_API_KEY = process.env.ORS_API_KEY;
       if (!ORS_API_KEY) {
         return res.status(500).json({ message: 'OpenRouteService API key not configured' });
@@ -931,13 +930,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!date) {
         return res.status(400).json({ message: 'Date is required' });
       }
-
-      // TODO: Implement route optimization algorithm
-      // 1. Get employee locations and visits for the date
-      // 2. Calculate distance matrix between all locations
-      // 3. Apply 15-minute travel constraint
-      // 4. Use constructive heuristic + local search optimization
-      // 5. Return optimized route plans
 
       const optimizedRoutes = [];
 
