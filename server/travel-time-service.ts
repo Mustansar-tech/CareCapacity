@@ -8,12 +8,10 @@
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker employees:
- *   Uses ONLY Haversine heuristic (no TravelTime API)
+ *   Uses ONLY Haversine heuristic (no API calls)
  *
  * Public transport employees:
- *   All distances:
- *     1. TravelTime API — public_transport
- *     2. Haversine heuristic fallback (if TravelTime fails or unavailable)
+ *   Uses ONLY Haversine heuristic (no API calls)
  *
  * Prewarm (pre-cache phase):
  *   Car pairs: ORS Matrix batches (Phases 1b, 2a)
@@ -796,10 +794,9 @@ export class TravelTimeService {
     };
 
     // ── PHASE 1a: Walker/public employee → client — Haversine prewarm only ──
-    // All walker/public pairs use Haversine in prewarm (no API calls, no rate-limit risk).
-    // TravelTime API is called on-demand during live routing via calculateTravelTime.
+    // All walker/public pairs use Haversine heuristic only (no API calls).
     if (nonCarEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — using Haversine heuristic (TravelTime on live routing)`);
+      logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — Haversine heuristic`);
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -834,10 +831,9 @@ export class TravelTimeService {
         }
       }
 
-      // Phase 2b: Walker/public client→client — Haversine prewarm only
-      // All pairs use Haversine in prewarm; TravelTime API fires on-demand during live routing.
+      // Phase 2b: Walker/public client→client — Haversine heuristic only (no API calls).
       if (nonCarEmployees.length > 0) {
-        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients) — using Haversine heuristic (TravelTime on live routing)`);
+        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients) — Haversine heuristic`);
       }
     }
 

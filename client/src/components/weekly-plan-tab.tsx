@@ -366,11 +366,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
       setWeeklySchedule(correctedResult);
 
-      // ── Phase 2: Refine walker/public routes with real TravelTime API ──
+      // ── Phase 2: Apply Haversine heuristic to walker/public routes ──
       // Collect only the routes that were actually assigned to walker/public employees.
-      // This replaces the old "pre-warm everything" approach with targeted calls.
-      // Key includes the visit date so Monday and Saturday pairs are kept separate —
-      // weekend bus timetables differ from weekday ones and must not be deduplicated together.
+      // Key includes the visit date so Monday and Saturday pairs are kept separate.
       const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate: string }>();
 
       Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
@@ -439,7 +437,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       if (walkerPairMap.size > 0) {
         setIsRefiningWalkers(true);
         const pairs = Array.from(walkerPairMap.values());
-        clientLogger.log(`🚶 Refining ${pairs.length} unique walker/public routes with TravelTime API`);
+        clientLogger.log(`🚶 Applying Haversine heuristic to ${pairs.length} unique walker/public routes`);
 
         try {
           const refineResponse = await apiRequest('POST', '/api/travel-times/refine-walker', { pairs });
@@ -454,17 +452,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               refinedMap.set(r.key, r.durationMinutes);
             });
 
-            // Seed TravelTime results into the shared travel cache so all display arrows
-            // (break-leg, return-home) also show real API values instead of Haversine.
+            // Seed Haversine results into the shared travel cache so all display arrows
+            // (break-leg, return-home) show consistent values.
             // Cache key is route+mode without date — if Sat/Sun differ for the same pair
             // the last-written value wins, which is fine for display purposes since
             // scheduling validity already uses the per-date travelTimeBefore on each visit.
             seedTravelCache(refineData.results as Array<{ fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; durationMinutes: number }>);
 
-            clientLogger.log(`✅ Walker refinement: ${refineData.stats?.traveltime || 0} via TravelTime, ${refineData.stats?.heuristic || 0} via heuristic`);
+            clientLogger.log(`✅ Walker/public routes: ${refineData.stats?.heuristic || 0} pairs via Haversine heuristic`);
 
-            // Merge walker/public TravelTime stats into the travel source badge so it
-            // reflects ALL sources used (car ORS + walker TravelTime), not just car routes.
+            // Merge walker/public stats into the travel source badge so it
+            // reflects ALL sources used (car ORS + walker Haversine), not just car routes.
             const ttAdded = refineData.stats?.traveltime || 0;
             const hAdded  = refineData.stats?.heuristic  || 0;
             if (ttAdded + hAdded > 0) {
