@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -18,12 +18,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult } from "@shared/schema";
-import { WeeklyPlanTab } from "@/components/weekly-plan-tab";
 import { useBranch } from "@/contexts/BranchContext";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
-import BDMatrix from "@/pages/bd-matrix";
+
+const WeeklyPlanTab = lazy(() => import("@/components/weekly-plan-tab").then(m => ({ default: m.WeeklyPlanTab })));
+const BDMatrix = lazy(() => import("@/pages/bd-matrix"));
 
 
 
@@ -998,9 +999,11 @@ export default function Dashboard() {
           {/* BD Matrix Tab */}
           <TabsContent value="bd-matrix" className="flex-1 overflow-hidden" data-testid="content-bd-matrix">
             <div className="h-full overflow-hidden">
-              <BDMatrix
-                data={filteredData || processedData}
-              />
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+                <BDMatrix
+                  data={filteredData || processedData}
+                />
+              </Suspense>
             </div>
           </TabsContent>
 
@@ -1466,7 +1469,9 @@ export default function Dashboard() {
 
           {/* Schedules Tab */}
           <TabsContent value="schedules" className="animate-fade-in flex-1 overflow-y-auto" data-testid="content-schedules">
-            <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+              <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
+            </Suspense>
           </TabsContent>
 
           </Tabs>
