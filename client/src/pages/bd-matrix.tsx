@@ -961,45 +961,39 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           </div>
                                         )}
                                         {(slotOnDay.nextVisit || (slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined)) && (() => {
-                                          const transportMode = normalizeTransportMode(employeeMatch.transportMode);
-                                          const hasRecruiter = employeeMatch.transportMode?.toLowerCase().includes('recruiter');
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
                                           
                                           return (
-                                            <div className="flex items-center gap-1 flex-wrap text-[8px] font-bold">
-                                              <Home className="w-3 h-3 text-blue-500" />
-                                              
-                                              {displayMins !== undefined && (
-                                                <>
-                                                  <div className="flex items-center gap-0.5">
-                                                    <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
-                                                    <span className="text-gray-600 dark:text-gray-400">~{displayMins}m</span>
-                                                  </div>
-                                                </>
+                                            <div className="space-y-1">
+                                              {(displayMins !== undefined || forwardMins !== undefined) && (
+                                                <div className="flex items-center gap-2 text-[7px] font-bold text-gray-500 dark:text-gray-500">
+                                                  {displayMins !== undefined && <span>~{displayMins}m</span>}
+                                                  {displayMins !== undefined && forwardMins !== undefined && <span className="text-gray-300">•</span>}
+                                                  {forwardMins !== undefined && <span>~{forwardMins}m</span>}
+                                                </div>
                                               )}
-                                              
-                                              <span className="px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 whitespace-nowrap">
-                                                {slotOnDay.availableWindow}
-                                              </span>
-                                              
-                                              {slotOnDay.nextVisit && (
-                                                <>
-                                                  {forwardMins !== undefined && (
-                                                    <div className="flex items-center gap-0.5">
-                                                      <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
-                                                      <span className="text-gray-600 dark:text-gray-400">~{forwardMins}m</span>
-                                                    </div>
-                                                  )}
-                                                  <span className={`px-1.5 py-0.5 rounded whitespace-nowrap ${
-                                                    forwardMins && forwardMins <= 20 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 
-                                                    forwardMins && forwardMins <= 35 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 
-                                                    'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
-                                                  }`}>
-                                                    {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime}
-                                                  </span>
-                                                </>
-                                              )}
+                                              <div className="flex items-center gap-2 text-[8px]">
+                                                <Home className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                                                <ArrowRight className="w-2.5 h-2.5 text-gray-300 dark:text-gray-700 flex-shrink-0" />
+                                                
+                                                <span className="px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 whitespace-nowrap font-semibold">
+                                                  {slotOnDay.availableWindow}
+                                                </span>
+                                                
+                                                {slotOnDay.nextVisit && (
+                                                  <>
+                                                    <ArrowRight className="w-2.5 h-2.5 text-gray-300 dark:text-gray-700 flex-shrink-0" />
+                                                    <span className={`px-2 py-1 rounded whitespace-nowrap font-semibold ${
+                                                      forwardMins && forwardMins <= 20 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 
+                                                      forwardMins && forwardMins <= 35 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 
+                                                      'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
+                                                    }`}>
+                                                      {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime}
+                                                    </span>
+                                                  </>
+                                                )}
+                                              </div>
                                             </div>
                                           );
                                         })()}
