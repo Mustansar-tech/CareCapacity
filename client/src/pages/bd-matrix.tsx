@@ -1372,10 +1372,15 @@ function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string }) {
                         <History className="w-6 h-6 text-purple-700 dark:text-purple-400" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
                             {viewingHistoryResult.clientName}
                           </h3>
+                          {viewingHistoryResult.criteria?.visits?.[0]?.preferredTimeWindow && (
+                            <span className="text-[13px] font-bold text-gray-600 dark:text-gray-400 px-3 py-1.5 bg-gray-100 dark:bg-gray-800/60 rounded-lg">
+                              {viewingHistoryResult.criteria.visits[0].preferredTimeWindow.start}–{viewingHistoryResult.criteria.visits[0].preferredTimeWindow.end}
+                            </span>
+                          )}
                           <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] px-3 py-1 uppercase tracking-widest rounded-xl shadow-md shadow-purple-500/20">Archived</Badge>
                           <Button 
                             variant="outline" 
@@ -1557,8 +1562,13 @@ function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string }) {
                             <div className="relative z-10">
                               <div className="flex items-start justify-between mb-5">
                                 <div className="space-y-2 flex-1 pr-4">
-                                  <div className="flex items-center gap-3">
-                                    <h4 className="font-black text-[17px] text-gray-950 dark:text-gray-50 truncate tracking-tight leading-tight">{enquiry.clientName}</h4>
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <h4 className="font-black text-[17px] text-gray-950 dark:text-gray-50 tracking-tight leading-tight">{enquiry.clientName}</h4>
+                                    {enquiry.preferredTimeWindow && (
+                                      <span className="text-[12px] font-bold text-gray-600 dark:text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-800/60 rounded-lg">
+                                        {enquiry.preferredTimeWindow.start}–{enquiry.preferredTimeWindow.end}
+                                      </span>
+                                    )}
                                     {isMultiVisit && (
                                       <Badge className="bg-gradient-to-r from-purple-500/20 to-indigo-500/15 text-purple-700 dark:from-purple-600/30 dark:to-indigo-600/25 dark:text-purple-300 border border-purple-300/30 dark:border-purple-500/30 font-bold text-[10px] px-3 h-6 leading-none rounded-full">
                                         {visitCount} Visits
