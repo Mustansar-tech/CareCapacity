@@ -687,14 +687,6 @@ export default function Dashboard() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
-                        <TableHead data-testid="header-client-scheduled" className="text-right">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger className="cursor-help">Client Scheduled</TooltipTrigger>
-                              <TooltipContent>Total hours currently scheduled for clients</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableHead>
                         <TableHead data-testid="header-other-scheduled" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
@@ -767,12 +759,6 @@ export default function Dashboard() {
                           <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
                             <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100">
                               {fmtH((day as any).clientRequired ?? 0)}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200">
-                              {fmtH(day.clientScheduledHours ?? 0)}
                             </Badge>
                           </TableCell>
 
