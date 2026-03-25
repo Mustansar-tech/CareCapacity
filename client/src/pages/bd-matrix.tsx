@@ -976,7 +976,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           const isFromHome = !departureSource || departureSource === 'home';
 
                                           return (
-                                            <div className="flex items-center gap-3 flex-nowrap py-2">
+                                            <div className="flex items-center gap-2.5 flex-nowrap">
                                               {/* Start node: Home or Previous Client */}
                                               {isFromHome ? (
                                                 <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
