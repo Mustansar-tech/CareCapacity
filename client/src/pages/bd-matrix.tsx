@@ -964,11 +964,8 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             </ShadcnTooltip>
                                           </TooltipProvider>
                                         </div>
-                                        {/* Time badge + journey on same line */}
+                                        {/* Journey info on same line */}
                                         <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
-                                          <div className="inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm flex-shrink-0 bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700 pl-[4px] pr-[4px] pt-[3px] pb-[3px]">
-                                            {slotOnDay.availableWindow}
-                                          </div>
                                           {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
