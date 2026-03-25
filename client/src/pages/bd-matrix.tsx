@@ -989,7 +989,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           const isFromHome = !departureSource || departureSource === 'home';
 
                                           return (
-                                            <div className="flex items-end gap-3.5 flex-nowrap py-2">
+                                            <div className="flex items-center gap-2 flex-nowrap">
                                               {/* Start node: Home or Previous Client */}
                                               {isFromHome ? (
                                                 <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
@@ -1016,10 +1016,10 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
 
                                               {/* Enquiry Visit node — icon + "Enquiry" label + time slot below */}
                                               <div
-                                                className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-default bg-emerald-100/30 dark:bg-emerald-900/20 px-3 py-2 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30"
+                                                className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
                                                 title={enquiryPostcode || ''}
                                               >
-                                                <UserCheck className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+                                                <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                                                 <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">Enquiry</span>
                                                 <span className={`text-[11px] font-black leading-none ${isExact ? 'text-green-700 dark:text-green-300' : 'text-orange-700 dark:text-orange-300'}`}>{slotOnDay.availableWindow}</span>
                                               </div>
