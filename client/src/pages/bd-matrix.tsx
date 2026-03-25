@@ -940,7 +940,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                   </TooltipTrigger>
                                                   <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
                                                     <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
-                                                    <p>Contracted: {employeeMatch.contractedWeeklyHours}h</p>
+                                                    <p>Desired: {employeeMatch.contractedWeeklyHours}h</p>
                                                     <p>Remaining: {remainingHours}h</p>
                                                   </TooltipContent>
                                                 </ShadcnTooltip>
