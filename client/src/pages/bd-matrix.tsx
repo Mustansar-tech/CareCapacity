@@ -965,7 +965,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           </TooltipProvider>
                                         </div>
                                         {/* Time badge + journey on same line */}
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
                                           <div className={`inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm flex-shrink-0 ${isExact ? 'bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700' : 'bg-orange-200 text-orange-950 border-orange-400 dark:bg-orange-800 dark:text-orange-50 dark:border-orange-600'}`}>
                                             {slotOnDay.availableWindow}
                                           </div>
@@ -979,7 +979,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           const isFromHome = !departureSource || departureSource === 'home';
 
                                           return (
-                                            <div className="flex items-end gap-2.5 flex-wrap">
+                                            <div className="flex items-end gap-2.5 flex-nowrap">
                                               {/* Start node: Home or Previous Client */}
                                               {isFromHome ? (
                                                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
