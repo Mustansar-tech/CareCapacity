@@ -915,9 +915,14 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                         className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                       >
                                         <div className="flex justify-between items-start gap-2">
-                                          <div className="flex flex-col min-w-0 flex-1">
-                                            <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1.5`} title={employeeMatch.employeeName}>
+                                          <div className="flex flex-col min-w-0 flex-1 gap-1">
+                                            <div className={`font-black ${nameColorClass} text-[14px] tracking-tight leading-tight`} title={employeeMatch.employeeName}>
                                               {employeeMatch.employeeName}
+                                              <span className="text-[13px] font-bold text-gray-600 dark:text-gray-400 ml-1">
+                                                {slotOnDay.availableWindow}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
                                               <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                               {slotOnDay.matchType === 'adjusted-time' && (
                                                 <TooltipProvider>
@@ -946,6 +951,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 </ShadcnTooltip>
                                               </TooltipProvider>
                                             </div>
+                                          </div>
                                           </div>
                                           <TooltipProvider>
                                             <ShadcnTooltip>
@@ -1007,8 +1013,8 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 title={enquiryPostcode || ''}
                                               >
                                                 <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Enquiry</span>
-                                                <span className={`text-[8px] font-bold leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{slotOnDay.availableWindow}</span>
+                                                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">Enquiry</span>
+                                                <span className={`text-[9px] font-bold leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{slotOnDay.availableWindow}</span>
                                               </div>
 
                                               {nextVisit ? (
