@@ -901,8 +901,8 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                         <div className="flex justify-between items-start gap-2">
                                           <div className="flex flex-col min-w-0 flex-1">
                                             <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1.5`} title={employeeMatch.employeeName}>
-                                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                               {employeeMatch.employeeName}
+                                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                               {slotOnDay.matchType === 'adjusted-time' && (
                                                 <TooltipProvider>
                                                   <ShadcnTooltip>
@@ -930,11 +930,6 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 </ShadcnTooltip>
                                               </TooltipProvider>
                                             </div>
-                                            {employeeMatch.homePostcode && (
-                                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                                {employeeMatch.homePostcode}
-                                              </div>
-                                            )}
                                           </div>
                                           <TooltipProvider>
                                             <ShadcnTooltip>
@@ -965,57 +960,36 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             <span className="font-black">{slotOnDay.cancelledVisits}</span>
                                           </div>
                                         )}
-                                        {(slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
-                                          // Use per-day travel time when available (schedule-aware CPs); fall back to global max
-                                          const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes!;
-                                          return (
-                                            <div className="flex flex-col gap-0.5">
-                                              <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${displayMins <= 20 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : displayMins <= 35 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
-                                                <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
-                                                ~{displayMins} min {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}
-                                              </div>
-                                              {(slotOnDay.departureSummary || employeeMatch.departureSummary) && (
-                                                <div className={`text-[8px] font-semibold px-1.5 py-0.5 rounded w-fit ${(slotOnDay.departureSource || employeeMatch.departureSource) === 'last-client' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
-                                                  from {slotOnDay.departureSummary || employeeMatch.departureSummary}
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })()}
-                                        {slotOnDay.nextVisit && (() => {
+                                        {(slotOnDay.nextVisit || (slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined)) && (() => {
+                                          const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const [slotEndH, slotEndM] = slotOnDay.availableWindow.split('-')[1]?.split(':').map(Number) ?? [0, 0];
                                           const slotEndMins = slotEndH * 60 + slotEndM;
-                                          const [nextH, nextM] = slotOnDay.nextVisit.startTime.split(':').map(Number);
-                                          const nextStartMins = nextH * 60 + nextM;
-                                          const gapMins = nextStartMins - slotEndMins;
-                                          const gapHrs = Math.floor(gapMins / 60);
-                                          const gapRemMins = gapMins % 60;
-                                          const gapLabel = gapHrs > 0
-                                            ? `${gapHrs}h${gapRemMins > 0 ? ` ${gapRemMins}m` : ''} gap`
-                                            : `${gapMins}m gap`;
-                                          const gapColor = gapMins >= 60
-                                            ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300'
-                                            : gapMins >= 30
-                                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
-                                              : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300';
-                                          const modeLabel = normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive';
+                                          const nextVisitInfo = slotOnDay.nextVisit ? (() => {
+                                            const [nextH, nextM] = slotOnDay.nextVisit.startTime.split(':').map(Number);
+                                            const nextStartMins = nextH * 60 + nextM;
+                                            const gapMins = nextStartMins - slotEndMins;
+                                            const gapHrs = Math.floor(gapMins / 60);
+                                            const gapRemMins = gapMins % 60;
+                                            const gapLabel = gapHrs > 0 ? `${gapHrs}h${gapRemMins > 0 ? ` ${gapRemMins}m` : ''}` : `${gapMins}m`;
+                                            return { gapLabel, gapMins };
+                                          })() : null;
+
                                           return (
-                                            <div className="flex flex-col gap-0.5">
-                                              <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${gapColor}`}>
-                                                <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                Next visit {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime} · {gapLabel}
-                                              </div>
-                                              {slotOnDay.forwardTravelMinutes !== undefined ? (
-                                                <div className={`flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit ${slotOnDay.forwardTravelWarning ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300' : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'}`}>
+                                            <div className="flex items-center gap-1.5 flex-wrap text-[8.5px] font-bold">
+                                              {displayMins !== undefined && (
+                                                <>
                                                   <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                                  ~{slotOnDay.forwardTravelMinutes} min {modeLabel} to next{slotOnDay.forwardTravelWarning ? ' ⚠' : ''}
-                                                </div>
-                                              ) : slotOnDay.forwardTravelWarning ? (
-                                                <div className="flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 w-fit bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                                                  <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                                  Travel time unverified
-                                                </div>
-                                              ) : null}
+                                                  <span className="text-gray-600 dark:text-gray-400">~{displayMins}m {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}</span>
+                                                </>
+                                              )}
+                                              {displayMins !== undefined && nextVisitInfo && (
+                                                <ArrowRight className="w-3 h-3 text-gray-400 dark:text-gray-600" />
+                                              )}
+                                              {nextVisitInfo && (
+                                                <span className={`px-2 py-0.5 rounded ${nextVisitInfo.gapMins >= 60 ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300' : nextVisitInfo.gapMins >= 30 ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300'}`}>
+                                                  Next visit {slotOnDay.nextVisit!.startTime}–{slotOnDay.nextVisit!.endTime} · {nextVisitInfo.gapLabel} gap
+                                                </span>
+                                              )}
                                             </div>
                                           );
                                         })()}
