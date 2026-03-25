@@ -1405,21 +1405,39 @@ export async function parseExcelFiles(
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
 
-      // EXCLUDE multi-day availability (dates differ by more than 0 days = overnight/multi-day)
+      // Determine canonical status early so we can decide how to handle multi-day entries
+      const canonStatus = canonicalStatus(row.Type ?? row.Status ?? "");
+      const isDayKiller = DAY_KILLERS.has(canonStatus);
+
+      // HANDLE multi-day entries (dates differ by >= 1 day = overnight/multi-day)
       if (row["End Date"]) {
         try {
           const parsedEndDate = parseDate(row["End Date"]);
-          const startDateStr = format(parsedStartDate, "yyyy-MM-dd");
-          const endDateStr = format(parsedEndDate, "yyyy-MM-dd");
-
           const diffInDays = Math.abs(differenceInDays(parsedEndDate, parsedStartDate));
 
-          // Reject ALL multi-day entries (including overnight = 1 day difference)
           if (diffInDays >= 1) {
-            logger.debug(`REJECTING multi-day availability for ${empName}: Start ${startDateStr}, End ${endDateStr} (${diffInDays} day(s) - overnight/multi-day excluded)`);
-            warnings.push(
-              `Availability row ${index + 1} (${empName}): Rejected - multi-day availability (${diffInDays} day(s)). Only same-day availability is supported.`,
-            );
+            if (isDayKiller) {
+              // Expand day-killer (Holiday, Sick, etc.) multi-day entries into one row per day.
+              // e.g. a 24-hr Holiday block (00:00 Mon → 00:00 Tue) becomes a single full-day
+              // Holiday entry for Monday, properly killing any Available rows that day.
+              const daysToExpand = Math.min(diffInDays, 14); // safety cap
+              for (let d = 0; d < daysToExpand; d++) {
+                const dayDate = addDays(parsedStartDate, d);
+                validatedAvailability.push({
+                  ...row,
+                  parsedDate: dayDate,
+                  calculatedHours: 24,
+                  "Time Window(s)": "", // full-day — no time-window constraint
+                });
+              }
+              logger.debug(`Expanded multi-day ${canonStatus} for ${empName} into ${daysToExpand} daily entries`);
+            } else {
+              // Non-day-killer multi-day entries (e.g. Available spanning midnight) are rejected
+              logger.debug(`REJECTING multi-day availability for ${empName}: diffInDays=${diffInDays}`);
+              warnings.push(
+                `Availability row ${index + 1} (${empName}): Rejected - multi-day availability (${diffInDays} day(s)). Only same-day availability is supported.`,
+              );
+            }
             return;
           }
         } catch (endDateError) {
