@@ -911,7 +911,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                     return (
                                       <div
                                         key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                        className={`bg-white dark:bg-gray-900 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
+                                        className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                       >
                                         <div className="flex justify-between items-start gap-2">
                                           <div className="flex flex-col min-w-0 flex-1">
