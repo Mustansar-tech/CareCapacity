@@ -1394,9 +1394,10 @@ export async function parseExcelFiles(
   }
 
   // Process availability data
-  // Pass 1: build a set of CP+date keys that have a genuine same-day Available entry
-  // (start date === end date, i.e. NOT midnight-crossing).  Used as a guard when
-  // deciding whether to expand multi-day day-killer blocks.
+  // Pass 1: build a set of CP+date keys that have a genuine same-calendar-day Available entry.
+  // IMPORTANT: use calendar-date comparison (not differenceInDays) so that overnight entries
+  // like 20:00→08:00 next day are correctly recognised as crossing midnight even though they
+  // are fewer than 24 hours apart (differenceInDays would return 0 for those).
   const sameDayAvailKeys = new Set<string>();
   for (const row of availabilityData) {
     try {
@@ -1406,8 +1407,9 @@ export async function parseExcelFiles(
       const parsedStartDate = parseDate(row["Start Date"]);
       if (row["End Date"]) {
         const parsedEndDate = parseDate(row["End Date"]);
-        const diff = Math.abs(differenceInDays(parsedEndDate, parsedStartDate));
-        if (diff >= 1) continue; // midnight-crossing Available — doesn't count
+        // Calendar-date cross check: if the entry starts and ends on different calendar dates
+        // (even 20:00→08:00 next day), it is an overnight entry — don't add to same-day keys.
+        if (format(parsedStartDate, "yyyy-MM-dd") !== format(parsedEndDate, "yyyy-MM-dd")) continue;
       }
       sameDayAvailKeys.add(`${row["CAREGiver Name"]}|${format(parsedStartDate, "yyyy-MM-dd")}`);
     } catch { /* ignore parse errors in pass 1 */ }
@@ -1429,24 +1431,30 @@ export async function parseExcelFiles(
       const canonStatus = canonicalStatus(row.Type ?? row.Status ?? "");
       const isDayKiller = DAY_KILLERS.has(canonStatus);
 
-      // HANDLE multi-day entries (dates differ by >= 1 day = overnight/multi-day)
+      // HANDLE entries that cross a calendar-date boundary (overnight OR multi-day).
+      // IMPORTANT: use calendar-date strings, NOT differenceInDays, because overnight
+      // entries like 20:00→08:00 next day have fewer than 24 hrs between them so
+      // differenceInDays() returns 0 — they would slip through undetected.
       if (row["End Date"]) {
         try {
           const parsedEndDate = parseDate(row["End Date"]);
-          const diffInDays = Math.abs(differenceInDays(parsedEndDate, parsedStartDate));
+          const startCalDate = format(parsedStartDate, "yyyy-MM-dd");
+          const endCalDate   = format(parsedEndDate,   "yyyy-MM-dd");
+          const crossesMidnight = startCalDate !== endCalDate;
 
-          if (diffInDays >= 1) {
+          if (crossesMidnight) {
             if (isDayKiller) {
-              // Only expand if the same CP has a genuine same-day Available entry on
-              // each starting day — this guards against cases where both the Holiday
-              // and the Available block are midnight-crossing (vacation-process artefact).
+              // Only expand if the same CP has a genuine same-calendar-day Available entry
+              // on the starting day — guards against overnight Holiday+Available artefacts
+              // (e.g. overnight care workers whose vacation process created both blocks).
+              const diffInDays = Math.max(1, Math.abs(differenceInDays(parsedEndDate, parsedStartDate)));
               const daysToExpand = Math.min(diffInDays, 14); // safety cap
               let expanded = 0;
               for (let d = 0; d < daysToExpand; d++) {
                 const dayDate = addDays(parsedStartDate, d);
                 const key = `${empName}|${format(dayDate, "yyyy-MM-dd")}`;
                 if (!sameDayAvailKeys.has(key)) {
-                  logger.debug(`Skipping Holiday expansion for ${empName} on ${format(dayDate, "yyyy-MM-dd")} — no same-day Available entry found`);
+                  logger.debug(`Skipping ${canonStatus} expansion for ${empName} on ${format(dayDate, "yyyy-MM-dd")} — no same-calendar-day Available entry`);
                   continue;
                 }
                 validatedAvailability.push({
@@ -1458,13 +1466,13 @@ export async function parseExcelFiles(
                 expanded++;
               }
               if (expanded > 0) {
-                logger.debug(`Expanded multi-day ${canonStatus} for ${empName} into ${expanded} daily entries`);
+                logger.debug(`Expanded midnight-crossing ${canonStatus} for ${empName} into ${expanded} daily entries`);
               }
             } else {
-              // Non-day-killer multi-day entries (e.g. Available spanning midnight) are rejected
-              logger.debug(`REJECTING multi-day availability for ${empName}: diffInDays=${diffInDays}`);
+              // Non-day-killer entries crossing midnight (overnight Available, etc.) are rejected
+              logger.debug(`REJECTING midnight-crossing availability for ${empName}: ${startCalDate}→${endCalDate}`);
               warnings.push(
-                `Availability row ${index + 1} (${empName}): Rejected - multi-day availability (${diffInDays} day(s)). Only same-day availability is supported.`,
+                `Availability row ${index + 1} (${empName}): Rejected - entry crosses midnight (${startCalDate}→${endCalDate}). Only same-day availability is supported.`,
               );
             }
             return;
