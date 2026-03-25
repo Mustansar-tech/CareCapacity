@@ -1008,7 +1008,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                               >
                                                 <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                                 <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Enquiry</span>
-                                                <span className="text-[8px] font-bold text-gray-500 dark:text-gray-400 leading-none">{slotOnDay.availableWindow}</span>
+                                                <span className={`text-[8px] font-bold leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{slotOnDay.availableWindow}</span>
                                               </div>
 
                                               {nextVisit ? (
