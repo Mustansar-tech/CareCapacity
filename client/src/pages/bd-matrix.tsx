@@ -925,41 +925,39 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                         key={`${employeeMatch.employeeName}-${matchIdx}`}
                                         className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                       >
-                                        <div className="flex justify-between items-start gap-2">
-                                          <div className="flex flex-col min-w-0 flex-1 gap-1">
-                                            <div className={`font-black ${nameColorClass} text-[14px] tracking-tight leading-tight`} title={employeeMatch.employeeName}>
+                                        <div className="flex justify-between items-center gap-2 flex-wrap">
+                                          <div className="flex items-center gap-2 flex-wrap flex-1">
+                                            <div className={`font-black ${nameColorClass} text-[14px] tracking-tight leading-tight flex-shrink-0`} title={employeeMatch.employeeName}>
                                               {employeeMatch.employeeName}
                                             </div>
-                                            <div className="flex items-center gap-1.5">
-                                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                              {slotOnDay.matchType === 'adjusted-time' && (
-                                                <TooltipProvider>
-                                                  <ShadcnTooltip>
-                                                    <TooltipTrigger asChild>
-                                                      <Info className="w-3 h-3 text-orange-500 cursor-help flex-shrink-0" />
-                                                    </TooltipTrigger>
-                                                    <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
-                                                      <p>Needs Adjustment</p>
-                                                    </TooltipContent>
-                                                  </ShadcnTooltip>
-                                                </TooltipProvider>
-                                              )}
+                                            <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                            {slotOnDay.matchType === 'adjusted-time' && (
                                               <TooltipProvider>
                                                 <ShadcnTooltip>
                                                   <TooltipTrigger asChild>
-                                                    <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 ml-auto flex-shrink-0 cursor-help">
-                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
-                                                    </span>
+                                                    <Info className="w-3 h-3 text-orange-500 cursor-help flex-shrink-0" />
                                                   </TooltipTrigger>
                                                   <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
-                                                    <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
-                                                    <p>Contracted: {employeeMatch.contractedWeeklyHours}h</p>
-                                                    <p>Remaining: {remainingHours}h</p>
+                                                    <p>Needs Adjustment</p>
                                                   </TooltipContent>
                                                 </ShadcnTooltip>
                                               </TooltipProvider>
-                                            </div>
+                                            )}
                                           </div>
+                                          <TooltipProvider>
+                                            <ShadcnTooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 flex-shrink-0 cursor-help">
+                                                  {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                                                <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
+                                                <p>Contracted: {employeeMatch.contractedWeeklyHours}h</p>
+                                                <p>Remaining: {remainingHours}h</p>
+                                              </TooltipContent>
+                                            </ShadcnTooltip>
+                                          </TooltipProvider>
                                           <TooltipProvider>
                                             <ShadcnTooltip>
                                               <TooltipTrigger asChild>
@@ -978,7 +976,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           </TooltipProvider>
                                         </div>
                                         {/* Journey info on same line */}
-                                        <div className="flex items-center gap-2 flex-nowrap">
+                                        <div className="flex items-center gap-2 flex-nowrap mt-2">
                                           {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
