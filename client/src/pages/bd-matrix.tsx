@@ -900,13 +900,14 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                       >
                                         <div className="flex justify-between items-start gap-2">
                                           <div className="flex flex-col min-w-0 flex-1">
-                                            <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1`} title={employeeMatch.employeeName}>
+                                            <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1.5`} title={employeeMatch.employeeName}>
+                                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
                                               {employeeMatch.employeeName}
                                               {slotOnDay.matchType === 'adjusted-time' && (
                                                 <TooltipProvider>
                                                   <ShadcnTooltip>
                                                     <TooltipTrigger asChild>
-                                                      <Info className="w-3 h-3 text-orange-500 cursor-help" />
+                                                      <Info className="w-3 h-3 text-orange-500 cursor-help flex-shrink-0" />
                                                     </TooltipTrigger>
                                                     <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
                                                       <p>Needs Adjustment</p>
@@ -914,6 +915,20 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                   </ShadcnTooltip>
                                                 </TooltipProvider>
                                               )}
+                                              <TooltipProvider>
+                                                <ShadcnTooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 ml-auto flex-shrink-0 cursor-help">
+                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
+                                                    </span>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                                                    <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
+                                                    <p>Contracted: {employeeMatch.contractedWeeklyHours}h</p>
+                                                    <p>Remaining: {remainingHours}h</p>
+                                                  </TooltipContent>
+                                                </ShadcnTooltip>
+                                              </TooltipProvider>
                                             </div>
                                             {employeeMatch.homePostcode && (
                                               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
@@ -950,15 +965,6 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             <span className="font-black">{slotOnDay.cancelledVisits}</span>
                                           </div>
                                         )}
-                                        <div className="flex items-center justify-between text-[9px] text-gray-600 dark:text-gray-400 font-medium">
-                                          <div className="flex items-center gap-1.5">
-                                            <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                            <span className="capitalize">{employeeMatch.transportMode || 'N/A'}</span>
-                                          </div>
-                                          <div className="font-bold text-gray-700 dark:text-gray-300 cursor-help" title={`Scheduled: ${employeeMatch.totalScheduledHours}h\nContracted: ${employeeMatch.contractedWeeklyHours}h\nRemaining: ${remainingHours}h`}>
-                                            {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours} ({remainingHours} rem)
-                                          </div>
-                                        </div>
                                         {(slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           // Use per-day travel time when available (schedule-aware CPs); fall back to global max
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes!;
