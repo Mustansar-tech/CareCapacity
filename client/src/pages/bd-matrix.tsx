@@ -995,7 +995,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
 
                                               {/* Arrow 1: Departure → This Visit, with travel time above */}
                                               <div className="flex flex-col items-center flex-shrink-0">
-                                                <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
+                                                <span className="text-[8px] font-black text-gray-700 dark:text-gray-200 mb-1">
                                                   {displayMins !== undefined ? `~${displayMins}m` : ''}
                                                 </span>
                                                 <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
@@ -1007,7 +1007,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 title={enquiryPostcode || ''}
                                               >
                                                 <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Enquiry</span>
+                                                <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-300">Enquiry</span>
                                                 <span className={`text-[8px] font-bold leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{slotOnDay.availableWindow}</span>
                                               </div>
 
@@ -1015,7 +1015,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 <>
                                                   {/* Arrow 2: Enquiry → Next Visit, with forward travel time above */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
-                                                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
+                                                    <span className="text-[8px] font-black text-gray-700 dark:text-gray-200 mb-1">
                                                       {forwardMins !== undefined ? `~${forwardMins}m` : ''}
                                                     </span>
                                                     <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
@@ -1044,7 +1044,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 <>
                                                   {/* No next visit: show arrow to Home with same travel time */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
-                                                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
+                                                    <span className="text-[8px] font-black text-gray-700 dark:text-gray-200 mb-1">
                                                       {displayMins !== undefined ? `~${displayMins}m` : ''}
                                                     </span>
                                                     <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
