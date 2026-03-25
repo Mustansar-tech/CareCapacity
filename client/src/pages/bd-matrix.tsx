@@ -26,7 +26,7 @@ import {
   Calendar, Users, Clock, Car, PersonStanding, 
   Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Filter,
   Search, UserCheck, MapPin, Loader2, Star, ArrowRight, ArrowLeft, RefreshCw,
-  History, Trash2, Plus, Minus, BarChart3, Info, X, Activity, ZoomIn, ZoomOut
+  History, Trash2, Plus, Minus, BarChart3, Info, X, Activity, ZoomIn, ZoomOut, Home
 } from "lucide-react";
 import type { ProcessingResult, ClientEnquiry, EmployeeLocation, ClientLocation } from "@shared/schema";
 import { getGenderColorClass, getGenderBgColorClass } from "@/utils/gender-colors";
@@ -961,34 +961,50 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           </div>
                                         )}
                                         {(slotOnDay.nextVisit || (slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined)) && (() => {
+                                          const transportMode = normalizeTransportMode(employeeMatch.transportMode);
+                                          const hasRecruiter = employeeMatch.transportMode?.toLowerCase().includes('recruiter');
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
-                                          const [slotEndH, slotEndM] = slotOnDay.availableWindow.split('-')[1]?.split(':').map(Number) ?? [0, 0];
-                                          const slotEndMins = slotEndH * 60 + slotEndM;
-                                          const nextVisitInfo = slotOnDay.nextVisit ? (() => {
-                                            const [nextH, nextM] = slotOnDay.nextVisit.startTime.split(':').map(Number);
-                                            const nextStartMins = nextH * 60 + nextM;
-                                            const gapMins = nextStartMins - slotEndMins;
-                                            const gapHrs = Math.floor(gapMins / 60);
-                                            const gapRemMins = gapMins % 60;
-                                            const gapLabel = gapHrs > 0 ? `${gapHrs}h${gapRemMins > 0 ? ` ${gapRemMins}m` : ''}` : `${gapMins}m`;
-                                            return { gapLabel, gapMins };
-                                          })() : null;
-
+                                          const forwardMins = slotOnDay.forwardTravelMinutes;
+                                          
                                           return (
-                                            <div className="flex items-center gap-1.5 flex-wrap text-[8.5px] font-bold">
+                                            <div className="flex items-center gap-1 flex-wrap text-[8px] font-bold">
+                                              <Home className="w-3 h-3 text-blue-500" />
+                                              <span className="text-gray-600 dark:text-gray-400">home</span>
+                                              
                                               {displayMins !== undefined && (
                                                 <>
-                                                  <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                                  <span className="text-gray-600 dark:text-gray-400">~{displayMins}m {normalizeTransportMode(employeeMatch.transportMode) === 'walking' ? 'walk' : normalizeTransportMode(employeeMatch.transportMode) === 'public' ? 'transit' : 'drive'}</span>
+                                                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
+                                                  <span className="text-gray-600 dark:text-gray-400">~{displayMins}m</span>
                                                 </>
                                               )}
-                                              {displayMins !== undefined && nextVisitInfo && (
-                                                <ArrowRight className="w-3 h-3 text-gray-400 dark:text-gray-600" />
-                                              )}
-                                              {nextVisitInfo && (
-                                                <span className={`px-2 py-0.5 rounded ${nextVisitInfo.gapMins >= 60 ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300' : nextVisitInfo.gapMins >= 30 ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300'}`}>
-                                                  Next visit {slotOnDay.nextVisit!.startTime}–{slotOnDay.nextVisit!.endTime} · {nextVisitInfo.gapLabel} gap
-                                                </span>
+                                              
+                                              <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
+                                              <span className="px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 whitespace-nowrap">
+                                                {slotOnDay.availableWindow}
+                                              </span>
+                                              
+                                              {slotOnDay.nextVisit && (
+                                                <>
+                                                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
+                                                  {forwardMins !== undefined && (
+                                                    <>
+                                                      {hasRecruiter ? (
+                                                        <span className="text-amber-600 dark:text-amber-400 font-black">X</span>
+                                                      ) : (
+                                                        <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                                      )}
+                                                      <span className="text-gray-600 dark:text-gray-400">~{forwardMins}m</span>
+                                                    </>
+                                                  )}
+                                                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
+                                                  <span className={`px-1.5 py-0.5 rounded whitespace-nowrap ${
+                                                    forwardMins && forwardMins <= 20 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 
+                                                    forwardMins && forwardMins <= 35 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 
+                                                    'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
+                                                  }`}>
+                                                    {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime}
+                                                  </span>
+                                                </>
                                               )}
                                             </div>
                                           );
