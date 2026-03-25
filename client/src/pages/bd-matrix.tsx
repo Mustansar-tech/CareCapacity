@@ -648,7 +648,7 @@ function CareProMap({
   );
 }
 
-function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTravel = false, onToggleSortByTravel }: { result: MultiVisitResult; requiredDays?: string[]; className?: string; sortByTravel?: boolean; onToggleSortByTravel?: () => void }) {
+function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTravel = false, onToggleSortByTravel, enquiryPostcode }: { result: MultiVisitResult; requiredDays?: string[]; className?: string; sortByTravel?: boolean; onToggleSortByTravel?: () => void; enquiryPostcode?: string }) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
@@ -1010,16 +1010,18 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600" />
                                               </div>
 
-                                              {/* This Visit */}
-                                              <div className="flex flex-col items-center flex-shrink-0">
-                                                <span className="text-[8px] font-black px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 whitespace-nowrap border border-green-200 dark:border-green-800">
-                                                  {slotOnDay.availableWindow}
-                                                </span>
+                                              {/* Enquiry Visit node — icon + label, tooltip shows time + postcode */}
+                                              <div
+                                                className="flex flex-col items-center gap-0.5 flex-shrink-0 cursor-default"
+                                                title={[slotOnDay.availableWindow, enquiryPostcode].filter(Boolean).join(' • ')}
+                                              >
+                                                <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                <span className="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400">Visit</span>
                                               </div>
 
                                               {nextVisit && (
                                                 <>
-                                                  {/* Arrow 2: This Visit → Next Visit, with forward travel time above */}
+                                                  {/* Arrow 2: Enquiry → Next Visit, with forward travel time above */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
                                                     <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">
                                                       {forwardMins !== undefined ? `~${forwardMins}m` : ''}
@@ -1027,18 +1029,24 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                     <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600" />
                                                   </div>
 
-                                                  {/* Next Visit */}
-                                                  <div className="flex flex-col items-center flex-shrink-0">
-                                                    <span className={`text-[8px] font-black px-2 py-1 rounded-md whitespace-nowrap border ${
+                                                  {/* Next Visit node — icon + label, tooltip shows time + postcode */}
+                                                  {(() => {
+                                                    const nextColor =
                                                       forwardMins !== undefined && forwardMins <= 20
-                                                        ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800'
+                                                        ? 'text-emerald-600 dark:text-emerald-400'
                                                         : forwardMins !== undefined && forwardMins <= 35
-                                                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                                                        : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                                                    }`}>
-                                                      {nextVisit.startTime}–{nextVisit.endTime}
-                                                    </span>
-                                                  </div>
+                                                        ? 'text-amber-500 dark:text-amber-400'
+                                                        : 'text-rose-500 dark:text-rose-400';
+                                                    return (
+                                                      <div
+                                                        className="flex flex-col items-center gap-0.5 flex-shrink-0 cursor-default"
+                                                        title={[`${nextVisit.startTime}–${nextVisit.endTime}`, nextVisit.postcode].filter(Boolean).join(' • ')}
+                                                      >
+                                                        <Clock className={`w-4 h-4 ${nextColor}`} />
+                                                        <span className={`text-[7px] font-semibold ${nextColor}`}>Next</span>
+                                                      </div>
+                                                    );
+                                                  })()}
                                                 </>
                                               )}
                                             </div>
@@ -1336,6 +1344,7 @@ function ClientEnquiryMatcher() {
                   className="flex-1 min-h-0"
                   sortByTravel={sortByTravel}
                   onToggleSortByTravel={() => setSortByTravel(v => !v)}
+                  enquiryPostcode={postcode}
                 />
               </div>
             ) : showHistory ? (
@@ -1449,6 +1458,7 @@ function ClientEnquiryMatcher() {
                                              viewingHistoryResult.criteria?.visits?.[vi]?.selectedDays || 
                                              viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays || 
                                              viewingHistoryResult.requiredDays || []}
+                                enquiryPostcode={viewingHistoryResult.postcode}
                               />
                             )}
                           </TabsContent>
@@ -1477,6 +1487,7 @@ function ClientEnquiryMatcher() {
                           requiredDays={viewingHistoryResult.criteria?.visits?.[0]?.selectedDays || 
                                        viewingHistoryResult.criteria?.visits?.[0]?.requiredDays || 
                                        viewingHistoryResult.requiredDays || []}
+                          enquiryPostcode={viewingHistoryResult.postcode}
                         />
                       )
                     ) : null}
