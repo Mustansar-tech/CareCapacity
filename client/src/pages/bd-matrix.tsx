@@ -952,7 +952,6 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                               </TooltipProvider>
                                             </div>
                                           </div>
-                                          </div>
                                           <TooltipProvider>
                                             <ShadcnTooltip>
                                               <TooltipTrigger asChild>
