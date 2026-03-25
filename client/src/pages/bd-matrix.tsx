@@ -719,18 +719,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                 </div>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-sm text-purple-900 dark:text-purple-100 font-black uppercase tracking-widest">{result.clientName || 'New Client'}</p>
-              {(() => {
-                const firstMatch = result.visitResults?.[0]?.matches?.[0];
-                const timeSlot = firstMatch?.matchedSlots?.[0]?.availableWindow;
-                return timeSlot ? (
-                  <p className="text-[11px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                    📅 {timeSlot}
-                  </p>
-                ) : null;
-              })()}
-            </div>
+            <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-widest">{result.clientName || 'New Client'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -925,39 +914,39 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                         key={`${employeeMatch.employeeName}-${matchIdx}`}
                                         className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                       >
-                                        <div className="flex justify-between items-center gap-2 flex-wrap">
-                                          <div className="flex items-center gap-2 flex-wrap flex-1">
-                                            <div className={`font-black ${nameColorClass} text-[14px] tracking-tight leading-tight flex-shrink-0`} title={employeeMatch.employeeName}>
+                                        <div className="flex justify-between items-start gap-2">
+                                          <div className="flex flex-col min-w-0 flex-1">
+                                            <div className={`font-bold ${nameColorClass} text-[12px] tracking-tight truncate flex items-center gap-1.5`} title={employeeMatch.employeeName}>
                                               {employeeMatch.employeeName}
-                                            </div>
-                                            <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                            {slotOnDay.matchType === 'adjusted-time' && (
+                                              <TransportModeIcon transportMode={employeeMatch.transportMode} />
+                                              {slotOnDay.matchType === 'adjusted-time' && (
+                                                <TooltipProvider>
+                                                  <ShadcnTooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <Info className="w-3 h-3 text-orange-500 cursor-help flex-shrink-0" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
+                                                      <p>Needs Adjustment</p>
+                                                    </TooltipContent>
+                                                  </ShadcnTooltip>
+                                                </TooltipProvider>
+                                              )}
                                               <TooltipProvider>
                                                 <ShadcnTooltip>
                                                   <TooltipTrigger asChild>
-                                                    <Info className="w-3 h-3 text-orange-500 cursor-help flex-shrink-0" />
+                                                    <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 ml-auto flex-shrink-0 cursor-help">
+                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
+                                                    </span>
                                                   </TooltipTrigger>
                                                   <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
-                                                    <p>Needs Adjustment</p>
+                                                    <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
+                                                    <p>Contracted: {employeeMatch.contractedWeeklyHours}h</p>
+                                                    <p>Remaining: {remainingHours}h</p>
                                                   </TooltipContent>
                                                 </ShadcnTooltip>
                                               </TooltipProvider>
-                                            )}
+                                            </div>
                                           </div>
-                                          <TooltipProvider>
-                                            <ShadcnTooltip>
-                                              <TooltipTrigger asChild>
-                                                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 flex-shrink-0 cursor-help">
-                                                  {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
-                                                </span>
-                                              </TooltipTrigger>
-                                              <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
-                                                <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
-                                                <p>Contracted: {employeeMatch.contractedWeeklyHours}h</p>
-                                                <p>Remaining: {remainingHours}h</p>
-                                              </TooltipContent>
-                                            </ShadcnTooltip>
-                                          </TooltipProvider>
                                           <TooltipProvider>
                                             <ShadcnTooltip>
                                               <TooltipTrigger asChild>
@@ -976,7 +965,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           </TooltipProvider>
                                         </div>
                                         {/* Journey info on same line */}
-                                        <div className="flex items-center gap-2 flex-nowrap mt-2">
+                                        <div className="flex items-center gap-2 flex-nowrap">
                                           {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
@@ -987,49 +976,49 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           const isFromHome = !departureSource || departureSource === 'home';
 
                                           return (
-                                            <div className="flex items-center gap-2 flex-nowrap">
+                                            <div className="flex items-end gap-2.5 flex-nowrap">
                                               {/* Start node: Home or Previous Client */}
                                               {isFromHome ? (
-                                                <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                                                  <Home className="w-6 h-6 text-blue-500" />
-                                                  <span className="text-[9px] font-bold text-blue-500">Home</span>
+                                                <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                                  <Home className="w-5 h-5 text-blue-500" />
+                                                  <span className="text-[8px] font-bold text-blue-500">Home</span>
                                                 </div>
                                               ) : (
                                                 <div
-                                                  className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                                                  className="flex flex-col items-center gap-1 flex-shrink-0"
                                                   title={departureSummary ? `Departing from: ${departureSummary}` : 'Departing from previous client'}
                                                 >
-                                                  <MapPin className="w-6 h-6 text-purple-500" />
-                                                  <span className="text-[9px] font-bold text-purple-500">Prev</span>
+                                                  <MapPin className="w-5 h-5 text-purple-500" />
+                                                  <span className="text-[8px] font-bold text-purple-500">Prev</span>
                                                 </div>
                                               )}
 
                                               {/* Arrow 1: Departure → This Visit, with travel time above */}
                                               <div className="flex flex-col items-center flex-shrink-0">
-                                                <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 mb-1.5">
+                                                <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
                                                   {displayMins !== undefined ? `~${displayMins}m` : ''}
                                                 </span>
-                                                <ArrowRight className="w-6 h-6 text-gray-400 dark:text-gray-600" />
+                                                <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                                               </div>
 
                                               {/* Enquiry Visit node — icon + "Enquiry" label + time slot below */}
                                               <div
-                                                className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
+                                                className="flex flex-col items-center gap-0.5 flex-shrink-0 cursor-default"
                                                 title={enquiryPostcode || ''}
                                               >
-                                                <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">Enquiry</span>
-                                                <span className={`text-[11px] font-black leading-none ${isExact ? 'text-green-700 dark:text-green-300' : 'text-orange-700 dark:text-orange-300'}`}>{slotOnDay.availableWindow}</span>
+                                                <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Enquiry</span>
+                                                <span className={`text-[8px] font-bold leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{slotOnDay.availableWindow}</span>
                                               </div>
 
                                               {nextVisit ? (
                                                 <>
                                                   {/* Arrow 2: Enquiry → Next Visit, with forward travel time above */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
-                                                    <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 mb-1.5">
+                                                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
                                                       {forwardMins !== undefined ? `~${forwardMins}m` : ''}
                                                     </span>
-                                                    <ArrowRight className="w-6 h-6 text-gray-400 dark:text-gray-600" />
+                                                    <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                                                   </div>
 
                                                   {/* Next Visit node — icon + label, tooltip shows time + postcode */}
@@ -1042,11 +1031,11 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                         : 'text-rose-600 dark:text-rose-400';
                                                     return (
                                                       <div
-                                                        className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-default"
+                                                        className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
                                                         title={[`${nextVisit.startTime}–${nextVisit.endTime}`, nextVisit.postcode].filter(Boolean).join(' • ')}
                                                       >
-                                                        <Clock className={`w-6 h-6 ${nextColor}`} />
-                                                        <span className={`text-[9px] font-bold ${nextColor}`}>Next</span>
+                                                        <Clock className={`w-5 h-5 ${nextColor}`} />
+                                                        <span className={`text-[8px] font-bold ${nextColor}`}>Next</span>
                                                       </div>
                                                     );
                                                   })()}
@@ -1055,15 +1044,15 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 <>
                                                   {/* No next visit: show arrow to Home with same travel time */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
-                                                    <span className="text-[9px] font-bold text-gray-600 dark:text-gray-300 mb-1.5">
+                                                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
                                                       {displayMins !== undefined ? `~${displayMins}m` : ''}
                                                     </span>
-                                                    <ArrowRight className="w-6 h-6 text-gray-400 dark:text-gray-600" />
+                                                    <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                                                   </div>
                                                   {/* Home End node */}
-                                                  <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                                                    <Home className="w-6 h-6 text-blue-500" />
-                                                    <span className="text-[9px] font-bold text-blue-500">Home</span>
+                                                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                                    <Home className="w-5 h-5 text-blue-500" />
+                                                    <span className="text-[8px] font-bold text-blue-500">Home</span>
                                                   </div>
                                                 </>
                                               )}
