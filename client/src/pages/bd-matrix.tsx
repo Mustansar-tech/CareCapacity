@@ -978,48 +978,48 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           const isFromHome = !departureSource || departureSource === 'home';
 
                                           return (
-                                            <div className="flex items-end gap-1.5 flex-wrap">
+                                            <div className="flex items-end gap-2.5 flex-wrap">
                                               {/* Start node: Home or Previous Client */}
                                               {isFromHome ? (
-                                                <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                                                  <Home className="w-4 h-4 text-blue-500" />
-                                                  <span className="text-[7px] font-semibold text-blue-500">Start</span>
+                                                <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                                  <Home className="w-5 h-5 text-blue-500" />
+                                                  <span className="text-[8px] font-bold text-blue-500">Start</span>
                                                 </div>
                                               ) : (
                                                 <div
-                                                  className="flex flex-col items-center gap-0.5 flex-shrink-0"
+                                                  className="flex flex-col items-center gap-1 flex-shrink-0"
                                                   title={departureSummary ? `Departing from: ${departureSummary}` : 'Departing from previous client'}
                                                 >
-                                                  <MapPin className="w-4 h-4 text-purple-500" />
-                                                  <span className="text-[7px] font-semibold text-purple-500">Prev</span>
+                                                  <MapPin className="w-5 h-5 text-purple-500" />
+                                                  <span className="text-[8px] font-bold text-purple-500">Prev</span>
                                                 </div>
                                               )}
 
                                               {/* Arrow 1: Departure → This Visit, with travel time above */}
                                               <div className="flex flex-col items-center flex-shrink-0">
-                                                <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                                                <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
                                                   {displayMins !== undefined ? `~${displayMins}m` : ''}
                                                 </span>
-                                                <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+                                                <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                                               </div>
 
                                               {/* Enquiry Visit node — icon + label, tooltip shows time + postcode */}
                                               <div
-                                                className="flex flex-col items-center gap-0.5 flex-shrink-0 cursor-default"
+                                                className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
                                                 title={[slotOnDay.availableWindow, enquiryPostcode].filter(Boolean).join(' • ')}
                                               >
-                                                <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400">Visit</span>
+                                                <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Visit</span>
                                               </div>
 
                                               {nextVisit && (
                                                 <>
                                                   {/* Arrow 2: Enquiry → Next Visit, with forward travel time above */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
-                                                    <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                                                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
                                                       {forwardMins !== undefined ? `~${forwardMins}m` : ''}
                                                     </span>
-                                                    <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+                                                    <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                                                   </div>
 
                                                   {/* Next Visit node — icon + label, tooltip shows time + postcode */}
@@ -1028,15 +1028,15 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                       forwardMins !== undefined && forwardMins <= 20
                                                         ? 'text-emerald-600 dark:text-emerald-400'
                                                         : forwardMins !== undefined && forwardMins <= 35
-                                                        ? 'text-amber-500 dark:text-amber-400'
-                                                        : 'text-rose-500 dark:text-rose-400';
+                                                        ? 'text-amber-600 dark:text-amber-400'
+                                                        : 'text-rose-600 dark:text-rose-400';
                                                     return (
                                                       <div
-                                                        className="flex flex-col items-center gap-0.5 flex-shrink-0 cursor-default"
+                                                        className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
                                                         title={[`${nextVisit.startTime}–${nextVisit.endTime}`, nextVisit.postcode].filter(Boolean).join(' • ')}
                                                       >
-                                                        <Clock className={`w-4 h-4 ${nextColor}`} />
-                                                        <span className={`text-[7px] font-semibold ${nextColor}`}>Next</span>
+                                                        <Clock className={`w-5 h-5 ${nextColor}`} />
+                                                        <span className={`text-[8px] font-bold ${nextColor}`}>Next</span>
                                                       </div>
                                                     );
                                                   })()}
