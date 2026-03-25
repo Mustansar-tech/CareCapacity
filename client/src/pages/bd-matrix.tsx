@@ -966,7 +966,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                         </div>
                                         {/* Time badge + journey on same line */}
                                         <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
-                                          <div className={`inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm flex-shrink-0 ${isExact ? 'bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700' : 'bg-orange-200 text-orange-950 border-orange-400 dark:bg-orange-800 dark:text-orange-50 dark:border-orange-600'}`}>
+                                          <div className="inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm flex-shrink-0 bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700 pt-[2px] pb-[2px] pl-[1px] pr-[1px]">
                                             {slotOnDay.availableWindow}
                                           </div>
                                           {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
