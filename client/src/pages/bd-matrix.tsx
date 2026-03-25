@@ -124,25 +124,40 @@ function normalizeTransportMode(raw?: string): 'car' | 'walking' | 'public' {
   return 'car';
 }
 
-function TransportModeIcon({ transportMode }: { transportMode?: string }) {
+function TransportModeIcon({ transportMode, size = 'md' }: { transportMode?: string; size?: 'sm' | 'md' }) {
   if (!transportMode || transportMode.trim() === '') return null;
-  
+
+  const iconCls = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
+
+  // New recruiter — no confirmed transport yet
+  if (transportMode.toLowerCase().includes('recruiter')) {
+    return (
+      <span
+        title="New Recruiter – transport mode not yet confirmed"
+        className="inline-flex items-center justify-center rounded-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-black border border-amber-300 dark:border-amber-700 leading-none"
+        style={{ fontSize: 9, width: size === 'sm' ? 12 : 16, height: size === 'sm' ? 12 : 16 }}
+      >
+        X
+      </span>
+    );
+  }
+
   const normalized = normalizeTransportMode(transportMode);
-  
+
   if (normalized === 'car') {
     return (
       <div title="Car" aria-label="Transport mode: car" className="inline-block">
-        <Car className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <Car className={`${iconCls} text-blue-600 dark:text-blue-400`} />
       </div>
     );
   } else if (normalized === 'walking') {
     return (
       <div title="Walking" aria-label="Transport mode: walking" className="inline-block">
-        <PersonStanding className="w-4 h-4 text-green-600 dark:text-green-400" />
+        <PersonStanding className={`${iconCls} text-green-600 dark:text-green-400`} />
       </div>
     );
   }
-  
+
   return null;
 }
 
@@ -965,15 +980,29 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
                                           const nextVisit = slotOnDay.nextVisit;
 
+                                          const departureSource = slotOnDay.departureSource;
+                                          const departureSummary = slotOnDay.departureSummary;
+                                          const isFromHome = !departureSource || departureSource === 'home';
+
                                           return (
                                             <div className="flex items-end gap-1.5 flex-wrap">
-                                              {/* Start: Home icon */}
-                                              <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                                                <Home className="w-4 h-4 text-blue-500" />
-                                                <span className="text-[7px] font-semibold text-blue-500">Start</span>
-                                              </div>
+                                              {/* Start node: Home or Previous Client */}
+                                              {isFromHome ? (
+                                                <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                                                  <Home className="w-4 h-4 text-blue-500" />
+                                                  <span className="text-[7px] font-semibold text-blue-500">Start</span>
+                                                </div>
+                                              ) : (
+                                                <div
+                                                  className="flex flex-col items-center gap-0.5 flex-shrink-0"
+                                                  title={departureSummary ? `Departing from: ${departureSummary}` : 'Departing from previous client'}
+                                                >
+                                                  <MapPin className="w-4 h-4 text-purple-500" />
+                                                  <span className="text-[7px] font-semibold text-purple-500">Prev</span>
+                                                </div>
+                                              )}
 
-                                              {/* Arrow 1: Home → This Visit, with travel time above */}
+                                              {/* Arrow 1: Departure → This Visit, with travel time above */}
                                               <div className="flex flex-col items-center flex-shrink-0">
                                                 <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">
                                                   {displayMins !== undefined ? `~${displayMins}m` : ''}
