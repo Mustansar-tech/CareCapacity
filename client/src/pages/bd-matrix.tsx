@@ -969,34 +969,28 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           return (
                                             <div className="flex items-center gap-1 flex-wrap text-[8px] font-bold">
                                               <Home className="w-3 h-3 text-blue-500" />
-                                              <span className="text-gray-600 dark:text-gray-400">home</span>
                                               
                                               {displayMins !== undefined && (
                                                 <>
-                                                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
-                                                  <span className="text-gray-600 dark:text-gray-400">~{displayMins}m</span>
+                                                  <div className="flex items-center gap-0.5">
+                                                    <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
+                                                    <span className="text-gray-600 dark:text-gray-400">~{displayMins}m</span>
+                                                  </div>
                                                 </>
                                               )}
                                               
-                                              <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
                                               <span className="px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 whitespace-nowrap">
                                                 {slotOnDay.availableWindow}
                                               </span>
                                               
                                               {slotOnDay.nextVisit && (
                                                 <>
-                                                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
                                                   {forwardMins !== undefined && (
-                                                    <>
-                                                      {hasRecruiter ? (
-                                                        <span className="text-amber-600 dark:text-amber-400 font-black">X</span>
-                                                      ) : (
-                                                        <TransportModeIcon transportMode={employeeMatch.transportMode} />
-                                                      )}
+                                                    <div className="flex items-center gap-0.5">
+                                                      <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
                                                       <span className="text-gray-600 dark:text-gray-400">~{forwardMins}m</span>
-                                                    </>
+                                                    </div>
                                                   )}
-                                                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-700" />
                                                   <span className={`px-1.5 py-0.5 rounded whitespace-nowrap ${
                                                     forwardMins && forwardMins <= 20 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 
                                                     forwardMins && forwardMins <= 35 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 
