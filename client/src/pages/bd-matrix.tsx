@@ -897,10 +897,10 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                     const isStarred = currentStar?.employeeName === employeeMatch.employeeName;
 
                                     const genderColorClass = employeeMatch.gender?.toLowerCase() === 'female'
-                                      ? 'border-pink-200 bg-pink-50/50 dark:bg-pink-900/20 dark:border-pink-800/50'
+                                      ? 'border-pink-200 bg-pink-100/70 dark:bg-pink-900/40 dark:border-pink-800/50'
                                       : employeeMatch.gender?.toLowerCase() === 'male'
-                                        ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800/50'
-                                        : 'border-gray-200 dark:border-gray-800';
+                                        ? 'border-blue-200 bg-blue-100/70 dark:bg-blue-900/40 dark:border-blue-800/50'
+                                        : 'border-gray-200 bg-gray-50/50 dark:bg-gray-800/40 dark:border-gray-800';
 
                                     const nameColorClass = employeeMatch.gender?.toLowerCase() === 'female'
                                       ? 'text-pink-700 dark:text-pink-400'
