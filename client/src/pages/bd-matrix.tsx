@@ -719,7 +719,18 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                 </div>
               )}
             </div>
-            <p className="text-sm text-purple-900 dark:text-purple-100 font-black uppercase tracking-widest">{result.clientName || 'New Client'}</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-purple-900 dark:text-purple-100 font-black uppercase tracking-widest">{result.clientName || 'New Client'}</p>
+              {(() => {
+                const firstMatch = result.visitResults?.[0]?.matches?.[0];
+                const timeSlot = firstMatch?.matchedSlots?.[0]?.availableWindow;
+                return timeSlot ? (
+                  <p className="text-[11px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                    📅 {timeSlot}
+                  </p>
+                ) : null;
+              })()}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1005,12 +1016,12 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
 
                                               {/* Enquiry Visit node — icon + "Enquiry" label + time slot below */}
                                               <div
-                                                className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
+                                                className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-default bg-emerald-100/30 dark:bg-emerald-900/20 px-3 py-2 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30"
                                                 title={enquiryPostcode || ''}
                                               >
-                                                <UserCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">Enquiry</span>
-                                                <span className={`text-[10px] font-bold leading-none ${isExact ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{slotOnDay.availableWindow}</span>
+                                                <UserCheck className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+                                                <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">Enquiry</span>
+                                                <span className={`text-[11px] font-black leading-none ${isExact ? 'text-green-700 dark:text-green-300' : 'text-orange-700 dark:text-orange-300'}`}>{slotOnDay.availableWindow}</span>
                                               </div>
 
                                               {nextVisit ? (
