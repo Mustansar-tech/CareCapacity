@@ -1394,6 +1394,26 @@ export async function parseExcelFiles(
   }
 
   // Process availability data
+  // Pass 1: build a set of CP+date keys that have a genuine same-day Available entry
+  // (start date === end date, i.e. NOT midnight-crossing).  Used as a guard when
+  // deciding whether to expand multi-day day-killer blocks.
+  const sameDayAvailKeys = new Set<string>();
+  for (const row of availabilityData) {
+    try {
+      if (!row["CAREGiver Name"] || !row["Start Date"]) continue;
+      const canonStatus = canonicalStatus(row.Type ?? row.Status ?? "");
+      if (canonStatus !== "Available" && canonStatus !== "Ad-hoc") continue;
+      const parsedStartDate = parseDate(row["Start Date"]);
+      if (row["End Date"]) {
+        const parsedEndDate = parseDate(row["End Date"]);
+        const diff = Math.abs(differenceInDays(parsedEndDate, parsedStartDate));
+        if (diff >= 1) continue; // midnight-crossing Available — doesn't count
+      }
+      sameDayAvailKeys.add(`${row["CAREGiver Name"]}|${format(parsedStartDate, "yyyy-MM-dd")}`);
+    } catch { /* ignore parse errors in pass 1 */ }
+  }
+
+  // Pass 2: full validation loop
   const validatedAvailability: ParsedAvailabilityRow[] = [];
   availabilityData.forEach((row, index) => {
     try {
@@ -1417,20 +1437,29 @@ export async function parseExcelFiles(
 
           if (diffInDays >= 1) {
             if (isDayKiller) {
-              // Expand day-killer (Holiday, Sick, etc.) multi-day entries into one row per day.
-              // e.g. a 24-hr Holiday block (00:00 Mon → 00:00 Tue) becomes a single full-day
-              // Holiday entry for Monday, properly killing any Available rows that day.
+              // Only expand if the same CP has a genuine same-day Available entry on
+              // each starting day — this guards against cases where both the Holiday
+              // and the Available block are midnight-crossing (vacation-process artefact).
               const daysToExpand = Math.min(diffInDays, 14); // safety cap
+              let expanded = 0;
               for (let d = 0; d < daysToExpand; d++) {
                 const dayDate = addDays(parsedStartDate, d);
+                const key = `${empName}|${format(dayDate, "yyyy-MM-dd")}`;
+                if (!sameDayAvailKeys.has(key)) {
+                  logger.debug(`Skipping Holiday expansion for ${empName} on ${format(dayDate, "yyyy-MM-dd")} — no same-day Available entry found`);
+                  continue;
+                }
                 validatedAvailability.push({
                   ...row,
                   parsedDate: dayDate,
                   calculatedHours: 24,
                   "Time Window(s)": "", // full-day — no time-window constraint
                 });
+                expanded++;
               }
-              logger.debug(`Expanded multi-day ${canonStatus} for ${empName} into ${daysToExpand} daily entries`);
+              if (expanded > 0) {
+                logger.debug(`Expanded multi-day ${canonStatus} for ${empName} into ${expanded} daily entries`);
+              }
             } else {
               // Non-day-killer multi-day entries (e.g. Available spanning midnight) are rejected
               logger.debug(`REJECTING multi-day availability for ${empName}: diffInDays=${diffInDays}`);
