@@ -81,6 +81,7 @@ export interface IStorage {
   getAllCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>;
   getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]>;
   getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined>;
+  getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(branchId: string, limit?: number): Promise<CapacityAnalysis[]>;
   enforceRetentionLatestWeeks(branchId: string, limit?: number): Promise<number>;
   cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number>;
@@ -318,6 +319,15 @@ export class DatabaseStorage implements IStorage {
       .from(capacityAnalyses)
       .where(eq(capacityAnalyses.branchId, branchId))
       .orderBy(desc(capacityAnalyses.uploadedAt))
+      .limit(1);
+    return analysis;
+  }
+
+  async getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string): Promise<CapacityAnalysis | undefined> {
+    const [analysis] = await db
+      .select()
+      .from(capacityAnalyses)
+      .where(and(eq(capacityAnalyses.branchId, branchId), eq(capacityAnalyses.weekStartDate, weekStartDate)))
       .limit(1);
     return analysis;
   }
@@ -809,6 +819,9 @@ export class MemStorage implements IStorage {
   async getCapacityAnalyses(branchId: string): Promise<CapacityAnalysis[]> { return this.getAllCapacityAnalyses(branchId); }
   async getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined> {
     return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];
+  }
+  async getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string): Promise<CapacityAnalysis | undefined> {
+    return Array.from(this.capacityAnalyses.values()).find(a => a.branchId === branchId && a.weekStartDate === weekStartDate);
   }
   async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
     return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)).slice(0, limit);

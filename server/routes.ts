@@ -1826,28 +1826,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
 
-      // Load up to 8 weeks of analysis data for comprehensive matching
-      const allAnalyses = await storage.getLatestWeeksAnalyses(branchId, 8);
-      if (!allAnalyses || allAnalyses.length === 0) {
+      // Use the specific selected week, or fall back to the latest uploaded week
+      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, weekStartDate } = req.body;
+
+      let selectedAnalysis = weekStartDate
+        ? await storage.getCapacityAnalysisByWeekStart(branchId, weekStartDate)
+        : undefined;
+      if (!selectedAnalysis) {
+        selectedAnalysis = await storage.getLatestCapacityAnalysis(branchId);
+      }
+      if (!selectedAnalysis) {
         return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
       }
-      // Sort newest first
-      allAnalyses.sort((a: any, b: any) => b.weekStartDate.localeCompare(a.weekStartDate));
-      const numWeeks = allAnalyses.length;
-
-      // Merge employeeSummaryByDate across all weeks (for date-aware availability per day)
-      const mergedSummaryByDate: Record<string, unknown> = {};
-      for (const analysis of allAnalyses) {
-        Object.assign(mergedSummaryByDate, analysis.employeeSummaryByDate as Record<string, unknown> || {});
-      }
-      // Use only the most recent week's employeesByDate to keep contractedDailyHours per-week correct
-      const mergedAnalysis = {
-        ...allAnalyses[0],
-        employeeSummaryByDate: mergedSummaryByDate,
-        employeesByDate: allAnalyses[0].employeesByDate,
-      };
-
-      const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow } = req.body;
 
       if (!clientName || !requiredDays || !preferredTimeWindow) {
         return res.status(400).json({ message: 'Missing required fields: clientName, requiredDays, preferredTimeWindow' });
@@ -1861,12 +1851,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTimeWindow,
       };
 
-      // Build per-CP visit schedule from DB across all stored weeks (date-aware departure points)
+      // Build per-CP visit schedule from DB for the specific selected week (date-aware departure points)
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
-        const analysisDateKeys = Object.keys(mergedSummaryByDate);
+        const analysisDateKeys = Object.keys((selectedAnalysis.employeeSummaryByDate as Record<string, unknown>) || {});
         logger.info('BD Matcher: querying CP visits from DB', { 
-          weeks: numWeeks,
+          weekStartDate: selectedAnalysis.weekStartDate,
           dates: analysisDateKeys.length, 
           datesSample: analysisDateKeys.slice(0, 5),
           branchId,
@@ -1911,7 +1901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logger.error(`BD Matcher: could not build employee schedule map from DB`, { error: String(err), stack: err instanceof Error ? err.stack : null });
       }
 
-      const result = await matchClientEnquiry(criteria, mergedAnalysis as any, branchId, storage, employeeScheduleMap, numWeeks);
+      const result = await matchClientEnquiry(criteria, selectedAnalysis, branchId, storage, employeeScheduleMap);
 
       // Refine forward travel times for car drivers using ORS Directions (real road).
       // Also geocodes next-visit postcodes that are missing lat/lng coordinates.
@@ -1944,28 +1934,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const branchId = await resolveBranch(req);
 
-      // Load up to 8 weeks of analysis data for comprehensive matching
-      const allAnalyses = await storage.getLatestWeeksAnalyses(branchId, 8);
-      if (!allAnalyses || allAnalyses.length === 0) {
+      // Use the specific selected week, or fall back to the latest uploaded week
+      const { clientName, postcode, visits, weekStartDate } = req.body;
+
+      let selectedAnalysis = weekStartDate
+        ? await storage.getCapacityAnalysisByWeekStart(branchId, weekStartDate)
+        : undefined;
+      if (!selectedAnalysis) {
+        selectedAnalysis = await storage.getLatestCapacityAnalysis(branchId);
+      }
+      if (!selectedAnalysis) {
         return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
       }
-      // Sort newest first
-      allAnalyses.sort((a: any, b: any) => b.weekStartDate.localeCompare(a.weekStartDate));
-      const numWeeks = allAnalyses.length;
-
-      // Merge employeeSummaryByDate across all weeks (for date-aware availability per day)
-      const mergedSummaryByDate: Record<string, unknown> = {};
-      for (const analysis of allAnalyses) {
-        Object.assign(mergedSummaryByDate, analysis.employeeSummaryByDate as Record<string, unknown> || {});
-      }
-      // Use only the most recent week's employeesByDate to keep contractedDailyHours per-week correct
-      const mergedAnalysis = {
-        ...allAnalyses[0],
-        employeeSummaryByDate: mergedSummaryByDate,
-        employeesByDate: allAnalyses[0].employeesByDate,
-      };
-
-      const { clientName, postcode, visits } = req.body;
 
       if (!clientName || !visits || !Array.isArray(visits) || visits.length === 0) {
         return res.status(400).json({ message: 'Missing required fields: clientName, visits (array)' });
@@ -1983,11 +1963,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       };
 
-      // Build per-CP visit schedule from DB across all stored weeks (date-aware departure points)
+      // Build per-CP visit schedule from DB for the specific selected week (date-aware departure points)
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
-        const analysisDateKeys = Object.keys(mergedSummaryByDate);
-        logger.info('BD Multi-Visit Matcher: querying CP visits from DB', { weeks: numWeeks, dates: analysisDateKeys.length, branchId });
+        const analysisDateKeys = Object.keys((selectedAnalysis.employeeSummaryByDate as Record<string, unknown>) || {});
+        logger.info('BD Multi-Visit Matcher: querying CP visits from DB', { weekStartDate: selectedAnalysis.weekStartDate, dates: analysisDateKeys.length, branchId });
         const dbVisits = await storage.getCpScheduledVisitsByBranch(branchId, analysisDateKeys);
         logger.info('BD Multi-Visit Matcher: DB CP visits retrieved', { count: dbVisits.length });
         if (dbVisits.length > 0) {
@@ -2018,7 +1998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map from DB: ${err}`);
       }
 
-      const result = await matchMultiVisitEnquiry(multiCriteria, mergedAnalysis as any, branchId, storage, employeeScheduleMap, numWeeks);
+      const result = await matchMultiVisitEnquiry(multiCriteria, selectedAnalysis, branchId, storage, employeeScheduleMap);
 
       // Refine forward travel times for car drivers across all visit results using OSRM.
       if (multiCriteria.postcode && result.visitResults?.length > 0) {

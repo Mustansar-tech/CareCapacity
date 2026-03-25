@@ -972,6 +972,11 @@ export default function Dashboard() {
               <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
                 <BDMatrix
                   data={filteredData || processedData}
+                  weekStartDate={
+                    selectedWeekId
+                      ? allHistoryData?.find(a => a.id === selectedWeekId)?.weekStartDate
+                      : latestData?.weekStartDate
+                  }
                 />
               </Suspense>
             </div>

@@ -69,6 +69,7 @@ interface BDMatrixCell {
 
 interface BDMatrixProps {
   data: ProcessingResult | null;
+  weekStartDate?: string;
 }
 
 // Processing functions (inline for now)
@@ -1097,7 +1098,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
   );
 }
 
-function ClientEnquiryMatcher() {
+function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string }) {
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [postcode, setPostcode] = useState('');
@@ -1180,6 +1181,7 @@ function ClientEnquiryMatcher() {
           genderPreference: v.genderPreferences[0] || 'any',
           requiredDays: v.selectedDays,
           preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+          weekStartDate: weekStartDate || undefined,
         });
         const singleResult = await res.json();
         return {
@@ -1209,6 +1211,7 @@ function ClientEnquiryMatcher() {
         clientName,
         postcode: postcode || undefined,
         visits: visitPayloads,
+        weekStartDate: weekStartDate || undefined,
       });
       return await res.json() as MultiVisitResult;
     },
@@ -1758,7 +1761,7 @@ function ClientEnquiryMatcher() {
   );
 }
 
-export default function BDMatrix({ data }: BDMatrixProps) {
+export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
 
   const { data: locationsData, refetch: refetchLocations, isFetching: isFetchingLocations } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
@@ -1950,7 +1953,7 @@ export default function BDMatrix({ data }: BDMatrixProps) {
                   </div>
                 </DialogContent>
               </Dialog>
-              <ClientEnquiryMatcher />
+              <ClientEnquiryMatcher weekStartDate={weekStartDate} />
             </div>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
