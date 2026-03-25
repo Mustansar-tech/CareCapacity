@@ -1012,7 +1012,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Visit</span>
                                               </div>
 
-                                              {nextVisit && (
+                                              {nextVisit ? (
                                                 <>
                                                   {/* Arrow 2: Enquiry → Next Visit, with forward travel time above */}
                                                   <div className="flex flex-col items-center flex-shrink-0">
@@ -1040,6 +1040,21 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                       </div>
                                                     );
                                                   })()}
+                                                </>
+                                              ) : (
+                                                <>
+                                                  {/* No next visit: show arrow to Home */}
+                                                  <div className="flex flex-col items-center flex-shrink-0">
+                                                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
+                                                      home
+                                                    </span>
+                                                    <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
+                                                  </div>
+                                                  {/* Home End node */}
+                                                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                                    <Home className="w-5 h-5 text-blue-500" />
+                                                    <span className="text-[8px] font-bold text-blue-500">End</span>
+                                                  </div>
                                                 </>
                                               )}
                                             </div>
