@@ -810,12 +810,6 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                           <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50 text-[#41589c]">
                             CP{cpIdx + 1}: {genderLabel === "Female" ? "F" : genderLabel === "Male" ? "M" : genderLabel} Only
                           </div>
-                          <div className="space-y-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-semibold tracking-tight">
-                            <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 opacity-70" /> NAME</div>
-                            <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-70" /> SUGGESTED TIME</div>
-                            <div className="flex items-center gap-2"><Car className="w-3.5 h-3.5 opacity-70" /> DRIVER / WALKER</div>
-                            <div className="flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5 opacity-70" /> WEEKLY LOAD (REM)</div>
-                          </div>
                         </div>
                       </td>
                       {displayDays.map(day => {
