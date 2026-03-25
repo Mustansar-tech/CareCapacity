@@ -984,7 +984,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                               {isFromHome ? (
                                                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
                                                   <Home className="w-5 h-5 text-blue-500" />
-                                                  <span className="text-[8px] font-bold text-blue-500">Start</span>
+                                                  <span className="text-[8px] font-bold text-blue-500">Home</span>
                                                 </div>
                                               ) : (
                                                 <div
@@ -996,21 +996,21 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 </div>
                                               )}
 
-                                              {/* Arrow 1: Departure → This Visit, with travel time above */}
-                                              <div className="flex flex-col items-center flex-shrink-0">
-                                                <span className="text-[8px] font-bold text-gray-600 dark:text-gray-300 mb-1">
-                                                  {displayMins !== undefined ? `~${displayMins}m` : ''}
-                                                </span>
+                                              {/* Arrow 1: Departure → This Visit */}
+                                              <div className="flex items-center flex-shrink-0">
                                                 <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                                               </div>
 
-                                              {/* Enquiry Visit node — icon + label, tooltip shows time + postcode */}
+                                              {/* Enquiry Visit node — icon + label + travel time below */}
                                               <div
-                                                className="flex flex-col items-center gap-1 flex-shrink-0 cursor-default"
+                                                className="flex flex-col items-center gap-0.5 flex-shrink-0 cursor-default"
                                                 title={[slotOnDay.availableWindow, enquiryPostcode].filter(Boolean).join(' • ')}
                                               >
                                                 <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Visit</span>
+                                                <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400">Enquiry</span>
+                                                {displayMins !== undefined && (
+                                                  <span className="text-[8px] font-bold text-gray-500 dark:text-gray-400">{`~${displayMins}m`}</span>
+                                                )}
                                               </div>
 
                                               {nextVisit ? (
@@ -1054,7 +1054,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                   {/* Home End node */}
                                                   <div className="flex flex-col items-center gap-1 flex-shrink-0">
                                                     <Home className="w-5 h-5 text-blue-500" />
-                                                    <span className="text-[8px] font-bold text-blue-500">End</span>
+                                                    <span className="text-[8px] font-bold text-blue-500">Home</span>
                                                   </div>
                                                 </>
                                               )}
