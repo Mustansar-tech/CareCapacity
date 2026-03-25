@@ -965,7 +965,7 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           </TooltipProvider>
                                         </div>
                                         {/* Journey info on same line */}
-                                        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
+                                        <div className="flex items-center gap-2 flex-nowrap">
                                           {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
