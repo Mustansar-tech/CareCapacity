@@ -960,40 +960,58 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             <span className="font-black">{slotOnDay.cancelledVisits}</span>
                                           </div>
                                         )}
-                                        {(slotOnDay.nextVisit || (slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined)) && (() => {
+                                        {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
-                                          
+                                          const nextVisit = slotOnDay.nextVisit;
+
                                           return (
-                                            <div className="space-y-1">
-                                              {(displayMins !== undefined || forwardMins !== undefined) && (
-                                                <div className="flex items-center gap-2 text-[7px] font-bold text-gray-500 dark:text-gray-500">
-                                                  {displayMins !== undefined && <span>~{displayMins}m</span>}
-                                                  {displayMins !== undefined && forwardMins !== undefined && <span className="text-gray-300">•</span>}
-                                                  {forwardMins !== undefined && <span>~{forwardMins}m</span>}
-                                                </div>
-                                              )}
-                                              <div className="flex items-center gap-2 text-[8px]">
-                                                <Home className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                                                <ArrowRight className="w-2.5 h-2.5 text-gray-300 dark:text-gray-700 flex-shrink-0" />
-                                                
-                                                <span className="px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 whitespace-nowrap font-semibold">
+                                            <div className="flex items-end gap-1.5 flex-wrap">
+                                              {/* Start: Home icon */}
+                                              <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                                                <Home className="w-4 h-4 text-blue-500" />
+                                                <span className="text-[7px] font-semibold text-blue-500">Start</span>
+                                              </div>
+
+                                              {/* Arrow 1: Home → This Visit, with travel time above */}
+                                              <div className="flex flex-col items-center flex-shrink-0">
+                                                <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                                                  {displayMins !== undefined ? `~${displayMins}m` : ''}
+                                                </span>
+                                                <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+                                              </div>
+
+                                              {/* This Visit */}
+                                              <div className="flex flex-col items-center flex-shrink-0">
+                                                <span className="text-[8px] font-black px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 whitespace-nowrap border border-green-200 dark:border-green-800">
                                                   {slotOnDay.availableWindow}
                                                 </span>
-                                                
-                                                {slotOnDay.nextVisit && (
-                                                  <>
-                                                    <ArrowRight className="w-2.5 h-2.5 text-gray-300 dark:text-gray-700 flex-shrink-0" />
-                                                    <span className={`px-2 py-1 rounded whitespace-nowrap font-semibold ${
-                                                      forwardMins && forwardMins <= 20 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 
-                                                      forwardMins && forwardMins <= 35 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 
-                                                      'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
-                                                    }`}>
-                                                      {slotOnDay.nextVisit.startTime}–{slotOnDay.nextVisit.endTime}
-                                                    </span>
-                                                  </>
-                                                )}
                                               </div>
+
+                                              {nextVisit && (
+                                                <>
+                                                  {/* Arrow 2: This Visit → Next Visit, with forward travel time above */}
+                                                  <div className="flex flex-col items-center flex-shrink-0">
+                                                    <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">
+                                                      {forwardMins !== undefined ? `~${forwardMins}m` : ''}
+                                                    </span>
+                                                    <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600" />
+                                                  </div>
+
+                                                  {/* Next Visit */}
+                                                  <div className="flex flex-col items-center flex-shrink-0">
+                                                    <span className={`text-[8px] font-black px-2 py-1 rounded-md whitespace-nowrap border ${
+                                                      forwardMins !== undefined && forwardMins <= 20
+                                                        ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800'
+                                                        : forwardMins !== undefined && forwardMins <= 35
+                                                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                                        : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                                    }`}>
+                                                      {nextVisit.startTime}–{nextVisit.endTime}
+                                                    </span>
+                                                  </div>
+                                                </>
+                                              )}
                                             </div>
                                           );
                                         })()}
