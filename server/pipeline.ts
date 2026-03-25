@@ -1394,25 +1394,50 @@ export async function parseExcelFiles(
   }
 
   // Process availability data
-  // Pass 1: build a set of CP+date keys that have a genuine same-calendar-day Available entry.
-  // IMPORTANT: use calendar-date comparison (not differenceInDays) so that overnight entries
-  // like 20:00→08:00 next day are correctly recognised as crossing midnight even though they
-  // are fewer than 24 hours apart (differenceInDays would return 0 for those).
-  const sameDayAvailKeys = new Set<string>();
+  // Pass 1: scan all Available rows to build two sets keyed by "cpName|yyyy-MM-dd".
+  //
+  //   sameDayAvailKeys   – CP+dates that have at least one genuine same-calendar-day
+  //                        Available entry (start and end on the same date).
+  //   midnightAvailDates – CP+dates that have at least one midnight-crossing Available
+  //                        entry (start and end on different calendar dates).
+  //
+  // From these we derive:
+  //   rejectedDateKeys   – CP+dates whose Available data is midnight-crossing AND has no
+  //                        same-day fallback.  Every entry (any type, including Holiday/Sick)
+  //                        for these CP+dates is rejected, because the availability data is in
+  //                        an unsupported overnight format — we don't trust any status for
+  //                        those dates.
+  //
+  // IMPORTANT: use calendar-date string comparison (not differenceInDays) because overnight
+  // entries like 20:00→08:00 next day are only 12 hours apart so differenceInDays returns 0.
+  const sameDayAvailKeys   = new Set<string>();
+  const midnightAvailDates = new Set<string>();
+
   for (const row of availabilityData) {
     try {
       if (!row["CAREGiver Name"] || !row["Start Date"]) continue;
       const canonStatus = canonicalStatus(row.Type ?? row.Status ?? "");
       if (canonStatus !== "Available" && canonStatus !== "Ad-hoc") continue;
       const parsedStartDate = parseDate(row["Start Date"]);
+      const startCalDate = format(parsedStartDate, "yyyy-MM-dd");
+      const key = `${row["CAREGiver Name"]}|${startCalDate}`;
+
       if (row["End Date"]) {
         const parsedEndDate = parseDate(row["End Date"]);
-        // Calendar-date cross check: if the entry starts and ends on different calendar dates
-        // (even 20:00→08:00 next day), it is an overnight entry — don't add to same-day keys.
-        if (format(parsedStartDate, "yyyy-MM-dd") !== format(parsedEndDate, "yyyy-MM-dd")) continue;
+        if (format(parsedStartDate, "yyyy-MM-dd") !== format(parsedEndDate, "yyyy-MM-dd")) {
+          midnightAvailDates.add(key); // midnight-crossing — not a valid same-day entry
+          continue;
+        }
       }
-      sameDayAvailKeys.add(`${row["CAREGiver Name"]}|${format(parsedStartDate, "yyyy-MM-dd")}`);
+      sameDayAvailKeys.add(key); // genuine same-calendar-day Available
     } catch { /* ignore parse errors in pass 1 */ }
+  }
+
+  // CP+dates where Available is only midnight-crossing (no same-day fallback):
+  // reject EVERYTHING for these dates, regardless of entry type.
+  const rejectedDateKeys = new Set<string>();
+  for (const key of midnightAvailDates) {
+    if (!sameDayAvailKeys.has(key)) rejectedDateKeys.add(key);
   }
 
   // Pass 2: full validation loop
@@ -1426,6 +1451,15 @@ export async function parseExcelFiles(
 
       const empName = row["CAREGiver Name"]; // For logging
       const parsedStartDate = parseDate(row["Start Date"]);
+      const startCalDate = format(parsedStartDate, "yyyy-MM-dd");
+
+      // Gate: if this CP+date is in rejectedDateKeys (only midnight-crossing Available exists,
+      // no same-day Available), reject ALL entries for this date — any type, including Holiday.
+      const entryDateKey = `${empName}|${startCalDate}`;
+      if (rejectedDateKeys.has(entryDateKey)) {
+        logger.debug(`Rejecting all entries for ${empName} on ${startCalDate} — overnight-only availability format (unsupported)`);
+        return;
+      }
 
       // Determine canonical status early so we can decide how to handle multi-day entries
       const canonStatus = canonicalStatus(row.Type ?? row.Status ?? "");
