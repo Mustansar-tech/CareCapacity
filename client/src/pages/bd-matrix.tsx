@@ -1047,9 +1047,8 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                           })()}
                                         </div>
                                         {slotOnDay.cancelledVisits && (
-                                          <div className="flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400">
-                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
-                                            <span className="uppercase tracking-wide">Cancelled:</span>
+                                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                                            <XCircle className="w-4 h-4 flex-shrink-0" />
                                             <span className="font-black">{slotOnDay.cancelledVisits}</span>
                                           </div>
                                         )}
