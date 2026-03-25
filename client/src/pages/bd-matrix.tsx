@@ -963,19 +963,12 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                             </ShadcnTooltip>
                                           </TooltipProvider>
                                         </div>
-                                        <div className="flex flex-wrap gap-1.5">
-                                          <div className={`inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm ${isExact ? 'bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700' : 'bg-orange-200 text-orange-950 border-orange-400 dark:bg-orange-800 dark:text-orange-50 dark:border-orange-600'}`}>
+                                        {/* Time badge + journey on same line */}
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <div className={`inline-flex px-3 py-1 rounded-md text-[11px] font-black border shadow-sm flex-shrink-0 ${isExact ? 'bg-green-100 text-green-900 border-green-300 dark:bg-green-900/60 dark:text-green-100 dark:border-green-700' : 'bg-orange-200 text-orange-950 border-orange-400 dark:bg-orange-800 dark:text-orange-50 dark:border-orange-600'}`}>
                                             {slotOnDay.availableWindow}
                                           </div>
-                                        </div>
-                                        {slotOnDay.cancelledVisits && (
-                                          <div className="flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400">
-                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
-                                            <span className="uppercase tracking-wide">Cancelled:</span>
-                                            <span className="font-black">{slotOnDay.cancelledVisits}</span>
-                                          </div>
-                                        )}
-                                        {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
+                                          {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
                                           const nextVisit = slotOnDay.nextVisit;
@@ -1051,7 +1044,15 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                               )}
                                             </div>
                                           );
-                                        })()}
+                                          })()}
+                                        </div>
+                                        {slotOnDay.cancelledVisits && (
+                                          <div className="flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
+                                            <span className="uppercase tracking-wide">Cancelled:</span>
+                                            <span className="font-black">{slotOnDay.cancelledVisits}</span>
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })
