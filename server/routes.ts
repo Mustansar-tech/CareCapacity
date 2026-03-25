@@ -344,8 +344,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logger.info('Clearing old visits data', { displayName: branch.displayName });
       await storage.clearAllVisits(requestedBranchId);
 
-      // Persist CP scheduled visits from GH Excel for BD Matcher departure-point logic
-      // This replaces the expensive on-demand GH Excel re-parsing that happened on every enquiry
+      // Persist CP scheduled visits from GH Excel for BD Matcher departure-point logic.
+      // Uses date-specific upsert to preserve data from other weeks (supports 8-week rolling window).
       try {
         const { extractEmployeeVisitsFromGHExcel } = await import('./excel-visit-extractor');
         const weekDates = result.dailySummary?.map(d => d.date) ?? [];
@@ -353,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const scheduleMap = await extractEmployeeVisitsFromGHExcel(
             guaranteedFile.buffer, weekDates, requestedBranchId, storage
           );
-          // Atomically replace CP visits for this branch (delete + insert in one transaction)
+          // Build visit rows for only the dates in this upload
           const visitRows: import('@shared/schema').InsertCpScheduledVisit[] = [];
           for (const [cpName, dayMap] of scheduleMap) {
             for (const [date, entries] of dayMap) {
@@ -372,9 +372,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
-          await storage.replaceCpScheduledVisits(requestedBranchId, visitRows);
-          logger.info('Persisted CP scheduled visits to database', {
-            branchId: requestedBranchId, employees: scheduleMap.size, totalVisits: visitRows.length
+          // Replace only the specific dates being uploaded (preserves other weeks' data)
+          await storage.upsertCpScheduledVisitsByDates(requestedBranchId, weekDates, visitRows);
+          // Enforce 8-week rolling retention (delete visits older than 8 weeks)
+          await storage.enforceRetentionCpScheduledVisits(requestedBranchId, 8);
+          logger.info('Persisted CP scheduled visits to database (date-aware upsert)', {
+            branchId: requestedBranchId, employees: scheduleMap.size, totalVisits: visitRows.length, weekDates: weekDates.length
           });
         }
       } catch (cpErr) {
@@ -1822,10 +1825,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/bd-matcher', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const latestData = await storage.getLatestCapacityAnalysis(branchId);
-      if (!latestData) {
+
+      // Load up to 8 weeks of analysis data for comprehensive matching
+      const allAnalyses = await storage.getLatestWeeksAnalyses(branchId, 8);
+      if (!allAnalyses || allAnalyses.length === 0) {
         return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
       }
+      // Sort newest first
+      allAnalyses.sort((a: any, b: any) => b.weekStartDate.localeCompare(a.weekStartDate));
+      const numWeeks = allAnalyses.length;
+
+      // Merge employeeSummaryByDate across all weeks (for date-aware availability per day)
+      const mergedSummaryByDate: Record<string, unknown> = {};
+      for (const analysis of allAnalyses) {
+        Object.assign(mergedSummaryByDate, analysis.employeeSummaryByDate as Record<string, unknown> || {});
+      }
+      // Use only the most recent week's employeesByDate to keep contractedDailyHours per-week correct
+      const mergedAnalysis = {
+        ...allAnalyses[0],
+        employeeSummaryByDate: mergedSummaryByDate,
+        employeesByDate: allAnalyses[0].employeesByDate,
+      };
 
       const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow } = req.body;
 
@@ -1841,11 +1861,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTimeWindow,
       };
 
-      // Build per-CP visit schedule from DB (persisted at upload time for schedule-aware departure points)
+      // Build per-CP visit schedule from DB across all stored weeks (date-aware departure points)
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
-        const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
+        const analysisDateKeys = Object.keys(mergedSummaryByDate);
         logger.info('BD Matcher: querying CP visits from DB', { 
+          weeks: numWeeks,
           dates: analysisDateKeys.length, 
           datesSample: analysisDateKeys.slice(0, 5),
           branchId,
@@ -1854,7 +1875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const dbVisits = await storage.getCpScheduledVisitsByBranch(branchId, analysisDateKeys);
         logger.info('BD Matcher: DB CP visits retrieved', { 
           count: dbVisits.length,
-          cpNamesSample: dbVisits.length > 0 ? [...new Set(dbVisits.slice(0, 10).map(v => v.cpName))] : []
+          cpNamesSample: dbVisits.length > 0 ? [...new Set(dbVisits.slice(0, 10).map((v: any) => v.cpName))] : []
         });
         if (dbVisits.length > 0) {
           employeeScheduleMap = new Map();
@@ -1871,7 +1892,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               postcode: v.clientPostcode ?? undefined,
             });
           }
-          // Sort each day's visits by startTime
           for (const dayMap of employeeScheduleMap.values()) {
             for (const visits of dayMap.values()) {
               visits.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -1885,14 +1905,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           logger.warn('BD Matcher: no CP visits in DB for these dates — CPs will default to home departure.', {
             queryDates: analysisDateKeys.length,
             branchId,
-            requiredDays: req.body.requiredDays
           });
         }
       } catch (err) {
         logger.error(`BD Matcher: could not build employee schedule map from DB`, { error: String(err), stack: err instanceof Error ? err.stack : null });
       }
 
-      const result = await matchClientEnquiry(criteria, latestData, branchId, storage, employeeScheduleMap);
+      const result = await matchClientEnquiry(criteria, mergedAnalysis as any, branchId, storage, employeeScheduleMap, numWeeks);
 
       // Refine forward travel times for car drivers using ORS Directions (real road).
       // Also geocodes next-visit postcodes that are missing lat/lng coordinates.
@@ -1924,10 +1943,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/bd-matcher/multi-visit', async (req, res) => {
     try {
       const branchId = await resolveBranch(req);
-      const latestData = await storage.getLatestCapacityAnalysis(branchId);
-      if (!latestData) {
+
+      // Load up to 8 weeks of analysis data for comprehensive matching
+      const allAnalyses = await storage.getLatestWeeksAnalyses(branchId, 8);
+      if (!allAnalyses || allAnalyses.length === 0) {
         return res.status(404).json({ message: 'No processed data available. Please upload and process Excel files first.' });
       }
+      // Sort newest first
+      allAnalyses.sort((a: any, b: any) => b.weekStartDate.localeCompare(a.weekStartDate));
+      const numWeeks = allAnalyses.length;
+
+      // Merge employeeSummaryByDate across all weeks (for date-aware availability per day)
+      const mergedSummaryByDate: Record<string, unknown> = {};
+      for (const analysis of allAnalyses) {
+        Object.assign(mergedSummaryByDate, analysis.employeeSummaryByDate as Record<string, unknown> || {});
+      }
+      // Use only the most recent week's employeesByDate to keep contractedDailyHours per-week correct
+      const mergedAnalysis = {
+        ...allAnalyses[0],
+        employeeSummaryByDate: mergedSummaryByDate,
+        employeesByDate: allAnalyses[0].employeesByDate,
+      };
 
       const { clientName, postcode, visits } = req.body;
 
@@ -1947,11 +1983,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       };
 
-      // Build per-CP visit schedule from DB (persisted at upload time for schedule-aware departure points)
+      // Build per-CP visit schedule from DB across all stored weeks (date-aware departure points)
       let employeeScheduleMap: Map<string, Map<string, import('./excel-visit-extractor').CpVisitEntry[]>> | undefined;
       try {
-        const analysisDateKeys = Object.keys((latestData.employeeSummaryByDate as Record<string, unknown>) || {});
-        logger.info('BD Multi-Visit Matcher: querying CP visits from DB', { dates: analysisDateKeys.length, branchId });
+        const analysisDateKeys = Object.keys(mergedSummaryByDate);
+        logger.info('BD Multi-Visit Matcher: querying CP visits from DB', { weeks: numWeeks, dates: analysisDateKeys.length, branchId });
         const dbVisits = await storage.getCpScheduledVisitsByBranch(branchId, analysisDateKeys);
         logger.info('BD Multi-Visit Matcher: DB CP visits retrieved', { count: dbVisits.length });
         if (dbVisits.length > 0) {
@@ -1969,7 +2005,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               postcode: v.clientPostcode ?? undefined,
             });
           }
-          // Sort each day's visits by startTime
           for (const dayMap of employeeScheduleMap.values()) {
             for (const visits of dayMap.values()) {
               visits.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -1983,7 +2018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logger.warn(`BD Multi-Visit Matcher: could not build employee schedule map from DB: ${err}`);
       }
 
-      const result = await matchMultiVisitEnquiry(multiCriteria, latestData, branchId, storage, employeeScheduleMap);
+      const result = await matchMultiVisitEnquiry(multiCriteria, mergedAnalysis as any, branchId, storage, employeeScheduleMap, numWeeks);
 
       // Refine forward travel times for car drivers across all visit results using OSRM.
       if (multiCriteria.postcode && result.visitResults?.length > 0) {

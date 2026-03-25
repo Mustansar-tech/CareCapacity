@@ -399,7 +399,8 @@ async function buildEmployeeWeeklyData(
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>,
   employeesByDate: Record<string, EmployeeDailyDetail[]>,
   branchId?: string,
-  storage?: any
+  storage?: any,
+  numWeeks: number = 1
 ) {
   const allEmployeeNames = new Set<string>();
   for (const dateStr of dates) {
@@ -442,9 +443,10 @@ async function buildEmployeeWeeklyData(
       }
     }
 
+    const weeks = Math.max(1, numWeeks);
     employeeWeeklyData.set(empName, {
-      totalScheduled: Math.round(totalScheduled * 100) / 100,
-      contractedWeekly: Math.round(totalContractedDaily * 100) / 100,
+      totalScheduled: Math.round((totalScheduled / weeks) * 100) / 100,
+      contractedWeekly: Math.round((totalContractedDaily / weeks) * 100) / 100,
       gender,
       transportMode,
       homePostcode,
@@ -1217,12 +1219,13 @@ export async function matchClientEnquiry(
   analysis: CapacityAnalysis,
   branchId?: string,
   storage?: any,
-  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>
+  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>,
+  numWeeks: number = 1
 ): Promise<MatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
   
-  // CRITICAL: Only use dates from the provided analysis object to ensure we stay within the selected week
+  // Use all dates from the provided (potentially multi-week merged) analysis object
   const dates = Object.keys(employeeSummaryByDate).sort();
 
   if (dates.length === 0) {
@@ -1242,7 +1245,7 @@ export async function matchClientEnquiry(
   }
 
   const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
-    dates, filteredSummaryByDate, filteredEmployeesByDate, branchId, storage
+    dates, filteredSummaryByDate, filteredEmployeesByDate, branchId, storage, numWeeks
   );
 
   let clientCoords: { lat: number; lng: number } | undefined;
@@ -1314,12 +1317,13 @@ export async function matchMultiVisitEnquiry(
   analysis: CapacityAnalysis,
   branchId?: string,
   storage?: any,
-  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>
+  employeeScheduleMap?: Map<string, Map<string, CpVisitEntry[]>>,
+  numWeeks: number = 1
 ): Promise<MultiVisitMatchResult> {
   const employeeSummaryByDate = analysis.employeeSummaryByDate as Record<string, EmployeeSummaryRecord[]>;
   const employeesByDate = analysis.employeesByDate as Record<string, EmployeeDailyDetail[]>;
 
-  // CRITICAL: Only use dates from the provided analysis object to ensure we stay within the selected week
+  // Use all dates from the provided (potentially multi-week merged) analysis object
   const dates = Object.keys(employeeSummaryByDate).sort();
 
   if (dates.length === 0) {
@@ -1351,7 +1355,7 @@ export async function matchMultiVisitEnquiry(
   }
 
   const { allEmployeeNames, employeeWeeklyData } = await buildEmployeeWeeklyData(
-    dates, filteredSummaryByDate, filteredEmployeesByDate, branchId, storage
+    dates, filteredSummaryByDate, filteredEmployeesByDate, branchId, storage, numWeeks
   );
 
   let clientCoords: { lat: number; lng: number } | undefined;

@@ -43,7 +43,7 @@ import {
   userBranches, auditLogs,
   cpScheduledVisits,
 } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User auth methods
@@ -110,6 +110,8 @@ export interface IStorage {
   getCpScheduledVisitsByBranch(branchId: string, dates: string[]): Promise<CpScheduledVisit[]>;
   deleteCpScheduledVisitsByBranch(branchId: string): Promise<void>;
   replaceCpScheduledVisits(branchId: string, visits: InsertCpScheduledVisit[]): Promise<void>;
+  upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visits: InsertCpScheduledVisit[]): Promise<void>;
+  enforceRetentionCpScheduledVisits(branchId: string, keepWeeks?: number): Promise<void>;
 
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
   getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]>;
@@ -518,6 +520,32 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  async upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visitRows: InsertCpScheduledVisit[]): Promise<void> {
+    if (dates.length === 0) return;
+    // Delete only the specific dates being uploaded (preserve all other weeks)
+    await db.transaction(async (tx) => {
+      await tx.delete(cpScheduledVisits).where(
+        and(eq(cpScheduledVisits.branchId, branchId), inArray(cpScheduledVisits.date, dates))
+      );
+      if (visitRows.length > 0) {
+        const BATCH = 500;
+        for (let i = 0; i < visitRows.length; i += BATCH) {
+          await tx.insert(cpScheduledVisits).values(visitRows.slice(i, i + BATCH));
+        }
+      }
+    });
+  }
+
+  async enforceRetentionCpScheduledVisits(branchId: string, keepWeeks: number = 8): Promise<void> {
+    // Delete visits older than keepWeeks * 7 days from today
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+    const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+    await db.delete(cpScheduledVisits).where(
+      and(eq(cpScheduledVisits.branchId, branchId), lt(cpScheduledVisits.date, cutoffStr))
+    );
+  }
+
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
     const [result] = await db.insert(routePlans).values(plan).returning();
     return result;
@@ -852,6 +880,24 @@ export class MemStorage implements IStorage {
   async replaceCpScheduledVisits(branchId: string, visitRows: InsertCpScheduledVisit[]): Promise<void> {
     await this.deleteCpScheduledVisitsByBranch(branchId);
     await this.saveCpScheduledVisits(visitRows);
+  }
+
+  async upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visitRows: InsertCpScheduledVisit[]): Promise<void> {
+    const dateSet = new Set(dates);
+    // Remove only visits for the specific dates being uploaded
+    Array.from(this.cpVisits.entries()).forEach(([id, v]) => {
+      if (v.branchId === branchId && dateSet.has(v.date)) this.cpVisits.delete(id);
+    });
+    await this.saveCpScheduledVisits(visitRows);
+  }
+
+  async enforceRetentionCpScheduledVisits(branchId: string, keepWeeks: number = 8): Promise<void> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+    const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+    Array.from(this.cpVisits.entries()).forEach(([id, v]) => {
+      if (v.branchId === branchId && v.date < cutoffStr) this.cpVisits.delete(id);
+    });
   }
 
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
