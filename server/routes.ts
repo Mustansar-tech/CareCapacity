@@ -344,60 +344,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logger.info('Clearing old visits data', { displayName: branch.displayName });
       await storage.clearAllVisits(requestedBranchId);
 
-      // Auto-geocode any missing client locations (postcode exists but no lat/lng)
-      // This ensures visits extracted below will get real coordinates
-      try {
-        const allClientLocs = await storage.getAllClientLocations(requestedBranchId);
-        const toGeocode: { clientName: string; postcode: string }[] = [];
-        
-        for (const loc of allClientLocs) {
-          if (!loc.lat || !loc.lng) {
-            if (loc.postcode) {
-              toGeocode.push({ clientName: loc.name, postcode: loc.postcode });
-            }
-          }
-        }
-
-        if (toGeocode.length > 0) {
-          logger.info('Auto-geocoding missing client locations during upload', {
-            branchId: requestedBranchId,
-            count: toGeocode.length,
-            postcodes: toGeocode.map(t => t.postcode),
-          });
-
-          // Geocode each postcode individually and update client locations
-          let geocodedCount = 0;
-          for (const item of toGeocode) {
-            try {
-              const geoResult = await travelTimeService.geocodePostcode(item.postcode);
-              if (geoResult && geoResult.lat && geoResult.lng) {
-                await storage.updateClientLocation(requestedBranchId, item.clientName, {
-                  lat: geoResult.lat.toString(),
-                  lng: geoResult.lng.toString(),
-                });
-                geocodedCount++;
-                logger.info('Updated client location coordinates', {
-                  clientName: item.clientName,
-                  postcode: item.postcode,
-                  coords: `(${geoResult.lat.toFixed(4)}, ${geoResult.lng.toFixed(4)})`,
-                });
-              }
-            } catch (err) {
-              logger.debug(`Failed to geocode ${item.postcode} for ${item.clientName}:`, err);
-            }
-          }
-
-          logger.info('Auto-geocoding complete for missing client locations', {
-            branchId: requestedBranchId,
-            geocoded: geocodedCount,
-            total: toGeocode.length,
-          });
-        }
-      } catch (geoErr) {
-        logger.warn('Auto-geocoding client locations failed (non-fatal):', geoErr);
-        // Continue with visit extraction even if geocoding fails
-      }
-
       // Persist CP scheduled visits from GH Excel for BD Matcher departure-point logic.
       // Uses date-specific upsert to preserve data from other weeks (supports 8-week rolling window).
       try {

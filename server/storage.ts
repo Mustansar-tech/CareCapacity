@@ -97,7 +97,6 @@ export interface IStorage {
   getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined>;
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(branchId: string): Promise<ClientLocation[]>;
-  updateClientLocation(branchId: string, clientName: string, updates: { lat?: string; lng?: string }): Promise<ClientLocation | undefined>;
   clearClientLocations(branchId: string): Promise<number>; // Delete all for branch (called before fresh upload)
 
   saveVisit(visit: InsertVisit): Promise<Visit>;
@@ -455,14 +454,6 @@ export class DatabaseStorage implements IStorage {
 
   async getAllClientLocations(branchId: string): Promise<ClientLocation[]> {
     return await db.select().from(clientLocations).where(eq(clientLocations.branchId, branchId));
-  }
-
-  async updateClientLocation(branchId: string, clientName: string, updates: { lat?: string; lng?: string }): Promise<ClientLocation | undefined> {
-    const [result] = await db.update(clientLocations)
-      .set(updates)
-      .where(and(eq(clientLocations.branchId, branchId), eq(clientLocations.name, clientName)))
-      .returning();
-    return result;
   }
 
   async clearClientLocations(branchId: string): Promise<number> {
@@ -866,16 +857,6 @@ export class MemStorage implements IStorage {
   }
   async getClientLocationById(id: string): Promise<ClientLocation | undefined> { return this.clientLocations.get(id); }
   async getAllClientLocations(branchId: string): Promise<ClientLocation[]> { return Array.from(this.clientLocations.values()).filter(l => l.branchId === branchId); }
-  async updateClientLocation(branchId: string, clientName: string, updates: { lat?: string; lng?: string }): Promise<ClientLocation | undefined> {
-    for (const [id, loc] of this.clientLocations.entries()) {
-      if (loc.branchId === branchId && loc.name === clientName) {
-        const updated = { ...loc, ...updates };
-        this.clientLocations.set(id, updated);
-        return updated;
-      }
-    }
-    return undefined;
-  }
   async clearClientLocations(branchId: string): Promise<number> {
     let count = 0;
     Array.from(this.clientLocations.entries()).forEach(([id, l]) => { if (l.branchId === branchId) { this.clientLocations.delete(id); count++; } });
