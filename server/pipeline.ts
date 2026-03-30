@@ -2563,8 +2563,13 @@ export async function processCapacityData(
       // Time-killer OR partial day-killer (e.g., partial holiday)
       if (timeKillerIsAllDay || !hasAvailableStatus) {
         // Treat like day-level absence if all-day OR no explicit availability
-        // For partial holidays that cover all day, use the original status
+        // For partial day-killers (e.g. Sick with time windows) that cover all day, use their actual status
         if (hasPartialDayKiller && timeKillerIsAllDay) {
+          highestPriorityStatus = partialDayKillerStatus;
+          highestPriority = STATUS_PRIORITY[partialDayKillerStatus] || 5;
+        } else if (hasPartialDayKiller && !hasAvailableStatus) {
+          // Sick/Holiday with time windows but NO Available row on this day
+          // → treat as a full-day absence with the actual status (not "Other Unavailable")
           highestPriorityStatus = partialDayKillerStatus;
           highestPriority = STATUS_PRIORITY[partialDayKillerStatus] || 5;
         } else {
@@ -2607,7 +2612,7 @@ export async function processCapacityData(
       // Calculate total blocked hours from all blockers
       const totalBlockedHours = mergedBlockers.reduce((sum, [start, end]) => sum + (end - start) / 60, 0);
       
-      if (hasDayKiller || ((hasTimeKiller || hasPartialDayKiller) && timeKillerIsAllDay)) {
+      if (hasDayKiller || ((hasTimeKiller || hasPartialDayKiller) && timeKillerIsAllDay) || (hasPartialDayKiller && !hasAvailableStatus)) {
         // Full-day absence → zero capacity
         // For full-day absences (Holiday, Sick, etc.), use contracted daily hours
         // This ensures holidays count as full contracted hours, not raw availability hours
