@@ -8,6 +8,7 @@ import { generalLimiter } from "./rate-limiter";
 import { securityHeaders } from "./security";
 import { logger } from "./logger";
 import { seedAdminUser } from "./auth";
+import { config } from "./config";
 
 // Augment session type
 declare module 'express-session' {
@@ -42,7 +43,7 @@ app.use(session({
     tableName: 'session',
     createTableIfMissing: true,
   }),
-  secret: process.env.SESSION_SECRET || 'care-capacity-dashboard-secret-key-change-in-production',
+  secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {

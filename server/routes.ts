@@ -196,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/process - Process uploaded Excel files
-  app.post('/api/process', upload.fields([
+  app.post('/api/process', requireAuth, requireRoleAtLeast('scheduler'), upload.fields([
     { name: 'availability', maxCount: 1 },
     { name: 'guaranteed', maxCount: 1 },
     { name: 'cgData', maxCount: 1 }

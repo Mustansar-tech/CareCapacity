@@ -76,8 +76,14 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // ─── Reset admin password (recovery endpoint) ────────────────────────────
+  // Disabled in production. In non-production environments it requires an
+  // active admin session so it is never publicly callable.
 
-  app.post('/api/auth/reset-admin-password', async (req: Request, res: Response) => {
+  app.post('/api/auth/reset-admin-password', requireRole('admin'), async (req: Request, res: Response) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: 'Invalid email or password format' });

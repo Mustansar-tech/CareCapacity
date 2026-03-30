@@ -46,10 +46,7 @@ class Logger {
   }
 
   info(message: string, meta?: any) {
-    // Info logs are only enabled in development
-    if (!isProduction) {
-      console.log(this.formatMessage(LogLevel.INFO, message, meta));
-    }
+    console.log(this.formatMessage(LogLevel.INFO, message, meta));
   }
 
   warn(message: string, meta?: any) {
@@ -68,14 +65,12 @@ class Logger {
   }
 
   logRequest(req: Request, duration: number, statusCode: number) {
-    if (!isProduction) {
-      this.info('HTTP Request', {
-        method: req.method,
-        path: req.path,
-        duration: `${duration}ms`,
-        statusCode
-      });
-    }
+    this.info('HTTP Request', {
+      method: req.method,
+      path: req.path,
+      duration: `${duration}ms`,
+      statusCode
+    });
   }
 }
 

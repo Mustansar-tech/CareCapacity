@@ -17,13 +17,18 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   }
   
   // Content Security Policy
+  // 'unsafe-inline' is retained for script-src because the Vite/React build
+  // injects inline event handlers and style attributes at runtime. Removing it
+  // would break the app and would require a nonce-based CSP wired into the
+  // Vite build pipeline (deferred).  'unsafe-eval' has been removed as it
+  // provides no benefit for this app's runtime behaviour.
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://replit.com; " +
+    "script-src 'self' 'unsafe-inline' https://replit.com; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: https:; " +
-    "connect-src 'self' https://api.openrouteservice.org;"
+    "connect-src 'self' https://api.openrouteservice.org https://api.traveltimeapp.com;"
   );
   
   // Referrer policy

@@ -31,12 +31,9 @@ class RateLimiter {
   }
 
   private getKey(req: Request): string {
-    // Use IP address or authenticated user ID
-    const forwarded = req.headers['x-forwarded-for'];
-    const ip = typeof forwarded === 'string' 
-      ? forwarded.split(',')[0].trim()
-      : req.socket.remoteAddress || 'unknown';
-    
+    // Use req.ip which respects Express "trust proxy" settings and cannot be
+    // trivially spoofed via a manipulated x-forwarded-for header.
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
     return `${ip}:${req.path}`;
   }
 
