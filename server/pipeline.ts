@@ -507,8 +507,8 @@ function buildAdHocWindowsMap(
     const nameNorm = normalizeName(empName);
     if (!nameNorm) continue;
 
-    const startV = pickStartForBucket(r);
-    const endV = pickCol(r, END_TIME_COLS); // window is Actual start → Actual end
+    const startV = pickCol(r, ['Planned Start Date And Time', 'Service Requirement Start Date And Time', 'Actual Start Date And Time', 'Start Date And Time']);
+    const endV = pickCol(r, ['Planned End Date And Time', 'Service Requirement End Date And Time', 'Actual End Date And Time', 'End Date And Time']);
     if (!startV || !endV) continue;
 
     const dateKey = format(parseDate(startV), "yyyy-MM-dd");
@@ -3091,7 +3091,7 @@ export async function processCapacityData(
       ? await extractCancelledWindowsFromGHWorkbook(
           options.ghWorkbookBuffer,
           new Date(dateStr),
-          60,
+          0,
         )
       : new Map<string, string>();
     logger.debug(
