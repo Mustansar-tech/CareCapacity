@@ -365,30 +365,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             postcodes: toGeocode.map(t => t.postcode),
           });
 
-          // Geocode all postcodes in batch
-          const postcodes = toGeocode.map(t => t.postcode);
-          const geoResults = await travelTimeService.geocodeBatch(postcodes);
-
-          // Update client locations with new coordinates
-          for (let i = 0; i < toGeocode.length; i++) {
-            const item = toGeocode[i];
-            const geoResult = geoResults[item.postcode];
-            if (geoResult && geoResult.lat && geoResult.lng) {
-              await storage.updateClientLocation(requestedBranchId, item.clientName, {
-                lat: geoResult.lat.toString(),
-                lng: geoResult.lng.toString(),
-              });
-              logger.info('Updated client location coordinates', {
-                clientName: item.clientName,
-                postcode: item.postcode,
-                coords: `(${geoResult.lat.toFixed(4)}, ${geoResult.lng.toFixed(4)})`,
-              });
+          // Geocode each postcode individually and update client locations
+          let geocodedCount = 0;
+          for (const item of toGeocode) {
+            try {
+              const geoResult = await travelTimeService.geocodePostcode(item.postcode);
+              if (geoResult && geoResult.lat && geoResult.lng) {
+                await storage.updateClientLocation(requestedBranchId, item.clientName, {
+                  lat: geoResult.lat.toString(),
+                  lng: geoResult.lng.toString(),
+                });
+                geocodedCount++;
+                logger.info('Updated client location coordinates', {
+                  clientName: item.clientName,
+                  postcode: item.postcode,
+                  coords: `(${geoResult.lat.toFixed(4)}, ${geoResult.lng.toFixed(4)})`,
+                });
+              }
+            } catch (err) {
+              logger.debug(`Failed to geocode ${item.postcode} for ${item.clientName}:`, err);
             }
           }
 
           logger.info('Auto-geocoding complete for missing client locations', {
             branchId: requestedBranchId,
-            geocoded: geoResults ? Object.keys(geoResults).length : 0,
+            geocoded: geocodedCount,
+            total: toGeocode.length,
           });
         }
       } catch (geoErr) {
