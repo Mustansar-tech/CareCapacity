@@ -520,10 +520,31 @@ export async function extractEmployeeVisitsFromGHExcel(
       if (!clientLocationCache.has(clientName)) {
         try {
           const loc = await storage.getClientLocationByName(branchId, clientName);
+
+          let resolvedLat: string | undefined = loc?.lat ?? undefined;
+          let resolvedLng: string | undefined = loc?.lng ?? undefined;
+          const resolvedPostcode: string | undefined = loc?.postcode ?? postcode;
+
+          // Fallback: if the name lookup returned no coordinates (e.g. office/admin visits
+          // where clientName is "., ." or a location name not stored in client_locations),
+          // look up the geocode cache directly using the postcode extracted from the row's
+          // "Service Location Address" column. This gives office visits real coordinates
+          // so travel times can be calculated from the office location.
+          if ((!resolvedLat || !resolvedLng) && resolvedPostcode) {
+            const normPc = resolvedPostcode.trim().toUpperCase();
+            try {
+              const cached = await storage.getGeocode(branchId, `postcode:${normPc}`);
+              if (cached?.lat && cached?.lng) {
+                resolvedLat = cached.lat;
+                resolvedLng = cached.lng;
+              }
+            } catch { /* geocode cache lookup failed — leave coords undefined */ }
+          }
+
           clientLocationCache.set(clientName, {
-            lat: loc?.lat ?? undefined,
-            lng: loc?.lng ?? undefined,
-            postcode: loc?.postcode ?? postcode,
+            lat: resolvedLat,
+            lng: resolvedLng,
+            postcode: resolvedPostcode,
           });
         } catch {
           clientLocationCache.set(clientName, { postcode });
