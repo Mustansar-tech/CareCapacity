@@ -123,48 +123,60 @@ function getDeparturePoint(
     return { ...homeCoords, source: 'home' };
   }
 
-  // Find the last visit that ends at or before the enquiry start
-  let lastVisit: CpVisitEntry | null = null;
+  // Two things to track separately:
+  //   lastActivityEndMins — end time of the most recent visit of ANY type (including
+  //                         office/admin entries with no coords). Tells us whether the
+  //                         CP is still on-duty within 90 minutes of the enquiry start.
+  //   lastGeoVisit        — most recent visit WITH valid lat/lng. Used as the actual
+  //                         departure location for travel-time calculation.
+  let lastActivityEndMins = -1;
+  let lastGeoVisit: CpVisitEntry | null = null;
+
   for (const visit of dayVisits) {
     const visitEndMin = timeToMinutes(visit.endTime);
     if (visitEndMin <= enquiryStartMinutes) {
-      lastVisit = visit;
+      if (visitEndMin > lastActivityEndMins) lastActivityEndMins = visitEndMin;
+      if (visit.lat && visit.lng) lastGeoVisit = visit;
     }
   }
 
-  if (!lastVisit || !lastVisit.lat || !lastVisit.lng) {
-    logger.debug(`getDeparturePoint: no valid last visit for ${empName} on ${dateStr}`, {
-      lastVisit: lastVisit ? { endTime: lastVisit.endTime, lat: lastVisit.lat, lng: lastVisit.lng } : null,
-      enquiryStartMin: enquiryStartMinutes,
-      visitsCount: dayVisits.length,
-    });
+  if (lastActivityEndMins < 0) {
+    // No prior visits at all on this day
+    logger.debug(`getDeparturePoint: no prior visits for ${empName} on ${dateStr}`);
     return { ...homeCoords, source: 'home' };
   }
 
-  const gapMin = enquiryStartMinutes - timeToMinutes(lastVisit.endTime);
+  const gapMin = enquiryStartMinutes - lastActivityEndMins;
   logger.debug(`getDeparturePoint: gap analysis for ${empName} on ${dateStr}`, {
     gapMin,
     enquiryStartMin: enquiryStartMinutes,
-    lastVisitEndTime: lastVisit.endTime,
-    lastVisitClient: lastVisit.clientName,
+    lastActivityEndMins,
+    lastGeoVisitClient: lastGeoVisit?.clientName,
   });
-  
+
   if (gapMin >= 90) {
+    // CP has been idle for 90+ minutes — assume they've returned home
     logger.debug(`getDeparturePoint: gap >= 90 min, using home for ${empName}`);
     return { ...homeCoords, source: 'home' };
   }
 
-  logger.debug(`getDeparturePoint: gap < 90 min, using last client for ${empName}`, {
+  if (!lastGeoVisit) {
+    // CP is still on-duty (gap < 90) but no geocoded visit available for routing
+    logger.debug(`getDeparturePoint: gap < 90 but no geocoded visit, using home for ${empName}`);
+    return { ...homeCoords, source: 'home' };
+  }
+
+  logger.debug(`getDeparturePoint: gap < 90 min, using last geocoded client for ${empName}`, {
     gapMin,
-    lastVisitClient: lastVisit.clientName,
-    postcode: lastVisit.postcode,
+    lastGeoVisitClient: lastGeoVisit.clientName,
+    postcode: lastGeoVisit.postcode,
   });
 
   return {
-    lat: lastVisit.lat,
-    lng: lastVisit.lng,
+    lat: lastGeoVisit.lat!,
+    lng: lastGeoVisit.lng!,
     source: 'last-client',
-    postcode: lastVisit.postcode,
+    postcode: lastGeoVisit.postcode,
   };
 }
 

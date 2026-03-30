@@ -237,12 +237,11 @@ export async function extractClientVisitsFromGHExcel(
     const clientName = String(clientNameRaw).trim();
 
     // Check client name for office keywords (like "Visit, Office")
-    // These are EXCLUDED from scheduling but INCLUDED in scheduled hours totals
+    // These are kept in the schedule map so getDeparturePoint knows the CP was
+    // active until that end time — but they carry no geocoords, so they never
+    // become a travel-time departure location themselves.
     const clientNameLower = clientName.toLowerCase();
-    if (clientNameLower.includes('office') || clientNameLower.includes('visit, office')) {
-      logger.debug(`Excluding office visit from scheduling: "${clientName}"`);
-      continue;
-    }
+    const isOfficeVisit = clientNameLower.includes('office') || clientNameLower.includes('visit, office');
 
     // Get service type and skip excluded service types (office hours, night shifts, secondary care)
     const serviceTypeRaw = pickCol(row, SERVICE_TYPE_COLS);
@@ -468,9 +467,13 @@ export async function extractEmployeeVisitsFromGHExcel(
       const clientName = String(clientNameRaw).trim();
       if (!clientName) continue;
 
-      // Skip office/admin/non-care visits
+      // Classify office/admin/non-care visits.
+      // These are kept in the schedule map so getDeparturePoint can track "last
+      // activity end time" (e.g. an office visit at 12:00–12:30 means the CP was
+      // still on-duty at 12:30). They are stored WITHOUT geocoords so they never
+      // become a travel-time departure location themselves.
       const clientNameLower = clientName.toLowerCase();
-      if (OFFICE_VISIT_KEYWORDS.some(kw => clientNameLower.includes(kw))) continue;
+      const isOfficeOrAdmin = OFFICE_VISIT_KEYWORDS.some(kw => clientNameLower.includes(kw));
 
       // Get and validate start time
       const startRaw = pickCol(row, START_COLS);
@@ -501,6 +504,16 @@ export async function extractEmployeeVisitsFromGHExcel(
 
       const startTime = fmt(startDate, 'HH:mm');
       const endTime = fmt(endDate, 'HH:mm');
+
+      // For office/admin visits, store without geocoords (no client location lookup needed)
+      if (isOfficeOrAdmin) {
+        const entry: CpVisitEntry = { clientName, startTime, endTime };
+        if (!result.has(empName)) result.set(empName, new Map());
+        const dayMap = result.get(empName)!;
+        if (!dayMap.has(visitDate)) dayMap.set(visitDate, []);
+        dayMap.get(visitDate)!.push(entry);
+        continue;
+      }
 
       // Get postcode from dedicated column or address
       let postcode: string | undefined;
