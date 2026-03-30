@@ -649,7 +649,7 @@ function CareProMap({
   );
 }
 
-function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTravel = false, onToggleSortByTravel, enquiryPostcode }: { result: MultiVisitResult; requiredDays?: string[]; className?: string; sortByTravel?: boolean; onToggleSortByTravel?: () => void; enquiryPostcode?: string }) {
+function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTravel = false, onToggleSortByTravel, enquiryPostcode, enquiryTime }: { result: MultiVisitResult; requiredDays?: string[]; className?: string; sortByTravel?: boolean; onToggleSortByTravel?: () => void; enquiryPostcode?: string; enquiryTime?: string }) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
@@ -719,7 +719,12 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                 </div>
               )}
             </div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-widest">{result.clientName || 'New Client'}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-widest">{result.clientName || 'New Client'}</p>
+              {enquiryTime && (
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{enquiryTime}</span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1355,6 +1360,7 @@ function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string }) {
                   sortByTravel={sortByTravel}
                   onToggleSortByTravel={() => setSortByTravel(v => !v)}
                   enquiryPostcode={postcode}
+                  enquiryTime={visits[parseInt(activeResultTab)]?.timeStart}
                 />
               </div>
             ) : showHistory ? (
