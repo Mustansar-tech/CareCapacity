@@ -76,43 +76,43 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // ─── Reset admin password (recovery endpoint) ────────────────────────────
-  // Disabled in production. In non-production environments it requires an
-  // active admin session so it is never publicly callable.
+  // This route is not registered at all in production, so every caller
+  // (authenticated or not) receives the Express default 404 and no
+  // information about the endpoint is leaked.
+  // In non-production environments it is protected by requireRole('admin').
 
-  app.post('/api/auth/reset-admin-password', requireRole('admin'), async (req: Request, res: Response) => {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).json({ message: 'Not found' });
-    }
-
-    const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: 'Invalid email or password format' });
-    }
-
-    const { email, password } = parsed.data;
-
-    // Only allow resetting if email is admin@homeinstead.com
-    if (email !== 'admin@homeinstead.com') {
-      return res.status(403).json({ message: 'Only admin@homeinstead.com can be reset via this endpoint' });
-    }
-
-    try {
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: 'Admin user not found' });
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/api/auth/reset-admin-password', requireRole('admin'), async (req: Request, res: Response) => {
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid email or password format' });
       }
 
-      const hash = await hashPassword(password);
-      await storage.updateUser(user.id, { passwordHash: hash });
+      const { email, password } = parsed.data;
 
-      logger.info(`Admin password reset for ${email}`);
+      // Only allow resetting if email is admin@homeinstead.com
+      if (email !== 'admin@homeinstead.com') {
+        return res.status(403).json({ message: 'Only admin@homeinstead.com can be reset via this endpoint' });
+      }
 
-      return res.json({ message: 'Admin password reset successfully' });
-    } catch (err) {
-      logger.error('Failed to reset admin password:', err);
-      return res.status(500).json({ message: 'Failed to reset password' });
-    }
-  });
+      try {
+        const user = await storage.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ message: 'Admin user not found' });
+        }
+
+        const hash = await hashPassword(password);
+        await storage.updateUser(user.id, { passwordHash: hash });
+
+        logger.info(`Admin password reset for ${email}`);
+
+        return res.json({ message: 'Admin password reset successfully' });
+      } catch (err) {
+        logger.error('Failed to reset admin password:', err);
+        return res.status(500).json({ message: 'Failed to reset password' });
+      }
+    });
+  }
 
   // ─── Auth endpoints ─────────────────────────────────────────────────────────
 
