@@ -3818,27 +3818,37 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             const pc = normalisePostcode(r.query || r.postcode || r.input || "");
             const addr = (r.address || "").trim().toUpperCase();
 
-            // Find client by postcode first (most reliable)
-            let clientName = null;
+            // Find ALL clients at this postcode and save coordinates for each one.
+            // Previously only candidates[0] was saved — all others were left with null lat/lng.
             if (pc) {
-              const candidates = clientByPostcode.get(pc);
-              if (candidates && candidates.length > 0) {
-                clientName = candidates[0]; // Take first match
-                logger.debug(`Found client via postcode match: ${clientName} (postcode: ${pc})`);
+              const candidates = clientByPostcode.get(pc) ?? [];
+              if (candidates.length > 0) {
                 if (candidates.length > 1) {
-                  logger.debug(`Multiple clients found for postcode ${pc}:`, candidates);
+                  logger.debug(`Multiple clients share postcode ${pc} — saving coords for all ${candidates.length}: ${candidates.join(', ')}`);
                 }
+                for (const cName of candidates) {
+                  logger.debug(`SAVING client geocode - Name: ${cName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
+                  await storage.upsertClientLocation({
+                    branchId: branchId!,
+                    clientName: cName,
+                    addressLine: clientLocationsMap.get(cName)?.addressLine || "",
+                    postcode: pc,
+                    lat: String(r.lat),
+                    lng: String(r.lng),
+                  });
+                  saved++;
+                }
+                continue; // handled via postcode — skip address fallback
               }
             }
 
-            // Fallback to address-based matching
-            if (!clientName && addr) {
-              // Try exact address match
+            // Postcode-based lookup found nothing — fallback to address matching
+            let clientName = null;
+            if (addr) {
               clientName = clientByAddress.get(addr);
               if (clientName) {
                 logger.debug(`Found client via address match: ${clientName}`);
               } else {
-                // Try partial address matching
                 for (const [mapAddr, mapClientName] of Array.from(clientByAddress.entries())) {
                   if (addr.includes(mapAddr) || mapAddr.includes(addr)) {
                     clientName = mapClientName;
@@ -3856,9 +3866,8 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
             }
 
             logger.debug(`SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
-
             await storage.upsertClientLocation({
-              branchId: branchId!, // Required branch ID for data isolation
+              branchId: branchId!,
               clientName,
               addressLine: clientLocationsMap.get(clientName)?.addressLine || "",
               postcode: pc,
