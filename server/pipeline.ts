@@ -507,6 +507,8 @@ function buildAdHocWindowsMap(
     const nameNorm = normalizeName(empName);
     if (!nameNorm) continue;
 
+    // Use planned times first (contracted schedule) so free windows reflect what was booked,
+    // not actual clock-in/clock-out times. Fall back to actual only if planned is absent.
     const startV = pickCol(r, ['Planned Start Date And Time', 'Service Requirement Start Date And Time', 'Actual Start Date And Time', 'Start Date And Time']);
     const endV = pickCol(r, ['Planned End Date And Time', 'Service Requirement End Date And Time', 'Actual End Date And Time', 'End Date And Time']);
     if (!startV || !endV) continue;
