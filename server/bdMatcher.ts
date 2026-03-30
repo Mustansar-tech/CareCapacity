@@ -717,9 +717,13 @@ function matchEmployeesForVisit(
                   { lat: nv.lat, lng: nv.lng },
                   weeklyData.transportMode
                 );
-                bestSlotForDay.forwardTravelMinutes = forwardMins;
-                if (forwardMins > gapMins + 5) {
-                  bestSlotForDay.forwardTravelWarning = true;
+                if (forwardMins >= 30 || forwardMins > gapMins + 20) {
+                  bestSlotForDay = null;
+                } else {
+                  bestSlotForDay.forwardTravelMinutes = forwardMins;
+                  if (forwardMins > gapMins + 5) {
+                    bestSlotForDay.forwardTravelWarning = true;
+                  }
                 }
               } else {
                 // Coordinates unavailable — cannot compute; flag for manual verification
@@ -786,6 +790,7 @@ function matchEmployeesForVisit(
             } else {
               if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                 const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                if (fwdMins >= 30 || fwdMins > gapMins + 20) continue;
                 altFwdMins = fwdMins;
                 if (fwdMins > gapMins + 5) altFwdWarning = true;
               } else {
@@ -833,6 +838,7 @@ function matchEmployeesForVisit(
               } else {
                 if (nextVisit.lat != null && nextVisit.lng != null && clientLocation) {
                   const fwdMins = travelTimeService.heuristicEstimate(clientLocation, { lat: nextVisit.lat, lng: nextVisit.lng }, weeklyData.transportMode);
+                  if (fwdMins >= 30 || fwdMins > gapMins + 20) continue;
                   altAdjFwdMins = fwdMins;
                   if (fwdMins > gapMins + 5) altAdjFwdWarning = true;
                 } else {
@@ -884,6 +890,9 @@ function matchEmployeesForVisit(
       departureSource = travelResult.departureSource;
       departureSummary = travelResult.departureSummary;
       
+      // Hard filter: car CPs >45 min, walker/public CPs >60 min
+      const maxAllowed = isCar ? 45 : 60;
+      if (travelMinutes > maxAllowed) continue;
       // Score based on real travel time bands
       if (travelMinutes <= 20) travelBonus = 15;
       else if (travelMinutes <= 30) travelBonus = 10;
