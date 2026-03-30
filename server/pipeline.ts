@@ -2233,49 +2233,6 @@ export async function processCapacityData(
     `Availability filtered: ${availabilityFiltered.length} rows (only master employees)`,
   );
 
-  // CRITICAL FIX: Deduplicate rows with same employee/date but conflicting statuses
-  // If an employee has multiple entries on the same date (e.g., Sick + Other Unavailable),
-  // keep only the highest priority entry (lower number = higher priority)
-  {
-    const employeeDateStatusMap = new Map<string, { row: any; priority: number; status: string }>();
-    let deduplicatedCount = 0;
-    
-    for (const row of availabilityFiltered) {
-      const empKey = row._normalizedName;
-      const dateStr = format(row._parsedDate, "yyyy-MM-dd");
-      const rowKey = `${empKey}|${dateStr}`;
-      const rowStatus = canonicalStatus(row.Type);
-      const rowPriority = STATUS_PRIORITY[rowStatus] ?? 999;
-      
-      const existing = employeeDateStatusMap.get(rowKey);
-      if (!existing || rowPriority < existing.priority) {
-        // Keep this row (higher priority or first occurrence)
-        if (existing) {
-          logger.debug(`DEDUP: Replacing ${existing.status} with ${rowStatus} for ${row.matchedEmployee?.originalName} on ${dateStr}`);
-          deduplicatedCount++;
-        }
-        employeeDateStatusMap.set(rowKey, { row, priority: rowPriority, status: rowStatus });
-      } else {
-        // Skip this row (lower priority than existing)
-        logger.debug(`DEDUP: Skipping ${rowStatus} (lower priority than ${existing.status}) for ${row.matchedEmployee?.originalName} on ${dateStr}`);
-        deduplicatedCount++;
-      }
-    }
-    
-    if (deduplicatedCount > 0) {
-      logger.debug(`Deduplicated ${deduplicatedCount} conflicting availability entries (${availabilityFiltered.length} → ${employeeDateStatusMap.size} rows)`);
-    }
-    
-    // Replace availabilityFiltered with deduplicated version
-    const dedupedRows = Array.from(employeeDateStatusMap.values()).map(v => v.row);
-    availabilityFiltered.length = 0; // Clear array
-    availabilityFiltered.push(...dedupedRows);
-  }
-
-  logger.debug(
-    `Availability after deduplication: ${availabilityFiltered.length} rows`,
-  );
-
   // Step 3: Create allAvailabilityWithMatching for compatibility with existing pipeline
   const allAvailabilityWithMatching = availabilityFiltered;
 
