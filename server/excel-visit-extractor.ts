@@ -467,13 +467,11 @@ export async function extractEmployeeVisitsFromGHExcel(
       const clientName = String(clientNameRaw).trim();
       if (!clientName) continue;
 
-      // Classify office/admin/non-care visits.
-      // These are kept in the schedule map so getDeparturePoint can track "last
-      // activity end time" (e.g. an office visit at 12:00–12:30 means the CP was
-      // still on-duty at 12:30). They are stored WITHOUT geocoords so they never
-      // become a travel-time departure location themselves.
-      const clientNameLower = clientName.toLowerCase();
-      const isOfficeOrAdmin = OFFICE_VISIT_KEYWORDS.some(kw => clientNameLower.includes(kw));
+      // Office/admin visits are included in the schedule map alongside client visits.
+      // They go through the same geocoding lookup — if their name matches a stored
+      // client location (e.g. the branch office address) they get real coordinates;
+      // otherwise they appear without lat/lng and still serve as activity-time markers
+      // so getDeparturePoint knows the CP was on-duty until that end time.
 
       // Get and validate start time
       const startRaw = pickCol(row, START_COLS);
@@ -504,16 +502,6 @@ export async function extractEmployeeVisitsFromGHExcel(
 
       const startTime = fmt(startDate, 'HH:mm');
       const endTime = fmt(endDate, 'HH:mm');
-
-      // For office/admin visits, store without geocoords (no client location lookup needed)
-      if (isOfficeOrAdmin) {
-        const entry: CpVisitEntry = { clientName, startTime, endTime };
-        if (!result.has(empName)) result.set(empName, new Map());
-        const dayMap = result.get(empName)!;
-        if (!dayMap.has(visitDate)) dayMap.set(visitDate, []);
-        dayMap.get(visitDate)!.push(entry);
-        continue;
-      }
 
       // Get postcode from dedicated column or address
       let postcode: string | undefined;
