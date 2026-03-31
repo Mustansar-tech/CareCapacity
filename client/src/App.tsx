@@ -10,7 +10,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
-import { SplashScreen } from "@/components/SplashScreen";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ErrorInfo, ReactNode, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -290,11 +289,6 @@ function AuthGate({ children }: { children: ReactNode }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
-  const [showSplash, setShowSplash] = useState(() => {
-    const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
-    return !hasSeenSplash;
-  });
-
   useEffect(() => {
     const fixRadixFocusGuards = () => {
       document.querySelectorAll<HTMLElement>('span[aria-hidden="true"][tabindex="0"]').forEach(el => {
@@ -307,11 +301,6 @@ function App() {
     return () => observer.disconnect();
   }, []);
 
-  const handleSplashComplete = () => {
-    sessionStorage.setItem('hasSeenSplash', 'true');
-    setShowSplash(false);
-  };
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -319,17 +308,9 @@ function App() {
           <BranchProvider>
             <TooltipProvider>
               <Toaster />
-              {showSplash ? (
-                <SplashScreen
-                  key="splash"
-                  onComplete={handleSplashComplete}
-                  minimumDisplayTime={2500}
-                />
-              ) : (
-                <AuthGate>
-                  <Router />
-                </AuthGate>
-              )}
+              <AuthGate>
+                <Router />
+              </AuthGate>
             </TooltipProvider>
           </BranchProvider>
         </AuthProvider>
