@@ -774,9 +774,9 @@ export default function Dashboard() {
                               const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
                               const sum = employees.reduce((acc, emp) => {
                                 const val = emp.netCapacity - emp.scheduledHours;
-                                return acc + (val > 0 ? val : 0);
+                                return acc + (val >= 1 ? Math.floor(val) : 0);
                               }, 0);
-                              const roundedSum = Math.round(sum * 100) / 100;
+                              const roundedSum = sum;
                               return (
                                 <Badge 
                                   variant="secondary" 
@@ -1407,11 +1407,11 @@ export default function Dashboard() {
                           const employees = (filteredData || processedData)?.employeesByDate[day.date] || [];
                           const daySum = employees.reduce((acc, emp) => {
                             const val = emp.netCapacity - emp.scheduledHours;
-                            return acc + (val > 0 ? val : 0);
+                            return acc + (val >= 1 ? Math.floor(val) : 0);
                           }, 0);
                           return acc + daySum;
                         }, 0) || 0;
-                        return Math.round(sum * 100) / 100;
+                        return sum;
                       })()}h
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
