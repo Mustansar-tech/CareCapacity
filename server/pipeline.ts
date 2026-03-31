@@ -3001,7 +3001,6 @@ export async function processCapacityData(
       status: record.status,
       timeWindows: record.timeWindows,
       contractedDailyHours: record.contractedDailyHours,
-      contractedWeeklyHours: record.contractedWeeklyHours,
       scheduledHours: record.scheduledHours,
       hours: record.hours,
       netCapacity: record.netCapacity,
@@ -3052,8 +3051,7 @@ export async function processCapacityData(
         employeeName: display,
         status: "Ad-hoc",
         timeWindows: windows,
-        contractedDailyHours: 0,
-        contractedWeeklyHours: 0,
+        contractedDailyHours: 0, // <- as requested
         scheduledHours: Math.round(schedHoursRaw * 100) / 100,
         hours: 0, // not counted toward availability
         netCapacity: 0, // do not inflate capacity
