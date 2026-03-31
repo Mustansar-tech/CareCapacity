@@ -139,13 +139,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* ── Left panel: image carousel (hidden on mobile) ── */}
-      <div className="hidden lg:block lg:w-1/2 xl:w-[55%] relative flex-shrink-0">
-        <ImageCarousel />
-      </div>
-
-      {/* ── Right panel: login form ── */}
-      <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-950 p-8 relative overflow-hidden">
+      {/* ── Left panel: login form ── */}
+      <div className="flex items-center justify-center bg-white dark:bg-gray-950 p-8 relative overflow-hidden w-full lg:w-[380px] xl:w-[420px] flex-shrink-0 shadow-xl z-10">
         {/* Subtle background blobs */}
         <div className="absolute -top-32 -right-32 w-72 h-72 bg-blue-400/8 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-32 -left-32 w-72 h-72 bg-emerald-400/8 rounded-full blur-3xl pointer-events-none" />
@@ -278,6 +273,11 @@ export default function LoginPage() {
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* ── Right panel: image carousel (hidden on mobile) ── */}
+      <div className="hidden lg:block flex-1 relative">
+        <ImageCarousel />
       </div>
     </div>
   );
