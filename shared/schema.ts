@@ -237,6 +237,7 @@ export interface EmployeeDailyDetail {
   status: string;
   timeWindows: string;
   contractedDailyHours: number;
+  contractedWeeklyHours: number;
   scheduledHours: number;
   hours: number;
   netCapacity: number;

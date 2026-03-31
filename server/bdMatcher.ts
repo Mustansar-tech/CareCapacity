@@ -434,7 +434,7 @@ async function buildEmployeeWeeklyData(
 
   for (const empName of Array.from(allEmployeeNames)) {
     let totalScheduled = 0;
-    let totalContractedDaily = 0;
+    let contractedWeekly = 0;
     let gender: string | undefined;
     let transportMode: string | undefined;
     let homePostcode: string | undefined;
@@ -450,15 +450,16 @@ async function buildEmployeeWeeklyData(
 
       const details = (employeesByDate[dateStr] || []) as EmployeeDailyDetail[];
       const empDetail = details.find(d => d.employeeName === empName);
-      if (empDetail && empDetail.contractedDailyHours > 0) {
-        totalContractedDaily += empDetail.contractedDailyHours;
+      // Use the actual GH weekly hours stored directly on the record (not summed daily)
+      if (empDetail && empDetail.contractedWeeklyHours > 0 && contractedWeekly === 0) {
+        contractedWeekly = empDetail.contractedWeeklyHours;
       }
     }
 
     const weeks = Math.max(1, numWeeks);
     employeeWeeklyData.set(empName, {
       totalScheduled: Math.round((totalScheduled / weeks) * 100) / 100,
-      contractedWeekly: Math.round((totalContractedDaily / weeks) * 100) / 100,
+      contractedWeekly,
       gender,
       transportMode,
       homePostcode,
