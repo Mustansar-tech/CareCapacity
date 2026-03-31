@@ -31,7 +31,7 @@ const SLIDES = [
     sub: "Give coordinators real-time visibility across every branch and shift.",
   },
   {
-    image: "https://images.unsplash.com/photo-1551190822-a9333d879b1f?w=1400&q=85&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1400&q=85&auto=format&fit=crop",
     headline: "Capacity at a Glance",
     sub: "Instantly see gaps, surpluses and opportunities — across the whole week.",
   },
@@ -70,15 +70,6 @@ function ImageCarousel() {
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
       <div className="absolute inset-0 bg-gradient-to-r from-blue-900/30 to-transparent" />
-
-      {/* Logo watermark top-left */}
-      <div className="absolute top-8 left-8 z-10">
-        <img
-          src={homeInsteadLogo}
-          alt="Home Instead"
-          className="h-10 w-auto object-contain brightness-0 invert opacity-90"
-        />
-      </div>
 
       {/* Bottom text + dots */}
       <div className="absolute bottom-0 left-0 right-0 p-10 z-10">
