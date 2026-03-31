@@ -21,7 +21,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 const SLIDES = [
   {
-    image: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1400&q=85&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1400&q=85&auto=format&fit=crop",
     headline: "Intelligent Care Scheduling",
     sub: "Optimise every Care Pro's day with AI-powered workforce planning.",
   },
