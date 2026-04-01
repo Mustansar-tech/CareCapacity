@@ -466,6 +466,23 @@ function makeIcon(gender: string) {
   });
 }
 
+function makeClientIcon() {
+  // Diamond shape in teal/emerald — completely distinct from the teardrop CP markers
+  const color = '#0d9488'; // teal-600
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+    <polygon points="15,2 28,15 15,28 2,15" fill="${color}" stroke="white" stroke-width="2.5"/>
+    <polygon points="15,9 21,15 15,21 9,15" fill="white" opacity="0.85"/>
+    <polygon points="15,12 18,15 15,18 12,15" fill="${color}"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -16],
+  });
+}
+
 function ZoomControls() {
   const map = useMap();
   return (
@@ -488,74 +505,92 @@ function ZoomControls() {
   );
 }
 
+type MapLayer = 'both' | 'carePros' | 'clients';
+
 function CareProMap({ 
   locations, 
+  clients,
   onRefresh, 
   isRefreshing 
 }: { 
   locations: EmployeeLocation[];
+  clients: ClientLocation[];
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
+  const [layer, setLayer] = useState<MapLayer>('both');
 
-  const validLocations = useMemo(
+  // ── Valid (geocoded) records ──────────────────────────────────────────────
+  const validEmployees = useMemo(
     () => locations.filter(l => l.homeLat && l.homeLng),
     [locations]
   );
+  const validClients = useMemo(
+    () => clients.filter(c => c.lat && c.lng),
+    [clients]
+  );
 
-  // Apply a small radial jitter to markers that share identical coordinates so
-  // they are all individually visible instead of stacking on top of each other.
-  const jitteredLocations = useMemo(() => {
-    const JITTER_RADIUS = 0.0003; // ~30 m — only separates markers when zoomed in close; won't push coastal markers into sea
-    const coordKey = (loc: EmployeeLocation) =>
-      `${parseFloat(loc.homeLat!).toFixed(6)},${parseFloat(loc.homeLng!).toFixed(6)}`;
-
-    // Group by exact coordinate
-    const groups = new Map<string, EmployeeLocation[]>();
-    for (const loc of validLocations) {
-      const key = coordKey(loc);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(loc);
+  // ── Jitter helper — spreads _jLat/_jLng onto each item ───────────────────
+  function applyJitter<T>(items: T[], getLat: (i: T) => number, getLng: (i: T) => number): (T & { _jLat: number; _jLng: number })[] {
+    const JITTER = 0.0003;
+    const key = (i: T) => `${getLat(i).toFixed(6)},${getLng(i).toFixed(6)}`;
+    const groups = new Map<string, T[]>();
+    for (const item of items) {
+      const k = key(item);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(item);
     }
-
-    return validLocations.map(loc => {
-      const key = coordKey(loc);
-      const group = groups.get(key)!;
-      if (group.length === 1) return { ...loc, _jLat: parseFloat(loc.homeLat!), _jLng: parseFloat(loc.homeLng!) };
-      const idx = group.indexOf(loc);
+    return items.map(item => {
+      const group = groups.get(key(item))!;
+      const idx = group.indexOf(item);
       const angle = (2 * Math.PI * idx) / group.length;
+      const baseLat = getLat(item);
+      const baseLng = getLng(item);
       return {
-        ...loc,
-        _jLat: parseFloat(loc.homeLat!) + JITTER_RADIUS * Math.cos(angle),
-        _jLng: parseFloat(loc.homeLng!) + JITTER_RADIUS * Math.sin(angle),
+        ...item,
+        _jLat: group.length === 1 ? baseLat : baseLat + JITTER * Math.cos(angle),
+        _jLng: group.length === 1 ? baseLng : baseLng + JITTER * Math.sin(angle),
       };
     });
-  }, [validLocations]);
+  }
 
-  const femaleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'female').length, [validLocations]);
-  const maleCount = useMemo(() => validLocations.filter(l => normalizeGender(l.gender) === 'male').length, [validLocations]);
+  const jitteredEmployees = useMemo(
+    () => applyJitter(validEmployees, e => parseFloat(e.homeLat!), e => parseFloat(e.homeLng!)),
+    [validEmployees]
+  );
+  const jitteredClients = useMemo(
+    () => applyJitter(validClients, c => parseFloat(c.lat!), c => parseFloat(c.lng!)),
+    [validClients]
+  );
 
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const femaleCount = useMemo(() => validEmployees.filter(l => normalizeGender(l.gender) === 'female').length, [validEmployees]);
+  const maleCount   = useMemo(() => validEmployees.filter(l => normalizeGender(l.gender) === 'male').length, [validEmployees]);
+
+  // ── Map centre: average of all visible points ─────────────────────────────
   const center = useMemo<[number, number]>(() => {
-    if (validLocations.length === 0) return [53.5, -1.5];
-    const avgLat = validLocations.reduce((s, l) => s + parseFloat(l.homeLat!), 0) / validLocations.length;
-    const avgLng = validLocations.reduce((s, l) => s + parseFloat(l.homeLng!), 0) / validLocations.length;
-    return [avgLat, avgLng];
-  }, [validLocations]);
+    const allLats: number[] = [];
+    const allLngs: number[] = [];
+    if (layer !== 'clients') validEmployees.forEach(e => { allLats.push(parseFloat(e.homeLat!)); allLngs.push(parseFloat(e.homeLng!)); });
+    if (layer !== 'carePros') validClients.forEach(c => { allLats.push(parseFloat(c.lat!)); allLngs.push(parseFloat(c.lng!)); });
+    if (allLats.length === 0) return [53.5, -1.5];
+    return [
+      allLats.reduce((s, v) => s + v, 0) / allLats.length,
+      allLngs.reduce((s, v) => s + v, 0) / allLngs.length,
+    ];
+  }, [validEmployees, validClients, layer]);
 
-  if (validLocations.length === 0) {
+  const hasData = validEmployees.length > 0 || validClients.length > 0;
+
+  if (!hasData) {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
         <MapIcon className="w-16 h-16 text-gray-300 mb-4" />
         <h4 className="text-xl font-bold text-gray-400">No Location Data</h4>
-        <p className="text-sm text-gray-400 mt-2">Ensure employee postcodes are uploaded and geocoded</p>
+        <p className="text-sm text-gray-400 mt-2">Ensure postcodes are uploaded and geocoded</p>
         {onRefresh && (
-          <Button 
-            onClick={onRefresh} 
-            disabled={isRefreshing}
-            variant="outline"
-            className="mt-4 gap-2"
-          >
+          <Button onClick={onRefresh} disabled={isRefreshing} variant="outline" className="mt-4 gap-2">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh Data
           </Button>
@@ -563,6 +598,38 @@ function CareProMap({
       </div>
     );
   }
+
+  const showCPs      = layer === 'both' || layer === 'carePros';
+  const showClients  = layer === 'both' || layer === 'clients';
+
+  // ── Layer toggle pill ─────────────────────────────────────────────────────
+  const LayerToggle = () => (
+    <div className="flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+      {(['carePros', 'both', 'clients'] as MapLayer[]).map((l, i) => {
+        const labels: Record<MapLayer, string> = { carePros: 'Care Pros', both: 'Both', clients: 'Clients' };
+        const active = layer === l;
+        return (
+          <button
+            key={l}
+            onClick={() => setLayer(l)}
+            className={`px-4 h-10 text-xs font-bold transition-all duration-200 ${
+              i !== 0 ? 'border-l border-gray-200' : ''
+            } ${
+              active
+                ? l === 'carePros'
+                  ? 'bg-indigo-600 text-white'
+                  : l === 'clients'
+                    ? 'bg-teal-600 text-white'
+                    : 'bg-gray-800 text-white'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {labels[l]}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="absolute inset-0">
@@ -573,61 +640,72 @@ function CareProMap({
         scrollWheelZoom={true}
         zoomControl={false}
       >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {jitteredLocations.map((loc) => (
-          <Marker
-            key={loc.id}
-            position={[loc._jLat, loc._jLng]}
-            icon={makeIcon(loc.gender || '')}
-          >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+        {/* ── Care Pro markers ── */}
+        {showCPs && jitteredEmployees.map((loc) => (
+          <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>
             {showPostcodes && (
               <Tooltip permanent direction="right" offset={[15, -20]} className="bg-white/90 border-none shadow-md font-bold text-[10px] px-2 py-1 rounded-md">
                 <span>{loc.homePostcode}</span>
               </Tooltip>
             )}
             <Popup>
-              <div className="text-center min-w-[140px]">
-                <p className="text-sm text-[#5d51d5] font-bold">{loc.employeeName}</p>
-                <p className="text-xs font-bold text-gray-500 mt-0.5 uppercase">{loc.homePostcode}</p>
-                <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
+              <div className="min-w-[150px]">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Care Pro</span>
+                </div>
+                <p className="text-sm font-bold text-gray-800">{loc.employeeName}</p>
+                <p className="text-xs font-bold text-gray-400 uppercase mt-0.5">{loc.homePostcode}</p>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                   {normalizeGender(loc.gender) && (
-                    <>
-                      <div className={`w-2 h-2 rounded-full ${normalizeGender(loc.gender) === 'female' ? 'bg-pink-500' : 'bg-blue-500'}`} />
-                      <span className="text-xs text-gray-600 capitalize">{normalizeGender(loc.gender)}</span>
-                    </>
+                    <span className={`text-xs font-semibold capitalize ${normalizeGender(loc.gender) === 'female' ? 'text-pink-600' : 'text-blue-600'}`}>
+                      {normalizeGender(loc.gender)}
+                    </span>
                   )}
-                  {loc.transportMode && normalizeGender(loc.gender) && (
-                    <span className="text-xs text-gray-400">•</span>
-                  )}
-                  {loc.transportMode && (
-                    <span className="text-xs text-gray-500 capitalize">{loc.transportMode}</span>
-                  )}
+                  {loc.transportMode && <span className="text-xs text-gray-400">• {loc.transportMode}</span>}
                 </div>
               </div>
             </Popup>
           </Marker>
         ))}
+
+        {/* ── Client markers ── */}
+        {showClients && jitteredClients.map((loc) => (
+          <Marker key={`cl-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeClientIcon()}>
+            {showPostcodes && (
+              <Tooltip permanent direction="right" offset={[15, -14]} className="bg-white/90 border-none shadow-md font-bold text-[10px] px-2 py-1 rounded-md">
+                <span>{loc.postcode}</span>
+              </Tooltip>
+            )}
+            <Popup>
+              <div className="min-w-[150px]">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <div className="w-2 h-2 rotate-45 bg-teal-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-teal-600">Client</span>
+                </div>
+                <p className="text-sm font-bold text-gray-800">{loc.clientName}</p>
+                <p className="text-xs font-bold text-gray-400 uppercase mt-0.5">{loc.postcode}</p>
+                {loc.addressLine && <p className="text-xs text-gray-500 mt-0.5">{loc.addressLine}</p>}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
         <ZoomControls />
       </MapContainer>
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
+
+      {/* ── Bottom toolbar ── */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2 items-center">
+        <LayerToggle />
         <Button 
           onClick={() => setShowPostcodes(!showPostcodes)}
           className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
           title={showPostcodes ? 'Hide postcodes' : 'Show postcodes'}
         >
-          {showPostcodes ? (
-            <>
-              <Eye className="w-4 h-4 text-blue-600" />
-              <span className="hidden sm:inline">Postcodes</span>
-            </>
-          ) : (
-            <>
-              <EyeOff className="w-4 h-4 text-gray-400" />
-              <span className="hidden sm:inline">Show</span>
-            </>
-          )}
+          {showPostcodes ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
+          <span className="hidden sm:inline text-xs">{showPostcodes ? 'Postcodes' : 'Show'}</span>
         </Button>
         {onRefresh && (
           <Button 
@@ -636,20 +714,43 @@ function CareProMap({
             className="bg-white/95 hover:bg-white dark:bg-gray-800/95 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
           >
             <RefreshCw className={`w-4 h-4 text-purple-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            <span className="hidden sm:inline text-xs">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </Button>
         )}
       </div>
-      <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-2 z-[1000]">
-        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b pb-2 mb-1">Legend</h5>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-pink-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Female Care Pro <span className="text-pink-600">({femaleCount})</span></span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 bg-blue-500 rounded-full border-2 border-white shadow-sm" />
-          <span className="text-xs font-bold text-gray-700">Male Care Pro <span className="text-blue-600">({maleCount})</span></span>
-        </div>
+
+      {/* ── Legend ── */}
+      <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-1.5 z-[1000] min-w-[170px]">
+        <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2 mb-0.5">Legend</h5>
+
+        {/* Care Pro section */}
+        {showCPs && (
+          <>
+            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mt-0.5">Care Pros ({validEmployees.length})</p>
+            <div className="flex items-center gap-2">
+              <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#ec4899" stroke="white" strokeWidth="2"/></svg>
+              <span className="text-xs font-semibold text-gray-700">Female <span className="text-pink-500">({femaleCount})</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#3b82f6" stroke="white" strokeWidth="2"/></svg>
+              <span className="text-xs font-semibold text-gray-700">Male <span className="text-blue-500">({maleCount})</span></span>
+            </div>
+          </>
+        )}
+
+        {/* Divider when both shown */}
+        {layer === 'both' && <div className="border-t border-gray-100 my-0.5" />}
+
+        {/* Client section */}
+        {showClients && (
+          <>
+            <p className="text-[9px] font-black uppercase tracking-widest text-teal-500 mt-0.5">Clients ({validClients.length})</p>
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 30 30"><polygon points="15,2 28,15 15,28 2,15" fill="#0d9488" stroke="white" strokeWidth="2.5"/></svg>
+              <span className="text-xs font-semibold text-gray-700">Client location</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1932,7 +2033,7 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2 font-bold rounded-xl border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">
                     <MapIcon className="w-4 h-4 text-blue-600" />
-                    View Care Pro Map
+                    View Map
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-none rounded-none bg-transparent">
@@ -1954,15 +2055,16 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
                           <MapPin className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex flex-col">
-                          <h2 className="text-xl tracking-tight text-gray-900 dark:text-white font-semibold">Care Pro Map</h2>
-                          <p className="text-gray-500 dark:text-gray-400 font-bold text-[10px] uppercase tracking-[0.08em]">Geographic Distribution</p>
+                          <h2 className="text-xl tracking-tight text-gray-900 dark:text-white font-semibold">Workforce & Client Map</h2>
+                          <p className="text-gray-500 dark:text-gray-400 font-bold text-[10px] uppercase tracking-[0.08em]">Care Pros · Clients · Geographic Distribution</p>
                         </div>
                       </div>
                     </div>
                   </div>
                   <div className="flex-1 relative bg-gray-100 overflow-hidden">
                     <CareProMap 
-                      locations={locations} 
+                      locations={locations}
+                      clients={locationsData?.clients ?? []}
                       onRefresh={() => refetchLocations()} 
                       isRefreshing={isFetchingLocations} 
                     />
