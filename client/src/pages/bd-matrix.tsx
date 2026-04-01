@@ -117,6 +117,12 @@ function getStatusIcon(count: number) {
 }
 
 // Normalize a raw transport mode string to 'car' | 'walking' | 'public'
+function roundContractedHours(hours: number): number {
+  const decimal = hours % 1;
+  if (decimal === 0.5) return hours;
+  return Math.round(hours);
+}
+
 function normalizeTransportMode(raw?: string): 'car' | 'walking' | 'public' {
   const s = (raw || '').toLowerCase().trim();
   if (s.includes('walk') || s.includes('foot') || s.includes('pedestrian')) return 'walking';
@@ -892,7 +898,8 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                     if (!slotOnDay) return null;
 
                                     const isExact = slotOnDay.matchType === 'exact';
-                                    const remainingHours = (employeeMatch.contractedWeeklyHours - employeeMatch.totalScheduledHours).toFixed(1);
+                                    const roundedDesired = roundContractedHours(employeeMatch.contractedWeeklyHours);
+                                    const remainingHours = (roundedDesired - employeeMatch.totalScheduledHours).toFixed(1);
 
                                     const isStarred = currentStar?.employeeName === employeeMatch.employeeName;
 
@@ -934,12 +941,12 @@ function MatchResultsGrid({ result, requiredDays = [], className = '', sortByTra
                                                 <ShadcnTooltip>
                                                   <TooltipTrigger asChild>
                                                     <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400 ml-auto flex-shrink-0 cursor-help">
-                                                      {employeeMatch.totalScheduledHours} / {employeeMatch.contractedWeeklyHours}
+                                                      {employeeMatch.totalScheduledHours} / {roundedDesired}
                                                     </span>
                                                   </TooltipTrigger>
                                                   <TooltipContent className="bg-gray-900 text-white border-gray-800 font-bold text-[10px] py-1.5">
                                                     <p>Scheduled: {employeeMatch.totalScheduledHours}h</p>
-                                                    <p>Desired: {employeeMatch.contractedWeeklyHours}h</p>
+                                                    <p>Desired: {roundedDesired}h</p>
                                                     <p>Remaining: {remainingHours}h</p>
                                                   </TooltipContent>
                                                 </ShadcnTooltip>
