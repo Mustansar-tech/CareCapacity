@@ -337,7 +337,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
       {/* Main Content Area */}
       <div className="w-full flex-1 px-lg py-4 overflow-y-auto animate-fade-in flex flex-col">
         {/* Compact Upload Toggle - Shows when no data is loaded */}
@@ -1361,7 +1360,7 @@ export default function Dashboard() {
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
                         <Clock className="w-4 h-4 text-white" />
                       </div>
-                      <span className="text-gray-700 dark:text-gray-300">Client Required</span>
+                      <span className="text-gray-700 dark:text-gray-300">Client Hours</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
