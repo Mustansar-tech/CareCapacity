@@ -566,7 +566,7 @@ export default function Dashboard() {
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
-              Overview
+              Home
             </TabsTrigger>
             <TabsTrigger
               value="daily-capacity"
