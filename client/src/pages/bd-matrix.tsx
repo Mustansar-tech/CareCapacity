@@ -467,19 +467,19 @@ function makeIcon(gender: string) {
 }
 
 function makeClientIcon() {
-  // Diamond shape in teal/emerald — completely distinct from the teardrop CP markers
-  const color = '#0d9488'; // teal-600
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-    <polygon points="15,2 28,15 15,28 2,15" fill="${color}" stroke="white" stroke-width="2.5"/>
-    <polygon points="15,9 21,15 15,21 9,15" fill="white" opacity="0.85"/>
-    <polygon points="15,12 18,15 15,18 12,15" fill="${color}"/>
+  // Same teardrop shape as Care Pros but black color
+  const color = '#1f2937'; // gray-800 / black
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+    <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
+    <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
+    <circle cx="16" cy="16" r="4" fill="${color}"/>
   </svg>`;
   return L.divIcon({
     html: svg,
     className: '',
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -16],
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -40],
   });
 }
 
@@ -682,8 +682,8 @@ function CareProMap({
             <Popup>
               <div className="min-w-[150px]">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <div className="w-2 h-2 rotate-45 bg-teal-500" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-teal-600">Client</span>
+                  <div className="w-2 h-2 rounded-full bg-gray-800" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">Client</span>
                 </div>
                 <p className="text-sm font-bold text-gray-800">{loc.clientName}</p>
                 <p className="text-xs font-bold text-gray-400 uppercase mt-0.5">{loc.postcode}</p>
@@ -744,9 +744,9 @@ function CareProMap({
         {/* Client section */}
         {showClients && (
           <>
-            <p className="text-[9px] font-black uppercase tracking-widest text-teal-500 mt-0.5">Clients ({validClients.length})</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mt-0.5">Clients ({validClients.length})</p>
             <div className="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 30 30"><polygon points="15,2 28,15 15,28 2,15" fill="#0d9488" stroke="white" strokeWidth="2.5"/></svg>
+              <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#1f2937" stroke="white" strokeWidth="2"/></svg>
               <span className="text-xs font-semibold text-gray-700">Client location</span>
             </div>
           </>
