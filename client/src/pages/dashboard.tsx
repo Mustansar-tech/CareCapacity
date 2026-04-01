@@ -1367,7 +1367,7 @@ export default function Dashboard() {
                     <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
                       {(filteredData || processedData)?.kpis.clientRequiredSum}h
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Demand hours</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Care hours</div>
                   </CardContent>
                 </Card>
 
