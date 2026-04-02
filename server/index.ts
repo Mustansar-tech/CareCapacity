@@ -37,19 +37,24 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 const PgSession = connectPgSimple(session);
 const sessionPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
+
 app.use(session({
   store: new PgSession({
     pool: sessionPool,
     tableName: 'session',
     createTableIfMissing: true,
+    // Prune expired sessions from the DB every hour
+    pruneSessionInterval: 60 * 60,
   }),
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
+  rolling: true,               // Reset expiry on every authenticated request
   cookie: {
     secure: isProduction,
     httpOnly: true,
-    maxAge: 8 * 60 * 60 * 1000, // 8 hours — typical care shift length
+    maxAge: SESSION_MAX_AGE_MS,
     sameSite: 'lax',
   },
 }));

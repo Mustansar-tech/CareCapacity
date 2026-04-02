@@ -1,7 +1,19 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Global handler called when any authenticated API request returns 401
+// (i.e., the server session has expired). The AuthProvider sets this.
+let globalUnauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  globalUnauthorizedHandler = fn;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    // Fire the global handler on 401 so the app can react immediately
+    if (res.status === 401) {
+      globalUnauthorizedHandler?.();
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }

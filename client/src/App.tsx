@@ -1,5 +1,5 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,10 +11,18 @@ import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import homeInsteadLogo from "@/assets/logo.png";
-import { Component, ErrorInfo, ReactNode, useState, useEffect } from "react";
+import { Component, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Shield, LogOut, ChevronDown, User } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
+import { useSessionTimeout } from "@/hooks/use-session-timeout";
 
 // Lazy load heavy pages
 const DashboardModule = lazy(() => import("@/pages/dashboard"));
@@ -263,6 +272,91 @@ function Router() {
   );
 }
 
+// ─── Session Timeout Manager ──────────────────────────────────────────────────
+// Handles inactivity detection, warning dialog, and automatic logout.
+// Mounted only when the user is authenticated.
+
+function SessionTimeoutManager() {
+  const { logout } = useAuth();
+
+  // stable reference so onExpire never changes identity
+  const logoutRef = useRef(logout);
+  useEffect(() => { logoutRef.current = logout; }, [logout]);
+
+  const handleExpire = useCallback(() => { logoutRef.current(); }, []);
+
+  const { showWarning, secondsRemaining, extend } = useSessionTimeout({ onExpire: handleExpire });
+
+  // Wire the global 401 handler so any server-expired request also logs out
+  useEffect(() => {
+    setUnauthorizedHandler(() => { logoutRef.current(); });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
+  const minutes = Math.floor(secondsRemaining / 60);
+  const secs    = secondsRemaining % 60;
+
+  const handleStayIn = async () => {
+    extend();
+    // Touch the server session so the rolling cookie is refreshed
+    try { await fetch('/api/auth/me', { credentials: 'include' }); } catch { /* ignore */ }
+  };
+
+  return (
+    <Dialog open={showWarning} onOpenChange={() => {}}>
+      <DialogContent
+        className="sm:max-w-md rounded-2xl border-0 shadow-2xl"
+        onPointerDownOutside={e => e.preventDefault()}
+        onEscapeKeyDown={e => e.preventDefault()}
+      >
+        <DialogHeader className="items-center text-center gap-3 pt-2">
+          <div className="mx-auto w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+            <Clock className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+          </div>
+          <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+            Session Expiring Soon
+          </DialogTitle>
+          <DialogDescription className="text-center text-sm text-gray-600 dark:text-gray-400">
+            You've been inactive for a while. For your security you'll be automatically signed out in:
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Countdown */}
+        <div className="flex items-center justify-center gap-3 my-2">
+          <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl px-6 py-3 text-center min-w-[100px]">
+            <span className="text-4xl font-black tabular-nums text-amber-700 dark:text-amber-300">
+              {String(minutes).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300 mx-0.5">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          Any unsaved work will remain — your data is safe.
+        </div>
+
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 mt-1">
+          <Button
+            variant="outline"
+            onClick={() => logout()}
+            className="flex-1 rounded-xl border-gray-300 dark:border-gray-600"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out Now
+          </Button>
+          <Button
+            onClick={handleStayIn}
+            className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold shadow-lg"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Stay Signed In
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Auth Gate ────────────────────────────────────────────────────────────────
 
 function AuthGate({ children }: { children: ReactNode }) {
@@ -283,7 +377,12 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <LoginPage />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <SessionTimeoutManager />
+      {children}
+    </>
+  );
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
