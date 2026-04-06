@@ -7,7 +7,8 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
-  Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft
+  Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft,
+  Bug, MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -384,6 +385,118 @@ function EditUserDialog({ user, branches, onUpdated }: { user: AdminUser; branch
   );
 }
 
+// ─── Feedback Tab ─────────────────────────────────────────────────────────────
+
+interface FeedbackItem {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  stepsToReproduce?: string;
+  submittedByEmail: string;
+  branchId?: string;
+  submittedAt: string;
+}
+
+function FeedbackTab() {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const { data: feedbackItems = [], isLoading, refetch } = useQuery<FeedbackItem[]>({
+    queryKey: ['/api/feedback'],
+  });
+
+  return (
+    <TabsContent value="feedback">
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Feedback & Bug Reports</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="gap-1.5 h-8"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[520px]">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+              </div>
+            ) : feedbackItems.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No feedback submitted yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {feedbackItems.map(item => (
+                  <div
+                    key={item.id}
+                    className="px-5 py-4 hover:bg-muted/20 transition-colors cursor-pointer"
+                    onClick={() => setExpanded(expanded === item.id ? null : item.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                        item.type === 'bug'
+                          ? 'bg-red-100 dark:bg-red-950'
+                          : 'bg-blue-100 dark:bg-blue-950'
+                      }`}>
+                        {item.type === 'bug'
+                          ? <Bug className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                          : <MessageSquare className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground truncate">{item.title}</p>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs shrink-0 ${
+                              item.type === 'bug'
+                                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30'
+                                : 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/30'
+                            }`}
+                          >
+                            {item.type === 'bug' ? 'Bug' : 'General'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.submittedByEmail}</p>
+                        {expanded === item.id && (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-sm text-foreground">{item.description}</p>
+                            {item.stepsToReproduce && (
+                              <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Steps to Reproduce</p>
+                                <p className="text-sm text-foreground whitespace-pre-wrap">{item.stepsToReproduce}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {new Date(item.submittedAt).toLocaleString('en-GB', {
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -484,6 +597,9 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="audit" className="rounded-lg gap-2 flex-1">
               <ClipboardList className="h-4 w-4" /> Audit Log
+            </TabsTrigger>
+            <TabsTrigger value="feedback" className="rounded-lg gap-2 flex-1">
+              <MessageSquare className="h-4 w-4" /> Feedback
             </TabsTrigger>
           </TabsList>
 
@@ -621,6 +737,9 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ── Feedback Tab ── */}
+          <FeedbackTab />
         </Tabs>
       </div>
     </div>

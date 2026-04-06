@@ -672,3 +672,29 @@ export const insertCpScheduledVisitSchema = createInsertSchema(cpScheduledVisits
 
 export type InsertCpScheduledVisit = z.infer<typeof insertCpScheduledVisitSchema>;
 export type CpScheduledVisit = typeof cpScheduledVisits.$inferSelect;
+
+// ── Feedback / Bug reports ────────────────────────────────────────────────────
+
+export const feedbackTypes = ['bug', 'general'] as const;
+export type FeedbackType = typeof feedbackTypes[number];
+
+export const feedback = pgTable("feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull().default('bug'),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  stepsToReproduce: text("steps_to_reproduce"),
+  submittedByEmail: text("submitted_by_email").notNull(),
+  branchId: varchar("branch_id"),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+}, (table) => ({
+  submittedAtIdx: index("feedback_submitted_at_idx").on(table.submittedAt),
+}));
+
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({
+  id: true,
+  submittedAt: true,
+});
+
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+export type Feedback = typeof feedback.$inferSelect;

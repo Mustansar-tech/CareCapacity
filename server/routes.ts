@@ -2184,6 +2184,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Feedback & Bug Reports ────────────────────────────────────────────────────
+
+  // POST /api/feedback — Any authenticated user can submit
+  app.post('/api/feedback', requireAuth, async (req, res) => {
+    try {
+      const { z } = await import('zod');
+      const bodySchema = z.object({
+        type: z.enum(['bug', 'general']).default('bug'),
+        title: z.string().min(1, 'Title required').max(200),
+        description: z.string().min(1, 'Description required').max(5000),
+        stepsToReproduce: z.string().max(5000).optional().nullable(),
+        branchId: z.string().optional().nullable(),
+      });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Invalid feedback data', errors: parsed.error.flatten() });
+      }
+      const submittedByEmail = req.session.userEmail || 'unknown';
+      const record = await storage.createFeedback({
+        ...parsed.data,
+        submittedByEmail,
+        stepsToReproduce: parsed.data.stepsToReproduce ?? null,
+        branchId: parsed.data.branchId ?? null,
+      });
+      res.status(201).json(record);
+    } catch (error) {
+      logger.error('Create feedback error', error);
+      res.status(500).json({ message: safeErrorMessage(error, 'Failed to submit feedback') });
+    }
+  });
+
+  // GET /api/feedback — Admin only
+  app.get('/api/feedback', requireAuth, requireRoleAtLeast('admin'), async (_req, res) => {
+    try {
+      const records = await storage.listFeedback();
+      res.json(records);
+    } catch (error) {
+      logger.error('List feedback error', error);
+      res.status(500).json({ message: safeErrorMessage(error, 'Failed to fetch feedback') });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

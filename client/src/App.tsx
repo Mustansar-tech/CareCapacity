@@ -14,10 +14,11 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
 import { AppFooter } from "@/components/AppFooter";
+import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -199,50 +200,62 @@ function UserMenu() {
 
 function Navigation() {
   const [, navigate] = useLocation();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
-      <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-2 shadow-2xl pt-[1px] pb-[1px]">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <div
-            className="flex items-center gap-3 cursor-pointer group transition-all duration-300 hover:scale-102"
-            onClick={() => navigate('/')}
-            role="link"
-            aria-label="Care Capacity Dashboard - Workforce Intelligence"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') navigate('/');
-            }}
-          >
-            <div className="relative">
-              <img
-                src={homeInsteadLogo}
-                alt="Care Capacity Dashboard"
-                width={48}
-                height={48}
-                className="h-12 w-auto rounded-lg object-contain border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
-              />
-            </div>
-            <div className="hidden sm:block">
-              <div className="text-base font-display font-bold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent">
-                Care Capacity Dashboard
+    <>
+      <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
+        <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-2 shadow-2xl pt-[1px] pb-[1px]">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <div
+              className="flex items-center gap-3 cursor-pointer group transition-all duration-300 hover:scale-102"
+              onClick={() => navigate('/')}
+              role="link"
+              aria-label="Care Capacity Dashboard - Workforce Intelligence"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') navigate('/');
+              }}
+            >
+              <div className="relative">
+                <img
+                  src={homeInsteadLogo}
+                  alt="Care Capacity Dashboard"
+                  width={48}
+                  height={48}
+                  className="h-12 w-auto rounded-lg object-contain border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
+                />
               </div>
-              <div className="text-xs text-muted-foreground font-medium opacity-80">Workforce Intelligence</div>
+              <div className="hidden sm:block">
+                <div className="text-base font-display font-bold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent">
+                  Care Capacity Dashboard
+                </div>
+                <div className="text-xs text-muted-foreground font-medium opacity-80">Workforce Intelligence</div>
+              </div>
             </div>
-          </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-3">
-            <BranchSelector />
-            <div className="p-1 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30">
-              <ThemeToggle />
+            {/* Controls */}
+            <div className="flex items-center gap-3">
+              <BranchSelector />
+              <button
+                onClick={() => setHelpOpen(true)}
+                aria-label="Help and Support"
+                title="Help & Support"
+                className="p-1.5 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors"
+              >
+                <HelpCircle className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              </button>
+              <div className="p-1 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30">
+                <ThemeToggle />
+              </div>
+              <UserMenu />
             </div>
-            <UserMenu />
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+      <HelpPanel open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </>
   );
 }
 

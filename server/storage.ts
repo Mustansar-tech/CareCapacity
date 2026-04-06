@@ -31,6 +31,8 @@ import {
   type InsertAuditLog,
   type CpScheduledVisit,
   type InsertCpScheduledVisit,
+  type Feedback,
+  type InsertFeedback,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -42,6 +44,7 @@ import {
   travelTimeCache, clientEnquiries,
   userBranches, auditLogs,
   cpScheduledVisits,
+  feedback,
 } from "@shared/schema";
 import { eq, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
 
@@ -140,6 +143,10 @@ export interface IStorage {
   saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry>;
   getClientEnquiries(branchId: string, limit?: number): Promise<ClientEnquiry[]>;
   deleteClientEnquiry(id: string): Promise<void>;
+
+  // Feedback / bug reports
+  createFeedback(data: InsertFeedback): Promise<Feedback>;
+  listFeedback(limit?: number): Promise<Feedback[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1008,6 +1015,15 @@ export class MemStorage implements IStorage {
 
   async deleteClientEnquiry(id: string): Promise<void> {
     this.clientEnquiriesMap.delete(id);
+  }
+
+  async createFeedback(data: InsertFeedback): Promise<Feedback> {
+    const [result] = await db.insert(feedback).values(data as any).returning();
+    return result;
+  }
+
+  async listFeedback(limit: number = 200): Promise<Feedback[]> {
+    return db.select().from(feedback).orderBy(desc(feedback.submittedAt)).limit(limit);
   }
 }
 
