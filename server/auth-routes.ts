@@ -33,6 +33,12 @@ export function registerAuthRoutes(app: Express) {
 
   app.post('/api/auth/bootstrap-admin', async (req: Request, res: Response) => {
     try {
+      // In production, disable the bootstrap endpoint entirely to prevent
+      // accidental privilege escalation. Return 404 to avoid leaking its existence.
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(404).json({ message: 'Not found' });
+      }
+
       // Check if any users exist yet
       const allUsers = await storage.getAllUsers();
       if (allUsers.length > 0) {

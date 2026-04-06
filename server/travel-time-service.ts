@@ -462,7 +462,7 @@ export class TravelTimeService {
    */
   private async fetchOSRMRoute(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
     try {
-      const url = `http://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), OSRM_TIMEOUT_MS);
       const response = await fetch(url, { signal: controller.signal });
