@@ -1338,12 +1338,27 @@ export default function Dashboard() {
                 {/* 5. Net Capacity */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                        <Users className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
-                    </CardTitle>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                              <Users className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
+                          </CardTitle>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Total available hours after exclusions</p>
+                            <p className="text-xs opacity-90">Calculated as:</p>
+                            <div className="text-xs space-y-1 opacity-90 font-mono">
+                              <p>Contracted Hours − (Sickness + Holidays + Unavailability)</p>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
@@ -1393,12 +1408,30 @@ export default function Dashboard() {
                 {/* 7. Other Scheduled */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
-                        <Clock className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
-                    </CardTitle>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
+                              <Clock className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
+                          </CardTitle>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Non-client hours scheduled</p>
+                            <p className="text-xs opacity-90">Includes:</p>
+                            <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
+                              <li>Office hours & admin work</li>
+                              <li>Training sessions</li>
+                              <li>Shadowing & induction</li>
+                              <li>On-call duties</li>
+                            </ul>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
@@ -1411,12 +1444,28 @@ export default function Dashboard() {
                 {/* 9. Capacity After Scheduling */}
                 <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
-                    </CardTitle>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                              <TrendingUp className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                          </CardTitle>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Available capacity remaining</p>
+                            <p className="text-xs opacity-90">Calculated as:</p>
+                            <div className="text-xs space-y-1 opacity-90 font-mono">
+                              <p>Net Capacity − (Domiciliary + Other Scheduled)</p>
+                              <p className="text-xs opacity-75">Values &lt; 1h are excluded (floored)</p>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
