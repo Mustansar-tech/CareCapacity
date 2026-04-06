@@ -71,6 +71,8 @@ Users authenticate with email + bcrypt password (12 salt rounds). Sessions are s
 
 **Status:** ✅ Implemented. Bootstrap endpoint production guard added.
 
+**Production first-admin provisioning:** The bootstrap endpoint is fully disabled in production. To provision the first admin user in a production deployment, set the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables before starting the server. The `seedAdminUser()` function in `server/auth.ts` reads these on startup and creates the admin account automatically if no users exist. After the initial seed, remove or rotate these variables — the seed function is idempotent and will skip if the user already exists.
+
 ---
 
 ### Tampering
