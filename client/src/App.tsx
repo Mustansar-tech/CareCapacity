@@ -6,10 +6,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { lazy, Suspense } from "react";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import Terms from "@/pages/terms";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
+import { CookieBanner } from "@/components/CookieBanner";
+import { AppFooter } from "@/components/AppFooter";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -268,6 +272,7 @@ function Router() {
           </Switch>
         )}
       </main>
+      <AppFooter />
     </div>
   );
 }
@@ -407,9 +412,16 @@ function App() {
           <BranchProvider>
             <TooltipProvider>
               <Toaster />
-              <AuthGate>
-                <Router />
-              </AuthGate>
+              <CookieBanner />
+              <Switch>
+                <Route path="/privacy" component={PrivacyPolicy} />
+                <Route path="/terms" component={Terms} />
+                <Route>
+                  <AuthGate>
+                    <Router />
+                  </AuthGate>
+                </Route>
+              </Switch>
             </TooltipProvider>
           </BranchProvider>
         </AuthProvider>

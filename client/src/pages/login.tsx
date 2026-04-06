@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, LogIn, Shield, AlertCircle } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -266,10 +266,19 @@ export default function LoginPage() {
           </Form>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-border text-center">
+          <div className="mt-8 pt-6 border-t border-border text-center space-y-3">
             <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
               <Shield className="h-3.5 w-3.5" />
               <span>Contact your administrator to reset your password</span>
+            </div>
+            <div className="flex items-center justify-center gap-3 text-xs text-gray-400 dark:text-gray-600">
+              <Link href="/privacy" className="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
+                Privacy Policy
+              </Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/terms" className="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
+                Terms &amp; Conditions
+              </Link>
             </div>
           </div>
         </motion.div>
