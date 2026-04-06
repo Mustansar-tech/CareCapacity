@@ -1362,10 +1362,13 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="top" align="center" className="max-w-xs text-sm z-50">
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
                           <div className="space-y-1.5">
-                            <p className="font-semibold">Total available hours</p>
-                            <p className="text-xs opacity-90">Contracted − (Sick + Holiday + Unavailable)</p>
+                            <p className="font-semibold">Total available hours after exclusions</p>
+                            <p className="text-xs opacity-90">Calculated as:</p>
+                            <div className="text-xs space-y-1 opacity-90 font-mono">
+                              <p>Contracted Hours − (Sickness + Holidays + Unavailability)</p>
+                            </div>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -1392,10 +1395,17 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="top" align="center" className="max-w-xs text-sm z-50">
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
                           <div className="space-y-1.5">
-                            <p className="font-semibold">Domiciliary care hours</p>
-                            <p className="text-xs opacity-90">Excludes secondary, office, training, sleep-in, shadowing, on-call</p>
+                            <p className="font-semibold">Total branch domiciliary care hours</p>
+                            <p className="text-xs opacity-90">Excludes:</p>
+                            <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
+                              <li>Cancelled visits</li>
+                              <li>Secondary/multiple care</li>
+                              <li>Office hours & training</li>
+                              <li>Sleep-in & waking nights</li>
+                              <li>Shadowing & on-call</li>
+                            </ul>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -1422,10 +1432,11 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="top" align="center" className="max-w-xs text-sm z-50">
-                          <div className="space-y-1">
-                            <p className="font-semibold">Client hours scheduled</p>
-                            <p className="text-xs opacity-90">Actual client visits booked</p>
+                        <TooltipContent side="bottom" align="center" className="max-w-xs text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Domiciliary hours scheduled</p>
+                            <p className="text-xs opacity-90">Actual client hours scheduled</p>
+                            <p className="text-xs opacity-75 font-mono">Gap = Required − Scheduled</p>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -1452,10 +1463,16 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="top" align="center" className="max-w-xs text-sm z-50">
-                          <div className="space-y-1">
-                            <p className="font-semibold">Non-client hours</p>
-                            <p className="text-xs opacity-90">Office, training, shadowing, on-call</p>
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Non-client hours scheduled</p>
+                            <p className="text-xs opacity-90">Includes:</p>
+                            <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
+                              <li>Office hours & admin work</li>
+                              <li>Training sessions</li>
+                              <li>Shadowing & induction</li>
+                              <li>On-call duties</li>
+                            </ul>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -1482,10 +1499,14 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="top" align="center" className="max-w-xs text-sm z-50">
-                          <div className="space-y-1">
-                            <p className="font-semibold">Remaining capacity</p>
-                            <p className="text-xs opacity-90">Net − (Domiciliary + Other) / floored</p>
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Available capacity remaining</p>
+                            <p className="text-xs opacity-90">Calculated as:</p>
+                            <div className="text-xs space-y-1 opacity-90 font-mono">
+                              <p>Net Capacity − (Domiciliary + Other Scheduled)</p>
+                              <p className="text-xs opacity-75">Values &lt; 1h are excluded (floored)</p>
+                            </div>
                           </div>
                         </TooltipContent>
                       </Tooltip>
