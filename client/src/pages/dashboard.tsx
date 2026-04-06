@@ -1363,11 +1363,21 @@ export default function Dashboard() {
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
                               <Clock className="w-4 h-4 text-white" />
                             </div>
-                            <span className="text-gray-700 dark:text-gray-300">Client Hours</span>
+                            <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-sm">
-                          Total branch client care hours (excludes cancelled visits and office/admin visits)
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Total branch domiciliary care hours</p>
+                            <p className="text-xs opacity-90">Excludes:</p>
+                            <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
+                              <li>Cancelled visits</li>
+                              <li>Secondary/multiple care</li>
+                              <li>Office hours & training</li>
+                              <li>Sleep-in & waking nights</li>
+                              <li>Shadowing & on-call</li>
+                            </ul>
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -1376,7 +1386,7 @@ export default function Dashboard() {
                     <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
                       {(filteredData || processedData)?.kpis.clientRequiredSum}h
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Branch total care hours</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Branch client care demand</div>
                   </CardContent>
                 </Card>
 
