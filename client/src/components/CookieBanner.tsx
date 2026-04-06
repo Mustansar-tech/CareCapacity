@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { Cookie, X } from "lucide-react";
+import { Cookie } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const STORAGE_KEY = "cookie_consent";
 
 export function CookieBanner() {
+  const { isAuthenticated, isLoading } = useAuth();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function CookieBanner() {
     setVisible(false);
   }
 
-  if (!visible) return null;
+  if (!visible || isLoading || isAuthenticated) return null;
 
   return (
     <div
@@ -49,7 +51,7 @@ export function CookieBanner() {
             </Link>
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex-shrink-0">
           <Button
             size="sm"
             onClick={accept}
@@ -57,13 +59,6 @@ export function CookieBanner() {
           >
             Got it
           </Button>
-          <button
-            onClick={accept}
-            aria-label="Dismiss"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
       </div>
     </div>
