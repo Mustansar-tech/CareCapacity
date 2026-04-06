@@ -686,6 +686,14 @@ export default function Dashboard() {
                             </Tooltip>
                           </TooltipProvider>
                         </TableHead>
+                        <TableHead data-testid="header-client-scheduled" className="text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="cursor-help">Client Scheduled</TooltipTrigger>
+                              <TooltipContent>Domiciliary hours actually scheduled to meet client demand</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableHead>
                         <TableHead data-testid="header-other-scheduled" className="text-right">
                           <TooltipProvider>
                             <Tooltip>
@@ -758,6 +766,12 @@ export default function Dashboard() {
                           <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
                             <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100">
                               {fmtH((day as any).clientRequired ?? 0)}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
+                            <Badge variant="secondary" className="bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400 border-teal-100">
+                              {fmtH((day as any).clientScheduledHours ?? 0)}
                             </Badge>
                           </TableCell>
 
@@ -1402,6 +1416,37 @@ export default function Dashboard() {
                       {(filteredData || processedData)?.kpis.clientRequiredSum}h
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Branch client care demand</div>
+                  </CardContent>
+                </Card>
+
+                {/* 6b. Client Scheduled Hours */}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
+                  <CardHeader className="pb-3">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                              <Clock className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
+                          </CardTitle>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                          <div className="space-y-1.5">
+                            <p className="font-semibold">Domiciliary hours scheduled</p>
+                            <p className="text-xs opacity-90">Shows how much client demand is covered by scheduled visits</p>
+                            <p className="text-xs opacity-75 font-mono">Gap = Client Required − Client Scheduled</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
+                      {(filteredData || processedData)?.kpis.clientScheduledHoursSum}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Hours scheduled to meet demand</div>
                   </CardContent>
                 </Card>
 
