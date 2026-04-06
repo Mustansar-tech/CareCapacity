@@ -1432,11 +1432,11 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                        <TooltipContent side="bottom" align="center" className="max-w-xs text-sm z-50">
                           <div className="space-y-1.5">
                             <p className="font-semibold">Domiciliary hours scheduled</p>
-                            <p className="text-xs opacity-90">Shows how much client demand is covered by scheduled visits</p>
-                            <p className="text-xs opacity-75 font-mono">Gap = Client Required − Client Scheduled</p>
+                            <p className="text-xs opacity-90">Actual client hours scheduled</p>
+                            <p className="text-xs opacity-75 font-mono">Gap = Required − Scheduled</p>
                           </div>
                         </TooltipContent>
                       </Tooltip>
