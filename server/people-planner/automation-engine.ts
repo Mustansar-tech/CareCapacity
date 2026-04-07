@@ -9,7 +9,7 @@ import { getReportConfig } from "./report-configs";
 export interface JobConfig {
   /** Direct Access Workspace URL for this branch, e.g. https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/ */
   branchUrl: string;
-  /** Optional People Planner area name (leave blank to use form default) */
+  /** Exact Franchise name to select in PP export forms (Area is always left as "All") */
   plannerArea?: string;
   startDate: string;
   endDate: string;
@@ -635,36 +635,26 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   let si = 0;
 
   if (reportConfig.fields.franchise && selectCount > si) {
-    if (config.plannerArea) {
-      // A specific plannerArea is configured — leave Franchise as "All" so the Area
-      // dropdown shows options across all franchises and we can pick the right one.
-      // Selecting a franchise first would filter out areas from other franchises.
-      logger.info("plannerArea configured — leaving Franchise as 'All'", {
-        plannerArea: config.plannerArea,
-      });
-    } else {
-      // Solo branch (one branch per PP instance) — select franchise by URL slug so
-      // the form is pre-filtered to the correct branch.
-      // e.g. "home-instead-uk-ayr-kilmarnock" → "ayr kilmarnock"
-      const slugMatch = config.branchUrl.match(/\/o\/(home-instead-[^/]+)/);
-      const franchiseName = slugMatch
-        ? slugMatch[1].replace(/home-instead-uk-/, "").replace(/-/g, " ")
-        : "";
-      if (franchiseName) {
-        await selectBest(selects.nth(si), franchiseName, "Franchise");
-      }
+    // For shared-PP branches plannerArea holds the exact Franchise name to select.
+    // For solo branches (no plannerArea) fall back to deriving it from the URL slug.
+    // Area is always left as "All" — the Franchise selection is the branch filter.
+    const franchiseName = config.plannerArea
+      ?? (() => {
+        const slugMatch = config.branchUrl.match(/\/o\/(home-instead-[^/]+)/);
+        return slugMatch
+          ? slugMatch[1].replace(/home-instead-uk-/, "").replace(/-/g, " ")
+          : "";
+      })();
+
+    if (franchiseName) {
+      await selectBest(selects.nth(si), franchiseName, "Franchise");
     }
     await plannerPage.waitForTimeout(1000);
     si++;
   }
 
   if (reportConfig.fields.area && selectCount > si) {
-    if (config.plannerArea) {
-      // Always select the specific area when one is configured for this branch.
-      // This is the key guard that prevents shared-PP branches from downloading
-      // each other's data (equivalent to the manual upload branch restriction).
-      await selectBest(selects.nth(si), config.plannerArea, "Area");
-    }
+    // Area is always left as "All" — Franchise selection is the branch filter
     await plannerPage.waitForTimeout(800);
     si++;
   }

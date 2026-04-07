@@ -21,15 +21,19 @@ import {
 export interface BranchPPConfig {
   /** Direct Access Workspace URL for this branch */
   branchUrl: string;
-  /** Optional People Planner area name (leave blank to use form default) */
+  /** Exact Franchise name to select in PP export forms (Area is always left as "All") */
   plannerArea?: string;
 }
 
 /**
  * Built-in mapping from DB branch ID → People Planner connection config.
- * plannerArea: the exact Area name to select in the PP export form for this branch.
- * Branches that share a PP instance MUST have plannerArea set so each branch only
- * downloads its own data. Solo branches (one branch per PP) can omit plannerArea.
+ *
+ * plannerArea: the exact Franchise name to select in the PP export form for this branch.
+ * In People Planner the Franchise dropdown is the branch filter; Area is always left as "All".
+ * Branches that share a PP instance MUST have plannerArea set so the correct Franchise is
+ * chosen and only that branch's data is downloaded.
+ * Solo branches (one franchise per PP) can omit plannerArea — the franchise is inferred
+ * from the Access Workspace URL slug.
  */
 const DEFAULT_BRANCH_PP_CONFIGS: Record<string, BranchPPConfig> = {
   // Ayr & Kilmarnock — solo PP, no area filter needed
