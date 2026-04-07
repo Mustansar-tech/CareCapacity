@@ -229,31 +229,38 @@ async function runJob(job: AutomationJob): Promise<void> {
       sharedPlannerPage = null;
     }
 
-    // ── Navigate to branch URL, then open People Planner ─────────────────
+    // ── Step 1: Login ─────────────────────────────────────────────────────
+    // ── Step 2: Navigate to branch URL to select the branch ───────────────
+    // ── Step 3: Open People Planner from the Access launcher ─────────────
     let plannerPage: Page;
     if (!sharedPlannerPage || sharedPlannerPage.isClosed()) {
       const workspacePage = await sharedContext.newPage();
       const branchUrl = job.config.branchUrl;
 
-      addLog(job, `Navigating to branch: ${branchUrl}`);
-      await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+      // Step 1 — Always go to login page first
+      addLog(job, "Navigating to Access Workspace login...");
+      await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
       await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
       const needsLogin = await checkNeedsLogin(workspacePage);
       if (needsLogin) {
-        addLog(job, "Session expired — logging in...");
+        addLog(job, "Logging in with credentials...");
         await login(workspacePage, email, password);
-        // After login, navigate back to the branch URL
-        addLog(job, `Navigating to branch after login: ${branchUrl}`);
-        await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-        await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
         await sharedContext.storageState({ path: SESSION_FILE });
         addLog(job, "Login successful, session saved.");
       } else {
-        addLog(job, "Using existing session.");
+        // force=true in LOGIN_URL normally always shows the form;
+        // if we land elsewhere the saved session is still valid
+        addLog(job, "Active session detected — skipping login form.");
       }
 
-      addLog(job, "Opening People Planner...");
+      // Step 2 — Navigate directly to the branch URL to select the branch
+      addLog(job, `Selecting branch via URL: ${branchUrl}`);
+      await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+
+      // Step 3 — Open People Planner from the launcher
+      addLog(job, "Opening People Planner from the Access launcher...");
       sharedPlannerPage = await openPeoplePlanner(sharedContext, workspacePage);
       addLog(job, "People Planner opened.");
     } else {
@@ -324,7 +331,10 @@ async function checkNeedsLogin(page: Page): Promise<boolean> {
 }
 
 async function login(page: Page, email: string, password: string): Promise<void> {
-  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  // Caller should already be on LOGIN_URL; navigate only if not already there
+  if (!page.url().includes("identity.accessacloud.com")) {
+    await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  }
 
   const emailField = page.getByPlaceholder(/enter your email address/i);
   await emailField.waitFor({ state: "visible", timeout: 15000 });
