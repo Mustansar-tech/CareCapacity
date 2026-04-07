@@ -1,4 +1,5 @@
 import type { Express, Request } from "express";
+import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { requireAuth, requireRoleAtLeast } from "../auth";
@@ -185,13 +186,28 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       ? !!getMergedBranchConfig(branchId)
       : Object.keys(DEFAULT_BRANCH_PP_CONFIGS).length > 0;
 
-    // Probe Playwright availability (non-blocking, 5s timeout)
+    // Probe Playwright availability (non-blocking, 10s timeout)
     let playwrightReady = false;
     try {
+      // Prefer the system Chromium (installed via Nix) over Playwright's managed download
+      let systemChromium: string | undefined;
+      try {
+        const found = execSync(
+          "which chromium 2>/dev/null || which chromium-browser 2>/dev/null || echo ''",
+          { encoding: "utf-8", timeout: 3000 },
+        ).trim();
+        if (found) systemChromium = found;
+      } catch { /* ignore */ }
+
       const { chromium } = await import("playwright");
+      const launchOpts: Parameters<typeof chromium.launch>[0] = {
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        ...(systemChromium ? { executablePath: systemChromium } : {}),
+      };
       const browser = await Promise.race([
-        chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+        chromium.launch(launchOpts),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000)),
       ]) as import("playwright").Browser;
       await browser.close();
       playwrightReady = true;

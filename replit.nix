@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.chromium
     pkgs.eudev
     pkgs.libxkbcommon
     pkgs.expat
