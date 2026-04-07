@@ -617,27 +617,25 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   let si = 0;
 
   if (reportConfig.fields.franchise && selectCount > si) {
-    // Derive a matchable franchise name from the branch URL slug
-    // e.g. "home-instead-uk-ayr-kilmarnock" → "ayr kilmarnock"
-    const slugMatch = config.branchUrl.match(/\/o\/(home-instead-[^/]+)/);
-    const franchiseName = slugMatch
-      ? slugMatch[1].replace(/home-instead-uk-/, "").replace(/-/g, " ")
-      : "";
-    if (franchiseName) {
-      await selectBest(selects.nth(si), franchiseName, "Franchise");
-    }
-    await plannerPage.waitForTimeout(1000);
+    // Always leave Franchise at "All". The Access Workspace org URL already scopes
+    // us to the correct franchise; selecting a specific franchise here would
+    // incorrectly filter the Area dropdown for branches that share a PP org
+    // (e.g. Glasgow North and North Lanarkshire share home-instead-uk-glasgow-north).
+    // The correct sub-franchise is selected via plannerArea in the Area dropdown below.
+    await plannerPage.waitForTimeout(500);
     si++;
   }
 
   if (reportConfig.fields.area && selectCount > si) {
     if (config.plannerArea) {
-      // Always select the specific area when one is configured for this branch.
-      // Branches sharing a People Planner franchise (e.g. Glasgow North & North Lanarkshire)
-      // must filter by area so only the correct branch's data is downloaded.
+      // Select the specific area (franchise) for this branch.
+      // In People Planner the "Area" dropdown contains what the business considers
+      // separate branch entities (e.g. "Glasgow North", "North Lanarkshire & Glasgow East").
+      // Branches that share a PP org MUST select the correct area here.
       await selectBest(selects.nth(si), config.plannerArea, "Area");
     }
-    // If no plannerArea is set, leave the dropdown at its default (typically "All")
+    // If no plannerArea is configured the dropdown stays at "All" which is correct
+    // for single-area franchises (Ayr, Glasgow South, Stirling, West Fife).
     await plannerPage.waitForTimeout(800);
     si++;
   }
