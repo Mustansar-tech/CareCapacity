@@ -7,8 +7,10 @@ import type { ReportType } from "./report-configs";
 import { getReportConfig } from "./report-configs";
 
 export interface JobConfig {
-  workspaceBranch: string;
-  plannerArea: string;
+  /** Direct Access Workspace URL for this branch, e.g. https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/ */
+  branchUrl: string;
+  /** Optional People Planner area name (leave blank to use form default) */
+  plannerArea?: string;
   startDate: string;
   endDate: string;
   reportType: ReportType;
@@ -18,7 +20,7 @@ export interface JobConfig {
   includeBankDetails?: boolean;
   careGiverType?: string;
   careGiverStatus?: string;
-  branchId?: string; // used for scoping and filtering
+  branchId?: string;
 }
 
 export interface AutomationJob {
@@ -39,7 +41,6 @@ const DOWNLOAD_DIR = path.resolve("/tmp/pp-automation-downloads");
 const SESSION_FILE = path.resolve("/tmp/pp-access-session.json");
 const DEBUG_DIR = path.resolve(process.cwd(), "pp-debug-screenshots");
 const LOGIN_URL = "https://identity.accessacloud.com/auth/signin?force=true&setemail=false&settenant=false";
-const WORKSPACE_URL = "https://go.accessacloud.com/";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const jobs = new Map<string, AutomationJob>();
@@ -228,41 +229,36 @@ async function runJob(job: AutomationJob): Promise<void> {
       sharedPlannerPage = null;
     }
 
-    // ── Login / workspace ──────────────────────────────────────────────────
-    let workspacePage: Page;
+    // ── Navigate directly to branch URL ───────────────────────────────────
+    let plannerPage: Page;
     if (!sharedPlannerPage || sharedPlannerPage.isClosed()) {
-      workspacePage = await sharedContext.newPage();
-      addLog(job, "Navigating to Access Workspace...");
-      await workspacePage.goto(WORKSPACE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+      plannerPage = await sharedContext.newPage();
+      const branchUrl = job.config.branchUrl;
 
-      const needsLogin = await checkNeedsLogin(workspacePage);
+      addLog(job, `Navigating to branch: ${branchUrl}`);
+      await plannerPage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await plannerPage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+
+      const needsLogin = await checkNeedsLogin(plannerPage);
       if (needsLogin) {
         addLog(job, "Session expired — logging in...");
-        await login(workspacePage, email, password);
+        await login(plannerPage, email, password);
+        // After login, navigate back to the branch URL
+        addLog(job, `Navigating to branch after login: ${branchUrl}`);
+        await plannerPage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await plannerPage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
         await sharedContext.storageState({ path: SESSION_FILE });
         addLog(job, "Login successful, session saved.");
       } else {
         addLog(job, "Using existing session.");
       }
 
-      if (!workspacePage.url().includes("go.accessacloud.com")) {
-        await workspacePage.goto(WORKSPACE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-        await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
-      }
-
-      addLog(job, `Selecting workspace branch: ${job.config.workspaceBranch}`);
-      await selectWorkspaceBranch(workspacePage, job.config.workspaceBranch);
-      addLog(job, "Branch selected.");
-
-      addLog(job, "Opening People Planner...");
-      sharedPlannerPage = await openPeoplePlanner(sharedContext, workspacePage);
-      addLog(job, "People Planner opened.");
+      sharedPlannerPage = plannerPage;
+      addLog(job, "Ready — branch context established.");
     } else {
-      addLog(job, "Reusing existing People Planner session.");
+      addLog(job, "Reusing existing branch session.");
+      plannerPage = sharedPlannerPage;
     }
-
-    const plannerPage = sharedPlannerPage;
 
     const reportConfig = getReportConfig(job.config.reportType);
     addLog(job, `Navigating to ${reportConfig.key} export...`);
@@ -357,9 +353,7 @@ async function login(page: Page, email: string, password: string): Promise<void>
     await page.waitForTimeout(1000);
   }
 
-  if (!page.url().includes("go.accessacloud.com")) {
-    await page.goto(WORKSPACE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  }
+  // Wait for Access Cloud to be ready (navigation to branch URL happens in caller)
   await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
 }
 
@@ -497,11 +491,21 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
 }
 
 // ─── Navigate to export page ──────────────────────────────────────────────────
+/** Convert a branch URL + relative PP path into a full URL.
+ *  e.g. ("https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/", "/Planning/Duty/...")
+ *  → "https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/Planning/Duty/..."
+ */
+function buildReportUrl(branchUrl: string, reportRelativePath: string): string {
+  const base = branchUrl.endsWith("/") ? branchUrl : branchUrl + "/";
+  const rel = reportRelativePath.startsWith("/") ? reportRelativePath.slice(1) : reportRelativePath;
+  return base + rel;
+}
+
 async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<void> {
   const reportConfig = getReportConfig(config.reportType);
 
   if (reportConfig.directUrl) {
-    const targetUrl = new URL(reportConfig.directUrl, plannerPage.url()).toString();
+    const targetUrl = buildReportUrl(config.branchUrl, reportConfig.directUrl);
     logger.info(`Navigating directly to ${config.reportType}`, { targetUrl });
     await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
@@ -597,8 +601,16 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   const selectCount = await selects.count();
   let si = 0;
 
-  if (reportConfig.fields.franchise && selectCount > si && config.workspaceBranch) {
-    await selectBest(selects.nth(si), config.workspaceBranch, "Franchise");
+  if (reportConfig.fields.franchise && selectCount > si) {
+    // Derive a matchable franchise name from the branch URL slug
+    // e.g. "home-instead-uk-ayr-kilmarnock" → "ayr kilmarnock"
+    const slugMatch = config.branchUrl.match(/\/o\/(home-instead-[^/]+)/);
+    const franchiseName = slugMatch
+      ? slugMatch[1].replace(/home-instead-uk-/, "").replace(/-/g, " ")
+      : "";
+    if (franchiseName) {
+      await selectBest(selects.nth(si), franchiseName, "Franchise");
+    }
     await plannerPage.waitForTimeout(1000);
     si++;
   }

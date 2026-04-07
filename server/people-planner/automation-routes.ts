@@ -17,17 +17,40 @@ import {
   type JobConfig,
 } from "./automation-engine";
 
-// ─── Branch config from env ───────────────────────────────────────────────────
+// ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {
-  workspaceBranch: string;
-  plannerArea: string;
+  /** Direct Access Workspace URL for this branch */
+  branchUrl: string;
+  /** Optional People Planner area name (leave blank to use form default) */
+  plannerArea?: string;
 }
 
-function getBranchPPConfig(branchId: string): BranchPPConfig | null {
+/**
+ * Built-in mapping from DB branch ID → Access Workspace direct URL.
+ * These are the production URLs provided by the client; no extra env config needed.
+ */
+const DEFAULT_BRANCH_URLS: Record<string, string> = {
+  "7bc2f2fe-c0e4-4b55-b32b-04954f4f86a7": "https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/",
+  "2f706320-5585-4e3c-8eb2-6c624acd7fca": "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/",
+  "c812f593-9ec6-4a18-b48e-c847cc2eac81": "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/",
+  "0d087ea2-68ed-45f3-9738-85de38d4ec9e": "https://go.accessacloud.com/o/home-instead-uk-perthshire/",
+  "92a144e1-b9d5-4ec6-b6fb-e8269ddf521d": "https://go.accessacloud.com/o/home-instead-uk-perthshire/",
+  "b661f59b-750f-4d75-9343-31bdc3fd9c60": "https://go.accessacloud.com/o/home-instead-uk-east-lothian/",
+  "2587f931-4a8c-4afd-bedf-6621ba55f0b4": "https://go.accessacloud.com/o/home-instead-uk-east-lothian/",
+  "d3859b52-cfbb-4c23-b94a-4ca4f5351d65": "https://go.accessacloud.com/o/home-instead-uk-glasgow-south/",
+  "311ed83e-0715-4a83-9cdf-ca6b7792b624": "https://go.accessacloud.com/o/home-instead-uk-sterling-falkirk/",
+  "7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4": "https://go.accessacloud.com/o/home-instead-uk-dunfermline/",
+};
+
+/**
+ * Look up branch config from PEOPLE_PLANNER_BRANCH_CONFIG env var (optional override).
+ * Env var format: { "<branchId>": { "branchUrl": "...", "plannerArea": "..." }, ... }
+ */
+function getBranchPPConfig(branchId: string): Partial<BranchPPConfig> | null {
   const raw = process.env.PEOPLE_PLANNER_BRANCH_CONFIG;
   if (!raw) return null;
   try {
-    const map = JSON.parse(raw) as Record<string, BranchPPConfig>;
+    const map = JSON.parse(raw) as Record<string, Partial<BranchPPConfig>>;
     return map[branchId] ?? null;
   } catch {
     return null;
@@ -38,10 +61,18 @@ function getBranchPPConfig(branchId: string): BranchPPConfig | null {
 const branchConfigOverrides = new Map<string, Partial<BranchPPConfig>>();
 
 function getMergedBranchConfig(branchId: string): BranchPPConfig | null {
-  const base = getBranchPPConfig(branchId);
+  const defaultUrl = DEFAULT_BRANCH_URLS[branchId];
+  const envConfig = getBranchPPConfig(branchId);
   const override = branchConfigOverrides.get(branchId);
-  if (!base && !override) return null;
-  return { ...base, ...override } as BranchPPConfig;
+
+  // Must have at least a branch URL (from defaults, env, or override)
+  const branchUrl = override?.branchUrl ?? envConfig?.branchUrl ?? defaultUrl;
+  if (!branchUrl) return null;
+
+  return {
+    branchUrl,
+    plannerArea: override?.plannerArea ?? envConfig?.plannerArea,
+  };
 }
 
 // ─── Report type → pipeline field name mapping ───────────────────────────────
@@ -106,9 +137,11 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   // GET /api/pp/health — check automation is configured, usable, and Playwright accessible
   app.get("/api/pp/health", requireAuth, async (req, res) => {
     const hasCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
-    const hasBranchConfig = !!process.env.PEOPLE_PLANNER_BRANCH_CONFIG;
     const branchId = req.query.branchId as string | undefined;
-    const branchConfigured = branchId ? !!getMergedBranchConfig(branchId) : hasBranchConfig;
+    // Branch URLs are built-in for all known branches; check the specific branch if provided
+    const branchConfigured = branchId
+      ? !!getMergedBranchConfig(branchId)
+      : Object.keys(DEFAULT_BRANCH_URLS).length > 0;
 
     // Probe Playwright availability (non-blocking, 5s timeout)
     let playwrightReady = false;
@@ -124,8 +157,16 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       // Playwright not available or failed to launch — report as not ready
     }
 
+    const healthy = hasCredentials && playwrightReady;
+    const reason = !hasCredentials
+      ? "ACCESS_EMAIL / ACCESS_PASSWORD not configured"
+      : !playwrightReady
+      ? "Browser automation engine is not ready"
+      : undefined;
+
     res.json({
-      enabled: hasCredentials && playwrightReady,
+      healthy,
+      reason,
       credentialsConfigured: hasCredentials,
       branchConfigured,
       playwrightReady,
@@ -142,6 +183,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     res.json({
       branchId,
       config: config ?? null,
+      hasDefaultConfig: !!DEFAULT_BRANCH_URLS[branchId],
       hasEnvConfig: !!getBranchPPConfig(branchId),
       hasOverride: branchConfigOverrides.has(branchId),
     });
@@ -149,9 +191,9 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // PUT /api/pp/config — update branch config override (admin only)
   app.put("/api/pp/config", requireAuth, requireRoleAtLeast("admin"), (req, res) => {
-    const { branchId, workspaceBranch, plannerArea } = req.body as {
+    const { branchId, branchUrl, plannerArea } = req.body as {
       branchId?: string;
-      workspaceBranch?: string;
+      branchUrl?: string;
       plannerArea?: string;
     };
 
@@ -162,7 +204,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     const existing = branchConfigOverrides.get(branchId) ?? {};
     const updated: Partial<BranchPPConfig> = {
       ...existing,
-      ...(workspaceBranch !== undefined ? { workspaceBranch } : {}),
+      ...(branchUrl !== undefined ? { branchUrl } : {}),
       ...(plannerArea !== undefined ? { plannerArea } : {}),
     };
     branchConfigOverrides.set(branchId, updated);
@@ -294,7 +336,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       const ppConfig = getMergedBranchConfig(requestedBranchId);
       if (!ppConfig) {
         return res.status(400).json({
-          error: `No People Planner configuration found for branch "${branch.displayName}". Please set PEOPLE_PLANNER_BRANCH_CONFIG in environment secrets or configure via PUT /api/pp/config.`,
+          error: `No Access Workspace URL configured for branch "${branch.displayName}" (ID: ${requestedBranchId}). Contact support to add this branch to the configuration.`,
         });
       }
 
@@ -388,7 +430,7 @@ async function runPipelineSession(
       activeSessions.set(sessionId, session);
 
       const config: JobConfig = {
-        workspaceBranch: ppConfig.workspaceBranch,
+        branchUrl: ppConfig.branchUrl,
         plannerArea: ppConfig.plannerArea,
         startDate,
         endDate,
@@ -396,7 +438,7 @@ async function runPipelineSession(
         exportType: "Excel",
         exportTemplate,
         selectAllCareGivers: reportType === "careGiverAvailabilityExport",
-        branchId, // populated so /api/pp/jobs can filter by branch
+        branchId,
       };
 
       const jobId = await runAutomationJob(config);
