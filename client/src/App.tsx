@@ -13,7 +13,6 @@ import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
-import { AppFooter } from "@/components/AppFooter";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
@@ -285,7 +284,6 @@ function Router() {
           </Switch>
         )}
       </main>
-      <AppFooter />
     </div>
   );
 }
