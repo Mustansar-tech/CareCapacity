@@ -229,36 +229,38 @@ async function runJob(job: AutomationJob): Promise<void> {
       sharedPlannerPage = null;
     }
 
-    // ── Navigate directly to branch URL ───────────────────────────────────
+    // ── Navigate to branch URL, then open People Planner ─────────────────
     let plannerPage: Page;
     if (!sharedPlannerPage || sharedPlannerPage.isClosed()) {
-      plannerPage = await sharedContext.newPage();
+      const workspacePage = await sharedContext.newPage();
       const branchUrl = job.config.branchUrl;
 
       addLog(job, `Navigating to branch: ${branchUrl}`);
-      await plannerPage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await plannerPage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+      await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
-      const needsLogin = await checkNeedsLogin(plannerPage);
+      const needsLogin = await checkNeedsLogin(workspacePage);
       if (needsLogin) {
         addLog(job, "Session expired — logging in...");
-        await login(plannerPage, email, password);
+        await login(workspacePage, email, password);
         // After login, navigate back to the branch URL
         addLog(job, `Navigating to branch after login: ${branchUrl}`);
-        await plannerPage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-        await plannerPage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+        await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
         await sharedContext.storageState({ path: SESSION_FILE });
         addLog(job, "Login successful, session saved.");
       } else {
         addLog(job, "Using existing session.");
       }
 
-      sharedPlannerPage = plannerPage;
-      addLog(job, "Ready — branch context established.");
+      addLog(job, "Opening People Planner...");
+      sharedPlannerPage = await openPeoplePlanner(sharedContext, workspacePage);
+      addLog(job, "People Planner opened.");
     } else {
-      addLog(job, "Reusing existing branch session.");
-      plannerPage = sharedPlannerPage;
+      addLog(job, "Reusing existing People Planner session.");
     }
+
+    plannerPage = sharedPlannerPage;
 
     const reportConfig = getReportConfig(job.config.reportType);
     addLog(job, `Navigating to ${reportConfig.key} export...`);
