@@ -91,12 +91,18 @@ const REPORT_LABELS: Record<string, string> = {
   careGiverAvailabilityExport:   "Availability Export",
 };
 
-function getMonday(d = new Date()): string {
+function getMondayOf(d = new Date()): string {
   const date = new Date(d);
   const day = date.getDay();
   const diff = date.getDate() - day + (day === 0 ? -6 : 1);
   date.setDate(diff);
   return date.toISOString().split("T")[0];
+}
+
+/** Normalize any date string to the Monday of its week */
+function normalizeToMonday(dateStr: string): string {
+  if (!dateStr) return dateStr;
+  return getMondayOf(new Date(dateStr));
 }
 
 function formatDate(dateStr: string): string {
@@ -115,7 +121,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [weekStartDate, setWeekStartDate] = useState<string>(getMonday());
+  const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState<string | null>(null); // jobId whose logs are expanded
@@ -139,12 +145,15 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     refetchIntervalInBackground: true,
   });
 
-  // Recent jobs list (polls every 5s when panel is open, scoped to branch)
-  const { data: recentJobs } = useQuery<AutomationJob[]>({
-    queryKey: ["/api/pp/jobs", selectedBranchId],
+  // Recent automation sessions (polls every 5s when panel is open, scoped to branch)
+  const { data: recentSessions } = useQuery<PipelineSession[]>({
+    queryKey: ["/api/pp/sessions", selectedBranchId],
     queryFn: async () => {
-      const r = await fetch(`/api/pp/jobs?branchId=${selectedBranchId}`);
-      if (!r.ok) throw new Error("Could not load jobs");
+      const url = selectedBranchId
+        ? `/api/pp/sessions?branchId=${selectedBranchId}`
+        : "/api/pp/sessions";
+      const r = await fetch(url);
+      if (!r.ok) throw new Error("Could not load sessions");
       return r.json();
     },
     enabled: open,
@@ -172,8 +181,9 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
   const triggerMutation = useMutation({
     mutationFn: async () => {
+      const monday = normalizeToMonday(weekStartDate);
       const response = await apiRequest("POST", "/api/pp/run", {
-        weekStartDate,
+        weekStartDate: monday,
         branchId: selectedBranchId,
       });
       return response.json();
@@ -265,7 +275,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               <input
                 type="date"
                 value={weekStartDate}
-                onChange={e => setWeekStartDate(e.target.value)}
+                onChange={e => setWeekStartDate(normalizeToMonday(e.target.value))}
                 disabled={isActive}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               />
@@ -397,38 +407,60 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               </div>
             )}
 
-            {/* Recent jobs history */}
-            {recentJobs && recentJobs.length > 0 && !isActive && !session && (
+            {/* Recent sessions history */}
+            {recentSessions && recentSessions.length > 0 && !isActive && !session && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent runs</p>
-                <div className="space-y-1">
-                  {recentJobs.slice(0, 5).map(job => (
-                    <div key={job.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs bg-muted/20">
-                      {job.status === "completed" ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                      ) : job.status === "failed" ? (
-                        <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                      ) : (
-                        <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
-                      )}
-                      <span className="flex-1 truncate text-muted-foreground">
-                        {REPORT_LABELS[job.config?.reportType] ?? job.config?.reportType}
-                      </span>
-                      <span className="text-muted-foreground/70 flex-shrink-0">
-                        {job.startedAt ? new Date(job.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : ""}
-                      </span>
-                      {job.downloadReady && job.fileName && (
-                        <a
-                          href={`/api/pp/download/${job.id}`}
-                          download={job.fileName}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="Download"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  ))}
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent syncs</p>
+                <div className="space-y-1.5">
+                  {recentSessions.slice(0, 5).map(s => {
+                    const reportDate = s.jobs?.[0]?.config?.startDate;
+                    const completedJobs = s.jobs?.filter(j => j.status === "completed").length ?? 0;
+                    const totalJobs = s.jobs?.length ?? s.jobIds.length;
+                    return (
+                      <div key={s.sessionId} className="rounded-md border px-3 py-2 text-xs bg-muted/20 space-y-1">
+                        <div className="flex items-center gap-2">
+                          {s.status === "completed" ? (
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                          ) : s.status === "failed" ? (
+                            <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                          ) : (
+                            <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
+                          )}
+                          <span className="flex-1 font-medium text-foreground/80">
+                            {reportDate ? `w/c ${formatDate(reportDate)}` : "Sync"}
+                          </span>
+                          <span className="text-muted-foreground/70 flex-shrink-0">
+                            {new Date(s.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 pl-5 text-muted-foreground">
+                          <span>{completedJobs}/{totalJobs} reports downloaded</span>
+                          {s.status === "failed" && s.error && (
+                            <span className="text-red-500 truncate max-w-[160px]" title={s.error}>
+                              — {s.error}
+                            </span>
+                          )}
+                        </div>
+                        {/* Per-report download links */}
+                        {s.jobs && s.jobs.filter(j => j.downloadReady && j.fileName).length > 0 && (
+                          <div className="flex flex-wrap gap-2 pl-5 pt-0.5">
+                            {s.jobs.filter(j => j.downloadReady && j.fileName).map(j => (
+                              <a
+                                key={j.id}
+                                href={`/api/pp/download/${j.id}`}
+                                download={j.fileName}
+                                className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                                title={`Download ${j.fileName}`}
+                              >
+                                <FileDown className="w-3 h-3" />
+                                {REPORT_LABELS[j.config?.reportType] ?? j.config?.reportType}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

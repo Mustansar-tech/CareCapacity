@@ -81,23 +81,21 @@ interface PipelineSession {
 
 const activeSessions = new Map<string, PipelineSession>();
 
-// ─── Access guard helper ──────────────────────────────────────────────────────
-function canAccessBranch(req: Request, branchId: string): boolean {
-  const session = (req as any).session;
-  if (!session?.userId) return false;
-  if (session.userRole === "admin") return true;
-  // For non-admins: only allow access to sessions they initiated
-  // (branch-level check is handled by the caller comparing session.branchId)
-  return true; // auth middleware already verified the user is logged in
+// ─── Access guard helpers ─────────────────────────────────────────────────────
+function isAdmin(req: Request): boolean {
+  return req.session?.userRole === "admin";
 }
 
-function sessionBelongsToUser(session: PipelineSession, req: Request): boolean {
-  const userSession = (req as any).session;
-  if (!userSession) return false;
-  if (userSession.userRole === "admin") return true;
-  // Non-admins can only see sessions they initiated
-  if (session.initiatedByUserId && session.initiatedByUserId !== userSession.userId) return false;
-  return true;
+function sessionBelongsToUser(ppSession: PipelineSession, req: Request): boolean {
+  if (!req.session?.userId) return false;
+  if (isAdmin(req)) return true;
+  return !ppSession.initiatedByUserId || ppSession.initiatedByUserId === req.session.userId;
+}
+
+export function listSessions(): PipelineSession[] {
+  return Array.from(activeSessions.values())
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .slice(0, 30);
 }
 
 // ─── Register routes ──────────────────────────────────────────────────────────
@@ -183,50 +181,59 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     });
   });
 
-  // GET /api/pp/jobs — list recent jobs; non-admins see only their own jobs
-  app.get("/api/pp/jobs", requireAuth, (req, res) => {
-    const userSession = (req as any).session;
+  // GET /api/pp/sessions — list recent automation sessions (run-level, not individual jobs)
+  app.get("/api/pp/sessions", requireAuth, (req, res) => {
     const branchId = req.query.branchId as string | undefined;
+    let sessions = listSessions();
 
+    if (isAdmin(req)) {
+      if (branchId) sessions = sessions.filter(s => s.branchId === branchId);
+    } else {
+      sessions = sessions.filter(s => s.initiatedByUserId === req.session.userId);
+      if (branchId) sessions = sessions.filter(s => s.branchId === branchId);
+    }
+
+    // Enrich with per-job details
+    const enriched = sessions.map(s => ({
+      ...s,
+      jobs: s.jobIds.map(id => getJob(id)).filter(Boolean),
+    }));
+
+    res.json(enriched);
+  });
+
+  // GET /api/pp/jobs — list recent individual report jobs
+  app.get("/api/pp/jobs", requireAuth, (req, res) => {
+    const branchId = req.query.branchId as string | undefined;
     let jobs = listJobs();
 
-    const isAdmin = userSession?.userRole === "admin";
-
-    if (isAdmin) {
-      // Admins: filter by branchId if provided
-      if (branchId) {
-        jobs = jobs.filter(j => j.config?.branchId === branchId);
-      }
+    if (isAdmin(req)) {
+      if (branchId) jobs = jobs.filter(j => j.config?.branchId === branchId);
     } else {
-      // Non-admins: restrict to jobs they initiated (via session tracking)
+      // Non-admins: restrict to jobs from their own sessions
       const mySessionJobIds = new Set<string>();
       for (const s of activeSessions.values()) {
-        if (s.initiatedByUserId === userSession?.userId) {
+        if (s.initiatedByUserId === req.session.userId) {
           for (const id of s.jobIds) mySessionJobIds.add(id);
         }
       }
       jobs = jobs.filter(j => mySessionJobIds.has(j.id));
-      // Additionally filter by branchId within user's jobs
-      if (branchId) {
-        jobs = jobs.filter(j => j.config?.branchId === branchId);
-      }
+      if (branchId) jobs = jobs.filter(j => j.config?.branchId === branchId);
     }
 
     res.json(jobs);
   });
 
-  // GET /api/pp/jobs/:jobId — single job details (branch/user scoped)
+  // GET /api/pp/jobs/:jobId — single job details
   app.get("/api/pp/jobs/:jobId", requireAuth, (req, res) => {
     const job = getJob(req.params.jobId);
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    const userSession = (req as any).session;
-    if (userSession?.userRole !== "admin") {
-      // Verify this job belongs to a session initiated by this user
+    if (!isAdmin(req)) {
       const ownsJob = Array.from(activeSessions.values()).some(
-        s => s.initiatedByUserId === userSession?.userId && s.jobIds.includes(job.id)
+        s => s.initiatedByUserId === req.session.userId && s.jobIds.includes(job.id)
       );
       if (!ownsJob) {
         return res.status(403).json({ error: "Access denied" });
@@ -236,17 +243,16 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     res.json(job);
   });
 
-  // GET /api/pp/download/:jobId — download a single exported file (user scoped)
+  // GET /api/pp/download/:jobId — download a single exported file
   app.get("/api/pp/download/:jobId", requireAuth, (req, res) => {
     const job = getJob(req.params.jobId);
     if (!job || !job.downloadReady || !job.fileName) {
       return res.status(404).json({ error: "No download available for this job" });
     }
 
-    const userSession = (req as any).session;
-    if (userSession?.userRole !== "admin") {
+    if (!isAdmin(req)) {
       const ownsJob = Array.from(activeSessions.values()).some(
-        s => s.initiatedByUserId === userSession?.userId && s.jobIds.includes(job.id)
+        s => s.initiatedByUserId === req.session.userId && s.jobIds.includes(job.id)
       );
       if (!ownsJob) {
         return res.status(403).json({ error: "Access denied" });
@@ -258,7 +264,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       return res.status(404).json({ error: "File not found on disk" });
     }
     res.download(filePath, job.fileName, (err) => {
-      if (err) logger.error({ err, jobId: req.params.jobId }, "Error sending download file");
+      if (err) logger.error("Error sending download file", err instanceof Error ? err : undefined, { jobId: req.params.jobId });
     });
   });
 
@@ -300,7 +306,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
 
       const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-      const initiatedByUserId = (req as any).session?.userId ?? "unknown";
+      const initiatedByUserId = req.session.userId ?? "unknown";
 
       runPipelineSession(
         sessionId,
@@ -312,7 +318,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         reportTypes,
         initiatedByUserId
       ).catch(err => {
-        logger.error({ sessionId, err }, "Pipeline session failed outside handler");
+        logger.error("Pipeline session failed outside handler", err instanceof Error ? err : undefined, { sessionId });
         const existing = activeSessions.get(sessionId);
         if (existing && existing.status === "running") {
           activeSessions.set(sessionId, {
@@ -328,7 +334,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       return res.status(202).json({ sessionId });
 
     } catch (error) {
-      logger.error({ error }, "Error starting People Planner run");
+      logger.error("Error starting People Planner run", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to start automation" });
     }
   });
@@ -409,7 +415,7 @@ async function runPipelineSession(
       }
 
       downloadedBuffers[templateMap.fieldName] = fs.readFileSync(filePath);
-      logger.info({ reportType, fieldName: templateMap.fieldName, bytes: downloadedBuffers[templateMap.fieldName].length }, "File buffered");
+      logger.info("File buffered", { reportType, fieldName: templateMap.fieldName, bytes: downloadedBuffers[templateMap.fieldName].length });
     }
 
     session.phase = "processing";
@@ -451,7 +457,7 @@ async function runPipelineSession(
         sha256: null,
       });
     } catch (err) {
-      logger.warn({ err }, "Failed to persist GH buffer to DB (non-fatal)");
+      logger.warn("Failed to persist GH buffer to DB (non-fatal)", { err });
     }
 
     await storage.clearAllVisits(branchId);
@@ -483,7 +489,7 @@ async function runPipelineSession(
         await storage.enforceRetentionCpScheduledVisits(branchId, 8);
       }
     } catch (err) {
-      logger.warn({ err }, "Failed to persist CP visits (non-fatal)");
+      logger.warn("Failed to persist CP visits (non-fatal)", { err });
     }
 
     if (result.dailySummary && result.dailySummary.length > 0) {
@@ -506,7 +512,7 @@ async function runPipelineSession(
     session.result     = { kpis: result.kpis, warnings: result.warnings };
     activeSessions.set(sessionId, session);
 
-    logger.info({ sessionId, branchId }, "Automation pipeline session completed");
+    logger.info("Automation pipeline session completed", { sessionId, branchId });
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -515,7 +521,7 @@ async function runPipelineSession(
     session.phase      = "error";
     session.completedAt = new Date().toISOString();
     activeSessions.set(sessionId, session);
-    logger.error({ sessionId, err }, "Pipeline session failed");
+    logger.error("Pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
     throw err;
   }
 }

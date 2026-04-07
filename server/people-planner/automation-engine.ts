@@ -66,7 +66,7 @@ function generateId(): string {
 function addLog(job: AutomationJob, message: string) {
   const ts = new Date().toLocaleTimeString("en-GB", { hour12: false });
   job.logs.push(`[${ts}] ${message}`);
-  logger.info({ jobId: job.id }, message);
+  logger.info(message, { jobId: job.id });
 }
 
 function getChromiumExecutablePath(): string | undefined {
@@ -146,14 +146,14 @@ export async function runAutomationJob(config: JobConfig): Promise<string> {
   if (!isRunning()) {
     currentJobId = id;
     runJob(job).catch((err) => {
-      logger.error({ jobId: id, err }, "Unhandled automation error");
+      logger.error("Unhandled automation error", err, { jobId: id });
     }).finally(() => {
       setImmediate(() => processNextQueuedJob());
     });
   } else {
     // Push the full job object so the ID is preserved when the queue drains
     jobQueue.push(job);
-    logger.info({ jobId: id, queueLength: jobQueue.length }, "Job queued for sequential processing");
+    logger.info("Job queued for sequential processing", { jobId: id, queueLength: jobQueue.length });
   }
 
   return id;
@@ -182,7 +182,7 @@ async function processNextQueuedJob(): Promise<void> {
   currentJobId = job.id;
 
   await runJob(job).catch((err) => {
-    logger.error({ jobId: job.id, err }, "Unhandled automation error");
+    logger.error("Unhandled automation error", err instanceof Error ? err : undefined, { jobId: job.id });
   }).finally(() => {
     isProcessingQueue = false;
     setImmediate(() => processNextQueuedJob());
@@ -286,14 +286,14 @@ async function runJob(job: AutomationJob): Promise<void> {
     job.fileName = cleanName;
     job.filePath = savedFile;
     addLog(job, `Download complete: ${cleanName}`);
-    logger.info({ jobId: job.id, cleanName, savedFile }, "Job completed");
+    logger.info("Job completed", { jobId: job.id, cleanName, savedFile });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     job.status = "failed";
     job.error = message;
     job.completedAt = new Date().toISOString();
     addLog(job, `Error: ${message}`);
-    logger.error({ jobId: job.id, err }, "Automation job failed");
+    logger.error("Automation job failed", err instanceof Error ? err : undefined, { jobId: job.id });
 
     if (sharedPlannerPage && !sharedPlannerPage.isClosed()) {
       await debugScreenshot(sharedPlannerPage, `fail-${job.id}`).catch(() => {});
@@ -502,7 +502,7 @@ async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<v
 
   if (reportConfig.directUrl) {
     const targetUrl = new URL(reportConfig.directUrl, plannerPage.url()).toString();
-    logger.info({ targetUrl }, `Navigating directly to ${config.reportType}`);
+    logger.info(`Navigating directly to ${config.reportType}`, { targetUrl });
     await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
     await plannerPage.waitForTimeout(2000);
@@ -577,9 +577,9 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
         s.selectedIndex = idx;
         s.dispatchEvent(new Event("change", { bubbles: true }));
       }, match.index);
-      logger.info({ name, selected: match.text, index: match.index }, "Selected option");
+      logger.info("Selected option", { name, selected: match.text, index: match.index });
     } else {
-      logger.warn({ name, value, available: uniqueOpts.map(o => o.text) }, "No matching option found");
+      logger.warn("No matching option found", { name, value, available: uniqueOpts.map(o => o.text) });
     }
   };
 
@@ -590,7 +590,7 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
     await input.fill("");
     await input.type(formatted, { delay: 80 });
     await formFrame.locator("body").press("Tab");
-    logger.info({ label, formatted }, "Filled date input");
+    logger.info("Filled date input", { label, formatted });
   };
 
   const selects = formFrame.locator("select");
@@ -748,8 +748,10 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
 
   if (isReportViewer) {
     const postbackDone = await formFrame.evaluate(() => {
-      if (typeof (window as any).__doPostBack === "function") {
-        try { (window as any).__doPostBack("ReportViewer", "Export$Excel"); return true; } catch { return false; }
+      type BrowserWindowWithPostBack = Window & { __doPostBack?: (target: string, arg: string) => void };
+      const win = window as BrowserWindowWithPostBack;
+      if (typeof win.__doPostBack === "function") {
+        try { win.__doPostBack("ReportViewer", "Export$Excel"); return true; } catch { return false; }
       }
       return false;
     }).catch(() => false);
@@ -792,6 +794,6 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
     throw new Error(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
   });
 
-  logger.info({ source: result.source, path: result.path }, "Download completed");
+  logger.info("Download completed", { source: result.source, path: result.path });
   return result.path;
 }
