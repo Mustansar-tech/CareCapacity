@@ -124,9 +124,22 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
-  const [showLogs, setShowLogs] = useState<string | null>(null); // jobId whose logs are expanded
+  const [showLogs, setShowLogs] = useState<string | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
+
+  // Health check — probes Playwright + credentials; only fetch once when panel opens
+  const { data: health } = useQuery<{ healthy: boolean; reason?: string }>({
+    queryKey: ["/api/pp/health"],
+    queryFn: async () => {
+      const r = await fetch("/api/pp/health");
+      if (!r.ok) return { healthy: false, reason: "Health check request failed" };
+      return r.json();
+    },
+    enabled: open,
+    staleTime: 60_000,   // re-check at most once per minute
+    retry: false,
+  });
 
   // Poll session status while running
   const { data: session } = useQuery<PipelineSession>({
@@ -203,6 +216,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   });
 
   const isActive = session?.status === "running" || triggerMutation.isPending;
+  const automationAvailable = health?.healthy ?? true; // optimistically true until health returns
   const phase = session?.phase ?? "starting";
   const progress = PHASE_PROGRESS[phase] ?? 10;
   const phaseLabel = PHASE_LABELS[phase] ?? phase;
@@ -254,6 +268,19 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-6 py-4 space-y-5">
+
+            {/* Automation unavailable banner */}
+            {health && !health.healthy && (
+              <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Automation unavailable</p>
+                  {health.reason && (
+                    <p className="text-xs text-amber-600/80 dark:text-amber-400">{health.reason}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Branch display (read-only) */}
             <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
@@ -496,9 +523,10 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             </div>
           ) : (
             <Button
-              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg"
+              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
               onClick={handleStart}
-              disabled={isActive || !weekStartDate || !selectedBranchId}
+              disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
+              title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
             >
               {isActive ? (
                 <>
