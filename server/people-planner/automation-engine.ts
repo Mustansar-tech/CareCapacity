@@ -635,30 +635,19 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   let si = 0;
 
   if (reportConfig.fields.franchise && selectCount > si) {
-    // Area is always left as "All" — the Franchise dropdown is the branch filter.
-    if (config.plannerArea) {
-      // Shared-PP branch: select the exact franchise by name
-      await selectBest(selects.nth(si), config.plannerArea, "Franchise");
-    } else {
-      // Solo branch: pick the first non-All, non-live-in-care option.
-      // Every PP franchise dropdown has at least one named entry alongside
-      // "All" and a "live in care" variant — we always want the plain one.
-      const franchiseSel = selects.nth(si);
-      const opts = await franchiseSel.evaluate((s: HTMLSelectElement) =>
-        Array.from(s.options).map((o, i) => ({ text: o.text.trim(), index: i }))
-      ).catch(() => [] as { text: string; index: number }[]);
+    // For shared-PP branches plannerArea holds the exact Franchise name to select.
+    // For solo branches (no plannerArea) fall back to deriving it from the URL slug.
+    // Area is always left as "All" — the Franchise selection is the branch filter.
+    const franchiseName = config.plannerArea
+      ?? (() => {
+        const slugMatch = config.branchUrl.match(/\/o\/(home-instead-[^/]+)/);
+        return slugMatch
+          ? slugMatch[1].replace(/home-instead-uk-/, "").replace(/-/g, " ")
+          : "";
+      })();
 
-      const liveInRe = /live[\s-]?in[\s-]?care/i;
-      const target = opts.find(o => o.text.toLowerCase() !== "all" && !liveInRe.test(o.text));
-      if (target) {
-        await franchiseSel.evaluate((s: HTMLSelectElement, idx: number) => {
-          s.selectedIndex = idx;
-          s.dispatchEvent(new Event("change", { bubbles: true }));
-        }, target.index);
-        logger.info("Selected option", { name: "Franchise", selected: target.text, index: target.index });
-      } else {
-        logger.warn("Franchise: no non-live-in-care option found, leaving as All", { opts: opts.map(o => o.text) });
-      }
+    if (franchiseName) {
+      await selectBest(selects.nth(si), franchiseName, "Franchise");
     }
     await plannerPage.waitForTimeout(1000);
     si++;

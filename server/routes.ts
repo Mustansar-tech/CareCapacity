@@ -397,21 +397,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const firstDate = result.dailySummary[0].date;
           const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
 
-          // Clip to exactly the 7-day window — exports sometimes include extra days
-          const clippedDailySummary = result.dailySummary.filter(
-            d => d.date >= weekStart && d.date <= weekEnd
-          );
-          const clippedEmployeesByDate = Object.fromEntries(
-            Object.entries(result.employeesByDate || {}).filter(
-              ([date]) => date >= weekStart && date <= weekEnd
-            )
-          );
-          const clippedEmployeeSummaryByDate = Object.fromEntries(
-            Object.entries(result.employeeSummaryByDate || {}).filter(
-              ([date]) => date >= weekStart && date <= weekEnd
-            )
-          );
-
           logger.info('Persisting analysis for week', { weekStart, weekEnd, displayName: branch.displayName });
 
           // Save to database (will upsert if week already exists per branch)
@@ -420,9 +405,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             weekStartDate: weekStart,
             weekEndDate: weekEnd,
             kpis: result.kpis,
-            dailySummary: clippedDailySummary,
-            employeesByDate: clippedEmployeesByDate,
-            employeeSummaryByDate: clippedEmployeeSummaryByDate,
+            dailySummary: result.dailySummary,
+            employeesByDate: result.employeesByDate,
+            employeeSummaryByDate: result.employeeSummaryByDate || {},
             warnings: result.warnings || [],
           });
 

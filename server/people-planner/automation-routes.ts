@@ -578,30 +578,14 @@ async function runPipelineSession(
 
     if (result.dailySummary && result.dailySummary.length > 0) {
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(result.dailySummary[0].date);
-
-      // Clip to exactly the 7-day window — PP exports sometimes include extra days
-      const clippedDailySummary = result.dailySummary.filter(
-        d => d.date >= weekStart && d.date <= weekEnd
-      );
-      const clippedEmployeesByDate = Object.fromEntries(
-        Object.entries(result.employeesByDate || {}).filter(
-          ([date]) => date >= weekStart && date <= weekEnd
-        )
-      );
-      const clippedEmployeeSummaryByDate = Object.fromEntries(
-        Object.entries(result.employeeSummaryByDate || {}).filter(
-          ([date]) => date >= weekStart && date <= weekEnd
-        )
-      );
-
       await storage.saveCapacityAnalysis({
         branchId,
         weekStartDate: weekStart,
         weekEndDate:   weekEnd,
         kpis:          result.kpis,
-        dailySummary:  clippedDailySummary,
-        employeesByDate: clippedEmployeesByDate,
-        employeeSummaryByDate: clippedEmployeeSummaryByDate,
+        dailySummary:  result.dailySummary,
+        employeesByDate: result.employeesByDate,
+        employeeSummaryByDate: result.employeeSummaryByDate || {},
         warnings: result.warnings || [],
       });
     }
