@@ -599,7 +599,17 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
       match = candidates.find(o => o.occurrenceNumber === targetOccurrence);
     }
     if (!match && candidates.length > 0) match = candidates[0];
-    if (!match) match = options.find(o => o.text.toLowerCase() === "all") ?? null;
+
+    if (!match) {
+      // Log exactly why we are falling back so we can diagnose mismatches
+      logger.warn("selectBest: no match found — falling back to All", {
+        name,
+        value,
+        normalizedTarget: target,
+        availableNormalized: filtered.map(o => ({ text: o.text, normalized: normalize(o.text) })),
+      });
+      match = options.find(o => o.text.toLowerCase() === "all") ?? null;
+    }
 
     if (match) {
       await sel.evaluate((s: HTMLSelectElement, idx: number) => {
