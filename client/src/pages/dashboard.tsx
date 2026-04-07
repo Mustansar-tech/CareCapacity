@@ -159,9 +159,10 @@ export default function Dashboard() {
     }
   }, [latestData, selectedBranchId]);
 
-  // Auto-load latest data when component mounts or when we don't have data
+  // Auto-load latest data when component mounts or when latestData refreshes (e.g. after a sync)
   useEffect(() => {
-    if (latestData && !processedData && !selectedWeekId && latestData.branchId === selectedBranchId) {
+    if (latestData && !selectedWeekId && latestData.branchId === selectedBranchId) {
+      const isInitialLoad = !processedData;
       setProcessedData({
         kpis: latestData.kpis,
         dailySummary: latestData.dailySummary,
@@ -170,12 +171,14 @@ export default function Dashboard() {
         warnings: latestData.warnings,
       });
       setSelectedDate(latestData.dailySummary?.[0]?.date || null);
-      toast({
-        title: "Latest Data Loaded",
-        description: "Automatically loaded your most recent analysis."
-      });
+      if (isInitialLoad) {
+        toast({
+          title: "Latest Data Loaded",
+          description: "Automatically loaded your most recent analysis."
+        });
+      }
     }
-  }, [latestData, processedData, selectedWeekId, selectedBranchId, toast]);
+  }, [latestData, selectedWeekId, selectedBranchId, toast]);
 
   // Auto-hide upload panel when data is processed
   useEffect(() => {
@@ -240,6 +243,7 @@ export default function Dashboard() {
     },
     onSuccess: (data: ProcessingResult) => {
       setProcessedData(data);
+      setSelectedWeekId(null); // Return to "latest" view so the new data shows
       setIsProcessing(false);
 
       // Auto-select the first date so all tabs work immediately
@@ -254,6 +258,10 @@ export default function Dashboard() {
         demand: null,
         cgData: null
       });
+
+      // Refresh history dropdown so the new week appears
+      queryClient.invalidateQueries({ queryKey: ['/api/history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
 
       toast({
         title: "Processing Complete",
