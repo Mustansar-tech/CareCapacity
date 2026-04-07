@@ -141,13 +141,16 @@ export default function Dashboard() {
     refetchOnMount: false, // Prevent refetch on component mount
   });
 
-  // Clear processed data when branch changes
+  // Clear processed data when branch changes and force history re-fetch for the new branch
   useEffect(() => {
     clientLogger.log('🧹 Branch changed - clearing all processed data');
     setProcessedData(null);
     setFilteredData(null);
     setSelectedWeekId(null);
     setSelectedDate(null);
+    // Invalidate history queries so they re-fetch with the new branchId from localStorage
+    queryClient.invalidateQueries({ queryKey: ['/api/history'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
   }, [selectedBranchId]);
 
   // Clear processed data if it doesn't match current branch
