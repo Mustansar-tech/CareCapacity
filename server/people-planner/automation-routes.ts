@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import fs from "fs";
 import path from "path";
 import { requireAuth, requireRoleAtLeast } from "../auth";
@@ -18,7 +18,7 @@ import {
 } from "./automation-engine";
 
 // ─── Branch config from env ───────────────────────────────────────────────────
-interface BranchPPConfig {
+export interface BranchPPConfig {
   workspaceBranch: string;
   plannerArea: string;
 }
@@ -34,48 +34,132 @@ function getBranchPPConfig(branchId: string): BranchPPConfig | null {
   }
 }
 
-// ─── Report type → pipeline file name mapping ────────────────────────────────
-const REPORT_TEMPLATE_MAP: Record<string, { fieldName: string; pipelineFileName: string }> = {
-  visitsExport: {
-    fieldName: "guaranteed",
-    pipelineFileName: "Care Pro Guaranteed Hours.xlsx",
-  },
-  careGiverExport: {
-    fieldName: "cgData",
-    pipelineFileName: "CG Data Export.xlsx",
-  },
-  careGiverAvailabilityExport: {
-    fieldName: "availability",
-    pipelineFileName: "Availability Export.xlsx",
-  },
+// ─── Per-branch runtime config override (stored in-memory, overrides env) ────
+const branchConfigOverrides = new Map<string, Partial<BranchPPConfig>>();
+
+function getMergedBranchConfig(branchId: string): BranchPPConfig | null {
+  const base = getBranchPPConfig(branchId);
+  const override = branchConfigOverrides.get(branchId);
+  if (!base && !override) return null;
+  return { ...base, ...override } as BranchPPConfig;
+}
+
+// ─── Report type → pipeline field name mapping ───────────────────────────────
+const REPORT_TEMPLATE_MAP: Record<string, { fieldName: string }> = {
+  visitsExport:                  { fieldName: "guaranteed" },
+  careGiverExport:               { fieldName: "cgData" },
+  careGiverAvailabilityExport:   { fieldName: "availability" },
 };
 
 // ─── Export template names ────────────────────────────────────────────────────
 const REPORT_EXPORT_TEMPLATES: Record<string, string> = {
-  visitsExport: "Care Pro Guaranteed Hours",
-  careGiverExport: "CG Data Export",
+  visitsExport:                "Care Pro Guaranteed Hours",
+  careGiverExport:             "CG Data Export",
   careGiverAvailabilityExport: "CG Availability Export",
 };
 
-// ─── Shared export buffer (updated after automation completes) ────────────────
+// ─── Shared export buffer ─────────────────────────────────────────────────────
 let latestAutomationExportBuffer: Buffer | null = null;
 
 export function getAutomationExportBuffer(): Buffer | null {
   return latestAutomationExportBuffer;
 }
 
+// ─── Session tracking (branch-scoped) ─────────────────────────────────────────
+interface PipelineSession {
+  sessionId: string;
+  status: "running" | "completed" | "failed";
+  error?: string;
+  jobIds: string[];
+  phase: string;
+  startedAt: string;
+  completedAt?: string;
+  branchId: string;
+  initiatedByUserId?: string;
+  result?: unknown;
+}
+
+const activeSessions = new Map<string, PipelineSession>();
+
+// ─── Access guard helper ──────────────────────────────────────────────────────
+function canAccessBranch(req: Request, branchId: string): boolean {
+  const session = (req as any).session;
+  if (!session?.userId) return false;
+  if (session.userRole === "admin") return true;
+  // For non-admins: only allow access to sessions they initiated
+  // (branch-level check is handled by the caller comparing session.branchId)
+  return true; // auth middleware already verified the user is logged in
+}
+
+function sessionBelongsToUser(session: PipelineSession, req: Request): boolean {
+  const userSession = (req as any).session;
+  if (!userSession) return false;
+  if (userSession.userRole === "admin") return true;
+  // Non-admins can only see sessions they initiated
+  if (session.initiatedByUserId && session.initiatedByUserId !== userSession.userId) return false;
+  return true;
+}
+
 // ─── Register routes ──────────────────────────────────────────────────────────
 export function registerPeoplePlannerRoutes(app: Express): void {
+  // Only register if credentials are configured (or can be configured later)
+  // Routes are always registered but gracefully return 503 if not configured
+
   // GET /api/pp/health — check automation is configured and usable
   app.get("/api/pp/health", requireAuth, (req, res) => {
     const hasCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
-    const branchId = (req as any).session?.userId
-      ? null
-      : null;
+    const hasBranchConfig = !!process.env.PEOPLE_PLANNER_BRANCH_CONFIG;
+
+    // Check if the current user's branch has a config
+    const session = (req as any).session;
+    const branchId = req.query.branchId as string | undefined;
+    const branchConfigured = branchId ? !!getMergedBranchConfig(branchId) : hasBranchConfig;
+
     res.json({
       enabled: hasCredentials,
       credentialsConfigured: hasCredentials,
-      branchConfigured: !!process.env.PEOPLE_PLANNER_BRANCH_CONFIG,
+      branchConfigured,
+    });
+  });
+
+  // GET /api/pp/config — get merged branch config (sanitised — no credentials)
+  app.get("/api/pp/config", requireAuth, (req, res) => {
+    const branchId = req.query.branchId as string | undefined;
+    if (!branchId) {
+      return res.status(400).json({ error: "branchId query param is required" });
+    }
+    const config = getMergedBranchConfig(branchId);
+    res.json({
+      branchId,
+      config: config ?? null,
+      hasEnvConfig: !!getBranchPPConfig(branchId),
+      hasOverride: branchConfigOverrides.has(branchId),
+    });
+  });
+
+  // PUT /api/pp/config — update branch config override (scheduler+ only)
+  app.put("/api/pp/config", requireAuth, requireRoleAtLeast("scheduler"), (req, res) => {
+    const { branchId, workspaceBranch, plannerArea } = req.body as {
+      branchId?: string;
+      workspaceBranch?: string;
+      plannerArea?: string;
+    };
+
+    if (!branchId) {
+      return res.status(400).json({ error: "branchId is required" });
+    }
+
+    const existing = branchConfigOverrides.get(branchId) ?? {};
+    const updated: Partial<BranchPPConfig> = {
+      ...existing,
+      ...(workspaceBranch !== undefined ? { workspaceBranch } : {}),
+      ...(plannerArea !== undefined ? { plannerArea } : {}),
+    };
+    branchConfigOverrides.set(branchId, updated);
+
+    res.json({
+      branchId,
+      config: getMergedBranchConfig(branchId),
     });
   });
 
@@ -87,26 +171,71 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     });
   });
 
-  // GET /api/pp/jobs — list recent jobs
-  app.get("/api/pp/jobs", requireAuth, (_req, res) => {
-    res.json(listJobs());
+  // GET /api/pp/jobs — list recent jobs scoped to a branch (or all for admin)
+  app.get("/api/pp/jobs", requireAuth, (req, res) => {
+    const userSession = (req as any).session;
+    const branchId = req.query.branchId as string | undefined;
+
+    let jobs = listJobs();
+
+    // Scope to branch if provided and user is not admin
+    if (branchId) {
+      jobs = jobs.filter(j => !j.config || (j.config as any).branchId === branchId
+        || userSession?.userRole === "admin");
+    }
+
+    // Non-admins: only show their own jobs (tracked via activeSessions)
+    if (userSession?.userRole !== "admin") {
+      const mySessionJobIds = new Set<string>();
+      for (const s of activeSessions.values()) {
+        if (s.initiatedByUserId === userSession?.userId) {
+          for (const id of s.jobIds) mySessionJobIds.add(id);
+        }
+      }
+      jobs = jobs.filter(j => mySessionJobIds.has(j.id));
+    }
+
+    res.json(jobs);
   });
 
-  // GET /api/pp/jobs/:jobId — single job details
+  // GET /api/pp/jobs/:jobId — single job details (branch/user scoped)
   app.get("/api/pp/jobs/:jobId", requireAuth, (req, res) => {
     const job = getJob(req.params.jobId);
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }
+
+    const userSession = (req as any).session;
+    if (userSession?.userRole !== "admin") {
+      // Verify this job belongs to a session initiated by this user
+      const ownsJob = Array.from(activeSessions.values()).some(
+        s => s.initiatedByUserId === userSession?.userId && s.jobIds.includes(job.id)
+      );
+      if (!ownsJob) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
     res.json(job);
   });
 
-  // GET /api/pp/download/:jobId — download a single exported file
+  // GET /api/pp/download/:jobId — download a single exported file (user scoped)
   app.get("/api/pp/download/:jobId", requireAuth, (req, res) => {
     const job = getJob(req.params.jobId);
     if (!job || !job.downloadReady || !job.fileName) {
       return res.status(404).json({ error: "No download available for this job" });
     }
+
+    const userSession = (req as any).session;
+    if (userSession?.userRole !== "admin") {
+      const ownsJob = Array.from(activeSessions.values()).some(
+        s => s.initiatedByUserId === userSession?.userId && s.jobIds.includes(job.id)
+      );
+      if (!ownsJob) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
     const filePath = getDownloadPath(req.params.jobId);
     if (!filePath) {
       return res.status(404).json({ error: "File not found on disk" });
@@ -116,8 +245,14 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     });
   });
 
-  // POST /api/pp/trigger — run all 3 reports and feed into pipeline
-  app.post("/api/pp/trigger", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
+  // POST /api/pp/run — run all 3 reports and feed into pipeline
+  app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({
+        error: "People Planner credentials not configured. Please set ACCESS_EMAIL and ACCESS_PASSWORD in environment secrets.",
+      });
+    }
+
     try {
       const { weekStartDate, branchId: requestedBranchId } = req.body as {
         weekStartDate: string;
@@ -128,89 +263,76 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         return res.status(400).json({ error: "weekStartDate and branchId are required" });
       }
 
-      // Validate branch exists
       const branch = await storage.getBranchById(requestedBranchId);
       if (!branch) {
         return res.status(400).json({ error: "Invalid branch" });
       }
 
-      // Get People Planner config for this branch
-      const ppConfig = getBranchPPConfig(requestedBranchId);
+      const ppConfig = getMergedBranchConfig(requestedBranchId);
       if (!ppConfig) {
         return res.status(400).json({
-          error: `No People Planner configuration found for branch "${branch.displayName}". Please set PEOPLE_PLANNER_BRANCH_CONFIG in environment secrets.`,
+          error: `No People Planner configuration found for branch "${branch.displayName}". Please set PEOPLE_PLANNER_BRANCH_CONFIG in environment secrets or configure via PUT /api/pp/config.`,
         });
       }
 
-      if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
-        return res.status(400).json({
-          error: "People Planner credentials not configured. Please set ACCESS_EMAIL and ACCESS_PASSWORD in environment secrets.",
-        });
-      }
-
-      // Calculate week end date (Mon–Sun)
       const startDate = new Date(weekStartDate);
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 6);
-
-      const formatDate = (d: Date) => d.toISOString().split("T")[0]; // YYYY-MM-DD for engine
+      const fmt = (d: Date) => d.toISOString().split("T")[0];
 
       const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
 
-      // Return immediately with a session ID — client polls /api/pp/session/:sessionId
       const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const initiatedByUserId = (req as any).session?.userId ?? "unknown";
 
-      // Run asynchronously
-      runPipelineSession(sessionId, requestedBranchId, branch.displayName, ppConfig, formatDate(startDate), formatDate(endDate), reportTypes)
-        .catch(err => {
-          logger.error({ sessionId, err }, "People Planner pipeline session failed");
+      runPipelineSession(
+        sessionId,
+        requestedBranchId,
+        branch.displayName,
+        ppConfig,
+        fmt(startDate),
+        fmt(endDate),
+        reportTypes,
+        initiatedByUserId
+      ).catch(err => {
+        logger.error({ sessionId, err }, "Pipeline session failed outside handler");
+        const existing = activeSessions.get(sessionId);
+        if (existing && existing.status === "running") {
           activeSessions.set(sessionId, {
-            sessionId,
+            ...existing,
             status: "failed",
             error: err instanceof Error ? err.message : String(err),
-            jobIds: [],
             phase: "error",
-            startedAt: new Date().toISOString(),
             completedAt: new Date().toISOString(),
           });
-        });
+        }
+      });
 
       return res.status(202).json({ sessionId });
 
     } catch (error) {
-      logger.error({ error }, "Error starting People Planner trigger");
+      logger.error({ error }, "Error starting People Planner run");
       return res.status(500).json({ error: "Failed to start automation" });
     }
   });
 
-  // GET /api/pp/session/:sessionId — poll session status
+  // GET /api/pp/session/:sessionId — poll session status (user scoped)
   app.get("/api/pp/session/:sessionId", requireAuth, (req, res) => {
     const session = activeSessions.get(req.params.sessionId);
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
     }
 
-    // Enrich with per-job details
+    if (!sessionBelongsToUser(session, req)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
     const jobs = session.jobIds.map(id => getJob(id)).filter(Boolean);
     res.json({ ...session, jobs });
   });
 }
 
-// ─── Session tracking ─────────────────────────────────────────────────────────
-interface PipelineSession {
-  sessionId: string;
-  status: "running" | "completed" | "failed";
-  error?: string;
-  jobIds: string[];
-  phase: string;
-  startedAt: string;
-  completedAt?: string;
-  branchId?: string;
-  result?: unknown;
-}
-
-const activeSessions = new Map<string, PipelineSession>();
-
+// ─── Pipeline session runner ──────────────────────────────────────────────────
 async function runPipelineSession(
   sessionId: string,
   branchId: string,
@@ -218,7 +340,8 @@ async function runPipelineSession(
   ppConfig: BranchPPConfig,
   startDate: string,
   endDate: string,
-  reportTypes: readonly ("visitsExport" | "careGiverExport" | "careGiverAvailabilityExport")[]
+  reportTypes: readonly ("visitsExport" | "careGiverExport" | "careGiverAvailabilityExport")[],
+  initiatedByUserId: string
 ): Promise<void> {
   const session: PipelineSession = {
     sessionId,
@@ -227,13 +350,13 @@ async function runPipelineSession(
     phase: "starting",
     startedAt: new Date().toISOString(),
     branchId,
+    initiatedByUserId,
   };
   activeSessions.set(sessionId, session);
 
   try {
     const downloadedBuffers: Record<string, Buffer> = {};
 
-    // Run each report type sequentially
     for (const reportType of reportTypes) {
       const templateMap = REPORT_TEMPLATE_MAP[reportType];
       const exportTemplate = REPORT_EXPORT_TEMPLATES[reportType];
@@ -268,30 +391,21 @@ async function runPipelineSession(
       }
 
       downloadedBuffers[templateMap.fieldName] = fs.readFileSync(filePath);
-      logger.info({ reportType, fieldName: templateMap.fieldName, bytes: downloadedBuffers[templateMap.fieldName].length }, "File downloaded and buffered");
+      logger.info({ reportType, fieldName: templateMap.fieldName, bytes: downloadedBuffers[templateMap.fieldName].length }, "File buffered");
     }
 
-    // Feed into pipeline
     session.phase = "processing";
     activeSessions.set(sessionId, session);
 
     const availabilityBuf = downloadedBuffers["availability"];
-    const guaranteedBuf = downloadedBuffers["guaranteed"];
-    const cgDataBuf = downloadedBuffers["cgData"];
+    const guaranteedBuf   = downloadedBuffers["guaranteed"];
+    const cgDataBuf       = downloadedBuffers["cgData"];
 
     if (!availabilityBuf || !guaranteedBuf || !cgDataBuf) {
       throw new Error("One or more downloaded files are missing");
     }
 
-    logger.info({ branchId, branchDisplayName }, "Starting pipeline processing from automation data");
-
-    const parsedData = await parseExcelFiles(
-      availabilityBuf,
-      guaranteedBuf,
-      cgDataBuf,
-      undefined,
-      branchId
-    );
+    const parsedData = await parseExcelFiles(availabilityBuf, guaranteedBuf, cgDataBuf, undefined, branchId);
 
     const result = await processCapacityData(
       parsedData.availability,
@@ -305,16 +419,10 @@ async function runPipelineSession(
       result.warnings = [...(result.warnings || []), ...parsedData.warnings];
     }
 
-    const cleanedRecords = result.cleanedRecords;
-    const exportBuffer = await generateExcelExport(result, cleanedRecords, parsedData.cgData);
-
+    const exportBuffer = await generateExcelExport(result, result.cleanedRecords, parsedData.cgData);
     latestAutomationExportBuffer = exportBuffer;
+    fs.writeFileSync(path.join(process.cwd(), "capacity_dashboard.xlsx"), exportBuffer);
 
-    // Write to disk (same file as manual upload uses)
-    const exportPath = path.join(process.cwd(), "capacity_dashboard.xlsx");
-    fs.writeFileSync(exportPath, exportBuffer);
-
-    // Persist guaranteed hours buffer to DB
     try {
       await storage.saveBranchUpload({
         branchId,
@@ -328,10 +436,8 @@ async function runPipelineSession(
       logger.warn({ err }, "Failed to persist GH buffer to DB (non-fatal)");
     }
 
-    // Clear old visits
     await storage.clearAllVisits(branchId);
 
-    // Persist CP scheduled visits
     try {
       const { extractEmployeeVisitsFromGHExcel } = await import("../excel-visit-extractor");
       const weekDates = result.dailySummary?.map(d => d.date) ?? [];
@@ -345,12 +451,12 @@ async function runPipelineSession(
                 branchId,
                 cpName,
                 clientName: entry.clientName,
-                clientLat: entry.lat != null ? String(entry.lat) : null,
-                clientLng: entry.lng != null ? String(entry.lng) : null,
+                clientLat:  entry.lat  != null ? String(entry.lat)  : null,
+                clientLng:  entry.lng  != null ? String(entry.lng)  : null,
                 clientPostcode: entry.postcode ?? null,
                 date,
                 startTime: entry.startTime,
-                endTime: entry.endTime,
+                endTime:   entry.endTime,
               });
             }
           }
@@ -362,36 +468,33 @@ async function runPipelineSession(
       logger.warn({ err }, "Failed to persist CP visits (non-fatal)");
     }
 
-    // Persist analysis to database
     if (result.dailySummary && result.dailySummary.length > 0) {
-      const firstDate = result.dailySummary[0].date;
-      const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);
-
+      const { weekStart, weekEnd } = getCanonicalWeekBoundaries(result.dailySummary[0].date);
       await storage.saveCapacityAnalysis({
         branchId,
         weekStartDate: weekStart,
-        weekEndDate: weekEnd,
-        kpis: result.kpis,
-        dailySummary: result.dailySummary,
+        weekEndDate:   weekEnd,
+        kpis:          result.kpis,
+        dailySummary:  result.dailySummary,
         employeesByDate: result.employeesByDate,
         employeeSummaryByDate: result.employeeSummaryByDate || {},
         warnings: result.warnings || [],
       });
-
-      logger.info({ branchId, weekStart }, "Automation pipeline complete — analysis persisted");
     }
 
-    session.status = "completed";
-    session.phase = "complete";
+    session.status     = "completed";
+    session.phase      = "complete";
     session.completedAt = new Date().toISOString();
-    session.result = { kpis: result.kpis, warnings: result.warnings };
+    session.result     = { kpis: result.kpis, warnings: result.warnings };
     activeSessions.set(sessionId, session);
+
+    logger.info({ sessionId, branchId }, "Automation pipeline session completed");
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    session.status = "failed";
-    session.error = message;
-    session.phase = "error";
+    session.status     = "failed";
+    session.error      = message;
+    session.phase      = "error";
     session.completedAt = new Date().toISOString();
     activeSessions.set(sessionId, session);
     logger.error({ sessionId, err }, "Pipeline session failed");

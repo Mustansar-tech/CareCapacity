@@ -344,29 +344,29 @@ export default function Dashboard() {
         {/* People Planner Automation Panel */}
         <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
 
-        {/* Compact Upload Toggle - Shows when no data is loaded */}
-        {!processedData && (
-          <div className="mb-6 animate-fade-in flex flex-wrap gap-3">
+        {/* Action bar — always visible */}
+        <div className="mb-4 flex flex-wrap gap-3 animate-fade-in">
+          {!processedData && (
             <Button
               onClick={() => setShowUploadPanel(!showUploadPanel)}
               variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6"
+              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5"
               data-testid="toggle-upload-panel"
             >
               <Upload className="w-4 h-4 mr-2" />
               {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
             </Button>
-            <Button
-              onClick={() => setShowPeoplePlanner(true)}
-              variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
-              title="Automatically download reports from People Planner"
-            >
-              <Bot className="w-4 h-4 mr-2" />
-              Sync from People Planner
-            </Button>
-          </div>
-        )}
+          )}
+          <Button
+            onClick={() => setShowPeoplePlanner(true)}
+            variant="outline"
+            className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+            title="Automatically download reports from People Planner"
+          >
+            <Bot className="w-4 h-4 mr-2" />
+            Sync from People Planner
+          </Button>
+        </div>
 
         {/* Upload Section - Collapsible */}
         {!processedData && showUploadPanel && (

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -14,7 +14,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useBranch } from "@/contexts/BranchContext";
-import { apiRequest } from "@/lib/queryClient";
 import {
   Bot,
   Download,
@@ -26,6 +25,9 @@ import {
   Building2,
   AlertTriangle,
   FileDown,
+  Terminal,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface AutomationJob {
@@ -54,6 +56,7 @@ interface PipelineSession {
   phase: string;
   startedAt: string;
   completedAt?: string;
+  branchId?: string;
   jobs?: AutomationJob[];
 }
 
@@ -63,23 +66,29 @@ interface Props {
 }
 
 const PHASE_LABELS: Record<string, string> = {
-  starting: "Starting automation...",
-  downloading_visitsExport: "Downloading Guaranteed Hours (1/3)...",
-  downloading_careGiverExport: "Downloading CG Data Export (2/3)...",
+  starting:                              "Starting automation...",
+  downloading_visitsExport:              "Downloading Guaranteed Hours (1/3)...",
+  downloading_careGiverExport:           "Downloading CG Data Export (2/3)...",
   downloading_careGiverAvailabilityExport: "Downloading Availability Export (3/3)...",
-  processing: "Processing data through pipeline...",
-  complete: "Complete!",
-  error: "Error occurred",
+  processing:                            "Processing through pipeline...",
+  complete:                              "Complete!",
+  error:                                 "Error occurred",
 };
 
 const PHASE_PROGRESS: Record<string, number> = {
-  starting: 5,
-  downloading_visitsExport: 20,
-  downloading_careGiverExport: 45,
+  starting:                              5,
+  downloading_visitsExport:              20,
+  downloading_careGiverExport:           45,
   downloading_careGiverAvailabilityExport: 70,
-  processing: 88,
-  complete: 100,
-  error: 100,
+  processing:                            88,
+  complete:                              100,
+  error:                                 100,
+};
+
+const REPORT_LABELS: Record<string, string> = {
+  visitsExport:                  "Care Pro Guaranteed Hours",
+  careGiverExport:               "CG Data Export",
+  careGiverAvailabilityExport:   "Availability Export",
 };
 
 function getMonday(d = new Date()): string {
@@ -103,33 +112,53 @@ function elapsedTime(startedAt: string): string {
 }
 
 export function PeoplePlannerPanel({ open, onClose }: Props) {
-  const { selectedBranchId } = useBranch();
+  const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [weekStartDate, setWeekStartDate] = useState<string>(getMonday());
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
+  const [showLogs, setShowLogs] = useState<string | null>(null); // jobId whose logs are expanded
+
+  const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
   // Poll session status while running
-  const { data: session, refetch: refetchSession } = useQuery<PipelineSession>({
+  const { data: session } = useQuery<PipelineSession>({
     queryKey: ["/api/pp/session", activeSessionId],
-    queryFn: () => fetch(`/api/pp/session/${activeSessionId}`).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/pp/session/${activeSessionId}`);
+      if (!r.ok) throw new Error("Session not found");
+      return r.json();
+    },
     enabled: !!activeSessionId,
-    refetchInterval: (data: PipelineSession | undefined) => {
+    refetchInterval: (query) => {
+      const data = query.state.data;
       if (!data) return 2000;
       return data.status === "running" ? 2000 : false;
     },
     refetchIntervalInBackground: true,
   });
 
-  // Invalidate dashboard data when session completes
+  // Recent jobs list (polls every 5s when panel is open, scoped to branch)
+  const { data: recentJobs } = useQuery<AutomationJob[]>({
+    queryKey: ["/api/pp/jobs", selectedBranchId],
+    queryFn: async () => {
+      const r = await fetch(`/api/pp/jobs?branchId=${selectedBranchId}`);
+      if (!r.ok) throw new Error("Could not load jobs");
+      return r.json();
+    },
+    enabled: open,
+    refetchInterval: open ? 5000 : false,
+  });
+
+  // Invalidate dashboard when session completes
   useEffect(() => {
     if (session?.status === "completed") {
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history/latest"] });
       toast({
         title: "People Planner sync complete",
-        description: "Dashboard data has been refreshed with the latest data.",
+        description: "Dashboard data has been refreshed.",
       });
     }
   }, [session?.status]);
@@ -137,15 +166,13 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   // Elapsed timer
   useEffect(() => {
     if (!sessionStartedAt || session?.status !== "running") return;
-    const interval = setInterval(() => {
-      setElapsed(elapsedTime(sessionStartedAt));
-    }, 1000);
+    const interval = setInterval(() => setElapsed(elapsedTime(sessionStartedAt)), 1000);
     return () => clearInterval(interval);
   }, [sessionStartedAt, session?.status]);
 
   const triggerMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/pp/trigger", {
+      const response = await apiRequest("POST", "/api/pp/run", {
         weekStartDate,
         branchId: selectedBranchId,
       });
@@ -183,7 +210,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     setSessionStartedAt(null);
   };
 
-  // Week end date derived from start
   const weekEndDate = (() => {
     if (!weekStartDate) return "";
     const d = new Date(weekStartDate);
@@ -191,16 +217,23 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     return d.toISOString().split("T")[0];
   })();
 
+  // Jobs for the current session (or fall back to the recent jobs list)
+  const sessionJobs = session?.jobs ?? [];
+
+  // Reports row with job status per report type
+  const reportOrder = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
+
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col gap-0 p-0">
+      <SheetContent className="w-full sm:max-w-lg flex flex-col gap-0 p-0 overflow-hidden">
+
         {/* Header */}
-        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
               <Bot className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <SheetTitle className="text-lg font-semibold">People Planner Sync</SheetTitle>
               <SheetDescription className="text-sm">
                 Automatically download reports from Access Workspace
@@ -209,8 +242,19 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4">
-          <div className="space-y-5">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-6 py-4 space-y-5">
+
+            {/* Branch display (read-only) */}
+            <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+              <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Branch</p>
+                <p className="text-sm font-medium truncate">
+                  {selectedBranch?.displayName ?? selectedBranchId ?? "—"}
+                </p>
+              </div>
+            </div>
 
             {/* Week selector */}
             <div className="space-y-2">
@@ -232,34 +276,67 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               )}
             </div>
 
-            {/* Reports that will run */}
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+            {/* Reports list */}
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reports to download</p>
-              {[
-                { label: "Care Pro Guaranteed Hours", sub: "Visits & scheduled hours" },
-                { label: "CG Data Export", sub: "Care Pro master data" },
-                { label: "Availability Export", sub: "Shift patterns & availability" },
-              ].map((r, i) => {
-                const jobForIndex = session?.jobs?.[i];
-                const isJobDone = jobForIndex?.status === "completed";
-                const isJobFailed = jobForIndex?.status === "failed";
-                const isJobRunning = jobForIndex?.status === "running" || jobForIndex?.status === "pending";
+              {reportOrder.map((reportType, i) => {
+                const job = sessionJobs.find(j => j?.config?.reportType === reportType);
+                const isDone    = job?.status === "completed";
+                const isFailed  = job?.status === "failed";
+                const isRunning = job?.status === "running" || job?.status === "pending";
+
                 return (
-                  <div key={r.label} className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isJobDone ? "bg-emerald-100 dark:bg-emerald-900" :
-                      isJobFailed ? "bg-red-100 dark:bg-red-900" :
-                      isJobRunning ? "bg-blue-100 dark:bg-blue-900" : "bg-muted"
-                    }`}>
-                      {isJobDone ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> :
-                       isJobFailed ? <XCircle className="w-3.5 h-3.5 text-red-600" /> :
-                       isJobRunning ? <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" /> :
-                       <span className="w-2 h-2 rounded-full bg-muted-foreground/40" />}
+                  <div key={reportType}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        isDone    ? "bg-emerald-100 dark:bg-emerald-900" :
+                        isFailed  ? "bg-red-100 dark:bg-red-900" :
+                        isRunning ? "bg-blue-100 dark:bg-blue-900" : "bg-muted"
+                      }`}>
+                        {isDone    ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> :
+                         isFailed  ? <XCircle className="w-3.5 h-3.5 text-red-600" /> :
+                         isRunning ? <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" /> :
+                         <span className="w-2 h-2 rounded-full bg-muted-foreground/30" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{REPORT_LABELS[reportType]}</p>
+                        {job?.fileName && (
+                          <p className="text-xs text-muted-foreground truncate">{job.fileName}</p>
+                        )}
+                        {isFailed && job?.error && (
+                          <p className="text-xs text-red-600 mt-0.5">{job.error}</p>
+                        )}
+                      </div>
+                      {job && job.logs.length > 0 && (
+                        <button
+                          onClick={() => setShowLogs(showLogs === job.id ? null : job.id)}
+                          className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label="Toggle logs"
+                        >
+                          <Terminal className="w-3.5 h-3.5" />
+                          {showLogs === job.id ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />}
+                        </button>
+                      )}
+                      {job?.downloadReady && job.fileName && (
+                        <a
+                          href={`/api/pp/download/${job.id}`}
+                          download={job.fileName}
+                          className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-1"
+                          title={`Download ${job.fileName}`}
+                        >
+                          <FileDown className="w-4 h-4" />
+                        </a>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{r.label}</p>
-                      <p className="text-xs text-muted-foreground">{r.sub}</p>
-                    </div>
+
+                    {/* Live log viewer */}
+                    {showLogs === job?.id && job?.logs && job.logs.length > 0 && (
+                      <div className="mt-2 ml-9 rounded-md bg-black/80 dark:bg-black/60 p-2 max-h-32 overflow-y-auto">
+                        {job.logs.map((line, idx) => (
+                          <p key={idx} className="text-xs font-mono text-green-400 leading-relaxed">{line}</p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -270,24 +347,32 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{phaseLabel}</p>
-                  {session?.status === "running" && elapsed && (
-                    <span className="text-xs text-muted-foreground">{elapsed}</span>
-                  )}
-                  {session?.status === "completed" && (
-                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0">
-                      <CheckCircle className="w-3 h-3 mr-1" />Done
-                    </Badge>
-                  )}
-                  {session?.status === "failed" && (
-                    <Badge variant="destructive" className="border-0">
-                      <XCircle className="w-3 h-3 mr-1" />Failed
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {session?.status === "running" && elapsed && (
+                      <span className="text-xs text-muted-foreground">{elapsed}</span>
+                    )}
+                    {session?.status === "completed" && (
+                      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0 text-xs">
+                        <CheckCircle className="w-3 h-3 mr-1" />Done
+                      </Badge>
+                    )}
+                    {session?.status === "failed" && (
+                      <Badge variant="destructive" className="border-0 text-xs">
+                        <XCircle className="w-3 h-3 mr-1" />Failed
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 <Progress
                   value={progress}
-                  className={`h-2 ${session?.status === "failed" ? "[&>div]:bg-red-500" : session?.status === "completed" ? "[&>div]:bg-emerald-500" : ""}`}
+                  className={`h-2 ${
+                    session?.status === "failed"
+                      ? "[&>div]:bg-red-500"
+                      : session?.status === "completed"
+                      ? "[&>div]:bg-emerald-500"
+                      : ""
+                  }`}
                 />
 
                 {session?.status === "failed" && session.error && (
@@ -304,34 +389,51 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                     <div className="flex gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                       <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                        All 3 reports downloaded and processed. Dashboard data is now up to date.
+                        All 3 reports downloaded and processed. Dashboard data has been updated.
                       </p>
                     </div>
-                  </div>
-                )}
-
-                {/* Job download links */}
-                {session?.jobs && session.jobs.some(j => j.downloadReady) && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Downloaded files</p>
-                    {session.jobs.filter(j => j.downloadReady && j.fileName).map(j => (
-                      <a
-                        key={j.id}
-                        href={`/api/pp/download/${j.id}`}
-                        download={j.fileName ?? undefined}
-                        className="flex items-center gap-2 rounded-md border bg-background hover:bg-muted/50 px-3 py-2 text-sm transition-colors cursor-pointer"
-                      >
-                        <FileDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span className="flex-1 truncate">{j.fileName}</span>
-                        <Download className="w-3 h-3 text-muted-foreground" />
-                      </a>
-                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Configuration note */}
+            {/* Recent jobs history */}
+            {recentJobs && recentJobs.length > 0 && !isActive && !session && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent runs</p>
+                <div className="space-y-1">
+                  {recentJobs.slice(0, 5).map(job => (
+                    <div key={job.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs bg-muted/20">
+                      {job.status === "completed" ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      ) : job.status === "failed" ? (
+                        <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      ) : (
+                        <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
+                      )}
+                      <span className="flex-1 truncate text-muted-foreground">
+                        {REPORT_LABELS[job.config?.reportType] ?? job.config?.reportType}
+                      </span>
+                      <span className="text-muted-foreground/70 flex-shrink-0">
+                        {job.startedAt ? new Date(job.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : ""}
+                      </span>
+                      {job.downloadReady && job.fileName && (
+                        <a
+                          href={`/api/pp/download/${job.id}`}
+                          download={job.fileName}
+                          className="text-muted-foreground hover:text-foreground"
+                          title="Download"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Info card when idle */}
             {!activeSessionId && !triggerMutation.isPending && (
               <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-4">
                 <div className="flex gap-2">
@@ -339,10 +441,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Automated report download</p>
                     <p className="text-xs text-blue-600/80 dark:text-blue-400">
-                      This will log into Access Workspace, navigate to People Planner, and download all 3 reports for the selected week. The data will be processed automatically and the dashboard updated.
-                    </p>
-                    <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-1">
-                      This typically takes 3–8 minutes depending on network speed.
+                      Logs into Access Workspace, opens People Planner, and downloads all 3 reports for the selected week. Typically takes 3–8 minutes.
                     </p>
                   </div>
                 </div>
@@ -351,9 +450,9 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         </ScrollArea>
 
-        {/* Footer actions */}
-        <div className="px-6 py-4 border-t space-y-2">
-          {session?.status === "failed" || session?.status === "completed" ? (
+        {/* Footer */}
+        <div className="px-6 py-4 border-t flex-shrink-0 space-y-2">
+          {(session?.status === "failed" || session?.status === "completed") ? (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={handleReset}>
                 <RefreshCw className="w-4 h-4 mr-2" />
