@@ -53,6 +53,8 @@ let isProcessingQueue = false;
 let sharedBrowser: Browser | null = null;
 let sharedContext: BrowserContext | null = null;
 let sharedPlannerPage: Page | null = null;
+/** Branch URL that sharedPlannerPage was opened for — if this changes we must re-navigate */
+let sharedPlannerBranchUrl: string | null = null;
 
 ensureDir(DOWNLOAD_DIR);
 
@@ -233,10 +235,26 @@ async function runJob(job: AutomationJob): Promise<void> {
     // ── Step 1: Login ─────────────────────────────────────────────────────
     // ── Step 2: Navigate to branch URL to select the branch ───────────────
     // ── Step 3: Open People Planner from the Access launcher ─────────────
+    const branchUrl = job.config.branchUrl;
+    const branchUrlChanged = sharedPlannerBranchUrl !== null && sharedPlannerBranchUrl !== branchUrl;
+
+    if (branchUrlChanged) {
+      // Branch switched — close existing PP tab so we re-navigate to the correct workspace
+      addLog(job, `Branch URL changed (${sharedPlannerBranchUrl} → ${branchUrl}). Re-opening People Planner for new branch.`);
+      logger.info("Branch URL changed — resetting PP session", {
+        previous: sharedPlannerBranchUrl,
+        next: branchUrl,
+      });
+      if (sharedPlannerPage && !sharedPlannerPage.isClosed()) {
+        await sharedPlannerPage.close().catch(() => {});
+      }
+      sharedPlannerPage = null;
+      sharedPlannerBranchUrl = null;
+    }
+
     let plannerPage: Page;
     if (!sharedPlannerPage || sharedPlannerPage.isClosed()) {
       const workspacePage = await sharedContext.newPage();
-      const branchUrl = job.config.branchUrl;
 
       // Step 1 — Always go to login page first
       addLog(job, "Navigating to Access Workspace login...");
@@ -263,9 +281,10 @@ async function runJob(job: AutomationJob): Promise<void> {
       // Step 3 — Open People Planner from the launcher
       addLog(job, "Opening People Planner from the Access launcher...");
       sharedPlannerPage = await openPeoplePlanner(sharedContext, workspacePage);
+      sharedPlannerBranchUrl = branchUrl;
       addLog(job, "People Planner opened.");
     } else {
-      addLog(job, "Reusing existing People Planner session.");
+      addLog(job, `Reusing existing People Planner session for ${branchUrl}.`);
     }
 
     plannerPage = sharedPlannerPage;
@@ -306,6 +325,7 @@ async function runJob(job: AutomationJob): Promise<void> {
     }
 
     sharedPlannerPage = null;
+    sharedPlannerBranchUrl = null;
     if (sharedContext) {
       await sharedContext.close().catch(() => {});
       sharedContext = null;
