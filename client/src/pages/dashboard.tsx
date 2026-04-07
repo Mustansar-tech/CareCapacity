@@ -622,30 +622,6 @@ export default function Dashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Action bar — under tabs when data is loaded */}
-          <div className="flex flex-wrap gap-3 animate-fade-in -mt-1">
-            <Button
-              onClick={() => setShowUploadPanel(!showUploadPanel)}
-              variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm"
-              data-testid="toggle-upload-panel"
-            >
-              <Upload className="w-3.5 h-3.5 mr-2" />
-              {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
-            </Button>
-            <Button
-              onClick={() => setShowPeoplePlanner(!showPeoplePlanner)}
-              variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
-              title="Automatically download reports from People Planner"
-            >
-              <Bot className="w-3.5 h-3.5 mr-2" />
-              {showPeoplePlanner ? 'Hide People Planner' : 'Sync from People Planner'}
-            </Button>
-          </div>
-
-          {/* People Planner inline panel — under tabs when data is loaded */}
-          <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
 
           {/* Daily Capacity Tab */}
           <TabsContent value="daily-capacity" className="space-y-4 animate-fade-in flex-1 overflow-y-auto" data-testid="content-daily-capacity">
@@ -1050,7 +1026,32 @@ export default function Dashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 animate-fade-in flex-1 overflow-y-auto" data-testid="content-overview">
-            {/* File Upload Section - Collapsible (toggled from action bar above tabs) */}
+            {/* Action bar — Home tab only */}
+            <div className="flex flex-wrap gap-3 animate-fade-in">
+              <Button
+                onClick={() => setShowUploadPanel(!showUploadPanel)}
+                variant="outline"
+                className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm"
+                data-testid="toggle-upload-panel"
+              >
+                <Upload className="w-3.5 h-3.5 mr-2" />
+                {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+              </Button>
+              <Button
+                onClick={() => setShowPeoplePlanner(!showPeoplePlanner)}
+                variant="outline"
+                className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+                title="Automatically download reports from People Planner"
+              >
+                <Bot className="w-3.5 h-3.5 mr-2" />
+                {showPeoplePlanner ? 'Hide People Planner' : 'Sync from People Planner'}
+              </Button>
+            </div>
+
+            {/* People Planner inline panel */}
+            <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
+
+            {/* File Upload Section — collapsible, toggled by button above */}
             {showUploadPanel && (
               <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
               <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
