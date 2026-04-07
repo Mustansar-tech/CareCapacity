@@ -631,9 +631,13 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   }
 
   if (reportConfig.fields.area && selectCount > si) {
-    if (!reportConfig.defaults.leaveAreaDefault && config.plannerArea) {
+    if (config.plannerArea) {
+      // Always select the specific area when one is configured for this branch.
+      // Branches sharing a People Planner franchise (e.g. Glasgow North & North Lanarkshire)
+      // must filter by area so only the correct branch's data is downloaded.
       await selectBest(selects.nth(si), config.plannerArea, "Area");
     }
+    // If no plannerArea is set, leave the dropdown at its default (typically "All")
     await plannerPage.waitForTimeout(800);
     si++;
   }

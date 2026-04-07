@@ -26,20 +26,32 @@ export interface BranchPPConfig {
 }
 
 /**
- * Built-in mapping from DB branch ID → Access Workspace direct URL.
- * These are the production URLs provided by the client; no extra env config needed.
+ * Built-in mapping from DB branch ID → Access Workspace URL + optional People Planner area filter.
+ * Branches that share an Access Workspace franchise need a plannerArea so the automation
+ * downloads data only for the correct sub-area rather than "All".
+ *
+ * Area names must match exactly what appears in the People Planner "Area" dropdown.
  */
-const DEFAULT_BRANCH_URLS: Record<string, string> = {
-  "7bc2f2fe-c0e4-4b55-b32b-04954f4f86a7": "https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/",
-  "2f706320-5585-4e3c-8eb2-6c624acd7fca": "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/",
-  "c812f593-9ec6-4a18-b48e-c847cc2eac81": "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/",
-  "0d087ea2-68ed-45f3-9738-85de38d4ec9e": "https://go.accessacloud.com/o/home-instead-uk-perthshire/",
-  "92a144e1-b9d5-4ec6-b6fb-e8269ddf521d": "https://go.accessacloud.com/o/home-instead-uk-perthshire/",
-  "b661f59b-750f-4d75-9343-31bdc3fd9c60": "https://go.accessacloud.com/o/home-instead-uk-east-lothian/",
-  "2587f931-4a8c-4afd-bedf-6621ba55f0b4": "https://go.accessacloud.com/o/home-instead-uk-east-lothian/",
-  "d3859b52-cfbb-4c23-b94a-4ca4f5351d65": "https://go.accessacloud.com/o/home-instead-uk-glasgow-south/",
-  "311ed83e-0715-4a83-9cdf-ca6b7792b624": "https://go.accessacloud.com/o/home-instead-uk-sterling-falkirk/",
-  "7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4": "https://go.accessacloud.com/o/home-instead-uk-dunfermline/",
+const DEFAULT_BRANCH_CONFIGS: Record<string, BranchPPConfig> = {
+  // Ayr/Kilmarnock — single area in franchise, leave at default "All"
+  "7bc2f2fe-c0e4-4b55-b32b-04954f4f86a7": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/" },
+
+  // Glasgow North franchise — two dashboard branches sharing one PP org
+  "2f706320-5585-4e3c-8eb2-6c624acd7fca": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/", plannerArea: "Glasgow North" },
+  "c812f593-9ec6-4a18-b48e-c847cc2eac81": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/", plannerArea: "North Lanarkshire & Glasgow East" },
+
+  // Perthshire/Aberdeen franchise — two dashboard branches sharing one PP org
+  "92a144e1-b9d5-4ec6-b6fb-e8269ddf521d": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-perthshire/", plannerArea: "Home Instead Perthshire" },
+  "0d087ea2-68ed-45f3-9738-85de38d4ec9e": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-perthshire/", plannerArea: "Home Instead Aberdeen" },
+
+  // East Lothian franchise — two dashboard branches sharing one PP org
+  "b661f59b-750f-4d75-9343-31bdc3fd9c60": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-east-lothian/", plannerArea: "East Lothian and Midlothian" },
+  "2587f931-4a8c-4afd-bedf-6621ba55f0b4": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-east-lothian/", plannerArea: "Scottish Borders" },
+
+  // Single-area franchises — leave Area at default "All"
+  "d3859b52-cfbb-4c23-b94a-4ca4f5351d65": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-glasgow-south/" },
+  "311ed83e-0715-4a83-9cdf-ca6b7792b624": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-sterling-falkirk/" },
+  "7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4": { branchUrl: "https://go.accessacloud.com/o/home-instead-uk-dunfermline/" },
 };
 
 /**
@@ -61,17 +73,18 @@ function getBranchPPConfig(branchId: string): Partial<BranchPPConfig> | null {
 const branchConfigOverrides = new Map<string, Partial<BranchPPConfig>>();
 
 function getMergedBranchConfig(branchId: string): BranchPPConfig | null {
-  const defaultUrl = DEFAULT_BRANCH_URLS[branchId];
+  const defaultConfig = DEFAULT_BRANCH_CONFIGS[branchId];
   const envConfig = getBranchPPConfig(branchId);
   const override = branchConfigOverrides.get(branchId);
 
   // Must have at least a branch URL (from defaults, env, or override)
-  const branchUrl = override?.branchUrl ?? envConfig?.branchUrl ?? defaultUrl;
+  const branchUrl = override?.branchUrl ?? envConfig?.branchUrl ?? defaultConfig?.branchUrl;
   if (!branchUrl) return null;
 
   return {
     branchUrl,
-    plannerArea: override?.plannerArea ?? envConfig?.plannerArea,
+    // Override and env config take priority; fall back to the built-in area for this branch
+    plannerArea: override?.plannerArea ?? envConfig?.plannerArea ?? defaultConfig?.plannerArea,
   };
 }
 
@@ -141,7 +154,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     // Branch URLs are built-in for all known branches; check the specific branch if provided
     const branchConfigured = branchId
       ? !!getMergedBranchConfig(branchId)
-      : Object.keys(DEFAULT_BRANCH_URLS).length > 0;
+      : Object.keys(DEFAULT_BRANCH_CONFIGS).length > 0;
 
     // Probe Playwright availability (non-blocking, 5s timeout)
     let playwrightReady = false;
