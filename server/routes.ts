@@ -11,6 +11,7 @@ import { logger } from "./logger";
 import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria, type MatchedEmployee } from "./bdMatcher";
 import { registerAuthRoutes } from './auth-routes';
 import { requireAuth, requireRoleAtLeast, auditLog } from './auth';
+import { registerPeoplePlannerRoutes } from './people-planner/automation-routes';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -160,6 +161,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register auth routes (login, logout, me, admin user management)
   registerAuthRoutes(app);
+
+  // Register People Planner automation routes
+  registerPeoplePlannerRoutes(app);
 
   // Health check endpoint for monitoring
   app.get('/health', async (_req, res) => {

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import { PeoplePlannerPanel } from "@/components/PeoplePlannerPanel";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -14,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronDown } from "lucide-react";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target
+  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Bot
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, CapacityAnalysisSummary, ProcessingResultWithMeta } from "@shared/schema";
@@ -108,6 +109,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
+  const [showPeoplePlanner, setShowPeoplePlanner] = useState(false);
 
   const { toast } = useToast();
 
@@ -339,9 +341,12 @@ export default function Dashboard() {
       )}
       {/* Main Content Area */}
       <div className="w-full flex-1 px-lg py-4 overflow-y-auto animate-fade-in flex flex-col">
+        {/* People Planner Automation Panel */}
+        <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
+
         {/* Compact Upload Toggle - Shows when no data is loaded */}
         {!processedData && (
-          <div className="mb-6 animate-fade-in">
+          <div className="mb-6 animate-fade-in flex flex-wrap gap-3">
             <Button
               onClick={() => setShowUploadPanel(!showUploadPanel)}
               variant="outline"
@@ -350,6 +355,15 @@ export default function Dashboard() {
             >
               <Upload className="w-4 h-4 mr-2" />
               {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+            </Button>
+            <Button
+              onClick={() => setShowPeoplePlanner(true)}
+              variant="outline"
+              className="glass-card hover:shadow-lg transition-all duration-200 h-12 px-6 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+              title="Automatically download reports from People Planner"
+            >
+              <Bot className="w-4 h-4 mr-2" />
+              Sync from People Planner
             </Button>
           </div>
         )}

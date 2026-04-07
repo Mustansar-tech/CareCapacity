@@ -124,3 +124,25 @@ Implemented with @dnd-kit/core in `weekly-plan-tab.tsx`:
 | `ORS_API_KEY` | OpenRouteService API key |
 | `TRAVELTIME_APP_ID` | TravelTime application ID |
 | `TRAVELTIME_API_KEY` | TravelTime API key |
+| `ACCESS_EMAIL` | Email for People Planner / Access Workspace login |
+| `ACCESS_PASSWORD` | Password for People Planner / Access Workspace login |
+| `PEOPLE_PLANNER_BRANCH_CONFIG` | JSON map of branchId → `{workspaceBranch, plannerArea}` |
+
+## People Planner Automation
+
+`server/people-planner/` contains three files:
+
+- **`automation-engine.ts`** — Playwright browser automation: login to Access Workspace, select branch, open People Planner, navigate to export page, configure form, trigger download.
+- **`report-configs.ts`** — Per-report-type URL, field config, and export template names.
+- **`automation-routes.ts`** — Express routes under `/api/pp/`. Runs all 3 reports sequentially and feeds results through the existing pipeline, then persists to DB.
+
+Frontend:
+- **`client/src/components/PeoplePlannerPanel.tsx`** — Sheet-based panel, week date picker, per-report status indicators, progress bar, polling via `/api/pp/session/:sessionId` every 2s.
+- Dashboard trigger button (purple "Sync from People Planner") appears when no data is loaded.
+
+API endpoints:
+- `GET /api/pp/health` — check credentials configured
+- `POST /api/pp/trigger` — start automation session (returns `sessionId`)
+- `GET /api/pp/session/:sessionId` — poll session status + per-job details
+- `GET /api/pp/jobs/:jobId` — single job info
+- `GET /api/pp/download/:jobId` — download individual file
