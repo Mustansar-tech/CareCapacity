@@ -635,19 +635,28 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   let si = 0;
 
   if (reportConfig.fields.franchise && selectCount > si) {
-    // For shared-PP branches plannerArea holds the exact Franchise name to select.
-    // For solo branches (no plannerArea) fall back to deriving it from the URL slug.
-    // Area is always left as "All" — the Franchise selection is the branch filter.
-    const franchiseName = config.plannerArea
-      ?? (() => {
-        const slugMatch = config.branchUrl.match(/\/o\/(home-instead-[^/]+)/);
-        return slugMatch
-          ? slugMatch[1].replace(/home-instead-uk-/, "").replace(/-/g, " ")
-          : "";
-      })();
+    const franchiseSelect = selects.nth(si);
 
-    if (franchiseName) {
-      await selectBest(selects.nth(si), franchiseName, "Franchise");
+    if (config.plannerArea) {
+      // Shared-PP branch — use the exact configured Franchise name
+      await selectBest(franchiseSelect, config.plannerArea, "Franchise");
+    } else {
+      // Solo branch — pick the first option that isn't "All" and isn't a live-in-care variant.
+      // This avoids relying on URL-slug guessing (which falls back to "All" when it doesn't match).
+      const liveInCareRe = /live[\s-]?in[\s-]?care/i;
+      const allOptions = await franchiseSelect.locator("option").allTextContents();
+      const candidate = allOptions.find(
+        (opt) => opt.trim().toLowerCase() !== "all" && !liveInCareRe.test(opt)
+      );
+      if (candidate) {
+        await franchiseSelect.selectOption({ label: candidate.trim() });
+        logger.info("Selected option", { name: "Franchise", selected: candidate.trim(), method: "first-non-all" });
+      } else {
+        logger.warn("No suitable Franchise option found for solo branch — leaving as All", {
+          branchUrl: config.branchUrl,
+          options: allOptions,
+        });
+      }
     }
     await plannerPage.waitForTimeout(1000);
     si++;
