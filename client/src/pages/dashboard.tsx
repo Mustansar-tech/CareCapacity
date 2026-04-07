@@ -346,17 +346,15 @@ export default function Dashboard() {
 
         {/* Action bar — always visible */}
         <div className="mb-4 flex flex-wrap gap-3 animate-fade-in">
-          {!processedData && (
-            <Button
-              onClick={() => setShowUploadPanel(!showUploadPanel)}
-              variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5"
-              data-testid="toggle-upload-panel"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
-            </Button>
-          )}
+          <Button
+            onClick={() => setShowUploadPanel(!showUploadPanel)}
+            variant="outline"
+            className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5"
+            data-testid="toggle-upload-panel"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+          </Button>
           <Button
             onClick={() => setShowPeoplePlanner(true)}
             variant="outline"
@@ -369,7 +367,7 @@ export default function Dashboard() {
         </div>
 
         {/* Upload Section - Collapsible */}
-        {!processedData && showUploadPanel && (
+        {showUploadPanel && (
           <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
           <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
             <CardTitle className="flex items-center gap-2">
