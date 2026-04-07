@@ -162,8 +162,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register auth routes (login, logout, me, admin user management)
   registerAuthRoutes(app);
 
-  // Register People Planner automation routes
-  registerPeoplePlannerRoutes(app);
+  // Register People Planner automation routes (only when credentials are configured)
+  if (process.env.ACCESS_EMAIL) {
+    registerPeoplePlannerRoutes(app);
+  }
 
   // Health check endpoint for monitoring
   app.get('/health', async (_req, res) => {

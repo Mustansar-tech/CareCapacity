@@ -18,6 +18,7 @@ export interface JobConfig {
   includeBankDetails?: boolean;
   careGiverType?: string;
   careGiverStatus?: string;
+  branchId?: string; // used for scoping and filtering
 }
 
 export interface AutomationJob {
@@ -43,7 +44,7 @@ const WORKSPACE_URL = "https://go.accessacloud.com/";
 // ─── State ────────────────────────────────────────────────────────────────────
 const jobs = new Map<string, AutomationJob>();
 let currentJobId: string | null = null;
-const jobQueue: JobConfig[] = [];
+const jobQueue: AutomationJob[] = []; // enqueue full job objects to preserve IDs
 let isProcessingQueue = false;
 
 // Shared browser resources reused across all queued jobs in one session
@@ -150,7 +151,8 @@ export async function runAutomationJob(config: JobConfig): Promise<string> {
       setImmediate(() => processNextQueuedJob());
     });
   } else {
-    jobQueue.push(config);
+    // Push the full job object so the ID is preserved when the queue drains
+    jobQueue.push(job);
     logger.info({ jobId: id, queueLength: jobQueue.length }, "Job queued for sequential processing");
   }
 
@@ -174,28 +176,13 @@ async function processNextQueuedJob(): Promise<void> {
   if (jobQueue.length === 0 || isProcessingQueue) return;
 
   isProcessingQueue = true;
-  const config = jobQueue.shift();
-  if (!config) { isProcessingQueue = false; return; }
+  const job = jobQueue.shift(); // already registered in `jobs` map with correct ID
+  if (!job) { isProcessingQueue = false; return; }
 
-  const id = generateId();
-  const job: AutomationJob = {
-    id,
-    status: "pending",
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    error: null,
-    downloadReady: false,
-    fileName: null,
-    filePath: null,
-    config,
-    logs: [],
-  };
-
-  jobs.set(id, job);
-  currentJobId = id;
+  currentJobId = job.id;
 
   await runJob(job).catch((err) => {
-    logger.error({ jobId: id, err }, "Unhandled automation error");
+    logger.error({ jobId: job.id, err }, "Unhandled automation error");
   }).finally(() => {
     isProcessingQueue = false;
     setImmediate(() => processNextQueuedJob());

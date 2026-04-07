@@ -105,25 +105,37 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   // Only register if credentials are configured (or can be configured later)
   // Routes are always registered but gracefully return 503 if not configured
 
-  // GET /api/pp/health — check automation is configured and usable
-  app.get("/api/pp/health", requireAuth, (req, res) => {
+  // GET /api/pp/health — check automation is configured, usable, and Playwright accessible
+  app.get("/api/pp/health", requireAuth, async (req, res) => {
     const hasCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
     const hasBranchConfig = !!process.env.PEOPLE_PLANNER_BRANCH_CONFIG;
-
-    // Check if the current user's branch has a config
-    const session = (req as any).session;
     const branchId = req.query.branchId as string | undefined;
     const branchConfigured = branchId ? !!getMergedBranchConfig(branchId) : hasBranchConfig;
 
+    // Probe Playwright availability (non-blocking, 5s timeout)
+    let playwrightReady = false;
+    try {
+      const { chromium } = await import("playwright");
+      const browser = await Promise.race([
+        chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+      ]) as import("playwright").Browser;
+      await browser.close();
+      playwrightReady = true;
+    } catch {
+      // Playwright not available or failed to launch — report as not ready
+    }
+
     res.json({
-      enabled: hasCredentials,
+      enabled: hasCredentials && playwrightReady,
       credentialsConfigured: hasCredentials,
       branchConfigured,
+      playwrightReady,
     });
   });
 
-  // GET /api/pp/config — get merged branch config (sanitised — no credentials)
-  app.get("/api/pp/config", requireAuth, (req, res) => {
+  // GET /api/pp/config — get merged branch config (admin only)
+  app.get("/api/pp/config", requireAuth, requireRoleAtLeast("admin"), (req, res) => {
     const branchId = req.query.branchId as string | undefined;
     if (!branchId) {
       return res.status(400).json({ error: "branchId query param is required" });
@@ -137,8 +149,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     });
   });
 
-  // PUT /api/pp/config — update branch config override (scheduler+ only)
-  app.put("/api/pp/config", requireAuth, requireRoleAtLeast("scheduler"), (req, res) => {
+  // PUT /api/pp/config — update branch config override (admin only)
+  app.put("/api/pp/config", requireAuth, requireRoleAtLeast("admin"), (req, res) => {
     const { branchId, workspaceBranch, plannerArea } = req.body as {
       branchId?: string;
       workspaceBranch?: string;
@@ -171,21 +183,22 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     });
   });
 
-  // GET /api/pp/jobs — list recent jobs scoped to a branch (or all for admin)
+  // GET /api/pp/jobs — list recent jobs; non-admins see only their own jobs
   app.get("/api/pp/jobs", requireAuth, (req, res) => {
     const userSession = (req as any).session;
     const branchId = req.query.branchId as string | undefined;
 
     let jobs = listJobs();
 
-    // Scope to branch if provided and user is not admin
-    if (branchId) {
-      jobs = jobs.filter(j => !j.config || (j.config as any).branchId === branchId
-        || userSession?.userRole === "admin");
-    }
+    const isAdmin = userSession?.userRole === "admin";
 
-    // Non-admins: only show their own jobs (tracked via activeSessions)
-    if (userSession?.userRole !== "admin") {
+    if (isAdmin) {
+      // Admins: filter by branchId if provided
+      if (branchId) {
+        jobs = jobs.filter(j => j.config?.branchId === branchId);
+      }
+    } else {
+      // Non-admins: restrict to jobs they initiated (via session tracking)
       const mySessionJobIds = new Set<string>();
       for (const s of activeSessions.values()) {
         if (s.initiatedByUserId === userSession?.userId) {
@@ -193,6 +206,10 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         }
       }
       jobs = jobs.filter(j => mySessionJobIds.has(j.id));
+      // Additionally filter by branchId within user's jobs
+      if (branchId) {
+        jobs = jobs.filter(j => j.config?.branchId === branchId);
+      }
     }
 
     res.json(jobs);
@@ -373,6 +390,7 @@ async function runPipelineSession(
         exportType: "Excel",
         exportTemplate,
         selectAllCareGivers: reportType === "careGiverAvailabilityExport",
+        branchId, // populated so /api/pp/jobs can filter by branch
       };
 
       const jobId = await runAutomationJob(config);
