@@ -341,8 +341,6 @@ export default function Dashboard() {
       )}
       {/* Main Content Area */}
       <div className="w-full flex-1 px-lg py-4 overflow-y-auto animate-fade-in flex flex-col">
-        {/* People Planner Automation Panel */}
-        <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
 
         {/* Upload Section - Collapsible (no-data state: show toggle above) */}
         {!processedData && (
@@ -357,15 +355,20 @@ export default function Dashboard() {
               {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
             </Button>
             <Button
-              onClick={() => setShowPeoplePlanner(true)}
+              onClick={() => setShowPeoplePlanner(!showPeoplePlanner)}
               variant="outline"
               className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
               title="Automatically download reports from People Planner"
             >
               <Bot className="w-4 h-4 mr-2" />
-              Sync from People Planner
+              {showPeoplePlanner ? 'Hide People Planner' : 'Sync from People Planner'}
             </Button>
           </div>
+        )}
+
+        {/* People Planner inline panel — shown below action bar */}
+        {!processedData && (
+          <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
         )}
 
         {/* Upload Section - Collapsible (no-data state only; data state handled inside tabs) */}
@@ -620,15 +623,18 @@ export default function Dashboard() {
               {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
             </Button>
             <Button
-              onClick={() => setShowPeoplePlanner(true)}
+              onClick={() => setShowPeoplePlanner(!showPeoplePlanner)}
               variant="outline"
               className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
               title="Automatically download reports from People Planner"
             >
               <Bot className="w-3.5 h-3.5 mr-2" />
-              Sync from People Planner
+              {showPeoplePlanner ? 'Hide People Planner' : 'Sync from People Planner'}
             </Button>
           </div>
+
+          {/* People Planner inline panel — under tabs when data is loaded */}
+          <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
 
           {/* Daily Capacity Tab */}
           <TabsContent value="daily-capacity" className="space-y-4 animate-fade-in flex-1 overflow-y-auto" data-testid="content-daily-capacity">

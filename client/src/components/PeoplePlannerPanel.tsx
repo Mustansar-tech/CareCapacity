@@ -4,14 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useBranch } from "@/contexts/BranchContext";
 import {
@@ -99,7 +92,6 @@ function getMondayOf(d = new Date()): string {
   return date.toISOString().split("T")[0];
 }
 
-/** Normalize any date string to the Monday of its week */
 function normalizeToMonday(dateStr: string): string {
   if (!dateStr) return dateStr;
   return getMondayOf(new Date(dateStr));
@@ -128,7 +120,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
-  // Health check — probes Playwright + credentials; only fetch once when panel opens
   const { data: health } = useQuery<{ healthy: boolean; reason?: string }>({
     queryKey: ["/api/pp/health"],
     queryFn: async () => {
@@ -137,11 +128,10 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
       return r.json();
     },
     enabled: open,
-    staleTime: 60_000,   // re-check at most once per minute
+    staleTime: 60_000,
     retry: false,
   });
 
-  // Poll session status while running
   const { data: session } = useQuery<PipelineSession>({
     queryKey: ["/api/pp/session", activeSessionId],
     queryFn: async () => {
@@ -158,7 +148,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     refetchIntervalInBackground: true,
   });
 
-  // Recent automation sessions (polls every 5s when panel is open, scoped to branch)
   const { data: recentSessions } = useQuery<PipelineSession[]>({
     queryKey: ["/api/pp/sessions", selectedBranchId],
     queryFn: async () => {
@@ -173,7 +162,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     refetchInterval: open ? 5000 : false,
   });
 
-  // Invalidate dashboard when session completes
   useEffect(() => {
     if (session?.status === "completed") {
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
@@ -185,7 +173,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     }
   }, [session?.status]);
 
-  // Elapsed timer
   useEffect(() => {
     if (!sessionStartedAt || session?.status !== "running") return;
     const interval = setInterval(() => setElapsed(elapsedTime(sessionStartedAt)), 1000);
@@ -216,7 +203,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   });
 
   const isActive = session?.status === "running" || triggerMutation.isPending;
-  const automationAvailable = health?.healthy ?? true; // optimistically true until health returns
+  const automationAvailable = health?.healthy ?? true;
   const phase = session?.phase ?? "starting";
   const progress = PHASE_PROGRESS[phase] ?? 10;
   const phaseLabel = PHASE_LABELS[phase] ?? phase;
@@ -241,136 +228,246 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     return d.toISOString().split("T")[0];
   })();
 
-  // Jobs for the current session (or fall back to the recent jobs list)
   const sessionJobs = session?.jobs ?? [];
-
-  // Reports row with job status per report type
   const reportOrder = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
 
-  return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col gap-0 p-0 overflow-hidden">
+  if (!open) return null;
 
-        {/* Header */}
-        <SheetHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+  return (
+    <Card className="material-card hover-lift animate-slide-up mb-4 elevation-2">
+      <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg pb-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <Bot className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Bot className="w-4 h-4 text-white" />
             </div>
-            <div className="min-w-0">
-              <SheetTitle className="text-lg font-semibold">People Planner Sync</SheetTitle>
-              <SheetDescription className="text-sm">
+            <div>
+              <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                People Planner Sync
+              </CardTitle>
+              <CardDescription className="text-xs">
                 Automatically download reports from Access Workspace
-              </SheetDescription>
+              </CardDescription>
             </div>
           </div>
-        </SheetHeader>
+        </div>
+      </CardHeader>
 
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="px-6 py-4 space-y-5">
+      <CardContent className="pt-4 space-y-4">
 
-            {/* Automation unavailable banner */}
-            {health && !health.healthy && (
-              <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Automation unavailable</p>
-                  {health.reason && (
-                    <p className="text-xs text-amber-600/80 dark:text-amber-400">{health.reason}</p>
+        {/* Automation unavailable banner */}
+        {health && !health.healthy && (
+          <div className="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Automation unavailable</p>
+              {health.reason && (
+                <p className="text-xs text-amber-600/80 dark:text-amber-400">{health.reason}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Branch display */}
+          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+            <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">Branch</p>
+              <p className="text-sm font-medium truncate">
+                {selectedBranch?.displayName ?? selectedBranchId ?? "—"}
+              </p>
+            </div>
+          </div>
+
+          {/* Week selector */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5" />
+              Week starting (Monday)
+            </label>
+            <input
+              type="date"
+              value={weekStartDate}
+              onChange={e => setWeekStartDate(normalizeToMonday(e.target.value))}
+              disabled={isActive}
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            />
+            {weekStartDate && (
+              <p className="text-xs text-muted-foreground">
+                {formatDate(weekStartDate)} – {formatDate(weekEndDate)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Reports list */}
+        <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reports to download</p>
+          {reportOrder.map((reportType) => {
+            const job = sessionJobs.find(j => j?.config?.reportType === reportType);
+            const isDone    = job?.status === "completed";
+            const isFailed  = job?.status === "failed";
+            const isRunning = job?.status === "running" || job?.status === "pending";
+
+            return (
+              <div key={reportType}>
+                <div className="flex items-start gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                    isDone    ? "bg-emerald-100 dark:bg-emerald-900" :
+                    isFailed  ? "bg-red-100 dark:bg-red-900" :
+                    isRunning ? "bg-blue-100 dark:bg-blue-900" : "bg-muted"
+                  }`}>
+                    {isDone    ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> :
+                     isFailed  ? <XCircle className="w-3.5 h-3.5 text-red-600" /> :
+                     isRunning ? <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" /> :
+                     <span className="w-2 h-2 rounded-full bg-muted-foreground/30" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{REPORT_LABELS[reportType]}</p>
+                    {job?.fileName && (
+                      <p className="text-xs text-muted-foreground truncate">{job.fileName}</p>
+                    )}
+                    {isFailed && job?.error && (
+                      <p className="text-xs text-red-600 mt-0.5">{job.error}</p>
+                    )}
+                  </div>
+                  {job && job.logs.length > 0 && (
+                    <button
+                      onClick={() => setShowLogs(showLogs === job.id ? null : job.id)}
+                      className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Toggle logs"
+                    >
+                      <Terminal className="w-3.5 h-3.5" />
+                      {showLogs === job.id ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />}
+                    </button>
                   )}
+                  {job?.downloadReady && job.fileName && (
+                    <a
+                      href={`/api/pp/download/${job.id}`}
+                      download={job.fileName}
+                      className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-1"
+                      title={`Download ${job.fileName}`}
+                    >
+                      <FileDown className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+
+                {showLogs === job?.id && job?.logs && job.logs.length > 0 && (
+                  <div className="mt-2 ml-9 rounded-md bg-black/80 dark:bg-black/60 p-2 max-h-32 overflow-y-auto">
+                    {job.logs.map((line, idx) => (
+                      <p key={idx} className="text-xs font-mono text-green-400 leading-relaxed">{line}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Active session progress */}
+        {(isActive || session) && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">{phaseLabel}</p>
+              <div className="flex items-center gap-2">
+                {session?.status === "running" && elapsed && (
+                  <span className="text-xs text-muted-foreground">{elapsed}</span>
+                )}
+                {session?.status === "completed" && (
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0 text-xs">
+                    <CheckCircle className="w-3 h-3 mr-1" />Done
+                  </Badge>
+                )}
+                {session?.status === "failed" && (
+                  <Badge variant="destructive" className="border-0 text-xs">
+                    <XCircle className="w-3 h-3 mr-1" />Failed
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <Progress
+              value={progress}
+              className={`h-2 ${
+                session?.status === "failed"
+                  ? "[&>div]:bg-red-500"
+                  : session?.status === "completed"
+                  ? "[&>div]:bg-emerald-500"
+                  : ""
+              }`}
+            />
+
+            {session?.status === "failed" && session.error && (
+              <div className="rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+                <div className="flex gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-300">{session.error}</p>
                 </div>
               </div>
             )}
 
-            {/* Branch display (read-only) */}
-            <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-              <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Branch</p>
-                <p className="text-sm font-medium truncate">
-                  {selectedBranch?.displayName ?? selectedBranchId ?? "—"}
-                </p>
+            {session?.status === "completed" && (
+              <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-3">
+                <div className="flex gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                    All 3 reports downloaded and processed. Dashboard data has been updated.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
+          </div>
+        )}
 
-            {/* Week selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Week starting (Monday)
-              </label>
-              <input
-                type="date"
-                value={weekStartDate}
-                onChange={e => setWeekStartDate(normalizeToMonday(e.target.value))}
-                disabled={isActive}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-              />
-              {weekStartDate && (
-                <p className="text-xs text-muted-foreground">
-                  Week: {formatDate(weekStartDate)} – {formatDate(weekEndDate)}
-                </p>
-              )}
-            </div>
-
-            {/* Reports list */}
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reports to download</p>
-              {reportOrder.map((reportType, i) => {
-                const job = sessionJobs.find(j => j?.config?.reportType === reportType);
-                const isDone    = job?.status === "completed";
-                const isFailed  = job?.status === "failed";
-                const isRunning = job?.status === "running" || job?.status === "pending";
-
+        {/* Recent sessions history */}
+        {recentSessions && recentSessions.length > 0 && !isActive && !session && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent syncs</p>
+            <div className="space-y-1.5">
+              {recentSessions.slice(0, 5).map(s => {
+                const reportDate = s.jobs?.[0]?.config?.startDate;
+                const completedJobs = s.jobs?.filter(j => j.status === "completed").length ?? 0;
+                const totalJobs = s.jobs?.length ?? s.jobIds.length;
                 return (
-                  <div key={reportType}>
-                    <div className="flex items-start gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        isDone    ? "bg-emerald-100 dark:bg-emerald-900" :
-                        isFailed  ? "bg-red-100 dark:bg-red-900" :
-                        isRunning ? "bg-blue-100 dark:bg-blue-900" : "bg-muted"
-                      }`}>
-                        {isDone    ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> :
-                         isFailed  ? <XCircle className="w-3.5 h-3.5 text-red-600" /> :
-                         isRunning ? <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" /> :
-                         <span className="w-2 h-2 rounded-full bg-muted-foreground/30" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{REPORT_LABELS[reportType]}</p>
-                        {job?.fileName && (
-                          <p className="text-xs text-muted-foreground truncate">{job.fileName}</p>
-                        )}
-                        {isFailed && job?.error && (
-                          <p className="text-xs text-red-600 mt-0.5">{job.error}</p>
-                        )}
-                      </div>
-                      {job && job.logs.length > 0 && (
-                        <button
-                          onClick={() => setShowLogs(showLogs === job.id ? null : job.id)}
-                          className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label="Toggle logs"
-                        >
-                          <Terminal className="w-3.5 h-3.5" />
-                          {showLogs === job.id ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />}
-                        </button>
+                  <div key={s.sessionId} className="rounded-md border px-3 py-2 text-xs bg-muted/20 space-y-1">
+                    <div className="flex items-center gap-2">
+                      {s.status === "completed" ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      ) : s.status === "failed" ? (
+                        <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      ) : (
+                        <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
                       )}
-                      {job?.downloadReady && job.fileName && (
-                        <a
-                          href={`/api/pp/download/${job.id}`}
-                          download={job.fileName}
-                          className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-1"
-                          title={`Download ${job.fileName}`}
-                        >
-                          <FileDown className="w-4 h-4" />
-                        </a>
+                      <span className="flex-1 font-medium text-foreground/80">
+                        {reportDate ? `w/c ${formatDate(reportDate)}` : "Sync"}
+                      </span>
+                      <span className="text-muted-foreground/70 flex-shrink-0">
+                        {new Date(s.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 pl-5 text-muted-foreground">
+                      <span>{completedJobs}/{totalJobs} reports downloaded</span>
+                      {s.status === "failed" && s.error && (
+                        <span className="text-red-500 truncate max-w-[160px]" title={s.error}>
+                          — {s.error}
+                        </span>
                       )}
                     </div>
-
-                    {/* Live log viewer */}
-                    {showLogs === job?.id && job?.logs && job.logs.length > 0 && (
-                      <div className="mt-2 ml-9 rounded-md bg-black/80 dark:bg-black/60 p-2 max-h-32 overflow-y-auto">
-                        {job.logs.map((line, idx) => (
-                          <p key={idx} className="text-xs font-mono text-green-400 leading-relaxed">{line}</p>
+                    {s.jobs && s.jobs.filter(j => j.downloadReady && j.fileName).length > 0 && (
+                      <div className="flex flex-wrap gap-2 pl-5 pt-0.5">
+                        {s.jobs.filter(j => j.downloadReady && j.fileName).map(j => (
+                          <a
+                            key={j.id}
+                            href={`/api/pp/download/${j.id}`}
+                            download={j.fileName}
+                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                            title={`Download ${j.fileName}`}
+                          >
+                            <FileDown className="w-3 h-3" />
+                            {REPORT_LABELS[j.config?.reportType] ?? j.config?.reportType}
+                          </a>
                         ))}
                       </div>
                     )}
@@ -378,139 +475,26 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 );
               })}
             </div>
-
-            {/* Active session progress */}
-            {(isActive || session) && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{phaseLabel}</p>
-                  <div className="flex items-center gap-2">
-                    {session?.status === "running" && elapsed && (
-                      <span className="text-xs text-muted-foreground">{elapsed}</span>
-                    )}
-                    {session?.status === "completed" && (
-                      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0 text-xs">
-                        <CheckCircle className="w-3 h-3 mr-1" />Done
-                      </Badge>
-                    )}
-                    {session?.status === "failed" && (
-                      <Badge variant="destructive" className="border-0 text-xs">
-                        <XCircle className="w-3 h-3 mr-1" />Failed
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <Progress
-                  value={progress}
-                  className={`h-2 ${
-                    session?.status === "failed"
-                      ? "[&>div]:bg-red-500"
-                      : session?.status === "completed"
-                      ? "[&>div]:bg-emerald-500"
-                      : ""
-                  }`}
-                />
-
-                {session?.status === "failed" && session.error && (
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
-                    <div className="flex gap-2">
-                      <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-red-700 dark:text-red-300">{session.error}</p>
-                    </div>
-                  </div>
-                )}
-
-                {session?.status === "completed" && (
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-3">
-                    <div className="flex gap-2">
-                      <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                        All 3 reports downloaded and processed. Dashboard data has been updated.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Recent sessions history */}
-            {recentSessions && recentSessions.length > 0 && !isActive && !session && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent syncs</p>
-                <div className="space-y-1.5">
-                  {recentSessions.slice(0, 5).map(s => {
-                    const reportDate = s.jobs?.[0]?.config?.startDate;
-                    const completedJobs = s.jobs?.filter(j => j.status === "completed").length ?? 0;
-                    const totalJobs = s.jobs?.length ?? s.jobIds.length;
-                    return (
-                      <div key={s.sessionId} className="rounded-md border px-3 py-2 text-xs bg-muted/20 space-y-1">
-                        <div className="flex items-center gap-2">
-                          {s.status === "completed" ? (
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                          ) : s.status === "failed" ? (
-                            <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                          ) : (
-                            <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
-                          )}
-                          <span className="flex-1 font-medium text-foreground/80">
-                            {reportDate ? `w/c ${formatDate(reportDate)}` : "Sync"}
-                          </span>
-                          <span className="text-muted-foreground/70 flex-shrink-0">
-                            {new Date(s.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 pl-5 text-muted-foreground">
-                          <span>{completedJobs}/{totalJobs} reports downloaded</span>
-                          {s.status === "failed" && s.error && (
-                            <span className="text-red-500 truncate max-w-[160px]" title={s.error}>
-                              — {s.error}
-                            </span>
-                          )}
-                        </div>
-                        {/* Per-report download links */}
-                        {s.jobs && s.jobs.filter(j => j.downloadReady && j.fileName).length > 0 && (
-                          <div className="flex flex-wrap gap-2 pl-5 pt-0.5">
-                            {s.jobs.filter(j => j.downloadReady && j.fileName).map(j => (
-                              <a
-                                key={j.id}
-                                href={`/api/pp/download/${j.id}`}
-                                download={j.fileName}
-                                className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-                                title={`Download ${j.fileName}`}
-                              >
-                                <FileDown className="w-3 h-3" />
-                                {REPORT_LABELS[j.config?.reportType] ?? j.config?.reportType}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Info card when idle */}
-            {!activeSessionId && !triggerMutation.isPending && (
-              <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-4">
-                <div className="flex gap-2">
-                  <Building2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Automated report download</p>
-                    <p className="text-xs text-blue-600/80 dark:text-blue-400">
-                      Logs into Access Workspace, opens People Planner, and downloads all 3 reports for the selected week. Typically takes 3–8 minutes.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        </ScrollArea>
+        )}
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t flex-shrink-0 space-y-2">
+        {/* Info card when idle */}
+        {!activeSessionId && !triggerMutation.isPending && (
+          <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-4">
+            <div className="flex gap-2">
+              <Building2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Automated report download</p>
+                <p className="text-xs text-blue-600/80 dark:text-blue-400">
+                  Logs into Access Workspace, opens People Planner, and downloads all 3 reports for the selected week. Typically takes 3–8 minutes.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="pt-1">
           {(session?.status === "failed" || session?.status === "completed") ? (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={handleReset}>
@@ -542,7 +526,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             </Button>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </CardContent>
+    </Card>
   );
 }
