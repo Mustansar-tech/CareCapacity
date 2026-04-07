@@ -46,6 +46,7 @@ interface GhLossItem {
   name: string;
   ghHours: number;
   weeklyScheduled: number;
+  weeklyUnavailability: number;
   loss: number;
 }
 
@@ -55,9 +56,9 @@ interface GhLossResult {
 }
 
 function computeGhLoss(
-  employeeSummaryByDate: Record<string, Array<{ employeeName: string; scheduledHours: number }>>
+  employeeSummaryByDate: Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>
 ): GhLossResult {
-  const empTotals = new Map<string, { ghHours: number; weeklyScheduled: number }>();
+  const empTotals = new Map<string, { ghHours: number; weeklyScheduled: number; weeklyUnavailability: number }>();
   for (const records of Object.values(employeeSummaryByDate)) {
     for (const rec of records) {
       const match = GH_REGEX.exec(rec.employeeName);
@@ -66,18 +67,24 @@ function computeGhLoss(
       const existing = empTotals.get(rec.employeeName);
       if (existing) {
         existing.weeklyScheduled += rec.scheduledHours;
+        existing.weeklyUnavailability += rec.unavailability ?? 0;
       } else {
-        empTotals.set(rec.employeeName, { ghHours, weeklyScheduled: rec.scheduledHours });
+        empTotals.set(rec.employeeName, {
+          ghHours,
+          weeklyScheduled: rec.scheduledHours,
+          weeklyUnavailability: rec.unavailability ?? 0,
+        });
       }
     }
   }
 
   const items = Array.from(empTotals.entries())
-    .map(([name, { ghHours, weeklyScheduled }]) => ({
+    .map(([name, { ghHours, weeklyScheduled, weeklyUnavailability }]) => ({
       name,
       ghHours,
       weeklyScheduled: Math.round(weeklyScheduled * 100) / 100,
-      loss: Math.round((ghHours - weeklyScheduled) * 100) / 100,
+      weeklyUnavailability: Math.round(weeklyUnavailability * 100) / 100,
+      loss: Math.round((ghHours - weeklyUnavailability - weeklyScheduled) * 100) / 100,
     }))
     .filter((item) => item.loss > 0)
     .sort((a, b) => b.loss - a.loss);
@@ -165,7 +172,7 @@ export default function Dashboard() {
     const data = filteredData || processedData;
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
     return computeGhLoss(
-      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number }>>
+      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>
     );
   }, [filteredData, processedData]);
 
@@ -1640,17 +1647,25 @@ export default function Dashboard() {
                             <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
                           </CardTitle>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" align="start" className="max-w-xs text-sm z-50">
+                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
                           {ghLossData.items.length === 0 ? (
                             <p className="text-xs">No GH employees with a shortfall this week.</p>
                           ) : (
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <p className="font-semibold">GH employees under their weekly target</p>
-                              <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                              <p className="text-xs opacity-75 font-mono">Loss = GH target − unavailability − scheduled</p>
+                              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
                                 {ghLossData.items.map((item) => (
-                                  <div key={item.name} className="flex items-center justify-between gap-4 text-xs">
-                                    <span className="truncate max-w-[160px]">{item.name}</span>
-                                    <span className="font-semibold text-orange-400 whitespace-nowrap">{item.loss}h short</span>
+                                  <div key={item.name} className="text-xs border-b border-white/10 pb-1 last:border-0">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="truncate max-w-[160px] font-medium">{item.name}</span>
+                                      <span className="font-semibold text-orange-400 whitespace-nowrap">{item.loss}h short</span>
+                                    </div>
+                                    <div className="opacity-70 mt-0.5 flex gap-2 flex-wrap">
+                                      <span>GH: {item.ghHours}h</span>
+                                      {item.weeklyUnavailability > 0 && <span>Unavail: −{item.weeklyUnavailability}h</span>}
+                                      <span>Sched: {item.weeklyScheduled}h</span>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
