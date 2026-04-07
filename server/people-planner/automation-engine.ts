@@ -597,11 +597,19 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   const fillDateInput = async (input: ReturnType<import("playwright").Frame["locator"]>, dateStr: string, label: string) => {
     const parts = dateStr.split("-");
     const formatted = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
-    await input.click({ clickCount: 3 });
-    await input.fill("");
-    await input.type(formatted, { delay: 80 });
+    // Use fill() first — it reliably replaces the entire value
+    await input.click({ force: true });
+    await input.fill(formatted);
+    // Verify it took; if not, fall back to select-all + type
+    const actual = await input.inputValue().catch(() => "");
+    if (actual !== formatted) {
+      await input.click({ clickCount: 3 });
+      await input.fill("");
+      await input.type(formatted, { delay: 80 });
+    }
     await formFrame.locator("body").press("Tab");
-    logger.info("Filled date input", { label, formatted });
+    await plannerPage.waitForTimeout(300);
+    logger.info("Filled date input", { label, formatted, actual: await input.inputValue().catch(() => "?") });
   };
 
   const selects = formFrame.locator("select");
@@ -702,7 +710,24 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
       );
       if (allVals.length > 0) {
         await multi.selectOption(allVals);
+        logger.info("Selected all options in multi-select", { count: allVals.length });
         await plannerPage.waitForTimeout(400);
+      }
+    } else {
+      // Fallback: tick all checkboxes (Availability Export renders CG list as checkboxes)
+      const checkboxes = formFrame.locator("input[type='checkbox']");
+      const cbCount = await checkboxes.count().catch(() => 0);
+      if (cbCount > 0) {
+        let checked = 0;
+        for (let i = 0; i < cbCount; i++) {
+          const isChecked = await checkboxes.nth(i).isChecked().catch(() => false);
+          if (!isChecked) {
+            await checkboxes.nth(i).check({ force: true }).catch(() => {});
+            checked++;
+          }
+        }
+        logger.info("Checked care giver checkboxes", { total: cbCount, alreadyChecked: cbCount - checked });
+        await plannerPage.waitForTimeout(500);
       }
     }
   }
@@ -741,7 +766,9 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
         const headers = await response.allHeaders();
         const ct = (headers["content-type"] || "").toLowerCase();
         const cd = (headers["content-disposition"] || "").toLowerCase();
-        if (!cd.includes("attachment") && !FILE_TYPES.some(t => ct.includes(t))) return;
+        // Match: attachment OR known file MIME OR filename ending in .xls/.xlsx/.csv
+        const hasExcelFilename = /filename[^;=\n]*=.*\.(xlsx?|csv)/i.test(cd);
+        if (!cd.includes("attachment") && !hasExcelFilename && !FILE_TYPES.some(t => ct.includes(t))) return;
 
         responseResolved = true;
         plannerPage.off("response", handler);
@@ -765,7 +792,31 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
     }, 91000);
   });
 
+  // Log all image buttons on the page to help debug which one is the export button
+  const allImageBtns = await formFrame.locator("input[type='image']").evaluateAll(els =>
+    els.map(el => ({ name: (el as HTMLInputElement).name, id: el.id, src: (el as HTMLInputElement).src?.split("/").slice(-1)[0] ?? "" }))
+  ).catch(() => [] as { name: string; id: string; src: string }[]);
+  logger.info("Image buttons on form", { buttons: allImageBtns, isReportViewer });
+
+  // Helper: try all image buttons matching a selector, click first visible
+  const clickFirstVisible = async (candidates: ReturnType<import("playwright").Frame["locator"]>[], label: string): Promise<boolean> => {
+    for (const loc of candidates) {
+      const count = await loc.count().catch(() => 0);
+      if (count === 0) continue;
+      for (let i = 0; i < count; i++) {
+        const btn = loc.nth(i);
+        if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
+          await btn.click({ force: true });
+          logger.info("Clicked export button", { label, index: i });
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   if (isReportViewer) {
+    // Try ASP.NET postback first
     const postbackDone = await formFrame.evaluate(() => {
       type BrowserWindowWithPostBack = Window & { __doPostBack?: (target: string, arg: string) => void };
       const win = window as BrowserWindowWithPostBack;
@@ -776,36 +827,33 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
     }).catch(() => false);
 
     if (!postbackDone) {
-      const btnReport = formFrame.locator("input[type='image'][name='btnReport']");
-      if (await btnReport.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await btnReport.click({ force: true });
-      } else {
-        const exportLink = formFrame.locator("a, button").filter({ hasText: /excel|export|download/i }).first();
-        if (await exportLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await exportLink.click({ force: true });
-        } else {
-          throw new Error("Could not trigger export on Report Viewer form");
-        }
-      }
+      const clicked = await clickFirstVisible([
+        formFrame.locator("input[type='image'][name='btnReport']"),
+        formFrame.locator("input[type='image'][name*='Export']"),
+        formFrame.locator("input[type='image'][name*='export']"),
+        formFrame.locator("input[type='image'][src*='xls']"),
+        formFrame.locator("input[type='image'][src*='Excel']"),
+        formFrame.locator("input[type='image'][src*='export']"),
+        formFrame.locator("a, button").filter({ hasText: /excel|export|download/i }),
+        formFrame.locator("input[type='image']"),  // catch-all: any image button
+      ], "ReportViewer-fallback");
+
+      if (!clicked) throw new Error("Could not trigger export on Report Viewer form");
     }
   } else {
-    const exportCandidates = [
+    const clicked = await clickFirstVisible([
       formFrame.locator("input[type='image'][name='btnExport']"),
       formFrame.locator("input[type='image']#btnExport"),
       formFrame.locator("input[type='image'][onclick*='DoDetailValidate']"),
       formFrame.locator("input[type='image'][src*='DetailExportButton']"),
-    ];
+      formFrame.locator("input[type='image'][name*='Export']"),
+      formFrame.locator("input[type='image'][src*='xls']"),
+      formFrame.locator("input[type='image'][src*='Excel']"),
+      formFrame.locator("input[type='image'][src*='export']"),
+      formFrame.locator("a, button").filter({ hasText: /excel|export|download/i }),
+      formFrame.locator("input[type='image']"),  // catch-all: any image button
+    ], "standard-export");
 
-    let clicked = false;
-    for (const loc of exportCandidates) {
-      if (await loc.count().catch(() => 0) === 0) continue;
-      const btn = loc.first();
-      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await btn.click({ force: true });
-        clicked = true;
-        break;
-      }
-    }
     if (!clicked) throw new Error("Could not find visible export button.");
   }
 
