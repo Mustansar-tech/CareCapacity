@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import React, { useState, useCallback, useEffect, lazy, Suspense, useMemo } from "react";
 import { PeoplePlannerPanel } from "@/components/PeoplePlannerPanel";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -38,6 +38,53 @@ import {
 
 // Helper formatting functions
 const fmtH = (hours: number): string => `${hours}h`;
+
+// --- GH Loss helpers ---
+const GH_REGEX = /(\d+(?:\.\d+)?)\s*GH/i;
+
+interface GhLossItem {
+  name: string;
+  ghHours: number;
+  weeklyScheduled: number;
+  loss: number;
+}
+
+interface GhLossResult {
+  totalLoss: number;
+  items: GhLossItem[];
+}
+
+function computeGhLoss(
+  employeeSummaryByDate: Record<string, Array<{ employeeName: string; scheduledHours: number }>>
+): GhLossResult {
+  const empTotals = new Map<string, { ghHours: number; weeklyScheduled: number }>();
+  for (const records of Object.values(employeeSummaryByDate)) {
+    for (const rec of records) {
+      const match = GH_REGEX.exec(rec.employeeName);
+      if (!match) continue;
+      const ghHours = parseFloat(match[1]);
+      const existing = empTotals.get(rec.employeeName);
+      if (existing) {
+        existing.weeklyScheduled += rec.scheduledHours;
+      } else {
+        empTotals.set(rec.employeeName, { ghHours, weeklyScheduled: rec.scheduledHours });
+      }
+    }
+  }
+
+  const items = Array.from(empTotals.entries())
+    .map(([name, { ghHours, weeklyScheduled }]) => ({
+      name,
+      ghHours,
+      weeklyScheduled: Math.round(weeklyScheduled * 100) / 100,
+      loss: Math.round((ghHours - weeklyScheduled) * 100) / 100,
+    }))
+    .filter((item) => item.loss > 0)
+    .sort((a, b) => b.loss - a.loss);
+
+  const totalLoss = Math.round(items.reduce((acc, item) => acc + item.loss, 0) * 100) / 100;
+  return { totalLoss, items };
+}
 const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
 const statusBadge = (status: string): string => {
   return status === 'Sufficient'
@@ -112,6 +159,15 @@ export default function Dashboard() {
   const [showPeoplePlanner, setShowPeoplePlanner] = useState(false);
 
   const { toast } = useToast();
+
+  // Compute GH Loss (memoised to avoid recomputation on unrelated re-renders)
+  const ghLossData = useMemo<GhLossResult>(() => {
+    const data = filteredData || processedData;
+    if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
+    return computeGhLoss(
+      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number }>>
+    );
+  }, [filteredData, processedData]);
 
   // Listen for global reset event from the navigation logo
   useEffect(() => {
@@ -1572,85 +1628,49 @@ export default function Dashboard() {
                 </Card>
 
                 {/* 10. GH Loss */}
-                {(() => {
-                  const data = filteredData || processedData;
-                  const GH_REGEX = /(\d+(?:\.\d+)?)\s*GH/i;
-
-                  // Aggregate scheduled hours per GH employee across all dates
-                  const empTotals = new Map<string, { ghHours: number; weeklyScheduled: number }>();
-                  if (data?.employeeSummaryByDate) {
-                    for (const records of Object.values(data.employeeSummaryByDate)) {
-                      for (const rec of records as Array<{ employeeName: string; scheduledHours: number }>) {
-                        const match = GH_REGEX.exec(rec.employeeName);
-                        if (!match) continue;
-                        const ghHours = parseFloat(match[1]);
-                        const existing = empTotals.get(rec.employeeName);
-                        if (existing) {
-                          existing.weeklyScheduled += rec.scheduledHours;
-                        } else {
-                          empTotals.set(rec.employeeName, { ghHours, weeklyScheduled: rec.scheduledHours });
-                        }
-                      }
-                    }
-                  }
-
-                  // Only keep employees with a positive GH loss
-                  const lossItems = Array.from(empTotals.entries())
-                    .map(([name, { ghHours, weeklyScheduled }]) => ({
-                      name,
-                      ghHours,
-                      weeklyScheduled: Math.round(weeklyScheduled * 100) / 100,
-                      loss: Math.round((ghHours - weeklyScheduled) * 100) / 100,
-                    }))
-                    .filter((item) => item.loss > 0)
-                    .sort((a, b) => b.loss - a.loss);
-
-                  const totalLoss = Math.round(lossItems.reduce((acc, item) => acc + item.loss, 0) * 100) / 100;
-
-                  return (
-                    <Card className="glass hover-lift animate-scale-in" data-testid="card-gh-loss">
-                      <CardHeader className="pb-3">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-                                  <AlertTriangle className="w-4 h-4 text-white" />
-                                </div>
-                                <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
-                              </CardTitle>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" align="start" className="max-w-xs text-sm z-50">
-                              {lossItems.length === 0 ? (
-                                <p className="text-xs">No GH employees with a shortfall this week.</p>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  <p className="font-semibold">GH employees under their weekly target</p>
-                                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                                    {lossItems.map((item) => (
-                                      <div key={item.name} className="flex items-center justify-between gap-4 text-xs">
-                                        <span className="truncate max-w-[160px]">{item.name}</span>
-                                        <span className="font-semibold text-orange-400 whitespace-nowrap">{item.loss}h short</span>
-                                      </div>
-                                    ))}
+                <Card className="glass hover-lift animate-scale-in" data-testid="card-gh-loss">
+                  <CardHeader className="pb-3">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                              <AlertTriangle className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
+                          </CardTitle>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start" className="max-w-xs text-sm z-50">
+                          {ghLossData.items.length === 0 ? (
+                            <p className="text-xs">No GH employees with a shortfall this week.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <p className="font-semibold">GH employees under their weekly target</p>
+                              <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                                {ghLossData.items.map((item) => (
+                                  <div key={item.name} className="flex items-center justify-between gap-4 text-xs">
+                                    <span className="truncate max-w-[160px]">{item.name}</span>
+                                    <span className="font-semibold text-orange-400 whitespace-nowrap">{item.loss}h short</span>
                                   </div>
-                                </div>
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-sum">
-                          {totalLoss}h
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {lossItems.length > 0 ? `${lossItems.length} GH employee${lossItems.length === 1 ? '' : 's'} under target` : 'No GH shortfall'}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })()}
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-sum">
+                      {ghLossData.totalLoss}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {ghLossData.items.length > 0
+                        ? `${ghLossData.items.length} GH employee${ghLossData.items.length === 1 ? '' : 's'} under target`
+                        : 'No GH shortfall'}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
               </div>
             )}
