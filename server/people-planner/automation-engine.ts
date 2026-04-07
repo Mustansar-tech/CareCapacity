@@ -852,11 +852,12 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
     }, 91000);
   });
 
-  // Log all image buttons on the page to help debug which one is the export button
+  // Collect image buttons — log only the action buttons (not per-row delete buttons)
   const allImageBtns = await formFrame.locator("input[type='image']").evaluateAll(els =>
     els.map(el => ({ name: (el as HTMLInputElement).name, id: el.id, src: (el as HTMLInputElement).src?.split("/").slice(-1)[0] ?? "" }))
   ).catch(() => [] as { name: string; id: string; src: string }[]);
-  logger.info("Image buttons on form", { buttons: allImageBtns, isReportViewer });
+  const actionBtns = allImageBtns.filter(b => !b.name.includes("$btnDataGridTemplateDelete"));
+  logger.info("Image buttons on form", { total: allImageBtns.length, actionButtons: actionBtns, isReportViewer });
 
   // Helper: try all image buttons matching a selector, click first visible
   const clickFirstVisible = async (candidates: ReturnType<import("playwright").Frame["locator"]>[], label: string): Promise<boolean> => {

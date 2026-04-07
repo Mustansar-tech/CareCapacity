@@ -2349,13 +2349,8 @@ export async function processCapacityData(
       if (hasVariableShifts && totalWeekHours > 0 && todayHours > 0 && !dateHasAbsence) {
         const proportion = todayHours / totalWeekHours;
         contractedDailyHours = Math.round((row.matchedEmployee.weeklyHours * proportion) * 100) / 100;
-        logger.info(`[PROPORTIONAL] ${row.matchedEmployee.originalName} on ${currentDate}: todayHrs=${todayHours}, totalWeekHrs=${totalWeekHours}, proportion=${proportion.toFixed(3)}, daily=${contractedDailyHours}h (standard=${standardDaily}h)`);
       } else {
         contractedDailyHours = standardDaily;
-        if (hasVariableShifts) {
-          const reason = dateHasAbsence ? `absence on date (status=${canonicalStatus(row.Type)})` : `todayHrs=0`;
-          logger.info(`[PROPORTIONAL-FALLBACK] ${row.matchedEmployee.originalName} on ${currentDate}: ${reason}, using standardDaily=${standardDaily}h`);
-        }
       }
     }
 
