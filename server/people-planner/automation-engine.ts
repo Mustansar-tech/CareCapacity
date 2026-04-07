@@ -41,6 +41,7 @@ const DOWNLOAD_DIR = path.resolve("/tmp/pp-automation-downloads");
 const SESSION_FILE = path.resolve("/tmp/pp-access-session.json");
 const DEBUG_DIR = path.resolve(process.cwd(), "pp-debug-screenshots");
 const LOGIN_URL = "https://identity.accessacloud.com/auth/signin?force=true&setemail=false&settenant=false";
+const WORKSPACE_URL = "https://go.accessacloud.com/";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const jobs = new Map<string, AutomationJob>();
@@ -331,10 +332,7 @@ async function checkNeedsLogin(page: Page): Promise<boolean> {
 }
 
 async function login(page: Page, email: string, password: string): Promise<void> {
-  // Caller should already be on LOGIN_URL; navigate only if not already there
-  if (!page.url().includes("identity.accessacloud.com")) {
-    await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  }
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
 
   const emailField = page.getByPlaceholder(/enter your email address/i);
   await emailField.waitFor({ state: "visible", timeout: 15000 });
@@ -358,6 +356,7 @@ async function login(page: Page, email: string, password: string): Promise<void>
     throw new Error(`Login redirect timed out. Still on: ${currentUrl} — "${title}".`);
   }
 
+  // Handle "Stay signed in?" prompt
   await page.waitForTimeout(1500);
   const staySignedIn = page.getByRole("button", { name: /yes|stay signed in|keep me signed in/i });
   if (await staySignedIn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -365,7 +364,10 @@ async function login(page: Page, email: string, password: string): Promise<void>
     await page.waitForTimeout(1000);
   }
 
-  // Wait for Access Cloud to be ready (navigation to branch URL happens in caller)
+  // Always land on workspace after login
+  if (!page.url().includes("go.accessacloud.com")) {
+    await page.goto(WORKSPACE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  }
   await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
 }
 
@@ -503,21 +505,14 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
 }
 
 // ─── Navigate to export page ──────────────────────────────────────────────────
-/** Convert a branch URL + relative PP path into a full URL.
- *  e.g. ("https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/", "/Planning/Duty/...")
- *  → "https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/Planning/Duty/..."
- */
-function buildReportUrl(branchUrl: string, reportRelativePath: string): string {
-  const base = branchUrl.endsWith("/") ? branchUrl : branchUrl + "/";
-  const rel = reportRelativePath.startsWith("/") ? reportRelativePath.slice(1) : reportRelativePath;
-  return base + rel;
-}
-
 async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<void> {
   const reportConfig = getReportConfig(config.reportType);
 
   if (reportConfig.directUrl) {
-    const targetUrl = buildReportUrl(config.branchUrl, reportConfig.directUrl);
+    // Resolve the directUrl relative to the People Planner tab's own URL.
+    // The branchUrl is only used to select the branch in Access Workspace;
+    // the PP tab runs on its own domain (e.g. peopleplanner.accessacloud.com).
+    const targetUrl = new URL(reportConfig.directUrl, plannerPage.url()).toString();
     logger.info(`Navigating directly to ${config.reportType}`, { targetUrl });
     await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
