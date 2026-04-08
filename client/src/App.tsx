@@ -276,7 +276,7 @@ function Navigation() {
       >
         {/* ── Row 1: dark green utility bar — 48px ── */}
         <div
-          className="flex items-center px-5 gap-4"
+          className="flex items-center px-5 gap-4 pl-[15px] pr-[15px]"
           style={{ height: "48px", background: "#2c4f26" }}
         >
           {/* Brand: logo + product name */}
@@ -391,7 +391,6 @@ function Navigation() {
           })}
         </div>
       </header>
-
       <HelpPanel open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
