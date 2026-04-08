@@ -260,33 +260,28 @@ function Navigation() {
       <header
         className="fixed top-0 left-0 right-0 z-50 flex flex-col"
         style={{
-          background: "linear-gradient(to right, hsl(214deg 65% 16%), hsl(165deg 55% 14%))",
-          boxShadow: "0 2px 16px rgba(0,0,0,0.25)",
+          background: "linear-gradient(135deg, hsl(214deg 70% 22%) 0%, hsl(185deg 60% 18%) 100%)",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.3)",
         }}
         data-testid="main-navigation"
       >
-        {/* ── Row 1: brand + controls ── */}
-        <div className="flex items-center h-13 px-5 gap-0" style={{ height: "52px" }}>
+        {/* ── Row 1: brand + branch + controls ── */}
+        <div className="flex items-center px-5" style={{ height: "54px" }}>
 
           {/* Logo / brand */}
           <button
-            className="flex items-center gap-3 h-full pr-5 border-r border-white/15 shrink-0 group"
+            className="flex items-center gap-3 h-full pr-5 mr-2 border-r border-white/20 shrink-0 group focus:outline-none"
             onClick={() => navigate("/app/dashboard")}
             aria-label="Go to dashboard"
           >
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className="h-7 w-auto rounded-md object-contain opacity-95 group-hover:opacity-100 transition-opacity"
+              className="h-8 w-auto object-contain"
             />
-            <div className="hidden sm:flex flex-col leading-none">
-              <span className="text-[13px] font-semibold text-white tracking-wide">
-                Care Capacity
-              </span>
-              <span className="text-[10px] text-white/50 tracking-widest uppercase mt-0.5">
-                Dashboard
-              </span>
-            </div>
+            <span className="hidden sm:block text-[14px] font-semibold text-white/90 tracking-[-0.01em]">
+              Care Capacity Dashboard
+            </span>
           </button>
 
           {/* Branch selector */}
@@ -295,26 +290,29 @@ function Navigation() {
           </div>
 
           {/* Right-side controls */}
-          <div className="flex items-center gap-0.5 pl-3 border-l border-white/15">
+          <div className="flex items-center gap-1 pl-4 border-l border-white/20">
             <button
               onClick={() => setHelpOpen(true)}
               aria-label="Help and Support"
               title="Help & Support"
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-2 rounded-md hover:bg-white/10 transition-colors text-white/70 hover:text-white"
             >
-              <HelpCircle className="h-4 w-4 text-white/70" />
+              <HelpCircle className="h-4 w-4" />
             </button>
-            <div className="[&_button]:hover:!bg-white/10 [&_svg]:text-white/70 [&_button]:rounded-lg">
+            <div className="[&_button]:hover:!bg-white/10 [&_svg]:text-white/70 [&_button]:rounded-md">
               <ThemeToggle />
             </div>
             <UserMenu />
           </div>
         </div>
 
-        {/* ── Row 2: page navigation tabs ── */}
+        {/* ── Row 2: page tabs — same background, light top divider ── */}
         <div
-          className="flex items-end px-4 gap-0.5"
-          style={{ height: "36px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.14)" }}
+          className="flex items-stretch px-4"
+          style={{
+            height: "40px",
+            borderTop: "1px solid rgba(255,255,255,0.10)",
+          }}
         >
           {visibleItems.map((item) => {
             const active = isItemActive(item);
@@ -324,14 +322,21 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center gap-1.5 px-3.5 h-8 text-xs font-medium tracking-wide transition-all duration-150 border-b-2 whitespace-nowrap rounded-t",
+                  "relative flex items-center gap-2 px-4 text-sm font-medium whitespace-nowrap transition-colors duration-150 focus:outline-none",
                   active
-                    ? "border-white/90 text-white bg-white/8"
-                    : "border-transparent text-white/55 hover:text-white/85 hover:bg-white/5",
+                    ? "text-white"
+                    : "text-white/55 hover:text-white/85",
                 ].join(" ")}
               >
-                <item.icon className={["w-3 h-3 flex-shrink-0 transition-opacity", active ? "opacity-100" : "opacity-60"].join(" ")} />
+                <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 {item.label}
+                {/* active indicator: 2px line pinned to bottom of row */}
+                {active && (
+                  <span
+                    className="absolute bottom-0 left-3 right-3 rounded-full"
+                    style={{ height: "2px", background: "rgba(255,255,255,0.85)" }}
+                  />
+                )}
               </Link>
             );
           })}
@@ -482,7 +487,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-[88px] overflow-x-hidden">
+      <main className="animate-fade-in pt-[94px] overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
