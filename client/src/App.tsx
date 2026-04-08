@@ -358,6 +358,7 @@ function Navigation() {
                   background: "#f8f8f8",
                   border: "1px solid #e5e7eb",
                   borderBottom: "1px solid #f8f8f8",
+                  borderTop: "2px solid #2c4f26",
                 } : {}}
               >
                 <item.icon className="w-3.5 h-3.5 flex-shrink-0 opacity-75" />
