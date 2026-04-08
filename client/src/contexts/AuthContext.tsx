@@ -89,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       qc.setQueryData(['/api/auth/me'], null);
       qc.clear();
+      localStorage.removeItem('selectedBranchId');
     },
   });
 

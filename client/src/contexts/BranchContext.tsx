@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { clientLogger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -26,8 +26,11 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('selectedBranchId');
   });
 
+  // Track previous user ID to detect user switches
+  const prevUserIdRef = useRef<string | null>(null);
+
   // Fetch auth user to filter branches (may be null before login)
-  const { data: authUser } = useQuery<{ branches: Branch[] } | null>({
+  const { data: authUser } = useQuery<{ id: string; branches: Branch[] } | null>({
     queryKey: ['/api/auth/me'],
     retry: false,
     staleTime: 5 * 60 * 1000,
@@ -51,14 +54,29 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     ? allBranches.filter(b => authUser.branches.some(ub => ub.id === b.id))
     : allBranches;
 
-  // Auto-select first branch if none selected and branches are loaded
+  // Reset branch selection when a different user logs in, or when the saved
+  // branch is not in the new user's allowed branch list
   useEffect(() => {
-    if (!selectedBranchId && branches.length > 0) {
+    if (!authUser || branches.length === 0) return;
+
+    const currentUserId = authUser.id;
+    const userSwitched = prevUserIdRef.current !== null && prevUserIdRef.current !== currentUserId;
+    const branchNotAllowed = selectedBranchId && !branches.some(b => b.id === selectedBranchId);
+
+    if (userSwitched || branchNotAllowed || !selectedBranchId) {
       const firstBranchId = branches[0].id;
       setSelectedBranchIdState(firstBranchId);
       localStorage.setItem('selectedBranchId', firstBranchId);
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key !== '/api/branches' && key !== '/api/auth/me';
+        },
+      });
     }
-  }, [selectedBranchId, branches]);
+
+    prevUserIdRef.current = currentUserId;
+  }, [authUser?.id, branches]);
 
   const setSelectedBranchId = (branchId: string) => {
     clientLogger.log(`🔄 Branch changed from ${selectedBranchId} to ${branchId} - invalidating all cached data`);
