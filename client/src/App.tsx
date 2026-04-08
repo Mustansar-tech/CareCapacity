@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Link } from "wouter";
 import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,8 +15,8 @@ import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
-import { Component, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle } from "lucide-react";
+import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bot, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -176,14 +176,14 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/60 dark:bg-gray-800/60 border border-gray-200/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all">
-          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold">
+        <button className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10 transition-colors">
+          <div className="h-7 w-7 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-xs font-bold">
             {user.displayName.charAt(0).toUpperCase()}
           </div>
           <div className="hidden sm:block text-left">
-            <p className="text-xs font-semibold text-foreground leading-none">{user.displayName}</p>
+            <p className="text-xs font-semibold text-white leading-none">{user.displayName}</p>
           </div>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+          <ChevronDown className="h-3.5 w-3.5 text-white/70 hidden sm:block" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
@@ -217,62 +217,103 @@ function UserMenu() {
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
+interface NavItem {
+  label: string;
+  path: string;
+  icon: ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard",       path: "/app/dashboard",       icon: BarChart3 },
+  { label: "Schedule",        path: "/app/schedule",        icon: Calendar  },
+  { label: "BD Matrix",       path: "/app/bd-matrix",       icon: Users     },
+  { label: "People Planner",  path: "/app/people-planner",  icon: Bot       },
+  { label: "Data Management", path: "/app/data-management", icon: HardDrive },
+  { label: "Administration",  path: "/app/admin",           icon: Shield, adminOnly: true },
+];
+
 function Navigation() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const { isAdmin } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
+
+  const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <>
-      <nav className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-6xl px-4" data-testid="main-navigation">
-        <div className="glass elevation-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl px-6 py-2 shadow-2xl pt-[1px] pb-[1px]">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div
-              className="flex items-center gap-3 cursor-pointer group transition-all duration-300 hover:scale-102"
-              onClick={() => navigate('/app/dashboard')}
-              role="link"
-              aria-label="Care Capacity Dashboard - Workforce Intelligence"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') navigate('/app/dashboard');
-              }}
-            >
-              <div className="relative">
-                <img
-                  src={homeInsteadLogo}
-                  alt="Care Capacity Dashboard"
-                  width={48}
-                  height={48}
-                  className="h-12 w-auto rounded-lg object-contain border-2 border-white/40 shadow-xl group-hover:shadow-blue-500/20 transition-all"
-                />
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-base font-display font-bold bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 bg-clip-text text-transparent">
-                  Care Capacity Dashboard
-                </div>
-                <div className="text-xs text-muted-foreground font-medium opacity-80">Workforce Intelligence</div>
-              </div>
-            </div>
+      <header
+        className="fixed top-0 left-0 right-0 z-50 flex flex-col"
+        style={{ background: "#2a6b5c" }}
+        data-testid="main-navigation"
+      >
+        {/* ── Row 1: brand + controls ── */}
+        <div className="flex items-center h-12 px-4 gap-0">
+          {/* Logo / brand */}
+          <button
+            className="flex items-center gap-2.5 h-full pr-4 border-r border-white/20 shrink-0 hover:opacity-90 transition-opacity"
+            onClick={() => navigate("/app/dashboard")}
+            aria-label="Go to dashboard"
+          >
+            <img
+              src={homeInsteadLogo}
+              alt="Home Instead"
+              className="h-7 w-auto rounded object-contain"
+            />
+            <span className="hidden sm:block text-sm font-bold text-white leading-tight">
+              Care Capacity Dashboard
+            </span>
+          </button>
 
-            {/* Controls */}
-            <div className="flex items-center gap-3">
-              <BranchSelector />
-              <button
-                onClick={() => setHelpOpen(true)}
-                aria-label="Help and Support"
-                title="Help & Support"
-                className="p-1.5 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors"
-              >
-                <HelpCircle className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-              </button>
-              <div className="p-1 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/30 dark:border-gray-700/30">
-                <ThemeToggle />
-              </div>
-              <UserMenu />
+          {/* Branch selector (takes remaining centre space) */}
+          <div className="flex-1 flex items-center h-full overflow-hidden">
+            <BranchSelector />
+          </div>
+
+          {/* Right-side controls */}
+          <div className="flex items-center gap-1 pl-3 border-l border-white/20">
+            <button
+              onClick={() => setHelpOpen(true)}
+              aria-label="Help and Support"
+              title="Help & Support"
+              className="p-2 rounded hover:bg-white/10 transition-colors"
+            >
+              <HelpCircle className="h-4 w-4 text-white/80" />
+            </button>
+            <div className="[&_button]:hover:!bg-white/10 [&_svg]:text-white/80 [&_button]:!text-white">
+              <ThemeToggle />
             </div>
+            <UserMenu />
           </div>
         </div>
-      </nav>
+
+        {/* ── Row 2: page navigation tabs ── */}
+        <div
+          className="flex items-end h-10 px-4 gap-0"
+          style={{ background: "rgba(0,0,0,0.18)" }}
+        >
+          {visibleItems.map((item) => {
+            const isActive =
+              location === item.path || location.startsWith(item.path + "/");
+            return (
+              <Link
+                key={item.path}
+                href={item.path}
+                className={[
+                  "flex items-center gap-1.5 px-4 h-9 text-sm font-medium transition-all border-b-2 whitespace-nowrap",
+                  isActive
+                    ? "border-white text-white"
+                    : "border-transparent text-white/70 hover:text-white hover:border-white/40",
+                ].join(" ")}
+              >
+                <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </header>
+
       <HelpPanel open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
@@ -417,7 +458,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-20 overflow-x-hidden">
+      <main className="animate-fade-in pt-[88px] overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
