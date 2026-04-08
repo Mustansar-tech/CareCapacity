@@ -16,7 +16,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -248,6 +248,7 @@ function Navigation() {
   const search = useSearch();
   const { isAdmin } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
 
@@ -269,67 +270,101 @@ function Navigation() {
 
   return (
     <>
-      {/* ── Fixed two-row header ── */}
       <header
         className="fixed top-0 left-0 right-0 z-50 flex flex-col"
         data-testid="main-navigation"
       >
-        {/* ── Row 1: dark green utility bar (56px) ── */}
+        {/* ── Row 1: dark green utility bar — 48px ── */}
         <div
-          className="flex items-center px-6 gap-6"
-          style={{ height: "56px", background: "#2f522d" }}
+          className="flex items-center px-5 gap-4"
+          style={{ height: "48px", background: "#2c4f26" }}
         >
-          {/* Brand */}
+          {/* Brand: logo + product name */}
           <button
-            className="flex items-center gap-3 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
+            className="flex items-center gap-2.5 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
             onClick={() => navigate("/app/dashboard")}
             aria-label="Go to dashboard"
           >
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className="h-7 w-auto rounded object-contain opacity-90 group-hover:opacity-100 transition-opacity"
+              className="h-6 w-auto rounded object-contain opacity-85 group-hover:opacity-100 transition-opacity"
             />
-            <span className="hidden sm:block text-sm font-semibold text-white/90 whitespace-nowrap">
+            <span className="hidden md:block text-sm font-semibold text-white/90 whitespace-nowrap group-hover:text-white transition-colors">
               Care Capacity
             </span>
           </button>
 
-          {/* Thin rule */}
-          <div className="h-4 w-px bg-white/15 shrink-0" />
+          {/* Soft rule */}
+          <div className="h-4 w-px bg-white/10 shrink-0" />
 
-          {/* Branch selector */}
+          {/* Location selector */}
           <BranchSelector />
 
-          {/* Spacer */}
-          <div className="flex-1" />
+          {/* Search — subtle, centred */}
+          <div className="flex-1 flex items-center justify-center px-2">
+            <div className="relative w-full max-w-[240px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/35 pointer-events-none" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search…"
+                aria-label="Search"
+                className="w-full h-7 pl-8 pr-3 rounded text-[13px] text-white placeholder:text-white/35 outline-none transition-colors"
+                style={{
+                  background: "rgba(255,255,255,0.09)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
+                onFocus={e => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.14)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)";
+                }}
+                onBlur={e => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.09)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)";
+                }}
+              />
+            </div>
+          </div>
 
-          {/* Right utility icons */}
-          <div className="flex items-center gap-3">
+          {/* Right icon cluster */}
+          <div className="flex items-center gap-0.5 shrink-0">
             <button
               onClick={() => setHelpOpen(true)}
               aria-label="Help and Support"
               title="Help & Support"
-              className="text-white/60 hover:text-white/95 transition-colors"
+              className="p-1.5 rounded text-white/55 hover:text-white transition-colors"
             >
-              <HelpCircle className="h-4 w-4" />
+              <HelpCircle className="h-[18px] w-[18px]" />
             </button>
-            <div className="[&_button]:!text-white/60 [&_button]:hover:!text-white/95 [&_button]:!bg-transparent [&_button]:!p-0 [&_button]:!shadow-none">
+            <button
+              aria-label="Notifications"
+              title="Notifications"
+              className="p-1.5 rounded text-white/55 hover:text-white transition-colors"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+            </button>
+            <div className="[&_button]:!text-white/55 [&_button]:hover:!text-white [&_button]:!bg-transparent [&_button]:!p-1.5 [&_button]:!rounded [&_button]:!shadow-none [&_svg]:!h-[18px] [&_svg]:!w-[18px]">
               <ThemeToggle />
             </div>
           </div>
 
-          {/* Thin rule */}
-          <div className="h-4 w-px bg-white/15 shrink-0" />
+          {/* Soft rule */}
+          <div className="h-4 w-px bg-white/10 shrink-0" />
 
-          {/* User area */}
+          {/* User */}
           <UserMenu />
         </div>
 
-        {/* ── Row 2: light gray workspace tabs (42px) ── */}
+        {/* ── Row 2: workspace tabs — 40px ── */}
         <div
-          className="flex items-end px-4 gap-1 bg-[#f3f4f6] dark:bg-gray-800 border-b border-[#e5e7eb] dark:border-gray-700"
-          style={{ height: "42px", borderTop: "1px solid rgba(0,0,0,0.06)" }}
+          className="flex items-end px-3 gap-0.5 dark:bg-gray-800 dark:border-gray-700"
+          style={{
+            height: "40px",
+            background: "#ececeb",
+            borderBottom: "1px solid #d9d9d7",
+          }}
         >
           {visibleItems.map((item) => {
             const active = isItemActive(item);
@@ -339,11 +374,16 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center px-4 h-8 rounded-t text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-400",
+                  "flex items-center px-4 h-[33px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t select-none",
                   active
-                    ? "bg-white dark:bg-gray-700 border border-[#e5e7eb] dark:border-gray-600 border-b-white dark:border-b-gray-700 text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/70 dark:hover:bg-gray-700/50",
+                    ? "text-slate-800 dark:text-white"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
                 ].join(" ")}
+                style={active ? {
+                  background: "#f8f8f8",
+                  border: "1px solid #d9d9d7",
+                  borderBottom: "1px solid #f8f8f8",
+                } : {}}
               >
                 {item.label}
               </Link>
@@ -496,7 +536,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-[98px] overflow-x-hidden">
+      <main className="animate-fade-in pt-[88px] overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
