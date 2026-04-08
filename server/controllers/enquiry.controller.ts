@@ -31,6 +31,7 @@ export async function createClientEnquiry(req: Request, res: Response): Promise<
     matchCount: matchCount || 0,
     topMatch: topMatch || null,
     results: results || null,
+    isMultiVisit: isMultiVisit ? 1 : 0,
   });
 
   res.json(enquiry);
