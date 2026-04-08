@@ -259,43 +259,52 @@ function Navigation() {
     <>
       <header
         className="fixed top-0 left-0 right-0 z-50 flex flex-col"
-        style={{ background: "#2a6b5c" }}
+        style={{
+          background: "linear-gradient(to right, hsl(214deg 65% 16%), hsl(165deg 55% 14%))",
+          boxShadow: "0 2px 16px rgba(0,0,0,0.25)",
+        }}
         data-testid="main-navigation"
       >
         {/* ── Row 1: brand + controls ── */}
-        <div className="flex items-center h-12 px-4 gap-0">
+        <div className="flex items-center h-13 px-5 gap-0" style={{ height: "52px" }}>
+
           {/* Logo / brand */}
           <button
-            className="flex items-center gap-2.5 h-full pr-4 border-r border-white/20 shrink-0 hover:opacity-90 transition-opacity"
+            className="flex items-center gap-3 h-full pr-5 border-r border-white/15 shrink-0 group"
             onClick={() => navigate("/app/dashboard")}
             aria-label="Go to dashboard"
           >
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className="h-7 w-auto rounded object-contain"
+              className="h-7 w-auto rounded-md object-contain opacity-95 group-hover:opacity-100 transition-opacity"
             />
-            <span className="hidden sm:block text-sm font-bold text-white leading-tight">
-              Care Capacity Dashboard
-            </span>
+            <div className="hidden sm:flex flex-col leading-none">
+              <span className="text-[13px] font-semibold text-white tracking-wide">
+                Care Capacity
+              </span>
+              <span className="text-[10px] text-white/50 tracking-widest uppercase mt-0.5">
+                Dashboard
+              </span>
+            </div>
           </button>
 
-          {/* Branch selector (takes remaining centre space) */}
+          {/* Branch selector */}
           <div className="flex-1 flex items-center h-full overflow-hidden">
             <BranchSelector />
           </div>
 
           {/* Right-side controls */}
-          <div className="flex items-center gap-1 pl-3 border-l border-white/20">
+          <div className="flex items-center gap-0.5 pl-3 border-l border-white/15">
             <button
               onClick={() => setHelpOpen(true)}
               aria-label="Help and Support"
               title="Help & Support"
-              className="p-2 rounded hover:bg-white/10 transition-colors"
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             >
-              <HelpCircle className="h-4 w-4 text-white/80" />
+              <HelpCircle className="h-4 w-4 text-white/70" />
             </button>
-            <div className="[&_button]:hover:!bg-white/10 [&_svg]:text-white/80 [&_button]:!text-white">
+            <div className="[&_button]:hover:!bg-white/10 [&_svg]:text-white/70 [&_button]:rounded-lg">
               <ThemeToggle />
             </div>
             <UserMenu />
@@ -304,8 +313,8 @@ function Navigation() {
 
         {/* ── Row 2: page navigation tabs ── */}
         <div
-          className="flex items-end h-10 px-4 gap-0"
-          style={{ background: "rgba(0,0,0,0.18)" }}
+          className="flex items-end px-4 gap-0.5"
+          style={{ height: "36px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.14)" }}
         >
           {visibleItems.map((item) => {
             const active = isItemActive(item);
@@ -315,13 +324,13 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center gap-1.5 px-4 h-9 text-sm font-medium transition-all border-b-2 whitespace-nowrap",
+                  "flex items-center gap-1.5 px-3.5 h-8 text-xs font-medium tracking-wide transition-all duration-150 border-b-2 whitespace-nowrap rounded-t",
                   active
-                    ? "border-white text-white"
-                    : "border-transparent text-white/70 hover:text-white hover:border-white/40",
+                    ? "border-white/90 text-white bg-white/8"
+                    : "border-transparent text-white/55 hover:text-white/85 hover:bg-white/5",
                 ].join(" ")}
               >
-                <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                <item.icon className={["w-3 h-3 flex-shrink-0 transition-opacity", active ? "opacity-100" : "opacity-60"].join(" ")} />
                 {item.label}
               </Link>
             );
