@@ -1,4 +1,4 @@
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart3, Calendar, Users, Bot, HardDrive, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function Sidebar() {
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const { isAdmin } = useAuth();
 
   const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
@@ -32,11 +32,11 @@ export function Sidebar() {
           const isActive =
             location === item.path || location.startsWith(item.path + "/");
           return (
-            <button
+            <Link
               key={item.path}
-              onClick={() => navigate(item.path)}
+              href={item.path}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                 isActive
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
@@ -44,7 +44,7 @@ export function Sidebar() {
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               <span>{item.label}</span>
-            </button>
+            </Link>
           );
         })}
       </nav>
