@@ -12,6 +12,7 @@ import {
   Download,
   CheckCircle,
   XCircle,
+  X,
   Loader2,
   RefreshCw,
   Calendar,
@@ -250,6 +251,13 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               </CardDescription>
             </div>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </CardHeader>
 
