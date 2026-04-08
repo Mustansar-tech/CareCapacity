@@ -16,7 +16,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bot, HardDrive } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,7 +45,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 const DashboardModule = lazy(() => import("@/pages/dashboard"));
 const AdminModule = lazy(() => import("@/pages/admin"));
 const BDMatrixModule = lazy(() => import("@/pages/bd-matrix"));
-const DataManagementModule = lazy(() => import("@/pages/data-management"));
 const ScheduleModule = lazy(() => import("@/pages/schedule"));
 const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
 
@@ -231,7 +230,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Schedule",        path: "/app/schedule",                          icon: Calendar  },
   { label: "BD Matrix",       path: "/app/bd-matrix",                         icon: Users     },
   { label: "People Planner",  path: "/app/people-planner",                    icon: Bot       },
-  { label: "Data Management", path: "/app/data-management",                   icon: HardDrive },
   { label: "Administration",  path: "/app/admin",           icon: Shield, adminOnly: true    },
 ];
 
@@ -508,9 +506,6 @@ function Router() {
             </Route>
             <Route path="/app/people-planner">
               <AppLayout><PageSuspense><PeoplePlannerModule /></PageSuspense></AppLayout>
-            </Route>
-            <Route path="/app/data-management">
-              <AppLayout><PageSuspense><DataManagementModule /></PageSuspense></AppLayout>
             </Route>
 
             <Route component={NotFound} />
