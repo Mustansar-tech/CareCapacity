@@ -1,4 +1,4 @@
-import { Switch, Route, Link } from "wouter";
+import { Switch, Route, Link, useSearch } from "wouter";
 import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -220,25 +220,37 @@ function UserMenu() {
 interface NavItem {
   label: string;
   path: string;
+  search?: string;
   icon: ComponentType<{ className?: string }>;
   adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard",       path: "/app/dashboard",       icon: BarChart3 },
-  { label: "Schedule",        path: "/app/schedule",        icon: Calendar  },
-  { label: "BD Matrix",       path: "/app/bd-matrix",       icon: Users     },
-  { label: "People Planner",  path: "/app/people-planner",  icon: Bot       },
-  { label: "Data Management", path: "/app/data-management", icon: HardDrive },
-  { label: "Administration",  path: "/app/admin",           icon: Shield, adminOnly: true },
+  { label: "Home",            path: "/app/dashboard",                         icon: BarChart3 },
+  { label: "Daily View",      path: "/app/dashboard", search: "view=daily",   icon: Calendar  },
+  { label: "Schedule",        path: "/app/schedule",                          icon: Calendar  },
+  { label: "BD Matrix",       path: "/app/bd-matrix",                         icon: Users     },
+  { label: "People Planner",  path: "/app/people-planner",                    icon: Bot       },
+  { label: "Data Management", path: "/app/data-management",                   icon: HardDrive },
+  { label: "Administration",  path: "/app/admin",           icon: Shield, adminOnly: true    },
 ];
 
 function Navigation() {
   const [location, navigate] = useLocation();
+  const search = useSearch();
   const { isAdmin } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
 
   const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
+
+  function isItemActive(item: NavItem): boolean {
+    const pathMatches = location === item.path || location.startsWith(item.path + "/");
+    if (!pathMatches) return false;
+    if (item.search) return search.includes(item.search);
+    // "Home" tab is active on /app/dashboard when NOT showing view=daily
+    if (item.path === "/app/dashboard") return !search.includes("view=daily");
+    return true;
+  }
 
   return (
     <>
@@ -293,15 +305,15 @@ function Navigation() {
           style={{ background: "rgba(0,0,0,0.18)" }}
         >
           {visibleItems.map((item) => {
-            const isActive =
-              location === item.path || location.startsWith(item.path + "/");
+            const active = isItemActive(item);
+            const href = item.search ? `${item.path}?${item.search}` : item.path;
             return (
               <Link
-                key={item.path}
-                href={item.path}
+                key={item.label}
+                href={href}
                 className={[
                   "flex items-center gap-1.5 px-4 h-9 text-sm font-medium transition-all border-b-2 whitespace-nowrap",
-                  isActive
+                  active
                     ? "border-white text-white"
                     : "border-transparent text-white/70 hover:text-white hover:border-white/40",
                 ].join(" ")}

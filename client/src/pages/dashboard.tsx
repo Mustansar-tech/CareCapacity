@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronDown } from "lucide-react";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, TrendingDown, Users, Clock, Calendar, BarChart3, RefreshCw, Zap, Target, Bot
+  TrendingUp, TrendingDown, Users, Clock, Calendar, RefreshCw, Zap, Target, Bot
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ProcessingResult, CapacityAnalysisSummary, ProcessingResultWithMeta } from "@shared/schema";
@@ -190,10 +190,11 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [warnings] = useState<string[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("overview");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const activeTab = search.includes("view=daily") ? "daily-capacity" : "overview";
 
   const { toast } = useToast();
 
@@ -211,8 +212,7 @@ export default function Dashboard() {
   useEffect(() => {
     const handleReset = () => {
       clientLogger.log('🏠 Navigation logo clicked - returning to overview');
-      setActiveTab("overview");
-      // Scroll to top
+      navigate('/app/dashboard');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -675,25 +675,7 @@ export default function Dashboard() {
         {processedData && (
           <div className="w-full flex-1 flex flex-col">
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col" data-testid="results-tabs">
-          <TabsList className="flex w-full gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm h-auto overflow-hidden">
-            <TabsTrigger
-              value="overview"
-              className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
-              data-testid="tab-overview"
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Home
-            </TabsTrigger>
-            <TabsTrigger
-              value="daily-capacity"
-              className="flex-1 data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
-              data-testid="tab-daily-capacity"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Daily View
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} className="space-y-4 flex-1 flex flex-col" data-testid="results-tabs">
 
 
           {/* Daily Capacity Tab */}
