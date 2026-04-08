@@ -194,7 +194,7 @@ export default function Dashboard() {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [, navigate] = useLocation();
   const search = useSearch();
-  const activeTab = search.includes("view=daily") ? "daily-capacity" : "overview";
+  const activeTab = new URLSearchParams(search).get("view") === "daily" ? "daily-capacity" : "overview";
 
   const { toast } = useToast();
 

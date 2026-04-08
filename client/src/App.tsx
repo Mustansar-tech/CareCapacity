@@ -246,9 +246,16 @@ function Navigation() {
   function isItemActive(item: NavItem): boolean {
     const pathMatches = location === item.path || location.startsWith(item.path + "/");
     if (!pathMatches) return false;
-    if (item.search) return search.includes(item.search);
+    const params = new URLSearchParams(search);
+    if (item.search) {
+      const itemParams = new URLSearchParams(item.search);
+      for (const [key, val] of itemParams.entries()) {
+        if (params.get(key) !== val) return false;
+      }
+      return true;
+    }
     // "Home" tab is active on /app/dashboard when NOT showing view=daily
-    if (item.path === "/app/dashboard") return !search.includes("view=daily");
+    if (item.path === "/app/dashboard") return params.get("view") !== "daily";
     return true;
   }
 
