@@ -16,7 +16,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bot } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -229,8 +229,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Daily View",      path: "/app/dashboard", search: "view=daily",   icon: Calendar  },
   { label: "Schedule",        path: "/app/schedule",                          icon: Calendar  },
   { label: "BD Matrix",       path: "/app/bd-matrix",                         icon: Users     },
-  { label: "People Planner",  path: "/app/people-planner",                    icon: Bot       },
-  { label: "Administration",  path: "/app/admin",           icon: Shield, adminOnly: true    },
 ];
 
 function Navigation() {
