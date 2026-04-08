@@ -517,7 +517,7 @@ export class AutoScheduler {
       
       // Import the visit extractor and buffer getter
       const { extractClientVisitsFromGHExcel } = await import('./excel-visit-extractor');
-      const { getLatestGuaranteedBuffer } = await import('./routes');
+      const { getLatestGuaranteedBuffer } = await import('./routes/state');
       
       // Get the buffer for this specific branch
       if (!branchId) {

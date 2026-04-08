@@ -757,6 +757,15 @@ export class DatabaseStorage implements IStorage {
   async deleteClientEnquiry(id: string): Promise<void> {
     await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
   }
+
+  async createFeedback(data: InsertFeedback): Promise<Feedback> {
+    const [result] = await db.insert(feedback).values(data as any).returning();
+    return result;
+  }
+
+  async listFeedback(limit: number = 200): Promise<Feedback[]> {
+    return db.select().from(feedback).orderBy(desc(feedback.submittedAt)).limit(limit);
+  }
 }
 
 export class MemStorage implements IStorage {
