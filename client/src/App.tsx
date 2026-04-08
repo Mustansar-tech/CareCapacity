@@ -182,15 +182,14 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/8 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30">
-          <div className="h-7 w-7 rounded-full bg-white/15 flex items-center justify-center text-white text-[11px] font-semibold tracking-wide shrink-0">
+        <button className="flex items-center gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded group">
+          <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white text-[11px] font-semibold shrink-0 group-hover:bg-white/30 transition-colors">
             {initials}
           </div>
-          <div className="hidden sm:flex flex-col leading-none gap-0.5 text-left">
-            <span className="text-[12px] font-medium text-white/90 whitespace-nowrap">{user.displayName}</span>
-            <span className="text-[10px] text-white/45">{isAdmin ? "Administrator" : "Team Member"}</span>
-          </div>
-          <ChevronDown className="h-3 w-3 text-white/35 hidden sm:block" />
+          <span className="hidden sm:block text-sm text-white/85 whitespace-nowrap group-hover:text-white transition-colors">
+            {user.displayName}
+          </span>
+          <ChevronDown className="h-3 w-3 text-white/40 hidden sm:block" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 mt-1">
@@ -273,59 +272,64 @@ function Navigation() {
       {/* ── Fixed two-row header ── */}
       <header
         className="fixed top-0 left-0 right-0 z-50 flex flex-col"
-        style={{ background: "#1a3528" }}
         data-testid="main-navigation"
       >
-        {/* Row 1 — brand · branch · controls  (48px) */}
-        <div className="flex items-center px-6 gap-4" style={{ height: "48px" }}>
-
+        {/* ── Row 1: dark green utility bar (56px) ── */}
+        <div
+          className="flex items-center px-6 gap-6"
+          style={{ height: "56px", background: "#2f522d" }}
+        >
           {/* Brand */}
           <button
-            className="flex items-center gap-2.5 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
+            className="flex items-center gap-3 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
             onClick={() => navigate("/app/dashboard")}
             aria-label="Go to dashboard"
           >
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className="h-6 w-auto rounded object-contain opacity-85 group-hover:opacity-100 transition-opacity"
+              className="h-7 w-auto rounded object-contain opacity-90 group-hover:opacity-100 transition-opacity"
             />
-            <span className="hidden sm:block text-[13px] font-semibold text-white/85 tracking-wide whitespace-nowrap group-hover:text-white transition-colors">
+            <span className="hidden sm:block text-sm font-semibold text-white/90 whitespace-nowrap">
               Care Capacity
             </span>
           </button>
 
-          {/* Thin divider */}
+          {/* Thin rule */}
           <div className="h-4 w-px bg-white/15 shrink-0" />
 
-          {/* Branch selector (ghost — no box, no background) */}
+          {/* Branch selector */}
           <BranchSelector />
 
-          {/* Push controls to the right */}
+          {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Right-side controls */}
-          <div className="flex items-center gap-0.5">
+          {/* Right utility icons */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setHelpOpen(true)}
               aria-label="Help and Support"
               title="Help & Support"
-              className="p-2 rounded-md text-white/50 hover:text-white/85 hover:bg-white/8 transition-colors"
+              className="text-white/60 hover:text-white/95 transition-colors"
             >
               <HelpCircle className="h-4 w-4" />
             </button>
-            <div className="[&_button]:!text-white/50 [&_button]:hover:!text-white/85 [&_button]:hover:!bg-white/8 [&_button]:rounded-md [&_svg]:!h-4 [&_svg]:!w-4">
+            <div className="[&_button]:!text-white/60 [&_button]:hover:!text-white/95 [&_button]:!bg-transparent [&_button]:!p-0 [&_button]:!shadow-none">
               <ThemeToggle />
             </div>
-            <div className="h-4 w-px bg-white/15 mx-2 shrink-0" />
-            <UserMenu />
           </div>
+
+          {/* Thin rule */}
+          <div className="h-4 w-px bg-white/15 shrink-0" />
+
+          {/* User area */}
+          <UserMenu />
         </div>
 
-        {/* Row 2 — page tabs  (36px) */}
+        {/* ── Row 2: light gray workspace tabs (42px) ── */}
         <div
-          className="flex items-end px-6"
-          style={{ height: "36px", borderTop: "1px solid rgba(0,0,0,0.25)", background: "rgba(255,255,255,0.04)" }}
+          className="flex items-end px-4 gap-1 bg-[#f3f4f6] dark:bg-gray-800 border-b border-[#e5e7eb] dark:border-gray-700"
+          style={{ height: "42px", borderTop: "1px solid rgba(0,0,0,0.06)" }}
         >
           {visibleItems.map((item) => {
             const active = isItemActive(item);
@@ -335,10 +339,10 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center px-3.5 h-full text-[12.5px] font-medium border-b-2 whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+                  "flex items-center px-4 h-8 rounded-t text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-400",
                   active
-                    ? "border-white/75 text-white"
-                    : "border-transparent text-white/45 hover:text-white/80 hover:border-white/20",
+                    ? "bg-white dark:bg-gray-700 border border-[#e5e7eb] dark:border-gray-600 border-b-white dark:border-b-gray-700 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/70 dark:hover:bg-gray-700/50",
                 ].join(" ")}
               >
                 {item.label}
@@ -492,7 +496,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-[84px] overflow-x-hidden">
+      <main className="animate-fade-in pt-[98px] overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
