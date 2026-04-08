@@ -334,7 +334,7 @@ function Navigation() {
 
         {/* ── Row 2: workspace tabs — 38px ── */}
         <div
-          className="flex items-end px-4 gap-3 dark:bg-gray-800 dark:border-gray-700"
+          className="flex items-end px-4 gap-0 dark:bg-gray-800 dark:border-gray-700"
           style={{
             height: "38px",
             background: "#f5f6f7",
@@ -349,7 +349,7 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center gap-2 px-10 h-[34px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
+                  "flex items-center gap-2 px-12 h-[34px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
                   active
                     ? "text-slate-700 dark:text-white"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
