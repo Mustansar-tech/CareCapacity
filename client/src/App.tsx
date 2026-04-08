@@ -172,24 +172,37 @@ function UserMenu() {
 
   if (!user) return null;
 
+  const initials = user.displayName
+    .split(" ")
+    .map((n: string) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10 transition-colors">
-          <div className="h-7 w-7 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-xs font-bold">
-            {user.displayName.charAt(0).toUpperCase()}
+        <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/8 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30">
+          <div className="h-7 w-7 rounded-full bg-white/15 flex items-center justify-center text-white text-[11px] font-semibold tracking-wide shrink-0">
+            {initials}
           </div>
-          <div className="hidden sm:block text-left">
-            <p className="text-xs font-semibold text-white leading-none">{user.displayName}</p>
+          <div className="hidden sm:flex flex-col leading-none gap-0.5 text-left">
+            <span className="text-[12px] font-medium text-white/90 whitespace-nowrap">{user.displayName}</span>
+            <span className="text-[10px] text-white/45">{isAdmin ? "Administrator" : "Team Member"}</span>
           </div>
-          <ChevronDown className="h-3.5 w-3.5 text-white/70 hidden sm:block" />
+          <ChevronDown className="h-3 w-3 text-white/35 hidden sm:block" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-0.5">
-            <p className="text-sm font-semibold">{user.displayName}</p>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+      <DropdownMenuContent align="end" className="w-56 mt-1">
+        <DropdownMenuLabel className="font-normal py-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[12px] font-semibold">
+              {initials}
+            </div>
+            <div className="flex flex-col">
+              <p className="text-sm font-semibold leading-none">{user.displayName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">{user.email}</p>
+            </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -257,64 +270,62 @@ function Navigation() {
 
   return (
     <>
+      {/* ── Fixed two-row header ── */}
       <header
         className="fixed top-0 left-0 right-0 z-50 flex flex-col"
-        style={{
-          background: "linear-gradient(to right, hsl(214deg 65% 16%), hsl(165deg 55% 14%))",
-          boxShadow: "0 2px 16px rgba(0,0,0,0.25)",
-        }}
+        style={{ background: "#1a3528" }}
         data-testid="main-navigation"
       >
-        {/* ── Row 1: brand + controls ── */}
-        <div className="flex items-center h-13 px-5 gap-0" style={{ height: "52px" }}>
+        {/* Row 1 — brand · branch · controls  (48px) */}
+        <div className="flex items-center px-6 gap-4" style={{ height: "48px" }}>
 
-          {/* Logo / brand */}
+          {/* Brand */}
           <button
-            className="flex items-center gap-3 h-full pr-5 border-r border-white/15 shrink-0 group"
+            className="flex items-center gap-2.5 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
             onClick={() => navigate("/app/dashboard")}
             aria-label="Go to dashboard"
           >
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className="h-7 w-auto rounded-md object-contain opacity-95 group-hover:opacity-100 transition-opacity"
+              className="h-6 w-auto rounded object-contain opacity-85 group-hover:opacity-100 transition-opacity"
             />
-            <div className="hidden sm:flex flex-col leading-none">
-              <span className="text-[13px] font-semibold text-white tracking-wide">
-                Care Capacity
-              </span>
-              <span className="text-[10px] text-white/50 tracking-widest uppercase mt-0.5">
-                Dashboard
-              </span>
-            </div>
+            <span className="hidden sm:block text-[13px] font-semibold text-white/85 tracking-wide whitespace-nowrap group-hover:text-white transition-colors">
+              Care Capacity
+            </span>
           </button>
 
-          {/* Branch selector */}
-          <div className="flex-1 flex items-center h-full overflow-hidden">
-            <BranchSelector />
-          </div>
+          {/* Thin divider */}
+          <div className="h-4 w-px bg-white/15 shrink-0" />
+
+          {/* Branch selector (ghost — no box, no background) */}
+          <BranchSelector />
+
+          {/* Push controls to the right */}
+          <div className="flex-1" />
 
           {/* Right-side controls */}
-          <div className="flex items-center gap-0.5 pl-3 border-l border-white/15">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => setHelpOpen(true)}
               aria-label="Help and Support"
               title="Help & Support"
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-2 rounded-md text-white/50 hover:text-white/85 hover:bg-white/8 transition-colors"
             >
-              <HelpCircle className="h-4 w-4 text-white/70" />
+              <HelpCircle className="h-4 w-4" />
             </button>
-            <div className="[&_button]:hover:!bg-white/10 [&_svg]:text-white/70 [&_button]:rounded-lg">
+            <div className="[&_button]:!text-white/50 [&_button]:hover:!text-white/85 [&_button]:hover:!bg-white/8 [&_button]:rounded-md [&_svg]:!h-4 [&_svg]:!w-4">
               <ThemeToggle />
             </div>
+            <div className="h-4 w-px bg-white/15 mx-2 shrink-0" />
             <UserMenu />
           </div>
         </div>
 
-        {/* ── Row 2: page navigation tabs ── */}
+        {/* Row 2 — page tabs  (36px) */}
         <div
-          className="flex items-end px-4 gap-0.5"
-          style={{ height: "36px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.14)" }}
+          className="flex items-end px-6"
+          style={{ height: "36px", borderTop: "1px solid rgba(0,0,0,0.25)", background: "rgba(255,255,255,0.04)" }}
         >
           {visibleItems.map((item) => {
             const active = isItemActive(item);
@@ -324,13 +335,12 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center gap-1.5 px-3.5 h-8 text-xs font-medium tracking-wide transition-all duration-150 border-b-2 whitespace-nowrap rounded-t",
+                  "flex items-center px-3.5 h-full text-[12.5px] font-medium border-b-2 whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white/30",
                   active
-                    ? "border-white/90 text-white bg-white/8"
-                    : "border-transparent text-white/55 hover:text-white/85 hover:bg-white/5",
+                    ? "border-white/75 text-white"
+                    : "border-transparent text-white/45 hover:text-white/80 hover:border-white/20",
                 ].join(" ")}
               >
-                <item.icon className={["w-3 h-3 flex-shrink-0 transition-opacity", active ? "opacity-100" : "opacity-60"].join(" ")} />
                 {item.label}
               </Link>
             );
@@ -482,7 +492,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-[88px] overflow-x-hidden">
+      <main className="animate-fade-in pt-[84px] overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">

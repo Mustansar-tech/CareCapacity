@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select';
-import { Building2, ChevronDown } from 'lucide-react';
+import { ChevronDown, MapPin } from 'lucide-react';
 
 export function BranchSelector() {
   let branchContext;
@@ -19,52 +19,42 @@ export function BranchSelector() {
 
   if (isLoadingBranches) {
     return (
-      <div className="flex items-center gap-2 px-4 border-l border-r border-white/20 h-full text-white/70 text-sm">
-        <Building2 className="w-4 h-4 flex-shrink-0 text-white/50" />
-        <span>Loading branches...</span>
+      <div className="flex items-center gap-1.5 text-white/40 text-[12.5px]">
+        <MapPin className="w-3.5 h-3.5 shrink-0" />
+        <span>Loading…</span>
       </div>
     );
   }
 
-  if (branches.length === 0) {
-    return (
-      <div className="flex items-center gap-2 px-4 border-l border-r border-white/20 h-full text-white/70 text-sm">
-        <Building2 className="w-4 h-4 flex-shrink-0 text-white/50" />
-        <span>No branches</span>
-      </div>
-    );
-  }
+  if (branches.length === 0) return null;
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId);
 
   return (
-    <div
-      className="flex items-center gap-2 border-l border-r border-white/20 px-4 h-full"
-      data-testid="branch-selector"
-    >
-      <Building2 className="w-4 h-4 text-white/70 flex-shrink-0" />
+    <div className="flex items-center" data-testid="branch-selector">
+      <MapPin className="w-3.5 h-3.5 text-white/35 shrink-0 mr-1.5" />
 
       <Select value={selectedBranchId || undefined} onValueChange={setSelectedBranchId}>
         <SelectTrigger
-          className="border-0 bg-transparent text-sm font-semibold text-white focus:ring-0 px-0 h-auto shadow-none [&>svg]:hidden gap-1.5 min-w-0"
+          className="border-0 bg-transparent text-[12.5px] font-medium text-white/75 hover:text-white/95 focus:ring-0 px-0 h-auto shadow-none [&>svg]:hidden gap-1 min-w-0 outline-none transition-colors"
           data-testid="select-branch-trigger"
           aria-label="Select branch"
         >
-          <span className="truncate max-w-[200px]">
+          <span className="truncate max-w-[160px]">
             {selectedBranch?.displayName ?? 'Select branch…'}
           </span>
-          <ChevronDown className="w-3.5 h-3.5 text-white/60 flex-shrink-0" />
+          <ChevronDown className="w-3 h-3 text-white/35 flex-shrink-0 ml-0.5" />
         </SelectTrigger>
 
         <SelectContent
-          className="min-w-[220px] p-1.5 shadow-2xl rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900"
-          sideOffset={8}
+          className="min-w-[200px] p-1.5 shadow-xl rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900"
+          sideOffset={10}
         >
           {branches.map((branch) => (
             <SelectItem
               key={branch.id}
               value={branch.id}
-              className="rounded-lg py-2 pl-8 pr-3 text-sm cursor-pointer text-gray-700 dark:text-gray-200 focus:bg-blue-50 dark:focus:bg-blue-900/30 focus:text-blue-700 dark:focus:text-blue-300 data-[state=checked]:font-semibold data-[state=checked]:text-blue-700 dark:data-[state=checked]:text-blue-300"
+              className="rounded-lg py-2 pl-8 pr-3 text-sm cursor-pointer text-gray-700 dark:text-gray-200 focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:text-emerald-800 dark:focus:text-emerald-300 data-[state=checked]:font-semibold data-[state=checked]:text-emerald-800 dark:data-[state=checked]:text-emerald-300"
               data-testid={`branch-option-${branch.id}`}
             >
               {branch.displayName}
