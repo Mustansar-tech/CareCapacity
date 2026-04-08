@@ -16,7 +16,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bell, Search } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -248,7 +248,6 @@ function Navigation() {
   const search = useSearch();
   const { isAdmin } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
 
@@ -301,32 +300,8 @@ function Navigation() {
           {/* Location selector */}
           <BranchSelector />
 
-          {/* Search — subtle, centred */}
-          <div className="flex-1 flex items-center justify-center px-2">
-            <div className="relative w-full max-w-[240px]">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/35 pointer-events-none" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search…"
-                aria-label="Search"
-                className="w-full h-7 pl-8 pr-3 rounded text-[13px] text-white placeholder:text-white/35 outline-none transition-colors"
-                style={{
-                  background: "rgba(255,255,255,0.09)",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                }}
-                onFocus={e => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.14)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.32)";
-                }}
-                onBlur={e => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.09)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)";
-                }}
-              />
-            </div>
-          </div>
+          {/* Spacer — pushes right group to far right */}
+          <div className="flex-1" />
 
           {/* Right icon cluster */}
           <div className="flex items-center gap-1 shrink-0">
