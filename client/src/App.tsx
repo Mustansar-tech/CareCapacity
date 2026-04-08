@@ -227,8 +227,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Home",            path: "/app/dashboard",                         icon: BarChart3 },
   { label: "Daily View",      path: "/app/dashboard", search: "view=daily",   icon: Calendar  },
-  { label: "Schedule",        path: "/app/schedule",                          icon: Calendar  },
   { label: "BD Matrix",       path: "/app/bd-matrix",                         icon: Users     },
+  { label: "Schedule",        path: "/app/schedule",                          icon: Calendar  },
 ];
 
 function Navigation() {
