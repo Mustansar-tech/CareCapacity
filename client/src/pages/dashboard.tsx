@@ -430,7 +430,7 @@ export default function Dashboard() {
     : [];
 
   return (
-    <div className="h-screen w-full bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
+    <div className="h-full w-full bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
       {/* Hero Section with Modern Layout - Only show on Overview tab */}
       {activeTab === "overview" && (
         <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border shrink-0">

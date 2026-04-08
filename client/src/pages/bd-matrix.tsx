@@ -2019,9 +2019,9 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
   const { dates, matrix } = matrixData;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col gap-4 p-4">
       {/* Header */}
-      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
+      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl shrink-0">
         <CardHeader className="bg-[#f8f9ff] dark:bg-gray-900/50 rounded-t-lg pt-[8px] pb-[8px]">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-semibold text-[#5d51d5] flex items-center gap-3">
@@ -2080,9 +2080,9 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
         </CardHeader>
       </Card>
       {/* BD Matrix Grid with Filter as First Column */}
-      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl">
-        <CardContent className="p-0">
-          <div className="w-full overflow-x-auto overflow-y-auto max-h-[70vh]">
+      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl flex-1 min-h-0 flex flex-col overflow-hidden">
+        <CardContent className="p-0 flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto w-full">
             <div className="min-w-[1000px]">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-20">
