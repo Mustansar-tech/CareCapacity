@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { lazy, Suspense } from "react";
@@ -39,10 +39,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
+import type { ProcessingResultWithMeta } from "@shared/schema";
 
 // Lazy load heavy pages
 const DashboardModule = lazy(() => import("@/pages/dashboard"));
 const AdminModule = lazy(() => import("@/pages/admin"));
+const BDMatrixModule = lazy(() => import("@/pages/bd-matrix"));
+const DataManagementModule = lazy(() => import("@/pages/data-management"));
+const ScheduleModule = lazy(() => import("@/pages/schedule"));
+const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -57,6 +62,12 @@ function PageSuspense({ children }: { children: ReactNode }) {
       {children}
     </Suspense>
   );
+}
+
+function Redirect({ to }: { to: string }) {
+  const [, navigate] = useLocation();
+  useEffect(() => { navigate(to, { replace: true } as any); }, []);
+  return null;
 }
 
 function Dashboard() {
@@ -77,7 +88,7 @@ function AdminPage() {
             Only administrators can access this page.
           </p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/app/dashboard')}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Return to Dashboard
@@ -88,6 +99,22 @@ function AdminPage() {
   }
 
   return <PageSuspense><AdminModule /></PageSuspense>;
+}
+
+function BDMatrixPage() {
+  const { data: latestData } = useQuery<ProcessingResultWithMeta>({
+    queryKey: ["/api/history/latest"],
+    refetchOnWindowFocus: false,
+  });
+
+  return (
+    <PageSuspense>
+      <BDMatrixModule
+        data={latestData ?? null}
+        weekStartDate={latestData?.weekStartDate}
+      />
+    </PageSuspense>
+  );
 }
 
 // ─── Error Boundary ──────────────────────────────────────────────────────────
@@ -176,7 +203,7 @@ function UserMenu() {
         <DropdownMenuSeparator />
         {isAdmin && (
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer">
+            <DropdownMenuItem onClick={() => navigate('/app/admin')} className="cursor-pointer">
               <Shield className="mr-2 h-4 w-4 text-blue-500" />
               <span>Administration</span>
             </DropdownMenuItem>
@@ -209,12 +236,12 @@ function Navigation() {
             {/* Logo */}
             <div
               className="flex items-center gap-3 cursor-pointer group transition-all duration-300 hover:scale-102"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/app/dashboard')}
               role="link"
               aria-label="Care Capacity Dashboard - Workforce Intelligence"
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') navigate('/');
+                if (e.key === 'Enter' || e.key === ' ') navigate('/app/dashboard');
               }}
             >
               <div className="relative">
@@ -278,8 +305,24 @@ function Router() {
           </div>
         ) : (
           <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/admin" component={AdminPage} />
+            {/* Legacy redirects — keep backward compatibility */}
+            <Route path="/"><Redirect to="/app/dashboard" /></Route>
+            <Route path="/admin"><Redirect to="/app/admin" /></Route>
+
+            {/* App routes */}
+            <Route path="/app/dashboard" component={Dashboard} />
+            <Route path="/app/admin" component={AdminPage} />
+            <Route path="/app/bd-matrix" component={BDMatrixPage} />
+            <Route path="/app/schedule">
+              <PageSuspense><ScheduleModule /></PageSuspense>
+            </Route>
+            <Route path="/app/people-planner">
+              <PageSuspense><PeoplePlannerModule /></PageSuspense>
+            </Route>
+            <Route path="/app/data-management">
+              <PageSuspense><DataManagementModule /></PageSuspense>
+            </Route>
+
             <Route component={NotFound} />
           </Switch>
         )}
