@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect, lazy, Suspense, useMemo } from "react";
-import { PeoplePlannerPanel } from "@/components/PeoplePlannerPanel";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,6 @@ import { useBranch } from "@/contexts/BranchContext";
 import { MetricCardSkeleton, TableSkeleton } from "@/components/loading-skeleton";
 import { FlexibleTimeWindow } from "@/components/flexible-time-window";
 import { getGenderColorClass } from "@/utils/gender-colors";
-
-const WeeklyPlanTab = lazy(() => import("@/components/weekly-plan-tab").then(m => ({ default: m.WeeklyPlanTab })));
-const BDMatrix = lazy(() => import("@/pages/bd-matrix"));
-
-
 
 import {
   Tooltip,
@@ -198,7 +193,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
-  const [showPeoplePlanner, setShowPeoplePlanner] = useState(false);
+  const [, navigate] = useLocation();
 
   const { toast } = useToast();
 
@@ -435,7 +430,7 @@ export default function Dashboard() {
     : [];
 
   return (
-    <div className="h-screen w-screen bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
+    <div className="h-screen w-full bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
       {/* Hero Section with Modern Layout - Only show on Overview tab */}
       {activeTab === "overview" && (
         <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border shrink-0">
@@ -465,20 +460,15 @@ export default function Dashboard() {
               {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
             </Button>
             <Button
-              onClick={() => setShowPeoplePlanner(!showPeoplePlanner)}
+              onClick={() => navigate('/app/people-planner')}
               variant="outline"
               className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
               title="Automatically download reports from People Planner"
             >
               <Bot className="w-4 h-4 mr-2" />
-              {showPeoplePlanner ? 'Hide People Planner' : 'Sync from People Planner'}
+              Sync from People Planner
             </Button>
           </div>
-        )}
-
-        {/* People Planner inline panel — shown below action bar */}
-        {!processedData && (
-          <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
         )}
 
         {/* Upload Section - Collapsible (no-data state only; data state handled inside tabs) */}
@@ -702,22 +692,6 @@ export default function Dashboard() {
             >
               <Calendar className="w-4 h-4 mr-2" />
               Daily View
-            </TabsTrigger>
-            <TabsTrigger
-              value="bd-matrix"
-              className="flex-1 data-[state=active]:bg-tertiary data-[state=active]:text-tertiary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
-              data-testid="tab-bd-matrix"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              BD Matrix
-            </TabsTrigger>
-            <TabsTrigger
-              value="schedules"
-              className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg hover:bg-muted/50 transition-all duration-300 rounded-lg font-bold py-2.5 px-4 my-0.5"
-              data-testid="tab-schedules"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Schedules
             </TabsTrigger>
           </TabsList>
 
@@ -1107,22 +1081,6 @@ export default function Dashboard() {
           </TabsContent>
 
 
-          {/* BD Matrix Tab */}
-          <TabsContent value="bd-matrix" className="flex-1 overflow-hidden" data-testid="content-bd-matrix">
-            <div className="h-full overflow-hidden">
-              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
-                <BDMatrix
-                  data={filteredData || processedData}
-                  weekStartDate={
-                    selectedWeekId
-                      ? allHistoryData?.find(a => a.id === selectedWeekId)?.weekStartDate
-                      : latestData?.weekStartDate
-                  }
-                />
-              </Suspense>
-            </div>
-          </TabsContent>
-
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 animate-fade-in flex-1 overflow-y-auto" data-testid="content-overview">
             {/* Action bar — Home tab only */}
@@ -1137,18 +1095,15 @@ export default function Dashboard() {
                 {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
               </Button>
               <Button
-                onClick={() => setShowPeoplePlanner(!showPeoplePlanner)}
+                onClick={() => navigate('/app/people-planner')}
                 variant="outline"
                 className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
                 title="Automatically download reports from People Planner"
               >
                 <Bot className="w-3.5 h-3.5 mr-2" />
-                {showPeoplePlanner ? 'Hide People Planner' : 'Sync from People Planner'}
+                Sync from People Planner
               </Button>
             </div>
-
-            {/* People Planner inline panel */}
-            <PeoplePlannerPanel open={showPeoplePlanner} onClose={() => setShowPeoplePlanner(false)} />
 
             {/* File Upload Section — collapsible, toggled by button above */}
             {showUploadPanel && (
@@ -1725,13 +1680,6 @@ export default function Dashboard() {
               </div>
               </div>
             )}
-          </TabsContent>
-
-          {/* Schedules Tab */}
-          <TabsContent value="schedules" className="animate-fade-in flex-1 overflow-y-auto" data-testid="content-schedules">
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
-              <WeeklyPlanTab data={filteredData || processedData} selectedDate={selectedDate} />
-            </Suspense>
           </TabsContent>
 
           </Tabs>

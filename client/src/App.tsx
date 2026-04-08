@@ -16,7 +16,6 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,18 +35,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import type { ProcessingResultWithMeta } from "@shared/schema";
+import { AppLayout } from "@/components/layout/AppLayout";
 
-// Lazy load heavy pages
+// ─── Lazy page modules ────────────────────────────────────────────────────────
+
 const DashboardModule = lazy(() => import("@/pages/dashboard"));
 const AdminModule = lazy(() => import("@/pages/admin"));
 const BDMatrixModule = lazy(() => import("@/pages/bd-matrix"));
 const DataManagementModule = lazy(() => import("@/pages/data-management"));
 const ScheduleModule = lazy(() => import("@/pages/schedule"));
 const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
+
+// ─── Shared utilities ─────────────────────────────────────────────────────────
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -66,9 +68,11 @@ function PageSuspense({ children }: { children: ReactNode }) {
 
 function Redirect({ to }: { to: string }) {
   const [, navigate] = useLocation();
-  useEffect(() => { navigate(to, { replace: true } as any); }, []);
+  useEffect(() => { navigate(to); }, [to]);
   return null;
 }
+
+// ─── Page components ──────────────────────────────────────────────────────────
 
 function Dashboard() {
   return <PageSuspense><DashboardModule /></PageSuspense>;
@@ -160,17 +164,6 @@ class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
-
-// ─── Role badge ───────────────────────────────────────────────────────────────
-
-const ROLE_STYLES: Record<string, string> = {
-  admin:      'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  scheduler:  'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  viewer:     'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-};
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin', scheduler: 'Scheduler', viewer: 'Viewer',
-};
 
 // ─── User Menu ────────────────────────────────────────────────────────────────
 
@@ -285,60 +278,11 @@ function Navigation() {
   );
 }
 
-// ─── Protected Router ─────────────────────────────────────────────────────────
-
-function Router() {
-  const { isReady, isLoadingBranches } = useBranch();
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
-      <Navigation />
-      <main className="animate-fade-in pt-20 overflow-x-hidden">
-        {!isReady ? (
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">
-                {isLoadingBranches ? 'Loading branches...' : 'Initializing...'}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <Switch>
-            {/* Legacy redirects — keep backward compatibility */}
-            <Route path="/"><Redirect to="/app/dashboard" /></Route>
-            <Route path="/admin"><Redirect to="/app/admin" /></Route>
-
-            {/* App routes */}
-            <Route path="/app/dashboard" component={Dashboard} />
-            <Route path="/app/admin" component={AdminPage} />
-            <Route path="/app/bd-matrix" component={BDMatrixPage} />
-            <Route path="/app/schedule">
-              <PageSuspense><ScheduleModule /></PageSuspense>
-            </Route>
-            <Route path="/app/people-planner">
-              <PageSuspense><PeoplePlannerModule /></PageSuspense>
-            </Route>
-            <Route path="/app/data-management">
-              <PageSuspense><DataManagementModule /></PageSuspense>
-            </Route>
-
-            <Route component={NotFound} />
-          </Switch>
-        )}
-      </main>
-    </div>
-  );
-}
-
 // ─── Session Timeout Manager ──────────────────────────────────────────────────
-// Handles inactivity detection, warning dialog, and automatic logout.
-// Mounted only when the user is authenticated.
 
 function SessionTimeoutManager() {
   const { logout } = useAuth();
 
-  // stable reference so onExpire never changes identity
   const logoutRef = useRef(logout);
   useEffect(() => { logoutRef.current = logout; }, [logout]);
 
@@ -346,7 +290,6 @@ function SessionTimeoutManager() {
 
   const { showWarning, secondsRemaining, extend } = useSessionTimeout({ onExpire: handleExpire });
 
-  // Wire the global 401 handler so any server-expired request also logs out
   useEffect(() => {
     setUnauthorizedHandler(() => { logoutRef.current(); });
     return () => setUnauthorizedHandler(null);
@@ -357,7 +300,6 @@ function SessionTimeoutManager() {
 
   const handleStayIn = async () => {
     extend();
-    // Touch the server session so the rolling cookie is refreshed
     try { await fetch('/api/auth/me', { credentials: 'include' }); } catch { /* ignore */ }
   };
 
@@ -380,7 +322,6 @@ function SessionTimeoutManager() {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Countdown */}
         <div className="flex items-center justify-center gap-3 my-2">
           <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl px-6 py-3 text-center min-w-[100px]">
             <span className="text-4xl font-black tabular-nums text-amber-700 dark:text-amber-300">
@@ -416,10 +357,36 @@ function SessionTimeoutManager() {
   );
 }
 
-// ─── Auth Gate ────────────────────────────────────────────────────────────────
+// ─── Login Route ──────────────────────────────────────────────────────────────
+// Shows the login page. If already authenticated, redirects to /app/dashboard.
 
-function AuthGate({ children }: { children: ReactNode }) {
+function LoginRoute() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/app/dashboard');
+    }
+  }, [isAuthenticated, isLoading]);
+
+  if (isLoading || isAuthenticated) return null;
+
+  return <LoginPage />;
+}
+
+// ─── Protected Route ──────────────────────────────────────────────────────────
+// Guards all /app/* routes. Redirects unauthenticated users to /login.
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
     return (
@@ -432,15 +399,65 @@ function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <>
       <SessionTimeoutManager />
       {children}
     </>
+  );
+}
+
+// ─── Protected Router ─────────────────────────────────────────────────────────
+
+function Router() {
+  const { isReady, isLoadingBranches } = useBranch();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
+      <Navigation />
+      <main className="animate-fade-in pt-20 overflow-x-hidden">
+        {!isReady ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">
+                {isLoadingBranches ? 'Loading branches...' : 'Initializing...'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <Switch>
+            {/* Legacy redirects — backward compatibility */}
+            <Route path="/"><Redirect to="/app/dashboard" /></Route>
+            <Route path="/admin"><Redirect to="/app/admin" /></Route>
+
+            {/* App routes — all wrapped in AppLayout (sidebar + content offset) */}
+            <Route path="/app/dashboard">
+              <AppLayout><Dashboard /></AppLayout>
+            </Route>
+            <Route path="/app/admin">
+              <AppLayout><AdminPage /></AppLayout>
+            </Route>
+            <Route path="/app/bd-matrix">
+              <AppLayout><BDMatrixPage /></AppLayout>
+            </Route>
+            <Route path="/app/schedule">
+              <AppLayout><PageSuspense><ScheduleModule /></PageSuspense></AppLayout>
+            </Route>
+            <Route path="/app/people-planner">
+              <AppLayout><PageSuspense><PeoplePlannerModule /></PageSuspense></AppLayout>
+            </Route>
+            <Route path="/app/data-management">
+              <AppLayout><PageSuspense><DataManagementModule /></PageSuspense></AppLayout>
+            </Route>
+
+            <Route component={NotFound} />
+          </Switch>
+        )}
+      </main>
+    </div>
   );
 }
 
@@ -470,10 +487,11 @@ function App() {
               <Switch>
                 <Route path="/privacy" component={PrivacyPolicy} />
                 <Route path="/terms" component={Terms} />
+                <Route path="/login" component={LoginRoute} />
                 <Route>
-                  <AuthGate>
+                  <ProtectedRoute>
                     <Router />
-                  </AuthGate>
+                  </ProtectedRoute>
                 </Route>
               </Switch>
             </TooltipProvider>
