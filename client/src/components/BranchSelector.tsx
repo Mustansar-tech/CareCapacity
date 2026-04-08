@@ -36,7 +36,7 @@ export function BranchSelector() {
 
       <Select value={selectedBranchId || undefined} onValueChange={setSelectedBranchId}>
         <SelectTrigger
-          className="border-0 bg-transparent text-[12.5px] font-medium text-white/75 hover:text-white/95 focus:ring-0 px-0 h-auto shadow-none [&>svg]:hidden gap-1 min-w-0 outline-none transition-colors"
+          className="border-0 bg-transparent text-[12.5px] font-normal text-white/70 hover:text-white/90 focus:ring-0 px-0 h-auto shadow-none [&>svg]:hidden gap-1 min-w-0 outline-none transition-colors"
           data-testid="select-branch-trigger"
           aria-label="Select branch"
         >

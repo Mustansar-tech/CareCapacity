@@ -276,7 +276,7 @@ function Navigation() {
       >
         {/* ── Row 1: dark green utility bar — 48px ── */}
         <div
-          className="flex items-center px-5 gap-4 pl-[15px] pr-[15px]"
+          className="flex items-center px-6 gap-6"
           style={{ height: "48px", background: "#2c4f26" }}
         >
           {/* Brand: logo + product name */}
@@ -329,23 +329,23 @@ function Navigation() {
           </div>
 
           {/* Right icon cluster */}
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => setHelpOpen(true)}
               aria-label="Help and Support"
               title="Help & Support"
-              className="p-1.5 rounded text-white/55 hover:text-white transition-colors"
+              className="p-1.5 text-white/65 hover:text-white transition-colors"
             >
-              <HelpCircle className="h-[18px] w-[18px]" />
+              <HelpCircle className="h-4 w-4" />
             </button>
             <button
               aria-label="Notifications"
               title="Notifications"
-              className="p-1.5 rounded text-white/55 hover:text-white transition-colors"
+              className="p-1.5 text-white/65 hover:text-white transition-colors"
             >
-              <Bell className="h-[18px] w-[18px]" />
+              <Bell className="h-4 w-4" />
             </button>
-            <div className="[&_button]:!text-white/55 [&_button]:hover:!text-white [&_button]:!bg-transparent [&_button]:!p-1.5 [&_button]:!rounded [&_button]:!shadow-none [&_svg]:!h-[18px] [&_svg]:!w-[18px]">
+            <div className="[&_button]:!text-white/65 [&_button]:hover:!text-white [&_button]:!bg-transparent [&_button]:!p-1.5 [&_button]:!shadow-none [&_svg]:!h-4 [&_svg]:!w-4">
               <ThemeToggle />
             </div>
           </div>
@@ -357,13 +357,13 @@ function Navigation() {
           <UserMenu />
         </div>
 
-        {/* ── Row 2: workspace tabs — 40px ── */}
+        {/* ── Row 2: workspace tabs — 38px ── */}
         <div
-          className="flex items-end px-3 gap-0.5 dark:bg-gray-800 dark:border-gray-700"
+          className="flex items-end px-4 gap-2 dark:bg-gray-800 dark:border-gray-700"
           style={{
-            height: "40px",
-            background: "#ececeb",
-            borderBottom: "1px solid #d9d9d7",
+            height: "38px",
+            background: "#f5f6f7",
+            borderBottom: "1px solid #e5e7eb",
           }}
         >
           {visibleItems.map((item) => {
@@ -374,14 +374,14 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center px-4 h-[33px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t select-none",
+                  "flex items-center px-5 h-[31px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
                   active
-                    ? "text-slate-800 dark:text-white"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
+                    ? "text-slate-700 dark:text-white"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
                 ].join(" ")}
                 style={active ? {
                   background: "#f8f8f8",
-                  border: "1px solid #d9d9d7",
+                  border: "1px solid #e5e7eb",
                   borderBottom: "1px solid #f8f8f8",
                 } : {}}
               >
@@ -535,7 +535,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Navigation />
-      <main className="animate-fade-in pt-[88px] overflow-x-hidden">
+      <main className="animate-fade-in pt-[86px] overflow-x-hidden">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
