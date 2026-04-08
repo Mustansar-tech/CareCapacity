@@ -349,7 +349,7 @@ function Navigation() {
                 key={item.label}
                 href={href}
                 className={[
-                  "flex items-center gap-1.5 px-5 h-[31px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
+                  "flex items-center gap-1.5 px-7 h-[31px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
                   active
                     ? "text-slate-700 dark:text-white"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
