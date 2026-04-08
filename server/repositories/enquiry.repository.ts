@@ -27,7 +27,7 @@ export async function deleteClientEnquiry(id: string): Promise<void> {
 }
 
 export async function createFeedback(data: InsertFeedback): Promise<Feedback> {
-  const [result] = await db.insert(feedback).values(data as any).returning();
+  const [result] = await db.insert(feedback).values(data).returning();
   return result;
 }
 

@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 import { storage } from '../storage';
 import { logger } from '../logger';
+import { createAppError } from '../middleware/error-handler';
 
 export const isProduction = process.env.NODE_ENV === 'production';
 
@@ -17,12 +18,12 @@ export async function resolveBranch(req: Request): Promise<string> {
   const resolvedBranchId = branchId || defaultBranchId;
 
   if (!resolvedBranchId) {
-    throw new Error('branchId is required');
+    throw createAppError('branchId is required', 400);
   }
 
   const branch = await storage.getBranchById(resolvedBranchId);
   if (!branch) {
-    throw new Error(`Branch with ID '${resolvedBranchId}' not found`);
+    throw createAppError(`Branch with ID '${resolvedBranchId}' not found`, 404);
   }
 
   if (!branchId && defaultBranchId) {

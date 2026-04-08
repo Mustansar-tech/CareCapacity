@@ -21,15 +21,15 @@ export async function createUser(insertUser: InsertUser): Promise<User> {
     email: insertUser.email,
     passwordHash: insertUser.passwordHash,
     displayName: insertUser.displayName,
-    role: insertUser.role || 'viewer',
-    isActive: insertUser.isActive !== undefined ? insertUser.isActive : 1,
+    role: insertUser.role ?? 'viewer',
+    isActive: insertUser.isActive ?? 1,
     username: insertUser.email,
-  } as any).returning();
+  }).returning();
   return user;
 }
 
 export async function updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User> {
-  const [user] = await db.update(users).set(updates as any).where(eq(users.id, id)).returning();
+  const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
   if (!user) throw new Error(`User ${id} not found`);
   return user;
 }
@@ -59,7 +59,7 @@ export async function setUserBranches(userId: string, branchIds: string[]): Prom
 }
 
 export async function createAuditLog(log: Omit<InsertAuditLog, 'timestamp'>): Promise<AuditLog> {
-  const [result] = await db.insert(auditLogs).values(log as any).returning();
+  const [result] = await db.insert(auditLogs).values(log).returning();
   return result;
 }
 
