@@ -187,7 +187,9 @@ export async function clearRoutesAndVisits(branchId: string): Promise<{ routePla
   };
 }
 
-export async function getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined> {
+type TransportMode = 'car' | 'walking' | 'public';
+
+export async function getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: TransportMode | string): Promise<TravelTimeCache | undefined> {
   const [result] = await db.select().from(travelTimeCache).where(
     and(
       eq(travelTimeCache.branchId, branchId),
@@ -195,7 +197,7 @@ export async function getTravelTime(branchId: string, fromLat: string, fromLng: 
       eq(travelTimeCache.fromLng, fromLng),
       eq(travelTimeCache.toLat, toLat),
       eq(travelTimeCache.toLng, toLng),
-      eq(travelTimeCache.transportMode, mode as any),
+      eq(travelTimeCache.transportMode, mode as TransportMode),
     ),
   );
   return result;

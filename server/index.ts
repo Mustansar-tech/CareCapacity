@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
@@ -9,6 +9,7 @@ import { securityHeaders } from "./security";
 import { logger } from "./logger";
 import { seedAdminUser } from "./auth";
 import { config } from "./config";
+import { errorHandler } from "./middleware/error-handler";
 
 // Augment session type
 declare module 'express-session' {
@@ -94,18 +95,7 @@ app.use((req, res, next) => {
 
   // Global error handler — must be registered AFTER all routes and static
   // middleware so it catches errors from every layer (including sendFile failures)
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const internalMessage = err.message || "Internal Server Error";
-
-    logger.error(`HTTP ${status}: ${internalMessage}`, err);
-
-    const clientMessage = isProduction
-      ? (status >= 500 ? "Internal Server Error" : "Request failed")
-      : internalMessage;
-
-    res.status(status).json({ message: clientMessage });
-  });
+  app.use(errorHandler);
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

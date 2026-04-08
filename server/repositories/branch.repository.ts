@@ -6,6 +6,8 @@ import type {
 } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
+type UploadType = 'guaranteedHours' | 'availability' | 'demand' | 'cgData';
+
 export async function getAllBranches(): Promise<Branch[]> {
   return db.select().from(branches);
 }
@@ -38,11 +40,11 @@ export async function saveBranchUpload(upload: InsertBranchUpload): Promise<Bran
   return result;
 }
 
-export async function getLatestBranchUpload(branchId: string, uploadType: string): Promise<BranchUpload | undefined> {
+export async function getLatestBranchUpload(branchId: string, uploadType: UploadType): Promise<BranchUpload | undefined> {
   const [upload] = await db
     .select()
     .from(branchUploads)
-    .where(and(eq(branchUploads.branchId, branchId), eq(branchUploads.uploadType, uploadType as any)))
+    .where(and(eq(branchUploads.branchId, branchId), eq(branchUploads.uploadType, uploadType)))
     .orderBy(desc(branchUploads.uploadedAt));
   return upload;
 }

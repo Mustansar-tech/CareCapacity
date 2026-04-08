@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../logger';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export interface AppError extends Error {
+  status?: number;
   statusCode?: number;
   code?: string;
 }
@@ -16,22 +19,24 @@ export function errorHandler(
   err: AppError,
   _req: Request,
   res: Response,
-  _next: NextFunction
+  _next: NextFunction,
 ): void {
-  const statusCode = err.statusCode ?? 500;
-  const message = err.message || 'Internal server error';
+  const status = err.status ?? err.statusCode ?? 500;
+  const internalMessage = err.message || 'Internal Server Error';
 
-  if (statusCode >= 500) {
-    logger.error('Unhandled error', err);
-  }
+  logger.error(`HTTP ${status}: ${internalMessage}`, err);
 
-  res.status(statusCode).json({ message });
+  const clientMessage = isProduction
+    ? (status >= 500 ? 'Internal Server Error' : 'Request failed')
+    : internalMessage;
+
+  res.status(status).json({ message: clientMessage });
 }
 
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>,
 ) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
