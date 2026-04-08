@@ -42,6 +42,11 @@ const fmtH = (hours: number): string => `${hours}h`;
 // --- GH Loss helpers ---
 const GH_REGEX = /(\d+(?:\.\d+)?)\s*GH/i;
 
+// Strip GH annotation (e.g. " (37.5GH)" or " 37.5GH") from an employee name
+// to produce a stable grouping key that matches across days where the tag may be absent.
+const stripGhAnnotation = (name: string): string =>
+  name.replace(/\s*\(?\d+(?:\.\d+)?\s*GH\)?\s*$/i, '').trim();
+
 interface GhLossItem {
   name: string;
   ghHours: number;
@@ -56,21 +61,46 @@ interface GhLossResult {
 }
 
 function computeGhLoss(
-  employeeSummaryByDate: Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>
+  employeeSummaryByDate: Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>,
+  employeesByDate?: Record<string, Array<{ employeeName: string; status: string }>>,
 ): GhLossResult {
-  const empTotals = new Map<string, { ghHours: number; weeklyScheduled: number; weeklyUnavailability: number }>();
+  // Step 1: build GH targets map (normalised name → gh hours) from any record that
+  //         carries the GH annotation — regardless of which day it appears on.
+  const ghTargets = new Map<string, number>();
   for (const records of Object.values(employeeSummaryByDate)) {
     for (const rec of records) {
       const match = GH_REGEX.exec(rec.employeeName);
       if (!match) continue;
-      const ghHours = parseFloat(match[1]);
-      const existing = empTotals.get(rec.employeeName);
+      const key = stripGhAnnotation(rec.employeeName);
+      if (!ghTargets.has(key)) ghTargets.set(key, parseFloat(match[1]));
+    }
+  }
+
+  // Step 2: build set of ad-hoc names (normalised).
+  // Ad-hoc employees are from other branches and should not count towards this branch's GH Loss.
+  const adHocNames = new Set<string>();
+  if (employeesByDate) {
+    for (const details of Object.values(employeesByDate)) {
+      for (const emp of details) {
+        if (emp.status === 'Ad-hoc') adHocNames.add(stripGhAnnotation(emp.employeeName));
+      }
+    }
+  }
+
+  // Step 3: accumulate hours for ALL summary records using the normalised name as
+  //         the key — this captures days where the GH annotation is absent, fixing
+  //         the undercount that caused Muneeb/Hassan to show wrong scheduled hours.
+  const empTotals = new Map<string, { weeklyScheduled: number; weeklyUnavailability: number }>();
+  for (const records of Object.values(employeeSummaryByDate)) {
+    for (const rec of records) {
+      const key = stripGhAnnotation(rec.employeeName);
+      if (!ghTargets.has(key)) continue; // Only accumulate for known GH employees
+      const existing = empTotals.get(key);
       if (existing) {
         existing.weeklyScheduled += rec.scheduledHours;
         existing.weeklyUnavailability += rec.unavailability ?? 0;
       } else {
-        empTotals.set(rec.employeeName, {
-          ghHours,
+        empTotals.set(key, {
           weeklyScheduled: rec.scheduledHours,
           weeklyUnavailability: rec.unavailability ?? 0,
         });
@@ -78,14 +108,19 @@ function computeGhLoss(
     }
   }
 
-  const items = Array.from(empTotals.entries())
-    .map(([name, { ghHours, weeklyScheduled, weeklyUnavailability }]) => ({
-      name,
-      ghHours,
-      weeklyScheduled: Math.round(weeklyScheduled * 100) / 100,
-      weeklyUnavailability: Math.round(weeklyUnavailability * 100) / 100,
-      loss: Math.round((ghHours - weeklyUnavailability - weeklyScheduled) * 100) / 100,
-    }))
+  // Step 4: build result items — skip ad-hoc employees from other branches.
+  const items = Array.from(ghTargets.entries())
+    .filter(([key]) => !adHocNames.has(key))
+    .map(([key, ghHours]) => {
+      const totals = empTotals.get(key) ?? { weeklyScheduled: 0, weeklyUnavailability: 0 };
+      return {
+        name: key, // clean name without GH annotation
+        ghHours,
+        weeklyScheduled: Math.round(totals.weeklyScheduled * 100) / 100,
+        weeklyUnavailability: Math.round(totals.weeklyUnavailability * 100) / 100,
+        loss: Math.round((ghHours - totals.weeklyUnavailability - totals.weeklyScheduled) * 100) / 100,
+      };
+    })
     .filter((item) => item.loss > 0)
     .sort((a, b) => b.loss - a.loss);
 
@@ -172,7 +207,8 @@ export default function Dashboard() {
     const data = filteredData || processedData;
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
     return computeGhLoss(
-      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>
+      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>,
+      data.employeesByDate as Record<string, Array<{ employeeName: string; status: string }>>,
     );
   }, [filteredData, processedData]);
 
