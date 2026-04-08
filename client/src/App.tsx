@@ -270,7 +270,7 @@ function Navigation() {
   return (
     <>
       <header
-        className="fixed top-0 left-0 right-0 z-50 flex flex-col"
+        className="z-50 flex flex-col shrink-0"
         data-testid="main-navigation"
       >
         {/* ── Row 1: dark green utility bar — 48px ── */}
@@ -509,9 +509,9 @@ function Router() {
   const { isReady, isLoadingBranches } = useBranch();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 overflow-x-hidden">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <Navigation />
-      <main className="animate-fade-in pt-[86px] overflow-x-hidden">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden animate-fade-in">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
