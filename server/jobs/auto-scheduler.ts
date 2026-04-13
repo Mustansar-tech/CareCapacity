@@ -1,5 +1,5 @@
 import { storage } from "../storage";
-import { TravelTimeService, type TravelSourceStats } from "../features/travel/travel-time-service";
+import { TravelTimeService, calculateTravelTime as travelTimeFn, type TravelSourceStats } from "../features/travel/travel-time-service";
 import { logger } from '../infrastructure/logger';
 
 // Parse time windows from string format "HH:MM-HH:MM" or array of such strings
@@ -1039,8 +1039,7 @@ export class AutoScheduler {
     clientName: string,
     transportMode: 'car' | 'walking' | 'public' = 'car'
   ): Promise<number> {
-    const { calculateTravelTime: travelFunc } = require('./travel-time-service');
-    return await travelFunc(branchId, employeeName, clientName, transportMode);
+    return await travelTimeFn(branchId, employeeName, clientName, transportMode);
   }
 
   private assignVisitToEmployee(
