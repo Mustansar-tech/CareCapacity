@@ -3724,171 +3724,98 @@ async function extractAndStoreGeographicalData(cgData: any[], guaranteed: any[],
       clientKeyMap.set(`${addr}|${pc}`, v.clientName);
     }
 
-    // ----------------- EMPLOYEE GEOCODING (SAVE RESULTS) -----------------
-    const employeePostcodes = Array.from(employeeLocationsMap.values())
-      .map(v => v.homePostcode)
-      .filter(Boolean)
-      .map(normalisePostcode);
-
-    if (employeePostcodes.length > 0) {
-      try {
-        const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ postcodes: employeePostcodes, addresses: [], branchId: branchId }), // Pass branchId here
+    // ----------------- EMPLOYEE GEOCODING (RE-CHECK & SAVE) -----------------
+    // Employees were already geocoded directly above (line ~3473) when building
+    // employeeLocationsMap, and those results were saved to the DB. This second
+    // pass geocodes any employees whose postcode was missing from the earlier
+    // direct call (e.g., cache miss or API transient error).
+    // Uses direct geocodeWithFallback — NO HTTP self-call (avoids port ambiguity
+    // between development (5000) and production (dynamic PORT env var)).
+    {
+      let empSaved = 0;
+      const uniqueEmpPostcodes = Array.from(
+        new Set(Array.from(employeeLocationsMap.values()).map(v => normalisePostcode(v.homePostcode || "")).filter(Boolean))
+      );
+      for (const pc of uniqueEmpPostcodes) {
+        const names = employeeByPostcode.get(pc) ?? [];
+        const anyMissingCoords = names.some(n => {
+          const e = employeeLocationsMap.get(n);
+          return !e?.homeLat || !e?.homeLng;
         });
-        if (!res.ok) {
-          logger.debug("Employee geocoding failed:", await res.text());
-        } else {
-          const payload = await res.json(); // expect { results: [{ input, lat, lng, success, ...}] }
-          const results = payload?.results ?? [];
-          let saved = 0;
-          for (const r of results) {
-            if (!r?.success || !Number.isFinite(r.lat) || !Number.isFinite(r.lng)) continue;
-            const pc = normalisePostcode(r.input || r.postcode || "");
-            const names = employeeByPostcode.get(pc) ?? [];
-            for (const employeeName of names) {
-              const base = employeeLocationsMap.get(employeeName) || {};
-              await storage.upsertEmployeeLocation({
-                branchId: branchId!, // Required for data isolation
-                employeeName,
-                homePostcode: pc,
-                homeLat: r.lat.toString(),
-                homeLng: r.lng.toString(),
-                transportMode: base.transportMode || "car",
-                gender: base.gender, // Include gender from base data
-              });
-              saved++;
-            }
+        if (!anyMissingCoords) continue; // already geocoded in first pass
+        try {
+          const geocoded = await geocodeWithFallback(pc, storage, branchId!);
+          if (!geocoded?.lat || !geocoded?.lng) continue;
+          for (const employeeName of names) {
+            const base = employeeLocationsMap.get(employeeName) || {};
+            await storage.upsertEmployeeLocation({
+              branchId: branchId!,
+              employeeName,
+              homePostcode: pc,
+              homeLat: String(geocoded.lat),
+              homeLng: String(geocoded.lng),
+              transportMode: (base as any).transportMode || "car",
+              gender: (base as any).gender,
+            });
+            empSaved++;
           }
-          if (saved > 0) {
-            logger.debug(`Employee geocoding saved for ${saved} new records`);
-          } else {
-            logger.debug(`Employee geocoding: All ${employeeLocationsMap.size} employees already geocoded (using cached coordinates)`);
-          }
+        } catch (err) {
+          logger.warn(`Employee geocoding error for postcode "${pc}"`, err);
         }
-      } catch (err) {
-        logger.debug("Employee geocoding error:", err);
+      }
+      if (empSaved > 0) {
+        logger.info(`Employee geocoding (second-pass): saved ${empSaved} records`);
       }
     }
 
     // ----------------- CLIENT GEOCODING (SAVE RESULTS) -----------------
-    // Only geocode clients that don't have coordinates (from clientsToGeocode list)
-    const clientAddresses = clientsToGeocode
-      .map(v => ({ address: (v.addressLine || "").trim(), postcode: normalisePostcode(v.postcode || "") }))
-      .filter(v => v.address || v.postcode);
+    // Uses direct geocodeWithFallback calls — NO HTTP self-call.
+    // Previous code called http://localhost:5000/api/geo/geocode-batch which fails in
+    // production when PORT != 5000 (the server runs on a dynamic port assigned by the
+    // deployment platform). The direct call works regardless of the listening port.
+    if (clientsToGeocode.length > 0) {
+      logger.info(`Client geocoding: ${clientsToGeocode.length} clients need coordinates (${clientLocationsMap.size - clientsToGeocode.length} already cached)`);
 
-    if (clientAddresses.length > 0) {
-      logger.debug(`Starting batch geocoding for ${clientAddresses.length} NEW client addresses (${clientLocationsMap.size - clientAddresses.length} already cached):`);
-      clientAddresses.slice(0, 10).forEach((addr, i) => {
-        logger.debug(`  ${i + 1}. Address: "${addr.address}", Postcode: "${addr.postcode}"`);
-      });
+      // Deduplicate by postcode so each postcode is only geocoded once,
+      // then assign the same coordinates to all clients sharing that postcode.
+      const uniqueClientPostcodes = Array.from(
+        new Set(clientsToGeocode.map(c => normalisePostcode(c.postcode || "")).filter(Boolean))
+      );
 
-      try {
-        const requestBody = {
-          postcodes: clientAddresses.map(a => a.postcode).filter(Boolean),
-          addresses: clientAddresses.map(a => a.address).filter(Boolean),
-          branchId: branchId, // Pass branchId here
-        };
+      let clientSaved = 0;
+      let clientFailed = 0;
 
-        logger.debug(`Sending geocoding request with ${requestBody.postcodes.length} postcodes and ${requestBody.addresses.length} addresses`);
+      for (const pc of uniqueClientPostcodes) {
+        try {
+          const geocoded = await geocodeWithFallback(pc, storage, branchId!);
+          if (!geocoded?.lat || !geocoded?.lng) {
+            logger.warn(`Geocoding failed for postcode "${pc}" — no coordinates stored`);
+            clientFailed++;
+            continue;
+          }
 
-        const res = await fetch("http://localhost:5000/api/geo/geocode-batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-        });
-        if (!res.ok) {
-          logger.debug("Client geocoding failed:", await res.text());
-        } else {
-          const payload = await res.json(); // expect { results: [{ address, postcode, lat, lng, success }] }
-          const results = payload?.results ?? [];
-          let saved = 0;
-          let failed = 0;
-
-          for (const r of results) {
-            logger.debug(`GEOCODING RESULT: ${JSON.stringify(r)}`);
-
-            if (!r?.lat || !r?.lng || !Number.isFinite(Number(r.lat)) || !Number.isFinite(Number(r.lng))) {
-              logger.debug(`Invalid coordinates for query: ${r?.query || 'unknown'}`);
-              failed++;
-              continue;
-            }
-
-            const pc = normalisePostcode(r.query || r.postcode || r.input || "");
-            const addr = (r.address || "").trim().toUpperCase();
-
-            // Find ALL clients at this postcode and save coordinates for each one.
-            // Previously only candidates[0] was saved — all others were left with null lat/lng.
-            if (pc) {
-              const candidates = clientByPostcode.get(pc) ?? [];
-              if (candidates.length > 0) {
-                if (candidates.length > 1) {
-                  logger.debug(`Multiple clients share postcode ${pc} — saving coords for all ${candidates.length}: ${candidates.join(', ')}`);
-                }
-                for (const cName of candidates) {
-                  logger.debug(`SAVING client geocode - Name: ${cName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
-                  await storage.upsertClientLocation({
-                    branchId: branchId!,
-                    clientName: cName,
-                    addressLine: clientLocationsMap.get(cName)?.addressLine || "",
-                    postcode: pc,
-                    lat: String(r.lat),
-                    lng: String(r.lng),
-                  });
-                  saved++;
-                }
-                continue; // handled via postcode — skip address fallback
-              }
-            }
-
-            // Postcode-based lookup found nothing — fallback to address matching
-            let clientName = null;
-            if (addr) {
-              clientName = clientByAddress.get(addr);
-              if (clientName) {
-                logger.debug(`Found client via address match: ${clientName}`);
-              } else {
-                for (const [mapAddr, mapClientName] of Array.from(clientByAddress.entries())) {
-                  if (addr.includes(mapAddr) || mapAddr.includes(addr)) {
-                    clientName = mapClientName;
-                    logger.debug(`Found client via partial address match: ${clientName}`);
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!clientName) {
-              logger.debug(`No client found for geocoding result - Query: "${r.query}", Postcode: "${pc}"`);
-              failed++;
-              continue;
-            }
-
-            logger.debug(`SAVING client geocode - Name: ${clientName}, Postcode: "${pc}", Coordinates: ${r.lat}, ${r.lng}`);
+          // Save coordinates for ALL clients at this postcode
+          const sharedClients = clientByPostcode.get(pc) ?? [];
+          for (const cName of sharedClients) {
             await storage.upsertClientLocation({
               branchId: branchId!,
-              clientName,
-              addressLine: clientLocationsMap.get(clientName)?.addressLine || "",
+              clientName: cName,
+              addressLine: clientLocationsMap.get(cName)?.addressLine || "",
               postcode: pc,
-              lat: String(r.lat),
-              lng: String(r.lng),
+              lat: String(geocoded.lat),
+              lng: String(geocoded.lng),
             });
-            saved++;
+            clientSaved++;
           }
-
-          logger.debug(`Geocoding summary: ${saved} saved, ${failed} failed out of ${results.length} results`);
-          if (saved > 0) {
-            logger.debug(`Client geocoding saved for ${saved} new records`);
-          } else {
-            logger.debug(`No client locations were successfully geocoded this time`);
-          }
+        } catch (err) {
+          logger.warn(`Client geocoding error for postcode "${pc}"`, err);
+          clientFailed++;
         }
-      } catch (err) {
-        logger.debug("Client geocoding error:", err);
       }
+
+      logger.info(`Client geocoding complete: ${clientSaved} saved, ${clientFailed} failed out of ${uniqueClientPostcodes.length} unique postcodes`);
     } else {
-      logger.debug(`All client locations already cached - skipping geocoding API calls`);
+      logger.debug(`All client locations already cached — skipping geocoding`);
     }
 
     // Extract visit data for route optimization using Planned Start/End Date And Time
