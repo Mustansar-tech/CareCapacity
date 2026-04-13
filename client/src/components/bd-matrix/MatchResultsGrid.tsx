@@ -400,7 +400,7 @@ export function MatchResultsGrid({
                                                     return (
                                                       <div
                                                         className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-default"
-                                                        title={[`${nextVisit.startTime}–${nextVisit.endTime}`, (nextVisit as any).postcode].filter(Boolean).join(' • ')}
+                                                        title={[`${nextVisit.startTime}–${nextVisit.endTime}`, nextVisit.postcode].filter(Boolean).join(' • ')}
                                                       >
                                                         <Clock className={`w-6 h-6 ${nextColor}`} />
                                                         <span className={`text-[9px] font-bold ${nextColor}`}>Next</span>

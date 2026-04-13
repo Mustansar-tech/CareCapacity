@@ -486,11 +486,14 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                                 <div className="space-y-2 flex-1 pr-4">
                                   <div className="flex items-center gap-3 flex-wrap">
                                     <h4 className="font-black text-[17px] text-gray-950 dark:text-gray-50 tracking-tight leading-tight">{enquiry.clientName}</h4>
-                                    {!!enquiry.preferredTimeWindow && (
-                                      <span className="text-[12px] font-bold text-gray-600 dark:text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-800/60 rounded-lg">
-                                        {(enquiry.preferredTimeWindow as any).start}–{(enquiry.preferredTimeWindow as any).end}
-                                      </span>
-                                    )}
+                                    {!!enquiry.preferredTimeWindow && (() => {
+                                      const tw = enquiry.preferredTimeWindow as { start: string; end: string };
+                                      return (
+                                        <span className="text-[12px] font-bold text-gray-600 dark:text-gray-400 px-2.5 py-1 bg-gray-100 dark:bg-gray-800/60 rounded-lg">
+                                          {tw.start}–{tw.end}
+                                        </span>
+                                      );
+                                    })()}
                                     {isMultiVisit && (
                                       <Badge className="bg-gradient-to-r from-purple-500/20 to-indigo-500/15 text-purple-700 dark:from-purple-600/30 dark:to-indigo-600/25 dark:text-purple-300 border border-purple-300/30 dark:border-purple-500/30 font-bold text-[10px] px-3 h-6 leading-none rounded-full">
                                         {visitCount} Visits

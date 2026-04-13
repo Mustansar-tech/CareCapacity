@@ -268,6 +268,7 @@ export interface ProcessingResult {
     clientScheduledHoursSum: number;
     otherScheduledHoursSum: number;
     capacityAfterSchedulingSum: number;
+    totalDesiredHoursSum: number;
   };
   dailySummary: DailySummaryRecord[];
   employeesByDate: Record<string, EmployeeDailyDetail[]>;

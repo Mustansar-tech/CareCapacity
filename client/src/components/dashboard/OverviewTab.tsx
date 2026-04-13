@@ -374,7 +374,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent mb-1" data-testid="text-desired-sum">
-                  {((data)?.kpis as any)?.totalDesiredHoursSum || 0}h
+                  {data?.kpis.totalDesiredHoursSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly desired</div>
               </CardContent>

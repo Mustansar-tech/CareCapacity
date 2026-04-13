@@ -212,13 +212,13 @@ export function DailyCapacityTab({
 
                     <TableCell className="text-right" data-testid={`cell-client-required-${index}`}>
                       <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100">
-                        {fmtH((day as any).clientRequired ?? 0)}
+                        {fmtH(day.clientRequired)}
                       </Badge>
                     </TableCell>
 
                     <TableCell className="text-right" data-testid={`cell-client-scheduled-${index}`}>
                       <Badge variant="secondary" className="bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400 border-teal-100">
-                        {fmtH((day as any).clientScheduledHours ?? 0)}
+                        {fmtH(day.clientScheduledHours)}
                       </Badge>
                     </TableCell>
 
