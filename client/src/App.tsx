@@ -16,7 +16,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bell } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bell, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +47,7 @@ const AdminModule = lazy(() => import("@/pages/admin"));
 const BDMatrixModule = lazy(() => import("@/pages/bd-matrix"));
 const ScheduleModule = lazy(() => import("@/pages/schedule"));
 const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
+const DocsModule = lazy(() => import("@/pages/docs"));
 
 // ─── Shared utilities ─────────────────────────────────────────────────────────
 
@@ -205,15 +206,24 @@ function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => navigate('/app/docs')} className="cursor-pointer">
+            <BookOpen className="mr-2 h-4 w-4 text-indigo-500" />
+            <span>Documentation</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         {isAdmin && (
-          <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => navigate('/app/admin')} className="cursor-pointer">
-              <Shield className="mr-2 h-4 w-4 text-blue-500" />
-              <span>Administration</span>
-            </DropdownMenuItem>
+          <>
             <DropdownMenuSeparator />
-          </DropdownMenuGroup>
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => navigate('/app/admin')} className="cursor-pointer">
+                <Shield className="mr-2 h-4 w-4 text-blue-500" />
+                <span>Administration</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
         )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => logout()}
           className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"
@@ -544,6 +554,9 @@ function Router() {
             <Route path="/app/people-planner">
               <AppLayout><PageSuspense><PeoplePlannerModule /></PageSuspense></AppLayout>
             </Route>
+            <Route path="/app/docs">
+              <PageSuspense><DocsModule /></PageSuspense>
+            </Route>
 
             <Route component={NotFound} />
           </Switch>
@@ -579,6 +592,7 @@ function App() {
               <Switch>
                 <Route path="/privacy" component={PrivacyPolicy} />
                 <Route path="/terms" component={Terms} />
+                <Route path="/docs"><Redirect to="/app/docs" /></Route>
                 <Route path="/login" component={LoginRoute} />
                 <Route>
                   <ProtectedRoute>
