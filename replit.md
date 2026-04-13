@@ -83,18 +83,48 @@ Implemented with @dnd-kit/core in `weekly-plan-tab.tsx`:
 
 ---
 
+## Server Folder Structure (feature-based)
+
+```
+server/
+  infrastructure/     logger, db, security, rate-limiter
+  config/             config validation (index.ts)
+  shared/             shared-utils, time-window-utils, xlsx-compat, validation
+  jobs/               auto-scheduler, geo-sweeper
+  features/
+    auth/             auth.ts (middleware, RBAC), auth.routes.ts (endpoints)
+    bd-matrix/        bdMatcher.ts, bd-matrix-utils.ts
+    capacity/         capacity-windows.ts, employee-fit.ts, service-delivery-rules.ts
+    cancelled-visits/ cancelled-visits.ts, cancelled-visits-from-gh.ts
+    imports/          excel-visit-extractor.ts
+    travel/           travel-time-service.ts
+    people-planner/   automation-engine.ts, automation-routes.ts, report-configs.ts
+  controllers/        thin route handlers
+  middleware/         error-handler, require-auth, require-role
+  repositories/       DB query functions per entity
+  routes/             Express route registration
+  services/           business logic (bd-matcher.service.ts)
+  utils/              helpers.ts
+  storage.ts          IStorage interface + DbStorage (stays at root)
+  pipeline.ts         Excel parsing + capacity calculation (stays at root)
+  app.ts              Express app setup
+  index.ts            Entry point
+```
+
+Shims at old paths (e.g. `server/logger.ts`, `server/auth.ts`) re-export from new canonical locations for backwards compatibility with controllers/middleware/routes.
+
 ## Key Files
 
 | File | Role |
 |---|---|
 | `shared/schema.ts` | All DB tables, Zod schemas, shared TypeScript types |
 | `server/routes.ts` | All API endpoints |
-| `server/auth.ts` | Auth middleware + admin seed |
-| `server/auth-routes.ts` | Auth + user management API |
+| `server/features/auth/auth.ts` | Auth middleware + admin seed |
+| `server/features/auth/auth.routes.ts` | Auth + user management API |
 | `server/storage.ts` | IStorage interface + DbStorage + MemStorage |
-| `server/travel-time-service.ts` | Multi-API travel time logic |
+| `server/features/travel/travel-time-service.ts` | Multi-API travel time logic |
 | `server/pipeline.ts` | Excel parsing, capacity calculation |
-| `server/bdMatcher.ts` | BD enquiry matching |
+| `server/features/bd-matrix/bdMatcher.ts` | BD enquiry matching |
 | `client/src/utils/scheduling-engine.ts` | VRPTW engine |
 | `client/src/utils/scheduling-utils.ts` | Travel cache, helpers, constants |
 | `client/src/utils/drag-drop-engine.ts` | Drop validation, visit insertion helpers |
