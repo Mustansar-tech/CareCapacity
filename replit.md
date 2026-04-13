@@ -111,7 +111,7 @@ server/
   index.ts            Entry point
 ```
 
-Shims at old paths (e.g. `server/logger.ts`, `server/auth.ts`) re-export from new canonical locations for backwards compatibility with controllers/middleware/routes.
+All callers (controllers, middleware, repositories, routes, services, and root files) have been updated to use canonical paths. No shims remain.
 
 ## Key Files
 
