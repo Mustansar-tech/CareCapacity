@@ -1,9 +1,9 @@
 import type { Express } from 'express';
 import { createServer, type Server } from 'http';
 import { storage } from './storage';
-import { logger } from './logger';
-import { registerAuthRoutes } from './auth-routes';
-import { registerPeoplePlannerRoutes } from './people-planner/automation-routes';
+import { logger } from './infrastructure/logger';
+import { registerAuthRoutes } from './features/auth/auth.routes';
+import { registerPeoplePlannerRoutes } from './features/people-planner/automation-routes';
 import { registerProcessRoutes } from './routes/process';
 import { registerHistoryRoutes } from './routes/history';
 import { registerVisitsRoutes } from './routes/visits';
@@ -28,7 +28,7 @@ export async function configureApp(app: Express): Promise<Server> {
 
   app.get('/health', async (_req, res) => {
     try {
-      const { checkDatabaseHealth } = await import('./db');
+      const { checkDatabaseHealth } = await import('./infrastructure/db');
       const dbHealthy = await checkDatabaseHealth();
       const health = {
         status: dbHealthy ? 'healthy' : 'degraded',

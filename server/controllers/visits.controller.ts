@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import { resolveBranch } from '../utils/helpers';
 import * as geoRepo from '../repositories/geo.repository';
 import { getLatestGuaranteedBuffer, getGuaranteedBufferVersion } from '../routes/state';
-import { logger } from '../logger';
-import type { ExcelClientVisit } from '../excel-visit-extractor';
+import { logger } from '../infrastructure/logger';
+import type { ExcelClientVisit } from '../features/imports/excel-visit-extractor';
 
 // ---------------------------------------------------------------------------
 // In-memory visits parse cache
@@ -59,7 +59,7 @@ export async function getVisitsByDate(req: Request, res: Response): Promise<void
   }
 
   logger.debug('visits cache miss — parsing Excel', { cacheKey });
-  const { extractClientVisitsFromGHExcel } = await import('../excel-visit-extractor');
+  const { extractClientVisitsFromGHExcel } = await import('../features/imports/excel-visit-extractor');
   const { storage } = await import('../storage');
   const parsedDate = new Date(date + 'T00:00:00.000Z');
   const visits = await extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate, branchId, storage);

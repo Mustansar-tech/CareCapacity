@@ -1,5 +1,5 @@
 import { storage } from '../storage';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 let latestExportBuffer: Buffer | null = null;
 

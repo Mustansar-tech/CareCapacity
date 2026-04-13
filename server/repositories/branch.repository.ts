@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../infrastructure/db';
 import { branches, branchUploads, branchSchedulingPreferences } from '@shared/schema';
 import type {
   Branch, BranchUpload, InsertBranchUpload,

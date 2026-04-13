@@ -2,7 +2,7 @@ import { logger } from '../../infrastructure/logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
 import type { CpVisitEntry } from '../imports/excel-visit-extractor';
 import { travelTimeService } from '../travel/travel-time-service';
-import { normalizeName } from '../../shared/shared-utils';
+import { normalizeName } from '../../shared/utils/shared-utils';
 
 export interface ClientEnquiryCriteria {
   clientName: string;

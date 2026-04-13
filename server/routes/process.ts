@@ -3,7 +3,7 @@ import multer from 'multer';
 import { requireAuth } from '../middleware/require-auth';
 import { requireRoleAtLeast } from '../middleware/require-role';
 import { asyncHandler } from '../middleware/error-handler';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 import * as processController from '../controllers/process.controller';
 
 const upload = multer({

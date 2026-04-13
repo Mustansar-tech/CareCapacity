@@ -1,8 +1,8 @@
 import { geocodeWithFallback } from '../pipeline';
-import { TravelTimeService, travelTimeService } from '../travel-time-service';
-import type { MatchedEmployee, MatchedSlot } from '../bdMatcher';
-import type { CpVisitEntry } from '../excel-visit-extractor';
-import { logger } from '../logger';
+import { TravelTimeService, travelTimeService } from '../features/travel/travel-time-service';
+import type { MatchedEmployee, MatchedSlot } from '../features/bd-matrix/bdMatcher';
+import type { CpVisitEntry } from '../features/imports/excel-visit-extractor';
+import { logger } from '../infrastructure/logger';
 
 export async function refineForwardTravelWithORS(
   matches: MatchedEmployee[],

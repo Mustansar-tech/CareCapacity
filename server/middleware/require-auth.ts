@@ -1,1 +1,1 @@
-export { requireAuth } from '../auth';
+export { requireAuth } from '../features/auth/auth';

@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { resolveBranch } from '../utils/helpers';
 import { geocodeWithFallback } from '../pipeline';
-import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from '../bdMatcher';
+import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from '../features/bd-matrix/bdMatcher';
 import * as capacityRepo from '../repositories/capacity.repository';
 import { refineForwardTravelWithORS, buildScheduleMap } from '../services/bd-matcher.service';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 export async function bdMatch(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);

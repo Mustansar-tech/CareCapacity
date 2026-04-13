@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 import { storage } from '../storage';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 import { createAppError } from '../middleware/error-handler';
 
 export const isProduction = process.env.NODE_ENV === 'production';

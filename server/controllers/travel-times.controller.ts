@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { resolveBranch, isUkBst, ukScheduleTimeToUtc } from '../utils/helpers';
-import { TravelTimeService, travelTimeService } from '../travel-time-service';
-import { logger } from '../logger';
+import { TravelTimeService, travelTimeService } from '../features/travel/travel-time-service';
+import { logger } from '../infrastructure/logger';
 
 export async function batchTravelTimes(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);

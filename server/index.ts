@@ -4,11 +4,11 @@ import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { generalLimiter } from "./rate-limiter";
-import { securityHeaders } from "./security";
-import { logger } from "./logger";
-import { seedAdminUser } from "./auth";
-import { config } from "./config";
+import { generalLimiter } from "./infrastructure/rate-limiter";
+import { securityHeaders } from "./infrastructure/security";
+import { logger } from "./infrastructure/logger";
+import { seedAdminUser } from "./features/auth/auth";
+import { config } from "./config/index";
 import { errorHandler } from "./middleware/error-handler";
 
 // Augment session type
@@ -89,7 +89,7 @@ app.use((req, res, next) => {
   // This is fire-and-forget — it does not block server startup.
   setTimeout(async () => {
     try {
-      const { sweepMissingClientGeocode } = await import('./geo-sweeper');
+      const { sweepMissingClientGeocode } = await import('./jobs/geo-sweeper');
       const result = await sweepMissingClientGeocode();
       if (result.total > 0) {
         log(`geo-sweeper on startup: ${result.geocoded}/${result.total} geocoded, ${result.failed} failed`);

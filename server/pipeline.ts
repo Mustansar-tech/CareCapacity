@@ -1,14 +1,14 @@
-import * as XLSX from "./xlsx-compat.js";
-import { logger } from './logger';
+import * as XLSX from "./shared/xlsx-compat.js";
+import { logger } from './infrastructure/logger';
 import { parse, format, addDays, differenceInDays } from "date-fns";
 import {
   buildTimeWindow,
   parseGuaranteedDate,
   timeToString,
-} from "./time-window-utils";
-import { computeCapacityWindows } from "./capacity-windows";
+} from "./shared/utils/time-window-utils";
+import { computeCapacityWindows } from "./features/capacity/capacity-windows";
 // Service delivery rules are now applied inline during demand calculation from GH data
-import { extractCancelledWindowsFromGHWorkbook } from "./cancelled-visits-from-gh";
+import { extractCancelledWindowsFromGHWorkbook } from "./features/cancelled-visits/cancelled-visits-from-gh";
 import {
   AvailabilityRow,
   GuaranteedHoursRow,
@@ -4097,7 +4097,7 @@ export async function generateExcelExport(
 
   // === EmployeeFit tab ===
   try {
-    const { buildEmployeeFitRows } = await import("./employee-fit");
+    const { buildEmployeeFitRows } = await import("./features/capacity/employee-fit");
     const fitRows = await buildEmployeeFitRows(
       result.employeesByDate,
       result.employeeSummaryByDate,

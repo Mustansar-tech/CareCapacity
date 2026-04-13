@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../infrastructure/db';
 import {
   employeeLocations, clientLocations, geocodeCache,
   visits, routePlans, routeStops, travelTimeCache,

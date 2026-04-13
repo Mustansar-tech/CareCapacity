@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as enquiryRepo from '../repositories/enquiry.repository';
 import { resolveBranch } from '../utils/helpers';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 export async function createClientEnquiry(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);

@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../infrastructure/db';
 import { users, branches, userBranches, auditLogs } from '@shared/schema';
 import type {
   User, InsertUser, Branch, UserBranch,

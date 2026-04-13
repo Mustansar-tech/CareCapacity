@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../infrastructure/db';
 import { weeklySchedules, cpScheduledVisits } from '@shared/schema';
 import type {
   WeeklySchedule, InsertWeeklySchedule,

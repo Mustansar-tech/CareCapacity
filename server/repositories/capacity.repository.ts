@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../infrastructure/db';
 import { capacityAnalyses } from '@shared/schema';
 import type { CapacityAnalysis, InsertCapacityAnalysis } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';

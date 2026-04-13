@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { resolveBranch } from '../utils/helpers';
 import * as geoRepo from '../repositories/geo.repository';
 import { geocodeWithFallback } from '../pipeline';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 export async function geocodeBatch(req: Request, res: Response): Promise<void> {
   const { postcodes = [], addresses = [], branchId } = req.body;

@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../infrastructure/db';
 import { clientEnquiries, feedback } from '@shared/schema';
 import type {
   ClientEnquiry, InsertClientEnquiry,

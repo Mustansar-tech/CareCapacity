@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 const isProduction = process.env.NODE_ENV === 'production';
 

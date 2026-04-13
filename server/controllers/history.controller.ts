@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as capacityRepo from '../repositories/capacity.repository';
 import { resolveBranch, safeErrorMessage } from '../utils/helpers';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 function branchErrorStatus(message: string): number {
   return message.includes('branchId is required') || message.includes('not found') ? 400 : 500;

@@ -4,7 +4,7 @@ import { resolveBranch } from '../utils/helpers';
 import * as capacityRepo from '../repositories/capacity.repository';
 import * as scheduleRepo from '../repositories/schedule.repository';
 import * as geoRepo from '../repositories/geo.repository';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 function parseTimeWindowsForRouting(windows: string): Array<{ start: number; end: number }> {
   if (!windows) return [];
@@ -155,7 +155,7 @@ export async function autoScheduleDay(req: Request, res: Response): Promise<void
   const branchId = await resolveBranch(req);
   if (!date) { res.status(400).json({ error: 'Date is required' }); return; }
   logger.info('Generating schedule for day', { date, branchId });
-  const { autoScheduler } = await import('../auto-scheduler');
+  const { autoScheduler } = await import('../jobs/auto-scheduler');
   const schedule = await autoScheduler.scheduleDay(date, branchId);
   res.json(schedule);
 }
@@ -165,7 +165,7 @@ export async function autoScheduleWeek(req: Request, res: Response): Promise<voi
   const branchId = await resolveBranch(req);
   if (!startDate) { res.status(400).json({ error: 'Start date is required' }); return; }
   logger.info('Generating schedule for week', { startDate, branchId });
-  const { autoScheduler } = await import('../auto-scheduler');
+  const { autoScheduler } = await import('../jobs/auto-scheduler');
   const weekSchedule = await autoScheduler.scheduleWeek(startDate, branchId);
   res.json(weekSchedule);
 }
@@ -173,7 +173,7 @@ export async function autoScheduleWeek(req: Request, res: Response): Promise<voi
 export async function getWeekSchedule(req: Request, res: Response): Promise<void> {
   const { startDate } = req.params;
   const branchId = await resolveBranch(req);
-  const { autoScheduler } = await import('../auto-scheduler');
+  const { autoScheduler } = await import('../jobs/auto-scheduler');
   const weekSchedule = await autoScheduler.getWeekSchedule(startDate, branchId);
   res.json(weekSchedule);
 }
@@ -183,7 +183,7 @@ export async function runOptimization(req: Request, res: Response): Promise<void
   const branchId = await resolveBranch(req);
   if (!date) { res.status(400).json({ error: 'Date is required' }); return; }
   logger.info('Starting run optimization', { date, branchId });
-  const { autoScheduler } = await import('../auto-scheduler');
+  const { autoScheduler } = await import('../jobs/auto-scheduler');
   const result = await autoScheduler.scheduleDay(date, branchId);
   res.json(result);
 }

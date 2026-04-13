@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { resolveBranch } from '../utils/helpers';
 import * as geoRepo from '../repositories/geo.repository';
 import * as capacityRepo from '../repositories/capacity.repository';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 
 export async function employeeComparison(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);

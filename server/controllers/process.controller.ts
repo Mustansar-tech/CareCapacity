@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { parseExcelFiles, processCapacityData, generateExcelExport } from '../pipeline';
 import { getCanonicalWeekBoundaries } from '@shared/schema';
-import { logger } from '../logger';
+import { logger } from '../infrastructure/logger';
 import { safeErrorMessage, normalizeFileName } from '../utils/helpers';
 import { setLatestExportBuffer, setLatestGuaranteedBuffer, getLatestExportBuffer } from '../routes/state';
 import * as branchRepo from '../repositories/branch.repository';
@@ -143,7 +143,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
   await geoRepo.clearAllVisits(requestedBranchId);
 
   try {
-    const { extractEmployeeVisitsFromGHExcel } = await import('../excel-visit-extractor');
+    const { extractEmployeeVisitsFromGHExcel } = await import('../features/imports/excel-visit-extractor');
     const weekDates = result.dailySummary?.map(d => d.date) ?? [];
     if (weekDates.length > 0) {
       const { storage } = await import('../storage');

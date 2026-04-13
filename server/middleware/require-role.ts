@@ -1,1 +1,1 @@
-export { requireRole, requireRoleAtLeast, hasRoleAtLeast, roleHierarchy } from '../auth';
+export { requireRole, requireRoleAtLeast, hasRoleAtLeast, roleHierarchy } from '../features/auth/auth';
