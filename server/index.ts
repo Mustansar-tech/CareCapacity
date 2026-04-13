@@ -84,6 +84,21 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
   await seedAdminUser();
 
+  // Run geo-sweeper in the background after startup to geocode any client
+  // locations that have a postcode but are still missing lat/lng coordinates.
+  // This is fire-and-forget — it does not block server startup.
+  setTimeout(async () => {
+    try {
+      const { sweepMissingClientGeocode } = await import('./geo-sweeper');
+      const result = await sweepMissingClientGeocode();
+      if (result.total > 0) {
+        log(`geo-sweeper on startup: ${result.geocoded}/${result.total} geocoded, ${result.failed} failed`);
+      }
+    } catch (err) {
+      logger.error('geo-sweeper startup error', err);
+    }
+  }, 5000);
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
