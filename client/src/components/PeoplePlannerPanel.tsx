@@ -174,10 +174,9 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     }
   }, [session?.status]);
 
-  // Auto-close 3 seconds after a successful sync (same behaviour as manual upload)
   useEffect(() => {
     if (session?.status !== "completed") return;
-    const timer = setTimeout(() => onClose(), 3000);
+    const timer = setTimeout(() => onClose(), 1000);
     return () => clearTimeout(timer);
   }, [session?.status]);
 
