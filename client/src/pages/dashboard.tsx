@@ -1607,58 +1607,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 10. GH Loss */}
-                <Card className="glass hover-lift animate-scale-in" data-testid="card-gh-loss">
-                  <CardHeader className="pb-3">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-                              <AlertTriangle className="w-4 h-4 text-white" />
-                            </div>
-                            <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
-                          </CardTitle>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                          {ghLossData.items.length === 0 ? (
-                            <p className="text-xs">No GH employees with a shortfall this week.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="font-semibold">GH employees under their weekly target</p>
-                              <p className="text-xs opacity-75 font-mono">Loss = GH target − unavailability − scheduled</p>
-                              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                                {ghLossData.items.map((item) => (
-                                  <div key={item.name} className="text-xs border-b border-white/10 pb-1 last:border-0">
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="truncate max-w-[160px] font-medium">{item.name}</span>
-                                      <span className="font-semibold text-orange-400 whitespace-nowrap">{item.loss}h short</span>
-                                    </div>
-                                    <div className="opacity-70 mt-0.5 flex gap-2 flex-wrap">
-                                      <span>GH: {item.ghHours}h</span>
-                                      {item.weeklyUnavailability > 0 && <span>Unavail: −{item.weeklyUnavailability}h</span>}
-                                      <span>Sched: {item.weeklyScheduled}h</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-sum">
-                      {ghLossData.totalLoss}h
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {ghLossData.items.length > 0
-                        ? `${ghLossData.items.length} GH employee${ghLossData.items.length === 1 ? '' : 's'} under target`
-                        : 'No GH shortfall'}
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
               </div>
             )}
