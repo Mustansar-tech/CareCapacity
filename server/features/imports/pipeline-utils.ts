@@ -747,7 +747,10 @@ export function buildGhLossScheduledHoursLookup(guaranteed: any[]): Map<string, 
     if (pay === 0 && start && end) {
       try {
         const hrs = hoursBetween(start, end);
-        if (hrs > 0 && hrs <= 16) pay = hrs;
+        // Allow up to 23.9h so that genuine overnight/sleep-in shifts are counted.
+        // Date-only timestamps (no time component) give exactly 24h and are excluded.
+        // Live-in care (24h+) is already filtered out above by isLiveInCare().
+        if (hrs > 0 && hrs < 24) pay = hrs;
       } catch {}
     }
 
