@@ -9,6 +9,34 @@ export const GH_REGEX = /(\d+(?:\.\d+)?)\s*GH/i;
 export const stripGhAnnotation = (name: string): string =>
   name.replace(/\s*\(?\d+(?:\.\d+)?\s*GH\)?\s*$/i, '').trim();
 
+/**
+ * Canonical key that matches the server-side normalizeName logic:
+ * removes parentheticals (GH annotation etc), non-alpha chars (commas etc),
+ * then sorts the remaining words so "Azhar, Taimoor" and "Taimoor (37.5GH) Azhar"
+ * both produce the same key.
+ */
+function normalizeGhKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\(.*?\)/g, '')     // remove anything in parentheses
+    .replace(/[^a-z\s]/g, ' ')  // remove commas, hyphens, etc.
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+/** Strip GH annotation wherever it appears in the name (not just at the end). */
+function cleanDisplayName(name: string): string {
+  return name
+    .replace(/\s*\(\d+(?:\.\d+)?\s*GH\)\s*/gi, ' ')  // remove (XGH) mid-name or end
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/,\s*$/, '');  // no trailing comma
+}
+
 export interface GhLossItem {
   name: string;
   ghHours: number;
@@ -31,20 +59,29 @@ export function computeGhLoss(
     availability?: number;
   }>>,
 ): GhLossResult {
-  // Step 1: Identify GH-contracted employees and their targets
-  const ghTargets = new Map<string, number>();
+  // Step 1: Identify GH-contracted employees.
+  // Key = normalizeGhKey (removes GH annotation + punctuation, sorts words) so that
+  // "Taimoor (37.5GH) Azhar" and "Azhar, Taimoor (37.5GH)" map to the same entry.
+  // displayName = cleanDisplayName (removes the annotation but keeps natural word order).
+  const ghTargets = new Map<string, { hours: number; displayName: string }>();
+
   for (const records of Object.values(employeeSummaryByDate)) {
     for (const rec of records) {
       const match = GH_REGEX.exec(rec.employeeName);
       if (!match) continue;
-      const key = stripGhAnnotation(rec.employeeName);
-      if (!ghTargets.has(key)) ghTargets.set(key, parseFloat(match[1]));
+      const normKey = normalizeGhKey(rec.employeeName);
+      if (!ghTargets.has(normKey)) {
+        ghTargets.set(normKey, {
+          hours: parseFloat(match[1]),
+          displayName: cleanDisplayName(rec.employeeName),
+        });
+      }
     }
   }
 
-  // Step 2: Accumulate per-employee weekly totals
-  // - ghScheduledHours includes charge-and-pay cancellations + night shifts (preferred)
-  // - availability is summed to enable proportional unavailability scaling
+  // Step 2: Accumulate per-employee weekly totals under the same normalized key.
+  // This merges hours from any name variant (e.g., "Lastname, Firstname" or
+  // "Firstname (XGH) Lastname") belonging to the same person.
   const empTotals = new Map<string, {
     weeklyScheduled: number;
     weeklyUnavailability: number;
@@ -53,17 +90,16 @@ export function computeGhLoss(
 
   for (const records of Object.values(employeeSummaryByDate)) {
     for (const rec of records) {
-      const key = stripGhAnnotation(rec.employeeName);
-      if (!ghTargets.has(key)) continue;
-      // Prefer ghScheduledHours (includes paid cancellations + nights)
+      const normKey = normalizeGhKey(rec.employeeName);
+      if (!ghTargets.has(normKey)) continue;
       const sched = rec.ghScheduledHours ?? rec.scheduledHours;
-      const existing = empTotals.get(key);
+      const existing = empTotals.get(normKey);
       if (existing) {
         existing.weeklyScheduled += sched;
         existing.weeklyUnavailability += rec.unavailability ?? 0;
         existing.weeklyAvailability += rec.availability ?? 0;
       } else {
-        empTotals.set(key, {
+        empTotals.set(normKey, {
           weeklyScheduled: sched,
           weeklyUnavailability: rec.unavailability ?? 0,
           weeklyAvailability: rec.availability ?? 0,
@@ -72,17 +108,17 @@ export function computeGhLoss(
     }
   }
 
-  // Step 3: Build loss items — no ad-hoc exclusion, all GH employees count
+  // Step 3: Build loss items — all GH employees included, no ad-hoc exclusion.
   const items = Array.from(ghTargets.entries())
-    .map(([key, ghHours]) => {
-      const totals = empTotals.get(key) ?? {
+    .map(([normKey, { hours: ghHours, displayName }]) => {
+      const totals = empTotals.get(normKey) ?? {
         weeklyScheduled: 0,
         weeklyUnavailability: 0,
         weeklyAvailability: 0,
       };
 
       // Scale unavailability proportionally to GH hours, not desired hours.
-      // If desired weekly = 40h and GH = 30h, a holiday counted as 8h becomes 6h.
+      // e.g. desired=40h, GH=30h → a full-day holiday (8h) counts as 6h unavailability.
       const ghUnavailability = totals.weeklyAvailability > 0
         ? Math.round((totals.weeklyUnavailability * (ghHours / totals.weeklyAvailability)) * 100) / 100
         : Math.round(totals.weeklyUnavailability * 100) / 100;
@@ -91,7 +127,7 @@ export function computeGhLoss(
       const loss = Math.round((ghHours - ghUnavailability - weeklyScheduled) * 100) / 100;
 
       return {
-        name: key,
+        name: displayName,
         ghHours,
         weeklyScheduled,
         weeklyUnavailability: ghUnavailability,
