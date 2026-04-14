@@ -638,11 +638,25 @@ export function OverviewTab({
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <p className="font-semibold">Unworked guaranteed hours</p>
                         <p className="text-xs opacity-90">Calculated only for staff with a GH annotation:</p>
                         <div className="text-xs space-y-1 opacity-90 font-mono">
                           <p>GH Target − Scheduled − Unavailability</p>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                          {ghLossData.items.length > 0 ? (
+                            ghLossData.items.map((item) => (
+                              <div key={item.name} className="flex items-center justify-between gap-3 text-xs rounded-md bg-white/10 px-2 py-1">
+                                <span className="truncate">{item.name}</span>
+                                <span className="font-semibold text-rose-500 dark:text-rose-400">
+                                  {item.loss}h
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs opacity-75">No GH loss detected.</p>
+                          )}
                         </div>
                       </div>
                     </TooltipContent>
