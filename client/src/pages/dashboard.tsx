@@ -108,7 +108,8 @@ export default function Dashboard() {
         employeesByDate: latestData.employeesByDate,
         employeeSummaryByDate: latestData.employeeSummaryByDate,
         warnings: latestData.warnings,
-      });
+        ghLossRawSummary: (latestData as any).ghLossRawSummary,
+      } as any);
       setSelectedDate(latestData.dailySummary?.[0]?.date || null);
       if (isInitialLoad) {
         toast({
@@ -140,7 +141,8 @@ export default function Dashboard() {
           employeesByDate: analysis.employeesByDate,
           employeeSummaryByDate: analysis.employeeSummaryByDate,
           warnings: analysis.warnings,
-        });
+          ghLossRawSummary: (analysis as any).ghLossRawSummary,
+        } as any);
         setSelectedDate(analysis.dailySummary?.[0]?.date || null);
         setFilteredData(null);
       }
