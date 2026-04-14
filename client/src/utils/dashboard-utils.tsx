@@ -77,33 +77,34 @@ export function computeGhLoss(
   ghLossRawSummary?: GhLossRawSummary,
 ): GhLossResult {
   // ── PATH A: raw summary available (new uploads) ───────────────────────────────
-  // All three inputs — scheduled hours, GH targets, and weekly unavailability — are
-  // pre-computed server-side and stored in ghLossRawSummary, so this path needs no
-  // access to employeeSummaryByDate at all.
   if (ghLossRawSummary) {
-    const { targets, scheduled, unavailability } = ghLossRawSummary;
+    const { targets, scheduled } = ghLossRawSummary;
+
+    // Accumulate weekly unavailability from employeeSummaryByDate.
+    // Key here must match the normalizeGhKey used on the server so that
+    // "Alison (30GH) Dalzell Stewart" and "Dalzell Stewart, Alison" both resolve.
+    const unavailTotals = new Map<string, { weeklyUnavailability: number; weeklyAvailability: number }>();
+    for (const records of Object.values(employeeSummaryByDate)) {
+      for (const rec of records) {
+        const normKey = normalizeGhKey(rec.employeeName);
+        if (!targets[normKey]) continue;
+        const existing = unavailTotals.get(normKey);
+        if (existing) {
+          existing.weeklyUnavailability += rec.unavailability ?? 0;
+          existing.weeklyAvailability += rec.availability ?? 0;
+        } else {
+          unavailTotals.set(normKey, {
+            weeklyUnavailability: rec.unavailability ?? 0,
+            weeklyAvailability: rec.availability ?? 0,
+          });
+        }
+      }
+    }
 
     const items = Object.entries(targets)
       .map(([normKey, { hours: ghHours, displayName }]) => {
         const weeklyScheduled = Math.round((scheduled[normKey] ?? 0) * 100) / 100;
-
-        // Use pre-computed unavailability when available (new records); fall back to
-        // accumulating from employeeSummaryByDate for records written before this field
-        // was added.
-        let unavail: { weeklyUnavailability: number; weeklyAvailability: number };
-        if (unavailability?.[normKey] !== undefined) {
-          unavail = unavailability[normKey];
-        } else {
-          unavail = { weeklyUnavailability: 0, weeklyAvailability: 0 };
-          for (const records of Object.values(employeeSummaryByDate)) {
-            for (const rec of records) {
-              const rKey = normalizeGhKey(rec.employeeName);
-              if (rKey !== normKey) continue;
-              unavail.weeklyUnavailability += rec.unavailability ?? 0;
-              unavail.weeklyAvailability += rec.availability ?? 0;
-            }
-          }
-        }
+        const unavail = unavailTotals.get(normKey) ?? { weeklyUnavailability: 0, weeklyAvailability: 0 };
 
         const ghUnavailability = unavail.weeklyAvailability > 0
           ? Math.round((unavail.weeklyUnavailability * (ghHours / unavail.weeklyAvailability)) * 100) / 100
