@@ -749,28 +749,6 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     }
   }
 
-  // Build a word-set index for subset matching.
-  // Some rows have a truncated name (e.g. "Stewart, Alison") whose normalized key
-  // ("alison stewart") is a strict word-subset of a target key ("alison dalzell stewart").
-  // We resolve these by checking that every word in the row key appears in a target key,
-  // and that the match is unique (to avoid false positives).
-  const targetWordSets: Array<{ key: string; words: Set<string> }> = Object.keys(targets).map(k => ({
-    key: k,
-    words: new Set(k.split(" ")),
-  }));
-
-  function resolveTargetKey(rowNormKey: string): string | null {
-    if (targets[rowNormKey]) return rowNormKey;
-    const rowWords = rowNormKey.split(" ").filter(Boolean);
-    if (rowWords.length === 0) return null;
-    const rowWordSet = new Set(rowWords);
-    const matches = targetWordSets.filter(({ words }) =>
-      rowWords.every(w => words.has(w))
-    );
-    if (matches.length === 1) return matches[0].key;
-    return null;
-  }
-
   // Second pass — sum ALL paid hours for GH employees.
   // No date-boundary check, no service-type night exclusion, no availability filter.
   for (const g of guaranteed || []) {
@@ -787,11 +765,8 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     if (!empName) continue;
     const normKey = normalizeName(empName.toString());
 
-    // Only count hours for known GH employees.
-    // Uses exact match first, then subset-word fallback to handle rows where the same
-    // employee appears under a shortened name (e.g. "Stewart, Alison" vs
-    // "Dalzell Stewart, Alison (30GH)").
-    const resolvedKey = resolveTargetKey(normKey);
+    // Only count hours for known GH employees (exact key match after normalization).
+    const resolvedKey = targets[normKey] ? normKey : null;
     if (!resolvedKey) continue;
 
     const { start, end } = resolveServiceTimestamps(g);
