@@ -749,6 +749,25 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     }
   }
 
+  // Build a reverse lookup: words-set → target key, so we can fuzzy-match shorter
+  // names (e.g. night-visit rows may use "Alison Stewart" instead of the
+  // GH-annotated "Alison (30GH) Dalzell Stewart").
+  const targetKeys = Object.keys(targets);
+
+  function resolveTargetKey(normKey: string): string | null {
+    // 1. Exact match first.
+    if (targets[normKey]) return normKey;
+    // 2. Subset match: all words in normKey are contained in exactly one target key.
+    const nameWords = new Set(normKey.split(' ').filter(Boolean));
+    if (nameWords.size === 0) return null;
+    const matches = targetKeys.filter(tk => {
+      const tkWords = tk.split(' ');
+      return [...nameWords].every(w => tkWords.includes(w));
+    });
+    // Only resolve when there's exactly one candidate (avoid false positives).
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   // Second pass — sum ALL paid hours for GH employees.
   // No date-boundary check, no service-type night exclusion, no availability filter.
   for (const g of guaranteed || []) {
@@ -765,8 +784,8 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     if (!empName) continue;
     const normKey = normalizeName(empName.toString());
 
-    // Only count hours for known GH employees (exact key match after normalization).
-    const resolvedKey = targets[normKey] ? normKey : null;
+    // Match to a known GH employee — exact key or subset of words.
+    const resolvedKey = resolveTargetKey(normKey);
     if (!resolvedKey) continue;
 
     const { start, end } = resolveServiceTimestamps(g);
@@ -784,7 +803,7 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     }
 
     if (pay > 0) {
-      scheduled[normKey] = (scheduled[normKey] || 0) + pay;
+      scheduled[resolvedKey] = (scheduled[resolvedKey] || 0) + pay;
     }
   }
 
