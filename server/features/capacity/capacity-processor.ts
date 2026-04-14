@@ -761,27 +761,6 @@ export async function processCapacityData(
 
   Object.values(employeesByDate).forEach(employees => employees.sort((a, b) => a.employeeName.localeCompare(b.employeeName)));
 
-  // ── Populate GH unavailability from employeeSummaryByDate ──────────────────
-  // After both employeeSummaryByDate and ghLossRawSummary.targets are finalised,
-  // pre-compute weekly unavailability totals per GH employee and store them
-  // directly in ghLossRawSummary.  This makes Path A on the frontend fully
-  // self-contained — no need to re-derive unavailability from employeeSummaryByDate.
-  if (ghLossRawSummary) {
-    const ghUnavailMap: Record<string, { weeklyUnavailability: number; weeklyAvailability: number }> = {};
-    for (const records of Object.values(employeeSummaryByDate)) {
-      for (const rec of records as Array<{ employeeName: string; unavailability: number; availability: number }>) {
-        const normKey = normalizeName(rec.employeeName);
-        if (!ghLossRawSummary.targets[normKey]) continue;
-        if (!ghUnavailMap[normKey]) {
-          ghUnavailMap[normKey] = { weeklyUnavailability: 0, weeklyAvailability: 0 };
-        }
-        ghUnavailMap[normKey].weeklyUnavailability += rec.unavailability ?? 0;
-        ghUnavailMap[normKey].weeklyAvailability += rec.availability ?? 0;
-      }
-    }
-    ghLossRawSummary.unavailability = ghUnavailMap;
-  }
-
   const result: ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] } = {
     kpis,
     dailySummary,

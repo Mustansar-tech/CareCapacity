@@ -266,11 +266,6 @@ export interface GhLossRawSummary {
   targets: Record<string, { hours: number; displayName: string }>;
   /** normalizedName → total weekly paid hours (from raw guaranteed hours) */
   scheduled: Record<string, number>;
-  /**
-   * normalizedName → weekly unavailability totals (from employeeSummaryByDate).
-   * Pre-computed server-side so Path A is fully self-contained.
-   */
-  unavailability?: Record<string, { weeklyUnavailability: number; weeklyAvailability: number }>;
 }
 
 export interface ProcessingResult {
