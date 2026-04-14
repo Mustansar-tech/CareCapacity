@@ -724,9 +724,8 @@ export async function processCapacityData(
             return startHour >= 6 && startHour < 22;
           });
           if (dayWindows.length === 0 && allWindows.length > 0) {
-            // Night-only availability — no daytime capacity, but still include the record
-            // so that ghScheduledHours (night visits) are preserved for GH Loss calculation.
-            logger.debug(`Night-only employee: ${employeeName} on ${dateStr} — no daytime capacity, included for GH Loss`);
+            logger.debug(`EXCLUDING night-only employee from capacity: ${employeeName} on ${dateStr}`);
+            return null;
           }
           const filteredAvailability = dayWindows.join(', ');
           if (filteredAvailability) {
