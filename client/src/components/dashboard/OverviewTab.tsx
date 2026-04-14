@@ -637,28 +637,37 @@ export function OverviewTab({
                         <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
                       </CardTitle>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-2">
+                    <TooltipContent side="bottom" align="start" className="max-w-lg text-sm z-50 p-0">
+                      <div className="p-3 space-y-2">
                         <p className="font-semibold">Unworked guaranteed hours</p>
-                        <p className="text-xs opacity-90">Calculated only for staff with a GH annotation:</p>
-                        <div className="text-xs space-y-1 opacity-90 font-mono">
-                          <p>GH Target − Scheduled − Unavailability</p>
-                        </div>
-                        <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
-                          {ghLossData.items.length > 0 ? (
-                            ghLossData.items.map((item) => (
-                              <div key={item.name} className="flex items-center justify-between gap-3 text-xs rounded-md bg-white/10 px-2 py-1">
-                                <span className="truncate">{item.name}</span>
-                                <span className="font-semibold text-rose-500 dark:text-rose-400">
-                                  {item.loss}h
-                                </span>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-xs opacity-75">No GH loss detected.</p>
-                          )}
-                        </div>
+                        <p className="text-xs opacity-75 font-mono">GH Target − Scheduled − Unavailability</p>
                       </div>
+                      {ghLossData.items.length > 0 ? (
+                        <div className="max-h-64 overflow-y-auto border-t border-white/10">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-white/10 text-left">
+                                <th className="px-3 py-1.5 font-semibold">Name</th>
+                                <th className="px-3 py-1.5 font-semibold text-right">Scheduled</th>
+                                <th className="px-3 py-1.5 font-semibold text-right">Unavailability</th>
+                                <th className="px-3 py-1.5 font-semibold text-right text-rose-400">Loss</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ghLossData.items.map((item, i) => (
+                                <tr key={item.name} className={i % 2 === 0 ? "bg-white/5" : ""}>
+                                  <td className="px-3 py-1.5">{item.name}</td>
+                                  <td className="px-3 py-1.5 text-right">{item.weeklyScheduled}h</td>
+                                  <td className="px-3 py-1.5 text-right">{item.weeklyUnavailability}h</td>
+                                  <td className="px-3 py-1.5 text-right font-semibold text-rose-400">{item.loss}h</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="px-3 pb-3 text-xs opacity-75">No GH loss detected.</p>
+                      )}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
