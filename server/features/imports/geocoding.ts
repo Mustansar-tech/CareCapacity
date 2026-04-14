@@ -98,29 +98,40 @@ export async function geocodeWithFallback(postcode: string, storage: any, branch
 
   try {
     const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalizedPostcode)}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.status === 200 && data.result) {
-        const lat = data.result.latitude.toString();
-        const lng = data.result.longitude.toString();
+    const data = await response.json();
 
-        await storage.saveGeocode({
-          branchId: branchId!,
-          key: `postcode:${normalizedPostcode}`,
-          lat,
-          lng,
-          source: 'postcodes.io'
-        });
+    // Active postcode — use result directly.
+    if (data.status === 200 && data.result?.latitude != null) {
+      const lat = data.result.latitude.toString();
+      const lng = data.result.longitude.toString();
 
-        return {
-          query: normalizedPostcode,
-          type: 'postcode',
-          lat,
-          lng,
-          source: 'postcodes.io',
-          approximate: false
-        };
-      }
+      await storage.saveGeocode({
+        branchId: branchId!,
+        key: `postcode:${normalizedPostcode}`,
+        lat,
+        lng,
+        source: 'postcodes.io'
+      });
+
+      return { query: normalizedPostcode, type: 'postcode', lat, lng, source: 'postcodes.io', approximate: false };
+    }
+
+    // Terminated postcode — postcodes.io still returns last-known coordinates.
+    if (data.status === 404 && data.terminated?.latitude != null) {
+      const lat = data.terminated.latitude.toString();
+      const lng = data.terminated.longitude.toString();
+
+      logger.info(`Geocoding "${normalizedPostcode}" via terminated postcode coordinates (terminated ${data.terminated.year_terminated}/${data.terminated.month_terminated})`);
+
+      await storage.saveGeocode({
+        branchId: branchId!,
+        key: `postcode:${normalizedPostcode}`,
+        lat,
+        lng,
+        source: 'postcodes.io-terminated'
+      });
+
+      return { query: normalizedPostcode, type: 'postcode', lat, lng, source: 'postcodes.io-terminated', approximate: true };
     }
   } catch (err) {
     logger.warn(`Geocoding API call failed for ${normalizedPostcode}: ${err}`);
