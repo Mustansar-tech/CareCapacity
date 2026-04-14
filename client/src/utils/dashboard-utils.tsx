@@ -23,9 +23,15 @@ export interface GhLossResult {
 }
 
 export function computeGhLoss(
-  employeeSummaryByDate: Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>,
-  employeesByDate?: Record<string, Array<{ employeeName: string; status: string }>>,
+  employeeSummaryByDate: Record<string, Array<{
+    employeeName: string;
+    scheduledHours: number;
+    ghScheduledHours?: number;
+    unavailability: number;
+    availability?: number;
+  }>>,
 ): GhLossResult {
+  // Step 1: Identify GH-contracted employees and their targets
   const ghTargets = new Map<string, number>();
   for (const records of Object.values(employeeSummaryByDate)) {
     for (const rec of records) {
@@ -36,43 +42,60 @@ export function computeGhLoss(
     }
   }
 
-  const adHocNames = new Set<string>();
-  if (employeesByDate) {
-    for (const details of Object.values(employeesByDate)) {
-      for (const emp of details) {
-        if (emp.status === 'Ad-hoc') adHocNames.add(stripGhAnnotation(emp.employeeName));
-      }
-    }
-  }
+  // Step 2: Accumulate per-employee weekly totals
+  // - ghScheduledHours includes charge-and-pay cancellations + night shifts (preferred)
+  // - availability is summed to enable proportional unavailability scaling
+  const empTotals = new Map<string, {
+    weeklyScheduled: number;
+    weeklyUnavailability: number;
+    weeklyAvailability: number;
+  }>();
 
-  const empTotals = new Map<string, { weeklyScheduled: number; weeklyUnavailability: number }>();
   for (const records of Object.values(employeeSummaryByDate)) {
     for (const rec of records) {
       const key = stripGhAnnotation(rec.employeeName);
       if (!ghTargets.has(key)) continue;
+      // Prefer ghScheduledHours (includes paid cancellations + nights)
+      const sched = rec.ghScheduledHours ?? rec.scheduledHours;
       const existing = empTotals.get(key);
       if (existing) {
-        existing.weeklyScheduled += rec.scheduledHours;
+        existing.weeklyScheduled += sched;
         existing.weeklyUnavailability += rec.unavailability ?? 0;
+        existing.weeklyAvailability += rec.availability ?? 0;
       } else {
         empTotals.set(key, {
-          weeklyScheduled: rec.scheduledHours,
+          weeklyScheduled: sched,
           weeklyUnavailability: rec.unavailability ?? 0,
+          weeklyAvailability: rec.availability ?? 0,
         });
       }
     }
   }
 
+  // Step 3: Build loss items — no ad-hoc exclusion, all GH employees count
   const items = Array.from(ghTargets.entries())
-    .filter(([key]) => !adHocNames.has(key))
     .map(([key, ghHours]) => {
-      const totals = empTotals.get(key) ?? { weeklyScheduled: 0, weeklyUnavailability: 0 };
+      const totals = empTotals.get(key) ?? {
+        weeklyScheduled: 0,
+        weeklyUnavailability: 0,
+        weeklyAvailability: 0,
+      };
+
+      // Scale unavailability proportionally to GH hours, not desired hours.
+      // If desired weekly = 40h and GH = 30h, a holiday counted as 8h becomes 6h.
+      const ghUnavailability = totals.weeklyAvailability > 0
+        ? Math.round((totals.weeklyUnavailability * (ghHours / totals.weeklyAvailability)) * 100) / 100
+        : Math.round(totals.weeklyUnavailability * 100) / 100;
+
+      const weeklyScheduled = Math.round(totals.weeklyScheduled * 100) / 100;
+      const loss = Math.round((ghHours - ghUnavailability - weeklyScheduled) * 100) / 100;
+
       return {
         name: key,
         ghHours,
-        weeklyScheduled: Math.round(totals.weeklyScheduled * 100) / 100,
-        weeklyUnavailability: Math.round(totals.weeklyUnavailability * 100) / 100,
-        loss: Math.round((ghHours - totals.weeklyUnavailability - totals.weeklyScheduled) * 100) / 100,
+        weeklyScheduled,
+        weeklyUnavailability: ghUnavailability,
+        loss,
       };
     })
     .filter((item) => item.loss > 0)

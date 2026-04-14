@@ -289,6 +289,22 @@ export function isCancellationBlank(value: any): boolean {
   return s === "" || s === "(blank)" || s === "na" || s === "n/a";
 }
 
+/**
+ * Returns true when a cancelled visit is still paid to the employee.
+ * Paid cancellation descriptions (from People Planner):
+ *   "Cancelled - Charge and Pay"   → CP is paid
+ *   "Cancelled - No Charge, Pay"   → CP is paid
+ * Unpaid:
+ *   "Cancelled - Charge, No Pay"   → CP not paid
+ *   "Cancelled - No Charge, No Pay"→ CP not paid
+ */
+export function isCancellationPaid(value: any): boolean {
+  const s = (value ?? "").toString().trim().toLowerCase();
+  if (!s.includes("cancel")) return false;
+  // Ends with "pay" but NOT "no pay"
+  return s.endsWith("pay") && !s.endsWith("no pay");
+}
+
 // ─── Time-window interval math ────────────────────────────────────────────────
 
 export function toMin(dateOrStr: any): number {
@@ -693,4 +709,53 @@ export function getScheduledHoursForEmployeeAndDate(
   const normalizedName = normalizeName(employeeName);
   const key = `${normalizedName}|${dateStr}`;
   return scheduledHoursMap.get(key) || 0;
+}
+
+/**
+ * Builds a scheduled-hours lookup specifically for GH Loss calculation.
+ * Differences from buildScheduledHoursLookup:
+ *  1. Includes charge-and-pay cancelled visits (CP still gets paid)
+ *  2. Includes overnight/night visits (attributed to the start date)
+ *  3. Excludes non-paid cancellations, secondary care, and live-in care
+ */
+export function buildGhLossScheduledHoursLookup(guaranteed: any[]): Map<string, number> {
+  const ghMap = new Map<string, number>();
+
+  for (const g of guaranteed || []) {
+    const cancelRaw = pickCol(g, CANCEL_COLS);
+    const isNotCancelled = isCancellationBlank(cancelRaw);
+    const isPaidCancellation = !isNotCancelled && isCancellationPaid(cancelRaw);
+
+    if (!isNotCancelled && !isPaidCancellation) continue;
+
+    const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
+    if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
+    if (isLiveInCare(serviceTypeRaw)) continue;
+
+    const { start, end } = resolveServiceTimestamps(g);
+    if (!start) continue;
+
+    const date = format(parseDate(start), "yyyy-MM-dd");
+
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    const name = normalizeName(empName);
+    if (!name) continue;
+
+    const payRaw = pickCol(g, PAY_HOURS_COLS);
+    let pay = Number(payRaw) || 0;
+
+    if (pay === 0 && start && end) {
+      try {
+        const hrs = hoursBetween(start, end);
+        if (hrs > 0 && hrs <= 16) pay = hrs;
+      } catch {}
+    }
+
+    if (name && date && pay > 0) {
+      const key = `${name}|${date}`;
+      ghMap.set(key, (ghMap.get(key) || 0) + pay);
+    }
+  }
+
+  return ghMap;
 }

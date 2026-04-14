@@ -38,6 +38,7 @@ import {
   buildDisplayNameMap,
   buildScheduledHoursLookup,
   buildClientScheduledHoursLookup,
+  buildGhLossScheduledHoursLookup,
   getScheduledHoursForEmployeeAndDate,
 } from "../imports/pipeline-utils";
 
@@ -80,6 +81,7 @@ export async function processCapacityData(
 
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
   const clientScheduledHoursMap = buildClientScheduledHoursLookup(guaranteed);
+  const ghLossScheduledHoursMap = buildGhLossScheduledHoursLookup(guaranteed);
 
   logger.debug(`\nSCHEDULED HOURS MAP VERIFICATION:`);
   logger.debug(`  Total entries in map: ${scheduledHoursMap.size}`);
@@ -673,14 +675,15 @@ export async function processCapacityData(
       : new Map<string, string>();
     logger.debug(`Found ${cancelledVisitsForDate.size} employees with cancelled visits on ${dateStr}`);
 
-    const employeeMap = new Map<string, { contractedDailyHours: number; scheduledHours: number; unavailabilityHours: number; hasAvailableStatus: boolean; hasUnavailableStatus: boolean; hasPartialAvailability: boolean; }>();
+    const employeeMap = new Map<string, { contractedDailyHours: number; scheduledHours: number; ghScheduledHours: number; unavailabilityHours: number; hasAvailableStatus: boolean; hasUnavailableStatus: boolean; hasPartialAvailability: boolean; }>();
 
     employees.forEach((emp) => {
       const key = emp.employeeName;
       if (!employeeMap.has(key)) {
         const empNormalized = normalizeName(emp.employeeName);
         const scheduledHoursFromLookup = scheduledHoursMap.get(`${empNormalized}|${dateStr}`) || 0;
-        employeeMap.set(key, { contractedDailyHours: emp.contractedDailyHours, scheduledHours: scheduledHoursFromLookup, unavailabilityHours: 0, hasAvailableStatus: false, hasUnavailableStatus: false, hasPartialAvailability: false });
+        const ghScheduledHoursFromLookup = ghLossScheduledHoursMap.get(`${empNormalized}|${dateStr}`) || 0;
+        employeeMap.set(key, { contractedDailyHours: emp.contractedDailyHours, scheduledHours: scheduledHoursFromLookup, ghScheduledHours: ghScheduledHoursFromLookup, unavailabilityHours: 0, hasAvailableStatus: false, hasUnavailableStatus: false, hasPartialAvailability: false });
       }
 
       const empData = employeeMap.get(key)!;
@@ -744,6 +747,7 @@ export async function processCapacityData(
         availability: empData.contractedDailyHours,
         unavailability: empData.unavailabilityHours,
         scheduledHours: empData.scheduledHours,
+        ghScheduledHours: empData.ghScheduledHours,
         difference: empData.contractedDailyHours - empData.unavailabilityHours - empData.scheduledHours,
         freeWindows,
         cancelledVisits: cancelledVisitsForDate.get(empNormalized) ?? "—",
