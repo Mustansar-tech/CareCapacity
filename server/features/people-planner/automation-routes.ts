@@ -536,7 +536,7 @@ async function runPipelineSession(
       parsedData.guaranteed,
       parsedData.demand,
       parsedData.cgData,
-      { ghWorkbookBuffer: guaranteedBuf, branchId }
+      { ghWorkbookBuffer: guaranteedBuf, branchId, guaranteedRaw: parsedData.guaranteedRaw }
     );
 
     if (parsedData.warnings.length > 0) {

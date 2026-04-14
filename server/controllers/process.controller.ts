@@ -108,7 +108,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
     parsedData.guaranteed,
     parsedData.demand,
     parsedData.cgData,
-    { ghWorkbookBuffer: guaranteedFile.buffer, branchId: requestedBranchId },
+    { ghWorkbookBuffer: guaranteedFile.buffer, branchId: requestedBranchId, guaranteedRaw: parsedData.guaranteedRaw },
   );
 
   if (parsedData.warnings.length > 0) {

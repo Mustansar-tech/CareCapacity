@@ -48,7 +48,7 @@ export async function processCapacityData(
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
-  options?: { ghWorkbookBuffer?: Buffer; branchId?: string },
+  options?: { ghWorkbookBuffer?: Buffer; branchId?: string; guaranteedRaw?: GuaranteedHoursRow[] },
 ): Promise<ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] }> {
   const warnings: string[] = [];
   const branchId = options?.branchId;
@@ -83,7 +83,7 @@ export async function processCapacityData(
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
   const clientScheduledHoursMap = buildClientScheduledHoursLookup(guaranteed);
   const ghLossScheduledHoursMap = buildGhLossScheduledHoursLookup(guaranteed);
-  const ghLossRawSummary = buildGhLossWeeklyRawSummary(guaranteed);
+  const ghLossRawSummary = buildGhLossWeeklyRawSummary(options?.guaranteedRaw ?? guaranteed);
 
   logger.debug(`\nSCHEDULED HOURS MAP VERIFICATION:`);
   logger.debug(`  Total entries in map: ${scheduledHoursMap.size}`);

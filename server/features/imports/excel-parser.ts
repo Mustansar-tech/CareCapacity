@@ -74,6 +74,7 @@ export async function parseExcelFiles(
 ): Promise<{
   availability: ParsedAvailabilityRow[];
   guaranteed: GuaranteedHoursRow[];
+  guaranteedRaw: GuaranteedHoursRow[];
   demand: ClientDemandRow[];
   cgData: CGDataRow[];
   warnings: string[];
@@ -775,6 +776,7 @@ export async function parseExcelFiles(
   return {
     availability: validatedAvailability,
     guaranteed: validatedGuaranteed,
+    guaranteedRaw: guaranteedData,
     demand: validatedDemand,
     cgData,
     warnings,

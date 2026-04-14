@@ -771,25 +771,44 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
   // Second pass — sum ALL paid hours for GH employees.
   // No date-boundary check, no service-type night exclusion, no availability filter.
   for (const g of guaranteed || []) {
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    if (!empName) continue;
+    const empNameStr = empName.toString();
+    const normKey = normalizeName(empNameStr);
+
+    const isTracked = normKey.includes('alison') || normKey.includes('dalzell') ||
+      normKey.includes('fayaz') || normKey.includes('shafiya') || normKey.includes('hamza') || normKey.includes('nafees');
+
     const cancelRaw = pickCol(g, CANCEL_COLS);
     const isNotCancelled = isCancellationBlank(cancelRaw);
     const isPaidCancellation = !isNotCancelled && isCancellationPaid(cancelRaw);
-    if (!isNotCancelled && !isPaidCancellation) continue;
+    if (!isNotCancelled && !isPaidCancellation) {
+      if (isTracked) logger.info(`GH-TRACE [${empNameStr}] SKIP: cancelled (${cancelRaw})`);
+      continue;
+    }
 
     const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
-    if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
-    if (isLiveInCare(serviceTypeRaw)) continue;
-
-    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
-    if (!empName) continue;
-    const normKey = normalizeName(empName.toString());
+    if (isSecondaryMultipleCare(serviceTypeRaw)) {
+      if (isTracked) logger.info(`GH-TRACE [${empNameStr}] SKIP: secondary care`);
+      continue;
+    }
+    if (isLiveInCare(serviceTypeRaw)) {
+      if (isTracked) logger.info(`GH-TRACE [${empNameStr}] SKIP: live-in care`);
+      continue;
+    }
 
     // Match to a known GH employee — exact key or subset of words.
     const resolvedKey = resolveTargetKey(normKey);
-    if (!resolvedKey) continue;
+    if (!resolvedKey) {
+      if (isTracked) logger.info(`GH-TRACE [${empNameStr}] SKIP: no GH target match (normKey="${normKey}", serviceType="${serviceTypeRaw}")`);
+      continue;
+    }
 
     const { start, end } = resolveServiceTimestamps(g);
-    if (!start) continue;
+    if (!start) {
+      if (isTracked) logger.info(`GH-TRACE [${empNameStr}] SKIP: no start timestamp (keys=${Object.keys(g).join(',')})`);
+      continue;
+    }
 
     const payRaw = pickCol(g, PAY_HOURS_COLS);
     let pay = Number(payRaw) || 0;
@@ -801,6 +820,8 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
         if (hrs > 0 && hrs <= 24) pay = hrs;
       } catch { /* ignore */ }
     }
+
+    if (isTracked) logger.info(`GH-TRACE [${empNameStr}] resolvedKey="${resolvedKey}" serviceType="${serviceTypeRaw}" payRaw=${payRaw} pay=${pay} start=${start} end=${end}`);
 
     if (pay > 0) {
       scheduled[resolvedKey] = (scheduled[resolvedKey] || 0) + pay;
