@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { clientLogger } from '@/lib/logger';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
   TrendingUp, Users, Clock, Calendar, RefreshCw, Target, Bot
@@ -72,6 +78,7 @@ export function OverviewTab({
   navigate,
 }: OverviewTabProps) {
   const { toast } = useToast();
+  const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
   const data = filteredData || processedData;
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
@@ -631,49 +638,19 @@ export function OverviewTab({
             </Card>
 
             {/* 9. GH Loss */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-gh-loss">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer select-none"
+              data-testid="card-gh-loss"
+              onDoubleClick={() => setGhLossModalOpen(true)}
+              title="Double-click to see breakdown"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
-                          <TrendingUp className="w-4 h-4 text-white rotate-180" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="w-80 text-sm z-50 p-0">
-                      <div className="px-3 pt-3 pb-2 border-b border-white/10">
-                        <p className="font-semibold text-sm">GH employees under their weekly target</p>
-                        <p className="text-xs opacity-60 mt-0.5">Loss = GH target − unavailability − scheduled</p>
-                      </div>
-                      {ghLossData.items.length > 0 ? (
-                        <div className="max-h-72 overflow-y-auto divide-y divide-white/10">
-                          {ghLossData.items.map((item) => (
-                            <div key={item.name} className="px-3 py-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <span className="font-semibold text-xs leading-snug">{item.name}</span>
-                                <span className="text-xs font-bold text-orange-400 whitespace-nowrap shrink-0">
-                                  {item.loss}h short
-                                </span>
-                              </div>
-                              <div className="text-xs opacity-60 mt-0.5 flex gap-3">
-                                <span>GH: {item.ghHours}h</span>
-                                {item.weeklyUnavailability > 0 && (
-                                  <span>Unavail: {item.weeklyUnavailability}h</span>
-                                )}
-                                <span>Sched: {item.weeklyScheduled}h</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="px-3 py-3 text-xs opacity-60">No GH loss detected this week.</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-white rotate-180" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-total">
@@ -682,11 +659,65 @@ export function OverviewTab({
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {ghLossData.items.length} staff with loss
                 </div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
           </div>
         </div>
       )}
+
+      {/* GH Loss Detail Modal */}
+      <Dialog open={ghLossModalOpen} onOpenChange={setGhLossModalOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 text-white rotate-180" />
+              </div>
+              GH Loss Breakdown
+            </DialogTitle>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              GH employees working fewer hours than their weekly contracted target
+            </p>
+          </DialogHeader>
+
+          {ghLossData.items.length > 0 ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto -mx-6 px-6">
+              {ghLossData.items.map((item) => (
+                <div key={item.name} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{item.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3 flex-wrap">
+                      <span>Target: <span className="font-medium text-gray-700 dark:text-gray-300">{item.ghHours}h</span></span>
+                      {item.weeklyUnavailability > 0 && (
+                        <span>Unavail: <span className="font-medium text-gray-700 dark:text-gray-300">{item.weeklyUnavailability}h</span></span>
+                      )}
+                      <span>Scheduled: <span className="font-medium text-gray-700 dark:text-gray-300">{item.weeklyScheduled}h</span></span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-bold whitespace-nowrap">
+                      {item.loss}h short
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No GH loss detected this week.</p>
+            </div>
+          )}
+
+          {ghLossData.items.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{ghLossData.items.length} staff affected</span>
+              <span className="text-sm font-bold text-rose-600 dark:text-rose-400">Total: {ghLossData.totalLoss}h short</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
