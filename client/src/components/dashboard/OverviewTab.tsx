@@ -637,36 +637,33 @@ export function OverviewTab({
                         <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
                       </CardTitle>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-lg text-sm z-50 p-0">
-                      <div className="p-3 space-y-2">
-                        <p className="font-semibold">Unworked guaranteed hours</p>
-                        <p className="text-xs opacity-75 font-mono">GH Target − Scheduled − Unavailability</p>
+                    <TooltipContent side="bottom" align="start" className="w-80 text-sm z-50 p-0">
+                      <div className="px-3 pt-3 pb-2 border-b border-white/10">
+                        <p className="font-semibold text-sm">GH employees under their weekly target</p>
+                        <p className="text-xs opacity-60 mt-0.5">Loss = GH target − unavailability − scheduled</p>
                       </div>
                       {ghLossData.items.length > 0 ? (
-                        <div className="max-h-64 overflow-y-auto border-t border-white/10">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="bg-white/10 text-left">
-                                <th className="px-3 py-1.5 font-semibold">Name</th>
-                                <th className="px-3 py-1.5 font-semibold text-right">Scheduled</th>
-                                <th className="px-3 py-1.5 font-semibold text-right">Unavailability</th>
-                                <th className="px-3 py-1.5 font-semibold text-right text-rose-400">Loss</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ghLossData.items.map((item, i) => (
-                                <tr key={item.name} className={i % 2 === 0 ? "bg-white/5" : ""}>
-                                  <td className="px-3 py-1.5">{item.name}</td>
-                                  <td className="px-3 py-1.5 text-right">{item.weeklyScheduled}h</td>
-                                  <td className="px-3 py-1.5 text-right">{item.weeklyUnavailability}h</td>
-                                  <td className="px-3 py-1.5 text-right font-semibold text-rose-400">{item.loss}h</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="max-h-72 overflow-y-auto divide-y divide-white/10">
+                          {ghLossData.items.map((item) => (
+                            <div key={item.name} className="px-3 py-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="font-semibold text-xs leading-snug">{item.name}</span>
+                                <span className="text-xs font-bold text-orange-400 whitespace-nowrap shrink-0">
+                                  {item.loss}h short
+                                </span>
+                              </div>
+                              <div className="text-xs opacity-60 mt-0.5 flex gap-3">
+                                <span>GH: {item.ghHours}h</span>
+                                {item.weeklyUnavailability > 0 && (
+                                  <span>Unavail: {item.weeklyUnavailability}h</span>
+                                )}
+                                <span>Sched: {item.weeklyScheduled}h</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ) : (
-                        <p className="px-3 pb-3 text-xs opacity-75">No GH loss detected.</p>
+                        <p className="px-3 py-3 text-xs opacity-60">No GH loss detected this week.</p>
                       )}
                     </TooltipContent>
                   </Tooltip>
