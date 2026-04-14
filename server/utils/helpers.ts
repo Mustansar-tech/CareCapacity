@@ -2,6 +2,7 @@ import type { Request } from 'express';
 import { storage } from '../storage';
 import { logger } from '../infrastructure/logger';
 import { createAppError } from '../middleware/error-handler';
+import { getUserBranches } from '../repositories/user.repository';
 
 export const isProduction = process.env.NODE_ENV === 'production';
 
@@ -28,6 +29,17 @@ export async function resolveBranch(req: Request): Promise<string> {
 
   if (!branchId && defaultBranchId) {
     logger.warn(`Request using DEFAULT_BRANCH_ID fallback`, { defaultBranchId, path: req.path });
+  }
+
+  const userId = req.session?.userId;
+  const userRole = req.session?.userRole;
+  if (userId && userRole !== 'admin') {
+    const assignedBranches = await getUserBranches(userId);
+    const hasAccess = assignedBranches.some(b => b.id === resolvedBranchId);
+    if (!hasAccess) {
+      logger.warn('Branch access denied', { userId, resolvedBranchId, path: req.path });
+      throw createAppError('You do not have access to this branch', 403);
+    }
   }
 
   return resolvedBranchId;
