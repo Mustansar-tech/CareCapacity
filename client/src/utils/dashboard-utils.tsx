@@ -50,6 +50,22 @@ export interface GhLossResult {
   items: GhLossItem[];
 }
 
+export interface GhLossRawSummary {
+  targets: Record<string, { hours: number; displayName: string }>;
+  scheduled: Record<string, number>;
+}
+
+/**
+ * Compute GH Loss.
+ *
+ * When `ghLossRawSummary` is provided (from the server-side raw summary), the
+ * scheduled hours come from the raw guaranteed hours file — completely bypassing
+ * the availability pipeline.  This correctly captures night visits, paid
+ * cancellations, and any hours that might be missing from employeeSummaryByDate.
+ *
+ * Unavailability is always taken from employeeSummaryByDate (since it comes from
+ * the availability file, not the guaranteed hours file).
+ */
 export function computeGhLoss(
   employeeSummaryByDate: Record<string, Array<{
     employeeName: string;
@@ -58,7 +74,53 @@ export function computeGhLoss(
     unavailability: number;
     availability?: number;
   }>>,
+  ghLossRawSummary?: GhLossRawSummary,
 ): GhLossResult {
+  // ── PATH A: raw summary available (new uploads) ───────────────────────────────
+  if (ghLossRawSummary) {
+    const { targets, scheduled } = ghLossRawSummary;
+
+    // Accumulate weekly unavailability from employeeSummaryByDate.
+    // Key here must match the normalizeGhKey used on the server so that
+    // "Alison (30GH) Dalzell Stewart" and "Dalzell Stewart, Alison" both resolve.
+    const unavailTotals = new Map<string, { weeklyUnavailability: number; weeklyAvailability: number }>();
+    for (const records of Object.values(employeeSummaryByDate)) {
+      for (const rec of records) {
+        const normKey = normalizeGhKey(rec.employeeName);
+        if (!targets[normKey]) continue;
+        const existing = unavailTotals.get(normKey);
+        if (existing) {
+          existing.weeklyUnavailability += rec.unavailability ?? 0;
+          existing.weeklyAvailability += rec.availability ?? 0;
+        } else {
+          unavailTotals.set(normKey, {
+            weeklyUnavailability: rec.unavailability ?? 0,
+            weeklyAvailability: rec.availability ?? 0,
+          });
+        }
+      }
+    }
+
+    const items = Object.entries(targets)
+      .map(([normKey, { hours: ghHours, displayName }]) => {
+        const weeklyScheduled = Math.round((scheduled[normKey] ?? 0) * 100) / 100;
+        const unavail = unavailTotals.get(normKey) ?? { weeklyUnavailability: 0, weeklyAvailability: 0 };
+
+        const ghUnavailability = unavail.weeklyAvailability > 0
+          ? Math.round((unavail.weeklyUnavailability * (ghHours / unavail.weeklyAvailability)) * 100) / 100
+          : Math.round(unavail.weeklyUnavailability * 100) / 100;
+
+        const loss = Math.round((ghHours - ghUnavailability - weeklyScheduled) * 100) / 100;
+        return { name: displayName, ghHours, weeklyScheduled, weeklyUnavailability: ghUnavailability, loss };
+      })
+      .filter((item) => item.loss > 0)
+      .sort((a, b) => b.loss - a.loss);
+
+    const totalLoss = Math.round(items.reduce((acc, i) => acc + i.loss, 0) * 100) / 100;
+    return { totalLoss, items };
+  }
+
+  // ── PATH B: legacy fallback (older data without raw summary) ─────────────────
   // Step 1: Identify GH-contracted employees.
   // Key = normalizeGhKey (removes GH annotation + punctuation, sorts words) so that
   // "Taimoor (37.5GH) Azhar" and "Azhar, Taimoor (37.5GH)" map to the same entry.
@@ -80,8 +142,6 @@ export function computeGhLoss(
   }
 
   // Step 2: Accumulate per-employee weekly totals under the same normalized key.
-  // This merges hours from any name variant (e.g., "Lastname, Firstname" or
-  // "Firstname (XGH) Lastname") belonging to the same person.
   const empTotals = new Map<string, {
     weeklyScheduled: number;
     weeklyUnavailability: number;
@@ -108,7 +168,7 @@ export function computeGhLoss(
     }
   }
 
-  // Step 3: Build loss items — all GH employees included, no ad-hoc exclusion.
+  // Step 3: Build loss items.
   const items = Array.from(ghTargets.entries())
     .map(([normKey, { hours: ghHours, displayName }]) => {
       const totals = empTotals.get(normKey) ?? {
@@ -117,8 +177,6 @@ export function computeGhLoss(
         weeklyAvailability: 0,
       };
 
-      // Scale unavailability proportionally to GH hours, not desired hours.
-      // e.g. desired=40h, GH=30h → a full-day holiday (8h) counts as 6h unavailability.
       const ghUnavailability = totals.weeklyAvailability > 0
         ? Math.round((totals.weeklyUnavailability * (ghHours / totals.weeklyAvailability)) * 100) / 100
         : Math.round(totals.weeklyUnavailability * 100) / 100;
@@ -126,13 +184,7 @@ export function computeGhLoss(
       const weeklyScheduled = Math.round(totals.weeklyScheduled * 100) / 100;
       const loss = Math.round((ghHours - ghUnavailability - weeklyScheduled) * 100) / 100;
 
-      return {
-        name: displayName,
-        ghHours,
-        weeklyScheduled,
-        weeklyUnavailability: ghUnavailability,
-        loss,
-      };
+      return { name: displayName, ghHours, weeklyScheduled, weeklyUnavailability: ghUnavailability, loss };
     })
     .filter((item) => item.loss > 0)
     .sort((a, b) => b.loss - a.loss);

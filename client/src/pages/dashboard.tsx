@@ -53,8 +53,8 @@ export default function Dashboard() {
     const data = filteredData || processedData;
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
     return computeGhLoss(
-      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>,
-      data.employeesByDate as Record<string, Array<{ employeeName: string; status: string }>>,
+      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number; availability?: number; ghScheduledHours?: number }>>,
+      (data as any).ghLossRawSummary ?? undefined,
     );
   }, [filteredData, processedData]);
 

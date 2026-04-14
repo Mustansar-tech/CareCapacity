@@ -3,6 +3,7 @@ import { parse, format } from "date-fns";
 import {
   AvailabilityRow,
   GuaranteedHoursRow,
+  GhLossRawSummary,
 } from "@shared/schema";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -709,6 +710,86 @@ export function getScheduledHoursForEmployeeAndDate(
   const normalizedName = normalizeName(employeeName);
   const key = `${normalizedName}|${dateStr}`;
   return scheduledHoursMap.get(key) || 0;
+}
+
+/**
+ * Computes GH loss scheduled hours directly from the raw guaranteed hours file —
+ * before any availability pipeline filtering, date-loop restrictions, or
+ * employee presence checks.
+ *
+ * This is the source of truth for GH Loss "scheduled hours" because:
+ *  1. Night / overnight visits are always included (attributed to start date)
+ *  2. Paid cancellations (Charge & Pay, No Charge Pay) are included
+ *  3. Hours are not filtered by whether the employee appears in an availability row
+ *  4. No service-type exclusion for sleeping/waking nights
+ *
+ * Only excluded: secondary/multiple care, live-in care, and unpaid cancellations.
+ */
+export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary {
+  const GH_REGEX_LOCAL = /(\d+(?:\.\d+)?)\s*GH/i;
+
+  const targets: Record<string, { hours: number; displayName: string }> = {};
+  const scheduled: Record<string, number> = {};
+
+  // First pass — identify GH-annotated employees and their weekly targets.
+  for (const g of guaranteed || []) {
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    if (!empName) continue;
+    const nameStr = empName.toString();
+    const match = GH_REGEX_LOCAL.exec(nameStr);
+    if (!match) continue;
+    const normKey = normalizeName(nameStr);
+    if (normKey && !targets[normKey]) {
+      const displayName = nameStr
+        .replace(/\s*\(\d+(?:\.\d+)?\s*GH\)\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/,\s*$/, '');
+      targets[normKey] = { hours: parseFloat(match[1]), displayName };
+    }
+  }
+
+  // Second pass — sum ALL paid hours for GH employees.
+  // No date-boundary check, no service-type night exclusion, no availability filter.
+  for (const g of guaranteed || []) {
+    const cancelRaw = pickCol(g, CANCEL_COLS);
+    const isNotCancelled = isCancellationBlank(cancelRaw);
+    const isPaidCancellation = !isNotCancelled && isCancellationPaid(cancelRaw);
+    if (!isNotCancelled && !isPaidCancellation) continue;
+
+    const serviceTypeRaw = pickCol(g, SERVICE_TYPE_COLS);
+    if (isSecondaryMultipleCare(serviceTypeRaw)) continue;
+    if (isLiveInCare(serviceTypeRaw)) continue;
+
+    const empName = pickCol(g, EMPLOYEE_NAME_COLS);
+    if (!empName) continue;
+    const normKey = normalizeName(empName.toString());
+
+    // Only count hours for known GH employees.
+    // normKey will match even if this particular row uses a different name format
+    // (e.g. "Azhar, Taimoor" vs "Taimoor (37.5GH) Azhar") because normalizeName sorts words.
+    if (!targets[normKey]) continue;
+
+    const { start, end } = resolveServiceTimestamps(g);
+    if (!start) continue;
+
+    const payRaw = pickCol(g, PAY_HOURS_COLS);
+    let pay = Number(payRaw) || 0;
+
+    // Fall back to timestamp duration when pay hours field is empty.
+    if (pay === 0 && start && end) {
+      try {
+        const hrs = hoursBetween(start, end);
+        if (hrs > 0 && hrs <= 24) pay = hrs;
+      } catch { /* ignore */ }
+    }
+
+    if (pay > 0) {
+      scheduled[normKey] = (scheduled[normKey] || 0) + pay;
+    }
+  }
+
+  return { targets, scheduled };
 }
 
 /**

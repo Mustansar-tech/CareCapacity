@@ -83,6 +83,7 @@ export function OverviewTab({
         unavailability: number;
         availability?: number;
       }>>,
+      (data as any).ghLossRawSummary ?? undefined,
     );
   }, [data]);
 

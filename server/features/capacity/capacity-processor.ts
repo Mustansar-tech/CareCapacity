@@ -39,6 +39,7 @@ import {
   buildScheduledHoursLookup,
   buildClientScheduledHoursLookup,
   buildGhLossScheduledHoursLookup,
+  buildGhLossWeeklyRawSummary,
   getScheduledHoursForEmployeeAndDate,
 } from "../imports/pipeline-utils";
 
@@ -82,6 +83,7 @@ export async function processCapacityData(
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
   const clientScheduledHoursMap = buildClientScheduledHoursLookup(guaranteed);
   const ghLossScheduledHoursMap = buildGhLossScheduledHoursLookup(guaranteed);
+  const ghLossRawSummary = buildGhLossWeeklyRawSummary(guaranteed);
 
   logger.debug(`\nSCHEDULED HOURS MAP VERIFICATION:`);
   logger.debug(`  Total entries in map: ${scheduledHoursMap.size}`);
@@ -766,6 +768,7 @@ export async function processCapacityData(
     employeeSummaryByDate,
     cleanedRecords,
     warnings: warnings.length > 0 ? warnings : undefined,
+    ghLossRawSummary,
   };
 
   // ── Save to database ──
@@ -779,6 +782,7 @@ export async function processCapacityData(
       employeesByDate: result.employeesByDate as any,
       employeeSummaryByDate: result.employeeSummaryByDate as any,
       warnings: result.warnings as any,
+      ghLossRawSummary: result.ghLossRawSummary as any,
     };
     storage.saveCapacityAnalysis(analysisData)
       .then(() => logger.debug("Successfully saved capacity analysis to database"))

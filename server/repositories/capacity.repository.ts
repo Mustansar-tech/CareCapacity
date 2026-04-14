@@ -15,6 +15,7 @@ export async function saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Pr
         employeesByDate: analysis.employeesByDate,
         employeeSummaryByDate: analysis.employeeSummaryByDate,
         warnings: analysis.warnings,
+        ghLossRawSummary: analysis.ghLossRawSummary,
         uploadedAt: new Date(),
       },
     })

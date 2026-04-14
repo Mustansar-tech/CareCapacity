@@ -84,6 +84,7 @@ export const capacityAnalyses = pgTable("capacity_analyses", {
   employeesByDate: jsonb("employees_by_date").notNull(),
   employeeSummaryByDate: jsonb("employee_summary_by_date").notNull().default({}),
   warnings: jsonb("warnings").default([]),
+  ghLossRawSummary: jsonb("gh_loss_raw_summary"),
 }, (table) => ({
   // Unique constraint to prevent duplicate weeks PER BRANCH
   uniqueWeek: unique("unique_week").on(table.branchId, table.weekStartDate, table.weekEndDate),
@@ -256,6 +257,17 @@ export interface EmployeeSummaryRecord {
   gender?: string; // Gender derived from title (e.g., "male", "female")
 }
 
+// Raw GH loss summary computed directly from guaranteed hours file (before any availability pipeline filtering).
+// This is the source of truth for scheduled hours in GH loss calculations —
+// it includes night visits, paid cancellations, and any hours that might not
+// appear in employeeSummaryByDate due to availability data gaps.
+export interface GhLossRawSummary {
+  /** normalizedName → { ghHours, displayName } */
+  targets: Record<string, { hours: number; displayName: string }>;
+  /** normalizedName → total weekly paid hours (from raw guaranteed hours) */
+  scheduled: Record<string, number>;
+}
+
 export interface ProcessingResult {
   kpis: {
     netCapacitySum: number;
@@ -274,6 +286,8 @@ export interface ProcessingResult {
   employeesByDate: Record<string, EmployeeDailyDetail[]>;
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>;
   warnings?: string[];
+  /** Weekly GH loss totals computed from raw guaranteed hours (bypasses availability pipeline). */
+  ghLossRawSummary?: GhLossRawSummary;
   // Geographical data for scheduling optimization
   employeeLocations?: Array<{
     employeeName: string;
@@ -346,6 +360,7 @@ export interface CapacityAnalysisSummary {
   employeesByDate: Record<string, EmployeeDailyDetail[]>;
   employeeSummaryByDate: Record<string, EmployeeSummaryRecord[]>;
   warnings?: string[];
+  ghLossRawSummary?: GhLossRawSummary;
 }
 
 // ── ProcessingResult augmented with DB metadata (returned by /api/history/latest) ──
