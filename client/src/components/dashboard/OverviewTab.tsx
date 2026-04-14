@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { MetricCardSkeleton } from "@/components/loading-skeleton";
 import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
+import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
 
 interface FilesState {
   availability: File | null;
@@ -71,6 +73,13 @@ export function OverviewTab({
 }: OverviewTabProps) {
   const { toast } = useToast();
   const data = filteredData || processedData;
+  const ghLossData = useMemo<GhLossResult>(() => {
+    if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
+    return computeGhLoss(
+      data.employeeSummaryByDate as Record<string, Array<{ employeeName: string; scheduledHours: number; unavailability: number }>>,
+      data.employeesByDate as Record<string, Array<{ employeeName: string; status: string }>>,
+    );
+  }, [data]);
 
   return (
     <>
