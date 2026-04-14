@@ -443,42 +443,7 @@ export function OverviewTab({
               </CardContent>
             </Card>
 
-            {/* 5. GH Loss */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-gh-loss">
-              <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
-                          <TrendingUp className="w-4 h-4 text-white rotate-180" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Unworked guaranteed hours</p>
-                        <p className="text-xs opacity-90">Calculated only for staff with a GH annotation:</p>
-                        <div className="text-xs space-y-1 opacity-90 font-mono">
-                          <p>GH Target − Scheduled − Unavailability</p>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-total">
-                  {ghLossData.totalLoss}h
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {ghLossData.items.length} staff with loss
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 6. Net Capacity */}
+            {/* 5. Net Capacity */}
             <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
               <CardHeader className="pb-3">
                 <TooltipProvider>
@@ -511,7 +476,7 @@ export function OverviewTab({
               </CardContent>
             </Card>
 
-            {/* 7. Client Required / Domiciliary Hours */}
+            {/* 6. Client Required / Domiciliary Hours */}
             <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
               <CardHeader className="pb-3">
                 <TooltipProvider>
@@ -548,7 +513,7 @@ export function OverviewTab({
               </CardContent>
             </Card>
 
-            {/* 7b. Client Scheduled Hours */}
+            {/* 6b. Client Scheduled Hours */}
             <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
               <CardHeader className="pb-3">
                 <TooltipProvider>
@@ -579,7 +544,7 @@ export function OverviewTab({
               </CardContent>
             </Card>
 
-            {/* 8. Other Scheduled */}
+            {/* 7. Other Scheduled */}
             <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
               <CardHeader className="pb-3">
                 <TooltipProvider>
@@ -615,7 +580,7 @@ export function OverviewTab({
               </CardContent>
             </Card>
 
-            {/* 9. Capacity After Scheduling */}
+            {/* 8. Capacity After Scheduling */}
             <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
               <CardHeader className="pb-3">
                 <TooltipProvider>
@@ -656,6 +621,41 @@ export function OverviewTab({
                   })()}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
+              </CardContent>
+            </Card>
+
+            {/* 9. GH Loss */}
+            <Card className="glass hover-lift animate-scale-in" data-testid="card-gh-loss">
+              <CardHeader className="pb-3">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
+                          <TrendingUp className="w-4 h-4 text-white rotate-180" />
+                        </div>
+                        <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
+                      </CardTitle>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
+                      <div className="space-y-1.5">
+                        <p className="font-semibold">Unworked guaranteed hours</p>
+                        <p className="text-xs opacity-90">Calculated only for staff with a GH annotation:</p>
+                        <div className="text-xs space-y-1 opacity-90 font-mono">
+                          <p>GH Target − Scheduled − Unavailability</p>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-total">
+                  {ghLossData.totalLoss}h
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {ghLossData.items.length} staff with loss
+                </div>
               </CardContent>
             </Card>
           </div>
