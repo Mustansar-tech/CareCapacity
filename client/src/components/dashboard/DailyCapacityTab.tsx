@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,11 +47,6 @@ export function DailyCapacityTab({
 
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
-
-  useEffect(() => {
-    setEmployeeSearch("");
-    setEmployeeFilter([]);
-  }, [selectedDate]);
 
   const allEmployeeNames = Array.from(
     new Set(selectedDayDetailsRaw.map(e => e.employeeName))
