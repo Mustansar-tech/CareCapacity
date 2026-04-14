@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Check, ChevronDown, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Check, ChevronDown, Calendar, Search, X } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -42,6 +44,26 @@ export function DailyCapacityTab({
   setStatusFilter,
 }: DailyCapacityTabProps) {
   const data = filteredData || processedData;
+
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
+
+  useEffect(() => {
+    setEmployeeSearch("");
+    setEmployeeFilter([]);
+  }, [selectedDate]);
+
+  const allEmployeeNames = Array.from(
+    new Set(selectedDayDetailsRaw.map(e => e.employeeName))
+  ).sort();
+
+  const searchedNames = employeeSearch.trim()
+    ? allEmployeeNames.filter(n => n.toLowerCase().includes(employeeSearch.toLowerCase()))
+    : allEmployeeNames;
+
+  const displayedEmployees = selectedDayDetails.filter(emp =>
+    employeeFilter.length === 0 || employeeFilter.includes(emp.employeeName)
+  );
 
   return (
     <Card className="glass">
@@ -271,25 +293,109 @@ export function DailyCapacityTab({
                   day: 'numeric'
                 })}
                 <Badge variant="outline" className="ml-2">
-                  {selectedDayDetails.length} of {selectedDayDetailsRaw.length} employees
+                  {displayedEmployees.length} of {selectedDayDetailsRaw.length} employees
                 </Badge>
               </h3>
-              {statusFilter.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStatusFilter([])}
-                  className="text-xs"
-                >
-                  Clear Status Filter
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {employeeFilter.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setEmployeeFilter([]); setEmployeeSearch(""); }}
+                    className="text-xs"
+                  >
+                    Clear CP Filter
+                  </Button>
+                )}
+                {statusFilter.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStatusFilter([])}
+                    className="text-xs"
+                  >
+                    Clear Status Filter
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[600px] overflow-y-auto relative scroll-modern">
               <Table>
                 <TableHeader className="sticky top-0 z-30 bg-gray-50 dark:bg-gray-800 shadow-md">
                   <TableRow className="hover:bg-transparent border-b-2">
-                    <TableHead data-testid="drilldown-header-employee" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">Employee</TableHead>
+                    <TableHead data-testid="drilldown-header-employee" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-[220px] justify-between border-dashed bg-white dark:bg-gray-900"
+                          >
+                            <span className="truncate">
+                              {employeeFilter.length === 0
+                                ? `All CPs (${selectedDayDetailsRaw.length})`
+                                : `${employeeFilter.length} CP${employeeFilter.length > 1 ? "s" : ""} selected`}
+                            </span>
+                            <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[240px] p-2" align="start">
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                              placeholder="Search CP name..."
+                              value={employeeSearch}
+                              onChange={e => setEmployeeSearch(e.target.value)}
+                              className="h-8 pl-7 pr-7 text-xs"
+                            />
+                            {employeeSearch && (
+                              <button
+                                onClick={() => setEmployeeSearch("")}
+                                className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start mb-1 text-xs"
+                            onClick={() => { setEmployeeFilter([]); setEmployeeSearch(""); }}
+                          >
+                            All CPs ({selectedDayDetailsRaw.length})
+                          </Button>
+                          <div className="max-h-56 overflow-y-auto space-y-0.5">
+                            {searchedNames.map(name => {
+                              const isSelected = employeeFilter.includes(name);
+                              return (
+                                <Button
+                                  key={name}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start gap-2 text-xs h-7"
+                                  onClick={() => {
+                                    setEmployeeFilter(prev =>
+                                      prev.includes(name)
+                                        ? prev.filter(n => n !== name)
+                                        : [...prev, name]
+                                    );
+                                  }}
+                                >
+                                  <span className={`h-4 w-4 flex items-center justify-center rounded-sm border shrink-0 ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40'}`}>
+                                    {isSelected && <Check className="h-3 w-3" />}
+                                  </span>
+                                  <span className="flex-1 text-left truncate">{name}</span>
+                                </Button>
+                              );
+                            })}
+                            {searchedNames.length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-2">No CPs match</p>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
                     <TableHead data-testid="drilldown-header-status" className="font-semibold h-14 bg-gray-50 dark:bg-gray-800 sticky top-0">
                       <Popover>
                         <PopoverTrigger asChild>
@@ -354,7 +460,7 @@ export function DailyCapacityTab({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedDayDetails.length > 0 ? selectedDayDetails.map((emp, index) => (
+                  {displayedEmployees.length > 0 ? displayedEmployees.map((emp, index) => (
                     <TableRow
                       key={`${emp.employeeName}-${index}`}
                       data-testid={`row-drilldown-${index}`}
