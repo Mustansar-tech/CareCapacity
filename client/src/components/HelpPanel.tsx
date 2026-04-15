@@ -144,7 +144,6 @@ export function HelpPanel({ open, onClose }: HelpPanelProps) {
                     title="Copy email address"
                   >
                     {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {copied ? "Copied!" : "Copy"}
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
