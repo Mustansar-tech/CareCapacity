@@ -151,18 +151,18 @@ export default function PrivacyPolicy() {
               <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 not-prose">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm">OSRM (router.project-osrm.org)</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Open-source routing engine — public instance</p>
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">postcodes.io</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Open-source UK postcode geocoding API — public instance</p>
                   </div>
-                  <a href="https://project-osrm.org/" target="_blank" rel="noopener noreferrer"
+                  <a href="https://postcodes.io/" target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
                     Project site <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                  Used as a fallback routing service when ORS is unavailable. Coordinate pairs are transmitted over HTTPS.
-                  This is a public-use service with no formal data processing agreement. We are evaluating a self-hosted
-                  alternative to eliminate this dependency. Data transmitted: coordinate pairs only.
+                  Used to resolve UK postcodes to geographic coordinates (latitude/longitude) for Care Pros and clients.
+                  Terminated postcodes are handled via the API's built-in terminated postcode data.
+                  Data transmitted: postcode strings only. No names, addresses, or personal identifiers are sent.
                 </p>
               </div>
             </div>

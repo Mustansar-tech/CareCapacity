@@ -56,7 +56,6 @@ A scheduling and workforce intelligence platform for Home Instead franchise bran
 - **APIs**:
   - ORS Matrix (car pre-warm)
   - ORS Directions (car fallback)
-  - OSRM (free car fallback)
   - TravelTime API (walker/public transport, on-demand live routing)
   - Haversine (walker/public prewarm + car last resort)
   - postcodes.io (UK postcode geocoding, including terminated postcode fallback)
@@ -385,8 +384,7 @@ GH employees receive a priority boost to ensure contracted hours are preferentia
 ### API Hierarchy (Car)
 1. ORS Matrix (`POST /api/travel-times/batch`) — batch size 50, pre-warms all employee×client pairs
 2. ORS Directions — single-pair fallback
-3. OSRM — free car fallback
-4. Haversine — last resort estimate
+3. Unreachable — marked and sent to unallocated if ORS unavailable
 
 ### API Hierarchy (Walker / Public Transport)
 1. Haversine estimates (Phase 1 scheduling)
