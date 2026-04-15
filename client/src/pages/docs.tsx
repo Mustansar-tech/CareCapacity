@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import {
-  BookOpen, BarChart3, Calendar, Users, Zap,
+  BookOpen, BarChart3, Calendar, Users, Zap, Clock,
   Upload, Search, ChevronRight, ArrowLeft, AlertTriangle,
   Info, AlertCircle, CheckCircle, FileSpreadsheet, RefreshCw,
 } from "lucide-react";
