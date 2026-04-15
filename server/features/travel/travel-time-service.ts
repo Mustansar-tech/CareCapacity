@@ -500,12 +500,12 @@ export class TravelTimeService {
 
     // 1b. Check DB cache — DISABLED: always fetch fresh from API
     // // For walkers/public: accept traveltime or traveltime-matrix sources; reject old heuristic/ors entries
-    // // For car: accept ors, ors-matrix, osrm, or heuristic
+    // // For car: accept ors or ors-matrix
     // try {
     //   const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
     //   if (cached) {
     //     const isRealTravelTime = cached.source === 'traveltime' || cached.source === 'traveltime-matrix';
-    //     const isCarRealRoad = cached.source === 'ors' || cached.source === 'ors-matrix' || cached.source === 'osrm';
+    //     const isCarRealRoad = cached.source === 'ors' || cached.source === 'ors-matrix';
     //     const isHeuristic = cached.source === 'heuristic';
     //
     //     let useCache = false;
