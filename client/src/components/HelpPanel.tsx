@@ -134,9 +134,9 @@ export function HelpPanel({ open, onClose }: HelpPanelProps) {
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white break-all">
-                    {SUPPORT_EMAIL}
-                  </p>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    Email support directly
+                  </div>
                   <button
                     onClick={handleCopy}
                     onMouseDown={(e) => e.stopPropagation()}
