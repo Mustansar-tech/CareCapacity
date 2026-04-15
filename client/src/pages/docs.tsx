@@ -223,32 +223,44 @@ export default function DocsPage() {
             <div className="space-y-3 mb-5">
               {[
                 {
+                  kpi: "Desired Hours",
+                  desc: "Total weekly desired hours across the branch.",
+                },
+                {
+                  kpi: "Unavailability",
+                  desc: "Weekly unavailability recorded for the branch.",
+                },
+                {
+                  kpi: "Sickness",
+                  desc: "Weekly sickness hours.",
+                },
+                {
+                  kpi: "Holidays",
+                  desc: "Weekly annual leave hours.",
+                },
+                {
                   kpi: "Net Capacity",
-                  desc: "The total working time available to the branch after removing holidays, sickness, appointments, and other unavailable time. Think of this as your weekly staffing ceiling.",
+                  desc: "Total available hours after unavailability, sickness, and holidays are removed.",
                 },
                 {
-                  kpi: "Scheduled Hours",
-                  desc: "The hours already assigned to Care Pros for the selected week. This includes care visits and any included office, training, shadowing, or admin time.",
+                  kpi: "Domiciliary Hours",
+                  desc: "Client care hours for the week.",
                 },
                 {
-                  kpi: "Client Required",
-                  desc: "The amount of care clients need this week based on the rota. This helps you compare demand against what your team is delivering.",
+                  kpi: "Client Scheduled",
+                  desc: "Hours scheduled to meet client demand.",
                 },
                 {
-                  kpi: "Utilisation",
-                  desc: "Scheduled hours shown as a percentage of available capacity. Higher numbers mean your team is busier and has less room for new work.",
+                  kpi: "Other Scheduled",
+                  desc: "Non-client hours such as office, training, shadowing, and on-call duties.",
+                },
+                {
+                  kpi: "Capacity After Scheduling",
+                  desc: "The remaining capacity after client care and other scheduled hours are removed.",
                 },
                 {
                   kpi: "GH Loss",
-                  desc: "Guaranteed-hours Care Pros who have worked fewer hours than their weekly target. This highlights contract hours that are not being filled, whether because of leave, gaps in the rota, or not enough visits.",
-                },
-                {
-                  kpi: "Unallocated Visits",
-                  desc: "Visits that could not be assigned automatically. This usually means the team is full at that time, or the visit does not fit travel, timing, or availability rules.",
-                },
-                {
-                  kpi: "Available Care Pros",
-                  desc: "The number of Care Pros with a free window for the selected day or time block. This helps the branch see where there is room to place new work.",
+                  desc: "Guaranteed-hours staff with hours still to fill compared with their weekly target. Double-click the card for the breakdown.",
                 },
               ].map(({ kpi, desc }) => (
                 <div key={kpi} className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40">
