@@ -224,9 +224,6 @@ export default function DocsPage() {
             </p>
 
             <SubHeading>The three required files</SubHeading>
-            <Note type="critical">
-              All three files are required. Uploading only two will produce incomplete or incorrect results. The system won't always warn you — it will just calculate with whatever data it has.
-            </Note>
             <div className="space-y-3 mb-4">
               {[
                 {
