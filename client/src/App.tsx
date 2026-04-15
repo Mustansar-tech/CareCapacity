@@ -14,9 +14,10 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
+import { NotificationsBell } from "@/components/NotificationsPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, Bell, BookOpen } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -323,13 +324,7 @@ function Navigation() {
             >
               <HelpCircle className="h-4 w-4" />
             </button>
-            <button
-              aria-label="Notifications"
-              title="Notifications"
-              className="p-1.5 text-white/65 hover:text-white transition-colors"
-            >
-              <Bell className="h-4 w-4" />
-            </button>
+            <NotificationsBell />
             <div className="[&_button]:!text-white/65 [&_button]:hover:!text-white [&_button]:!bg-transparent [&_button]:!p-1.5 [&_button]:!shadow-none [&_svg]:!h-4 [&_svg]:!w-4">
               <ThemeToggle />
             </div>
