@@ -94,6 +94,10 @@ export function HelpPanel({ open, onClose }: HelpPanelProps) {
     });
   }
 
+  function handleEmailSupport() {
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Support request")}`;
+  }
+
   function handleClose() {
     setView("main");
     form.reset();
@@ -119,7 +123,10 @@ export function HelpPanel({ open, onClose }: HelpPanelProps) {
 
             <div className="space-y-3 mt-2">
               {/* Support email */}
-              <div className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <div
+                className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={handleEmailSupport}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <Mail className="h-4 w-4 text-blue-500" />
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
@@ -132,6 +139,7 @@ export function HelpPanel({ open, onClose }: HelpPanelProps) {
                   </p>
                   <button
                     onClick={handleCopy}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex-shrink-0"
                     title="Copy email address"
                   >
