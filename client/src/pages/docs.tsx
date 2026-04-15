@@ -20,11 +20,9 @@ interface Section {
 const SECTIONS: Section[] = [
   { id: "overview",        label: "Overview",              icon: BookOpen,         color: "text-indigo-600 dark:text-indigo-400"   },
   { id: "getting-started", label: "Getting Started",       icon: Zap,              color: "text-amber-600 dark:text-amber-400"     },
-  { id: "uploading-files", label: "Uploading Weekly Files",icon: Upload,           color: "text-blue-600 dark:text-blue-400"       },
   { id: "dashboard",       label: "Dashboard",             icon: BarChart3,        color: "text-emerald-600 dark:text-emerald-400" },
   { id: "bd-matrix",       label: "Capacity / BD Matrix",  icon: Users,            color: "text-violet-600 dark:text-violet-400"   },
   { id: "schedule",        label: "Schedule",              icon: Calendar,         color: "text-rose-600 dark:text-rose-400"       },
-  { id: "people-planner",  label: "People Planner Sync",   icon: RefreshCw,        color: "text-orange-600 dark:text-orange-400"   },
   { id: "faq",             label: "Common Issues / FAQs",  icon: Search,           color: "text-gray-600 dark:text-gray-400"       },
 ];
 
@@ -214,59 +212,6 @@ export default function DocsPage() {
             </Note>
           </section>
 
-          <Divider />
-
-          {/* ── Uploading Weekly Files ── */}
-          <section className="mb-2">
-            <SectionHeading id="uploading-files" icon={Upload} label="Uploading Weekly Files" color="text-blue-600 dark:text-blue-400" />
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-              Each week, you upload three Excel files exported from People Planner. These are the same standard reports you've always used — you just upload them here instead of working with them manually.
-            </p>
-
-            <SubHeading>The three required files</SubHeading>
-            <div className="space-y-3 mb-4">
-              {[
-                {
-                  name: "Availability Export",
-                  desc: "Contains each Care Pro's availability windows and any leave or unavailability for the week (holidays, sick days, appointments, etc.).",
-                },
-                {
-                  name: "Guaranteed Hours Export",
-                  desc: "Contains all scheduled visits for the week — who's visiting which client, when, and for how long. Also includes office time, training, and shadowing.",
-                },
-                {
-                  name: "CG Data Export",
-                  desc: "The Care Pro master list — contracted weekly hours, transport type, and home postcode. Care Pros not in this file will be excluded from all calculations.",
-                },
-              ].map(({ name, desc }) => (
-                <div key={name} className="flex gap-3 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20">
-                  <FileSpreadsheet className="w-4 h-4 text-blue-500 shrink-0 mt-1" />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{name}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <SubHeading>How uploading works</SubHeading>
-            <ul className="space-y-2 mb-4">
-              {[
-                "Drag all three files onto the upload panel at once, or click to browse and select them.",
-                "The system processes them automatically — it usually takes a few seconds.",
-                "Re-uploading for the same week replaces the previous data. You won't lose historical weeks.",
-                "Use the week picker to switch between previously uploaded weeks.",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <CheckCircle className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <Divider />
-
           {/* ── Dashboard ── */}
           <section className="mb-2">
             <SectionHeading id="dashboard" icon={BarChart3} label="Dashboard" color="text-emerald-600 dark:text-emerald-400" />
@@ -279,23 +224,31 @@ export default function DocsPage() {
               {[
                 {
                   kpi: "Net Capacity",
-                  desc: "The total hours your team could work this week, after accounting for holidays, sick days, and other unavailability. This is the ceiling — not necessarily how much is scheduled.",
+                  desc: "The total working time available to the branch after removing holidays, sickness, appointments, and other unavailable time. Think of this as your weekly staffing ceiling.",
                 },
                 {
                   kpi: "Scheduled Hours",
-                  desc: "The total hours of care visits and office/training time that are actually assigned to Care Pros for the week.",
+                  desc: "The hours already assigned to Care Pros for the selected week. This includes care visits and any included office, training, shadowing, or admin time.",
                 },
                 {
                   kpi: "Client Required",
-                  desc: "The total hours of care that clients need this week, based on scheduled visits. This shows demand, separately from what staff are delivering.",
+                  desc: "The amount of care clients need this week based on the rota. This helps you compare demand against what your team is delivering.",
                 },
                 {
                   kpi: "Utilisation",
-                  desc: "Scheduled hours as a percentage of net capacity. A figure above 85% means the team is nearly full and there's limited room for new clients without extra recruitment.",
+                  desc: "Scheduled hours shown as a percentage of available capacity. Higher numbers mean your team is busier and has less room for new work.",
                 },
                 {
                   kpi: "GH Loss",
-                  desc: "Care Pros on Guaranteed Hours contracts who have worked fewer hours than their contracted target this week. A red figure here means contracted hours are not being filled — whether due to leave, gaps in the rota, or insufficient visit allocation.",
+                  desc: "Guaranteed-hours Care Pros who have worked fewer hours than their weekly target. This highlights contract hours that are not being filled, whether because of leave, gaps in the rota, or not enough visits.",
+                },
+                {
+                  kpi: "Unallocated Visits",
+                  desc: "Visits that could not be assigned automatically. This usually means the team is full at that time, or the visit does not fit travel, timing, or availability rules.",
+                },
+                {
+                  kpi: "Available Care Pros",
+                  desc: "The number of Care Pros with a free window for the selected day or time block. This helps the branch see where there is room to place new work.",
                 },
               ].map(({ kpi, desc }) => (
                 <div key={kpi} className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40">
@@ -373,28 +326,6 @@ export default function DocsPage() {
 
             <Note type="info">
               The scheduler respects daily working time limits, travel time between visits, and contracted weekly hours. It will never assign a Care Pro more than their contracted hours allow, and it won't schedule back-to-back visits that require more travel time than the gap between them.
-            </Note>
-          </section>
-
-          <Divider />
-
-          {/* ── People Planner Sync ── */}
-          <section className="mb-2">
-            <SectionHeading id="people-planner" icon={RefreshCw} label="People Planner Sync" color="text-orange-600 dark:text-orange-400" />
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-              Instead of manually exporting files from People Planner each week, you can use the Sync panel to pull fresh data directly. The system logs into People Planner on your behalf, downloads the three required reports, and processes them automatically — the same result as a manual upload, without the manual steps.
-            </p>
-
-            <SubHeading>Running a sync</SubHeading>
-            <StepList color="orange" steps={[
-              { title: "Open the People Planner panel", body: "Click the 'People Planner' option in the navigation or use the sync button on the Dashboard when no data is loaded." },
-              { title: "Select the target week", body: "Choose which week you want to pull data for." },
-              { title: "Start the sync", body: "Click 'Sync from People Planner'. The panel shows live progress as each of the three reports is downloaded." },
-              { title: "Wait for completion", body: "The sync typically takes 30–90 seconds. Once complete, the dashboard updates with the fresh data." },
-            ]} />
-
-            <Note type="warning">
-              The sync requires your People Planner credentials to be configured by an administrator. If the sync fails or times out, check whether People Planner is accessible and whether there have been any recent changes to the People Planner interface. Contact your admin if the problem persists.
             </Note>
           </section>
 
