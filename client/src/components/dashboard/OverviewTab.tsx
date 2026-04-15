@@ -686,9 +686,11 @@ export function OverviewTab({
               {ghLossData.items.map((item) => (
                 <div key={item.name} className="py-3 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{item.name}</div>
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      {item.name.includes(", ") ? item.name.split(", ").reverse().join(" ") : item.name}
+                    </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3 flex-wrap">
-                      <span>Target: <span className="font-medium text-gray-700 dark:text-gray-300">{item.ghHours}h</span></span>
+                      <span>Contracted: <span className="font-medium text-gray-700 dark:text-gray-300">{item.ghHours}h</span></span>
                       {item.weeklyUnavailability > 0 && (
                         <span>Unavail: <span className="font-medium text-gray-700 dark:text-gray-300">{item.weeklyUnavailability}h</span></span>
                       )}
