@@ -180,6 +180,7 @@ export default function DocsPage() {
             <div className="grid grid-cols-2 gap-3 mb-4">
               {[
                 { icon: BarChart3, label: "Dashboard",         desc: "Weekly KPIs: net capacity, scheduled hours, GH Loss, and utilisation at a glance" },
+                { icon: Clock,     label: "Daily View",        desc: "See each Care Pro's status, scheduled hours, and free time by day" },
                 { icon: Users,     label: "BD Matrix",         desc: "See which Care Pros have free windows for new client visits, by day and time block" },
                 { icon: Calendar,  label: "Schedule",          desc: "Automatically match unallocated visits to available Care Pros" },
                 { icon: Zap,       label: "People Planner",    desc: "Pull fresh data directly from People Planner without manual exports" },
