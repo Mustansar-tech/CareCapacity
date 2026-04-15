@@ -137,14 +137,6 @@ export function HelpPanel({ open, onClose }: HelpPanelProps) {
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
                     Email support directly
                   </div>
-                  <button
-                    onClick={handleCopy}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex-shrink-0"
-                    title="Copy email address"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
                   For access issues, data questions, or urgent scheduling problems, email the support team directly.
