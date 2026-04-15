@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useBranch } from "@/contexts/BranchContext";
 
-const SUPPORT_EMAIL = "support@homeinstead.co.uk";
+const SUPPORT_EMAIL = "mustansar.hussain@sg.homeinstead.co.uk";
 
 const bugReportSchema = z.object({
   title: z.string().min(1, "Please enter a title").max(200),
