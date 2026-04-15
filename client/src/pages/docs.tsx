@@ -224,19 +224,19 @@ export default function DocsPage() {
               {[
                 {
                   kpi: "Desired Hours",
-                  desc: "Total weekly desired hours across the branch.",
+                  desc: "Total weekly desired hours.",
                 },
                 {
                   kpi: "Unavailability",
-                  desc: "Weekly unavailability recorded for the branch.",
+                  desc: "Weekly unavailability.",
                 },
                 {
                   kpi: "Sickness",
-                  desc: "Weekly sickness hours.",
+                  desc: "Weekly sickness.",
                 },
                 {
                   kpi: "Holidays",
-                  desc: "Weekly annual leave hours.",
+                  desc: "Weekly annual leave.",
                 },
                 {
                   kpi: "Net Capacity",
@@ -244,23 +244,23 @@ export default function DocsPage() {
                 },
                 {
                   kpi: "Domiciliary Hours",
-                  desc: "Client care hours for the week.",
+                  desc: "Client care hours.",
                 },
                 {
                   kpi: "Client Scheduled",
-                  desc: "Hours scheduled to meet client demand.",
+                  desc: "Hours scheduled to meet demand.",
                 },
                 {
                   kpi: "Other Scheduled",
-                  desc: "Non-client hours such as office, training, shadowing, and on-call duties.",
+                  desc: "Non-client hours.",
                 },
                 {
                   kpi: "Capacity After Scheduling",
-                  desc: "The remaining capacity after client care and other scheduled hours are removed.",
+                  desc: "Total remaining capacity.",
                 },
                 {
                   kpi: "GH Loss",
-                  desc: "Guaranteed-hours staff with hours still to fill compared with their weekly target. Double-click the card for the breakdown.",
+                  desc: "Staff with loss. Double-click for details.",
                 },
               ].map(({ kpi, desc }) => (
                 <div key={kpi} className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40">
