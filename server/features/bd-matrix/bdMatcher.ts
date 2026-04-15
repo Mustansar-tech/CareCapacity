@@ -1072,7 +1072,7 @@ async function buildTravelTimeMap(
       await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
       logger.info(`BD Matcher: ORS Matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
     } catch (err) {
-      logger.warn(`BD Matcher: ORS Matrix batch failed, cars will use OSRM fallback: ${err}`);
+      logger.warn(`BD Matcher: ORS Matrix batch failed, affected cars will be marked unreachable: ${err}`);
     }
   }
 
@@ -1152,13 +1152,7 @@ async function buildTravelTimeMap(
             mins = cacheData.durationMinutes;
             logger.info(`BD Matcher [${cp.empName}]: ${deps[0].source} (${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}) → enquiry = ${mins}min [${cacheData.source}]`);
           } else {
-            // Cache miss — OSRM fallback (free, no quota)
-            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — using OSRM fallback`);
-            const osrmData = await travelTimeService.fetchOSRMRouteFallback(coords, clientCoords);
-            if (osrmData) {
-              mins = osrmData.durationMinutes;
-              logger.info(`BD Matcher [${cp.empName}]: ${deps[0].source} OSRM fallback = ${mins}min`);
-            }
+            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — skipping (ORS only)`);
           }
         } else {
           // Walkers/public: use TravelTime API with heuristic fallback

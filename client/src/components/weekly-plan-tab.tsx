@@ -260,7 +260,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       // Pre-fetch real road travel times from backend before scheduling.
-      // This seeds the in-memory travel cache with ORS/OSRM distances so the
+      // This seeds the in-memory travel cache with ORS distances so the
       // scheduler uses real road times instead of straight-line Haversine estimates.
       try {
         clearTravelCache();

@@ -4,7 +4,6 @@
  * Car employees:
  *   1. ORS Matrix API (batch pre-warm, all-pairs including client→client)
  *   2. ORS Directions API (individual fallback)
- *   3. OSRM public API (real road, free, no key)
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker employees:
@@ -39,7 +38,6 @@ export interface TravelMatrix {
 export interface TravelSourceStats {
   ors: number;
   'ors-matrix': number;
-  osrm: number;
   traveltime: number;
   'traveltime-matrix': number;
   heuristic: number;
@@ -51,7 +49,6 @@ export type TransportMode = "car" | "walking" | "public";
 
 const ORS_MATRIX_BATCH_SIZE = 50;
 const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
-const OSRM_TIMEOUT_MS = 8000;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
 export class TravelTimeService {
@@ -69,7 +66,7 @@ export class TravelTimeService {
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
-  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
 
@@ -95,7 +92,7 @@ export class TravelTimeService {
   }
 
   resetSourceStats(): void {
-    this._sourceStats = { ors: 0, 'ors-matrix': 0, osrm: 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+    this._sourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();
   }
 
@@ -135,14 +132,6 @@ export class TravelTimeService {
     return cached || null;
   }
 
-  /**
-   * Public OSRM fallback — use when ORS Matrix cache miss occurs.
-   * Free, reliable fallback to real roads if ORS pre-warm failed.
-   */
-  async fetchOSRMRouteFallback(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
-    return this.fetchOSRMRoute(from, to);
-  }
-
   /** Returns true if an ORS API key is configured (Matrix calls will succeed). */
   hasORSKey(): boolean {
     return !!this.ORS_API_KEY;
@@ -150,34 +139,32 @@ export class TravelTimeService {
 
   /**
    * Direct ORS Directions API call (driving-car profile).
-   * Falls back to OSRM if the ORS API key is missing or the call fails.
+   * Returns null if the ORS API key is missing or the call fails.
    */
   async fetchORSDirections(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
-    if (this.ORS_API_KEY) {
-      try {
-        const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
-          method: 'POST',
-          headers: {
-            'Authorization': this.ORS_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
-          const distanceMeters = Math.round(data.routes[0].summary.distance);
-          this.trackSource('ors');
-          return { durationMinutes, distanceMeters };
-        }
-        const errorText = await response.text();
-        logger.warn(`[ORS Directions] API error (${response.status}): ${errorText.slice(0, 200)} — falling back to OSRM`);
-      } catch (err) {
-        logger.warn('[ORS Directions] request failed — falling back to OSRM', { error: String(err) });
+    if (!this.ORS_API_KEY) return null;
+    try {
+      const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+        method: 'POST',
+        headers: {
+          'Authorization': this.ORS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
+        const distanceMeters = Math.round(data.routes[0].summary.distance);
+        this.trackSource('ors');
+        return { durationMinutes, distanceMeters };
       }
+      const errorText = await response.text();
+      logger.warn(`[ORS Directions] API error (${response.status}): ${errorText.slice(0, 200)}`);
+    } catch (err) {
+      logger.warn('[ORS Directions] request failed', { error: String(err) });
     }
-    // Fallback to OSRM when ORS key missing or call fails
-    return this.fetchOSRMRoute(from, to);
+    return null;
   }
 
   private trackSource(source: string): void {
@@ -457,32 +444,6 @@ export class TravelTimeService {
   }
 
   /**
-   * OSRM fallback — real road distances via OpenStreetMap, free, no API key.
-   * Used for car employees when ORS is unavailable.
-   */
-  private async fetchOSRMRoute(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
-    try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), OSRM_TIMEOUT_MS);
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.code === 'Ok' && data.routes?.length > 0) {
-          return {
-            durationMinutes: Math.max(2, Math.round(data.routes[0].duration / 60)),
-            distanceMeters: Math.round(data.routes[0].distance),
-          };
-        }
-      }
-    } catch (error) {
-      logger.debug('OSRM route fetch failed:', error instanceof Error ? error.message : error);
-    }
-    return null;
-  }
-
-  /**
    * Normalise any raw transport mode string from the database or frontend
    * into one of the three canonical values: 'car' | 'walking' | 'public'.
    * Walkers are treated identically to public transport users — they both
@@ -663,38 +624,15 @@ export class TravelTimeService {
           };
         } else {
           const errorText = await response.text();
-          logger.warn(`ORS API error (${response.status}) - trying OSRM fallback: ${errorText.slice(0, 200)}`);
+          logger.warn(`ORS API error (${response.status}): ${errorText.slice(0, 200)}`);
         }
       } catch (error) {
-        logger.warn("ORS API exception - trying OSRM fallback:", error instanceof Error ? error.message : error);
+        logger.warn("ORS API exception:", error instanceof Error ? error.message : error);
       }
     }
 
-    // 4. Car — OSRM fallback
-    const osrm = await this.fetchOSRMRoute(from, to);
-    if (osrm) {
-      logger.debug(`OSRM result: ${osrm.durationMinutes} min, ${osrm.distanceMeters} m`);
-      // Cache save DISABLED: always fetch fresh from API
-      // try {
-      //   await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes: osrm.durationMinutes, distanceMeters: osrm.distanceMeters, source: 'osrm' });
-      // } catch (e) {
-      //   logger.error("Cache save (OSRM) failed:", e);
-      // }
-      this.trackSource('osrm');
-      this._sessionCache.set(sKey, { durationMinutes: osrm.durationMinutes, distanceMeters: osrm.distanceMeters, source: 'osrm' });
-      return {
-        fromLocation: from,
-        toLocation: to,
-        distanceKm: osrm.distanceMeters / 1000,
-        travelTimeMinutes: osrm.durationMinutes,
-        feasible: osrm.durationMinutes <= currentMaxTravel,
-        penaltyScore: this.calculatePenalty(osrm.durationMinutes),
-        source: 'osrm',
-      };
-    }
-
-    // 5. Car — both ORS and OSRM unavailable — mark as unreachable (no heuristic fallback)
-    logger.warn(`ORS and OSRM both failed for ${fromLat},${fromLng} → ${toLat},${toLng} — marking unreachable, will go to unallocated`);
+    // 4. Car — ORS unavailable — mark as unreachable (no heuristic fallback)
+    logger.warn(`ORS unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} — marking unreachable, will go to unallocated`);
     this.trackSource('unreachable');
     this._sessionCache.set(sKey, { durationMinutes: 9999, distanceMeters: 0, source: 'unreachable' });
     return {
