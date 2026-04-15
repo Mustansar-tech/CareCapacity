@@ -51,16 +51,6 @@ function deriveNotifications(
     const weekLabel = `${new Date(analysis.weekStartDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${new Date(analysis.weekEndDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 
     const procId = `proc:${analysis.id}`;
-    notifications.push({
-      id: procId,
-      type: "success",
-      title: "Data processed",
-      message: `Week ${weekLabel} has been analysed successfully.`,
-      timestamp: uploadedAt,
-      read: readIds.has(procId),
-      link: "/app/dashboard",
-    });
-
     const warnings = (analysis.warnings as string[] | undefined) ?? [];
     if (warnings.length > 0) {
       const warnId = `warn:${analysis.id}`;
