@@ -183,7 +183,6 @@ export default function DocsPage() {
                 { icon: Clock,     label: "Daily View",        desc: "See each Care Pro's status, scheduled hours, and free time by day" },
                 { icon: Users,     label: "BD Matrix",         desc: "See which Care Pros have free windows for new client visits, by day and time block" },
                 { icon: Calendar,  label: "Schedule",          desc: "Automatically match unallocated visits to available Care Pros" },
-                { icon: Zap,       label: "People Planner",    desc: "Pull fresh data directly from People Planner without manual exports" },
               ].map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-4">
                   <Icon className="w-4 h-4 text-indigo-500 mb-2" />
