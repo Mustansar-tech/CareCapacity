@@ -250,30 +250,36 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
               </div>
             </div>
           ) : multiResults ? (
-            /* Compact results header — visit tabs + history button */
-            <div className="px-5 py-3 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-2 flex-wrap">
-              <DialogTitle className="sr-only">Enquiry Results</DialogTitle>
-              <DialogDescription className="sr-only">Match results for client enquiry</DialogDescription>
-              {multiResults.visitResults.map((_, i) => (
-                <Button
-                  key={i}
-                  variant={activeResultTab === String(i) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActiveResultTab(String(i))}
-                  className={`gap-2 font-bold rounded-xl transition-all px-4 h-8 text-xs ${
-                    activeResultTab === String(i)
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
-                      : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
-                  }`}
-                >
-                  <span className={`w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center ${
-                    activeResultTab === String(i) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-                  }`}>
-                    {i + 1}
-                  </span>
-                  Visit {i + 1}
-                </Button>
-              ))}
+            <div className="px-5 py-2.5 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-sm font-bold text-gray-900 dark:text-gray-100">Enquiry Results</DialogTitle>
+                <DialogDescription className="sr-only">Match results for client enquiry</DialogDescription>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap ml-3">
+                {multiResults.visitResults.map((_, i) => (
+                  <Button
+                    key={i}
+                    variant={activeResultTab === String(i) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActiveResultTab(String(i))}
+                    className={`gap-2 font-bold rounded-xl transition-all px-4 h-8 text-xs ${
+                      activeResultTab === String(i)
+                        ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
+                        : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
+                    }`}
+                  >
+                    <span className={`w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center ${
+                      activeResultTab === String(i) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                    }`}>
+                      {i + 1}
+                    </span>
+                    Visit {i + 1}
+                  </Button>
+                ))}
+              </div>
               <div className="flex-1" />
               <Button
                 variant="outline"
