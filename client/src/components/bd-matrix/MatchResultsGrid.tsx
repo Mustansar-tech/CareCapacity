@@ -173,7 +173,7 @@ export function MatchResultsGrid({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
+                onClick={async () => {
                   const allVisits = (visitTabs ?? []).map(vt => ({
                     visitIndex: vt.index,
                     visitLabel: vt.label,
@@ -186,7 +186,7 @@ export function MatchResultsGrid({
                       careProsRequired: vr.careProsRequired,
                     })));
                   }
-                  exportSchedulePdf(
+                  await exportSchedulePdf(
                     starredMap,
                     result.clientName,
                     result.postcode,
