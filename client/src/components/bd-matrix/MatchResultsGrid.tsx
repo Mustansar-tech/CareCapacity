@@ -230,12 +230,14 @@ export function MatchResultsGrid({
                 {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
                   const genderPref = vr.genderPreferences[cpIdx] || 'any';
 
+                  const cellHeight = `calc((100vh - 140px) / ${totalCpRows})`;
+                  const isCp2Plus = cpIdx > 0;
                   return (
-                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                    <tr key={`${vr.visitIndex}-${cpIdx}`} className={`group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors ${isCp2Plus ? 'border-t-2 border-gray-300 dark:border-gray-600' : ''}`}>
                       {displayDays.map(day => {
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <td key={day} className={`p-2 bg-gray-50/10 dark:bg-gray-900/5 ${totalCpRows === 1 ? 'h-[calc(100vh-160px)]' : ''}`}>
+                            <td key={day} className="p-2 bg-gray-50/10 dark:bg-gray-900/5" style={{ height: cellHeight }}>
                               <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
                                 <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
                               </div>
@@ -292,8 +294,8 @@ export function MatchResultsGrid({
                           : sorted;
 
                         return (
-                          <td key={day} className={`p-1.5 align-top min-w-[230px] ${totalCpRows === 1 ? 'h-[calc(100vh-160px)]' : ''}`}>
-                            <div className={`${vr.careProsRequired > 1 ? 'overflow-y-auto max-h-[315px]' : ''} pr-1 space-y-2`}>
+                          <td key={day} className="p-1.5 align-top min-w-[230px]" style={{ height: cellHeight }}>
+                            <div className="h-full overflow-y-auto pr-1 space-y-2"  style={{ maxHeight: cellHeight }}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
                                   const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
