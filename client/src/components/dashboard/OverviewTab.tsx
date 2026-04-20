@@ -108,16 +108,16 @@ export function OverviewTab({
   }, [data]);
 
   const buildBreakdown = (statuses: string[]) => {
-    if (!data?.employeeSummaryByDate) return { total: 0, items: [] as Array<{ name: string; hours: number; days: number }> };
+    if (!data?.employeesByDate) return [] as Array<{ name: string; hours: number; days: number }>;
     const map = new Map<string, { hours: number; days: Set<string> }>();
-    Object.entries(data.employeeSummaryByDate).forEach(([date, employees]) => {
+    Object.entries(data.employeesByDate).forEach(([date, employees]) => {
       employees.forEach((emp) => {
-        if (!statuses.includes((emp as any).status ?? "")) return;
-        const employeeName = (emp as any).employeeName ?? "";
-        const existing = map.get(employeeName) ?? { hours: 0, days: new Set<string>() };
-        existing.hours += ((emp as any).unavailabilityHours ?? 0);
+        if (!statuses.includes(emp.status)) return;
+        const existing = map.get(emp.employeeName) ?? { hours: 0, days: new Set<string>() };
+        const dailyCap = emp.contractedDailyHours > 0 ? emp.contractedDailyHours : (emp.hours || 0);
+        existing.hours += Math.min(emp.hours || 0, dailyCap);
         existing.days.add(date);
-        map.set(employeeName, existing);
+        map.set(emp.employeeName, existing);
       });
     });
     return Array.from(map.entries())
