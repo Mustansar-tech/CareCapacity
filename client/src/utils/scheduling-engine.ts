@@ -1495,17 +1495,20 @@ export function generateWeeklySchedule(
   
   for (const date of weekDates) {
     const allSchedules = schedulesByDate[date] || [];
-    const walkerSchedules = allSchedules.filter(s => s.transportMode === 'walking');
+    // Only count non-GH walkers — GH walkers are handled in the main GH-priority phase
+    const walkerSchedules = allSchedules.filter(s => s.transportMode === 'walking' && !isGHEmployee(s.employeeName));
     totalWalkers += walkerSchedules.length;
   }
   
   if (totalWalkers > 0) {
-    clientLogger.log(`\n🚶 WALKER-FIRST PHASE: ${totalWalkers} walking employees across ${weekDates.length} days`);
-    clientLogger.log('   Walkers use PROXIMITY rules (same postcode or ≤1.5km), NOT travel time calculations.');
+    clientLogger.log(`\n🚶 NON-GH WALKER PHASE: ${totalWalkers} walking employees across ${weekDates.length} days`);
+    clientLogger.log('   Non-GH walkers use PROXIMITY rules (same postcode or ≤1.5km), NOT travel time calculations.');
+    clientLogger.log('   NOTE: GH walkers are handled in the main GH-priority phase instead.');
     
     for (const visit of sortedVisits) {
       const allSchedules = schedulesByDate[visit.date] || [];
-      const walkerSchedules = allSchedules.filter(s => s.transportMode === 'walking');
+      // Only non-GH walkers here — GH walkers get priority in the main GH phase
+      const walkerSchedules = allSchedules.filter(s => s.transportMode === 'walking' && !isGHEmployee(s.employeeName));
       
       if (walkerSchedules.length === 0) continue;
       
@@ -1558,44 +1561,55 @@ export function generateWeeklySchedule(
       const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
       const alreadyAssignedEmployees = visitEmployeeAssignments.get(visitKey) || new Set<string>();
 
-      // Filter out employees already assigned to this exact time slot
-      // Also filter out walkers (they only get proximity-based assignments)
-      const availableSchedules = employeeSchedules.filter(s => 
+      // Car/public employees not already assigned to this slot
+      const availableCarSchedules = employeeSchedules.filter(s =>
         !alreadyAssignedEmployees.has(s.employeeName) && s.transportMode !== 'walking'
       );
 
-      if (availableSchedules.length === 0) {
-        unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot (multiple care) or only walkers available' });
+      // GH walkers for this slot — get first priority via proximity rules
+      const ghWalkerSchedules = employeeSchedules.filter(s =>
+        s.transportMode === 'walking' && isGHEmployee(s.employeeName) && !alreadyAssignedEmployees.has(s.employeeName)
+      );
+
+      const allAvailableSchedules = [...availableCarSchedules, ...ghWalkerSchedules];
+
+      if (allAvailableSchedules.length === 0) {
+        unallocated.push({ ...visit, reason: 'All employees already assigned to this time slot or only non-GH walkers available' });
         continue;
       }
 
-      // Separate GH and non-GH employees for two-phase allocation
-      const ghEmployees = availableSchedules.filter(s => isGHEmployee(s.employeeName));
-      
-      // Calculate GH employees who still have unfilled contracted hours
-      const ghWithCapacity = ghEmployees.filter(s => {
-        const remaining = s.weeklyContractedMinutes - s.weeklyUsedMinutes;
-        return remaining > 0;
-      });
+      // Phase 1: GH WALKERS FIRST — proximity-based assignment for GH walking employees
+      let result: { success: boolean; reason?: string; employeeName?: string } =
+        ghWalkerSchedules.length > 0
+          ? tryAssignVisitToWalker(visit, ghWalkerSchedules, assignedVisitIds, weeklyUsedMap, visitEmployeeAssignments)
+          : { success: false, reason: 'No GH walkers available' };
 
-      // Phase 1: STRICT GH-FIRST - Try to assign to GH employees who need hours
-      let result = ghWithCapacity.length > 0
-        ? assignVisitToBestEmployee(visit, ghWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate)
-        : { success: false, reason: 'No GH employees with remaining capacity' };
-
-      // Phase 1b: If no GH with capacity, try all GH employees (they may still want visits)
-      if (!result.success && ghEmployees.length > 0) {
-        result = assignVisitToBestEmployee(visit, ghEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
-      }
-
-      // Phase 2: If not assigned to GH employee, try all (non-walker) employees
       if (!result.success) {
-        result = assignVisitToBestEmployee(visit, availableSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+        // Phase 2: GH car/public employees with remaining contracted hours
+        const ghCarEmployees = availableCarSchedules.filter(s => isGHEmployee(s.employeeName));
+        const ghWithCapacity = ghCarEmployees.filter(s => {
+          const remaining = s.weeklyContractedMinutes - s.weeklyUsedMinutes;
+          return remaining > 0;
+        });
+
+        result = ghWithCapacity.length > 0
+          ? assignVisitToBestEmployee(visit, ghWithCapacity, assignedVisitIds, weeklyUsedMap, schedulesByDate)
+          : { success: false, reason: 'No GH car employees with remaining capacity' };
+
+        // Phase 2b: All GH car employees regardless of capacity
+        if (!result.success && ghCarEmployees.length > 0) {
+          result = assignVisitToBestEmployee(visit, ghCarEmployees, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+        }
+
+        // Phase 3: All non-walker employees (non-GH car/public)
+        if (!result.success && availableCarSchedules.length > 0) {
+          result = assignVisitToBestEmployee(visit, availableCarSchedules, assignedVisitIds, weeklyUsedMap, schedulesByDate);
+        }
       }
-      
+
       // Log GH assignment for tracking
       if (result.success && result.employeeName && isGHEmployee(result.employeeName)) {
-        const schedule = availableSchedules.find(s => s.employeeName === result.employeeName);
+        const schedule = allAvailableSchedules.find(s => s.employeeName === result.employeeName);
         if (schedule) {
           const usedPct = schedule.weeklyContractedMinutes > 0 
             ? ((schedule.weeklyUsedMinutes / schedule.weeklyContractedMinutes) * 100).toFixed(0)
