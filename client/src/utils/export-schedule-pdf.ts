@@ -14,49 +14,72 @@ interface VisitInfo {
   careProsRequired: number;
 }
 
-// ── SVG icons matching lucide-react Car and PersonStanding ──────────────────
-const CAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17H5a2 2 0 0 1-2-2V9a2 2 0 0 1 .586-1.414L6 5h12l2.414 2.586A2 2 0 0 1 21 9v6a2 2 0 0 1-2 2Z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg>`;
-
-const WALK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><path d="m9 20 3-6 3 6"/><path d="m6 8 6 2 6-2"/><path d="m12 10-2 5"/></svg>`;
-
-async function svgToPng(svgStr: string, size: number): Promise<string> {
-  return new Promise((resolve) => {
-    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(''); return; }
-      ctx.drawImage(img, 0, 0, size, size);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(''); };
-    img.src = url;
-  });
+// ── Matches normalizeTransportMode from bd-matrix-utils ─────────────────────
+function getTransportType(raw?: string): 'car' | 'walking' | 'recruiter' | null {
+  if (!raw || raw.trim() === '') return null;
+  const s = raw.toLowerCase().trim();
+  if (s.includes('recruiter')) return 'recruiter';
+  if (s.includes('walk') || s.includes('foot') || s.includes('pedestrian')) return 'walking';
+  return 'car'; // default (same as normalizeTransportMode)
 }
 
+// ── Matches normalizeGender from bd-matrix-utils ─────────────────────────────
 function genderRgb(gender?: string): [number, number, number] {
   if (!gender) return [30, 100, 50];
-  const lower = gender.toLowerCase();
-  if (lower === 'female' || lower === 'f') return [185, 40, 95];
-  if (lower === 'male' || lower === 'm') return [29, 78, 200];
+  const v = gender.toLowerCase().trim();
+  if (v === 'female' || v === 'f' || v === 'miss' || v === 'ms' || v === 'mrs') return [185, 40, 95];
+  if (v === 'male' || v === 'm' || v === 'mr') return [29, 78, 200];
   return [30, 100, 50];
 }
 
-function normalizeTransport(mode?: string): 'car' | 'walk' | 'recruiter' | null {
-  if (!mode || mode.trim() === '') return null;
-  const lower = mode.toLowerCase();
-  if (lower.includes('recruiter')) return 'recruiter';
-  if (lower.includes('car') || lower.includes('driv')) return 'car';
-  if (lower.includes('walk') || lower.includes('foot') || lower.includes('person')) return 'walk';
-  return null;
+// ── Vector car icon (blue) ───────────────────────────────────────────────────
+function drawCarIcon(doc: jsPDF, x: number, y: number, s: number) {
+  const r = 37, g = 99, b = 235;
+  doc.setDrawColor(r, g, b);
+  doc.setLineWidth(0.35);
+  // Roof
+  doc.roundedRect(x + s * 0.22, y + s * 0.08, s * 0.56, s * 0.32, 0.4, 0.4, 'S');
+  // Body
+  doc.roundedRect(x + s * 0.04, y + s * 0.32, s * 0.92, s * 0.42, 0.4, 0.4, 'S');
+  // Wheels
+  doc.setFillColor(r, g, b);
+  doc.circle(x + s * 0.26, y + s * 0.82, s * 0.13, 'F');
+  doc.circle(x + s * 0.74, y + s * 0.82, s * 0.13, 'F');
+  // Hubcaps
+  doc.setFillColor(255, 255, 255);
+  doc.circle(x + s * 0.26, y + s * 0.82, s * 0.06, 'F');
+  doc.circle(x + s * 0.74, y + s * 0.82, s * 0.06, 'F');
 }
 
-export async function exportSchedulePdf(
+// ── Vector walking-person icon (green) ──────────────────────────────────────
+function drawWalkIcon(doc: jsPDF, x: number, y: number, s: number) {
+  const r = 22, g = 163, b = 74;
+  doc.setDrawColor(r, g, b);
+  doc.setFillColor(r, g, b);
+  doc.setLineWidth(0.35);
+  // Head
+  doc.circle(x + s * 0.55, y + s * 0.13, s * 0.12, 'F');
+  // Body
+  doc.line(x + s * 0.55, y + s * 0.25, x + s * 0.48, y + s * 0.60);
+  // Arms
+  doc.line(x + s * 0.52, y + s * 0.35, x + s * 0.25, y + s * 0.45);
+  doc.line(x + s * 0.52, y + s * 0.35, x + s * 0.72, y + s * 0.28);
+  // Legs
+  doc.line(x + s * 0.48, y + s * 0.60, x + s * 0.28, y + s * 0.90);
+  doc.line(x + s * 0.48, y + s * 0.60, x + s * 0.68, y + s * 0.88);
+}
+
+// ── Recruiter dot (amber) ────────────────────────────────────────────────────
+function drawRecruiterBadge(doc: jsPDF, x: number, y: number, s: number) {
+  doc.setFillColor(251, 146, 60);
+  doc.roundedRect(x, y, s * 1.6, s * 0.85, 0.3, 0.3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('NEW', x + s * 0.18, y + s * 0.65);
+}
+
+export function exportSchedulePdf(
   starredMap: Record<string, StarredSelection>,
   clientName: string,
   postcode: string | undefined,
@@ -64,12 +87,6 @@ export async function exportSchedulePdf(
   enquiryTimeEnd: string | undefined,
   allVisits: VisitInfo[]
 ) {
-  // Pre-generate transport icon PNGs (32×32 for good resolution at small display size)
-  const [carPng, walkPng] = await Promise.all([
-    svgToPng(CAR_SVG, 32),
-    svgToPng(WALK_SVG, 32),
-  ]);
-
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   const title = [clientName, postcode].filter(Boolean).join('  –  ');
@@ -96,7 +113,7 @@ export async function exportSchedulePdf(
   ];
   const weekendDays = new Set(['sat', 'sun']);
 
-  // ── Derive max CP index per visit from starred keys (fixes CP2 not showing) ──
+  // Derive max CP index per visit directly from the starred keys
   const maxCpByVisit: Record<number, number> = {};
   for (const key of Object.keys(starredMap)) {
     const parts = key.split('-');
@@ -110,7 +127,6 @@ export async function exportSchedulePdf(
     }
   }
 
-  // Ensure allVisits careProsRequired covers all starred CPs
   const resolvedVisits = allVisits.map(v => ({
     ...v,
     careProsRequired: Math.max(v.careProsRequired, (maxCpByVisit[v.visitIndex] ?? 0) + 1),
@@ -119,11 +135,11 @@ export async function exportSchedulePdf(
   const head = [['Day', ...resolvedVisits.map(v => v.visitLabel || `Visit ${v.visitIndex + 1}`)]];
 
   type LineMeta = {
-    prefix: string;       // e.g. "CP1: " or ""
+    prefix: string;
     name: string;
     timeWindow: string;
     gender?: string;
-    transport: 'car' | 'walk' | 'recruiter' | null;
+    transport: 'car' | 'walking' | 'recruiter' | null;
   };
   type CellMeta = {
     lines: LineMeta[];
@@ -152,7 +168,7 @@ export async function exportSchedulePdf(
             name: sel.employeeName,
             timeWindow: sel.timeWindow,
             gender: sel.gender,
-            transport: normalizeTransport(sel.transportMode),
+            transport: getTransportType(sel.transportMode),
           });
         }
       }
@@ -171,6 +187,11 @@ export async function exportSchedulePdf(
   });
 
   const startY = subtitle ? 26 : 19;
+  const iconSize = 3.5;
+  const iconGap = 1.2;
+  const lineH = 5.8;
+  const padX = 4;
+  const padY = 3.5;
 
   autoTable(doc, {
     head,
@@ -178,7 +199,7 @@ export async function exportSchedulePdf(
     startY,
     styles: {
       fontSize: 8.5,
-      cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+      cellPadding: { top: padY, right: padX, bottom: padY, left: padX },
       lineColor: [180, 180, 180],
       lineWidth: 0.25,
       valign: 'top',
@@ -208,9 +229,9 @@ export async function exportSchedulePdf(
       if (data.section !== 'body' || data.column.index === 0) return;
       const meta = cellMeta[data.row.index]?.[data.column.index];
       if (!meta?.hasContent) return;
-      // Suppress default text so we can draw each line in its own color + icon
-      const textArr = data.cell.text as string[];
-      textArr.splice(0, textArr.length);
+      // Suppress default text — we draw everything manually in didDrawCell
+      const t = data.cell.text as string[];
+      t.splice(0, t.length);
     },
 
     didDrawCell: (data) => {
@@ -219,68 +240,68 @@ export async function exportSchedulePdf(
       if (!meta?.hasContent) return;
 
       const { x, y, width, height } = data.cell;
-      const padX = 4;
-      const padY = 4;
-      const iconSize = 3.5;        // mm — small icon next to the name
-      const iconGap = 1;           // gap after icon
-      const lineHeight = 5.5;
-      const maxTextWidth = width - padX * 2 - iconSize - iconGap;
-      let curY = y + padY + lineHeight * 0.7;
+      const maxW = width - padX * 2 - iconSize - iconGap;
+      let curY = y + padY + lineH * 0.72;
 
       doc.setFontSize(8.5);
 
       for (const line of meta.lines) {
-        if (curY > y + height - 2) break;
-        const rgb = genderRgb(line.gender);
+        if (curY > y + height - 1.5) break;
+
+        const iconY = curY - iconSize * 0.82;
         const iconX = x + padX;
         const textX = iconX + iconSize + iconGap;
 
-        // Draw transport icon (PNG)
-        if (line.transport === 'car' && carPng) {
-          try { doc.addImage(carPng, 'PNG', iconX, curY - iconSize + 0.5, iconSize, iconSize); } catch (_) {}
-        } else if (line.transport === 'walk' && walkPng) {
-          try { doc.addImage(walkPng, 'PNG', iconX, curY - iconSize + 0.5, iconSize, iconSize); } catch (_) {}
+        // Transport icon
+        if (line.transport === 'car') {
+          drawCarIcon(doc, iconX, iconY, iconSize);
+        } else if (line.transport === 'walking') {
+          drawWalkIcon(doc, iconX, iconY, iconSize);
         } else if (line.transport === 'recruiter') {
-          doc.setFontSize(6);
-          doc.setTextColor(180, 110, 10);
-          doc.setFont('helvetica', 'bold');
-          doc.text('NEW', iconX, curY, { maxWidth: iconSize + iconGap });
-          doc.setFontSize(8.5);
+          drawRecruiterBadge(doc, iconX, iconY + iconSize * 0.1, iconSize);
         }
 
-        // CP prefix in neutral color
+        const rgb = genderRgb(line.gender);
+
         if (line.prefix) {
-          doc.setTextColor(80, 80, 80);
+          // "CP1: " in grey
+          doc.setTextColor(100, 100, 100);
           doc.setFont('helvetica', 'normal');
-          const prefixW = doc.getTextWidth(line.prefix);
-          doc.text(line.prefix, textX, curY, { maxWidth: maxTextWidth });
-          // Name in gender color
+          const prefW = doc.getTextWidth(line.prefix);
+          doc.text(line.prefix, textX, curY);
+
+          // Name in gender colour
           doc.setTextColor(rgb[0], rgb[1], rgb[2]);
           doc.setFont('helvetica', 'bold');
-          doc.text(line.name, textX + prefixW, curY, { maxWidth: maxTextWidth - prefixW });
-          // Time window
           const nameW = doc.getTextWidth(line.name);
-          doc.setTextColor(60, 80, 60);
+          doc.text(line.name, textX + prefW, curY, { maxWidth: maxW - prefW });
+
+          // Time window in muted green
+          doc.setTextColor(70, 100, 70);
           doc.setFont('helvetica', 'normal');
-          doc.text(`  ${line.timeWindow}`, textX + prefixW + nameW, curY, { maxWidth: maxTextWidth - prefixW - nameW });
+          doc.text(`  ${line.timeWindow}`, textX + prefW + nameW, curY, { maxWidth: maxW - prefW - nameW });
         } else {
-          // Name in gender color
+          // Name in gender colour
           doc.setTextColor(rgb[0], rgb[1], rgb[2]);
           doc.setFont('helvetica', 'bold');
-          doc.text(line.name, textX, curY, { maxWidth: maxTextWidth });
-          // Time window after name
           const nameW = doc.getTextWidth(line.name);
-          doc.setTextColor(60, 80, 60);
+          doc.text(line.name, textX, curY, { maxWidth: maxW });
+
+          // Time window
+          doc.setTextColor(70, 100, 70);
           doc.setFont('helvetica', 'normal');
-          doc.text(`  ${line.timeWindow}`, textX + nameW, curY, { maxWidth: maxTextWidth - nameW });
+          doc.text(`  ${line.timeWindow}`, textX + nameW, curY, { maxWidth: maxW - nameW });
         }
 
-        curY += lineHeight;
+        curY += lineH;
       }
 
-      // Reset
+      // Reset state
+      doc.setDrawColor(0);
+      doc.setFillColor(255, 255, 255);
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
+      doc.setLineWidth(0.25);
     },
   });
 
