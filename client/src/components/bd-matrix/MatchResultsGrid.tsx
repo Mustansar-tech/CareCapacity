@@ -111,18 +111,6 @@ export function MatchResultsGrid({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {onToggleSortByTravel && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onToggleSortByTravel}
-              className={`text-[10px] font-bold gap-1.5 h-7 px-3 transition-all ${sortByTravel ? 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300' : 'border-gray-200 text-gray-600 dark:border-gray-600 dark:text-gray-400 hover:border-blue-300 hover:text-blue-600'}`}
-              title={sortByTravel ? 'Sorting by nearest first — click to sort by best match' : 'Click to sort by nearest first'}
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
-              {sortByTravel ? 'Nearest First' : 'Best Match'}
-            </Button>
-          )}
           {hasAnyStars && (
             <Button
               variant="outline"
