@@ -57,14 +57,6 @@ function drawWalkIcon(doc: jsPDF, x: number, y: number, s: number) {
   doc.line(x + s * 0.48, y + s * 0.60, x + s * 0.70, y + s * 0.88);
 }
 
-function drawRecruiterBadge(doc: jsPDF, x: number, y: number, s: number) {
-  doc.setFillColor(234, 88, 12);
-  doc.roundedRect(x, y, s * 1.8, s * 0.9, 0.5, 0.5, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('NEW', x + s * 0.2, y + s * 0.7);
-}
 
 // Draw a small CP number badge (e.g. "1" or "2") in a rounded pill
 function drawCpBadge(doc: jsPDF, x: number, y: number, num: number) {
@@ -281,8 +273,6 @@ export function exportSchedulePdf(
           drawCarIcon(doc, drawX, iconY, iconSize);
         } else if (line.transport === 'walking') {
           drawWalkIcon(doc, drawX, iconY, iconSize);
-        } else if (line.transport === 'recruiter') {
-          drawRecruiterBadge(doc, drawX, iconY + iconSize * 0.05, iconSize);
         }
         drawX += iconSize + iconGap;
 
