@@ -8,10 +8,15 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Users, MapPin, Star, ArrowRight, ArrowLeft, X, Activity,
-  Home, Clock, UserCheck, XCircle, Info,
+  Home, Clock, UserCheck, XCircle, Info, History,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
 import { roundContractedHours, type MultiVisitResult, type MatchedSlot } from "@/utils/bd-matrix-utils";
+
+interface VisitTabDef {
+  index: number;
+  label: string;
+}
 
 interface MatchResultsGridProps {
   result: MultiVisitResult;
@@ -22,6 +27,11 @@ interface MatchResultsGridProps {
   enquiryPostcode?: string;
   enquiryTimeStart?: string;
   enquiryTimeEnd?: string;
+  visitTabs?: VisitTabDef[];
+  activeVisitTab?: string;
+  onVisitTabChange?: (tab: string) => void;
+  historyCount?: number;
+  onHistory?: () => void;
 }
 
 export function MatchResultsGrid({
@@ -33,6 +43,11 @@ export function MatchResultsGrid({
   enquiryPostcode,
   enquiryTimeStart,
   enquiryTimeEnd,
+  visitTabs,
+  activeVisitTab,
+  onVisitTabChange,
+  historyCount,
+  onHistory,
 }: MatchResultsGridProps) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
@@ -87,8 +102,8 @@ export function MatchResultsGrid({
 
   return (
     <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col ${className}`}>
-      <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b p-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
+      <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg" aria-hidden="true">
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
@@ -110,7 +125,46 @@ export function MatchResultsGrid({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        {visitTabs && visitTabs.length > 0 && onVisitTabChange && (
+          <div className="flex items-center gap-1.5 ml-1">
+            {visitTabs.map((vt) => (
+              <Button
+                key={vt.index}
+                variant={activeVisitTab === String(vt.index) ? "default" : "outline"}
+                size="sm"
+                onClick={() => onVisitTabChange(String(vt.index))}
+                className={`gap-1.5 font-bold rounded-xl transition-all px-3 h-7 text-[11px] ${
+                  activeVisitTab === String(vt.index)
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
+                    : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
+                }`}
+              >
+                <span className={`w-4 h-4 rounded-md text-[9px] font-black flex items-center justify-center ${
+                  activeVisitTab === String(vt.index) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                }`}>
+                  {vt.index + 1}
+                </span>
+                {vt.label}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onHistory && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onHistory}
+              className="gap-1.5 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 rounded-xl px-3 h-7 transition-all"
+            >
+              <History className="w-3.5 h-3.5" />
+              History{historyCount ? ` (${historyCount})` : ''}
+            </Button>
+          )}
           {hasAnyStars && (
             <Button
               variant="outline"
@@ -121,14 +175,14 @@ export function MatchResultsGrid({
               <X className="w-3 h-3" /> Clear Selections
             </Button>
           )}
-          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               window.dispatchEvent(new CustomEvent('bd-matcher-back'));
             }}
-            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-8 text-[10px]"
+            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-7 text-[10px]"
           >
             <ArrowLeft className="w-3 h-3" />
             Back
