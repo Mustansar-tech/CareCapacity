@@ -167,6 +167,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     if (session?.status === "completed") {
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history/latest"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       toast({
         title: "People Planner sync complete",
         description: "Dashboard data has been refreshed.",

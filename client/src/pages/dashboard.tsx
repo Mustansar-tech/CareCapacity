@@ -89,6 +89,7 @@ export default function Dashboard() {
     setSelectedDate(null);
     queryClient.invalidateQueries({ queryKey: ['/api/history'] });
     queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
   }, [selectedBranchId]);
 
   useEffect(() => {
@@ -185,6 +186,7 @@ export default function Dashboard() {
       setFiles({ availability: null, guaranteed: null, demand: null, cgData: null });
       queryClient.invalidateQueries({ queryKey: ['/api/history'] });
       queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
       toast({
         title: "Processing Complete",
         description: "Your capacity data has been analyzed successfully."
