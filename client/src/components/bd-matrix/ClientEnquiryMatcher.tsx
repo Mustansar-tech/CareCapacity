@@ -219,14 +219,40 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
           </Button>
         </DialogTrigger>
         <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
-          <div className="absolute top-4 right-4 z-20">
-            <DialogClose asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-white/90 dark:bg-gray-900/90">
-                <X className="w-4 h-4" />
-              </Button>
-            </DialogClose>
-          </div>
-          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-0'}`}>
+          <DialogTitle className="sr-only">Client Enquiry Matcher</DialogTitle>
+
+          {/* Header — shown on form/history views only */}
+          {!multiResults && (
+            <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-700 shadow-lg shadow-purple-500/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <UserCheck className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white tracking-tight leading-tight">Client Enquiry Matcher</h2>
+                  <p className="text-xs text-white/70 font-medium">Find the best care professional match for a new client</p>
+                </div>
+              </div>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-white/80 hover:text-white hover:bg-white/20">
+                  <X className="w-4 h-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          )}
+
+          {/* Floating close button — shown on results view only */}
+          {multiResults && (
+            <div className="absolute top-4 right-4 z-20">
+              <DialogClose asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-white/90 dark:bg-gray-900/90 shadow-md">
+                  <X className="w-4 h-4" />
+                </Button>
+              </DialogClose>
+            </div>
+          )}
+
+          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
             {multiResults ? (
               <div className="flex flex-col flex-1 min-h-0 gap-4 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-wrap items-center gap-2">
