@@ -7,12 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -82,6 +76,11 @@ export function OverviewTab({
   const [sicknessModalOpen, setSicknessModalOpen] = useState(false);
   const [unavailModalOpen, setUnavailModalOpen] = useState(false);
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+  const [netCapacityModalOpen, setNetCapacityModalOpen] = useState(false);
+  const [domiciliaryModalOpen, setDomiciliaryModalOpen] = useState(false);
+  const [clientScheduledModalOpen, setClientScheduledModalOpen] = useState(false);
+  const [otherScheduledModalOpen, setOtherScheduledModalOpen] = useState(false);
+  const [capacityAfterModalOpen, setCapacityAfterModalOpen] = useState(false);
   const data = filteredData || processedData;
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
@@ -535,167 +534,115 @@ export function OverviewTab({
             </Card>
 
             {/* 5. Net Capacity */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-net-capacity"
+              onDoubleClick={() => setNetCapacityModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                          <Users className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Total available hours after exclusions</p>
-                        <p className="text-xs opacity-90">Calculated as:</p>
-                        <div className="text-xs space-y-1 opacity-90 font-mono">
-                          <p>Contracted Hours − (Sickness + Holidays + Unavailability)</p>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
                   {data?.kpis.netCapacitySum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
             {/* 6. Client Required / Domiciliary Hours */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-client-required"
+              onDoubleClick={() => setDomiciliaryModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Total branch domiciliary care hours</p>
-                        <p className="text-xs opacity-90">Excludes:</p>
-                        <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
-                          <li>Cancelled visits</li>
-                          <li>Secondary/multiple care</li>
-                          <li>Office hours & training</li>
-                          <li>Sleep-in & waking nights</li>
-                          <li>Shadowing & on-call</li>
-                        </ul>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
                   {data?.kpis.clientRequiredSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">client care Hours</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
             {/* 6b. Client Scheduled Hours */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-client-scheduled"
+              onDoubleClick={() => setClientScheduledModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="center" className="max-w-xs text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Domiciliary hours scheduled</p>
-                        <p className="text-xs opacity-90">Actual client hours scheduled</p>
-                        <p className="text-xs opacity-75 font-mono">Gap = Required − Scheduled</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
                   {data?.kpis.clientScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Hours scheduled to meet demand</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
             {/* 7. Other Scheduled */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-other-scheduled"
+              onDoubleClick={() => setOtherScheduledModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Non-client hours scheduled</p>
-                        <p className="text-xs opacity-90">Includes:</p>
-                        <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
-                          <li>Office hours & admin work</li>
-                          <li>Training sessions</li>
-                          <li>Shadowing & induction</li>
-                          <li>On-call duties</li>
-                        </ul>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
+                    <Clock className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
                   {data?.kpis.otherScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
             {/* 8. Capacity After Scheduling */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-capacity-after-scheduling"
+              onDoubleClick={() => setCapacityAfterModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                          <TrendingUp className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Available capacity remaining</p>
-                        <p className="text-xs opacity-90">Calculated as:</p>
-                        <div className="text-xs space-y-1 opacity-90 font-mono">
-                          <p>Net Capacity − (Domiciliary + Other Scheduled)</p>
-                          <p className="text-xs opacity-75">Values &lt; 1h are excluded (floored)</p>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
@@ -712,6 +659,7 @@ export function OverviewTab({
                   })()}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -743,6 +691,119 @@ export function OverviewTab({
           </div>
         </div>
       )}
+
+      {/* Net Capacity Info Modal */}
+      <Dialog open={netCapacityModalOpen} onOpenChange={setNetCapacityModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                <Users className="w-3.5 h-3.5 text-white" />
+              </div>
+              Net Capacity
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Total available hours after exclusions</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Calculated as:</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
+              Contracted Hours − (Sickness + Holidays + Unavailability)
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Domiciliary Hours Info Modal */}
+      <Dialog open={domiciliaryModalOpen} onOpenChange={setDomiciliaryModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Domiciliary Hours
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Total branch domiciliary care hours</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Excludes:</p>
+            <ul className="text-xs space-y-1.5 list-disc list-inside text-gray-600 dark:text-gray-400">
+              <li>Cancelled visits</li>
+              <li>Secondary/multiple care</li>
+              <li>Office hours &amp; training</li>
+              <li>Sleep-in &amp; waking nights</li>
+              <li>Shadowing &amp; on-call</li>
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Scheduled Info Modal */}
+      <Dialog open={clientScheduledModalOpen} onOpenChange={setClientScheduledModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Client Scheduled
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Domiciliary hours scheduled</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Actual client hours scheduled</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
+              Gap = Required − Scheduled
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Other Scheduled Info Modal */}
+      <Dialog open={otherScheduledModalOpen} onOpenChange={setOtherScheduledModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Other Scheduled
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Non-client hours scheduled</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Includes:</p>
+            <ul className="text-xs space-y-1.5 list-disc list-inside text-gray-600 dark:text-gray-400">
+              <li>Office hours &amp; admin work</li>
+              <li>Training sessions</li>
+              <li>Shadowing &amp; induction</li>
+              <li>On-call duties</li>
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Capacity After Scheduling Info Modal */}
+      <Dialog open={capacityAfterModalOpen} onOpenChange={setCapacityAfterModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 text-white" />
+              </div>
+              Capacity After Scheduling
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Available capacity remaining</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Calculated as:</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono space-y-1">
+              <p>Net Capacity − (Domiciliary + Other Scheduled)</p>
+              <p className="text-gray-400 dark:text-gray-500">Values &lt; 1h are excluded (floored)</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* GH Loss Detail Modal */}
       <Dialog open={ghLossModalOpen} onOpenChange={setGhLossModalOpen}>
