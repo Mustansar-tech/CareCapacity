@@ -458,7 +458,6 @@ export function OverviewTab({
                   {data?.kpis.totalDesiredHoursSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly desired</div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -484,7 +483,6 @@ export function OverviewTab({
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"} unavailable
                 </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -510,7 +508,6 @@ export function OverviewTab({
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} off sick
                 </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -536,7 +533,6 @@ export function OverviewTab({
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday
                 </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -560,7 +556,6 @@ export function OverviewTab({
                   {data?.kpis.netCapacitySum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -584,7 +579,6 @@ export function OverviewTab({
                   {data?.kpis.clientRequiredSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">client care Hours</div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -608,7 +602,6 @@ export function OverviewTab({
                   {data?.kpis.clientScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Hours scheduled to meet demand</div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -632,7 +625,6 @@ export function OverviewTab({
                   {data?.kpis.otherScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -666,7 +658,6 @@ export function OverviewTab({
                   })()}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -692,7 +683,6 @@ export function OverviewTab({
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {ghLossData.items.length} staff with loss
                 </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
           </div>
