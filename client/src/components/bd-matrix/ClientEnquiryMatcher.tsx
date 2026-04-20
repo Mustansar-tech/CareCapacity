@@ -293,7 +293,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 enquiryPostcode={postcode}
                 enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
                 enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
-                visitTabs={multiResults.visitResults.map((_, i) => ({ index: i, label: `Visit ${i + 1}` }))}
+                visitTabs={multiResults.visitResults.map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired }))}
                 activeVisitTab={activeResultTab}
                 onVisitTabChange={setActiveResultTab}
                 historyCount={historyQuery.data?.length}

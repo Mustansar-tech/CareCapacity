@@ -8,14 +8,16 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Users, MapPin, Star, ArrowRight, ArrowLeft, X, Activity,
-  Home, Clock, UserCheck, XCircle, Info, History,
+  Home, Clock, UserCheck, XCircle, Info, History, FileDown,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
 import { roundContractedHours, type MultiVisitResult, type MatchedSlot } from "@/utils/bd-matrix-utils";
+import { exportSchedulePdf } from "@/utils/export-schedule-pdf";
 
 interface VisitTabDef {
   index: number;
   label: string;
+  careProsRequired?: number;
 }
 
 interface MatchResultsGridProps {
@@ -167,14 +169,45 @@ export function MatchResultsGrid({
             </Button>
           )}
           {hasAnyStars && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setStarredMap({})}
-              className="text-[10px] font-bold gap-1.5 h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
-            >
-              <X className="w-3 h-3" /> Clear Selections
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const allVisits = (visitTabs ?? []).map(vt => ({
+                    visitIndex: vt.index,
+                    visitLabel: vt.label,
+                    careProsRequired: vt.careProsRequired ?? result.visitResults[0]?.careProsRequired ?? 1,
+                  }));
+                  if (allVisits.length === 0) {
+                    allVisits.push(...result.visitResults.map(vr => ({
+                      visitIndex: vr.visitIndex,
+                      visitLabel: vr.visitLabel || `Visit ${vr.visitIndex + 1}`,
+                      careProsRequired: vr.careProsRequired,
+                    })));
+                  }
+                  exportSchedulePdf(
+                    starredMap,
+                    result.clientName,
+                    result.postcode,
+                    enquiryTimeStart,
+                    enquiryTimeEnd,
+                    allVisits
+                  );
+                }}
+                className="text-[10px] font-bold gap-1.5 h-7 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+              >
+                <FileDown className="w-3 h-3" /> Export PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStarredMap({})}
+                className="text-[10px] font-bold gap-1.5 h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
+              >
+                <X className="w-3 h-3" /> Clear Selections
+              </Button>
+            </>
           )}
           <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
           <Button
