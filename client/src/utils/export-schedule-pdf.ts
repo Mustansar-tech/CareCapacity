@@ -90,10 +90,7 @@ export function exportSchedulePdf(
 
   // ── Header ─────────────────────────────────────────────────────────────────
   const title = [clientName, postcode].filter(Boolean).join('  –  ');
-  const subtitle =
-    enquiryTimeStart && enquiryTimeEnd
-      ? `Visit time: ${enquiryTimeStart} – ${enquiryTimeEnd}`
-      : '';
+  const subtitle = '';
 
   // Accent bar
   doc.setFillColor(20, 20, 30);
