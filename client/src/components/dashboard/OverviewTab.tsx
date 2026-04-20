@@ -96,35 +96,48 @@ export function OverviewTab({
     );
   }, [data]);
 
-  const SICKNESS_STATUSES = ["Sick", "Partial Sick"];
-  const UNAVAIL_STATUSES = [
-    "Maternity/Paternity", "Compassionate Leave", "Other Unavailable",
-    "Pre-Agreed Appointment", "Partial Maternity/Paternity",
-    "Partial Compassionate Leave", "Partial Availability",
-  ];
+  const dayBreakdown = useMemo(() => {
+    if (!data?.dailySummary) return { sickness: 0, unavailability: 0 };
+    return data.dailySummary.reduce(
+      (acc, day) => ({
+        sickness: Math.round((acc.sickness + (day.sickness || 0)) * 100) / 100,
+        unavailability: Math.round((acc.unavailability + (day.unavailability || 0)) * 100) / 100,
+      }),
+      { sickness: 0, unavailability: 0 },
+    );
+  }, [data]);
 
   const buildBreakdown = (statuses: string[]) => {
-    if (!data?.employeesByDate) return { total: 0, items: [] as Array<{ name: string; hours: number; days: number }> };
+    if (!data?.employeeSummaryByDate) return { total: 0, items: [] as Array<{ name: string; hours: number; days: number }> };
     const map = new Map<string, { hours: number; days: Set<string> }>();
-    Object.entries(data.employeesByDate).forEach(([date, employees]) => {
+    Object.entries(data.employeeSummaryByDate).forEach(([date, employees]) => {
       employees.forEach((emp) => {
-        if (!statuses.includes(emp.status)) return;
-        const existing = map.get(emp.employeeName) ?? { hours: 0, days: new Set<string>() };
-        existing.hours += emp.hours || 0;
+        if (!statuses.includes((emp as any).status ?? "")) return;
+        const employeeName = (emp as any).employeeName ?? "";
+        const existing = map.get(employeeName) ?? { hours: 0, days: new Set<string>() };
+        existing.hours += ((emp as any).unavailabilityHours ?? 0);
         existing.days.add(date);
-        map.set(emp.employeeName, existing);
+        map.set(employeeName, existing);
       });
     });
-    const items = Array.from(map.entries())
+    return Array.from(map.entries())
       .map(([name, v]) => ({ name, hours: Math.round(v.hours * 100) / 100, days: v.days.size }))
       .filter((i) => i.hours > 0 || i.days > 0)
       .sort((a, b) => b.hours - a.hours);
-    const total = Math.round(items.reduce((s, i) => s + i.hours, 0) * 100) / 100;
-    return { total, items };
   };
 
-  const sicknessBreakdown = useMemo(() => buildBreakdown(SICKNESS_STATUSES), [data]);
-  const unavailBreakdown = useMemo(() => buildBreakdown(UNAVAIL_STATUSES), [data]);
+  const sicknessBreakdown = useMemo(() => {
+    const items = buildBreakdown(["Sick", "Partial Sick"]);
+    return { total: dayBreakdown.sickness, items };
+  }, [data, dayBreakdown.sickness]);
+  const unavailBreakdown = useMemo(() => {
+    const items = buildBreakdown([
+      "Maternity/Paternity", "Compassionate Leave", "Other Unavailable",
+      "Pre-Agreed Appointment", "Partial Maternity/Paternity",
+      "Partial Compassionate Leave", "Partial Availability",
+    ]);
+    return { total: dayBreakdown.unavailability, items };
+  }, [data, dayBreakdown.unavailability]);
 
   const formatName = (name: string) =>
     name.includes(", ") ? name.split(", ").reverse().join(" ") : name;
