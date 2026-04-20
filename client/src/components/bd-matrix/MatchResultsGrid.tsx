@@ -99,6 +99,7 @@ export function MatchResultsGrid({
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
   const hasAnyStars = Object.keys(starredMap).length > 0;
+  const totalCpRows = result.visitResults.reduce((s, v) => s + v.careProsRequired, 0);
 
   return (
     <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col ${className}`}>
@@ -189,8 +190,8 @@ export function MatchResultsGrid({
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0 h-full">
-        <table className="w-full border-collapse min-h-full" style={{ minWidth: '800px' }}>
+      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
+        <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
               {displayLabels.map(label => (
@@ -234,7 +235,7 @@ export function MatchResultsGrid({
                       {displayDays.map(day => {
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <td key={day} className="p-2 bg-gray-50/10 dark:bg-gray-900/5">
+                            <td key={day} className={`p-2 bg-gray-50/10 dark:bg-gray-900/5 ${totalCpRows === 1 ? 'h-[calc(100vh-160px)]' : ''}`}>
                               <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
                                 <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
                               </div>
@@ -291,7 +292,7 @@ export function MatchResultsGrid({
                           : sorted;
 
                         return (
-                          <td key={day} className="p-1.5 align-top min-w-[230px]">
+                          <td key={day} className={`p-1.5 align-top min-w-[230px] ${totalCpRows === 1 ? 'h-[calc(100vh-160px)]' : ''}`}>
                             <div className={`${vr.careProsRequired > 1 ? 'overflow-y-auto max-h-[315px]' : ''} pr-1 space-y-2`}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
