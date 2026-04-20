@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription, DialogTrigger,
+  Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   UserCheck, MapPin, Search, Loader2, RefreshCw,
@@ -219,42 +219,44 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
           </Button>
         </DialogTrigger>
         <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
-          <DialogTitle className="sr-only">Client Enquiry Matcher</DialogTitle>
-
-          {/* Header — shown on form/history views only */}
-          {!multiResults && (
-            <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-700 shadow-lg shadow-purple-500/20">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <UserCheck className="w-5 h-5 text-white" />
+          {/* Header */}
+          <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
+                  <UserCheck className="w-6 h-6 text-[#5d51d5]" />
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-white tracking-tight leading-tight">Client Enquiry Matcher</h2>
-                  <p className="text-xs text-white/70 font-medium">Find the best care professional match for a new client</p>
+                  <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
+                    Client Enquiry Matcher
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
+                    Care Capacity Intelligence
+                  </DialogDescription>
                 </div>
               </div>
-              <DialogClose asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-white/80 hover:text-white hover:bg-white/20">
-                  <X className="w-4 h-4" />
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
+                  className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:border-gray-300 dark:hover:border-gray-600 rounded-xl px-4 py-2.5 h-auto transition-all duration-300 shadow-sm hover:shadow-md"
+                >
+                  {showHistory ? (
+                    <><Search className="w-4 h-4" /> New Search</>
+                  ) : (
+                    <><History className="w-4 h-4" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
+                  )}
                 </Button>
-              </DialogClose>
+              </div>
             </div>
-          )}
+          </div>
 
-          {/* Floating close button — shown on results view only */}
-          {multiResults && (
-            <div className="absolute top-4 right-4 z-20">
-              <DialogClose asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-white/90 dark:bg-gray-900/90 shadow-md">
-                  <X className="w-4 h-4" />
-                </Button>
-              </DialogClose>
-            </div>
-          )}
-
-          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
+          {/* Content Area */}
+          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-8'}`}>
             {multiResults ? (
-              <div className="flex flex-col flex-1 min-h-0 gap-4 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col flex-1 min-h-0 gap-4 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-wrap items-center gap-2">
                   {multiResults.visitResults.map((vr, i) => (
                     <Button
@@ -293,7 +295,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
               </div>
             ) : showHistory ? (
               viewingHistoryResult ? (
-                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 px-4 sm:px-8 pt-4 sm:pt-6">
+                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="flex items-center justify-between pb-5 border-b border-gray-200/60 dark:border-gray-800/60">
                     <div className="flex items-center gap-4">
                       <div className="p-3.5 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 rounded-2xl shadow-md shadow-purple-500/10">
@@ -435,7 +437,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6 px-4 sm:px-8 pt-4 sm:pt-6">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-[22px] font-black text-gray-950 dark:text-gray-50 tracking-tight leading-tight">Search Archives</h3>
