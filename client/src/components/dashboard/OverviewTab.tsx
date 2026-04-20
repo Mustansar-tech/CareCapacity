@@ -527,7 +527,6 @@ export function OverviewTab({
                 <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
                   {data?.kpis.holidaysSum || 0}h
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Weekly annual leave</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday
                 </div>
