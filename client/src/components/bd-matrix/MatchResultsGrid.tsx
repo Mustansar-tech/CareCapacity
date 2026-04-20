@@ -60,14 +60,14 @@ export function MatchResultsGrid({
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
-  const [starredMap, setStarredMap] = useState<Record<string, { employeeName: string; timeWindow: string }>>({});
+  const [starredMap, setStarredMap] = useState<Record<string, { employeeName: string; timeWindow: string; gender?: string; transportMode?: string }>>({});
 
   const starKey = (visitIndex: number, cpIdx: number, day: string) => `${visitIndex}-${cpIdx}-${day}`;
 
   const getStarred = (visitIndex: number, cpIdx: number, day: string) =>
     starredMap[starKey(visitIndex, cpIdx, day)];
 
-  const toggleStar = (visitIndex: number, cpIdx: number, day: string, employeeName: string, timeWindow: string) => {
+  const toggleStar = (visitIndex: number, cpIdx: number, day: string, employeeName: string, timeWindow: string, gender?: string, transportMode?: string) => {
     const key = starKey(visitIndex, cpIdx, day);
     setStarredMap(prev => {
       const existing = prev[key];
@@ -76,7 +76,7 @@ export function MatchResultsGrid({
         delete next[key];
         return next;
       }
-      return { ...prev, [key]: { employeeName, timeWindow } };
+      return { ...prev, [key]: { employeeName, timeWindow, gender, transportMode } };
     });
   };
 
@@ -394,7 +394,7 @@ export function MatchResultsGrid({
                                           <ShadcnTooltip>
                                             <TooltipTrigger asChild>
                                               <button
-                                                onClick={() => toggleStar(vr.visitIndex, cpIdx, day, employeeMatch.employeeName, slotOnDay.availableWindow)}
+                                                onClick={() => toggleStar(vr.visitIndex, cpIdx, day, employeeMatch.employeeName, slotOnDay.availableWindow, employeeMatch.gender, employeeMatch.transportMode)}
                                                 className={`flex-shrink-0 p-1 rounded-md transition-all hover:scale-110 ${isStarred ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600 dark:hover:text-amber-500'}`}
                                                 aria-label={isStarred ? 'Unselect this care pro' : 'Select this care pro for double-up'}
                                               >
