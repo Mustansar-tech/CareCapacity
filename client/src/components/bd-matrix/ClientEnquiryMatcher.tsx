@@ -219,80 +219,111 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
           </Button>
         </DialogTrigger>
         <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
-          {/* Header */}
-          <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
-                  <UserCheck className="w-6 h-6 text-[#5d51d5]" />
+          {/* Header — full on form view, compact on results/history */}
+          {!multiResults && !showHistory ? (
+            <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
+                    <UserCheck className="w-6 h-6 text-[#5d51d5]" />
+                  </div>
+                  <div>
+                    <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
+                      Client Enquiry Matcher
+                    </DialogTitle>
+                    <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
+                      Care Capacity Intelligence
+                    </DialogDescription>
+                  </div>
                 </div>
-                <div>
-                  <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
-                    Client Enquiry Matcher
-                  </DialogTitle>
-                  <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
-                    Care Capacity Intelligence
-                  </DialogDescription>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowHistory(true); setViewingHistoryResult(null); }}
+                    className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:border-gray-300 dark:hover:border-gray-600 rounded-xl px-4 py-2.5 h-auto transition-all duration-300 shadow-sm hover:shadow-md"
+                  >
+                    <History className="w-4 h-4" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
-                  className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:border-gray-300 dark:hover:border-gray-600 rounded-xl px-4 py-2.5 h-auto transition-all duration-300 shadow-sm hover:shadow-md"
-                >
-                  {showHistory ? (
-                    <><Search className="w-4 h-4" /> New Search</>
-                  ) : (
-                    <><History className="w-4 h-4" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
-                  )}
-                </Button>
               </div>
             </div>
-          </div>
+          ) : multiResults ? (
+            /* Compact results header — visit tabs + history button */
+            <div className="px-5 py-3 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-2 flex-wrap">
+              <DialogTitle className="sr-only">Enquiry Results</DialogTitle>
+              <DialogDescription className="sr-only">Match results for client enquiry</DialogDescription>
+              {multiResults.visitResults.map((_, i) => (
+                <Button
+                  key={i}
+                  variant={activeResultTab === String(i) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveResultTab(String(i))}
+                  className={`gap-2 font-bold rounded-xl transition-all px-4 h-8 text-xs ${
+                    activeResultTab === String(i)
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
+                      : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center ${
+                    activeResultTab === String(i) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                  }`}>
+                    {i + 1}
+                  </span>
+                  Visit {i + 1}
+                </Button>
+              ))}
+              <div className="flex-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null); }}
+                className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 rounded-xl px-4 h-8 transition-all"
+              >
+                <History className="w-3.5 h-3.5" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}
+              </Button>
+            </div>
+          ) : (
+            /* Compact history header */
+            <div className="px-5 py-3 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-3">
+              <DialogTitle className="sr-only">Search History</DialogTitle>
+              <DialogDescription className="sr-only">Previously saved client enquiry searches</DialogDescription>
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <History className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="font-bold text-sm text-gray-900 dark:text-gray-100">Search History</span>
+              {historyQuery.data?.length ? (
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{historyQuery.data.length} records</span>
+              ) : null}
+              <div className="flex-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowHistory(false); setViewingHistoryResult(null); }}
+                className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 rounded-xl px-4 h-8 transition-all"
+              >
+                <Search className="w-3.5 h-3.5" /> New Search
+              </Button>
+            </div>
+          )}
 
           {/* Content Area */}
           <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-8'}`}>
             {multiResults ? (
-              <div className="flex flex-col flex-1 min-h-0 gap-4 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-wrap items-center gap-2">
-                  {multiResults.visitResults.map((vr, i) => (
-                    <Button
-                      key={i}
-                      variant={activeResultTab === String(i) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setActiveResultTab(String(i))}
-                      className={`gap-2 font-bold rounded-xl transition-all px-4 h-9 text-xs ${
-                        activeResultTab === String(i)
-                          ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
-                          : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
-                      }`}
-                    >
-                      <span className={`w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center ${
-                        activeResultTab === String(i) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-                      }`}>
-                        {i + 1}
-                      </span>
-                      Visit {i + 1}
-                    </Button>
-                  ))}
-                </div>
-                <MatchResultsGrid
-                  result={{
-                    ...multiResults,
-                    visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
-                  }}
-                  requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
-                  className="flex-1 min-h-0"
-                  sortByTravel={sortByTravel}
-                  onToggleSortByTravel={() => setSortByTravel(v => !v)}
-                  enquiryPostcode={postcode}
-                  enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
-                  enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
-                />
-              </div>
+              <MatchResultsGrid
+                result={{
+                  ...multiResults,
+                  visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
+                }}
+                requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
+                className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                sortByTravel={sortByTravel}
+                onToggleSortByTravel={() => setSortByTravel(v => !v)}
+                enquiryPostcode={postcode}
+                enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
+                enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
+              />
             ) : showHistory ? (
               viewingHistoryResult ? (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
