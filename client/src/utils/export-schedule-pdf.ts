@@ -68,14 +68,14 @@ function drawRecruiterBadge(doc: jsPDF, x: number, y: number, s: number) {
 
 // Draw a small CP number badge (e.g. "1" or "2") in a rounded pill
 function drawCpBadge(doc: jsPDF, x: number, y: number, num: number) {
-  const bw = 4.5;
-  const bh = 3.5;
+  const bw = 4;
+  const bh = 3.2;
   doc.setFillColor(55, 65, 120);
-  doc.roundedRect(x, y, bw, bh, 0.7, 0.7, 'F');
+  doc.roundedRect(x, y, bw, bh, 0.6, 0.6, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setFont('helvetica', 'bold');
-  doc.text(String(num), x + bw / 2, y + bh * 0.72, { align: 'center' });
+  doc.text(String(num), x + bw / 2, y + bh * 0.73, { align: 'center' });
 }
 
 export function exportSchedulePdf(
@@ -202,14 +202,14 @@ export function exportSchedulePdf(
   });
 
   // ── Layout constants ───────────────────────────────────────────────────────
-  const startY = headerBottom + 3;
-  const iconSize = 5;
-  const iconGap = 2;
-  const badgeW = 4.5;
-  const badgeGap = 1.5;
-  const lineH = 8;
-  const padX = 6;
-  const padY = 5;
+  const startY = headerBottom + 2;
+  const iconSize = 4.5;
+  const iconGap = 1.5;
+  const badgeW = 4;
+  const badgeGap = 1.2;
+  const lineH = 5.8;
+  const padX = 5;
+  const padY = 3;
 
   autoTable(doc, {
     head,
@@ -226,9 +226,9 @@ export function exportSchedulePdf(
       fillColor: [20, 20, 30],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 10,
+      fontSize: 9.5,
       halign: 'center',
-      cellPadding: { top: 5, right: 4, bottom: 5, left: 4 },
+      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
     },
     columnStyles: {
       0: {
@@ -312,14 +312,6 @@ export function exportSchedulePdf(
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(90, 110, 95);
           doc.text(line.timeWindow, timeX, curY, { maxWidth: x + width - padX - timeX });
-        }
-
-        // Thin separator between CP rows (not after the last one)
-        if (li < meta.lines.length - 1) {
-          const sepY = curY + lineH * 0.3;
-          doc.setDrawColor(185, 215, 190);
-          doc.setLineWidth(0.2);
-          doc.line(x + padX, sepY, x + width - padX, sepY);
         }
 
         curY += lineH;
