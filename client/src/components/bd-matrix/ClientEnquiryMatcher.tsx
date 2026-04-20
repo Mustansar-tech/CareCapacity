@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger,
+  Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   UserCheck, MapPin, Search, Loader2, RefreshCw,
