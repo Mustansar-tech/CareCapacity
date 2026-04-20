@@ -58,6 +58,14 @@ function drawWalkIcon(doc: jsPDF, x: number, y: number, s: number) {
 }
 
 
+// Draw a small × cross for "new to client" CPs
+function drawCrossIcon(doc: jsPDF, x: number, y: number, s: number) {
+  doc.setDrawColor(234, 88, 12);
+  doc.setLineWidth(0.8);
+  doc.line(x + s * 0.15, y + s * 0.15, x + s * 0.85, y + s * 0.85);
+  doc.line(x + s * 0.85, y + s * 0.15, x + s * 0.15, y + s * 0.85);
+}
+
 // Draw a small CP number badge (e.g. "1" or "2") in a rounded pill
 function drawCpBadge(doc: jsPDF, x: number, y: number, num: number) {
   const bw = 4;
@@ -273,6 +281,8 @@ export function exportSchedulePdf(
           drawCarIcon(doc, drawX, iconY, iconSize);
         } else if (line.transport === 'walking') {
           drawWalkIcon(doc, drawX, iconY, iconSize);
+        } else if (line.transport === 'recruiter') {
+          drawCrossIcon(doc, drawX, iconY, iconSize);
         }
         drawX += iconSize + iconGap;
 
