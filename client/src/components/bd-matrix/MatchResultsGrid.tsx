@@ -193,11 +193,8 @@ export function MatchResultsGrid({
         <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
-              <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
-                Requirement
-              </th>
               {displayLabels.map(label => (
-                <th key={label} className="p-4 text-center font-bold text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-gray-50 dark:bg-gray-900">
+                <th key={label} className="py-3 px-2 text-center font-bold text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-gray-50 dark:bg-gray-900">
                   {label}
                 </th>
               ))}
@@ -207,8 +204,8 @@ export function MatchResultsGrid({
             {result.visitResults.map((vr) => (
               <React.Fragment key={vr.visitIndex}>
                 <tr className="bg-purple-50/30 dark:bg-purple-900/10">
-                  <td colSpan={displayDays.length + 1} className="p-3 border-b border-purple-100 dark:border-purple-800/30">
-                    <div className="flex flex-wrap items-center gap-6 px-4 py-2">
+                  <td colSpan={displayDays.length} className="py-2 px-3 border-b border-purple-100 dark:border-purple-800/30">
+                    <div className="flex flex-wrap items-center gap-4 px-2">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-purple-600" />
                         <span className="text-xs font-black uppercase tracking-wider text-purple-900 dark:text-purple-100">Visit {vr.visitIndex + 1}</span>
@@ -231,21 +228,13 @@ export function MatchResultsGrid({
                 </tr>
                 {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
                   const genderPref = vr.genderPreferences[cpIdx] || 'any';
-                  const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
 
                   return (
                     <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
-                      <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
-                        <div className="space-y-4">
-                          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50 text-[#41589c]">
-                            CP{cpIdx + 1}: {genderLabel === "Female" ? "F" : genderLabel === "Male" ? "M" : genderLabel} Only
-                          </div>
-                        </div>
-                      </td>
                       {displayDays.map(day => {
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
+                            <td key={day} className="p-2 bg-gray-50/10 dark:bg-gray-900/5">
                               <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
                                 <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
                               </div>
@@ -302,8 +291,8 @@ export function MatchResultsGrid({
                           : sorted;
 
                         return (
-                          <td key={day} className="p-3 align-top min-w-[250px]">
-                            <div className={`overflow-y-auto ${vr.careProsRequired > 1 ? 'max-h-[315px]' : 'max-h-[420px]'} pr-1 space-y-3`}>
+                          <td key={day} className="p-1.5 align-top min-w-[230px]">
+                            <div className={`overflow-y-auto ${vr.careProsRequired > 1 ? 'max-h-[315px]' : 'max-h-[420px]'} pr-1 space-y-2`}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
                                   const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
@@ -330,7 +319,7 @@ export function MatchResultsGrid({
                                   return (
                                     <div
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
+                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-2 shadow-sm hover:shadow-md transition-all space-y-1.5 relative`}
                                     >
                                       <div className="flex justify-between items-start gap-2">
                                         <div className="flex flex-col min-w-0 flex-1">
