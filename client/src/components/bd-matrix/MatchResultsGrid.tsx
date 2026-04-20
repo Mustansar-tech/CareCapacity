@@ -189,8 +189,8 @@ export function MatchResultsGrid({
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
-        <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
+      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0 h-full">
+        <table className="w-full border-collapse min-h-full" style={{ minWidth: '800px' }}>
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
               {displayLabels.map(label => (
@@ -292,7 +292,7 @@ export function MatchResultsGrid({
 
                         return (
                           <td key={day} className="p-1.5 align-top min-w-[230px]">
-                            <div className={`overflow-y-auto ${vr.careProsRequired > 1 ? 'max-h-[315px]' : 'max-h-[420px]'} pr-1 space-y-2`}>
+                            <div className={`${vr.careProsRequired > 1 ? 'overflow-y-auto max-h-[315px]' : ''} pr-1 space-y-2`}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
                                   const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
