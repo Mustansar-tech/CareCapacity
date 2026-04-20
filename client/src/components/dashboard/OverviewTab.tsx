@@ -81,6 +81,7 @@ export function OverviewTab({
   const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
   const [sicknessModalOpen, setSicknessModalOpen] = useState(false);
   const [unavailModalOpen, setUnavailModalOpen] = useState(false);
+  const [holidayModalOpen, setHolidayModalOpen] = useState(false);
   const data = filteredData || processedData;
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
@@ -138,6 +139,11 @@ export function OverviewTab({
     ]);
     return { total: dayBreakdown.unavailability, items };
   }, [data, dayBreakdown.unavailability]);
+  const holidayBreakdown = useMemo(() => {
+    const items = buildBreakdown(["Holiday", "Partial Holiday"]);
+    const total = Math.round((data?.kpis.holidaysSum ?? 0) * 100) / 100;
+    return { total, items };
+  }, [data]);
 
   const formatName = (name: string) =>
     name.includes(", ") ? name.split(", ").reverse().join(" ") : name;
@@ -503,7 +509,12 @@ export function OverviewTab({
             </Card>
 
             {/* 4. Holidays */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-holidays">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-holidays"
+              onDoubleClick={() => setHolidayModalOpen(true)}
+              title="Double-click to see breakdown"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
@@ -517,6 +528,10 @@ export function OverviewTab({
                   {data?.kpis.holidaysSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Weekly annual leave</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday
+                </div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -882,6 +897,57 @@ export function OverviewTab({
             <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">{unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"} unavailable</span>
               <span className="text-sm font-bold text-red-600 dark:text-red-400">Total: {unavailBreakdown.total}h</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Holidays Detail Modal */}
+      <Dialog open={holidayModalOpen} onOpenChange={setHolidayModalOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                <Calendar className="w-3.5 h-3.5 text-white" />
+              </div>
+              Holidays Breakdown
+            </DialogTitle>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Care Pros on annual leave this week
+            </p>
+          </DialogHeader>
+
+          {holidayBreakdown.items.length > 0 ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto -mx-6 px-6">
+              {holidayBreakdown.items.map((item) => (
+                <div key={item.name} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      {formatName(item.name)}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.days} day{item.days === 1 ? "" : "s"} on leave
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-bold whitespace-nowrap">
+                      {item.hours}h
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No holidays recorded this week.</p>
+            </div>
+          )}
+
+          {holidayBreakdown.items.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday</span>
+              <span className="text-sm font-bold text-purple-600 dark:text-purple-400">Total: {holidayBreakdown.total}h</span>
             </div>
           )}
         </DialogContent>
