@@ -711,8 +711,8 @@ export function OverviewTab({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-            <p className="font-semibold">Total contracted hours across all Care Pros</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">The sum of each Care Pro's contracted weekly hours from their availability schedule. This represents the maximum hours the branch workforce is contracted to deliver before any deductions for sickness, holidays, or unavailability.</p>
+            <p className="font-semibold">Total Desired hours across all Care Pros</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">The sum of each Care Pro's desired weekly hours from their availability schedule. This represents the maximum hours the branch workforce is desired to deliver before any deductions for sickness, holidays, or unavailability.</p>
             <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
               Desired Hours → Net Capacity after deductions
             </div>
