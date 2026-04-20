@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   UserCheck, MapPin, Search, Loader2, RefreshCw,
-  History, Trash2, Plus, X, XCircle, ArrowLeft, ArrowRight, Star, Clock,
+  History, Trash2, Plus, X, XCircle, ArrowLeft, ArrowRight, Star, Clock, Users,
 } from "lucide-react";
 import { VisitForm } from "./VisitForm";
 import { MatchResultsGrid } from "./MatchResultsGrid";
