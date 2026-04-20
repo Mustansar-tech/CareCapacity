@@ -81,6 +81,7 @@ export function OverviewTab({
   const [clientScheduledModalOpen, setClientScheduledModalOpen] = useState(false);
   const [otherScheduledModalOpen, setOtherScheduledModalOpen] = useState(false);
   const [capacityAfterModalOpen, setCapacityAfterModalOpen] = useState(false);
+  const [desiredHoursModalOpen, setDesiredHoursModalOpen] = useState(false);
   const data = filteredData || processedData;
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
@@ -438,7 +439,12 @@ export function OverviewTab({
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {/* 1. Desired Hours */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-desired-total">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-desired-total"
+              onDoubleClick={() => setDesiredHoursModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
@@ -452,6 +458,7 @@ export function OverviewTab({
                   {data?.kpis.totalDesiredHoursSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly desired</div>
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
 
@@ -691,6 +698,27 @@ export function OverviewTab({
           </div>
         </div>
       )}
+
+      {/* Desired Hours Info Modal */}
+      <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Desired Hours
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Total contracted hours across all Care Pros</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">The sum of each Care Pro's contracted weekly hours from their availability schedule. This represents the maximum hours the branch workforce is contracted to deliver before any deductions for sickness, holidays, or unavailability.</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
+              Desired Hours → Net Capacity after deductions
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Net Capacity Info Modal */}
       <Dialog open={netCapacityModalOpen} onOpenChange={setNetCapacityModalOpen}>
