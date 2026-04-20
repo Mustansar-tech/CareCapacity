@@ -222,6 +222,11 @@ export function exportSchedulePdf(
       data.cell.styles.fillColor = meta.fillColor;
       if (data.column.index > 0 && meta.hasContent) {
         data.cell.styles.fontStyle = 'bold';
+        // Force row height to fit all CP lines at our custom lineH spacing
+        const numLines = meta.lines.length;
+        if (numLines > 0) {
+          data.cell.styles.minCellHeight = padY * 2 + numLines * lineH;
+        }
       }
     },
 
