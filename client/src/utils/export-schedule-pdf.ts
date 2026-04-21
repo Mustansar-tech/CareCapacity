@@ -308,12 +308,10 @@ export function exportSchedulePdf(
 
         // Transport icon
         const iconY = curY - iconSize * 0.82;
-        if (line.transport === 'car') {
+        if (line.transport === 'car' || line.transport === 'recruiter') {
           drawCarIcon(doc, drawX, iconY, iconSize);
         } else if (line.transport === 'walking') {
           drawWalkIcon(doc, drawX, iconY, iconSize);
-        } else if (line.transport === 'recruiter') {
-          drawCrossIcon(doc, drawX, iconY, iconSize);
         }
         drawX += iconSize + iconGap;
 
