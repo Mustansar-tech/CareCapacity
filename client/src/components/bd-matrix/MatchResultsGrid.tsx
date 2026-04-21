@@ -192,7 +192,8 @@ export function MatchResultsGrid({
                     result.postcode,
                     enquiryTimeStart,
                     enquiryTimeEnd,
-                    allVisits
+                    allVisits,
+                    requiredDays
                   );
                 }}
                 className="text-[10px] font-bold gap-1.5 h-7 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-900/20"

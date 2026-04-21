@@ -84,7 +84,8 @@ export function exportSchedulePdf(
   postcode: string | undefined,
   enquiryTimeStart: string | undefined,
   enquiryTimeEnd: string | undefined,
-  allVisits: VisitInfo[]
+  allVisits: VisitInfo[],
+  selectedDays?: string[]
 ) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -183,8 +184,8 @@ export function exportSchedulePdf(
             gender: sel.gender,
             transport: getTransportType(sel.transportMode),
           });
-        } else if (!isWeekend) {
-          // Show "No Availability" placeholder for weekday CP slots with no star
+        } else if (!isWeekend && (!selectedDays || selectedDays.includes(day))) {
+          // Show "No Availability" placeholder only for days the client actually requested
           lineMeta.push({
             cpNum: cpIdx + 1,
             isDoubleUp: careProsRequired > 1,
