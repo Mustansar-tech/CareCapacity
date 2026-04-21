@@ -299,7 +299,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 enquiryPostcode={postcode}
                 enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
                 enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
-                visitTabs={multiResults.visitResults.map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired }))}
+                visitTabs={multiResults.visitResults.map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired, selectedDays: visits[i]?.selectedDays }))}
                 activeVisitTab={activeResultTab}
                 onVisitTabChange={setActiveResultTab}
                 historyCount={historyQuery.data?.length}
@@ -385,7 +385,16 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                         enquiryPostcode={viewingHistoryResult.postcode ?? undefined}
                         enquiryTimeStart={tStart}
                         enquiryTimeEnd={tEnd}
-                        visitTabs={histVRs.map((vr, i) => ({ index: i, label: vr.visitLabel || `Visit ${i + 1}`, careProsRequired: vr.careProsRequired }))}
+                        visitTabs={histVRs.map((vr, i) => ({
+                          index: i,
+                          label: vr.visitLabel || `Visit ${i + 1}`,
+                          careProsRequired: vr.careProsRequired,
+                          selectedDays:
+                            viewingHistoryResult.criteria?.visits?.[i]?.selectedDays ||
+                            viewingHistoryResult.criteria?.visits?.[i]?.requiredDays ||
+                            viewingHistoryResult.visits?.[i]?.selectedDays ||
+                            viewingHistoryResult.visits?.[i]?.requiredDays,
+                        }))}
                         activeVisitTab={String(histIdx)}
                         onVisitTabChange={setHistoryActiveTab}
                         historyCount={historyQuery.data?.length}

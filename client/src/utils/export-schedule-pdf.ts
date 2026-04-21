@@ -12,6 +12,7 @@ interface VisitInfo {
   visitIndex: number;
   visitLabel: string;
   careProsRequired: number;
+  selectedDays?: string[];
 }
 
 function getTransportType(raw?: string): 'car' | 'walking' | 'recruiter' | null {
@@ -184,7 +185,11 @@ export function exportSchedulePdf(
             gender: sel.gender,
             transport: getTransportType(sel.transportMode),
           });
-        } else if (!isWeekend && (!selectedDays || selectedDays.includes(day))) {
+        } else if (!isWeekend && (() => {
+          // Use per-visit selectedDays if available, else fall back to the global selectedDays param
+          const effectiveDays = visit.selectedDays ?? selectedDays;
+          return !effectiveDays || effectiveDays.includes(day);
+        })()) {
           // Show "No Availability" placeholder only for days the client actually requested
           lineMeta.push({
             cpNum: cpIdx + 1,

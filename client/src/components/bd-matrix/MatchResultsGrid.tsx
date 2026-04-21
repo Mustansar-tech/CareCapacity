@@ -18,6 +18,7 @@ interface VisitTabDef {
   index: number;
   label: string;
   careProsRequired?: number;
+  selectedDays?: string[];
 }
 
 interface MatchResultsGridProps {
@@ -178,12 +179,14 @@ export function MatchResultsGrid({
                     visitIndex: vt.index,
                     visitLabel: vt.label,
                     careProsRequired: vt.careProsRequired ?? result.visitResults[0]?.careProsRequired ?? 1,
+                    selectedDays: vt.selectedDays,
                   }));
                   if (allVisits.length === 0) {
                     allVisits.push(...result.visitResults.map(vr => ({
                       visitIndex: vr.visitIndex,
                       visitLabel: vr.visitLabel || `Visit ${vr.visitIndex + 1}`,
                       careProsRequired: vr.careProsRequired,
+                      selectedDays: undefined,
                     })));
                   }
                   exportSchedulePdf(
