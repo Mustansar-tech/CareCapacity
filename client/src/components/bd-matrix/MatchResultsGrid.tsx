@@ -346,8 +346,6 @@ export function MatchResultsGrid({
                                       ? 'border-blue-200 bg-blue-100/70 dark:bg-blue-900/40 dark:border-blue-800/50'
                                       : 'border-gray-200 bg-gray-50/50 dark:bg-gray-800/40 dark:border-gray-800';
 
-                                  const showPairSeparator = matchesToShow.length === 2 && matchIdx === 1;
-
                                   const nameColorClass = employeeMatch.gender?.toLowerCase() === 'female'
                                     ? 'text-pink-700 dark:text-pink-400'
                                     : employeeMatch.gender?.toLowerCase() === 'male'
@@ -357,7 +355,7 @@ export function MatchResultsGrid({
                                   return (
                                     <div
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} ${showPairSeparator ? 'border-t-2 border-t-gray-700 dark:border-t-gray-300' : ''} rounded-xl p-2 shadow-sm hover:shadow-md transition-all space-y-1.5 relative`}
+                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-2 shadow-sm hover:shadow-md transition-all space-y-1.5 relative`}
                                     >
                                       <div className="flex justify-between items-start gap-2">
                                         <div className="flex flex-col min-w-0 flex-1">
