@@ -761,9 +761,7 @@ export function OverviewTab({
           <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
             <p className="font-semibold">Domiciliary hours scheduled</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Actual client hours scheduled</p>
-            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
-              Gap = Required − Scheduled
-            </div>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">Gap = Clint care hours − Scheduled</div>
           </div>
         </DialogContent>
       </Dialog>
