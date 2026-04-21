@@ -742,6 +742,7 @@ export function OverviewTab({
               <li>Secondary/multiple care</li>
               <li>Office hours &amp; training</li>
               <li>Sleep-in &amp; waking nights</li>
+              <li>Live in care</li>
             </ul>
           </div>
         </DialogContent>
