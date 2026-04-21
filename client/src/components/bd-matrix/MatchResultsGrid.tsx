@@ -266,7 +266,7 @@ export function MatchResultsGrid({
                   const cellHeight = `calc((100vh - 140px) / ${totalCpRows})`;
                   const isCp2Plus = cpIdx > 0;
                   return (
-                    <tr key={`${vr.visitIndex}-${cpIdx}`} className={`group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors ${isCp2Plus ? 'border-t-2 border-gray-300 dark:border-gray-600' : ''}`}>
+                    <tr key={`${vr.visitIndex}-${cpIdx}`} className={`group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors ${isCp2Plus ? 'border-t-4 border-gray-800 dark:border-gray-200' : ''}`}>
                       {displayDays.map(day => {
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
@@ -355,7 +355,7 @@ export function MatchResultsGrid({
                                   return (
                                     <div
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-2 shadow-sm hover:shadow-md transition-all space-y-1.5 relative ${matchIdx === 1 ? 'border-t-2 border-t-gray-900 dark:border-t-gray-200' : ''}`}
+                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-2 shadow-sm hover:shadow-md transition-all space-y-1.5 relative`}
                                     >
                                       <div className="flex justify-between items-start gap-2">
                                         <div className="flex flex-col min-w-0 flex-1">
@@ -407,7 +407,7 @@ export function MatchResultsGrid({
                                           </ShadcnTooltip>
                                         </TooltipProvider>
                                       </div>
-                                      <div className="flex items-center gap-2 flex-nowrap pt-1.5 border-t-2 border-t-gray-900 dark:border-t-gray-200">
+                                      <div className="flex items-center gap-2 flex-nowrap pt-1.5">
                                         {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
