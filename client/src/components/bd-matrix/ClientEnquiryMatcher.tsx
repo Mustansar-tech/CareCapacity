@@ -451,7 +451,15 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
-                                setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference } as HistoryViewResult);
+                                setViewingHistoryResult({
+                                  ...resultData,
+                                  createdAt: enquiry.createdAt,
+                                  clientName: enquiry.clientName,
+                                  postcode: enquiry.postcode,
+                                  requiredDays: enquiry.requiredDays as string[],
+                                  genderPreference: enquiry.genderPreference,
+                                  visits: enquiry.visits as Array<{ requiredDays?: string[]; selectedDays?: string[] }> | null,
+                                } as HistoryViewResult);
                               }
                             }}
                           >
