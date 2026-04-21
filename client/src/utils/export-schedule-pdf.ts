@@ -292,24 +292,25 @@ export function exportSchedulePdf(
           drawX += badgeW + badgeGap;
         }
 
-        const maxW = x + width - padX - drawX;
+        // Measure time width first so name can avoid it
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        const timeW = doc.getTextWidth(line.timeWindow);
+        const timeRightX = x + width - padX;
+        const nameMaxW = timeRightX - timeW - 4 - drawX;
 
         // Name in gender colour, bold, 10pt
         const rgb = genderRgb(line.gender);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        const nameW = doc.getTextWidth(line.name);
-        doc.text(line.name, drawX, curY, { maxWidth: maxW });
+        doc.text(line.name, drawX, curY, { maxWidth: nameMaxW > 10 ? nameMaxW : 10 });
 
-        // Time window — 8.5pt, muted slate
-        const timeX = drawX + nameW + 3;
-        if (timeX < x + width - padX - 10) {
-          doc.setFontSize(8.5);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(90, 110, 95);
-          doc.text(line.timeWindow, timeX, curY, { maxWidth: x + width - padX - timeX });
-        }
+        // Time window — bold, right-aligned at cell edge
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(40, 60, 120);
+        doc.text(line.timeWindow, timeRightX, curY, { align: 'right' });
 
         curY += lineH;
       }

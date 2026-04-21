@@ -503,14 +503,16 @@ export function MatchResultsGrid({
                                   );
                                 })
                               ) : (
-                                <div className="h-full min-h-[120px] flex flex-col items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/30 dark:bg-gray-900/20 p-4 text-center">
-                                  <Users className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2 opacity-20" />
-                                  <span className="text-gray-300 dark:text-gray-700 font-bold text-[10px] uppercase tracking-widest">
-                                    {anyOtherStar ? 'No match at same time' : 'No Matches'}
+                                <div className="h-full min-h-[120px] flex flex-col items-center justify-center rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border-2 border-rose-200/60 dark:border-rose-800/40 p-4 text-center gap-1.5">
+                                  <XCircle className="w-6 h-6 text-rose-400 dark:text-rose-500 opacity-80" />
+                                  <span className="text-rose-700 dark:text-rose-400 font-black text-[11px] uppercase tracking-widest">
+                                    No Availability
                                   </span>
-                                  <span className="text-[9px] text-gray-400 dark:text-gray-600 mt-1">
-                                    {anyOtherStar ? `Needs to be free at ${anyOtherStar.timeWindow}` : 'Check constraints or day selection'}
-                                  </span>
+                                  {anyOtherStar && (
+                                    <span className="text-[9px] font-bold text-rose-500/80 dark:text-rose-500/60">
+                                      Needs to be free at {anyOtherStar.timeWindow}
+                                    </span>
+                                  )}
                                 </div>
                               )}
                             </div>
