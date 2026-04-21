@@ -266,11 +266,11 @@ export function MatchResultsGrid({
                   const cellHeight = `calc((100vh - 140px) / ${totalCpRows})`;
                   const isCp2Plus = cpIdx > 0;
                   return (
-                    <tr key={`${vr.visitIndex}-${cpIdx}`} className={`group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors ${isCp2Plus ? 'border-t-4 border-gray-800 dark:border-gray-200' : ''}`}>
+                    <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                       {displayDays.map(day => {
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <td key={day} className="p-2 bg-gray-50/10 dark:bg-gray-900/5" style={{ height: cellHeight }}>
+                            <td key={day} className={`p-2 bg-gray-50/10 dark:bg-gray-900/5 ${isCp2Plus ? 'border-t-4 border-gray-800 dark:border-gray-200' : ''}`} style={{ height: cellHeight }}>
                               <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
                                 <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
                               </div>
@@ -327,7 +327,7 @@ export function MatchResultsGrid({
                           : sorted;
 
                         return (
-                          <td key={day} className="p-1.5 align-top min-w-[230px]" style={{ height: cellHeight }}>
+                          <td key={day} className={`p-1.5 align-top min-w-[230px] ${isCp2Plus ? 'border-t-4 border-gray-800 dark:border-gray-200' : ''}`} style={{ height: cellHeight }}>
                             <div className="h-full overflow-y-auto pr-1 space-y-2"  style={{ maxHeight: cellHeight }}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
