@@ -407,7 +407,7 @@ export function MatchResultsGrid({
                                           </ShadcnTooltip>
                                         </TooltipProvider>
                                       </div>
-                                      <div className="flex items-center gap-2 flex-nowrap pt-1.5">
+                                      <div className="flex items-center gap-2 flex-nowrap pt-1.5 border-t-2 border-t-gray-900 dark:border-t-gray-200">
                                         {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
