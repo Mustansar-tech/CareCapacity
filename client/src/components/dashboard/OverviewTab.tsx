@@ -171,7 +171,6 @@ export function OverviewTab({
           Sync from People Planner
         </Button>
       </div>
-
       {/* File Upload Section */}
       {showUploadPanel && (
         <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
@@ -334,7 +333,6 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
-
       {/* Data Period Information */}
       <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info-overview">
         <CardContent className="p-6 pt-[8px] pb-[8px]">
@@ -427,7 +425,6 @@ export function OverviewTab({
           </div>
         </CardContent>
       </Card>
-
       {/* Metric Cards */}
       {isProcessing || processMutation.isPending ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -688,7 +685,6 @@ export function OverviewTab({
           </div>
         </div>
       )}
-
       {/* Desired Hours Info Modal */}
       <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>
         <DialogContent className="max-w-sm w-full">
@@ -709,7 +705,6 @@ export function OverviewTab({
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Net Capacity Info Modal */}
       <Dialog open={netCapacityModalOpen} onOpenChange={setNetCapacityModalOpen}>
         <DialogContent className="max-w-sm w-full">
@@ -724,13 +719,10 @@ export function OverviewTab({
           <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
             <p className="font-semibold">Total available hours after exclusions</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Calculated as:</p>
-            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
-              Contracted Hours − (Sickness + Holidays + Unavailability)
-            </div>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">Desired Hours − (Sickness + Holidays + Unavailability)</div>
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Domiciliary Hours Info Modal */}
       <Dialog open={domiciliaryModalOpen} onOpenChange={setDomiciliaryModalOpen}>
         <DialogContent className="max-w-sm w-full">
@@ -754,7 +746,6 @@ export function OverviewTab({
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Client Scheduled Info Modal */}
       <Dialog open={clientScheduledModalOpen} onOpenChange={setClientScheduledModalOpen}>
         <DialogContent className="max-w-sm w-full">
@@ -775,7 +766,6 @@ export function OverviewTab({
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Other Scheduled Info Modal */}
       <Dialog open={otherScheduledModalOpen} onOpenChange={setOtherScheduledModalOpen}>
         <DialogContent className="max-w-sm w-full">
@@ -799,7 +789,6 @@ export function OverviewTab({
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Capacity After Scheduling Info Modal */}
       <Dialog open={capacityAfterModalOpen} onOpenChange={setCapacityAfterModalOpen}>
         <DialogContent className="max-w-sm w-full">
@@ -821,7 +810,6 @@ export function OverviewTab({
           </div>
         </DialogContent>
       </Dialog>
-
       {/* GH Loss Detail Modal */}
       <Dialog open={ghLossModalOpen} onOpenChange={setGhLossModalOpen}>
         <DialogContent className="max-w-lg w-full">
@@ -876,7 +864,6 @@ export function OverviewTab({
           )}
         </DialogContent>
       </Dialog>
-
       {/* Sickness Detail Modal */}
       <Dialog open={sicknessModalOpen} onOpenChange={setSicknessModalOpen}>
         <DialogContent className="max-w-lg w-full">
@@ -927,7 +914,6 @@ export function OverviewTab({
           )}
         </DialogContent>
       </Dialog>
-
       {/* Unavailability Detail Modal */}
       <Dialog open={unavailModalOpen} onOpenChange={setUnavailModalOpen}>
         <DialogContent className="max-w-lg w-full">
@@ -978,7 +964,6 @@ export function OverviewTab({
           )}
         </DialogContent>
       </Dialog>
-
       {/* Holidays Detail Modal */}
       <Dialog open={holidayModalOpen} onOpenChange={setHolidayModalOpen}>
         <DialogContent className="max-w-lg w-full">
