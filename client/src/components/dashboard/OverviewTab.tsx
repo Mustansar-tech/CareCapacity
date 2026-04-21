@@ -804,7 +804,6 @@ export function OverviewTab({
             <p className="text-xs text-gray-500 dark:text-gray-400">Calculated as:</p>
             <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono space-y-1">
               <p>Capacity After Scheduling (+ve Houres only)</p>
-              <p className="text-gray-400 dark:text-gray-500">Values &lt; 1h are excluded (floored)</p>
             </div>
           </div>
         </DialogContent>
