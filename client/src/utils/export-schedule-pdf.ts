@@ -151,6 +151,7 @@ export function exportSchedulePdf(
     timeWindow: string;
     gender?: string;
     transport: 'car' | 'walking' | 'recruiter' | null;
+    noAvailability?: boolean;
   };
   type CellMeta = {
     lines: LineMeta[];
@@ -182,10 +183,21 @@ export function exportSchedulePdf(
             gender: sel.gender,
             transport: getTransportType(sel.transportMode),
           });
+        } else if (!isWeekend) {
+          // Show "No Availability" placeholder for weekday CP slots with no star
+          lineMeta.push({
+            cpNum: cpIdx + 1,
+            isDoubleUp: careProsRequired > 1,
+            name: 'No Availability',
+            timeWindow: '',
+            gender: undefined,
+            transport: null,
+            noAvailability: true,
+          });
         }
       }
 
-      const hasContent = lineMeta.length > 0;
+      const hasContent = lineMeta.some(l => !l.noAvailability);
       const fillColor: [number, number, number] = hasContent
         ? (isWeekend ? [195, 222, 202] : [218, 244, 224])
         : (isWeekend ? [208, 208, 213] : [255, 255, 255]);
@@ -245,11 +257,8 @@ export function exportSchedulePdf(
       const meta = cellMeta[data.row.index]?.[data.column.index];
       if (!meta) return;
       data.cell.styles.fillColor = meta.fillColor;
-      if (data.column.index > 0 && meta.hasContent) {
-        const numLines = meta.lines.length;
-        if (numLines > 0) {
-          data.cell.styles.minCellHeight = padY * 2 + numLines * lineH;
-        }
+      if (data.column.index > 0 && meta.lines.length > 0) {
+        data.cell.styles.minCellHeight = padY * 2 + meta.lines.length * lineH;
       }
     },
 
@@ -264,7 +273,7 @@ export function exportSchedulePdf(
     didDrawCell: (data) => {
       if (data.section !== 'body' || data.column.index === 0) return;
       const meta = cellMeta[data.row.index]?.[data.column.index];
-      if (!meta?.hasContent) return;
+      if (!meta || meta.lines.length === 0) return;
 
       const { x, y, width, height } = data.cell;
       let curY = y + padY + lineH * 0.78;
@@ -273,6 +282,22 @@ export function exportSchedulePdf(
         const line = meta.lines[li];
         if (curY > y + height - 1) break;
 
+        // ── No Availability placeholder ──────────────────────────────────────
+        if (line.noAvailability) {
+          let naX = x + padX;
+          if (line.isDoubleUp) {
+            drawCpBadge(doc, naX, curY - lineH * 0.55, line.cpNum);
+            naX += badgeW + badgeGap;
+          }
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'bolditalic');
+          doc.setTextColor(190, 55, 55);
+          doc.text('No Availability', naX, curY);
+          curY += lineH;
+          continue;
+        }
+
+        // ── Normal CP line ───────────────────────────────────────────────────
         let drawX = x + padX;
 
         // Transport icon
