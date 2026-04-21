@@ -185,10 +185,13 @@ export function exportSchedulePdf(
             gender: sel.gender,
             transport: getTransportType(sel.transportMode),
           });
-        } else if (!isWeekend && (() => {
-          // Use per-visit selectedDays if available, else fall back to the global selectedDays param
+        } else if ((() => {
+          // Use per-visit selectedDays if available, else fall back to the global selectedDays param.
+          // If explicit selected days are given, honour them regardless of weekend — the user chose that day.
+          // Only when no day info is available do we exclude weekends by default.
           const effectiveDays = visit.selectedDays ?? selectedDays;
-          return !effectiveDays || effectiveDays.includes(day);
+          if (effectiveDays && effectiveDays.length > 0) return effectiveDays.includes(day);
+          return !isWeekend;
         })()) {
           // Show "No Availability" placeholder only for days the client actually requested
           lineMeta.push({
