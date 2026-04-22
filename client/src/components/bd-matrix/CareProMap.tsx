@@ -136,17 +136,19 @@ export function CareProMap({
     setIsSearching(true);
     setSearchError('');
     try {
-      const res  = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
+      const branchId = localStorage.getItem('selectedBranchId');
+      const url = `/api/geo/postcode/${encodeURIComponent(pc)}${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ''}`;
+      const res  = await fetch(url, { credentials: 'include' });
       const data = await res.json();
-      if (res.ok && data.status === 200 && data.result?.latitude) {
-        setSearchResult({ lat: data.result.latitude, lng: data.result.longitude, postcode: data.result.postcode });
+      if (res.ok && data.lat && data.lng) {
+        setSearchResult({ lat: data.lat, lng: data.lng, postcode: data.postcode });
         setSearchError('');
       } else {
         setSearchError(`"${searchInput.trim().toUpperCase()}" not found`);
         setSearchResult(null);
       }
     } catch {
-      setSearchError('Search unavailable');
+      setSearchError(`"${searchInput.trim().toUpperCase()}" not found`);
       setSearchResult(null);
     } finally {
       setIsSearching(false);

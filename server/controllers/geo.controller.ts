@@ -128,6 +128,19 @@ export async function getClientLocations(req: Request, res: Response): Promise<v
   res.json(locations);
 }
 
+export async function geocodeSingle(req: Request, res: Response): Promise<void> {
+  const { postcode } = req.params;
+  if (!postcode) { res.status(400).json({ error: 'postcode required' }); return; }
+  const branchId = await resolveBranch(req);
+  const { storage } = await import('../storage');
+  const result = await geocodeWithFallback(postcode.trim().toUpperCase(), storage, branchId);
+  if (result?.lat && result?.lng) {
+    res.json({ postcode: result.query, lat: parseFloat(result.lat), lng: parseFloat(result.lng) });
+  } else {
+    res.status(404).json({ error: 'Postcode not found' });
+  }
+}
+
 export async function getAllLocations(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);
   const [employees, clients] = await Promise.all([
