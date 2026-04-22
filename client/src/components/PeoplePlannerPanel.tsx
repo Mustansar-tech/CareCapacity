@@ -515,7 +515,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               ) : (
                 <>
                   <Bot className="w-4 h-4 mr-2" />
-                  Start People Planner Sync
+                  Start Processing
                 </>
               )}
             </Button>
