@@ -61,10 +61,10 @@ interface Props {
 
 const PHASE_LABELS: Record<string, string> = {
   starting:                              "Starting automation...",
-  downloading_visitsExport:              "Downloading Guaranteed Hours (1/3)...",
-  downloading_careGiverExport:           "Downloading CG Data Export (2/3)...",
-  downloading_careGiverAvailabilityExport: "Downloading Availability Export (3/3)...",
-  processing:                            "Processing through pipeline...",
+  downloading_visitsExport:              "Preparing dashboard data (1/3)...",
+  downloading_careGiverExport:           "Loading dashboard metrics (2/3)...",
+  downloading_careGiverAvailabilityExport: "Building dashboard insights (3/3)...",
+  processing:                            "Updating dashboard...",
   complete:                              "Complete!",
   error:                                 "Error occurred",
 };
@@ -358,7 +358,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 <div className="flex gap-2">
                   <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                    All 3 reports downloaded and processed. Dashboard data has been updated.
+                    Dashboard updated successfully and ready to explore.
                   </p>
                 </div>
               </div>
