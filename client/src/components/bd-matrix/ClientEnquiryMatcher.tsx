@@ -262,7 +262,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
             </>
           ) : (
             /* Compact history header */
-            <div className="px-5 py-3 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-3">
+            <div className="px-5 pr-14 py-3 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-3">
               <DialogTitle className="sr-only">Search History</DialogTitle>
               <DialogDescription className="sr-only">Previously saved client enquiry searches</DialogDescription>
               <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
