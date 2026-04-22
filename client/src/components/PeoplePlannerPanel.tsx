@@ -250,9 +250,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               <Bot className="w-4 h-4 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                People Planner Sync
-              </CardTitle>
+              <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">Process Data</CardTitle>
               <CardDescription className="text-xs">select the week to process new data</CardDescription>
             </div>
           </div>
