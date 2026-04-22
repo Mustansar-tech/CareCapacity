@@ -104,6 +104,15 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
 
   const matchMutation = useMutation({
     mutationFn: async () => {
+      // Pre-flight: validate the postcode can be geocoded
+      if (postcode.trim()) {
+        const geoRes = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim().toUpperCase())}`);
+        const geoData = await geoRes.json();
+        if (!geoRes.ok || geoData.status !== 200 || !geoData.result?.latitude) {
+          throw new Error('INVALID_POSTCODE');
+        }
+      }
+
       const activeVisits = visits.filter(v => v.selectedDays.length > 0);
       if (activeVisits.length === 1 && activeVisits[0].careProsRequired === 1) {
         const v = activeVisits[0];
@@ -169,12 +178,20 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       });
       toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
     },
-    onError: () => {
-      toast({
-        title: "Matching Failed",
-        description: "Could not find matches. Please make sure data has been uploaded and processed first.",
-        variant: "destructive",
-      });
+    onError: (err: Error) => {
+      if (err.message === 'INVALID_POSTCODE') {
+        toast({
+          title: "Postcode Not Found",
+          description: `"${postcode.trim().toUpperCase()}" could not be located. Please check the postcode and try again.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Matching Failed",
+          description: "Could not find matches. Please make sure data has been uploaded and processed first.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -209,7 +226,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
   };
 
   const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-  const canSubmit = clientName.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
+  const canSubmit = clientName.trim() && postcode.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
 
   return (
     <>
@@ -537,7 +554,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                         </div>
                       </div>
                       <div className="space-y-2.5">
-                        <Label htmlFor="postcode" className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-700 dark:text-gray-300">Postcode</Label>
+                        <Label htmlFor="postcode" className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-700 dark:text-gray-300">Postcode <span className="text-red-500">*</span></Label>
                         <div className="relative group">
                           <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 transition-colors duration-300" />
                           <Input
