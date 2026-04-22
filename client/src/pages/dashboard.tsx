@@ -276,7 +276,7 @@ export default function Dashboard() {
               title="Automatically download reports from People Planner"
             >
               <Bot className="w-4 h-4 mr-2" />
-              Sync from People Planner
+              Process Data
             </Button>
           </div>
         )}
