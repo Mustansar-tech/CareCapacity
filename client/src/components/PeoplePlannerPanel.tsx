@@ -253,9 +253,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
                 People Planner Sync
               </CardTitle>
-              <CardDescription className="text-xs">
-                Automatically download reports from Access Workspace
-              </CardDescription>
+              <CardDescription className="text-xs">select the week to process new data</CardDescription>
             </div>
           </div>
           <button
@@ -267,7 +265,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </button>
         </div>
       </CardHeader>
-
       <CardContent className="pt-4 space-y-4">
 
         {/* Automation unavailable banner */}
