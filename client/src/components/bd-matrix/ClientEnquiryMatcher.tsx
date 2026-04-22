@@ -338,7 +338,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 const tEnd = viewingHistoryResult.criteria?.visits?.[histIdx]?.preferredTimeWindow?.end;
                 return (
                   <>
-                    <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex-shrink-0">
+                    <div className="flex items-center gap-3 px-4 pr-14 py-2 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex-shrink-0">
                       <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] px-3 py-1 uppercase tracking-widest rounded-xl shadow-md shadow-purple-500/20">Archived</Badge>
                       {viewingHistoryResult.createdAt && (
                         <span className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
