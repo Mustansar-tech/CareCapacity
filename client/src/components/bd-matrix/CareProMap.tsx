@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon, Search, X } from "lucide-react";
 import type { EmployeeLocation, ClientLocation } from "@shared/schema";
 import { normalizeGender } from "@/utils/bd-matrix-utils";
 
@@ -38,6 +39,37 @@ function makeClientIcon() {
     iconAnchor: [16, 40],
     popupAnchor: [0, -40],
   });
+}
+
+function makeSearchIcon() {
+  const color = '#eab308'; // yellow-500
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">
+    <path d="M18 0C8.059 0 0 8.059 0 18c0 11.25 18 28 18 28S36 29.25 36 18C36 8.059 27.941 0 18 0z" fill="${color}" stroke="white" stroke-width="2.5"/>
+    <circle cx="18" cy="18" r="8" fill="white" opacity="0.95"/>
+    <circle cx="18" cy="18" r="5" fill="${color}"/>
+    <path d="M18 11 L18 25 M11 18 L25 18" stroke="${color}" stroke-width="0" />
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [36, 46],
+    iconAnchor: [18, 46],
+    popupAnchor: [0, -46],
+  });
+}
+
+type SearchResult = { lat: number; lng: number; postcode: string };
+
+function SearchFlyTo({ result }: { result: SearchResult | null }) {
+  const map = useMap();
+  const prevResult = useRef<SearchResult | null>(null);
+  useEffect(() => {
+    if (result && result !== prevResult.current) {
+      map.flyTo([result.lat, result.lng], 14, { duration: 1.2 });
+      prevResult.current = result;
+    }
+  }, [result, map]);
+  return null;
 }
 
 function ZoomControls() {
@@ -77,6 +109,12 @@ export function CareProMap({
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('both');
+
+  // Postcode search state
+  const [searchInput, setSearchInput] = useState('');
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [searchError, setSearchError] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const validEmployees = useMemo(
     () => locations.filter(l => l.homeLat && l.homeLng),
@@ -136,6 +174,34 @@ export function CareProMap({
 
   const hasData = validEmployees.length > 0 || validClients.length > 0;
 
+  async function handleSearch() {
+    const pc = searchInput.trim().toUpperCase().replace(/\s+/g, '');
+    if (!pc) return;
+    setIsSearching(true);
+    setSearchError('');
+    try {
+      const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
+      const data = await res.json();
+      if (res.ok && data.status === 200 && data.result?.latitude) {
+        setSearchResult({ lat: data.result.latitude, lng: data.result.longitude, postcode: data.result.postcode });
+      } else {
+        setSearchError(`"${searchInput.trim().toUpperCase()}" not found`);
+        setSearchResult(null);
+      }
+    } catch {
+      setSearchError('Search unavailable — check connection');
+      setSearchResult(null);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  function clearSearch() {
+    setSearchInput('');
+    setSearchResult(null);
+    setSearchError('');
+  }
+
   if (!hasData) {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
@@ -194,6 +260,8 @@ export function CareProMap({
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
+        <SearchFlyTo result={searchResult} />
+
         {showCPs && jitteredEmployees.map((loc) => (
           <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>
             {showPostcodes && (
@@ -243,8 +311,61 @@ export function CareProMap({
           </Marker>
         ))}
 
+        {/* Yellow search pin */}
+        {searchResult && (
+          <Marker position={[searchResult.lat, searchResult.lng]} icon={makeSearchIcon()}>
+            <Popup>
+              <div className="min-w-[140px]">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-yellow-600">Searched Postcode</span>
+                </div>
+                <p className="text-sm font-bold text-gray-800">{searchResult.postcode}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{searchResult.lat.toFixed(5)}, {searchResult.lng.toFixed(5)}</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
         <ZoomControls />
       </MapContainer>
+
+      {/* Postcode search box — top right */}
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-100 px-3 py-2">
+          <Search className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+          <Input
+            value={searchInput}
+            onChange={e => { setSearchInput(e.target.value); setSearchError(''); }}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            placeholder="Search postcode…"
+            className="border-0 shadow-none bg-transparent h-7 w-44 text-sm font-medium p-0 focus-visible:ring-0 placeholder:text-gray-400"
+          />
+          {searchResult && (
+            <button onClick={clearSearch} className="text-gray-400 hover:text-red-500 transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <Button
+            onClick={handleSearch}
+            disabled={!searchInput.trim() || isSearching}
+            className="h-7 px-3 text-xs font-bold bg-yellow-400 hover:bg-yellow-500 text-gray-900 border-none rounded-lg shadow-none"
+          >
+            {isSearching ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Go'}
+          </Button>
+        </div>
+        {searchError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg shadow">
+            {searchError}
+          </div>
+        )}
+        {searchResult && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs font-semibold px-3 py-1.5 rounded-lg shadow flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-yellow-400" />
+            {searchResult.postcode}
+          </div>
+        )}
+      </div>
 
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2 items-center">
         <LayerToggle />
@@ -293,6 +414,16 @@ export function CareProMap({
             <div className="flex items-center gap-2">
               <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#1f2937" stroke="white" strokeWidth="2"/></svg>
               <span className="text-xs font-semibold text-gray-700">Client location</span>
+            </div>
+          </>
+        )}
+
+        {searchResult && (
+          <>
+            <div className="border-t border-gray-100 my-0.5" />
+            <div className="flex items-center gap-2">
+              <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#eab308" stroke="white" strokeWidth="2"/></svg>
+              <span className="text-xs font-semibold text-gray-700">Search pin</span>
             </div>
           </>
         )}
