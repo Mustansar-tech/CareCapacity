@@ -445,7 +445,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               {isActive ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Running automation...
+                  Processing data...
                 </>
               ) : (
                 <>
