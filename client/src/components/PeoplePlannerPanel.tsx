@@ -493,21 +493,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* Info card when idle */}
-        {!activeSessionId && !triggerMutation.isPending && (
-          <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-4">
-            <div className="flex gap-2">
-              <Building2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Automated report download</p>
-                <p className="text-xs text-blue-600/80 dark:text-blue-400">
-                  Logs into Access Workspace, opens People Planner, and downloads all 3 reports for the selected week. Typically takes 3–8 minutes.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Action buttons */}
         <div className="pt-1">
           {(session?.status === "failed" || session?.status === "completed") ? (
