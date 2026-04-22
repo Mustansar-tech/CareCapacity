@@ -188,10 +188,12 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
     },
     onError: (err: Error) => {
-      if (err.message === 'INVALID_POSTCODE') {
+      const isPostcodeError = err.message === 'INVALID_POSTCODE' || err.message.includes('POSTCODE_NOT_FOUND');
+      if (isPostcodeError) {
+        const displayPostcode = postcode.trim().toUpperCase();
         toast({
           title: "Postcode Not Found",
-          description: `"${postcode.trim().toUpperCase()}" could not be located. Please check the postcode and try again.`,
+          description: `"${displayPostcode}" could not be located. Please check the postcode and try again.`,
           variant: "destructive",
         });
       } else {
