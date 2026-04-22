@@ -150,8 +150,29 @@ export function OverviewTab({
 
   return (
     <>
-      {/* File Upload Section - hidden, accessible from Upload tab */}
-      {false && (
+      {/* Action bar */}
+      <div className="flex flex-wrap gap-3 animate-fade-in">
+        <Button
+          onClick={() => setShowUploadPanel(!showUploadPanel)}
+          variant="outline"
+          className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm"
+          data-testid="toggle-upload-panel"
+        >
+          <Upload className="w-3.5 h-3.5 mr-2" />
+          {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
+        </Button>
+        <Button
+          onClick={() => navigate('/app/people-planner')}
+          variant="outline"
+          className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+          title="Automatically download reports from People Planner"
+        >
+          <Bot className="w-3.5 h-3.5 mr-2" />
+          Process Data
+        </Button>
+      </div>
+      {/* File Upload Section */}
+      {showUploadPanel && (
         <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
           <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
             <CardTitle className="flex items-center gap-2">
