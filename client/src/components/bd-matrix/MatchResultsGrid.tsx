@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Users, MapPin, Star, ArrowRight, ArrowLeft, X, Activity,
+  Users, MapPin, Star, ArrowRight, X, Activity,
   Home, Clock, UserCheck, XCircle, Info, History, FileDown,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
@@ -213,18 +213,6 @@ export function MatchResultsGrid({
               </Button>
             </>
           )}
-          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('bd-matcher-back'));
-            }}
-            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-7 text-[10px]"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Back
-          </Button>
         </div>
       </div>
       <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
