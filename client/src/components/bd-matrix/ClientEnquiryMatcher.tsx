@@ -104,12 +104,21 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
 
   const matchMutation = useMutation({
     mutationFn: async () => {
-      // Pre-flight: validate the postcode can be geocoded
+      // Pre-flight: validate the postcode exists (fail-safe — network errors don't block the match)
       if (postcode.trim()) {
-        const geoRes = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim().toUpperCase())}`);
-        const geoData = await geoRes.json();
-        if (!geoRes.ok || geoData.status !== 200 || !geoData.result?.latitude) {
-          throw new Error('INVALID_POSTCODE');
+        try {
+          const geoRes = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim().toUpperCase())}`, { signal: AbortSignal.timeout(5000) });
+          if (geoRes.status === 404) {
+            const geoData = await geoRes.json().catch(() => ({}));
+            if (!geoData?.result) throw new Error('INVALID_POSTCODE');
+          } else if (geoRes.ok) {
+            const geoData = await geoRes.json().catch(() => null);
+            if (geoData && geoData.status !== 200) throw new Error('INVALID_POSTCODE');
+          }
+          // If network error or other non-404 failure, proceed anyway
+        } catch (e) {
+          if ((e as Error).message === 'INVALID_POSTCODE') throw e;
+          // Network/timeout errors: let the match proceed
         }
       }
 
