@@ -168,7 +168,7 @@ export function OverviewTab({
           title="Automatically download reports from People Planner"
         >
           <Bot className="w-3.5 h-3.5 mr-2" />
-          Sync from People Planner
+          Process Data
         </Button>
       </div>
       {/* File Upload Section */}
