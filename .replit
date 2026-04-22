@@ -49,3 +49,7 @@ integrations = ["javascript_anthropic:1.0.0", "javascript_gemini:1.0.0", "javasc
 
 [userenv.shared]
 ADMIN_EMAIL = "admin@homeinstead.com"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
