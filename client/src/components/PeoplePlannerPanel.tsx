@@ -437,7 +437,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             </div>
           ) : (
             <Button
-              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
+              className="w-full h-9 px-4 text-sm bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
               onClick={handleStart}
               disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
               title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
