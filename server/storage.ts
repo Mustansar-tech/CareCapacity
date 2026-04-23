@@ -477,6 +477,7 @@ export class MemStorage implements IStorage {
       matchCount: enquiry.matchCount ?? 0,
       isMultiVisit: enquiry.isMultiVisit ?? 0,
       visitDurationMinutes: enquiry.visitDurationMinutes ?? 60,
+      starredSelections: enquiry.starredSelections ?? null,
       createdAt: new Date(),
     };
     this.clientEnquiriesMap.set(id, result);

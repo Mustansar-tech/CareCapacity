@@ -363,7 +363,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 historyCount={historyQuery.data?.length}
                 onHistory={() => { setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null); }}
                 onBack={() => { setMultiResults(null); setLiveStarredMap({}); setSavedEnquiryId(null); }}
-                initialStarredMap={liveStarredMap}
+                key={savedEnquiryId ?? 'live-pending'}
+                initialStarredMap={{}}
                 onStarredMapChange={setLiveStarredMap}
               />
             ) : viewingHistoryResult ? (
@@ -438,6 +439,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                     </div>
                     {histActiveVR ? (
                       <MatchResultsGrid
+                        key={viewingHistoryResult.id}
                         result={histFullResult}
                         requiredDays={reqDays}
                         className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"

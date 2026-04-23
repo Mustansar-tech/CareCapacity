@@ -67,24 +67,15 @@ export function MatchResultsGrid({
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
-  const [starredMap, setStarredMapInternal] = useState<StarredMap>(initialStarredMap ?? {});
+  const [starredMap, setStarredMap] = useState<StarredMap>(initialStarredMap ?? {});
 
-  // Sync when parent provides a new initial map (e.g. loading a different history entry)
-  const prevInitialRef = React.useRef(initialStarredMap);
+  // Notify parent whenever the local star map changes (skip the very first render)
+  const isMountedRef = React.useRef(false);
   React.useEffect(() => {
-    if (initialStarredMap !== prevInitialRef.current) {
-      prevInitialRef.current = initialStarredMap;
-      setStarredMapInternal(initialStarredMap ?? {});
-    }
-  }, [initialStarredMap]);
-
-  const setStarredMap = (updater: StarredMap | ((prev: StarredMap) => StarredMap)) => {
-    setStarredMapInternal(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      onStarredMapChange?.(next);
-      return next;
-    });
-  };
+    if (!isMountedRef.current) { isMountedRef.current = true; return; }
+    onStarredMapChange?.(starredMap);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [starredMap]);
 
   const starKey = (visitIndex: number, cpIdx: number, day: string) => `${visitIndex}-${cpIdx}-${day}`;
 
