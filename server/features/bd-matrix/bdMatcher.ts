@@ -1146,13 +1146,20 @@ async function buildTravelTimeMap(
         let mins: number | undefined;
 
         if (cp.isCar) {
-          // Cars: read directly from pre-warmed ORS Matrix cache (no individual API calls)
+          // Cars: read from pre-warmed ORS Matrix cache first, then fall back to direct ORS API call
           const cacheData = travelTimeService.getCachedTravelTime(coords, clientCoords, 'car');
           if (cacheData) {
             mins = cacheData.durationMinutes;
             logger.info(`BD Matcher [${cp.empName}]: ${deps[0].source} (${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}) → enquiry = ${mins}min [${cacheData.source}]`);
           } else {
-            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — skipping (ORS only)`);
+            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — falling back to direct ORS API call`);
+            const orsResult = await travelTimeService.fetchORSDirections(coords, clientCoords);
+            if (orsResult) {
+              mins = orsResult.durationMinutes;
+              logger.info(`BD Matcher [${cp.empName}]: ORS fallback (${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}) → enquiry = ${mins}min [ors-directions]`);
+            } else {
+              logger.warn(`BD Matcher: ORS direct API call also failed for car ${cp.empName} departure ${coordKey} — no travel time available`);
+            }
           }
         } else {
           // Walkers/public: use TravelTime API with heuristic fallback
