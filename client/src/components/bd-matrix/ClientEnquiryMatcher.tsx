@@ -46,15 +46,24 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
   const historyStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
   const { toast } = useToast();
 
+  const patchStars = React.useCallback((id: string, stars: StarredMap) => {
+    // Optimistically update the cache so the history list is immediately correct
+    queryClient.setQueryData<import('@shared/schema').ClientEnquiry[]>(
+      ['/api/client-enquiries'],
+      (old) => old ? old.map(e => e.id === id ? { ...e, starredSelections: stars } : e) : old,
+    );
+    return apiRequest('PATCH', `/api/client-enquiries/${id}/stars`, { starredSelections: stars }).catch(() => {});
+  }, []);
+
   // Debounced autosave: live stars → DB
   React.useEffect(() => {
     if (!savedEnquiryId) return;
     clearTimeout(liveStarsTimer.current);
     liveStarsTimer.current = setTimeout(() => {
-      apiRequest('PATCH', `/api/client-enquiries/${savedEnquiryId}/stars`, { starredSelections: liveStarredMap }).catch(() => {});
+      patchStars(savedEnquiryId, liveStarredMap);
     }, 800);
     return () => clearTimeout(liveStarsTimer.current);
-  }, [liveStarredMap, savedEnquiryId]);
+  }, [liveStarredMap, savedEnquiryId, patchStars]);
 
   // Debounced autosave: history stars → DB
   React.useEffect(() => {
@@ -62,10 +71,10 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
     if (!histId) return;
     clearTimeout(historyStarsTimer.current);
     historyStarsTimer.current = setTimeout(() => {
-      apiRequest('PATCH', `/api/client-enquiries/${histId}/stars`, { starredSelections: historyStarredMap }).catch(() => {});
+      patchStars(histId, historyStarredMap);
     }, 800);
     return () => clearTimeout(historyStarsTimer.current);
-  }, [historyStarredMap, viewingHistoryResult?.id]);
+  }, [historyStarredMap, viewingHistoryResult?.id, patchStars]);
 
   React.useEffect(() => {
     setHistoryActiveTab('0');
@@ -361,7 +370,12 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 activeVisitTab={activeResultTab}
                 onVisitTabChange={setActiveResultTab}
                 historyCount={historyQuery.data?.length}
-                onHistory={() => { setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null); }}
+                onHistory={() => {
+                  // Flush any pending live star save immediately before navigating away
+                  clearTimeout(liveStarsTimer.current);
+                  if (savedEnquiryId) patchStars(savedEnquiryId, liveStarredMap);
+                  setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null);
+                }}
                 onBack={() => { setMultiResults(null); setLiveStarredMap({}); setSavedEnquiryId(null); }}
                 key={savedEnquiryId ?? 'live-pending'}
                 initialStarredMap={{}}
@@ -461,7 +475,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                         activeVisitTab={String(histIdx)}
                         onVisitTabChange={setHistoryActiveTab}
                         historyCount={historyQuery.data?.length}
-                        onHistory={() => setViewingHistoryResult(null)}
+                        onHistory={() => { setViewingHistoryResult(null); historyQuery.refetch(); }}
                         initialStarredMap={historyStarredMap}
                         onStarredMapChange={setHistoryStarredMap}
                       />
