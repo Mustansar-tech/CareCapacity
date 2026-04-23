@@ -319,11 +319,16 @@ export function exportSchedulePdf(
           doc.setFont('helvetica', 'bolditalic');
           doc.setTextColor(190, 55, 55);
           doc.text('No Availability', naX, curY);
-          // Dash on the right where time would appear
+          // Horizontal line same width as a typical time string, right-aligned
           doc.setFontSize(9.5);
           doc.setFont('helvetica', 'bold');
-          doc.setTextColor(160, 70, 70);
-          doc.text('\u2013', x + width - padX, curY, { align: 'right' });
+          const refTimeW = doc.getTextWidth('00:00-00:00');
+          const lineEndX  = x + width - padX;
+          const lineStartX = lineEndX - refTimeW;
+          const lineY = curY - 1.2;
+          doc.setDrawColor(160, 70, 70);
+          doc.setLineWidth(0.7);
+          doc.line(lineStartX, lineY, lineEndX, lineY);
           curY += lineH;
           continue;
         }
