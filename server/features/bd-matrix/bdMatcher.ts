@@ -1067,16 +1067,23 @@ async function buildTravelTimeMap(
 
   // 3. ONE ORS Matrix batch: all car sources → enquiry postcode
   if (allCarSources.length > 0) {
-    try {
-      logger.info(`BD Matcher: ORS Matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
-      await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
-      logger.info(`BD Matcher: ORS Matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
-    } catch (err) {
-      logger.warn(`BD Matcher: ORS Matrix batch failed, affected cars will be marked unreachable: ${err}`);
+    if (!travelTimeService.hasORSKey()) {
+      logger.warn(`BD Matcher: ORS_API_KEY not set — ORS Matrix pre-warm skipped. Car routes will use heuristic fallback.`);
+    } else {
+      try {
+        logger.info(`BD Matcher: ORS Matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
+        const cached = await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
+        logger.info(`BD Matcher: ORS Matrix pre-warm complete — ${cached} of ${allCarSources.length} routes cached`);
+        if (cached === 0) {
+          logger.warn(`BD Matcher: ORS Matrix batch returned 0 entries — API call may have failed. Car routes will use heuristic fallback.`);
+        }
+      } catch (err) {
+        logger.warn(`BD Matcher: ORS Matrix batch failed — car routes will use heuristic fallback: ${err}`);
+      }
     }
   }
 
-  // ── Home departure cars: read from cache ──
+  // ── Home departure cars: read from cache, fall back to direct ORS, then heuristic ──
   for (const cp of batchCarCPs) {
     try {
       const cacheData = travelTimeService.getCachedTravelTime(cp.homeCoords, clientCoords, 'car');
@@ -1086,6 +1093,24 @@ async function buildTravelTimeMap(
           departureSource: 'home',
           departureSummary: 'home',
         });
+      } else {
+        // Cache miss — try direct ORS API, then heuristic
+        let mins: number | undefined;
+        const orsResult = await travelTimeService.fetchORSDirections(cp.homeCoords, clientCoords);
+        if (orsResult) {
+          mins = orsResult.durationMinutes;
+          logger.info(`BD Matcher [${cp.empName}]: home ORS fallback → enquiry = ${mins}min [ors-directions]`);
+        } else {
+          mins = travelTimeService.heuristicEstimate(cp.homeCoords, clientCoords, 'car');
+          logger.warn(`BD Matcher [${cp.empName}]: ORS unavailable — using heuristic ${mins}min`);
+        }
+        if (mins !== undefined && mins < 9999) {
+          travelTimeMap.set(cp.empName, {
+            travelMinutes: mins,
+            departureSource: 'home',
+            departureSummary: 'home',
+          });
+        }
       }
     } catch (err) {
       logger.debug(`BD Matcher: car batch read failed for ${cp.empName}: ${err}`);
@@ -1146,19 +1171,22 @@ async function buildTravelTimeMap(
         let mins: number | undefined;
 
         if (cp.isCar) {
-          // Cars: read from pre-warmed ORS Matrix cache first, then fall back to direct ORS API call
+          // Cars: read from pre-warmed ORS Matrix cache first, then fall back to direct ORS API, then heuristic
           const cacheData = travelTimeService.getCachedTravelTime(coords, clientCoords, 'car');
           if (cacheData) {
             mins = cacheData.durationMinutes;
             logger.info(`BD Matcher [${cp.empName}]: ${deps[0].source} (${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}) → enquiry = ${mins}min [${cacheData.source}]`);
           } else {
-            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — falling back to direct ORS API call`);
+            logger.warn(`BD Matcher: ORS Matrix cache miss for car ${cp.empName} departure ${coordKey} — trying direct ORS API`);
             const orsResult = await travelTimeService.fetchORSDirections(coords, clientCoords);
             if (orsResult) {
               mins = orsResult.durationMinutes;
               logger.info(`BD Matcher [${cp.empName}]: ORS fallback (${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}) → enquiry = ${mins}min [ors-directions]`);
             } else {
-              logger.warn(`BD Matcher: ORS direct API call also failed for car ${cp.empName} departure ${coordKey} — no travel time available`);
+              // Final fallback: heuristic estimate so the car CP still gets a result
+              const heuristicMins = travelTimeService.heuristicEstimate(coords, clientCoords, 'car');
+              mins = heuristicMins;
+              logger.warn(`BD Matcher: ORS unavailable for car ${cp.empName} departure ${coordKey} — using heuristic ${mins}min`);
             }
           }
         } else {
