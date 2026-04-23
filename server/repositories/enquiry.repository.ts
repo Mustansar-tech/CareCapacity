@@ -26,12 +26,6 @@ export async function deleteClientEnquiry(id: string): Promise<void> {
   await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
 }
 
-export async function updateStarredSelections(id: string, starredSelections: unknown): Promise<void> {
-  await db.update(clientEnquiries)
-    .set({ starredSelections })
-    .where(eq(clientEnquiries.id, id));
-}
-
 export async function createFeedback(data: InsertFeedback): Promise<Feedback> {
   const [result] = await db.insert(feedback).values(data).returning();
   return result;

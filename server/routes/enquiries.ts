@@ -9,7 +9,6 @@ const router = Router();
 router.post('/client-enquiries', asyncHandler(enquiryController.createClientEnquiry));
 router.get('/client-enquiries', asyncHandler(enquiryController.listClientEnquiries));
 router.delete('/client-enquiries/:id', asyncHandler(enquiryController.deleteClientEnquiry));
-router.patch('/client-enquiries/:id/stars', asyncHandler(enquiryController.patchEnquiryStars));
 router.post('/feedback', requireAuth, asyncHandler(enquiryController.submitFeedback));
 router.get('/feedback', requireAuth, requireRoleAtLeast('admin'), asyncHandler(enquiryController.listFeedback));
 

@@ -652,7 +652,6 @@ export const clientEnquiries = pgTable("client_enquiries", {
   matchCount: integer("match_count").notNull().default(0),
   topMatch: text("top_match"),
   results: jsonb("results"),
-  starredSelections: jsonb("starred_selections"), // Persisted starred CP map { key: { employeeName, timeWindow, gender, transportMode } }
   visits: jsonb("visits"), // Store the input criteria for all visits
   isMultiVisit: integer("is_multi_visit").default(0), // 0 for false, 1 for true
   visitDurationMinutes: integer("visit_duration_minutes").notNull().default(60),

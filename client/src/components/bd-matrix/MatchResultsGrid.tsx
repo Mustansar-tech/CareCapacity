@@ -7,19 +7,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Users, MapPin, Star, ArrowRight, X, Activity,
-  Home, Clock, UserCheck, XCircle, Info, History, FileDown, ArrowLeft,
+  Users, MapPin, Star, ArrowRight, ArrowLeft, X, Activity,
+  Home, Clock, UserCheck, XCircle, Info,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
-import { roundContractedHours, type MultiVisitResult, type MatchedSlot, type StarredMap } from "@/utils/bd-matrix-utils";
-import { exportSchedulePdf } from "@/utils/export-schedule-pdf";
-
-interface VisitTabDef {
-  index: number;
-  label: string;
-  careProsRequired?: number;
-  selectedDays?: string[];
-}
+import { roundContractedHours, type MultiVisitResult, type MatchedSlot } from "@/utils/bd-matrix-utils";
 
 interface MatchResultsGridProps {
   result: MultiVisitResult;
@@ -30,14 +22,6 @@ interface MatchResultsGridProps {
   enquiryPostcode?: string;
   enquiryTimeStart?: string;
   enquiryTimeEnd?: string;
-  visitTabs?: VisitTabDef[];
-  activeVisitTab?: string;
-  onVisitTabChange?: (tab: string) => void;
-  historyCount?: number;
-  onHistory?: () => void;
-  onBack?: () => void;
-  initialStarredMap?: StarredMap;
-  onStarredMapChange?: (map: StarredMap) => void;
 }
 
 export function MatchResultsGrid({
@@ -49,14 +33,6 @@ export function MatchResultsGrid({
   enquiryPostcode,
   enquiryTimeStart,
   enquiryTimeEnd,
-  visitTabs,
-  activeVisitTab,
-  onVisitTabChange,
-  historyCount,
-  onHistory,
-  onBack,
-  initialStarredMap,
-  onStarredMapChange,
 }: MatchResultsGridProps) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
@@ -67,22 +43,14 @@ export function MatchResultsGrid({
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
-  const [starredMap, setStarredMap] = useState<StarredMap>(initialStarredMap ?? {});
-
-  // Notify parent whenever the local star map changes (skip the very first render)
-  const isMountedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!isMountedRef.current) { isMountedRef.current = true; return; }
-    onStarredMapChange?.(starredMap);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [starredMap]);
+  const [starredMap, setStarredMap] = useState<Record<string, { employeeName: string; timeWindow: string }>>({});
 
   const starKey = (visitIndex: number, cpIdx: number, day: string) => `${visitIndex}-${cpIdx}-${day}`;
 
   const getStarred = (visitIndex: number, cpIdx: number, day: string) =>
     starredMap[starKey(visitIndex, cpIdx, day)];
 
-  const toggleStar = (visitIndex: number, cpIdx: number, day: string, employeeName: string, timeWindow: string, gender?: string, transportMode?: string) => {
+  const toggleStar = (visitIndex: number, cpIdx: number, day: string, employeeName: string, timeWindow: string) => {
     const key = starKey(visitIndex, cpIdx, day);
     setStarredMap(prev => {
       const existing = prev[key];
@@ -91,7 +59,7 @@ export function MatchResultsGrid({
         delete next[key];
         return next;
       }
-      return { ...prev, [key]: { employeeName, timeWindow, gender, transportMode } };
+      return { ...prev, [key]: { employeeName, timeWindow } };
     });
   };
 
@@ -116,12 +84,11 @@ export function MatchResultsGrid({
   if (!result || !result.visitResults || result.visitResults.length === 0) return null;
 
   const hasAnyStars = Object.keys(starredMap).length > 0;
-  const totalCpRows = result.visitResults.reduce((s, v) => s + v.careProsRequired, 0);
 
   return (
     <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col ${className}`}>
-      <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b px-4 pr-14 py-3 flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="bg-purple-50/50 dark:bg-purple-900/10 border-b p-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg" aria-hidden="true">
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
@@ -143,109 +110,52 @@ export function MatchResultsGrid({
             </div>
           </div>
         </div>
-
-        {visitTabs && visitTabs.length > 0 && onVisitTabChange && (
-          <div className="flex items-center gap-1.5 ml-1">
-            {visitTabs.map((vt) => (
-              <Button
-                key={vt.index}
-                variant={activeVisitTab === String(vt.index) ? "default" : "outline"}
-                size="sm"
-                onClick={() => onVisitTabChange(String(vt.index))}
-                className={`gap-1.5 font-bold rounded-xl transition-all px-3 h-7 text-[11px] ${
-                  activeVisitTab === String(vt.index)
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
-                    : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
-                }`}
-              >
-                <span className={`w-4 h-4 rounded-md text-[9px] font-black flex items-center justify-center ${
-                  activeVisitTab === String(vt.index) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-                }`}>
-                  {vt.index + 1}
-                </span>
-                {vt.label}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        <div className="flex-1" />
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {onBack && (
+        <div className="flex items-center gap-3">
+          {onToggleSortByTravel && (
             <Button
               variant="outline"
               size="sm"
-              onClick={onBack}
-              className="gap-1.5 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-purple-50 hover:border-purple-300 dark:hover:bg-purple-900/20 rounded-xl px-3 h-7 transition-all"
+              onClick={onToggleSortByTravel}
+              className={`text-[10px] font-bold gap-1.5 h-7 px-3 transition-all ${sortByTravel ? 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300' : 'border-gray-200 text-gray-600 dark:border-gray-600 dark:text-gray-400 hover:border-blue-300 hover:text-blue-600'}`}
+              title={sortByTravel ? 'Sorting by nearest first — click to sort by best match' : 'Click to sort by nearest first'}
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back
-            </Button>
-          )}
-          {onHistory && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onHistory}
-              className="gap-1.5 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 rounded-xl px-3 h-7 transition-all"
-            >
-              <History className="w-3.5 h-3.5" />
-              History{historyCount ? ` (${historyCount})` : ''}
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
+              {sortByTravel ? 'Nearest First' : 'Best Match'}
             </Button>
           )}
           {hasAnyStars && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const allVisits = (visitTabs ?? []).map(vt => ({
-                    visitIndex: vt.index,
-                    visitLabel: vt.label,
-                    careProsRequired: vt.careProsRequired ?? result.visitResults[0]?.careProsRequired ?? 1,
-                    selectedDays: vt.selectedDays,
-                  }));
-                  if (allVisits.length === 0) {
-                    allVisits.push(...result.visitResults.map(vr => ({
-                      visitIndex: vr.visitIndex,
-                      visitLabel: vr.visitLabel || `Visit ${vr.visitIndex + 1}`,
-                      careProsRequired: vr.careProsRequired,
-                      selectedDays: undefined,
-                    })));
-                  }
-                  exportSchedulePdf(
-                    starredMap,
-                    result.clientName,
-                    result.postcode,
-                    enquiryTimeStart,
-                    enquiryTimeEnd,
-                    allVisits,
-                    requiredDays
-                  );
-                }}
-                className="text-[10px] font-bold gap-1.5 h-7 px-3 border-emerald-400 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-              >
-                <FileDown className="w-3 h-3" /> Export PDF
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStarredMap({})}
-                className="text-[10px] font-bold gap-1.5 h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
-              >
-                <X className="w-3 h-3" /> Clear Selections
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStarredMap({})}
+              className="text-[10px] font-bold gap-1.5 h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
+            >
+              <X className="w-3 h-3" /> Clear Selections
+            </Button>
           )}
+          <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('bd-matcher-back'));
+            }}
+            className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all px-3 h-8 text-[10px]"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back
+          </Button>
         </div>
       </div>
       <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
         <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-900/80">
+              <th className="p-4 text-left font-bold text-gray-900 dark:text-gray-100 border-b border-r w-[240px] sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                Requirement
+              </th>
               {displayLabels.map(label => (
-                <th key={label} className="py-3 px-2 text-center font-bold text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-gray-50 dark:bg-gray-900">
+                <th key={label} className="p-4 text-center font-bold text-gray-900 dark:text-gray-100 border-b min-w-[200px] bg-gray-50 dark:bg-gray-900">
                   {label}
                 </th>
               ))}
@@ -255,8 +165,8 @@ export function MatchResultsGrid({
             {result.visitResults.map((vr) => (
               <React.Fragment key={vr.visitIndex}>
                 <tr className="bg-purple-50/30 dark:bg-purple-900/10">
-                  <td colSpan={displayDays.length} className="py-2 px-3 border-b border-purple-100 dark:border-purple-800/30">
-                    <div className="flex flex-wrap items-center gap-4 px-2">
+                  <td colSpan={displayDays.length + 1} className="p-3 border-b border-purple-100 dark:border-purple-800/30">
+                    <div className="flex flex-wrap items-center gap-6 px-4 py-2">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-purple-600" />
                         <span className="text-xs font-black uppercase tracking-wider text-purple-900 dark:text-purple-100">Visit {vr.visitIndex + 1}</span>
@@ -279,15 +189,21 @@ export function MatchResultsGrid({
                 </tr>
                 {Array.from({ length: vr.careProsRequired }).map((_, cpIdx) => {
                   const genderPref = vr.genderPreferences[cpIdx] || 'any';
+                  const genderLabel = genderPref === 'any' ? 'Any' : genderPref.charAt(0).toUpperCase() + genderPref.slice(1);
 
-                  const cellHeight = `calc((100vh - 140px) / ${totalCpRows})`;
-                  const isCp2Plus = cpIdx > 0;
                   return (
                     <tr key={`${vr.visitIndex}-${cpIdx}`} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                      <td className="p-4 align-top border-r sticky left-0 z-10 bg-white dark:bg-gray-950 shadow-[4px_0_10px_rgba(0,0,0,0.08)]">
+                        <div className="space-y-4">
+                          <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 text-[11px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800/50 text-[#41589c]">
+                            CP{cpIdx + 1}: {genderLabel === "Female" ? "F" : genderLabel === "Male" ? "M" : genderLabel} Only
+                          </div>
+                        </div>
+                      </td>
                       {displayDays.map(day => {
                         if (!vr.matches || vr.matches.length === 0) {
                           return (
-                            <td key={day} className={`p-2 bg-gray-50/10 dark:bg-gray-900/5 ${isCp2Plus ? 'border-t-4 border-gray-800 dark:border-gray-200' : ''}`} style={{ height: cellHeight }}>
+                            <td key={day} className="p-4 bg-gray-50/10 dark:bg-gray-900/5">
                               <div className="h-full min-h-[120px] flex items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl">
                                 <span className="text-gray-200 dark:text-gray-800 font-bold text-lg">-</span>
                               </div>
@@ -344,8 +260,8 @@ export function MatchResultsGrid({
                           : sorted;
 
                         return (
-                          <td key={day} className={`p-1.5 align-top min-w-[230px] ${isCp2Plus ? 'border-t-4 border-gray-800 dark:border-gray-200' : ''}`} style={{ height: cellHeight }}>
-                            <div className="h-full overflow-y-auto pr-1 space-y-2"  style={{ maxHeight: cellHeight }}>
+                          <td key={day} className="p-3 align-top min-w-[250px]">
+                            <div className={`overflow-y-auto ${vr.careProsRequired > 1 ? 'max-h-[315px]' : 'max-h-[420px]'} pr-1 space-y-3`}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
                                   const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
@@ -372,7 +288,7 @@ export function MatchResultsGrid({
                                   return (
                                     <div
                                       key={`${employeeMatch.employeeName}-${matchIdx}`}
-                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-2 shadow-sm hover:shadow-md transition-all space-y-1.5 relative`}
+                                      className={`bg-gray-50 dark:bg-gray-800 border ${isStarred ? 'ring-2 ring-amber-400 dark:ring-amber-500' : matchIdx === 0 ? 'ring-1 ring-purple-100 dark:ring-purple-900/30' : ''} ${genderColorClass} rounded-xl p-3 shadow-sm hover:shadow-md transition-all space-y-2 relative`}
                                     >
                                       <div className="flex justify-between items-start gap-2">
                                         <div className="flex flex-col min-w-0 flex-1">
@@ -411,7 +327,7 @@ export function MatchResultsGrid({
                                           <ShadcnTooltip>
                                             <TooltipTrigger asChild>
                                               <button
-                                                onClick={() => toggleStar(vr.visitIndex, cpIdx, day, employeeMatch.employeeName, slotOnDay.availableWindow, employeeMatch.gender, employeeMatch.transportMode)}
+                                                onClick={() => toggleStar(vr.visitIndex, cpIdx, day, employeeMatch.employeeName, slotOnDay.availableWindow)}
                                                 className={`flex-shrink-0 p-1 rounded-md transition-all hover:scale-110 ${isStarred ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600 dark:hover:text-amber-500'}`}
                                                 aria-label={isStarred ? 'Unselect this care pro' : 'Select this care pro for double-up'}
                                               >
@@ -424,7 +340,7 @@ export function MatchResultsGrid({
                                           </ShadcnTooltip>
                                         </TooltipProvider>
                                       </div>
-                                      <div className="flex items-center gap-2 flex-nowrap pt-1.5">
+                                      <div className="flex items-center gap-2 flex-nowrap">
                                         {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
@@ -520,16 +436,14 @@ export function MatchResultsGrid({
                                   );
                                 })
                               ) : (
-                                <div className="h-full min-h-[120px] flex flex-col items-center justify-center rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border-2 border-rose-200/60 dark:border-rose-800/40 p-4 text-center gap-1.5">
-                                  <XCircle className="w-6 h-6 text-rose-400 dark:text-rose-500 opacity-80" />
-                                  <span className="text-rose-700 dark:text-rose-400 font-black text-[11px] uppercase tracking-widest">
-                                    No Availability
+                                <div className="h-full min-h-[120px] flex flex-col items-center justify-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/30 dark:bg-gray-900/20 p-4 text-center">
+                                  <Users className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2 opacity-20" />
+                                  <span className="text-gray-300 dark:text-gray-700 font-bold text-[10px] uppercase tracking-widest">
+                                    {anyOtherStar ? 'No match at same time' : 'No Matches'}
                                   </span>
-                                  {anyOtherStar && (
-                                    <span className="text-[9px] font-bold text-rose-500/80 dark:text-rose-500/60">
-                                      Needs to be free at {anyOtherStar.timeWindow}
-                                    </span>
-                                  )}
+                                  <span className="text-[9px] text-gray-400 dark:text-gray-600 mt-1">
+                                    {anyOtherStar ? `Needs to be free at ${anyOtherStar.timeWindow}` : 'Check constraints or day selection'}
+                                  </span>
                                 </div>
                               )}
                             </div>

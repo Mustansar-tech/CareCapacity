@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
@@ -322,6 +323,9 @@ function Navigation() {
             >
               <HelpCircle className="h-4 w-4" />
             </button>
+            <div className="[&_button]:!text-white/65 [&_button]:hover:!text-white [&_button]:!bg-transparent [&_button]:!p-1.5 [&_button]:!shadow-none [&_svg]:!h-4 [&_svg]:!w-4">
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* Soft rule */}

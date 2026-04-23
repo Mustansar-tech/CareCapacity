@@ -8,9 +8,13 @@ export function TransportModeIcon({ transportMode, size = 'md' }: { transportMod
 
   if (transportMode.toLowerCase().includes('recruiter')) {
     return (
-      <div title="Recruiter" aria-label="Transport mode: recruiter" className="inline-block">
-        <Car className={`${iconCls} text-blue-600 dark:text-blue-400`} />
-      </div>
+      <span
+        title="New Recruiter – transport mode not yet confirmed"
+        className="inline-flex items-center justify-center rounded-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-black border border-amber-300 dark:border-amber-700 leading-none"
+        style={{ fontSize: 9, width: size === 'sm' ? 12 : 16, height: size === 'sm' ? 12 : 16 }}
+      >
+        X
+      </span>
     );
   }
 
