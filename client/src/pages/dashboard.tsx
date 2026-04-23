@@ -89,6 +89,7 @@ export default function Dashboard() {
     setSelectedDate(null);
     queryClient.invalidateQueries({ queryKey: ['/api/history'] });
     queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
   }, [selectedBranchId]);
 
   useEffect(() => {
@@ -185,6 +186,7 @@ export default function Dashboard() {
       setFiles({ availability: null, guaranteed: null, demand: null, cgData: null });
       queryClient.invalidateQueries({ queryKey: ['/api/history'] });
       queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
       toast({
         title: "Processing Complete",
         description: "Your capacity data has been analyzed successfully."
@@ -274,7 +276,7 @@ export default function Dashboard() {
               title="Automatically download reports from People Planner"
             >
               <Bot className="w-4 h-4 mr-2" />
-              Sync from People Planner
+              Process Data
             </Button>
           </div>
         )}

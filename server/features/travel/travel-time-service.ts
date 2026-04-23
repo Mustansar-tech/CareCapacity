@@ -63,7 +63,6 @@ export class TravelTimeService {
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
-  private readonly ORS_API_KEY_2 = process.env.ORS_API_KEY_2;
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
@@ -135,74 +134,33 @@ export class TravelTimeService {
 
   /** Returns true if an ORS API key is configured (Matrix calls will succeed). */
   hasORSKey(): boolean {
-    return !!(this.ORS_API_KEY || this.ORS_API_KEY_2);
-  }
-
-  /**
-   * Returns the active ORS keys in priority order (primary first, secondary fallback).
-   */
-  private orsKeys(): string[] {
-    return [this.ORS_API_KEY, this.ORS_API_KEY_2].filter(Boolean) as string[];
-  }
-
-  /**
-   * Attempts an ORS fetch with each available key in order.
-   * Returns the successful Response, or null if all keys fail.
-   * Rate-limit (429) and server errors (5xx) trigger the next key.
-   */
-  private async orsPost(url: string, body: object): Promise<Response | null> {
-    const keys = this.orsKeys();
-    if (keys.length === 0) return null;
-    for (let i = 0; i < keys.length; i++) {
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Authorization': keys[i], 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (response.ok) return response;
-        const isRateLimit = response.status === 429;
-        const isServerErr = response.status >= 500;
-        const isForbidden = response.status === 403;
-        if ((isRateLimit || isServerErr || isForbidden) && i < keys.length - 1) {
-          const errText = await response.text();
-          logger.warn(`[ORS] Key ${i + 1} returned ${response.status}, trying key ${i + 2}. ${errText.slice(0, 120)}`);
-          continue;
-        }
-        // Non-recoverable error on this key — log and give up
-        const errText = await response.text();
-        logger.warn(`[ORS] API error ${response.status} on key ${i + 1}: ${errText.slice(0, 200)}`);
-        return null;
-      } catch (err) {
-        if (i < keys.length - 1) {
-          logger.warn(`[ORS] Key ${i + 1} request failed, trying key ${i + 2}`, { error: String(err) });
-          continue;
-        }
-        logger.warn('[ORS] All keys failed', { error: String(err) });
-        return null;
-      }
-    }
-    return null;
+    return !!this.ORS_API_KEY;
   }
 
   /**
    * Direct ORS Directions API call (driving-car profile).
-   * Returns null if no ORS API key is configured or all calls fail.
+   * Returns null if the ORS API key is missing or the call fails.
    */
   async fetchORSDirections(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
-    if (!this.hasORSKey()) return null;
+    if (!this.ORS_API_KEY) return null;
     try {
-      const response = await this.orsPost(
-        'https://api.openrouteservice.org/v2/directions/driving-car',
-        { coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }
-      );
-      if (response) {
+      const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+        method: 'POST',
+        headers: {
+          'Authorization': this.ORS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
+      });
+      if (response.ok) {
         const data = await response.json();
         const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
         const distanceMeters = Math.round(data.routes[0].summary.distance);
         this.trackSource('ors');
         return { durationMinutes, distanceMeters };
       }
+      const errorText = await response.text();
+      logger.warn(`[ORS Directions] API error (${response.status}): ${errorText.slice(0, 200)}`);
     } catch (err) {
       logger.warn('[ORS Directions] request failed', { error: String(err) });
     }
@@ -634,15 +592,19 @@ export class TravelTimeService {
     }
 
     // 3. Car — ORS Directions API
-    if (this.hasORSKey()) {
+    if (this.ORS_API_KEY) {
       try {
         logger.debug(`Requesting ORS directions for ${fromLat},${fromLng} → ${toLat},${toLng}`);
-        const response = await this.orsPost(
-          'https://api.openrouteservice.org/v2/directions/driving-car',
-          { coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }
-        );
+        const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+          method: 'POST',
+          headers: {
+            'Authorization': this.ORS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
+        });
 
-        if (response) {
+        if (response.ok) {
           const data = await response.json();
           const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
           const distanceMeters = Math.round(data.routes[0].summary.distance);
@@ -660,6 +622,9 @@ export class TravelTimeService {
             penaltyScore: this.calculatePenalty(durationMinutes),
             source: 'ors',
           };
+        } else {
+          const errorText = await response.text();
+          logger.warn(`ORS API error (${response.status}): ${errorText.slice(0, 200)}`);
         }
       } catch (error) {
         logger.warn("ORS API exception:", error instanceof Error ? error.message : error);
@@ -788,7 +753,7 @@ export class TravelTimeService {
     // ── PHASE 2: Client → Client all-pairs ─────────────────────────────────────
     if (clientLocations.length > 1) {
       // Phase 2a: Car client→client via ORS Matrix (all-pairs: clients + car employee homes)
-      if (carEmployees.length > 0 && this.hasORSKey()) {
+      if (carEmployees.length > 0 && this.ORS_API_KEY) {
         logger.info(`[Cache Pre-warm] Phase 2a: client→client car (ORS Matrix all-pairs, ${clientLocations.length} clients + ${carEmployees.length} employee homes)`);
         const carUniqueLocations: Array<{ lat: number; lng: number; id: string }> = [
           ...clientLocations.map((c, i) => ({ lat: c.lat, lng: c.lng, id: `c${i}` })),
@@ -823,7 +788,7 @@ export class TravelTimeService {
     destinations: Array<{ lat: number; lng: number; id?: string }>,
     skipSameCoords = false
   ): Promise<number> {
-    if (!this.hasORSKey() || sources.length === 0 || destinations.length === 0) return 0;
+    if (!this.ORS_API_KEY || sources.length === 0 || destinations.length === 0) return 0;
     let added = 0;
     try {
       const allLocations = [
@@ -837,12 +802,13 @@ export class TravelTimeService {
       // 800ms is conservative; use 1500ms for strict compliance at ~40/min
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const response = await this.orsPost(
-        'https://api.openrouteservice.org/v2/matrix/driving-car',
-        { locations: allLocations, metrics: ['duration', 'distance'], sources: srcIndices, destinations: dstIndices }
-      );
+      const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+        method: 'POST',
+        headers: { 'Authorization': this.ORS_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations: allLocations, metrics: ['duration', 'distance'], sources: srcIndices, destinations: dstIndices }),
+      });
 
-      if (response) {
+      if (response.ok) {
         const data = await response.json();
         const durations: (number | null)[][] = data.durations;
         const distances: (number | null)[][] = data.distances;
@@ -863,7 +829,8 @@ export class TravelTimeService {
         }
         logger.info(`[Cache Pre-warm] ORS Matrix: ${sources.length}×${destinations.length} batch → ${added} entries cached`);
       } else {
-        logger.warn(`[Cache Pre-warm] ORS Matrix batch failed — all keys exhausted`);
+        const errText = await response.text();
+        logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
         return added;
       }
     } catch (err) {

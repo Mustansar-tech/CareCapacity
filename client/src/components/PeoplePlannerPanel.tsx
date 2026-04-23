@@ -61,10 +61,10 @@ interface Props {
 
 const PHASE_LABELS: Record<string, string> = {
   starting:                              "Starting automation...",
-  downloading_visitsExport:              "Downloading Guaranteed Hours (1/3)...",
-  downloading_careGiverExport:           "Downloading CG Data Export (2/3)...",
-  downloading_careGiverAvailabilityExport: "Downloading Availability Export (3/3)...",
-  processing:                            "Processing through pipeline...",
+  downloading_visitsExport:              "Preparing dashboard data (1/3)...",
+  downloading_careGiverExport:           "Loading dashboard metrics (2/3)...",
+  downloading_careGiverAvailabilityExport: "Building dashboard insights (3/3)...",
+  processing:                            "Updating dashboard...",
   complete:                              "Complete!",
   error:                                 "Error occurred",
 };
@@ -167,6 +167,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     if (session?.status === "completed") {
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history/latest"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       toast({
         title: "People Planner sync complete",
         description: "Dashboard data has been refreshed.",
@@ -249,12 +250,8 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               <Bot className="w-4 h-4 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                People Planner Sync
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Automatically download reports from Access Workspace
-              </CardDescription>
+              <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">Process Data</CardTitle>
+              <CardDescription className="text-xs">select the week to process new data</CardDescription>
             </div>
           </div>
           <button
@@ -266,7 +263,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </button>
         </div>
       </CardHeader>
-
       <CardContent className="pt-4 space-y-4">
 
         {/* Automation unavailable banner */}
@@ -313,71 +309,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               </p>
             )}
           </div>
-        </div>
-
-        {/* Reports list */}
-        <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reports to download</p>
-          {reportOrder.map((reportType) => {
-            const job = sessionJobs.find(j => j?.config?.reportType === reportType);
-            const isDone    = job?.status === "completed";
-            const isFailed  = job?.status === "failed";
-            const isRunning = job?.status === "running" || job?.status === "pending";
-
-            return (
-              <div key={reportType}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    isDone    ? "bg-emerald-100 dark:bg-emerald-900" :
-                    isFailed  ? "bg-red-100 dark:bg-red-900" :
-                    isRunning ? "bg-blue-100 dark:bg-blue-900" : "bg-muted"
-                  }`}>
-                    {isDone    ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> :
-                     isFailed  ? <XCircle className="w-3.5 h-3.5 text-red-600" /> :
-                     isRunning ? <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" /> :
-                     <span className="w-2 h-2 rounded-full bg-muted-foreground/30" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{REPORT_LABELS[reportType]}</p>
-                    {job?.fileName && (
-                      <p className="text-xs text-muted-foreground truncate">{job.fileName}</p>
-                    )}
-                    {isFailed && job?.error && (
-                      <p className="text-xs text-red-600 mt-0.5">{job.error}</p>
-                    )}
-                  </div>
-                  {job && job.logs.length > 0 && (
-                    <button
-                      onClick={() => setShowLogs(showLogs === job.id ? null : job.id)}
-                      className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label="Toggle logs"
-                    >
-                      <Terminal className="w-3.5 h-3.5" />
-                      {showLogs === job.id ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />}
-                    </button>
-                  )}
-                  {job?.downloadReady && job.fileName && (
-                    <a
-                      href={`/api/pp/download/${job.id}`}
-                      download={job.fileName}
-                      className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-1"
-                      title={`Download ${job.fileName}`}
-                    >
-                      <FileDown className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
-
-                {showLogs === job?.id && job?.logs && job.logs.length > 0 && (
-                  <div className="mt-2 ml-9 rounded-md bg-black/80 dark:bg-black/60 p-2 max-h-32 overflow-y-auto">
-                    {job.logs.map((line, idx) => (
-                      <p key={idx} className="text-xs font-mono text-green-400 leading-relaxed">{line}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
         </div>
 
         {/* Active session progress */}
@@ -427,7 +358,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 <div className="flex gap-2">
                   <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                    All 3 reports downloaded and processed. Dashboard data has been updated.
+                    Dashboard updated successfully and ready to explore.
                   </p>
                 </div>
               </div>
@@ -492,21 +423,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* Info card when idle */}
-        {!activeSessionId && !triggerMutation.isPending && (
-          <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 p-4">
-            <div className="flex gap-2">
-              <Building2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Automated report download</p>
-                <p className="text-xs text-blue-600/80 dark:text-blue-400">
-                  Logs into Access Workspace, opens People Planner, and downloads all 3 reports for the selected week. Typically takes 3–8 minutes.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Action buttons */}
         <div className="pt-1">
           {(session?.status === "failed" || session?.status === "completed") ? (
@@ -529,12 +445,12 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               {isActive ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Running automation...
+                  Processing data...
                 </>
               ) : (
                 <>
                   <Bot className="w-4 h-4 mr-2" />
-                  Start People Planner Sync
+                  Start Processing
                 </>
               )}
             </Button>

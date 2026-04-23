@@ -7,12 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -79,6 +73,15 @@ export function OverviewTab({
 }: OverviewTabProps) {
   const { toast } = useToast();
   const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
+  const [sicknessModalOpen, setSicknessModalOpen] = useState(false);
+  const [unavailModalOpen, setUnavailModalOpen] = useState(false);
+  const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+  const [netCapacityModalOpen, setNetCapacityModalOpen] = useState(false);
+  const [domiciliaryModalOpen, setDomiciliaryModalOpen] = useState(false);
+  const [clientScheduledModalOpen, setClientScheduledModalOpen] = useState(false);
+  const [otherScheduledModalOpen, setOtherScheduledModalOpen] = useState(false);
+  const [capacityAfterModalOpen, setCapacityAfterModalOpen] = useState(false);
+  const [desiredHoursModalOpen, setDesiredHoursModalOpen] = useState(false);
   const data = filteredData || processedData;
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
@@ -93,6 +96,57 @@ export function OverviewTab({
       (data as any).ghLossRawSummary ?? undefined,
     );
   }, [data]);
+
+  const dayBreakdown = useMemo(() => {
+    if (!data?.dailySummary) return { sickness: 0, unavailability: 0 };
+    return data.dailySummary.reduce(
+      (acc, day) => ({
+        sickness: Math.round((acc.sickness + (day.sickness || 0)) * 100) / 100,
+        unavailability: Math.round((acc.unavailability + (day.unavailability || 0)) * 100) / 100,
+      }),
+      { sickness: 0, unavailability: 0 },
+    );
+  }, [data]);
+
+  const buildBreakdown = (statuses: string[]) => {
+    if (!data?.employeesByDate) return [] as Array<{ name: string; hours: number; days: number }>;
+    const map = new Map<string, { hours: number; days: Set<string> }>();
+    Object.entries(data.employeesByDate).forEach(([date, employees]) => {
+      employees.forEach((emp) => {
+        if (!statuses.includes(emp.status)) return;
+        const existing = map.get(emp.employeeName) ?? { hours: 0, days: new Set<string>() };
+        const dailyCap = emp.contractedDailyHours > 0 ? emp.contractedDailyHours : (emp.hours || 0);
+        existing.hours += Math.min(emp.hours || 0, dailyCap);
+        existing.days.add(date);
+        map.set(emp.employeeName, existing);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([name, v]) => ({ name, hours: Math.round(v.hours * 100) / 100, days: v.days.size }))
+      .filter((i) => i.hours > 0 || i.days > 0)
+      .sort((a, b) => b.hours - a.hours);
+  };
+
+  const sicknessBreakdown = useMemo(() => {
+    const items = buildBreakdown(["Sick", "Partial Sick"]);
+    return { total: dayBreakdown.sickness, items };
+  }, [data, dayBreakdown.sickness]);
+  const unavailBreakdown = useMemo(() => {
+    const items = buildBreakdown([
+      "Maternity/Paternity", "Compassionate Leave", "Other Unavailable",
+      "Pre-Agreed Appointment", "Partial Maternity/Paternity",
+      "Partial Compassionate Leave", "Partial Availability",
+    ]);
+    return { total: dayBreakdown.unavailability, items };
+  }, [data, dayBreakdown.unavailability]);
+  const holidayBreakdown = useMemo(() => {
+    const items = buildBreakdown(["Holiday", "Partial Holiday"]);
+    const total = Math.round((data?.kpis.holidaysSum ?? 0) * 100) / 100;
+    return { total, items };
+  }, [data]);
+
+  const formatName = (name: string) =>
+    name.includes(", ") ? name.split(", ").reverse().join(" ") : name;
 
   return (
     <>
@@ -114,10 +168,9 @@ export function OverviewTab({
           title="Automatically download reports from People Planner"
         >
           <Bot className="w-3.5 h-3.5 mr-2" />
-          Sync from People Planner
+          Process Data
         </Button>
       </div>
-
       {/* File Upload Section */}
       {showUploadPanel && (
         <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
@@ -280,7 +333,6 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
-
       {/* Data Period Information */}
       <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info-overview">
         <CardContent className="p-6 pt-[8px] pb-[8px]">
@@ -373,7 +425,6 @@ export function OverviewTab({
           </div>
         </CardContent>
       </Card>
-
       {/* Metric Cards */}
       {isProcessing || processMutation.isPending ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -385,7 +436,12 @@ export function OverviewTab({
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {/* 1. Desired Hours */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-desired-total">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-desired-total"
+              onDoubleClick={() => setDesiredHoursModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
@@ -403,7 +459,12 @@ export function OverviewTab({
             </Card>
 
             {/* 2. Unavailability */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-unavailability">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer select-none"
+              data-testid="card-unavailability"
+              onDoubleClick={() => setUnavailModalOpen(true)}
+              title="Double-click to see breakdown"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
@@ -416,12 +477,19 @@ export function OverviewTab({
                 <div className="text-3xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
                   {data?.kpis.unavailabilitySum}h
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Weekly unavailability</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"} unavailable
+                </div>
               </CardContent>
             </Card>
 
             {/* 3. Sickness */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-sickness">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer select-none"
+              data-testid="card-sickness"
+              onDoubleClick={() => setSicknessModalOpen(true)}
+              title="Double-click to see breakdown"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
@@ -434,12 +502,19 @@ export function OverviewTab({
                 <div className="text-3xl font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
                   {data?.kpis.sicknessSum}h
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Weekly sickness</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} off sick
+                </div>
               </CardContent>
             </Card>
 
             {/* 4. Holidays */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-holidays">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-holidays"
+              onDoubleClick={() => setHolidayModalOpen(true)}
+              title="Double-click to see breakdown"
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
@@ -452,34 +527,26 @@ export function OverviewTab({
                 <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
                   {data?.kpis.holidaysSum || 0}h
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Weekly annual leave</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday
+                </div>
               </CardContent>
             </Card>
 
             {/* 5. Net Capacity */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-net-capacity">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-net-capacity"
+              onDoubleClick={() => setNetCapacityModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                          <Users className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Total available hours after exclusions</p>
-                        <p className="text-xs opacity-90">Calculated as:</p>
-                        <div className="text-xs space-y-1 opacity-90 font-mono">
-                          <p>Contracted Hours − (Sickness + Holidays + Unavailability)</p>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
@@ -490,33 +557,19 @@ export function OverviewTab({
             </Card>
 
             {/* 6. Client Required / Domiciliary Hours */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-client-required">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-client-required"
+              onDoubleClick={() => setDomiciliaryModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Total branch domiciliary care hours</p>
-                        <p className="text-xs opacity-90">Excludes:</p>
-                        <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
-                          <li>Cancelled visits</li>
-                          <li>Secondary/multiple care</li>
-                          <li>Office hours & training</li>
-                          <li>Sleep-in & waking nights</li>
-                          <li>Shadowing & on-call</li>
-                        </ul>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
@@ -527,27 +580,19 @@ export function OverviewTab({
             </Card>
 
             {/* 6b. Client Scheduled Hours */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-client-scheduled">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-client-scheduled"
+              onDoubleClick={() => setClientScheduledModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="center" className="max-w-xs text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Domiciliary hours scheduled</p>
-                        <p className="text-xs opacity-90">Actual client hours scheduled</p>
-                        <p className="text-xs opacity-75 font-mono">Gap = Required − Scheduled</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
@@ -558,32 +603,19 @@ export function OverviewTab({
             </Card>
 
             {/* 7. Other Scheduled */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-other-scheduled">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-other-scheduled"
+              onDoubleClick={() => setOtherScheduledModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Non-client hours scheduled</p>
-                        <p className="text-xs opacity-90">Includes:</p>
-                        <ul className="text-xs space-y-0.5 opacity-90 list-disc list-inside">
-                          <li>Office hours & admin work</li>
-                          <li>Training sessions</li>
-                          <li>Shadowing & induction</li>
-                          <li>On-call duties</li>
-                        </ul>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
+                    <Clock className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
@@ -594,30 +626,19 @@ export function OverviewTab({
             </Card>
 
             {/* 8. Capacity After Scheduling */}
-            <Card className="glass hover-lift animate-scale-in" data-testid="card-capacity-after-scheduling">
+            <Card
+              className="glass hover-lift animate-scale-in cursor-pointer"
+              data-testid="card-capacity-after-scheduling"
+              onDoubleClick={() => setCapacityAfterModalOpen(true)}
+              title="Double-click to see details"
+            >
               <CardHeader className="pb-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 cursor-help">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                          <TrendingUp className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
-                      </CardTitle>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" align="start" className="max-w-sm text-sm z-50">
-                      <div className="space-y-1.5">
-                        <p className="font-semibold">Available capacity remaining</p>
-                        <p className="text-xs opacity-90">Calculated as:</p>
-                        <div className="text-xs space-y-1 opacity-90 font-mono">
-                          <p>Net Capacity − (Domiciliary + Other Scheduled)</p>
-                          <p className="text-xs opacity-75">Values &lt; 1h are excluded (floored)</p>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
@@ -659,13 +680,134 @@ export function OverviewTab({
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {ghLossData.items.length} staff with loss
                 </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Double-click for details</div>
               </CardContent>
             </Card>
           </div>
         </div>
       )}
-
+      {/* Desired Hours Info Modal */}
+      <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Desired Hours
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Total Desired hours across all Care Pros</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">The sum of each Care Pro's desired weekly hours from their availability schedule. This represents the maximum hours the branch workforce is desired to deliver before any deductions for sickness, holidays, or unavailability.</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">
+              Desired Hours → Net Capacity after deductions
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Net Capacity Info Modal */}
+      <Dialog open={netCapacityModalOpen} onOpenChange={setNetCapacityModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                <Users className="w-3.5 h-3.5 text-white" />
+              </div>
+              Net Capacity
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Total available hours after exclusions</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Calculated as:</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">Desired Hours − (Sickness + Holidays + Unavailability)</div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Domiciliary Hours Info Modal */}
+      <Dialog open={domiciliaryModalOpen} onOpenChange={setDomiciliaryModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Domiciliary Hours
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Total branch domiciliary care hours</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Excludes:</p>
+            <ul className="text-xs space-y-1.5 list-disc list-inside text-gray-600 dark:text-gray-400">
+              <li>Cancelled visits</li>
+              <li>Secondary/multiple care</li>
+              <li>Office hours &amp; training</li>
+              <li>Sleep-in &amp; waking nights</li>
+              <li>Live in care</li>
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Client Scheduled Info Modal */}
+      <Dialog open={clientScheduledModalOpen} onOpenChange={setClientScheduledModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Client Scheduled
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Domiciliary hours scheduled</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Actual client hours scheduled</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono">Gap = Clint care hours − Scheduled</div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Other Scheduled Info Modal */}
+      <Dialog open={otherScheduledModalOpen} onOpenChange={setOtherScheduledModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5 text-white" />
+              </div>
+              Other Scheduled
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Non-client hours scheduled</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Includes:</p>
+            <ul className="text-xs space-y-1.5 list-disc list-inside text-gray-600 dark:text-gray-400">
+              <li>Office hours &amp; admin work</li>
+              <li>Training sessions</li>
+              <li>Shadowing &amp; induction</li>
+              <li>On-call duties</li>
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Capacity After Scheduling Info Modal */}
+      <Dialog open={capacityAfterModalOpen} onOpenChange={setCapacityAfterModalOpen}>
+        <DialogContent className="max-w-sm w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 text-white" />
+              </div>
+              Capacity After Scheduling
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">Available capacity remaining</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Calculated as:</p>
+            <div className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono space-y-1">
+              <p>Capacity After Scheduling (+ve Houres only)</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* GH Loss Detail Modal */}
       <Dialog open={ghLossModalOpen} onOpenChange={setGhLossModalOpen}>
         <DialogContent className="max-w-lg w-full">
@@ -716,6 +858,156 @@ export function OverviewTab({
             <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">{ghLossData.items.length} staff affected</span>
               <span className="text-sm font-bold text-rose-600 dark:text-rose-400">Total: {ghLossData.totalLoss}h short</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Sickness Detail Modal */}
+      <Dialog open={sicknessModalOpen} onOpenChange={setSicknessModalOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                <AlertTriangle className="w-3.5 h-3.5 text-white" />
+              </div>
+              Sickness Breakdown
+            </DialogTitle>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Care Pros off sick this week
+            </p>
+          </DialogHeader>
+
+          {sicknessBreakdown.items.length > 0 ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto -mx-6 px-6">
+              {sicknessBreakdown.items.map((item) => (
+                <div key={item.name} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      {formatName(item.name)}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.days} day{item.days === 1 ? "" : "s"} affected
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold whitespace-nowrap">
+                      {item.hours}h
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No sickness recorded this week.</p>
+            </div>
+          )}
+
+          {sicknessBreakdown.items.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} off sick</span>
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Total: {sicknessBreakdown.total}h</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Unavailability Detail Modal */}
+      <Dialog open={unavailModalOpen} onOpenChange={setUnavailModalOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                <AlertTriangle className="w-3.5 h-3.5 text-white" />
+              </div>
+              Unavailability Breakdown
+            </DialogTitle>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Care Pros unavailable this week (excluding sickness &amp; holidays)
+            </p>
+          </DialogHeader>
+
+          {unavailBreakdown.items.length > 0 ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto -mx-6 px-6">
+              {unavailBreakdown.items.map((item) => (
+                <div key={item.name} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      {formatName(item.name)}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.days} day{item.days === 1 ? "" : "s"} affected
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs font-bold whitespace-nowrap">
+                      {item.hours}h
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No unavailability recorded this week.</p>
+            </div>
+          )}
+
+          {unavailBreakdown.items.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"} unavailable</span>
+              <span className="text-sm font-bold text-red-600 dark:text-red-400">Total: {unavailBreakdown.total}h</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Holidays Detail Modal */}
+      <Dialog open={holidayModalOpen} onOpenChange={setHolidayModalOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                <Calendar className="w-3.5 h-3.5 text-white" />
+              </div>
+              Holidays Breakdown
+            </DialogTitle>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Care Pros on annual leave this week
+            </p>
+          </DialogHeader>
+
+          {holidayBreakdown.items.length > 0 ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[60vh] overflow-y-auto -mx-6 px-6">
+              {holidayBreakdown.items.map((item) => (
+                <div key={item.name} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      {formatName(item.name)}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.days} day{item.days === 1 ? "" : "s"} on leave
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-bold whitespace-nowrap">
+                      {item.hours}h
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No holidays recorded this week.</p>
+            </div>
+          )}
+
+          {holidayBreakdown.items.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday</span>
+              <span className="text-sm font-bold text-purple-600 dark:text-purple-400">Total: {holidayBreakdown.total}h</span>
             </div>
           )}
         </DialogContent>

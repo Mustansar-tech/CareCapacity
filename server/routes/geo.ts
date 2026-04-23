@@ -5,6 +5,7 @@ import * as geoController from '../controllers/geo.controller';
 const router = Router();
 
 router.post('/geo/geocode-batch', asyncHandler(geoController.geocodeBatch));
+router.get('/geo/postcode/:postcode', asyncHandler(geoController.geocodeSingle));
 router.post('/routing/distance-matrix', asyncHandler(geoController.distanceMatrix));
 router.post('/routing/optimize', asyncHandler(geoController.optimizeRouting));
 router.get('/routing/plans', asyncHandler(geoController.getRoutingPlans));

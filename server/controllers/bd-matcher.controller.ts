@@ -23,6 +23,15 @@ export async function bdMatch(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  // Validate postcode can be geocoded before proceeding
+  if (postcode) {
+    const geocoded = await geocodeWithFallback(postcode, storage, branchId);
+    if (!geocoded?.lat || !geocoded?.lng) {
+      res.status(422).json({ message: 'POSTCODE_NOT_FOUND', postcode });
+      return;
+    }
+  }
+
   const criteria: ClientEnquiryCriteria = {
     clientName, postcode, genderPreference: genderPreference || 'any', requiredDays, preferredTimeWindow,
   };
@@ -70,6 +79,15 @@ export async function bdMatchMultiVisit(req: Request, res: Response): Promise<vo
   if (!clientName || !visits || !Array.isArray(visits) || visits.length === 0) {
     res.status(400).json({ message: 'Missing required fields: clientName, visits (array)' });
     return;
+  }
+
+  // Validate postcode can be geocoded before proceeding
+  if (postcode) {
+    const geocoded = await geocodeWithFallback(postcode, storage, branchId);
+    if (!geocoded?.lat || !geocoded?.lng) {
+      res.status(422).json({ message: 'POSTCODE_NOT_FOUND', postcode });
+      return;
+    }
   }
 
   const multiCriteria: MultiVisitCriteria = {

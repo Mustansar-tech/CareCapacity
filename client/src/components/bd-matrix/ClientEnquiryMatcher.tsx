@@ -22,6 +22,7 @@ import {
   type MultiVisitResult,
   type HistoryViewResult,
   type SavedVisitResult,
+  type StarredMap,
 } from "@/utils/bd-matrix-utils";
 import type { ClientEnquiry } from "@shared/schema";
 
@@ -36,7 +37,48 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<HistoryViewResult | null>(null);
   const [sortByTravel, setSortByTravel] = useState(true);
+  const [historyActiveTab, setHistoryActiveTab] = useState('0');
+  const [historySortByTravel, setHistorySortByTravel] = useState(true);
+  const [liveStarredMap, setLiveStarredMap] = useState<StarredMap>({});
+  const [savedEnquiryId, setSavedEnquiryId] = useState<string | null>(null);
+  const [historyStarredMap, setHistoryStarredMap] = useState<StarredMap>({});
+  const liveStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const historyStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
   const { toast } = useToast();
+
+  const patchStars = React.useCallback((id: string, stars: StarredMap) => {
+    // Optimistically update the cache so the history list is immediately correct
+    queryClient.setQueryData<import('@shared/schema').ClientEnquiry[]>(
+      ['/api/client-enquiries'],
+      (old) => old ? old.map(e => e.id === id ? { ...e, starredSelections: stars } : e) : old,
+    );
+    return apiRequest('PATCH', `/api/client-enquiries/${id}/stars`, { starredSelections: stars }).catch(() => {});
+  }, []);
+
+  // Debounced autosave: live stars → DB
+  React.useEffect(() => {
+    if (!savedEnquiryId) return;
+    clearTimeout(liveStarsTimer.current);
+    liveStarsTimer.current = setTimeout(() => {
+      patchStars(savedEnquiryId, liveStarredMap);
+    }, 800);
+    return () => clearTimeout(liveStarsTimer.current);
+  }, [liveStarredMap, savedEnquiryId, patchStars]);
+
+  // Debounced autosave: history stars → DB
+  React.useEffect(() => {
+    const histId = viewingHistoryResult?.id;
+    if (!histId) return;
+    clearTimeout(historyStarsTimer.current);
+    historyStarsTimer.current = setTimeout(() => {
+      patchStars(histId, historyStarredMap);
+    }, 800);
+    return () => clearTimeout(historyStarsTimer.current);
+  }, [historyStarredMap, viewingHistoryResult?.id, patchStars]);
+
+  React.useEffect(() => {
+    setHistoryActiveTab('0');
+  }, [viewingHistoryResult]);
 
   React.useEffect(() => {
     const handleBack = () => setMultiResults(null);
@@ -81,7 +123,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { id: string }) => {
+      setSavedEnquiryId(data.id);
       queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries'] });
     },
   });
@@ -98,6 +141,24 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
 
   const matchMutation = useMutation({
     mutationFn: async () => {
+      // Pre-flight: validate the postcode exists (fail-safe — network errors don't block the match)
+      if (postcode.trim()) {
+        try {
+          const geoRes = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.trim().toUpperCase())}`, { signal: AbortSignal.timeout(5000) });
+          if (geoRes.status === 404) {
+            const geoData = await geoRes.json().catch(() => ({}));
+            if (!geoData?.result) throw new Error('INVALID_POSTCODE');
+          } else if (geoRes.ok) {
+            const geoData = await geoRes.json().catch(() => null);
+            if (geoData && geoData.status !== 200) throw new Error('INVALID_POSTCODE');
+          }
+          // If network error or other non-404 failure, proceed anyway
+        } catch (e) {
+          if ((e as Error).message === 'INVALID_POSTCODE') throw e;
+          // Network/timeout errors: let the match proceed
+        }
+      }
+
       const activeVisits = visits.filter(v => v.selectedDays.length > 0);
       if (activeVisits.length === 1 && activeVisits[0].careProsRequired === 1) {
         const v = activeVisits[0];
@@ -144,6 +205,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
     onSuccess: (data: MultiVisitResult) => {
       setMultiResults(data);
       setActiveResultTab('0');
+      setLiveStarredMap({});
+      setSavedEnquiryId(null);
       const filledVisits = visits.filter(v => v.selectedDays.length > 0);
       const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
       saveEnquiryMutation.mutate({
@@ -163,12 +226,22 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       });
       toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
     },
-    onError: () => {
-      toast({
-        title: "Matching Failed",
-        description: "Could not find matches. Please make sure data has been uploaded and processed first.",
-        variant: "destructive",
-      });
+    onError: (err: Error) => {
+      const isPostcodeError = err.message === 'INVALID_POSTCODE' || err.message.includes('POSTCODE_NOT_FOUND');
+      if (isPostcodeError) {
+        const displayPostcode = postcode.trim().toUpperCase();
+        toast({
+          title: "Postcode Not Found",
+          description: `"${displayPostcode}" could not be located. Please check the postcode and try again.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Matching Failed",
+          description: "Could not find matches. Please make sure data has been uploaded and processed first.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -203,7 +276,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
   };
 
   const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-  const canSubmit = clientName.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
+  const canSubmit = clientName.trim() && postcode.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
 
   return (
     <>
@@ -219,224 +292,206 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
           </Button>
         </DialogTrigger>
         <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
-          {/* Header */}
-          <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
-                  <UserCheck className="w-6 h-6 text-[#5d51d5]" />
+          {/* Header — full on form view, compact on results/history */}
+          {!multiResults && !showHistory && !viewingHistoryResult ? (
+            <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
+                    <UserCheck className="w-6 h-6 text-[#5d51d5]" />
+                  </div>
+                  <div>
+                    <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
+                      Client Enquiry Matcher
+                    </DialogTitle>
+                    <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
+                      Care Capacity Intelligence
+                    </DialogDescription>
+                  </div>
                 </div>
-                <div>
-                  <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
-                    Client Enquiry Matcher
-                  </DialogTitle>
-                  <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
-                    Care Capacity Intelligence
-                  </DialogDescription>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowHistory(true); setViewingHistoryResult(null); }}
+                    className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:border-gray-300 dark:hover:border-gray-600 rounded-xl px-4 py-2.5 h-auto transition-all duration-300 shadow-sm hover:shadow-md"
+                  >
+                    <History className="w-4 h-4" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setShowHistory(!showHistory); setViewingHistoryResult(null); setMultiResults(null); }}
-                  className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 hover:border-gray-300 dark:hover:border-gray-600 rounded-xl px-4 py-2.5 h-auto transition-all duration-300 shadow-sm hover:shadow-md"
-                >
-                  {showHistory ? (
-                    <><Search className="w-4 h-4" /> New Search</>
-                  ) : (
-                    <><History className="w-4 h-4" /> History {historyQuery.data?.length ? `(${historyQuery.data.length})` : ''}</>
-                  )}
-                </Button>
               </div>
             </div>
-          </div>
+          ) : multiResults || viewingHistoryResult ? (
+            <>
+              <DialogTitle className="sr-only">Enquiry Results</DialogTitle>
+              <DialogDescription className="sr-only">Match results for client enquiry</DialogDescription>
+            </>
+          ) : (
+            /* Compact history header */
+            <div className="px-5 pr-14 py-3 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex items-center gap-3">
+              <DialogTitle className="sr-only">Search History</DialogTitle>
+              <DialogDescription className="sr-only">Previously saved client enquiry searches</DialogDescription>
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <History className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="font-bold text-sm text-gray-900 dark:text-gray-100">Search History</span>
+              {historyQuery.data?.length ? (
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{historyQuery.data.length} records</span>
+              ) : null}
+              <div className="flex-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowHistory(false); setViewingHistoryResult(null); }}
+                className="gap-2 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/70 rounded-xl px-4 h-8 transition-all"
+              >
+                <Search className="w-3.5 h-3.5" /> New Search
+              </Button>
+            </div>
+          )}
 
           {/* Content Area */}
-          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-8'}`}>
+          <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults || viewingHistoryResult ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-8'}`}>
             {multiResults ? (
-              <div className="flex flex-col flex-1 min-h-0 gap-4 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-wrap items-center gap-2">
-                  {multiResults.visitResults.map((vr, i) => (
-                    <Button
-                      key={i}
-                      variant={activeResultTab === String(i) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setActiveResultTab(String(i))}
-                      className={`gap-2 font-bold rounded-xl transition-all px-4 h-9 text-xs ${
-                        activeResultTab === String(i)
-                          ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
-                          : "bg-white dark:bg-gray-800 border-gray-200 text-gray-600 hover:border-purple-300 hover:bg-purple-50"
-                      }`}
-                    >
-                      <span className={`w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center ${
-                        activeResultTab === String(i) ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
-                      }`}>
-                        {i + 1}
-                      </span>
-                      Visit {i + 1}
-                    </Button>
-                  ))}
-                </div>
-                <MatchResultsGrid
-                  result={{
-                    ...multiResults,
-                    visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
-                  }}
-                  requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
-                  className="flex-1 min-h-0"
-                  sortByTravel={sortByTravel}
-                  onToggleSortByTravel={() => setSortByTravel(v => !v)}
-                  enquiryPostcode={postcode}
-                  enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
-                  enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
-                />
-              </div>
-            ) : showHistory ? (
-              viewingHistoryResult ? (
-                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="flex items-center justify-between pb-5 border-b border-gray-200/60 dark:border-gray-800/60">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3.5 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 rounded-2xl shadow-md shadow-purple-500/10">
-                        <History className="w-6 h-6 text-purple-700 dark:text-purple-400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-                            {viewingHistoryResult.clientName}
-                          </h3>
-                          {viewingHistoryResult.criteria?.visits?.[0]?.preferredTimeWindow && (
-                            <span className="text-[13px] font-bold text-gray-600 dark:text-gray-400 px-3 py-1.5 bg-gray-100 dark:bg-gray-800/60 rounded-lg">
-                              {viewingHistoryResult.criteria.visits[0].preferredTimeWindow.start}–{viewingHistoryResult.criteria.visits[0].preferredTimeWindow.end}
-                            </span>
-                          )}
-                          <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] px-3 py-1 uppercase tracking-widest rounded-xl shadow-md shadow-purple-500/20">Archived</Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-2 font-bold rounded-xl border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-xs ml-2"
-                            onClick={() => {
-                              setClientName(viewingHistoryResult.clientName);
-                              setPostcode(viewingHistoryResult.postcode || "");
-                              const visitsToLoad = viewingHistoryResult.criteria?.visits || viewingHistoryResult.visits;
-                              if (visitsToLoad && Array.isArray(visitsToLoad)) {
-                                setVisits(visitsToLoad as VisitFormData[]);
-                                setActiveVisitTab("0");
-                              }
-                              setShowHistory(false);
-                              setViewingHistoryResult(null);
-                              toast({
-                                title: "Search Populated",
-                                description: `Criteria for ${viewingHistoryResult.clientName} has been loaded.`,
-                              });
-                            }}
-                          >
-                            <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-                            Re-run Search
-                          </Button>
-                        </div>
-                        <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-3">
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {viewingHistoryResult.postcode || 'No postcode'}
-                          </span>
-                          {viewingHistoryResult.createdAt && (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-purple-300 animate-pulse" />
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" />
-                                {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </>
-                          )}
-                        </p>
-                      </div>
+              <MatchResultsGrid
+                result={{
+                  ...multiResults,
+                  visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
+                }}
+                requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
+                className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                sortByTravel={sortByTravel}
+                onToggleSortByTravel={() => setSortByTravel(v => !v)}
+                enquiryPostcode={postcode}
+                enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
+                enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
+                visitTabs={multiResults.visitResults.map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired, selectedDays: visits[i]?.selectedDays }))}
+                activeVisitTab={activeResultTab}
+                onVisitTabChange={setActiveResultTab}
+                historyCount={historyQuery.data?.length}
+                onHistory={() => {
+                  // Flush any pending live star save immediately before navigating away
+                  clearTimeout(liveStarsTimer.current);
+                  if (savedEnquiryId) patchStars(savedEnquiryId, liveStarredMap);
+                  setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null);
+                }}
+                onBack={() => { setMultiResults(null); setLiveStarredMap({}); setSavedEnquiryId(null); }}
+                key={savedEnquiryId ?? 'live-pending'}
+                initialStarredMap={{}}
+                onStarredMapChange={setLiveStarredMap}
+              />
+            ) : viewingHistoryResult ? (
+              (() => {
+                const histVRs: MultiVisitResult['visitResults'] = viewingHistoryResult.visitResults
+                  ? (viewingHistoryResult.visitResults as MultiVisitResult['visitResults'])
+                  : viewingHistoryResult.matches
+                    ? [{
+                        visitLabel: 'Visit 1',
+                        visitIndex: 0,
+                        careProsRequired: 1,
+                        genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
+                        matches: viewingHistoryResult.matches,
+                        totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0,
+                      }]
+                    : [];
+                const histIdx = Math.min(parseInt(historyActiveTab), Math.max(histVRs.length - 1, 0));
+                const histActiveVR = histVRs[histIdx];
+                const histFullResult: MultiVisitResult = {
+                  ...(viewingHistoryResult.results || {}),
+                  clientName: viewingHistoryResult.clientName,
+                  postcode: viewingHistoryResult.postcode || undefined,
+                  totalVisits: histVRs.length,
+                  visitResults: histActiveVR ? [histActiveVR] : [],
+                };
+                const reqDays =
+                  viewingHistoryResult.criteria?.visits?.[histIdx]?.selectedDays ||
+                  viewingHistoryResult.criteria?.visits?.[histIdx]?.requiredDays ||
+                  viewingHistoryResult.visits?.[histIdx]?.requiredDays ||
+                  viewingHistoryResult.visits?.[histIdx]?.selectedDays ||
+                  viewingHistoryResult.requiredDays || [];
+                const tStart = viewingHistoryResult.criteria?.visits?.[histIdx]?.preferredTimeWindow?.start;
+                const tEnd = viewingHistoryResult.criteria?.visits?.[histIdx]?.preferredTimeWindow?.end;
+                return (
+                  <>
+                    <div className="flex items-center gap-3 px-4 pr-14 py-2 border-b border-gray-200/50 dark:border-gray-800/50 bg-white dark:bg-gray-900 flex-shrink-0">
+                      <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] px-3 py-1 uppercase tracking-widest rounded-xl shadow-md shadow-purple-500/20">Archived</Badge>
+                      {viewingHistoryResult.createdAt && (
+                        <span className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          {new Date(viewingHistoryResult.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-2 font-bold rounded-xl border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-xs"
+                        onClick={() => {
+                          setClientName(viewingHistoryResult.clientName);
+                          setPostcode(viewingHistoryResult.postcode || "");
+                          const visitsToLoad = viewingHistoryResult.criteria?.visits || viewingHistoryResult.visits;
+                          if (visitsToLoad && Array.isArray(visitsToLoad)) {
+                            setVisits(visitsToLoad as VisitFormData[]);
+                            setActiveVisitTab("0");
+                          }
+                          setShowHistory(false);
+                          setViewingHistoryResult(null);
+                          toast({ title: "Search Populated", description: `Criteria for ${viewingHistoryResult.clientName} has been loaded.` });
+                        }}
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-blue-600" /> Re-run Search
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setViewingHistoryResult(null)}
+                        className="h-8 gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-xs"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" /> Back
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setViewingHistoryResult(null)} className="gap-2 font-bold rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 px-4 py-2 h-auto">
-                      <ArrowLeft className="w-4 h-4" />
-                      Back
-                    </Button>
-                  </div>
-
-                  <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-xl shadow-purple-500/5 overflow-hidden p-5">
-                    {viewingHistoryResult.visitResults ? (
-                      <Tabs defaultValue="0" className="w-full">
-                        <TabsList className="bg-gray-100/50 dark:bg-gray-800/50 p-1 h-auto flex-wrap gap-1 mb-4">
-                          {viewingHistoryResult.visitResults.map((vr, vi) => (
-                            <TabsTrigger key={vi} value={String(vi)} className="px-4 py-2 text-xs font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-sm rounded-lg transition-all">
-                              <div className="flex items-center gap-2">
-                                <span>{vr.visitLabel || `Visit ${vi + 1}`}</span>
-                                <div className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold text-[10px] min-w-[20px] text-center">
-                                  {vr.matches?.length || 0}
-                                </div>
-                              </div>
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        {viewingHistoryResult.visitResults.map((vr, vi) => (
-                          <TabsContent key={vi} value={String(vi)} className="mt-0 space-y-4">
-                            <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-100/50 dark:border-purple-800/30 text-xs font-bold text-gray-500">
-                              <span className="flex items-center gap-1.5">
-                                CPs: {vr.careProsRequired || 1}
-                              </span>
-                              <span className="w-px h-4 bg-purple-200/50" />
-                              <span className="flex items-center gap-1.5">
-                                Gender: {(vr.genderPreferences || ['any']).map((g: string, gi: number) => `CP${gi + 1}: ${g}`).join(', ')}
-                              </span>
-                            </div>
-                            {(vr.matches?.length || 0) === 0 ? (
-                              <div className="p-16 text-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl">
-                                <XCircle className="w-12 h-12 mx-auto mb-4 text-gray-200" />
-                                <h4 className="font-bold text-gray-400">No Matches Found</h4>
-                              </div>
-                            ) : (
-                              <MatchResultsGrid
-                                result={{
-                                  ...viewingHistoryResult.results,
-                                  visitResults: [vr] as MultiVisitResult['visitResults']
-                                } as MultiVisitResult}
-                                requiredDays={viewingHistoryResult.visits?.[vi]?.requiredDays ||
-                                             viewingHistoryResult.visits?.[vi]?.selectedDays ||
-                                             viewingHistoryResult.criteria?.visits?.[vi]?.selectedDays ||
-                                             viewingHistoryResult.criteria?.visits?.[vi]?.requiredDays ||
-                                             viewingHistoryResult.requiredDays || []}
-                                enquiryPostcode={viewingHistoryResult.postcode ?? undefined}
-                              />
-                            )}
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                    ) : viewingHistoryResult.matches ? (
-                      (viewingHistoryResult.matches.length === 0) ? (
-                        <div className="p-16 text-center border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl">
+                    {histActiveVR ? (
+                      <MatchResultsGrid
+                        key={viewingHistoryResult.id}
+                        result={histFullResult}
+                        requiredDays={reqDays}
+                        className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                        sortByTravel={historySortByTravel}
+                        onToggleSortByTravel={() => setHistorySortByTravel(v => !v)}
+                        enquiryPostcode={viewingHistoryResult.postcode ?? undefined}
+                        enquiryTimeStart={tStart}
+                        enquiryTimeEnd={tEnd}
+                        visitTabs={histVRs.map((vr, i) => ({
+                          index: i,
+                          label: vr.visitLabel || `Visit ${i + 1}`,
+                          careProsRequired: vr.careProsRequired,
+                          selectedDays:
+                            viewingHistoryResult.criteria?.visits?.[i]?.selectedDays ||
+                            viewingHistoryResult.criteria?.visits?.[i]?.requiredDays ||
+                            viewingHistoryResult.visits?.[i]?.selectedDays ||
+                            viewingHistoryResult.visits?.[i]?.requiredDays,
+                        }))}
+                        activeVisitTab={String(histIdx)}
+                        onVisitTabChange={setHistoryActiveTab}
+                        historyCount={historyQuery.data?.length}
+                        onHistory={() => { setViewingHistoryResult(null); historyQuery.refetch(); }}
+                        initialStarredMap={historyStarredMap}
+                        onStarredMapChange={setHistoryStarredMap}
+                      />
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="p-16 text-center">
                           <XCircle className="w-12 h-12 mx-auto mb-4 text-gray-200" />
                           <h4 className="font-bold text-gray-400">No Matches Were Found</h4>
                         </div>
-                      ) : (
-                        <MatchResultsGrid
-                          result={{
-                            clientName: viewingHistoryResult.clientName,
-                            totalVisits: 1,
-                            visitResults: [{
-                              visitLabel: 'Visit 1',
-                              visitIndex: 0,
-                              careProsRequired: 1,
-                              genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
-                              matches: viewingHistoryResult.matches,
-                              totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0
-                            }]
-                          }}
-                          requiredDays={viewingHistoryResult.criteria?.visits?.[0]?.selectedDays ||
-                                       viewingHistoryResult.criteria?.visits?.[0]?.requiredDays ||
-                                       viewingHistoryResult.requiredDays || []}
-                          enquiryPostcode={viewingHistoryResult.postcode ?? undefined}
-                        />
-                      )
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
+                      </div>
+                    )}
+                  </>
+                );
+              })()
+            ) : showHistory ? (
+              (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -475,7 +530,9 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
-                                setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference } as HistoryViewResult);
+                                const savedStars = (enquiry.starredSelections as StarredMap | null) ?? {};
+                                setHistoryStarredMap(savedStars);
+                                setViewingHistoryResult({ ...resultData, id: enquiry.id, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference, starredSelections: savedStars } as HistoryViewResult);
                               }
                             }}
                           >
@@ -561,7 +618,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                         </div>
                       </div>
                       <div className="space-y-2.5">
-                        <Label htmlFor="postcode" className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-700 dark:text-gray-300">Postcode</Label>
+                        <Label htmlFor="postcode" className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-700 dark:text-gray-300">Postcode <span className="text-red-500">*</span></Label>
                         <div className="relative group">
                           <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 transition-colors duration-300" />
                           <Input

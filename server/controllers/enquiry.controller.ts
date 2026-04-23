@@ -49,6 +49,14 @@ export async function deleteClientEnquiry(req: Request, res: Response): Promise<
   res.json({ success: true });
 }
 
+export async function patchEnquiryStars(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { starredSelections } = req.body;
+  if (!id) { res.status(400).json({ error: 'id required' }); return; }
+  await enquiryRepo.updateStarredSelections(id, starredSelections ?? {});
+  res.json({ success: true });
+}
+
 const feedbackSchema = z.object({
   type: z.enum(['bug', 'general']).default('bug'),
   title: z.string().min(1, 'Title required').max(200),

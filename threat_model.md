@@ -2,298 +2,156 @@
 
 ## Project Overview
 
-A multi-branch **Care Capacity Dashboard** for Home Instead UK franchise managers. Built with React/TypeScript + Vite (frontend), Express (backend), and PostgreSQL via Drizzle ORM (database). Deployed on Replit autoscale.
+This repository is a multi-branch Care Capacity Dashboard for Home Instead UK. It uses a React + Vite frontend, an Express backend, PostgreSQL via Drizzle ORM, and a Playwright-based People Planner automation layer.
 
-The system ingests weekly Excel exports from Access People Planner, runs a capacity-modelling and scheduling pipeline, and exposes the results through four modules: a capacity dashboard, a BD (Business Development) availability matrix, an auto-scheduler, and a People Planner automation layer that drives a headless Playwright browser to extract reports without manual export.
+The application ingests branch-specific Excel exports, computes capacity and scheduling data, stores branch analytics in PostgreSQL, and exposes operational workflows such as capacity processing, weekly scheduling, travel-time estimation, BD matching, and automated People Planner exports.
 
-**Users:** Branch managers (schedulers), business development staff, and admin users. The app is not public-facing — access is intended for internal staff only.
-
-**Sensitive data in scope:**
-- Care Pro (employee) full names, home postcodes/coordinates, gender, transport mode, availability windows, sickness, and holiday records
-- Client full names, addresses, postcodes/coordinates, visit requirements, care service types (some indicating health conditions)
-- System user email addresses and bcrypt-hashed passwords
-- External system credentials: Access People Planner login (email + password)
-- API keys for routing and scheduling services
-
-**Regulatory context:** UK GDPR (ICO). Health and social care context — sickness records and care visit types (e.g. personal care, sleep-in) may constitute special category data under Article 9. A lawful basis and ROPA entry are required.
-
----
+Production assumptions for this threat model:
+- `NODE_ENV=production`
+- TLS is terminated by the deployment platform
+- The mockup sandbox is not deployed to production
 
 ## Assets
 
-| Asset | Description | Risk if compromised |
-|---|---|---|
-| **Care Pro PII** | Full names, home postcodes, geocoded coordinates, gender, availability/sickness/holiday records in `employee_locations` and `capacity_analyses` tables | UK GDPR breach notification obligation; home location disclosure harms employees |
-| **Client PII** | Full names, addresses, postcodes, coordinates, visit schedules in `client_locations`, `visits`, and `capacity_analyses` | Breach obligation; disclosure of vulnerable adults' locations and care routines |
-| **Health-adjacent data** | Sickness records, service type descriptions indicating personal care or health needs | Article 9 special category; heightened accountability |
-| **Raw Excel uploads** | Stored as Base64 blobs in `branch_uploads` — contain all of the above in dense form | Single-record extraction yields full employee and client dataset for a branch |
-| **User credentials** | Email + bcrypt passwords in `users` table; session tokens in PostgreSQL `session` table | Account takeover; access to all branch data across all modules |
-| **Application secrets** | `DATABASE_URL`, `SESSION_SECRET`, `ORS_API_KEY`, `TRAVELTIME_APP_ID`, `TRAVELTIME_API_KEY` | Full database access; session forgery; routing API cost exploitation |
-| **People Planner credentials** | `ACCESS_EMAIL` + `ACCESS_PASSWORD` environment variables used by Playwright automation | Full access to People Planner platform; ability to export all employee and client data |
-| **PP session file** | `/tmp/pp-access-session.json` — Playwright browser state (cookies, localStorage) for `go.accessacloud.com` and `identity.accessacloud.com` | Live session hijack of People Planner without needing credentials |
-| **Processed files on disk** | `capacity_dashboard.xlsx` and PP downloads in `/tmp/pp-automation-downloads/` | PII accessible to any local process with `/tmp` read access |
-| **Audit log** | `audit_logs` table: user emails, IPs, action types | Logs contain PII; integrity required for accountability |
-
----
+- **Branch-isolated operational data** — capacity analyses, schedules, visits, client enquiries, route plans, and branch uploads. Cross-branch disclosure or tampering breaks the core tenancy boundary.
+- **Employee and client PII** — names, addresses, postcodes, coordinates, schedules, availability, and care-related metadata.
+- **Authentication state** — session cookies, PostgreSQL-backed session records, user emails, bcrypt password hashes, and role assignments.
+- **People Planner access** — `ACCESS_EMAIL`, `ACCESS_PASSWORD`, downloaded People Planner workbooks, and any persisted browser session state.
+- **Third-party API quota and cost controls** — ORS, TravelTime, and geocoding usage can be turned into an availability or spend problem if low-privilege users can invoke them freely.
+- **Auditability of sensitive actions** — uploads, schedule generation, administrative actions, and cross-branch mutations must be attributable.
 
 ## Trust Boundaries
 
-### 1. Browser ↔ Express API
+### Browser ↔ Express API
 
-All client requests are untrusted. Session authentication is required for protected endpoints via `httpOnly`, `secure` (production), `sameSite: lax` session cookies. PostgreSQL-backed session store with 30-minute rolling expiry.
+All client input is untrusted. In production, the backend uses session cookies with `httpOnly`, `secure`, and `sameSite: lax`, backed by PostgreSQL session storage in `server/index.ts`.
 
-**Critical finding:** A large number of API routes lack `requireAuth` middleware and are accessible to any unauthenticated caller. See the Elevation of Privilege section for the full list.
+`server/app.ts` applies a global `/api` authentication guard via `globalAuthGuard`. The important production exceptions are:
+- public: `/api/auth/*`, `/api/branches`, `/health`, `/robots.txt`
+- authenticated-by-default: nearly all other `/api/*` routes
 
-### 2. Express API ↔ PostgreSQL
+Future scans should not spend time re-proving a global unauthenticated `/api` exposure unless `server/app.ts` changes.
 
-Full read/write access via `DATABASE_URL`. All queries use Drizzle ORM with parameterised statements — no string-concatenated SQL identified. Credentials stored in environment variables only.
+### Authenticated User ↔ Role Boundary
 
-### 3. Express API ↔ OpenRouteService (ORS)
+The app has a three-level role model in `server/features/auth/auth.ts`:
+- `viewer`
+- `scheduler`
+- `admin`
 
-Car distance matrices and route optimisation. Sends coordinate pairs (lat/lng) only — no names or postcodes. Authorised via `ORS_API_KEY`. ORS acts as a data processor under UK GDPR — a formal Data Processing Agreement (DPA) should be confirmed before production use.
+This boundary matters because the product intentionally treats scheduling, uploads, automation runs, and operational API usage as higher-privilege actions than read-only viewing. Frontend role checks exist, but they are not security controls; only server-side `requireRole` / `requireRoleAtLeast` enforcement counts.
 
-### 4. Express API ↔ TravelTime API
+### Authenticated User ↔ Branch Boundary
 
-Walking and public transport travel time estimates. Sends coordinate pairs with `TRAVELTIME_APP_ID` + `TRAVELTIME_API_KEY`. Same DPA requirement as ORS applies.
+Branch isolation is the primary multi-tenant boundary. `server/utils/helpers.ts::resolveBranch()` is the authoritative helper: it validates the requested branch exists and, for non-admin users, confirms the user is assigned to that branch.
 
-### 5. Express API ↔ OSRM (router.project-osrm.org)
+Any branch-scoped route that accepts `branchId` but does not call `resolveBranch()` or an equivalent membership check is a priority review target.
 
-Free fallback routing when ORS is unavailable. Sends coordinate pairs over HTTPS. Public service — no DPA exists and none is possible. This is the highest-risk third-party data flow from a data protection perspective.
+### Express API ↔ PostgreSQL
 
-### 6. Express API ↔ Postcodes.io
+The server has broad read/write access to PostgreSQL. Drizzle ORM is used for most queries. The direct Drizzle advisory in the dependency audit only becomes exploitable if untrusted input reaches identifier-building APIs such as `sql.identifier()` or dynamic aliases; that usage was not found in the current code.
 
-UK postcode geocoding. Sends postcodes only — no names or addresses. Public service; no API key or DPA required.
+### Express API ↔ External Services
 
-### 7. Express API ↔ Access People Planner (Playwright)
+The backend sends data to several third parties:
+- **People Planner / Access** via Playwright automation
+- **OpenRouteService** for distance matrices and routing
+- **TravelTime** for travel-time estimation
+- **postcodes.io** for postcode geocoding
 
-The `automation-engine.ts` launches a headless Chromium browser that authenticates to `identity.accessacloud.com` using `ACCESS_EMAIL` and `ACCESS_PASSWORD`, navigates to `go.accessacloud.com`, and downloads Excel reports. Browser session state is persisted to `/tmp/pp-access-session.json` between runs. Downloaded files are staged in `/tmp/pp-automation-downloads/`. The People Planner platform receives the full Access credentials — it is an untrusted external environment from which the application reads.
+These calls cross both confidentiality and availability boundaries. Some carry sensitive branch operational data; others expose the app to quota exhaustion or cost abuse.
 
-### 8. Authenticated ↔ Public boundary
+### Production ↔ Dev / Build Surface
 
-- **Public (no auth):** `/api/auth/login`, `/api/auth/me` (returns 401 if not authenticated), `/health`, `/robots.txt`, `/api/branches` — and currently many routes that *should* be authenticated but are not (see below)
-- **Authenticated (`requireAuth`):** All `/api/pp/*` routes, `/api/process` (upload), feedback routes
-- **Scheduler or above (`requireRoleAtLeast('scheduler')`):** `/api/process` (upload), `/api/pp/run`, `/api/weekly-schedule/generate`, `/api/weekly-schedule/save`
-- **Admin only (`requireRole('admin')`):** `/api/admin/*` (user management, audit logs), `/api/pp/config`
-- **Disabled in production:** `/api/auth/bootstrap-admin` (returns 404), `/api/auth/reset-admin-password` (not registered)
-
----
+Vite, Rollup, esbuild, and other build-time tooling should be treated as out of scope for production unless there is evidence they are reachable from the deployed runtime. Future scans should prioritize server entry points over frontend build-chain CVEs unless deployment architecture changes.
 
 ## Scan Anchors
 
-**Production entry points:**
-- `server/app.ts` — route registration; primary map of all API surfaces
-- `server/index.ts` — session config, rate limiting, middleware stack
-- `server/features/auth/auth.ts` — `requireAuth`, `requireRole`, `requireRoleAtLeast` middleware
-
-**Highest-risk code areas:**
-- `server/routes/history.ts`, `server/routes/visits.ts`, `server/routes/geo.ts`, `server/routes/bd-matcher.ts`, `server/routes/travel-times.ts`, `server/routes/schedule.ts`, `server/routes/debug.ts` — all lack `requireAuth`; see Elevation of Privilege
-- `server/features/people-planner/automation-engine.ts` — Playwright credential usage, `/tmp` session file, screenshot capture
-- `server/features/imports/pipeline-utils.ts` + `server/features/capacity/capacity-processor.ts` — Excel parsing and processing pipeline; malformed uploads could cause DoS
-- `server/routes/process.ts` — file upload endpoint; correctly auth-gated but handles raw Base64 blobs
-
-**Public vs authenticated vs admin surfaces:**
-- Public (intended): login, health, robots.txt
-- Public (unintended): history, visits, geo, bd-matcher, travel-times, most schedule routes, debug
-- Authenticated: PP automation, process upload
-- Admin: user management, audit logs, PP config
-
-**Dev-only / ignore unless proven reachable:**
-- `/api/auth/bootstrap-admin` — 404 in production
-- `/api/auth/reset-admin-password` — not registered in production
-
----
+- **Primary production entry points**: `server/index.ts`, `server/app.ts`, `server/routes/*.ts`, `server/features/people-planner/automation-routes.ts`
+- **Auth and authorization logic**: `server/features/auth/auth.ts`, `server/utils/helpers.ts`
+- **Highest-risk code areas**:
+  - `server/routes/process.ts` + `server/controllers/process.controller.ts`
+  - `server/features/people-planner/automation-routes.ts`
+  - `server/routes/state.ts`
+  - `server/controllers/enquiry.controller.ts`
+  - `server/routes/schedule.ts`, `server/routes/geo.ts`, `server/routes/travel-times.ts`
+- **Public surfaces**: `/api/auth/*`, `/api/branches`, `/health`, `/robots.txt`
+- **Authenticated but not automatically well-authorized**: any `/api/*` route that relies only on the global auth guard
+- **Usually ignore unless changed**: Vite/build tooling CVEs, frontend-only UI gating, scanner-only path-traversal hits in People Planner temp-file paths that are not reachable from HTTP
 
 ## Threat Categories
 
 ### Spoofing
 
-Users authenticate with email + bcrypt (12 salt rounds) password. Sessions are stored in PostgreSQL with 30-minute rolling expiry and `httpOnly`/`secure`/`sameSite: lax` cookies. Login and logout events are written to `audit_logs`.
+Users authenticate with email/password and PostgreSQL-backed server sessions. The main spoofing risks are weak session handling, missing auth checks on protected routes, or accidental production exposure of bootstrap/recovery behavior.
 
-The bootstrap admin endpoint returns 404 in production. The reset-admin-password endpoint is not registered in production at all.
-
-**Required guarantees:**
-- All API endpoints that read or modify branch data MUST require a valid session.
-- Session tokens MUST NOT be accessible to client-side JavaScript.
-- The bootstrap endpoint MUST return 404 in production.
-- `SESSION_SECRET` MUST be a cryptographically random value set in environment variables; the dev fallback MUST NOT be used in production.
-
----
+Current posture is materially better than the prior model: `/api` is authenticated by default. The main guarantees are:
+- All non-public API routes MUST continue to require a valid server session.
+- Session cookies MUST remain `httpOnly` and `secure` in production.
+- Dev-only bootstrap or password-recovery flows MUST stay unreachable in production.
 
 ### Tampering
 
-Request bodies on protected routes are validated with Zod schemas before any database operation. Role checks (`requireRoleAtLeast`) are enforced server-side on the upload and schedule generation routes.
+The most important tampering risk is unauthorized modification of another branch's data. This app allows uploads, schedule generation, route-plan writes, visit replacement, and enquiry deletion, so branch ownership and role enforcement matter as much as raw input validation.
 
-**Branch-level isolation gap:** `requireAuth` verifies a user is authenticated, but no middleware verifies that the requesting user belongs to the branch identified in the request body. A scheduler assigned to Branch A can currently read history, visits, and run BD matching against Branch B by supplying Branch B's UUID in the request. This is a broken access control issue rather than a tampering one in the strict STRIDE sense, but the root fix (branch membership verification) belongs here.
+Current scan anchors show two recurring failure modes:
+- routes that accept `branchId` directly instead of using `resolveBranch()`
+- mutation endpoints that rely on authentication alone when the product model expects scheduler/admin authority
 
-The People Planner automation performs `clearAllVisits(branchId)` before re-inserting extracted visits. A partial extraction failure after the clear leaves the branch with no visit data until the next successful run.
-
-**Required guarantees:**
-- Branch-scoped operations MUST verify the authenticated user is assigned to the target branch.
-- The PP automation pipeline MUST NOT clear existing visit data until new data is fully extracted and validated.
-
----
+Required guarantees:
+- Every branch-scoped mutation MUST bind the action to the caller's authorized branch set.
+- Destructive or workflow-changing operations MUST require the intended minimum role server-side.
+- Deletion and overwrite paths MUST verify object ownership, not just object existence.
 
 ### Repudiation
 
-An `audit_logs` table records login, logout, user creation, user updates, and data upload events with `userId`, `userEmail`, `branchId`, `action`, `detail`, and `timestamp`. No update or delete routes exist for audit logs.
+The app records some auth and admin events, but several sensitive operational actions are still more weakly attributable than they should be.
 
-Schedule generation, BD matrix queries, client enquiry creation, and PP automation runs are not currently logged to the audit trail.
-
-**Required guarantees:**
-- All sensitive mutations (upload, schedule generation, automation runs, user management changes) MUST be recorded with the acting user's ID/email and timestamp.
-- Audit logs MUST be append-only and MUST NOT be modifiable by any application role including admin.
-
----
+Required guarantees:
+- Uploads, People Planner runs, schedule-generation actions, destructive cleanup, and cross-branch-sensitive workflows MUST be logged with acting user, branch, and timestamp.
+- Audit records for administrative and destructive actions MUST be append-only from the app's perspective.
 
 ### Information Disclosure
 
-**1. Unauthenticated PII endpoints (critical)**
+This system stores and generates highly sensitive branch workbooks and scheduling data. The main disclosure risks are not broad public endpoints anymore; they are object-level and tenant-level failures inside the authenticated surface.
 
-The following routes expose employee and client PII to any caller without a session:
-
-| Route | Data exposed |
-|---|---|
-| `GET /api/geographical/employees` | Employee names and home coordinates |
-| `GET /api/geographical/clients` | Client names, addresses, coordinates |
-| `GET /api/locations` | All employee and client locations combined |
-| `GET /api/history` | Capacity analyses including employee schedules and status |
-| `GET /api/history/latest` | Same, most recent week |
-| `GET /api/visits/:date` | Care visit records by date |
-| `GET /api/visits` | Visit list between dates |
-| `POST /api/bd-matcher` | BD matrix matching returns employee free windows |
-
-**2. People Planner session file**
-
-`/tmp/pp-access-session.json` contains live browser session cookies for `go.accessacloud.com`. Any process on the host with `/tmp` read access can read and replay this session to access People Planner without credentials. On Replit's autoscale platform, `/tmp` is ephemeral per-container instance, which limits but does not eliminate this risk.
-
-**3. Playwright debug screenshots**
-
-On automation failure, a screenshot is saved to `/tmp/pp-debug-screenshots/fail-[jobId].png`. If the failure occurs during login, the screenshot may capture credential input fields or partially rendered PII from downloaded reports.
-
-**4. Raw Excel blobs in database**
-
-`branch_uploads` stores the complete Excel files as Base64. A broken access control flaw affecting this table would expose all employee and client PII for the branch in a single query.
-
-**5. PII in debug logs**
-
-Postcodes, employee names, and addresses appear in `logger.debug()` calls in the pipeline. Debug logging is not active in production by default but would expose PII if `LOG_LEVEL=debug` were set in a production environment.
-
-**6. Processed Excel file on disk**
-
-`capacity_dashboard.xlsx` is written to the server filesystem on every upload. The download endpoint (`GET /api/export`) is not explicitly auth-gated in `process.ts`. The file persists until the next upload overwrites it.
-
-**Required guarantees:**
-- All routes that return employee or client data MUST require a valid session.
-- `/tmp/pp-access-session.json` should be treated as equivalent in sensitivity to the `ACCESS_PASSWORD` credential.
-- Debug screenshots MUST NOT be stored in a location accessible beyond the current process.
-- Error responses in production MUST NOT include stack traces, query text, or internal path information.
-- All outbound API calls (ORS, TravelTime, OSRM) MUST use HTTPS.
-
----
+The most important confidentiality guarantees are:
+- Exported workbooks and generated artifacts MUST be bound to the requesting user or branch, not shared through process-global state.
+- Branch-scoped reads and downloads MUST verify branch membership or object ownership.
+- Temporary People Planner artifacts on disk should be treated as sensitive local secrets, but future scans should only report them as production vulnerabilities when there is an actual remote exposure path.
+- PII must not be logged at production levels. The current logger disables `debug()` output entirely, which materially reduces risk from HoundDog's low-signal debug-log findings.
 
 ### Denial of Service
 
-Rate limiting is applied to all `/api` routes in production (100 req/min per IP, 10/min on upload). The in-memory rate limiter resets on server restart.
+Several production routes perform expensive computation, multipart parsing, or third-party API calls. The global rate limiter in `server/index.ts` applies only an in-memory `100 req/min per IP per path` limit. More specific `uploadLimiter` and `geocodingLimiter` helpers exist but are not currently attached to routes.
 
-Several unauthenticated routes trigger expensive operations:
+This matters because:
+- scheduling endpoints can trigger heavy route-planning work
+- travel-time and routing endpoints can proxy ORS and TravelTime usage
+- the upload path uses `multer` on a live production route
 
-| Route | Cost |
-|---|---|
-| `POST /api/routing/optimize` | ORS route optimisation API call |
-| `POST /api/routing/distance-matrix` | ORS matrix API call |
-| `POST /api/travel-times/batch` | ORS + TravelTime API calls |
-| `POST /api/schedule/auto-week` | Full VRPTW scheduling pass over all employees |
-| `POST /api/geo/geocode-batch` | Batch postcodes.io calls |
-
-Any unauthenticated caller can exhaust the `ORS_API_KEY` quota or trigger heavy server-side computation at the rate limit ceiling (100/min).
-
-File upload size is limited to 50 MB via Express body parser limits. ORS and OSRM requests use `AbortController` with explicit timeouts.
-
-The PP automation pipeline reads entire Excel files into memory as `Buffer` objects before parsing with `xlsx`. For large exports, this could cause significant memory pressure or OOM crashes.
-
-**Required guarantees:**
-- All routes triggering external API calls or heavy computation MUST require a valid session.
-- Upload and automation endpoints MUST enforce per-IP rate limits in production.
-- External API calls MUST time out within a defined window to prevent connection exhaustion.
-
----
+Required guarantees:
+- Expensive operational endpoints MUST require the intended minimum role, not just authentication.
+- Upload routes MUST use patched multipart dependencies and route-specific throttling.
+- Third-party API proxy endpoints MUST be rate-limited and limited to the intended staff roles.
+- Availability controls should not rely solely on an in-memory limiter that resets on restart.
 
 ### Elevation of Privilege
 
-**Unauthenticated routes with write/delete capability (critical)**
+The dominant privilege risk in this codebase is broken authorization inside the authenticated surface:
+- branch-membership bypass when routes skip `resolveBranch()`
+- viewer-to-scheduler escalation where operational endpoints lack `requireRoleAtLeast('scheduler')`
+- object-level authorization failures where record deletion or downloads are keyed only by ID or shared global state
 
-The following routes perform mutations without any authentication check:
+Required guarantees:
+- Authentication alone is not sufficient for branch-scoped or operational routes.
+- Viewer accounts MUST remain effectively read-only where the product model says generation, routing, uploads, or scheduling are scheduler/admin actions.
+- Every object download or deletion endpoint MUST enforce ownership or branch scope.
+- Client-side role restrictions MUST always be mirrored by backend authorization.
 
-| Route | Action |
-|---|---|
-| `POST /api/cleanup` | Deletes old historical data |
-| `POST /api/cleanup/routes-visits` | Deletes all route and visit records |
-| `POST /api/schedule/auto-day` | Generates and writes a daily schedule |
-| `POST /api/schedule/auto-week` | Generates and writes a full week schedule |
-| `POST /api/auto-schedule` | Auto-schedule alias (no auth) |
-| `POST /api/weekly-schedule/save` (alias) | Some schedule save paths lack middleware |
-| `POST /api/admin/re-geocode-clients` | Triggers geocoding sweep (registered in `debug.ts` under `/api/admin/` prefix but with no `requireRole('admin')` check) |
-| `POST /api/geo/geocode-batch` | Batch geocoding with user-supplied postcodes |
-| `POST /api/routing/optimize` | Route optimisation |
-| `POST /api/bd-matcher` | BD matrix matching |
+## Notes for Future Scans
 
-Any unauthenticated caller can delete all route and visit data for any branch, overwrite schedule data, or trigger expensive external API calls.
-
-**SQL injection**
-
-All database access uses Drizzle ORM with parameterised queries. No raw string-concatenated SQL identified.
-
-**Bootstrap and reset endpoints**
-
-`/api/auth/bootstrap-admin` returns 404 in production. `/api/auth/reset-admin-password` is not registered in production.
-
-**Role hierarchy**
-
-admin (3) > scheduler (2) > viewer (1). Enforced server-side by `requireRole` and `requireRoleAtLeast` on routes that apply these guards. The gap is that most routes do not apply any guard at all.
-
-**Required guarantees:**
-- EVERY route under `/api/` MUST apply `requireAuth` as a baseline minimum, with the sole exceptions of `/api/auth/login`, `/api/auth/me`, and `/api/branches`.
-- Delete and cleanup endpoints MUST additionally require `requireRoleAtLeast('admin')`.
-- The `/api/admin/re-geocode-clients` endpoint MUST be moved out of `debug.ts` and MUST require `requireRole('admin')`.
-- Role checks MUST NOT be applied only on the frontend.
-
----
-
-## GDPR / UK GDPR Obligations
-
-| Obligation | Status | Notes |
-|---|---|---|
-| **Lawful basis** | ⚠️ Document required | Likely Article 6(1)(b) for employee scheduling, 6(1)(f) for routing. Must be in a Privacy Notice and ROPA. |
-| **Data processor agreements** | ⚠️ Action required | ORS and TravelTime API receive geocoded coordinates — DPAs required for both. OSRM (public, no DPA possible) should be risk-assessed or replaced. |
-| **Data minimisation** | ✅ Partial | Only coordinate pairs sent to routing APIs — no names or postcodes. |
-| **Storage limitation** | ⚠️ No retention policy | Raw Excel uploads and processed analytics persist indefinitely. A retention policy and automated purge mechanism are needed. |
-| **Security of processing (Art. 32)** | ⚠️ Partial | bcrypt passwords, HTTPS in production, httpOnly cookies, HSTS, audit logging — but unauthenticated PII endpoints undermine security of processing. |
-| **Breach notification** | ⚠️ Procedure required | Business must have ICO breach notification process (72-hour window). |
-| **DSAR (Art. 15–17)** | ⚠️ Manual process | No in-app DSAR tooling. Handled manually by database extraction. |
-| **Privacy notice / cookie consent** | ⚠️ Required | Privacy policy page and cookie notice not yet implemented. |
-
----
-
-## Open Findings Summary
-
-| Finding | Severity | Location |
-|---|---|---|
-| PII endpoints unauthenticated (`/api/geographical/*`, `/api/locations`, `/api/visits/*`, `/api/history*`) | **Critical** | `server/routes/geo.ts`, `server/routes/visits.ts`, `server/routes/history.ts` |
-| Data deletion without auth (`POST /api/cleanup*`) | **Critical** | `server/routes/history.ts` |
-| Schedule write without auth (`POST /api/schedule/*`, `/api/auto-schedule`) | **High** | `server/routes/schedule.ts` |
-| BD matrix returns employee free windows without auth | **High** | `server/routes/bd-matcher.ts` |
-| External API quota exhaustion via unauthenticated routing endpoints | **High** | `server/routes/geo.ts`, `server/routes/travel-times.ts` |
-| `/api/admin/re-geocode-clients` lacks `requireRole('admin')` | **High** | `server/routes/debug.ts` |
-| PP session file at `/tmp/pp-access-session.json` — active browser session in plaintext | **Medium** | `server/features/people-planner/automation-engine.ts` |
-| Playwright debug screenshots may capture PII | **Medium** | `server/features/people-planner/automation-engine.ts` |
-| PP automation clears visit data before confirming successful extraction | **Medium** | `server/features/people-planner/automation-routes.ts` |
-| `GET /api/export` (Excel download) — auth not confirmed in route file | **Medium** | `server/routes/process.ts` |
-| No DPA with ORS, TravelTime API (both receive geocoded coordinates) | **Medium** | Business/legal |
-| Branch-level isolation not enforced — authenticated users can access any branch | **Medium** | All branch-scoped routes |
-| Raw Excel blobs stored in database indefinitely — no retention policy | **Low** | `branch_uploads` table |
-| PII in debug logs (postcodes, names) | **Low** | Pipeline utils; not active at production log level |
-
-**Previously fixed (from prior audit):**
-- ✅ OSRM URL changed from `http://` to `https://`
-- ✅ Bootstrap endpoint returns 404 in production
-- ✅ Reset-admin-password endpoint not registered in production
+- The earlier claim that most `/api` routes are unauthenticated is outdated and should not be reused unless `server/app.ts` changes.
+- The current high-value review path is: start at route registration, identify routes that accept `branchId` or trigger external work, then verify both `requireRoleAtLeast(...)` and `resolveBranch()` coverage.
+- The direct Drizzle advisory is currently not a strong production finding because the codebase does not appear to pass untrusted input into Drizzle identifier-construction APIs.
+- Build-tool advisories affecting Vite/Rollup/esbuild are usually dev/build-only here unless deployment architecture changes.
