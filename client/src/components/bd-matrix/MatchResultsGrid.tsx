@@ -11,7 +11,7 @@ import {
   Home, Clock, UserCheck, XCircle, Info, History, FileDown, ArrowLeft,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
-import { roundContractedHours, type MultiVisitResult, type MatchedSlot } from "@/utils/bd-matrix-utils";
+import { roundContractedHours, type MultiVisitResult, type MatchedSlot, type StarredMap } from "@/utils/bd-matrix-utils";
 import { exportSchedulePdf } from "@/utils/export-schedule-pdf";
 
 interface VisitTabDef {
@@ -36,6 +36,8 @@ interface MatchResultsGridProps {
   historyCount?: number;
   onHistory?: () => void;
   onBack?: () => void;
+  initialStarredMap?: StarredMap;
+  onStarredMapChange?: (map: StarredMap) => void;
 }
 
 export function MatchResultsGrid({
@@ -53,6 +55,8 @@ export function MatchResultsGrid({
   historyCount,
   onHistory,
   onBack,
+  initialStarredMap,
+  onStarredMapChange,
 }: MatchResultsGridProps) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
@@ -63,7 +67,24 @@ export function MatchResultsGrid({
   const displayDays = visibleDays.length > 0 ? visibleDays : days;
   const displayLabels = visibleDayLabels.length > 0 ? visibleDayLabels : dayLabels;
 
-  const [starredMap, setStarredMap] = useState<Record<string, { employeeName: string; timeWindow: string; gender?: string; transportMode?: string }>>({});
+  const [starredMap, setStarredMapInternal] = useState<StarredMap>(initialStarredMap ?? {});
+
+  // Sync when parent provides a new initial map (e.g. loading a different history entry)
+  const prevInitialRef = React.useRef(initialStarredMap);
+  React.useEffect(() => {
+    if (initialStarredMap !== prevInitialRef.current) {
+      prevInitialRef.current = initialStarredMap;
+      setStarredMapInternal(initialStarredMap ?? {});
+    }
+  }, [initialStarredMap]);
+
+  const setStarredMap = (updater: StarredMap | ((prev: StarredMap) => StarredMap)) => {
+    setStarredMapInternal(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      onStarredMapChange?.(next);
+      return next;
+    });
+  };
 
   const starKey = (visitIndex: number, cpIdx: number, day: string) => `${visitIndex}-${cpIdx}-${day}`;
 

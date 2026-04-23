@@ -102,7 +102,16 @@ export interface SavedVisitResult {
   totalEmployeesEvaluated?: number;
 }
 
+export type StarredEntry = {
+  employeeName: string;
+  timeWindow: string;
+  gender?: string;
+  transportMode?: string;
+};
+export type StarredMap = Record<string, StarredEntry>;
+
 export interface HistoryViewResult {
+  id?: string;
   clientName: string;
   postcode?: string | null;
   genderPreference?: string | null;
@@ -114,6 +123,7 @@ export interface HistoryViewResult {
   totalVisits?: number;
   matches?: MatchedEmployee[];
   results?: (MultiVisitResult & { totalEmployeesEvaluated?: number }) | null;
+  starredSelections?: StarredMap;
 }
 
 export interface VisitFormData {

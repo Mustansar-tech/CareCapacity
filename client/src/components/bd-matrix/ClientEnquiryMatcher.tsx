@@ -22,6 +22,7 @@ import {
   type MultiVisitResult,
   type HistoryViewResult,
   type SavedVisitResult,
+  type StarredMap,
 } from "@/utils/bd-matrix-utils";
 import type { ClientEnquiry } from "@shared/schema";
 
@@ -38,7 +39,33 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
   const [sortByTravel, setSortByTravel] = useState(true);
   const [historyActiveTab, setHistoryActiveTab] = useState('0');
   const [historySortByTravel, setHistorySortByTravel] = useState(true);
+  const [liveStarredMap, setLiveStarredMap] = useState<StarredMap>({});
+  const [savedEnquiryId, setSavedEnquiryId] = useState<string | null>(null);
+  const [historyStarredMap, setHistoryStarredMap] = useState<StarredMap>({});
+  const liveStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const historyStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
   const { toast } = useToast();
+
+  // Debounced autosave: live stars → DB
+  React.useEffect(() => {
+    if (!savedEnquiryId) return;
+    clearTimeout(liveStarsTimer.current);
+    liveStarsTimer.current = setTimeout(() => {
+      apiRequest('PATCH', `/api/client-enquiries/${savedEnquiryId}/stars`, { starredSelections: liveStarredMap }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(liveStarsTimer.current);
+  }, [liveStarredMap, savedEnquiryId]);
+
+  // Debounced autosave: history stars → DB
+  React.useEffect(() => {
+    const histId = viewingHistoryResult?.id;
+    if (!histId) return;
+    clearTimeout(historyStarsTimer.current);
+    historyStarsTimer.current = setTimeout(() => {
+      apiRequest('PATCH', `/api/client-enquiries/${histId}/stars`, { starredSelections: historyStarredMap }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(historyStarsTimer.current);
+  }, [historyStarredMap, viewingHistoryResult?.id]);
 
   React.useEffect(() => {
     setHistoryActiveTab('0');
@@ -87,7 +114,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { id: string }) => {
+      setSavedEnquiryId(data.id);
       queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries'] });
     },
   });
@@ -168,6 +196,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
     onSuccess: (data: MultiVisitResult) => {
       setMultiResults(data);
       setActiveResultTab('0');
+      setLiveStarredMap({});
+      setSavedEnquiryId(null);
       const filledVisits = visits.filter(v => v.selectedDays.length > 0);
       const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
       saveEnquiryMutation.mutate({
@@ -332,7 +362,9 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 onVisitTabChange={setActiveResultTab}
                 historyCount={historyQuery.data?.length}
                 onHistory={() => { setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null); }}
-                onBack={() => setMultiResults(null)}
+                onBack={() => { setMultiResults(null); setLiveStarredMap({}); setSavedEnquiryId(null); }}
+                initialStarredMap={liveStarredMap}
+                onStarredMapChange={setLiveStarredMap}
               />
             ) : viewingHistoryResult ? (
               (() => {
@@ -428,6 +460,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                         onVisitTabChange={setHistoryActiveTab}
                         historyCount={historyQuery.data?.length}
                         onHistory={() => setViewingHistoryResult(null)}
+                        initialStarredMap={historyStarredMap}
+                        onStarredMapChange={setHistoryStarredMap}
                       />
                     ) : (
                       <div className="flex-1 flex items-center justify-center">
@@ -480,7 +514,9 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
-                                setViewingHistoryResult({ ...resultData, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference } as HistoryViewResult);
+                                const savedStars = (enquiry.starredSelections as StarredMap | null) ?? {};
+                                setHistoryStarredMap(savedStars);
+                                setViewingHistoryResult({ ...resultData, id: enquiry.id, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference, starredSelections: savedStars } as HistoryViewResult);
                               }
                             }}
                           >
