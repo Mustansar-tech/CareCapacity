@@ -332,6 +332,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 onVisitTabChange={setActiveResultTab}
                 historyCount={historyQuery.data?.length}
                 onHistory={() => { setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null); }}
+                onBack={() => setMultiResults(null)}
               />
             ) : viewingHistoryResult ? (
               (() => {

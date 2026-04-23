@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Users, MapPin, Star, ArrowRight, X, Activity,
-  Home, Clock, UserCheck, XCircle, Info, History, FileDown,
+  Home, Clock, UserCheck, XCircle, Info, History, FileDown, ArrowLeft,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
 import { roundContractedHours, type MultiVisitResult, type MatchedSlot } from "@/utils/bd-matrix-utils";
@@ -35,6 +35,7 @@ interface MatchResultsGridProps {
   onVisitTabChange?: (tab: string) => void;
   historyCount?: number;
   onHistory?: () => void;
+  onBack?: () => void;
 }
 
 export function MatchResultsGrid({
@@ -51,6 +52,7 @@ export function MatchResultsGrid({
   onVisitTabChange,
   historyCount,
   onHistory,
+  onBack,
 }: MatchResultsGridProps) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
@@ -158,6 +160,17 @@ export function MatchResultsGrid({
         <div className="flex-1" />
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {onBack && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBack}
+              className="gap-1.5 font-semibold text-[11px] border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 text-gray-700 dark:text-gray-300 hover:bg-purple-50 hover:border-purple-300 dark:hover:bg-purple-900/20 rounded-xl px-3 h-7 transition-all"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </Button>
+          )}
           {onHistory && (
             <Button
               variant="outline"
