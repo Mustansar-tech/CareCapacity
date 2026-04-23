@@ -69,6 +69,8 @@ export class TravelTimeService {
   private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
+  /** Circuit breaker: trips on first ORS 403 for the current pre-warm run, preventing further wasted requests. */
+  private _orsCircuitOpen = false;
 
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -674,6 +676,7 @@ export class TravelTimeService {
 
     const startTime = Date.now();
     let totalNew = 0;
+    this._orsCircuitOpen = false; // reset circuit breaker for this run
 
     const carEmployees = employeeLocations.filter(e => e.transportMode === 'car');
     const nonCarEmployees = employeeLocations.filter(e => this.isWalkerOrPublic(e.transportMode));
@@ -737,7 +740,7 @@ export class TravelTimeService {
       logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — Haversine heuristic`);
     }
 
-    // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
+    // ── PHASE 1b: Car employee → client (ORS Matrix, Haversine fallback on 403) ──
     if (carEmployees.length > 0) {
       logger.info(`[Cache Pre-warm] Phase 1b: ${carEmployees.length} car employees → ${clientLocations.length} clients (ORS Matrix)`);
       for (let ei = 0; ei < carEmployees.length; ei += ORS_MATRIX_BATCH_SIZE) {
@@ -748,24 +751,34 @@ export class TravelTimeService {
           totalNew += added;
         }
       }
+      if (this._orsCircuitOpen) {
+        logger.info(`[Cache Pre-warm] Phase 1b fallback: filling ${carEmployees.length}×${clientLocations.length} car pairs with Haversine`);
+        totalNew += this.haversineFillCar(carEmployees, clientLocations);
+      }
     }
 
     // ── PHASE 2: Client → Client all-pairs ─────────────────────────────────────
     if (clientLocations.length > 1) {
       // Phase 2a: Car client→client via ORS Matrix (all-pairs: clients + car employee homes)
       if (carEmployees.length > 0 && this.ORS_API_KEY) {
-        logger.info(`[Cache Pre-warm] Phase 2a: client→client car (ORS Matrix all-pairs, ${clientLocations.length} clients + ${carEmployees.length} employee homes)`);
         const carUniqueLocations: Array<{ lat: number; lng: number; id: string }> = [
           ...clientLocations.map((c, i) => ({ lat: c.lat, lng: c.lng, id: `c${i}` })),
           ...carEmployees.map((e) => ({ lat: e.lat, lng: e.lng, id: `e${e.id}` })),
         ];
-        for (let si = 0; si < carUniqueLocations.length; si += ORS_MATRIX_BATCH_SIZE) {
-          const srcBatch = carUniqueLocations.slice(si, si + ORS_MATRIX_BATCH_SIZE);
-          for (let di = 0; di < carUniqueLocations.length; di += ORS_MATRIX_BATCH_SIZE) {
-            const dstBatch = carUniqueLocations.slice(di, di + ORS_MATRIX_BATCH_SIZE);
-            const added = await this.orsMatrixBatch(srcBatch, dstBatch, true);
-            totalNew += added;
+        if (!this._orsCircuitOpen) {
+          logger.info(`[Cache Pre-warm] Phase 2a: client→client car (ORS Matrix all-pairs, ${clientLocations.length} clients + ${carEmployees.length} employee homes)`);
+          for (let si = 0; si < carUniqueLocations.length; si += ORS_MATRIX_BATCH_SIZE) {
+            const srcBatch = carUniqueLocations.slice(si, si + ORS_MATRIX_BATCH_SIZE);
+            for (let di = 0; di < carUniqueLocations.length; di += ORS_MATRIX_BATCH_SIZE) {
+              const dstBatch = carUniqueLocations.slice(di, di + ORS_MATRIX_BATCH_SIZE);
+              const added = await this.orsMatrixBatch(srcBatch, dstBatch, true);
+              totalNew += added;
+            }
           }
+        }
+        if (this._orsCircuitOpen) {
+          logger.info(`[Cache Pre-warm] Phase 2a fallback: filling ${carUniqueLocations.length}×${carUniqueLocations.length} car client→client pairs with Haversine`);
+          totalNew += this.haversineFillCar(carUniqueLocations, carUniqueLocations, true);
         }
       }
 
@@ -789,6 +802,7 @@ export class TravelTimeService {
     skipSameCoords = false
   ): Promise<number> {
     if (!this.ORS_API_KEY || sources.length === 0 || destinations.length === 0) return 0;
+    if (this._orsCircuitOpen) return 0; // circuit already tripped — skip immediately
     let added = 0;
     try {
       const allLocations = [
@@ -830,12 +844,42 @@ export class TravelTimeService {
         logger.info(`[Cache Pre-warm] ORS Matrix: ${sources.length}×${destinations.length} batch → ${added} entries cached`);
       } else {
         const errText = await response.text();
-        logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
+        if (response.status === 403) {
+          this._orsCircuitOpen = true;
+          logger.warn(`[Cache Pre-warm] ORS Matrix 403 — circuit breaker tripped, skipping remaining ORS batches and falling back to Haversine`);
+        } else {
+          logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
+        }
         return added;
       }
     } catch (err) {
       logger.warn('[Cache Pre-warm] ORS Matrix exception:', err instanceof Error ? err.message : err);
       return added;
+    }
+    return added;
+  }
+
+  /** Fill session cache with Haversine estimates for all source→destination pairs (car mode). Used when ORS circuit breaker trips. */
+  private haversineFillCar(
+    sources: Array<{ lat: number; lng: number; id?: string }>,
+    destinations: Array<{ lat: number; lng: number; id?: string }>,
+    skipSameCoords = false
+  ): number {
+    let added = 0;
+    for (const src of sources) {
+      for (const dst of destinations) {
+        if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
+        const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+        if (this._sessionCache.has(sk)) continue; // already cached from a successful ORS batch
+        const dLat = (dst.lat - src.lat) * Math.PI / 180;
+        const dLng = (dst.lng - src.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(src.lat * Math.PI / 180) * Math.cos(dst.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const dMin = this.calculateHeuristicTravelTime(distKm, 'car');
+        this._sessionCache.set(sk, { durationMinutes: dMin, distanceMeters: Math.round(distKm * 1.3 * 1000), source: 'heuristic' });
+        this.trackSource('heuristic');
+        added++;
+      }
     }
     return added;
   }
