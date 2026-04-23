@@ -163,7 +163,8 @@ export class TravelTimeService {
         if (response.ok) return response;
         const isRateLimit = response.status === 429;
         const isServerErr = response.status >= 500;
-        if ((isRateLimit || isServerErr) && i < keys.length - 1) {
+        const isForbidden = response.status === 403;
+        if ((isRateLimit || isServerErr || isForbidden) && i < keys.length - 1) {
           const errText = await response.text();
           logger.warn(`[ORS] Key ${i + 1} returned ${response.status}, trying key ${i + 2}. ${errText.slice(0, 120)}`);
           continue;
