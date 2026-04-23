@@ -122,8 +122,8 @@ export function exportSchedulePdf(
   doc.setTextColor(0, 0, 0);
 
   // ── Data prep ──────────────────────────────────────────────────────────────
-  const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  const dayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const allDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const allDayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const weekendDays = new Set(['sat', 'sun']);
 
   const maxCpByVisit: Record<number, number> = {};
@@ -143,6 +143,23 @@ export function exportSchedulePdf(
     ...v,
     careProsRequired: Math.max(v.careProsRequired, (maxCpByVisit[v.visitIndex] ?? 0) + 1),
   }));
+
+  // ── Only show days that are actually requested (union across all visits) ──
+  const requestedDaySet = new Set<string>();
+  for (const visit of resolvedVisits) {
+    const vDays = visit.selectedDays ?? selectedDays;
+    if (vDays && vDays.length > 0) {
+      vDays.forEach(d => requestedDaySet.add(d));
+    }
+  }
+  // Preserve canonical order; fall back to weekdays if nothing specified
+  const days = allDays.filter(d =>
+    requestedDaySet.size > 0 ? requestedDaySet.has(d) : !weekendDays.has(d)
+  );
+  const dayFullNames = allDays
+    .map((d, i) => ({ d, name: allDayFullNames[i] }))
+    .filter(({ d }) => days.includes(d))
+    .map(({ name }) => name);
 
   const head = [['Day', ...resolvedVisits.map(v => v.visitLabel || `Visit ${v.visitIndex + 1}`)]];
 
@@ -302,6 +319,11 @@ export function exportSchedulePdf(
           doc.setFont('helvetica', 'bolditalic');
           doc.setTextColor(190, 55, 55);
           doc.text('No Availability', naX, curY);
+          // Dash on the right where time would appear
+          doc.setFontSize(9.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(160, 70, 70);
+          doc.text('\u2013', x + width - padX, curY, { align: 'right' });
           curY += lineH;
           continue;
         }
