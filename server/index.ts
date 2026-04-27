@@ -140,3 +140,21 @@ app.use((req, res, next) => {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 })();
+
+// ─── Global crash protection ──────────────────────────────────────────────────
+// Playwright browser automation throws unhandled rejections on network/TLS
+// failures. Without these handlers the entire Node process exits (exit status 1)
+// which takes down the whole app for all users.
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled promise rejection — keeping process alive', undefined, {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception — keeping process alive', err, {
+    message: err.message,
+    stack: err.stack,
+  });
+});

@@ -441,19 +441,22 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     });
   }
 
-  await page.waitForTimeout(3000);
-
-  const framesAfter = page.frames();
-  let launcherFrame = framesAfter.find(f =>
-    f.url().includes("button-app.production.workspace.accessacloud.com")
-  ) ?? null;
-
-  if (!launcherFrame) {
-    for (const frame of framesAfter) {
-      const hasLauncher = await frame.evaluate(() =>
-        !!(document.body?.innerText?.includes("People Planner"))
-      ).catch(() => false);
-      if (hasLauncher) { launcherFrame = frame; break; }
+  // Wait up to 30 seconds for the EVO launcher iframe to appear, polling every 2s
+  let launcherFrame: import("playwright").Frame | null = null;
+  const launcherDeadline = Date.now() + 30000;
+  while (!launcherFrame && Date.now() < launcherDeadline) {
+    await page.waitForTimeout(2000);
+    const currentFrames = page.frames();
+    launcherFrame = currentFrames.find(f =>
+      f.url().includes("button-app.production.workspace.accessacloud.com")
+    ) ?? null;
+    if (!launcherFrame) {
+      for (const frame of currentFrames) {
+        const hasLauncher = await frame.evaluate(() =>
+          !!(document.body?.innerText?.includes("People Planner"))
+        ).catch(() => false);
+        if (hasLauncher) { launcherFrame = frame; break; }
+      }
     }
   }
 
@@ -512,8 +515,9 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     }
   } else {
     await debugScreenshot(page, "no-launcher-frame");
+    const allFrameUrls = page.frames().map(f => f.url()).join(", ");
     throw new Error(
-      `Could not find EVO launcher iframe. Available frames: ${framesAfter.map(f => f.url()).join(", ")}`
+      `Could not find EVO launcher iframe after 30s. Available frames: ${allFrameUrls}`
     );
   }
 

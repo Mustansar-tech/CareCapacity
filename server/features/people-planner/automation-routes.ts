@@ -398,6 +398,25 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         });
       }
 
+      // ── Deduplication: return existing running session for this branch ───────
+      // Prevents multiple users (or repeat button clicks) from queueing parallel
+      // Playwright sessions for the same branch, which exhausts the job queue
+      // and causes cascade timeouts.
+      const existingSession = Array.from(activeSessions.values()).find(
+        s => s.branchId === requestedBranchId && s.status === "running"
+      );
+      if (existingSession) {
+        logger.info("Reusing existing running PP session for branch", {
+          branchId: requestedBranchId,
+          sessionId: existingSession.sessionId,
+        });
+        return res.status(202).json({
+          sessionId: existingSession.sessionId,
+          reused: true,
+          message: "A sync is already running for this branch — tracking existing session.",
+        });
+      }
+
       const startDate = new Date(weekStartDate);
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 6);
@@ -503,7 +522,7 @@ async function runPipelineSession(
       session.jobIds.push(jobId);
       activeSessions.set(sessionId, session);
 
-      const completedJob = await waitForJob(jobId, 300000);
+      const completedJob = await waitForJob(jobId, 1800000);
 
       if (completedJob.status === "failed") {
         throw new Error(`${reportType} download failed: ${completedJob.error}`);
