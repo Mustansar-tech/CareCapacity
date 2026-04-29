@@ -124,6 +124,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
+  const isAdminUser = false;
 
   const { data: health } = useQuery<{ healthy: boolean; reason?: string }>({
     queryKey: ["/api/pp/health"],
@@ -481,26 +482,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
         {/* Action buttons */}
         <div className="pt-1">
-          <div className="flex gap-2 mb-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => triggerWeeklyMutation.mutate()}
-              disabled={triggerWeeklyMutation.isPending || !canTriggerWeekly}
-            >
-              {triggerWeeklyMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Triggering weekly sync...
-                </>
-              ) : (
-                <>
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Trigger weekly sync now
-                </>
-              )}
-            </Button>
-          </div>
           {(session?.status === "failed" || session?.status === "completed") ? (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={handleReset}>
@@ -512,24 +493,46 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               </Button>
             </div>
           ) : (
-            <Button
-              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
-              onClick={handleStart}
-              disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
-              title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
-            >
-              {isActive ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing data...
-                </>
-              ) : (
-                <>
-                  <Bot className="w-4 h-4 mr-2" />
-                  Start Processing
-                </>
+            <div className="space-y-2">
+              <Button
+                className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
+                onClick={handleStart}
+                disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
+                title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
+              >
+                {isActive ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing data...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="w-4 h-4 mr-2" />
+                    Start Processing
+                  </>
+                )}
+              </Button>
+              {isAdminUser && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => triggerWeeklyMutation.mutate()}
+                  disabled={triggerWeeklyMutation.isPending || !canTriggerWeekly}
+                >
+                  {triggerWeeklyMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Triggering weekly sync...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Trigger weekly sync now
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
           )}
         </div>
       </CardContent>
