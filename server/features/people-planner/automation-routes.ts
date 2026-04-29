@@ -228,10 +228,115 @@ function sessionBelongsToUser(ppSession: PipelineSession, req: Request): boolean
   return !ppSession.initiatedByUserId || ppSession.initiatedByUserId === req.session.userId;
 }
 
+// ─── Weekly scheduler state (updated by scheduler.ts) ────────────────────────
+interface SchedulerStatus {
+  enabled: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastRunBranchIds: string[];
+}
+
+let schedulerStatus: SchedulerStatus = {
+  enabled: false,
+  nextRunAt: null,
+  lastRunAt: null,
+  lastRunBranchIds: [],
+};
+
+export function updateSchedulerStatus(update: Partial<SchedulerStatus>): void {
+  schedulerStatus = { ...schedulerStatus, ...update };
+}
+
+export function getSchedulerStatus(): SchedulerStatus {
+  return { ...schedulerStatus };
+}
+
 export function listSessions(): PipelineSession[] {
   return Array.from(activeSessions.values())
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
     .slice(0, 30);
+}
+
+/** Returns all branch IDs that have a built-in People Planner configuration. */
+export function getConfiguredBranchIds(): string[] {
+  return Object.keys(DEFAULT_BRANCH_PP_CONFIGS);
+}
+
+/**
+ * Programmatically queue a sync for a branch — same logic as POST /api/pp/run
+ * but usable without an HTTP request (e.g. from the weekly scheduler).
+ * Returns { sessionId, queued, queuePosition }.
+ */
+export async function programmaticQueueSync(
+  branchId: string,
+  weekStartDate: string,
+  initiatedByUserId = "system"
+): Promise<{ sessionId: string; queued: boolean; queuePosition: number }> {
+  const branch = await storage.getBranchById(branchId);
+  if (!branch) throw new Error(`Branch not found: ${branchId}`);
+
+  const ppConfig = getMergedBranchConfig(branchId);
+  if (!ppConfig) throw new Error(`No PP config for branch ${branch.displayName}`);
+
+  const startDate = new Date(weekStartDate);
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6);
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
+  const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const activeSession = getAnyRunningSession();
+  if (activeSession) {
+    const pendingSession: PipelineSession = {
+      sessionId,
+      status: "queued",
+      jobIds: [],
+      phase: "queued",
+      startedAt: new Date().toISOString(),
+      branchId,
+      initiatedByUserId,
+      pendingParams: {
+        ppConfig,
+        startDate: fmt(startDate),
+        endDate: fmt(endDate),
+        branchDisplayName: branch.displayName,
+        reportTypes,
+      },
+    };
+    activeSessions.set(sessionId, pendingSession);
+    sessionQueue.push(sessionId);
+    const queuePosition = sessionQueue.length + 1;
+    logger.info("Programmatic PP sync queued", { sessionId, branchId, queuePosition });
+    return { sessionId, queued: true, queuePosition };
+  }
+
+  // Start immediately
+  const newSession: PipelineSession = {
+    sessionId,
+    status: "running",
+    jobIds: [],
+    phase: "starting",
+    startedAt: new Date().toISOString(),
+    branchId,
+    initiatedByUserId,
+  };
+  activeSessions.set(sessionId, newSession);
+
+  runPipelineSession(
+    sessionId, branchId, branch.displayName, ppConfig,
+    fmt(startDate), fmt(endDate), reportTypes, initiatedByUserId
+  ).catch(err => {
+    const s = activeSessions.get(sessionId);
+    if (s && s.status === "running") {
+      activeSessions.set(sessionId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), phase: "error", completedAt: new Date().toISOString() });
+    }
+    logger.error("Programmatic pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
+  }).finally(() => {
+    setImmediate(() => startNextQueuedSession());
+  });
+
+  logger.info("Programmatic PP sync started", { sessionId, branchId });
+  return { sessionId, queued: false, queuePosition: 1 };
 }
 
 // ─── Register routes ──────────────────────────────────────────────────────────
@@ -574,6 +679,27 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
     const jobs = session.jobIds.map(id => getJob(id)).filter(Boolean);
     res.json({ ...session, jobs });
+  });
+
+  // GET /api/pp/last-sync/:branchId — returns uploadedAt of the latest analysis
+  app.get("/api/pp/last-sync/:branchId", requireAuth, async (req, res) => {
+    try {
+      const analysis = await storage.getLatestCapacityAnalysis(req.params.branchId);
+      if (!analysis) return res.json({ uploadedAt: null });
+      res.json({
+        uploadedAt: analysis.uploadedAt,
+        weekStartDate: analysis.weekStartDate,
+        weekEndDate: analysis.weekEndDate,
+      });
+    } catch (err) {
+      logger.error("Failed to get last sync time", err instanceof Error ? err : undefined);
+      res.status(500).json({ error: "Failed to get last sync time" });
+    }
+  });
+
+  // GET /api/pp/scheduler/status — info about the weekly cron job
+  app.get("/api/pp/scheduler/status", requireAuth, requireRoleAtLeast("admin"), (_req, res) => {
+    res.json(getSchedulerStatus());
   });
 }
 

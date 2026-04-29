@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/BranchContext";
 import { clientLogger } from '@/lib/logger';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +75,20 @@ export function OverviewTab({
 }: OverviewTabProps) {
   const { toast } = useToast();
   const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
+  const { selectedBranchId } = useBranch();
+
+  const { data: lastSyncData } = useQuery<{ uploadedAt: string | null; weekStartDate?: string; weekEndDate?: string }>({
+    queryKey: ["/api/pp/last-sync", selectedBranchId],
+    queryFn: async () => {
+      if (!selectedBranchId) return { uploadedAt: null };
+      const res = await fetch(`/api/pp/last-sync/${selectedBranchId}`);
+      if (!res.ok) return { uploadedAt: null };
+      return res.json();
+    },
+    enabled: !!selectedBranchId,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
   const [sicknessModalOpen, setSicknessModalOpen] = useState(false);
   const [unavailModalOpen, setUnavailModalOpen] = useState(false);
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
@@ -385,17 +401,32 @@ export function OverviewTab({
                       }).filter(Boolean)}
                     </SelectContent>
                   </Select>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium mt-1">
-                    {(() => {
-                      try {
-                        if (!data?.dailySummary || data.dailySummary.length === 0) return '';
-                        const startDate = new Date(data.dailySummary[0].date);
-                        return startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                      } catch (error) {
-                        clientLogger.error('Error formatting month year:', error);
-                        return '';
-                      }
-                    })()}
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                      {(() => {
+                        try {
+                          if (!data?.dailySummary || data.dailySummary.length === 0) return '';
+                          const startDate = new Date(data.dailySummary[0].date);
+                          return startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                        } catch (error) {
+                          clientLogger.error('Error formatting month year:', error);
+                          return '';
+                        }
+                      })()}
+                    </span>
+                    {lastSyncData?.uploadedAt && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        Last synced:{" "}
+                        {new Date(lastSyncData.uploadedAt).toLocaleString('en-GB', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
