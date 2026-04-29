@@ -77,11 +77,24 @@ export function OverviewTab({
   const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
   const { selectedBranchId } = useBranch();
 
-  const { data: lastSyncData } = useQuery<{ uploadedAt: string | null; weekStartDate?: string; weekEndDate?: string }>({
-    queryKey: ["/api/pp/last-sync", selectedBranchId],
+  const data = filteredData || processedData;
+
+  // Derive the Monday start date of whichever week is currently displayed
+  const currentWeekStartDate = (() => {
+    try {
+      const d = data?.dailySummary?.[0]?.date;
+      return d ? d.slice(0, 10) : null;
+    } catch { return null; }
+  })();
+
+  const { data: lastSyncData } = useQuery<{ uploadedAt: string | null; weekStartDate?: string | null; weekEndDate?: string }>({
+    queryKey: ["/api/pp/last-sync", selectedBranchId, currentWeekStartDate],
     queryFn: async () => {
       if (!selectedBranchId) return { uploadedAt: null };
-      const res = await fetch(`/api/pp/last-sync/${selectedBranchId}`);
+      const url = currentWeekStartDate
+        ? `/api/pp/last-sync/${selectedBranchId}?weekStartDate=${currentWeekStartDate}`
+        : `/api/pp/last-sync/${selectedBranchId}`;
+      const res = await fetch(url);
       if (!res.ok) return { uploadedAt: null };
       return res.json();
     },
@@ -98,7 +111,6 @@ export function OverviewTab({
   const [otherScheduledModalOpen, setOtherScheduledModalOpen] = useState(false);
   const [capacityAfterModalOpen, setCapacityAfterModalOpen] = useState(false);
   const [desiredHoursModalOpen, setDesiredHoursModalOpen] = useState(false);
-  const data = filteredData || processedData;
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
     return computeGhLoss(

@@ -1,8 +1,13 @@
 /**
  * Weekly People Planner scheduler.
- * Fires every Monday at 06:00 UTC (07:00 BST in summer, 06:00 GMT in winter)
- * and queues a full sync for every configured branch, one at a time via the
- * existing session queue.
+ *
+ * Three runs every Monday (UTC):
+ *   01:00  →  previous week  (Mon -7  … Sun -1)
+ *   03:00  →  current week   (Mon  0  … Sun +6)
+ *   05:00  →  next week      (Mon +7  … Sun +13)
+ *
+ * Each run queues all configured branches one-at-a-time via the existing
+ * session queue.
  */
 
 import { logger } from "../../infrastructure/logger";
@@ -12,117 +17,140 @@ import {
   updateSchedulerStatus,
 } from "./automation-routes";
 
-let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
+// ─── Run definitions ──────────────────────────────────────────────────────────
 
-/** Returns the number of milliseconds until the next Monday at 06:00 UTC. */
-function msUntilNextMondayAt6amUTC(): number {
-  const now = new Date();
-  const next = new Date(now);
-
-  // Day of week: 0=Sun, 1=Mon … 6=Sat
-  const day = now.getUTCDay();
-  // Days until next Monday (0 if today is Monday but we haven't reached 06:00 yet)
-  const daysUntilMonday = day === 1 ? 0 : (8 - day) % 7 || 7;
-
-  next.setUTCDate(now.getUTCDate() + daysUntilMonday);
-  next.setUTCHours(6, 0, 0, 0);
-
-  // If we are on Monday but already past 06:00, advance to next Monday
-  if (next <= now) {
-    next.setUTCDate(next.getUTCDate() + 7);
-  }
-
-  return next.getTime() - now.getTime();
+interface RunDef {
+  /** UTC hour at which this run fires (0-23) */
+  hour: number;
+  /** Days to offset from the firing Monday (negative = past, positive = future) */
+  weekDayOffset: number;
+  label: "previous" | "current" | "next";
 }
 
-/** Returns an ISO string for the next Monday at 06:00 UTC. */
-function nextMondayAt6amUTCIso(): string {
+const RUN_DEFS: RunDef[] = [
+  { hour: 1, weekDayOffset: -7, label: "previous" },
+  { hour: 3, weekDayOffset:  0, label: "current"  },
+  { hour: 5, weekDayOffset: +7, label: "next"      },
+];
+
+// ─── Timer handles ────────────────────────────────────────────────────────────
+
+const timers: (ReturnType<typeof setTimeout> | null)[] = RUN_DEFS.map(() => null);
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Returns ms until the next Monday at `targetHour:00:00 UTC`.
+ * If today is Monday but we've already passed `targetHour`, advances to the
+ * following Monday.
+ */
+function msUntilNextMondayAtHourUTC(targetHour: number): number {
+  return nextMondayAtHourUTC(targetHour).getTime() - Date.now();
+}
+
+function nextMondayAtHourUTC(targetHour: number): Date {
   const now = new Date();
   const next = new Date(now);
-  const day = now.getUTCDay();
+  const day = now.getUTCDay(); // 0=Sun … 6=Sat
   const daysUntilMonday = day === 1 ? 0 : (8 - day) % 7 || 7;
   next.setUTCDate(now.getUTCDate() + daysUntilMonday);
-  next.setUTCHours(6, 0, 0, 0);
+  next.setUTCHours(targetHour, 0, 0, 0);
   if (next <= now) next.setUTCDate(next.getUTCDate() + 7);
-  return next.toISOString();
+  return next;
 }
 
 /**
- * Returns the Monday of the *previous* full week as YYYY-MM-DD (UTC).
- * When called on Monday 4 May it returns 2026-04-27 (last Mon),
- * so the sync covers the completed Mon–Sun week.
+ * Returns the Monday of the *current* firing week offset by `dayOffset` days,
+ * as YYYY-MM-DD (UTC).
+ *
+ * Example — firing on Monday 4 May:
+ *   dayOffset  -7 → 2026-04-27  (previous week)
+ *   dayOffset   0 → 2026-05-04  (current week)
+ *   dayOffset  +7 → 2026-05-11  (next week)
  */
-function getPreviousWeekMonday(date: Date): string {
-  const d = new Date(date);
-  const day = d.getUTCDay(); // 0=Sun … 6=Sat
-  // Step 1: rewind to the current Monday (or stay if already Monday)
+function getMondayWithOffset(firingDate: Date, dayOffset: number): string {
+  const d = new Date(firingDate);
+  // Snap to the Monday of the firing week
+  const day = d.getUTCDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diffToMonday);
-  // Step 2: go back one full week to the *previous* Monday
-  d.setUTCDate(d.getUTCDate() - 7);
+  d.setUTCDate(d.getUTCDate() + diffToMonday + dayOffset);
   return d.toISOString().split("T")[0];
 }
 
-/** Queue syncs for all configured branches (they serialise via the session queue). */
-async function runWeeklySync(): Promise<void> {
-  const branchIds = getConfiguredBranchIds();
-  // Always process the previous full Mon–Sun week
-  const weekStartDate = getPreviousWeekMonday(new Date());
+// ─── Single run ───────────────────────────────────────────────────────────────
 
-  logger.info("Weekly PP scheduler firing", { branchIds, weekStartDate });
-  updateSchedulerStatus({ lastRunAt: new Date().toISOString(), lastRunBranchIds: branchIds });
+async function runSync(def: RunDef): Promise<void> {
+  const branchIds = getConfiguredBranchIds();
+  const weekStartDate = getMondayWithOffset(new Date(), def.weekDayOffset);
+
+  logger.info("PP scheduled sync firing", { label: def.label, weekStartDate, branchIds });
+  updateSchedulerStatus({
+    lastRunAt: new Date().toISOString(),
+    lastRunBranchIds: branchIds,
+  });
 
   for (const branchId of branchIds) {
     try {
-      const result = await programmaticQueueSync(branchId, weekStartDate, "system-scheduler");
-      logger.info("Weekly sync queued for branch", { branchId, ...result });
+      const result = await programmaticQueueSync(branchId, weekStartDate, `system-scheduler-${def.label}`);
+      logger.info("Scheduled sync queued", { label: def.label, branchId, weekStartDate, ...result });
     } catch (err) {
       logger.error(
-        "Failed to queue weekly sync for branch",
+        "Failed to queue scheduled sync",
         err instanceof Error ? err : undefined,
-        { branchId }
+        { label: def.label, branchId, weekStartDate }
       );
     }
   }
 }
 
-/** Schedule the next tick and update the scheduler status. */
-function scheduleNext(): void {
-  if (schedulerTimer) clearTimeout(schedulerTimer);
+// ─── Scheduler arm / disarm ───────────────────────────────────────────────────
 
-  const delay = msUntilNextMondayAt6amUTC();
-  const nextRunAt = nextMondayAt6amUTCIso();
+function armRun(index: number): void {
+  const def = RUN_DEFS[index];
+  if (timers[index]) clearTimeout(timers[index]!);
 
-  updateSchedulerStatus({ enabled: true, nextRunAt });
+  const delay = msUntilNextMondayAtHourUTC(def.hour);
+  const nextRunAt = nextMondayAtHourUTC(def.hour).toISOString();
 
-  logger.info("Weekly PP scheduler armed", {
+  logger.info("PP scheduler armed", {
+    label: def.label,
     nextRunAt,
     delayHours: Math.round(delay / 1000 / 60 / 60),
   });
 
-  schedulerTimer = setTimeout(async () => {
+  timers[index] = setTimeout(async () => {
     try {
-      await runWeeklySync();
+      await runSync(def);
     } finally {
-      scheduleNext(); // always re-arm for next Monday
+      armRun(index); // re-arm for the following Monday
     }
   }, delay);
 
-  // Prevent the timer from keeping the process alive if it shuts down normally
-  if (schedulerTimer.unref) schedulerTimer.unref();
+  if (timers[index]!.unref) timers[index]!.unref();
 }
 
-/** Call once at server startup. */
+function buildNextRunsSummary(): Record<string, string> {
+  return Object.fromEntries(
+    RUN_DEFS.map(def => [def.label, nextMondayAtHourUTC(def.hour).toISOString()])
+  );
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export function initScheduler(): void {
-  scheduleNext();
-  logger.info("People Planner weekly scheduler initialised (Monday 06:00 UTC)");
+  RUN_DEFS.forEach((_, i) => armRun(i));
+
+  updateSchedulerStatus({
+    enabled: true,
+    nextRunAt: nextMondayAtHourUTC(RUN_DEFS[0].hour).toISOString(),
+  });
+
+  logger.info("People Planner weekly scheduler initialised", buildNextRunsSummary());
 }
 
-/** Tear down the scheduler (useful for tests / clean shutdown). */
 export function destroyScheduler(): void {
-  if (schedulerTimer) {
-    clearTimeout(schedulerTimer);
-    schedulerTimer = null;
-  }
+  timers.forEach((t, i) => {
+    if (t) { clearTimeout(t); timers[i] = null; }
+  });
   updateSchedulerStatus({ enabled: false, nextRunAt: null });
 }

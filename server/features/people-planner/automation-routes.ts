@@ -681,11 +681,18 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     res.json({ ...session, jobs });
   });
 
-  // GET /api/pp/last-sync/:branchId — returns uploadedAt of the latest analysis
+  // GET /api/pp/last-sync/:branchId — returns uploadedAt for a specific week (or latest)
+  // ?weekStartDate=YYYY-MM-DD  → exact week; omit → most recent analysis
   app.get("/api/pp/last-sync/:branchId", requireAuth, async (req, res) => {
     try {
-      const analysis = await storage.getLatestCapacityAnalysis(req.params.branchId);
-      if (!analysis) return res.json({ uploadedAt: null });
+      const { branchId } = req.params;
+      const weekStartDate = req.query.weekStartDate as string | undefined;
+
+      const analysis = weekStartDate
+        ? await storage.getCapacityAnalysisByWeekStart(branchId, weekStartDate)
+        : await storage.getLatestCapacityAnalysis(branchId);
+
+      if (!analysis) return res.json({ uploadedAt: null, weekStartDate: weekStartDate ?? null });
       res.json({
         uploadedAt: analysis.uploadedAt,
         weekStartDate: analysis.weekStartDate,
