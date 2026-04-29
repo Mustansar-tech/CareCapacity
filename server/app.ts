@@ -5,7 +5,7 @@ import { logger } from './infrastructure/logger';
 import { requireAuth } from './features/auth/auth';
 import { registerAuthRoutes } from './features/auth/auth.routes';
 import { registerPeoplePlannerRoutes } from './features/people-planner/automation-routes';
-import { initScheduler, registerSchedulerRoutes } from './features/people-planner/scheduler';
+import { initScheduler } from './features/people-planner/scheduler';
 import { registerProcessRoutes } from './routes/process';
 import { registerHistoryRoutes } from './routes/history';
 import { registerVisitsRoutes } from './routes/visits';
@@ -38,7 +38,6 @@ export async function configureApp(app: Express): Promise<Server> {
 
   if (process.env.ACCESS_EMAIL) {
     registerPeoplePlannerRoutes(app);
-    registerSchedulerRoutes(app);
     initScheduler();
   }
 

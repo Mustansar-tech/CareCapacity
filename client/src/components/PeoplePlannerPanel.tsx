@@ -221,33 +221,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     },
   });
 
-  const triggerWeeklyMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/pp/scheduler/trigger", {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
-      }
-      return data as { triggered: boolean; weekStartDate: string; branchIds: string[] };
-    },
-    onSuccess: () => {
-      toast({
-        title: "Weekly sync triggered",
-        description: "The server started processing the previous full week.",
-      });
-    },
-    onError: (err: Error) => {
-      toast({
-        title: "Failed to trigger weekly sync",
-        description: err.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const isActive = session?.status === "running" || session?.status === "queued" || triggerMutation.isPending;
   const automationAvailable = health?.healthy ?? true;
   const phase = session?.phase ?? "starting";
@@ -278,7 +251,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
   const sessionJobs = session?.jobs ?? [];
   const reportOrder = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
-  const canTriggerWeekly = !!selectedBranchId;
 
   if (!open) return null;
 
@@ -492,44 +464,24 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Button
-                className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
-                onClick={handleStart}
-                disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
-                title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
-              >
-                {isActive ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing data...
-                  </>
-                ) : (
-                  <>
-                    <Bot className="w-4 h-4 mr-2" />
-                    Start Processing
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => triggerWeeklyMutation.mutate()}
-                disabled={triggerWeeklyMutation.isPending || !canTriggerWeekly}
-              >
-                {triggerWeeklyMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Triggering weekly sync...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Trigger weekly sync now
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button
+              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
+              onClick={handleStart}
+              disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
+              title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
+            >
+              {isActive ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing data...
+                </>
+              ) : (
+                <>
+                  <Bot className="w-4 h-4 mr-2" />
+                  Start Processing
+                </>
+              )}
+            </Button>
           )}
         </div>
       </CardContent>

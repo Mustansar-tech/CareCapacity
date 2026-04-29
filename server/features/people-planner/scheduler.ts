@@ -5,14 +5,11 @@
  * existing session queue.
  */
 
-import type { Express } from "express";
-import { requireAuth, requireRoleAtLeast } from "../../features/auth/auth";
 import { logger } from "../../infrastructure/logger";
 import {
   getConfiguredBranchIds,
   programmaticQueueSync,
   updateSchedulerStatus,
-  getSchedulerStatus,
 } from "./automation-routes";
 
 let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -67,7 +64,7 @@ function getPreviousWeekMonday(date: Date): string {
 }
 
 /** Queue syncs for all configured branches (they serialise via the session queue). */
-export async function runWeeklySync(): Promise<void> {
+async function runWeeklySync(): Promise<void> {
   const branchIds = getConfiguredBranchIds();
   // Always process the previous full Mon–Sun week
   const weekStartDate = getPreviousWeekMonday(new Date());
@@ -128,38 +125,4 @@ export function destroyScheduler(): void {
     schedulerTimer = null;
   }
   updateSchedulerStatus({ enabled: false, nextRunAt: null });
-}
-
-/**
- * Register scheduler-specific API routes.
- *
- * POST /api/pp/scheduler/trigger  (admin only)
- *   Immediately runs the weekly sync — useful for testing without waiting until Monday.
- *   Queues all configured branches for the previous full Mon–Sun week.
- */
-export function registerSchedulerRoutes(app: Express): void {
-  app.post(
-    "/api/pp/scheduler/trigger",
-    requireAuth,
-    requireRoleAtLeast("admin"),
-    async (_req, res) => {
-      try {
-        logger.info("Manual scheduler trigger requested by admin");
-        // Run in background — respond immediately so the client isn't blocked
-        runWeeklySync().catch(err =>
-          logger.error("Manual trigger runWeeklySync failed", err instanceof Error ? err : undefined)
-        );
-        const status = getSchedulerStatus();
-        res.json({
-          triggered: true,
-          weekStartDate: getPreviousWeekMonday(new Date()),
-          branchIds: getConfiguredBranchIds(),
-          nextScheduledRun: status.nextRunAt,
-        });
-      } catch (err) {
-        logger.error("Failed to trigger scheduler", err instanceof Error ? err : undefined);
-        res.status(500).json({ error: "Failed to trigger scheduler" });
-      }
-    }
-  );
 }
