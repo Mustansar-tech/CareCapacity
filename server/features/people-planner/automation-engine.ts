@@ -117,6 +117,10 @@ export function isRunning(): boolean {
   return job?.status === "running" || job?.status === "pending";
 }
 
+export function getQueueLength(): number {
+  return jobQueue.length;
+}
+
 export function getDownloadPath(jobId: string): string | null {
   const job = jobs.get(jobId);
   if (!job) return null;

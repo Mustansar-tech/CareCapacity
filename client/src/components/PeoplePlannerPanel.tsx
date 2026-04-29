@@ -119,7 +119,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState<string | null>(null);
-  const [busyInfo, setBusyInfo] = useState<{ retryAfterMinutes: number; sessionId: string } | null>(null);
+  const [busyInfo, setBusyInfo] = useState<{ retryAfterMinutes: number; sessionId: string; activeBranchName?: string } | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
@@ -203,8 +203,9 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         // Server says this branch is already syncing — surface retry info
         const err = new Error("BRANCH_BUSY");
         (err as any).busyInfo = {
-          retryAfterMinutes: data.retryAfterMinutes ?? 5,
+          retryAfterMinutes: data.retryAfterMinutes ?? 8,
           sessionId: data.sessionId,
+          activeBranchName: data.activeBranchName,
         };
         throw err;
       }
@@ -317,10 +318,14 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               <Clock className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Sync already in progress
+                  Server is busy
                 </p>
                 <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-0.5">
-                  Another sync is currently running for this branch. Please retry in approximately{" "}
+                  {busyInfo.activeBranchName
+                    ? <><span className="font-semibold">{busyInfo.activeBranchName}</span> is currently syncing.</>
+                    : "A sync is already in progress."
+                  }{" "}
+                  Only one branch can sync at a time — please retry in approximately{" "}
                   <span className="font-semibold">{busyInfo.retryAfterMinutes} minute{busyInfo.retryAfterMinutes !== 1 ? "s" : ""}</span>.
                 </p>
               </div>

@@ -14,6 +14,7 @@ import {
   listJobs,
   getCurrentJob,
   isRunning,
+  getQueueLength,
   getDownloadPath,
   type JobConfig,
 } from "./automation-engine";
@@ -154,18 +155,27 @@ interface PipelineSession {
 }
 
 const activeSessions = new Map<string, PipelineSession>();
-const BRANCH_SYNC_LOCK_MS = 30 * 60 * 1000;
 
-function getRunningSessionForBranch(branchId: string): PipelineSession | undefined {
-  return Array.from(activeSessions.values()).find(
-    s => s.branchId === branchId && s.status === "running"
-  );
+/** Returns the oldest running session (the one currently being processed by the browser). */
+function getAnyRunningSession(): PipelineSession | undefined {
+  const running = Array.from(activeSessions.values())
+    .filter(s => s.status === "running")
+    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+  return running[0];
 }
 
-function getRetryAfterMinutes(session: PipelineSession): number {
-  const startedAt = new Date(session.startedAt).getTime();
-  const remainingMs = Math.max(0, startedAt + BRANCH_SYNC_LOCK_MS - Date.now());
-  return Math.max(1, Math.ceil(remainingMs / 60000));
+/**
+ * Estimate wait time in minutes.
+ * Each pipeline session runs 3 jobs, each ~2 min, plus ~2 min login/branch-switch overhead = ~8 min per session.
+ * We count running sessions + jobs still in the low-level queue (÷3 for jobs→sessions).
+ */
+function estimateRetryMinutes(): number {
+  const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
+  const queuedJobs = getQueueLength();
+  const queuedSessions = Math.ceil(queuedJobs / 3);
+  const totalSessions = Math.max(1, runningSessions + queuedSessions);
+  // 8 min per session is a conservative estimate
+  return totalSessions * 8;
 }
 
 // ─── Access guard helpers ─────────────────────────────────────────────────────
@@ -411,22 +421,30 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         });
       }
 
-      // ── Deduplication: return existing running session for this branch ───────
-      // Prevents multiple users (or repeat button clicks) from queueing parallel
-      // Playwright sessions for the same branch, which exhausts the job queue
-      // and causes cascade timeouts.
-      const existingSession = getRunningSessionForBranch(requestedBranchId);
-      if (existingSession) {
-        const retryAfterMinutes = getRetryAfterMinutes(existingSession);
-        logger.info("Reusing existing running PP session for branch", {
-          branchId: requestedBranchId,
-          sessionId: existingSession.sessionId,
+      // ── Global server lock: only one PP sync at a time ───────────────────────
+      // There is one shared browser + one login account. Any running session
+      // blocks ALL branches — not just the same branch. Reject with a realistic
+      // wait estimate so users know when to retry.
+      const activeSession = getAnyRunningSession();
+      if (activeSession) {
+        const retryAfterMinutes = estimateRetryMinutes();
+        // Look up the display name of the branch that is currently syncing
+        const activeBranchId = activeSession.branchId;
+        const activeBranch = activeBranchId ? await storage.getBranchById(activeBranchId).catch(() => null) : null;
+        const activeBranchName = activeBranch?.displayName ?? "another branch";
+
+        logger.info("PP sync rejected — server already processing", {
+          requestedBranchId,
+          activeBranchId,
+          activeBranchName,
+          sessionId: activeSession.sessionId,
           retryAfterMinutes,
         });
         return res.status(429).json({
-          error: "A sync is already running for this branch. Please retry later.",
+          error: `The server is currently syncing ${activeBranchName}. Only one sync can run at a time. Please retry in approximately ${retryAfterMinutes} minutes.`,
           retryAfterMinutes,
-          sessionId: existingSession.sessionId,
+          activeBranchName,
+          sessionId: activeSession.sessionId,
         });
       }
 
