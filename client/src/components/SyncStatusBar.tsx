@@ -105,29 +105,22 @@ export function SyncStatusBar() {
   // Session for the branch the user is currently viewing (highest priority)
   const currentBranchSession = allOwn.find(s => s.branchId === selectedBranchId);
 
-  // Any own running session (could be a different branch)
-  const ownRunning = data?.running?.isOwnSession ? data.running : null;
-
   // Any own queued session for the current branch
   const currentBranchQueued = allOwn.find(
     s => s.status === "queued" && s.branchId === selectedBranchId
   );
 
-  // A different branch is running (not the one I'm currently viewing)
-  const otherBranchRunning = ownRunning && ownRunning.branchId !== selectedBranchId ? ownRunning : null;
-
-  const hasContent =
+  // Only show the strip if the current branch has something happening
+  const currentBranchHasActivity =
     currentBranchSession ||
-    ownRunning ||
-    finished ||
-    (data && data.total > 0);
+    (finished && finished.branchId === selectedBranchId);
 
-  if (!data || !hasContent) return null;
+  if (!data || !currentBranchHasActivity) return null;
 
   const go = () => navigate("/app/people-planner");
 
   // ── 1. Finished banner for current branch ───────────────────────────────────
-  if (finished && (!finished.branchId || finished.branchId === selectedBranchId)) {
+  if (finished && finished.branchId === selectedBranchId) {
     if (finished.status === "completed") {
       return (
         <div
@@ -187,64 +180,6 @@ export function SyncStatusBar() {
             </span>
           )}
         </span>
-        <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-50" />
-      </div>
-    );
-  }
-
-  // ── 4. A different branch (one of mine) is running ──────────────────────────
-  if (otherBranchRunning) {
-    const label = PHASE_LABELS[otherBranchRunning.phase] ?? "Syncing...";
-    return (
-      <div
-        className="flex items-center gap-2 px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        onClick={go}
-      >
-        <Loader2 className="w-3 h-3 animate-spin flex-shrink-0 text-slate-400" />
-        <span className="opacity-80">
-          Another branch is syncing
-          <span className="opacity-70"> — {label}</span>
-        </span>
-        <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-50" />
-      </div>
-    );
-  }
-
-  // ── 5. Finished banner for a different branch ────────────────────────────────
-  if (finished) {
-    if (finished.status === "completed") {
-      return (
-        <div
-          className="flex items-center gap-2 px-4 py-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-          onClick={go}
-        >
-          <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-          <span className="font-medium">A branch sync completed</span>
-          <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-50" />
-        </div>
-      );
-    }
-    return (
-      <div
-        className="flex items-center gap-2 px-4 py-1.5 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-        onClick={go}
-      >
-        <XCircle className="w-3 h-3 flex-shrink-0" />
-        <span className="font-medium">A branch sync failed</span>
-        <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-50" />
-      </div>
-    );
-  }
-
-  // ── 6. Fallback: someone else's session ──────────────────────────────────────
-  if (data && data.total > 0) {
-    return (
-      <div
-        className="flex items-center gap-2 px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        onClick={go}
-      >
-        <Loader2 className="w-3 h-3 animate-spin flex-shrink-0 text-slate-400" />
-        <span>A sync is in progress on this server</span>
         <ChevronRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-50" />
       </div>
     );
