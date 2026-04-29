@@ -140,10 +140,18 @@ export function getAutomationExportBuffer(): Buffer | null {
   return latestAutomationExportBuffer;
 }
 
-// ─── Session tracking (branch-scoped) ─────────────────────────────────────────
+// ─── Session tracking ─────────────────────────────────────────────────────────
+interface QueuedRunParams {
+  ppConfig: BranchPPConfig;
+  startDate: string;
+  endDate: string;
+  branchDisplayName: string;
+  reportTypes: readonly ("visitsExport" | "careGiverExport" | "careGiverAvailabilityExport")[];
+}
+
 interface PipelineSession {
   sessionId: string;
-  status: "running" | "completed" | "failed";
+  status: "queued" | "running" | "completed" | "failed";
   error?: string;
   jobIds: string[];
   phase: string;
@@ -152,30 +160,61 @@ interface PipelineSession {
   branchId: string;
   initiatedByUserId?: string;
   result?: unknown;
+  pendingParams?: QueuedRunParams;
 }
 
 const activeSessions = new Map<string, PipelineSession>();
 
-/** Returns the oldest running session (the one currently being processed by the browser). */
+/** FIFO queue of sessionIds waiting to start. */
+const sessionQueue: string[] = [];
+
+/** Returns the oldest running session — the one currently using the browser. */
 function getAnyRunningSession(): PipelineSession | undefined {
-  const running = Array.from(activeSessions.values())
+  return Array.from(activeSessions.values())
     .filter(s => s.status === "running")
-    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
-  return running[0];
+    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0];
 }
 
-/**
- * Estimate wait time in minutes.
- * Each pipeline session runs 3 jobs, each ~2 min, plus ~2 min login/branch-switch overhead = ~8 min per session.
- * We count running sessions + jobs still in the low-level queue (÷3 for jobs→sessions).
- */
-function estimateRetryMinutes(): number {
-  const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
-  const queuedJobs = getQueueLength();
-  const queuedSessions = Math.ceil(queuedJobs / 3);
-  const totalSessions = Math.max(1, runningSessions + queuedSessions);
-  // 8 min per session is a conservative estimate
-  return totalSessions * 8;
+/** Returns queue position (1-based). 1 = currently running, 2 = first in queue, etc. */
+function getQueuePos(sessionId: string): number {
+  if (activeSessions.get(sessionId)?.status === "running") return 1;
+  const idx = sessionQueue.indexOf(sessionId);
+  return idx === -1 ? 1 : idx + 2; // +2: position 1 is running, queue starts at 2
+}
+
+/** Called after any session finishes. Picks up the next queued session if one exists. */
+function startNextQueuedSession(): void {
+  if (sessionQueue.length === 0) return;
+  if (getAnyRunningSession()) return; // something already running
+
+  const nextId = sessionQueue.shift()!;
+  const session = activeSessions.get(nextId);
+  if (!session?.pendingParams) {
+    logger.warn("Queued session missing or has no params — skipping", { nextId });
+    setImmediate(() => startNextQueuedSession());
+    return;
+  }
+
+  const params = session.pendingParams;
+  session.status = "running";
+  session.phase = "starting";
+  session.pendingParams = undefined;
+  activeSessions.set(nextId, session);
+
+  logger.info("Auto-starting next queued session", { sessionId: nextId, branchId: session.branchId, remaining: sessionQueue.length });
+
+  runPipelineSession(
+    nextId, session.branchId, params.branchDisplayName, params.ppConfig,
+    params.startDate, params.endDate, params.reportTypes, session.initiatedByUserId ?? "unknown"
+  ).catch(err => {
+    const s = activeSessions.get(nextId);
+    if (s && s.status === "running") {
+      activeSessions.set(nextId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), phase: "error", completedAt: new Date().toISOString() });
+    }
+    logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
+  }).finally(() => {
+    setImmediate(() => startNextQueuedSession());
+  });
 }
 
 // ─── Access guard helpers ─────────────────────────────────────────────────────
@@ -421,36 +460,42 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         });
       }
 
-      // ── Global server lock: only one PP sync at a time ───────────────────────
-      // There is one shared browser + one login account. Any running session
-      // blocks ALL branches — not just the same branch. Reject with a realistic
-      // wait estimate so users know when to retry.
-      const activeSession = getAnyRunningSession();
-      if (activeSession) {
-        const retryAfterMinutes = estimateRetryMinutes();
-        // Look up the display name of the branch that is currently syncing
-        logger.info("PP sync rejected — server already processing", {
-          requestedBranchId,
-          activeBranchId: activeSession.branchId,
-          sessionId: activeSession.sessionId,
-          retryAfterMinutes,
-        });
-        return res.status(429).json({
-          error: `The server is currently running a sync for another branch. Only one sync can run at a time. Please retry in approximately ${retryAfterMinutes} minutes.`,
-          retryAfterMinutes,
-          sessionId: activeSession.sessionId,
-        });
-      }
-
+      // Compute run parameters up-front (needed whether we start now or queue)
       const startDate = new Date(weekStartDate);
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 6);
       const fmt = (d: Date) => d.toISOString().split("T")[0];
-
       const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
-
       const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const initiatedByUserId = req.session.userId ?? "unknown";
+
+      // ── Global server lock: one browser, one login ──────────────────────────
+      // If a sync is already running, queue this request so it starts
+      // automatically when the current one finishes — no manual retry needed.
+      const activeSession = getAnyRunningSession();
+      if (activeSession) {
+        const pendingSession: PipelineSession = {
+          sessionId,
+          status: "queued",
+          jobIds: [],
+          phase: "queued",
+          startedAt: new Date().toISOString(),
+          branchId: requestedBranchId,
+          initiatedByUserId,
+          pendingParams: {
+            ppConfig,
+            startDate: fmt(startDate),
+            endDate: fmt(endDate),
+            branchDisplayName: branch.displayName,
+            reportTypes,
+          },
+        };
+        activeSessions.set(sessionId, pendingSession);
+        sessionQueue.push(sessionId);
+        const queuePosition = sessionQueue.length + 1; // +1: position 1 is the currently running session
+        logger.info("PP sync queued", { sessionId, branchId: requestedBranchId, queuePosition, queueLength: sessionQueue.length });
+        return res.status(202).json({ sessionId, queued: true, queuePosition });
+      }
 
       runPipelineSession(
         sessionId,
@@ -473,14 +518,42 @@ export function registerPeoplePlannerRoutes(app: Express): void {
             completedAt: new Date().toISOString(),
           });
         }
+      }).finally(() => {
+        setImmediate(() => startNextQueuedSession());
       });
 
-      return res.status(202).json({ sessionId });
+      return res.status(202).json({ sessionId, queued: false, queuePosition: 1 });
 
     } catch (error) {
       logger.error("Error starting People Planner run", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to start automation" });
     }
+  });
+
+  // GET /api/pp/active — global sync status (no branch names exposed)
+  // Used by the persistent SyncStatusBar in the app header.
+  app.get("/api/pp/active", requireAuth, (req, res) => {
+    const userId = req.session?.userId;
+
+    const mapSession = (s: PipelineSession, position: number) => ({
+      sessionId: s.sessionId,
+      status: s.status,
+      phase: s.phase,
+      startedAt: s.startedAt,
+      queuePosition: position,
+      isOwnSession: !!userId && s.initiatedByUserId === userId,
+    });
+
+    const running = getAnyRunningSession();
+    const queued = sessionQueue
+      .map(id => activeSessions.get(id))
+      .filter((s): s is PipelineSession => !!s);
+
+    res.json({
+      running: running ? mapSession(running, 1) : null,
+      queued: queued.map((s, i) => mapSession(s, i + 2)),
+      total: (running ? 1 : 0) + queued.length,
+    });
   });
 
   // GET /api/pp/session/:sessionId — poll session status (user scoped)
@@ -510,15 +583,12 @@ async function runPipelineSession(
   reportTypes: readonly ("visitsExport" | "careGiverExport" | "careGiverAvailabilityExport")[],
   initiatedByUserId: string
 ): Promise<void> {
-  const session: PipelineSession = {
-    sessionId,
-    status: "running",
-    jobIds: [],
-    phase: "starting",
-    startedAt: new Date().toISOString(),
-    branchId,
-    initiatedByUserId,
-  };
+  // If a queued session already exists for this ID (promoted from queue), merge into it
+  // rather than overwriting — preserving the original startedAt and userId.
+  const existingSession = activeSessions.get(sessionId);
+  const session: PipelineSession = existingSession
+    ? { ...existingSession, status: "running", jobIds: [], phase: "starting", pendingParams: undefined }
+    : { sessionId, status: "running", jobIds: [], phase: "starting", startedAt: new Date().toISOString(), branchId, initiatedByUserId };
   activeSessions.set(sessionId, session);
 
   try {

@@ -38,6 +38,7 @@ import { useLocation } from "wouter";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import type { ProcessingResultWithMeta } from "@shared/schema";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { SyncStatusBar } from "@/components/SyncStatusBar";
 
 // ─── Lazy page modules ────────────────────────────────────────────────────────
 
@@ -511,6 +512,7 @@ function Router() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <Navigation />
+      <SyncStatusBar />
       <main className="flex-1 overflow-y-auto overflow-x-hidden animate-fade-in">
         {!isReady ? (
           <div className="flex items-center justify-center min-h-[60vh]">
