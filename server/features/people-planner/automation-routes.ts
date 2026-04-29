@@ -535,14 +535,19 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   app.get("/api/pp/active", requireAuth, (req, res) => {
     const userId = req.session?.userId;
 
-    const mapSession = (s: PipelineSession, position: number) => ({
-      sessionId: s.sessionId,
-      status: s.status,
-      phase: s.phase,
-      startedAt: s.startedAt,
-      queuePosition: position,
-      isOwnSession: !!userId && s.initiatedByUserId === userId,
-    });
+    const mapSession = (s: PipelineSession, position: number) => {
+      const isOwn = !!userId && s.initiatedByUserId === userId;
+      return {
+        sessionId: s.sessionId,
+        status: s.status,
+        phase: s.phase,
+        startedAt: s.startedAt,
+        queuePosition: position,
+        isOwnSession: isOwn,
+        // Only expose branchId to the owner — never to other users
+        branchId: isOwn ? s.branchId : undefined,
+      };
+    };
 
     const running = getAnyRunningSession();
     const queued = sessionQueue
