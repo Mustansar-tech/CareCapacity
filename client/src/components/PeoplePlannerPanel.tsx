@@ -221,6 +221,33 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     },
   });
 
+  const triggerWeeklyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/pp/scheduler/trigger", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
+      }
+      return data as { triggered: boolean; weekStartDate: string; branchIds: string[] };
+    },
+    onSuccess: () => {
+      toast({
+        title: "Weekly sync triggered",
+        description: "The server started processing the previous full week.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Failed to trigger weekly sync",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const isActive = session?.status === "running" || session?.status === "queued" || triggerMutation.isPending;
   const automationAvailable = health?.healthy ?? true;
   const phase = session?.phase ?? "starting";
@@ -251,6 +278,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
   const sessionJobs = session?.jobs ?? [];
   const reportOrder = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
+  const canTriggerWeekly = !!selectedBranchId;
 
   if (!open) return null;
 
@@ -453,6 +481,26 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
         {/* Action buttons */}
         <div className="pt-1">
+          <div className="flex gap-2 mb-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => triggerWeeklyMutation.mutate()}
+              disabled={triggerWeeklyMutation.isPending || !canTriggerWeekly}
+            >
+              {triggerWeeklyMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Triggering weekly sync...
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Trigger weekly sync now
+                </>
+              )}
+            </Button>
+          </div>
           {(session?.status === "failed" || session?.status === "completed") ? (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={handleReset}>
