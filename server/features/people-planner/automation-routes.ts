@@ -154,6 +154,19 @@ interface PipelineSession {
 }
 
 const activeSessions = new Map<string, PipelineSession>();
+const BRANCH_SYNC_LOCK_MS = 30 * 60 * 1000;
+
+function getRunningSessionForBranch(branchId: string): PipelineSession | undefined {
+  return Array.from(activeSessions.values()).find(
+    s => s.branchId === branchId && s.status === "running"
+  );
+}
+
+function getRetryAfterMinutes(session: PipelineSession): number {
+  const startedAt = new Date(session.startedAt).getTime();
+  const remainingMs = Math.max(0, startedAt + BRANCH_SYNC_LOCK_MS - Date.now());
+  return Math.max(1, Math.ceil(remainingMs / 60000));
+}
 
 // ─── Access guard helpers ─────────────────────────────────────────────────────
 function isAdmin(req: Request): boolean {
@@ -402,18 +415,18 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       // Prevents multiple users (or repeat button clicks) from queueing parallel
       // Playwright sessions for the same branch, which exhausts the job queue
       // and causes cascade timeouts.
-      const existingSession = Array.from(activeSessions.values()).find(
-        s => s.branchId === requestedBranchId && s.status === "running"
-      );
+      const existingSession = getRunningSessionForBranch(requestedBranchId);
       if (existingSession) {
+        const retryAfterMinutes = getRetryAfterMinutes(existingSession);
         logger.info("Reusing existing running PP session for branch", {
           branchId: requestedBranchId,
           sessionId: existingSession.sessionId,
+          retryAfterMinutes,
         });
-        return res.status(202).json({
+        return res.status(429).json({
+          error: "A sync is already running for this branch. Please retry later.",
+          retryAfterMinutes,
           sessionId: existingSession.sessionId,
-          reused: true,
-          message: "A sync is already running for this branch — tracking existing session.",
         });
       }
 
