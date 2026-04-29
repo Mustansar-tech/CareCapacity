@@ -22,6 +22,7 @@ import {
   Terminal,
   ChevronDown,
   ChevronUp,
+  Clock,
 } from "lucide-react";
 
 interface AutomationJob {
@@ -118,6 +119,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState<string | null>(null);
+  const [busyInfo, setBusyInfo] = useState<{ retryAfterMinutes: number; sessionId: string } | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
@@ -190,18 +192,38 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const triggerMutation = useMutation({
     mutationFn: async () => {
       const monday = normalizeToMonday(weekStartDate);
-      const response = await apiRequest("POST", "/api/pp/run", {
-        weekStartDate: monday,
-        branchId: selectedBranchId,
+      const res = await fetch("/api/pp/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ weekStartDate: monday, branchId: selectedBranchId }),
       });
-      return response.json();
+      const data = await res.json();
+      if (res.status === 429) {
+        // Server says this branch is already syncing — surface retry info
+        const err = new Error("BRANCH_BUSY");
+        (err as any).busyInfo = {
+          retryAfterMinutes: data.retryAfterMinutes ?? 5,
+          sessionId: data.sessionId,
+        };
+        throw err;
+      }
+      if (!res.ok) {
+        throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
+      }
+      return data as { sessionId: string };
     },
-    onSuccess: (data: { sessionId: string }) => {
+    onSuccess: (data) => {
+      setBusyInfo(null);
       setActiveSessionId(data.sessionId);
       setSessionStartedAt(new Date().toISOString());
       setElapsed("0s");
     },
     onError: (err: Error) => {
+      if (err.message === "BRANCH_BUSY") {
+        setBusyInfo((err as any).busyInfo);
+        return;
+      }
       toast({
         title: "Failed to start automation",
         description: err.message,
@@ -220,6 +242,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     setActiveSessionId(null);
     setElapsed("");
     setSessionStartedAt(null);
+    setBusyInfo(null);
     triggerMutation.mutate();
   };
 
@@ -227,6 +250,15 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     setActiveSessionId(null);
     setElapsed("");
     setSessionStartedAt(null);
+    setBusyInfo(null);
+  };
+
+  const handleTrackExisting = () => {
+    if (!busyInfo?.sessionId) return;
+    setBusyInfo(null);
+    setActiveSessionId(busyInfo.sessionId);
+    setSessionStartedAt(new Date().toISOString());
+    setElapsed("0s");
   };
 
   const weekEndDate = (() => {
@@ -274,6 +306,41 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               {health.reason && (
                 <p className="text-xs text-amber-600/80 dark:text-amber-400">{health.reason}</p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Branch busy banner */}
+        {busyInfo && (
+          <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2.5 space-y-2">
+            <div className="flex items-start gap-2">
+              <Clock className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Sync already in progress
+                </p>
+                <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-0.5">
+                  Another sync is currently running for this branch. Please retry in approximately{" "}
+                  <span className="font-semibold">{busyInfo.retryAfterMinutes} minute{busyInfo.retryAfterMinutes !== 1 ? "s" : ""}</span>.
+                </p>
+              </div>
+              <button
+                onClick={() => setBusyInfo(null)}
+                className="p-0.5 rounded text-blue-400 hover:text-blue-600 flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex gap-2 pl-6">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                onClick={handleTrackExisting}
+              >
+                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                Track this sync
+              </Button>
             </div>
           </div>
         )}
