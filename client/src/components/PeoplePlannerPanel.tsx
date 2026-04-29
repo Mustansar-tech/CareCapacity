@@ -124,7 +124,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
-  const isAdminUser = false;
 
   const { data: health } = useQuery<{ healthy: boolean; reason?: string }>({
     queryKey: ["/api/pp/health"],
@@ -512,26 +511,24 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                   </>
                 )}
               </Button>
-              {isAdminUser && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => triggerWeeklyMutation.mutate()}
-                  disabled={triggerWeeklyMutation.isPending || !canTriggerWeekly}
-                >
-                  {triggerWeeklyMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Triggering weekly sync...
-                    </>
-                  ) : (
-                    <>
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Trigger weekly sync now
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => triggerWeeklyMutation.mutate()}
+                disabled={triggerWeeklyMutation.isPending || !canTriggerWeekly}
+              >
+                {triggerWeeklyMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Triggering weekly sync...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Trigger weekly sync now
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </div>
