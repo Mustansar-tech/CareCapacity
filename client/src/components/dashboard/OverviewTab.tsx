@@ -388,7 +388,7 @@ export function OverviewTab({
                             if (!data?.dailySummary || data.dailySummary.length === 0) return '';
                             const startDate = new Date(data.dailySummary[0].date).toLocaleDateString('en-GB');
                             const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString('en-GB');
-                            return ` (${startDate} - ${endDate})`;
+                            return `(${startDate} - ${endDate})`;
                           } catch (error) {
                             clientLogger.error('Error formatting latest week dates:', error);
                             return '';
