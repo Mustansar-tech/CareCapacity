@@ -119,7 +119,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState<string | null>(null);
-  const [busyInfo, setBusyInfo] = useState<{ retryAfterMinutes: number; sessionId: string; activeBranchName?: string } | null>(null);
+  const [busyInfo, setBusyInfo] = useState<{ retryAfterMinutes: number; sessionId: string } | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
@@ -205,7 +205,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         (err as any).busyInfo = {
           retryAfterMinutes: data.retryAfterMinutes ?? 8,
           sessionId: data.sessionId,
-          activeBranchName: data.activeBranchName,
         };
         throw err;
       }
@@ -321,11 +320,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                   Server is busy
                 </p>
                 <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-0.5">
-                  {busyInfo.activeBranchName
-                    ? <><span className="font-semibold">{busyInfo.activeBranchName}</span> is currently syncing.</>
-                    : "A sync is already in progress."
-                  }{" "}
-                  Only one branch can sync at a time — please retry in approximately{" "}
+                  A sync is already running for another branch. Only one sync can run at a time — please retry in approximately{" "}
                   <span className="font-semibold">{busyInfo.retryAfterMinutes} minute{busyInfo.retryAfterMinutes !== 1 ? "s" : ""}</span>.
                 </p>
               </div>

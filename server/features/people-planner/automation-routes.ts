@@ -429,21 +429,15 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       if (activeSession) {
         const retryAfterMinutes = estimateRetryMinutes();
         // Look up the display name of the branch that is currently syncing
-        const activeBranchId = activeSession.branchId;
-        const activeBranch = activeBranchId ? await storage.getBranchById(activeBranchId).catch(() => null) : null;
-        const activeBranchName = activeBranch?.displayName ?? "another branch";
-
         logger.info("PP sync rejected — server already processing", {
           requestedBranchId,
-          activeBranchId,
-          activeBranchName,
+          activeBranchId: activeSession.branchId,
           sessionId: activeSession.sessionId,
           retryAfterMinutes,
         });
         return res.status(429).json({
-          error: `The server is currently syncing ${activeBranchName}. Only one sync can run at a time. Please retry in approximately ${retryAfterMinutes} minutes.`,
+          error: `The server is currently running a sync for another branch. Only one sync can run at a time. Please retry in approximately ${retryAfterMinutes} minutes.`,
           retryAfterMinutes,
-          activeBranchName,
           sessionId: activeSession.sessionId,
         });
       }
