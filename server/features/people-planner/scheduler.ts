@@ -47,19 +47,27 @@ function nextMondayAt6amUTCIso(): string {
   return next.toISOString();
 }
 
-/** Returns the Monday of the week containing `date` as YYYY-MM-DD (UTC). */
-function getMondayOfWeek(date: Date): string {
+/**
+ * Returns the Monday of the *previous* full week as YYYY-MM-DD (UTC).
+ * When called on Monday 4 May it returns 2026-04-27 (last Mon),
+ * so the sync covers the completed Mon–Sun week.
+ */
+function getPreviousWeekMonday(date: Date): string {
   const d = new Date(date);
-  const day = d.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day; // Monday = 1
-  d.setUTCDate(d.getUTCDate() + diff);
+  const day = d.getUTCDay(); // 0=Sun … 6=Sat
+  // Step 1: rewind to the current Monday (or stay if already Monday)
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diffToMonday);
+  // Step 2: go back one full week to the *previous* Monday
+  d.setUTCDate(d.getUTCDate() - 7);
   return d.toISOString().split("T")[0];
 }
 
 /** Queue syncs for all configured branches (they serialise via the session queue). */
 async function runWeeklySync(): Promise<void> {
   const branchIds = getConfiguredBranchIds();
-  const weekStartDate = getMondayOfWeek(new Date());
+  // Always process the previous full Mon–Sun week
+  const weekStartDate = getPreviousWeekMonday(new Date());
 
   logger.info("Weekly PP scheduler firing", { branchIds, weekStartDate });
   updateSchedulerStatus({ lastRunAt: new Date().toISOString(), lastRunBranchIds: branchIds });
