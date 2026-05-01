@@ -5,7 +5,7 @@ import pg from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { generalLimiter } from "./infrastructure/rate-limiter";
-import { securityHeaders } from "./infrastructure/security";
+import { enforceHttps, securityHeaders } from "./infrastructure/security";
 import { logger } from "./infrastructure/logger";
 import { seedAdminUser } from "./features/auth/auth";
 import { config } from "./config/index";
@@ -24,10 +24,12 @@ declare module 'express-session' {
 const isProduction = process.env.NODE_ENV === 'production';
 const app = express();
 
-// Trust proxy for secure cookies behind reverse proxy
-if (isProduction) {
-  app.set('trust proxy', 1);
-}
+// Trust all proxy hops (Replit uses a multi-layer reverse proxy in production).
+// This ensures req.protocol / req.ip are set from X-Forwarded-Proto / X-Forwarded-For.
+app.set('trust proxy', true);
+
+// Redirect plain-HTTP requests to HTTPS (must come before all other middleware)
+app.use(enforceHttps);
 
 app.use(securityHeaders);
 
