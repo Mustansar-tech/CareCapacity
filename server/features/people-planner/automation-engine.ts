@@ -445,9 +445,9 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     });
   }
 
-  // Wait up to 30 seconds for the EVO launcher iframe to appear, polling every 2s
+  // Wait up to 45 seconds for the EVO launcher iframe to appear, polling every 2s
   let launcherFrame: import("playwright").Frame | null = null;
-  const launcherDeadline = Date.now() + 30000;
+  const launcherDeadline = Date.now() + 45000;
   while (!launcherFrame && Date.now() < launcherDeadline) {
     await page.waitForTimeout(2000);
     const currentFrames = page.frames();
@@ -467,10 +467,26 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
   let plannerPage: Page;
 
   if (launcherFrame) {
+    logger.info("Launcher frame found, looking for Products tab...", { frameUrl: launcherFrame.url() });
+
+    // Give the launcher more time to fully render before interacting (production is slower)
+    await page.waitForTimeout(2000);
+
+    // Try to click the Products tab with a longer timeout
     const productsTab = launcherFrame.getByText(/^Products$/i).first();
-    if (await productsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await productsTab.isVisible({ timeout: 10000 }).catch(() => false)) {
       await productsTab.click();
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(3000);
+      logger.info("Clicked Products tab, waiting for tiles...");
+    } else {
+      logger.info("Products tab not found — launcher may already show all products");
+    }
+
+    // Also try clicking any tab that might contain People Planner (All Products / All Apps)
+    const allProductsTab = launcherFrame.getByText(/^All|^Apps|^All Products/i).first();
+    if (await allProductsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await allProductsTab.click().catch(() => {});
+      await page.waitForTimeout(2000);
     }
 
     const ppCandidates = [
@@ -482,10 +498,40 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
 
     let ppTile = null;
     for (const c of ppCandidates) {
-      if (await c.isVisible({ timeout: 2000 }).catch(() => false)) { ppTile = c; break; }
+      if (await c.isVisible({ timeout: 5000 }).catch(() => false)) { ppTile = c; break; }
     }
 
+    // Fallback: scan ALL anchor hrefs in the frame for any peopleplanner URL
     if (!ppTile) {
+      logger.info("Standard tile selectors failed — scanning all anchors in launcher frame...");
+      const ppHrefFallback = await launcherFrame.evaluate(() => {
+        const allLinks = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+        const ppLink = allLinks.find(a => a.href.toLowerCase().includes("peopleplanner"));
+        return ppLink?.href ?? null;
+      }).catch(() => null);
+
+      if (ppHrefFallback) {
+        logger.info("Found People Planner via href scan, opening directly...", { url: ppHrefFallback });
+        const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
+        newTabPromise.catch(() => {});
+        await page.evaluate((url) => window.open(url, "_blank"), ppHrefFallback);
+        try {
+          plannerPage = await newTabPromise;
+          await plannerPage.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
+          await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+          await plannerPage.bringToFront();
+          return plannerPage;
+        } catch {
+          // fall through to error
+        }
+      }
+
+      // Log what's actually in the frame to help diagnose future issues
+      const frameText = await launcherFrame.evaluate(() =>
+        document.body?.innerText?.slice(0, 500) ?? "(empty)"
+      ).catch(() => "(error reading frame)");
+      const allFrameUrls = page.frames().map(f => f.url()).join(", ");
+      logger.error("People Planner tile not found. Launcher frame text preview: " + frameText, { allFrameUrls });
       await debugScreenshot(page, "no-pp-tile");
       throw new Error("People Planner tile not found in launcher frame.");
     }
