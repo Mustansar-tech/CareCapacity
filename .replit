@@ -45,6 +45,7 @@ integrations = ["javascript_anthropic:1.0.0", "javascript_gemini:1.0.0", "javasc
 
 [userenv.shared]
 ADMIN_EMAIL = "admin@homeinstead.com"
+SCHEDULER_SECRET = "4425b6eb6f0aeace3a9a152706766ebeef73addefaf3cde25ab483af7b4e489a"
 
 [postMerge]
 path = "scripts/post-merge.sh"

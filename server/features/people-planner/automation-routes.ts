@@ -708,6 +708,62 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   app.get("/api/pp/scheduler/status", requireAuth, requireRoleAtLeast("admin"), (_req, res) => {
     res.json(getSchedulerStatus());
   });
+
+  // POST /api/pp/scheduler/trigger — external cron-job.org endpoint
+  // Secured by SCHEDULER_SECRET header; no session cookie required so autoscale
+  // instances wake up and run without a logged-in user.
+  //
+  // Body: { week: "previous" | "current" | "next" }
+  //   "previous" → last Mon–Sun  (fired at 01:00 UTC)
+  //   "current"  → this Mon–Sun  (fired at 03:00 UTC)
+  //   "next"     → next Mon–Sun  (fired at 05:00 UTC)
+  app.post("/api/pp/scheduler/trigger", async (req, res) => {
+    const secret = process.env.SCHEDULER_SECRET;
+    if (!secret) {
+      return res.status(503).json({ error: "SCHEDULER_SECRET not configured on this server" });
+    }
+
+    const provided = req.headers["x-scheduler-secret"] as string | undefined;
+    if (!provided || provided !== secret) {
+      logger.warn("Scheduler trigger: invalid or missing secret", { ip: req.ip });
+      return res.status(401).json({ error: "Unauthorised" });
+    }
+
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({ error: "People Planner credentials not configured" });
+    }
+
+    const { week } = req.body as { week?: string };
+    const OFFSETS: Record<string, number> = { previous: -7, current: 0, next: 7 };
+    if (!week || !(week in OFFSETS)) {
+      return res.status(400).json({ error: "Body must contain week: 'previous' | 'current' | 'next'" });
+    }
+
+    // Calculate weekStartDate: Monday of this week + offset
+    const now = new Date();
+    const day = now.getUTCDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setUTCDate(now.getUTCDate() + diffToMonday + OFFSETS[week]);
+    monday.setUTCHours(0, 0, 0, 0);
+    const weekStartDate = monday.toISOString().split("T")[0];
+
+    const branchIds = getConfiguredBranchIds();
+    logger.info("External cron trigger received", { week, weekStartDate, branchIds });
+    updateSchedulerStatus({ lastRunAt: new Date().toISOString(), lastRunBranchIds: branchIds });
+
+    // Respond immediately — sync runs in background
+    res.json({ ok: true, week, weekStartDate, branchIds, message: "Sync queued for all branches" });
+
+    for (const branchId of branchIds) {
+      try {
+        const result = await programmaticQueueSync(branchId, weekStartDate, `cron-${week}`);
+        logger.info("Cron-triggered sync queued", { branchId, week, weekStartDate, ...result });
+      } catch (err) {
+        logger.error("Cron trigger: failed to queue branch", err instanceof Error ? err : undefined, { branchId, week });
+      }
+    }
+  });
 }
 
 // ─── Pipeline session runner ──────────────────────────────────────────────────
