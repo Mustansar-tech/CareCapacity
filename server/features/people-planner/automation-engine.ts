@@ -239,7 +239,7 @@ async function runJob(job: AutomationJob): Promise<void> {
 
     // Verify context is still alive; reset if the browser was recycled underneath it
     if (sharedContext) {
-      const ctxOk = await sharedContext.pages().then(() => true).catch(() => false);
+      const ctxOk = await (async () => { await sharedContext!.pages(); return true; })().catch(() => false);
       if (!ctxOk) {
         sharedContext = null;
         sharedPlannerPage = null;
@@ -450,8 +450,97 @@ async function selectWorkspaceBranch(page: Page, branchName: string): Promise<vo
   }
 }
 
+// ─── Try to open PP from frames already embedded on workspace page ────────────
+// The Access Workspace page embeds PP in an iframe before the launcher is touched.
+// If we can find a PP-related link or frame URL, we open it as a full new page.
+async function tryOpenPPFromExistingFrames(context: BrowserContext, page: Page): Promise<Page | null> {
+  // 1. Check if any frame URL already points to a peopleplanner domain
+  const ppAppFrame = page.frames().find(f =>
+    f.url().includes("peopleplanner.accessacloud.com") && !f.url().includes("identity")
+  );
+  if (ppAppFrame) {
+    logger.info("PP app frame already open — using it directly", { url: ppAppFrame.url() });
+    // The frame IS the PP app — open its URL in a new full tab
+    const newTabPromise = context.waitForEvent("page", { timeout: 30000 });
+    newTabPromise.catch(() => {});
+    await page.evaluate((url) => window.open(url, "_blank"), ppAppFrame.url());
+    try {
+      return await newTabPromise;
+    } catch { /* fall through */ }
+  }
+
+  // 2. Scan all frames for <a href> links pointing to peopleplanner
+  for (const frame of page.frames()) {
+    const ppLink = await frame.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+      const pp = links.find(a => a.href.toLowerCase().includes("peopleplanner.accessacloud.com"));
+      return pp?.href ?? null;
+    }).catch(() => null);
+
+    if (ppLink) {
+      logger.info("Found direct PP link in existing frame", { frameUrl: frame.url(), ppLink });
+      const newTabPromise = context.waitForEvent("page", { timeout: 30000 });
+      newTabPromise.catch(() => {});
+      const ppEl = frame.locator(`a[href="${ppLink}"]`).first();
+      const visible = await ppEl.isVisible({ timeout: 1000 }).catch(() => false);
+      if (visible) {
+        await ppEl.click({ force: true }).catch(() => {});
+      } else {
+        await page.evaluate((url) => window.open(url, "_blank"), ppLink);
+      }
+      try {
+        return await newTabPromise;
+      } catch { /* fall through */ }
+    }
+  }
+
+  // 3. Try navigating the PP welcome frame URL directly — it may redirect to the full PP app
+  const ppWelcomeFrame = page.frames().find(f =>
+    f.url().includes("access.product.peopleplanner")
+  );
+  if (ppWelcomeFrame) {
+    logger.info("PP welcome frame found — opening its URL as new tab to resolve PP app URL", {
+      frameUrl: ppWelcomeFrame.url(),
+    });
+    const newTabPromise = context.waitForEvent("page", { timeout: 30000 });
+    newTabPromise.catch(() => {});
+    await page.evaluate((url) => window.open(url, "_blank"), ppWelcomeFrame.url());
+    try {
+      const newTab = await newTabPromise;
+      await newTab.waitForLoadState("domcontentloaded", { timeout: 20000 }).catch(() => {});
+      // Only return this page if it resolved to a peopleplanner domain (not just the workspace)
+      if (newTab.url().includes("peopleplanner")) {
+        return newTab;
+      }
+      // If it didn't resolve to PP, close the tab and fall through
+      await newTab.close().catch(() => {});
+    } catch { /* fall through */ }
+  }
+
+  return null;
+}
+
 // ─── Open People Planner tab ──────────────────────────────────────────────────
 async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<Page> {
+  // ── Strategy 1: PP welcome frame is already embedded on the workspace page ──
+  // The workspace page embeds PP at a go.accessacloud.com/.../access.product.peopleplanner.welcome/...
+  // URL before the launcher is even opened. We can use this to navigate to PP directly.
+  logger.info("Checking if PP welcome frame already embedded on workspace page...", {
+    pageUrl: page.url(),
+    frameUrls: page.frames().map(f => f.url()),
+  });
+
+  let plannerPage: Page | null = await tryOpenPPFromExistingFrames(context, page);
+  if (plannerPage) {
+    logger.info("Opened PP via existing embedded frame", { url: plannerPage.url() });
+    await plannerPage.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
+    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+    await plannerPage.bringToFront();
+    return plannerPage;
+  }
+
+  // ── Strategy 2: Open launcher, click Products, scan all frames ──────────────
+  logger.info("PP not found in existing frames — trying launcher...");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(800);
 
@@ -465,130 +554,119 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     });
   }
 
-  // Wait up to 45 seconds for the EVO launcher iframe to appear, polling every 2s
+  // Wait for launcher iframe
   let launcherFrame: import("playwright").Frame | null = null;
-  const launcherDeadline = Date.now() + 45000;
+  const launcherDeadline = Date.now() + 30000;
   while (!launcherFrame && Date.now() < launcherDeadline) {
     await page.waitForTimeout(2000);
-    const currentFrames = page.frames();
-    launcherFrame = currentFrames.find(f =>
+    launcherFrame = page.frames().find(f =>
       f.url().includes("button-app.production.workspace.accessacloud.com")
     ) ?? null;
-    if (!launcherFrame) {
-      for (const frame of currentFrames) {
-        const hasLauncher = await frame.evaluate(() =>
-          !!(document.body?.innerText?.includes("People Planner"))
-        ).catch(() => false);
-        if (hasLauncher) { launcherFrame = frame; break; }
-      }
-    }
   }
 
-  let plannerPage: Page;
-
   if (launcherFrame) {
-    logger.info("Launcher frame found, looking for Products tab...", { frameUrl: launcherFrame.url() });
-
-    // Give the launcher more time to fully render before interacting (production is slower)
+    logger.info("Launcher frame found", { frameUrl: launcherFrame.url() });
     await page.waitForTimeout(2000);
 
-    // Try to click the Products tab with a longer timeout
+    // Click Products tab
     const productsTab = launcherFrame.getByText(/^Products$/i).first();
     if (await productsTab.isVisible({ timeout: 10000 }).catch(() => false)) {
       await productsTab.click();
-      await page.waitForTimeout(3000);
-      logger.info("Clicked Products tab, waiting for tiles...");
-    } else {
-      logger.info("Products tab not found — launcher may already show all products");
+      await page.waitForTimeout(4000);
+      logger.info("Clicked Products tab — waiting for nested product frames to load...");
     }
+  }
 
-    // Also try clicking any tab that might contain People Planner (All Products / All Apps)
-    const allProductsTab = launcherFrame.getByText(/^All|^Apps|^All Products/i).first();
-    if (await allProductsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await allProductsTab.click().catch(() => {});
-      await page.waitForTimeout(2000);
-    }
+  // ── Search ALL frames (including nested) for any PP link ────────────────────
+  // After clicking Products, tiles load in a nested sub-iframe inside the launcher.
+  // page.frames() returns every frame recursively, so this catches nested iframes.
+  let ppHref: string | null = null;
+  let ppFoundInFrame: import("playwright").Frame | null = null;
 
-    const ppCandidates = [
-      launcherFrame.getByText("People Planner", { exact: true }).first(),
-      launcherFrame.getByRole("link", { name: /people planner/i }).first(),
-      launcherFrame.locator("a").filter({ hasText: /people planner/i }).first(),
-      launcherFrame.locator("[href*='peopleplanner']").first(),
-    ];
-
-    let ppTile = null;
-    for (const c of ppCandidates) {
-      if (await c.isVisible({ timeout: 5000 }).catch(() => false)) { ppTile = c; break; }
-    }
-
-    // Fallback: scan ALL anchor hrefs in the frame for any peopleplanner URL
-    if (!ppTile) {
-      logger.info("Standard tile selectors failed — scanning all anchors in launcher frame...");
-      const ppHrefFallback = await launcherFrame.evaluate(() => {
-        const allLinks = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
-        const ppLink = allLinks.find(a => a.href.toLowerCase().includes("peopleplanner"));
-        return ppLink?.href ?? null;
+  const scanDeadline = Date.now() + 12000;
+  while (!ppHref && Date.now() < scanDeadline) {
+    for (const frame of page.frames()) {
+      const result = await frame.evaluate(() => {
+        const links = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+        const pp = links.find(a =>
+          a.href.toLowerCase().includes("peopleplanner") ||
+          (a.textContent?.trim() ?? "").toLowerCase() === "people planner"
+        );
+        return pp ? { href: pp.href, text: pp.textContent?.trim() } : null;
       }).catch(() => null);
 
-      if (ppHrefFallback) {
-        logger.info("Found People Planner via href scan, opening directly...", { url: ppHrefFallback });
-        const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
-        newTabPromise.catch(() => {});
-        await page.evaluate((url) => window.open(url, "_blank"), ppHrefFallback);
-        try {
-          plannerPage = await newTabPromise;
-          await plannerPage.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
-          await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-          await plannerPage.bringToFront();
-          return plannerPage;
-        } catch {
-          // fall through to error
-        }
-      }
-
-      // Log what's actually in the frame to help diagnose future issues
-      const frameText = await launcherFrame.evaluate(() =>
-        document.body?.innerText?.slice(0, 500) ?? "(empty)"
-      ).catch(() => "(error reading frame)");
-      const allFrameUrls = page.frames().map(f => f.url()).join(", ");
-      logger.error("People Planner tile not found. Launcher frame text preview: " + frameText, { allFrameUrls });
-      await debugScreenshot(page, "no-pp-tile");
-      throw new Error("People Planner tile not found in launcher frame.");
-    }
-
-    const ppHref = await ppTile.evaluate((el) => {
-      const a = el instanceof HTMLAnchorElement ? el : el.closest("a");
-      return a?.href ?? "";
-    }).catch(() => "");
-
-    const pagesBefore = context.pages();
-    const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
-    newTabPromise.catch(() => {});
-    await ppTile.click({ force: true });
-
-    try {
-      plannerPage = await newTabPromise;
-    } catch {
-      const pagesAfter = context.pages();
-      const newPages = pagesAfter.filter(p => !pagesBefore.includes(p));
-      if (newPages.length > 0) {
-        plannerPage = newPages[newPages.length - 1];
-      } else if (ppHref) {
-        const newTabPromise2 = context.waitForEvent("page", { timeout: 30000 });
-        newTabPromise2.catch(() => {});
-        await page.evaluate((url) => window.open(url, "_blank"), ppHref);
-        plannerPage = await newTabPromise2;
-      } else {
-        await debugScreenshot(page, "no-new-tab");
-        throw new Error("Clicked People Planner but no new tab opened.");
+      if (result?.href) {
+        ppHref = result.href;
+        ppFoundInFrame = frame;
+        logger.info("Found People Planner link", { frameUrl: frame.url(), href: ppHref, text: result.text });
+        break;
       }
     }
-  } else {
-    await debugScreenshot(page, "no-launcher-frame");
-    const allFrameUrls = page.frames().map(f => f.url()).join(", ");
-    throw new Error(
-      `Could not find EVO launcher iframe after 30s. Available frames: ${allFrameUrls}`
+
+    // Also check if a PP welcome frame appeared (its URL contains the PP entry point)
+    if (!ppHref) {
+      const ppWelcomeFrame = page.frames().find(f =>
+        f.url().includes("access.product.peopleplanner") || f.url().includes("peopleplanner.accessacloud.com")
+      );
+      if (ppWelcomeFrame) {
+        logger.info("PP welcome/app frame detected — opening its URL as new page", { frameUrl: ppWelcomeFrame.url() });
+        ppHref = ppWelcomeFrame.url();
+        ppFoundInFrame = null;
+      }
+    }
+
+    if (!ppHref) await page.waitForTimeout(2000);
+  }
+
+  if (!ppHref) {
+    const frameDiagnostics = await Promise.all(
+      page.frames().map(async f => ({
+        url: f.url(),
+        linkCount: await f.evaluate(() => document.querySelectorAll("a[href]").length).catch(() => 0),
+        text: await f.evaluate(() => document.body?.innerText?.slice(0, 200) ?? "").catch(() => ""),
+      }))
     );
+    logger.error("People Planner link not found in any frame after launcher + scan", {
+      frameDiagnostics: JSON.stringify(frameDiagnostics),
+    });
+    await debugScreenshot(page, "no-pp-tile");
+    throw new Error("People Planner not found in any frame — see frameDiagnostics in logs.");
+  }
+
+  // ── Open the PP link in a new tab ───────────────────────────────────────────
+  const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
+  newTabPromise.catch(() => {});
+
+  // Try clicking the element in its frame first
+  let clicked = false;
+  if (ppFoundInFrame) {
+    const ppEl = ppFoundInFrame.locator(`a[href="${ppHref}"]`).first();
+    const elVisible = await ppEl.isVisible({ timeout: 2000 }).catch(() => false);
+    if (elVisible) {
+      await ppEl.click({ force: true }).catch(() => {});
+      clicked = true;
+      logger.info("Clicked PP tile element in frame");
+    }
+  }
+  if (!clicked) {
+    logger.info("Element click not available — using window.open", { ppHref });
+    await page.evaluate((url) => window.open(url, "_blank"), ppHref);
+  }
+
+  try {
+    plannerPage = await newTabPromise;
+  } catch {
+    const pagesAfter = context.pages();
+    const ppPages = pagesAfter.filter(p => p.url().includes("peopleplanner") || p.url().includes("accessacloud"));
+    if (ppPages.length > 0) {
+      plannerPage = ppPages[ppPages.length - 1];
+      logger.info("Captured PP tab from context pages", { url: plannerPage.url() });
+    } else {
+      const newTabPromise2 = context.waitForEvent("page", { timeout: 30000 });
+      newTabPromise2.catch(() => {});
+      await page.evaluate((url) => window.open(url, "_blank"), ppHref);
+      plannerPage = await newTabPromise2;
+    }
   }
 
   await plannerPage.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
