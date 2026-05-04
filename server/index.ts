@@ -5,7 +5,7 @@ import pg from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { generalLimiter } from "./infrastructure/rate-limiter";
-import { enforceHttps, securityHeaders } from "./infrastructure/security";
+import { securityHeaders } from "./infrastructure/security";
 import { logger } from "./infrastructure/logger";
 import { seedAdminUser } from "./features/auth/auth";
 import { config } from "./config/index";
@@ -26,10 +26,10 @@ const app = express();
 
 // Trust all proxy hops (Replit uses a multi-layer reverse proxy in production).
 // This ensures req.protocol / req.ip are set from X-Forwarded-Proto / X-Forwarded-For.
+// Note: HTTP→HTTPS redirection is handled at the edge by Replit's load balancer,
+// so we do NOT add an enforceHttps middleware here — it would break internal
+// health-check probes that hit the container directly over plain HTTP.
 app.set('trust proxy', true);
-
-// Redirect plain-HTTP requests to HTTPS (must come before all other middleware)
-app.use(enforceHttps);
 
 app.use(securityHeaders);
 
