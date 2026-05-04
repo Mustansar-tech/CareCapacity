@@ -709,6 +709,59 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     res.json(getSchedulerStatus());
   });
 
+  // POST /api/cron/sync?label=previous|current|next — cron-job.org friendly alias
+  // Secured by CRON_SECRET via standard "Authorization: Bearer <token>" header.
+  // No session cookie required so sleeping autoscale instances can be woken up.
+  //   label=previous → last Mon–Sun  (fired Mon 01:00 UTC)
+  //   label=current  → this Mon–Sun  (fired Mon 03:00 UTC)
+  //   label=next     → next Mon–Sun  (fired Mon 05:00 UTC)
+  app.post("/api/cron/sync", async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      return res.status(503).json({ ok: false, error: "CRON_SECRET not configured on this server" });
+    }
+
+    const authHeader = req.headers["authorization"] as string | undefined;
+    const provided = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    if (!provided || provided !== secret) {
+      logger.warn("Cron sync: invalid or missing bearer token", { ip: req.ip });
+      return res.status(401).json({ ok: false, error: "Unauthorised" });
+    }
+
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({ ok: false, error: "People Planner credentials not configured" });
+    }
+
+    const label = req.query.label as string | undefined;
+    const OFFSETS: Record<string, number> = { previous: -7, current: 0, next: 7 };
+    if (!label || !(label in OFFSETS)) {
+      return res.status(400).json({ ok: false, error: "Query param label must be 'previous' | 'current' | 'next'" });
+    }
+
+    const now = new Date();
+    const day = now.getUTCDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setUTCDate(now.getUTCDate() + diffToMonday + OFFSETS[label]);
+    monday.setUTCHours(0, 0, 0, 0);
+    const weekStartDate = monday.toISOString().split("T")[0];
+
+    const branchIds = getConfiguredBranchIds();
+    logger.info("Cron sync triggered", { label, weekStartDate, branchIds });
+    updateSchedulerStatus({ lastRunAt: new Date().toISOString(), lastRunBranchIds: branchIds });
+
+    res.json({ ok: true, label, weekStartDate, branchIds, message: "Sync queued for all branches" });
+
+    for (const branchId of branchIds) {
+      try {
+        const result = await programmaticQueueSync(branchId, weekStartDate, `cron-${label}`);
+        logger.info("Cron sync queued", { branchId, label, weekStartDate, ...result });
+      } catch (err) {
+        logger.error("Cron sync: failed to queue branch", err instanceof Error ? err : undefined, { branchId, label });
+      }
+    }
+  });
+
   // POST /api/pp/scheduler/trigger — external cron-job.org endpoint
   // Secured by SCHEDULER_SECRET header; no session cookie required so autoscale
   // instances wake up and run without a logged-in user.
