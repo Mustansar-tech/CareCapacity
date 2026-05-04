@@ -216,15 +216,35 @@ async function runJob(job: AutomationJob): Promise<void> {
   try {
     // ── Launch / reuse browser ──────────────────────────────────────────────
     if (!sharedBrowser || !sharedBrowser.isConnected()) {
+      // Reset all shared state so stale context/page references are cleared
+      sharedContext = null;
+      sharedPlannerPage = null;
+      sharedPlannerBranchUrl = null;
+
       addLog(job, "Launching browser...");
       const executablePath = getChromiumExecutablePath();
       sharedBrowser = await chromium.launch({
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",                  // prevent GPU process crash in Cloud Run
+          "--disable-software-rasterizer",  // skip SwANGLE/SwiftShader init
+          "--disable-gl-drawing-for-tests",
+        ],
         ...(executablePath ? { executablePath } : {}),
       });
-      sharedContext = null;
-      sharedPlannerPage = null;
+    }
+
+    // Verify context is still alive; reset if the browser was recycled underneath it
+    if (sharedContext) {
+      const ctxOk = await sharedContext.pages().then(() => true).catch(() => false);
+      if (!ctxOk) {
+        sharedContext = null;
+        sharedPlannerPage = null;
+        sharedPlannerBranchUrl = null;
+      }
     }
 
     // ── Create / reuse browser context ─────────────────────────────────────
