@@ -1,6 +1,6 @@
 import { Switch, Route, Link, useSearch } from "wouter";
 import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { lazy, Suspense } from "react";
@@ -9,7 +9,7 @@ import LoginPage from "@/pages/login";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
-import { WeekProvider } from "@/contexts/WeekContext";
+import { WeekProvider, useWeek } from "@/contexts/WeekContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -37,7 +37,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLocation } from "wouter";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
-import type { ProcessingResultWithMeta } from "@shared/schema";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { SyncStatusBar } from "@/components/SyncStatusBar";
 
@@ -107,16 +106,13 @@ function AdminPage() {
 }
 
 function BDMatrixPage() {
-  const { data: latestData } = useQuery<ProcessingResultWithMeta>({
-    queryKey: ["/api/history/latest"],
-    refetchOnWindowFocus: false,
-  });
+  const { processedData, selectedDate } = useWeek();
 
   return (
     <PageSuspense>
       <BDMatrixModule
-        data={latestData ?? null}
-        weekStartDate={latestData?.weekStartDate}
+        data={processedData}
+        weekStartDate={selectedDate ?? undefined}
       />
     </PageSuspense>
   );
