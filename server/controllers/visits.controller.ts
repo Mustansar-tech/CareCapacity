@@ -6,33 +6,90 @@ import { logger } from '../infrastructure/logger';
 import type { ExcelClientVisit } from '../features/imports/excel-visit-extractor';
 
 // ---------------------------------------------------------------------------
-// In-memory visits parse cache
+// In-memory visits parse cache — keyed by branchId:version (ALL dates)
 // ---------------------------------------------------------------------------
-// Key: `${branchId}:${date}:${bufferVersion}`
-// Avoids re-reading and re-parsing the ~5 MB Excel file on every request.
-// The cache entry is invalidated automatically when a new file is uploaded
-// (setLatestGuaranteedBuffer bumps the version counter).
+// Parsing the ~5 MB Excel file takes ~10 s.  When the Daily View loads it
+// fires 7 simultaneous requests (one per day).  Without coalescing this meant
+// 7 concurrent parses — all equally slow.
+//
+// Strategy:
+//   1. Parse once per (branchId, bufferVersion) → store ALL visits.
+//   2. Concurrent requests for the same buffer share ONE Promise (coalescing).
+//   3. Per-date filtering is done in memory after the parse completes.
+//   4. Cache is invalidated automatically when a new GH buffer is uploaded
+//      (setLatestGuaranteedBuffer bumps the version counter).
 // ---------------------------------------------------------------------------
-interface VisitsCacheEntry {
+
+interface AllVisitsCacheEntry {
   visits: ExcelClientVisit[];
-  createdAt: number; // ms timestamp — for optional TTL eviction
+  createdAt: number;
 }
 
-const visitsCache = new Map<string, VisitsCacheEntry>();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour safety TTL
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-function makeCacheKey(branchId: string, date: string, version: number): string {
-  return `${branchId}:${date}:${version}`;
+/** Cached parse results: `${branchId}:${version}` → all visits (all dates) */
+const allVisitsCache = new Map<string, AllVisitsCacheEntry>();
+
+/** In-flight parse promises — deduplicates concurrent requests */
+const parsePromises = new Map<string, Promise<ExcelClientVisit[]>>();
+
+function allVisitesCacheKey(branchId: string, version: number): string {
+  return `${branchId}:${version}`;
 }
 
-/** Evict cache entries older than CACHE_TTL_MS */
 function evictStaleEntries(): void {
   const now = Date.now();
-  for (const [key, entry] of visitsCache.entries()) {
-    if (now - entry.createdAt > CACHE_TTL_MS) {
-      visitsCache.delete(key);
-    }
+  for (const [key, entry] of allVisitsCache.entries()) {
+    if (now - entry.createdAt > CACHE_TTL_MS) allVisitsCache.delete(key);
   }
+}
+
+/**
+ * Returns ALL visits for the branch's current GH buffer.
+ * Concurrent callers share a single parse promise so the Excel file is
+ * read at most once per (branchId, bufferVersion).
+ */
+async function getAllVisitsForBranch(
+  branchId: string,
+  version: number,
+  buffer: Buffer,
+): Promise<ExcelClientVisit[]> {
+  const key = allVisitesCacheKey(branchId, version);
+
+  // 1. Result cache hit
+  const cached = allVisitsCache.get(key);
+  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
+    logger.debug('all-visits cache hit', { key, count: cached.visits.length });
+    return cached.visits;
+  }
+
+  // 2. In-flight deduplication: share the existing promise
+  const inFlight = parsePromises.get(key);
+  if (inFlight) {
+    logger.debug('all-visits parse in-flight — awaiting shared promise', { key });
+    return inFlight;
+  }
+
+  // 3. Start a new parse
+  logger.debug('all-visits cache miss — starting Excel parse', { key });
+  const { extractClientVisitsFromGHExcel } = await import('../features/imports/excel-visit-extractor');
+  const { storage } = await import('../storage');
+
+  const promise = extractClientVisitsFromGHExcel(buffer, null, branchId, storage)
+    .then(visits => {
+      evictStaleEntries();
+      allVisitsCache.set(key, { visits, createdAt: Date.now() });
+      parsePromises.delete(key);
+      logger.debug('all-visits parse complete and cached', { key, count: visits.length });
+      return visits;
+    })
+    .catch(err => {
+      parsePromises.delete(key);
+      throw err;
+    });
+
+  parsePromises.set(key, promise);
+  return promise;
 }
 
 export async function getVisitsByDate(req: Request, res: Response): Promise<void> {
@@ -49,26 +106,10 @@ export async function getVisitsByDate(req: Request, res: Response): Promise<void
   }
 
   const version = getGuaranteedBufferVersion(branchId);
-  const cacheKey = makeCacheKey(branchId, date, version);
+  const allVisits = await getAllVisitsForBranch(branchId, version, guaranteedBuffer);
+  const visits = allVisits.filter(v => v.date === date);
 
-  const cached = visitsCache.get(cacheKey);
-  if (cached) {
-    logger.debug('visits cache hit', { cacheKey, count: cached.visits.length });
-    res.json(cached.visits);
-    return;
-  }
-
-  logger.debug('visits cache miss — parsing Excel', { cacheKey });
-  const { extractClientVisitsFromGHExcel } = await import('../features/imports/excel-visit-extractor');
-  const { storage } = await import('../storage');
-  const parsedDate = new Date(date + 'T00:00:00.000Z');
-  const visits = await extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate, branchId, storage);
-
-  // Store in cache
-  evictStaleEntries();
-  visitsCache.set(cacheKey, { visits, createdAt: Date.now() });
-  logger.debug('visits cached', { cacheKey, count: visits.length });
-
+  logger.debug('visits filtered by date', { date, total: allVisits.length, filtered: visits.length });
   res.json(visits);
 }
 

@@ -177,9 +177,9 @@ function pickCol(row: Record<string, any>, names: string[]): any {
 
 export async function extractClientVisitsFromGHExcel(
   ghWorkbookBuffer: Buffer,
-  specificDate: Date,
-  branchId: string, // Added branchId as it's used in the modified logic
-  storage: any // Added storage as it's used in the modified logic
+  specificDate: Date | null,  // null = return visits for ALL dates
+  branchId: string,
+  storage: any
 ): Promise<ExcelClientVisit[]> {
   const wb = await XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
   const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
@@ -211,9 +211,9 @@ export async function extractClientVisitsFromGHExcel(
     return o;
   });
 
-  const dayStart = startOfDay(specificDate);
-  const dayEnd = endOfDay(specificDate);
-  const dateStr = fmt(specificDate, 'yyyy-MM-dd');
+  const dayStart = specificDate ? startOfDay(specificDate) : null;
+  const dayEnd = specificDate ? endOfDay(specificDate) : null;
+  const dateStr = specificDate ? fmt(specificDate, 'yyyy-MM-dd') : 'all-dates';
 
   const visits: ExcelClientVisit[] = [];
   const visitsMap: Map<string, ExcelClientVisit> = new Map(); // Use a map to avoid duplicates
@@ -262,7 +262,7 @@ export async function extractClientVisitsFromGHExcel(
     // Get start time (use pickCol for case-insensitive lookup)
     const startRaw = pickCol(row, START_COLS);
     let startDate = toDate(startRaw);
-    if (!startDate || startDate < dayStart || startDate > dayEnd) continue;
+    if (!startDate || (dayStart && startDate < dayStart) || (dayEnd && startDate > dayEnd)) continue;
 
     // Round start time to nearest 15 minutes
     startDate = roundToNearest15Minutes(startDate);
@@ -328,10 +328,10 @@ export async function extractClientVisitsFromGHExcel(
           // Use the START date as the visit date (only single-day visits reach here)
           const visitDate = format(startDateTime, "yyyy-MM-dd");
 
-          // Validate visit is within the requested date
-          const requestedDate = format(specificDate, "yyyy-MM-dd");
-          if (visitDate !== requestedDate) {
-            continue; // Skip visits not on the requested date
+          // Validate visit is within the requested date (skip check when fetching all dates)
+          if (specificDate !== null) {
+            const requestedDate = format(specificDate, "yyyy-MM-dd");
+            if (visitDate !== requestedDate) continue;
           }
 
           // Calculate duration in minutes based on actual start and end times
