@@ -1,21 +1,21 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useLocation, useSearch } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingDown, Users, Clock, Calendar, RefreshCw, Zap, Target, Bot
+  TrendingDown, Users, Clock, RefreshCw, Target, Bot
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { ProcessingResult, CapacityAnalysisSummary, ProcessingResultWithMeta } from "@shared/schema";
+import type { ProcessingResult } from "@shared/schema";
 import { useBranch } from "@/contexts/BranchContext";
+import { useWeek } from "@/contexts/WeekContext";
 
 import { DailyCapacityTab } from "@/components/dashboard/DailyCapacityTab";
 import { OverviewTab } from "@/components/dashboard/OverviewTab";
@@ -23,6 +23,20 @@ import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
 
 export default function Dashboard() {
   const { selectedBranchId } = useBranch();
+  const {
+    selectedWeekId,
+    selectedDate,
+    processedData,
+    filteredData,
+    allHistoryData,
+    isLoadingLatest,
+    latestDataError,
+    handleWeekChange,
+    setProcessedData,
+    setFilteredData,
+    setSelectedDate,
+    setSelectedWeekId,
+  } = useWeek();
 
   const [files, setFiles] = useState<{
     availability: File | null;
@@ -37,10 +51,6 @@ export default function Dashboard() {
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processedData, setProcessedData] = useState<ProcessingResult | null>(null);
-  const [filteredData, setFilteredData] = useState<ProcessingResult | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [, navigate] = useLocation();
@@ -68,94 +78,11 @@ export default function Dashboard() {
     return () => window.removeEventListener('navigate-to-overview', handleReset);
   }, []);
 
-  const { data: allHistoryData } = useQuery<CapacityAnalysisSummary[]>({
-    queryKey: ['/api/history'],
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
-
-  const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResultWithMeta>({
-    queryKey: ['/api/history/latest'],
-    enabled: !isProcessing && !files.availability && !files.guaranteed && !files.demand && !files.cgData,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
-
-  useEffect(() => {
-    clientLogger.log('🧹 Branch changed - clearing all processed data');
-    setProcessedData(null);
-    setFilteredData(null);
-    setSelectedWeekId(null);
-    setSelectedDate(null);
-    queryClient.invalidateQueries({ queryKey: ['/api/history'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
-  }, [selectedBranchId]);
-
-  useEffect(() => {
-    if (latestData && latestData.branchId !== selectedBranchId) {
-      clientLogger.log('🧹 Clearing stale data from different branch');
-      setProcessedData(null);
-      setFilteredData(null);
-    }
-  }, [latestData, selectedBranchId]);
-
-  useEffect(() => {
-    if (latestData && !selectedWeekId && latestData.branchId === selectedBranchId) {
-      const isInitialLoad = !processedData;
-      setProcessedData({
-        kpis: latestData.kpis,
-        dailySummary: latestData.dailySummary,
-        employeesByDate: latestData.employeesByDate,
-        employeeSummaryByDate: latestData.employeeSummaryByDate,
-        warnings: latestData.warnings,
-        ghLossRawSummary: (latestData as any).ghLossRawSummary,
-      } as any);
-      setSelectedDate(latestData.dailySummary?.[0]?.date || null);
-      if (isInitialLoad) {
-        toast({
-          title: "Latest Data Loaded",
-          description: "Automatically loaded your most recent analysis."
-        });
-      }
-    }
-  }, [latestData, selectedWeekId, selectedBranchId, toast]);
-
   useEffect(() => {
     if (processedData) {
       setShowUploadPanel(false);
     }
   }, [processedData]);
-
-  const handleWeekChange = useCallback(async (value: string) => {
-    if (value === "latest") {
-      setSelectedWeekId(null);
-      return;
-    }
-    try {
-      setSelectedWeekId(value);
-      const analysis = allHistoryData?.find(item => item.id === value);
-      if (analysis) {
-        setProcessedData({
-          kpis: analysis.kpis,
-          dailySummary: analysis.dailySummary,
-          employeesByDate: analysis.employeesByDate,
-          employeeSummaryByDate: analysis.employeeSummaryByDate,
-          warnings: analysis.warnings,
-          ghLossRawSummary: (analysis as any).ghLossRawSummary,
-        } as any);
-        setSelectedDate(analysis.dailySummary?.[0]?.date || null);
-        setFilteredData(null);
-      }
-    } catch (error) {
-      clientLogger.error('Error loading selected week:', error);
-      toast({
-        variant: "destructive",
-        title: "Error Loading Week",
-        description: "Failed to load the selected week data."
-      });
-    }
-  }, [allHistoryData, toast]);
 
   const handleFileChange = useCallback((type: 'availability' | 'guaranteed' | 'demand' | 'cgData') =>
     (event: React.ChangeEvent<HTMLInputElement>) => {

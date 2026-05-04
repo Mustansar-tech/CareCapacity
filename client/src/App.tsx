@@ -9,6 +9,7 @@ import LoginPage from "@/pages/login";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
+import { WeekProvider } from "@/contexts/WeekContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -577,6 +578,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BranchProvider>
+            <WeekProvider>
             <TooltipProvider>
               <Toaster />
               <CookieBanner />
@@ -592,6 +594,7 @@ function App() {
                 </Route>
               </Switch>
             </TooltipProvider>
+            </WeekProvider>
           </BranchProvider>
         </AuthProvider>
       </QueryClientProvider>
