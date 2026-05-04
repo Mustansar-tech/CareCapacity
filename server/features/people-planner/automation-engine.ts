@@ -487,74 +487,48 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
   let plannerPage: Page;
 
   if (launcherFrame) {
-    logger.info("Launcher frame found, searching for People Planner tile...", { frameUrl: launcherFrame.url() });
+    logger.info("Launcher frame found, looking for Products tab...", { frameUrl: launcherFrame.url() });
 
-    // Helper: check if People Planner link is visible anywhere in the launcher frame right now
-    async function findPpTile() {
-      const candidates = [
-        launcherFrame!.getByText("People Planner", { exact: true }).first(),
-        launcherFrame!.getByRole("link", { name: /people planner/i }).first(),
-        launcherFrame!.locator("a").filter({ hasText: /people planner/i }).first(),
-        launcherFrame!.locator("[href*='peopleplanner']").first(),
-        launcherFrame!.locator("[href*='people-planner']").first(),
-        launcherFrame!.locator("[href*='people_planner']").first(),
-      ];
-      for (const c of candidates) {
-        if (await c.isVisible({ timeout: 2000 }).catch(() => false)) return c;
-      }
-      return null;
+    // Give the launcher more time to fully render before interacting (production is slower)
+    await page.waitForTimeout(2000);
+
+    // Try to click the Products tab with a longer timeout
+    const productsTab = launcherFrame.getByText(/^Products$/i).first();
+    if (await productsTab.isVisible({ timeout: 10000 }).catch(() => false)) {
+      await productsTab.click();
+      await page.waitForTimeout(3000);
+      logger.info("Clicked Products tab, waiting for tiles...");
+    } else {
+      logger.info("Products tab not found — launcher may already show all products");
     }
 
-    // Helper: scan all anchors in the frame for any peopleplanner-like href
-    async function scanHrefs(): Promise<string | null> {
-      return launcherFrame!.evaluate(() => {
-        const links = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
-        const match = links.find(a => {
-          const h = a.href.toLowerCase();
-          return h.includes("peopleplanner") || h.includes("people-planner") || h.includes("people_planner");
-        });
-        return match?.href ?? null;
-      }).catch(() => null);
+    // Also try clicking any tab that might contain People Planner (All Products / All Apps)
+    const allProductsTab = launcherFrame.getByText(/^All|^Apps|^All Products/i).first();
+    if (await allProductsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await allProductsTab.click().catch(() => {});
+      await page.waitForTimeout(2000);
     }
 
-    // Give the launcher time to fully render
-    await page.waitForTimeout(3000);
+    const ppCandidates = [
+      launcherFrame.getByText("People Planner", { exact: true }).first(),
+      launcherFrame.getByRole("link", { name: /people planner/i }).first(),
+      launcherFrame.locator("a").filter({ hasText: /people planner/i }).first(),
+      launcherFrame.locator("[href*='peopleplanner']").first(),
+    ];
 
-    // Try to find PP right away (it might be in Recently Used or already visible)
-    let ppTile = await findPpTile();
-
-    if (!ppTile) {
-      // Click through nav categories one at a time until People Planner appears
-      const navCategories = [
-        /^Products$/i,
-        /^Productivity Tools$/i,
-        /^Apps$/i,
-        /^All$/i,
-        /^All Products$/i,
-        /^Spaces$/i,
-        /^Configuration$/i,
-      ];
-
-      for (const pattern of navCategories) {
-        const tab = launcherFrame.getByText(pattern).first();
-        const tabVisible = await tab.isVisible({ timeout: 2000 }).catch(() => false);
-        if (tabVisible) {
-          logger.info(`Clicking nav category: ${pattern.source}`);
-          await tab.click().catch(() => {});
-          await page.waitForTimeout(3000);
-          ppTile = await findPpTile();
-          if (ppTile) {
-            logger.info(`People Planner tile found after clicking: ${pattern.source}`);
-            break;
-          }
-        }
-      }
+    let ppTile = null;
+    for (const c of ppCandidates) {
+      if (await c.isVisible({ timeout: 5000 }).catch(() => false)) { ppTile = c; break; }
     }
 
     // Fallback: scan ALL anchor hrefs in the frame for any peopleplanner URL
     if (!ppTile) {
       logger.info("Standard tile selectors failed — scanning all anchors in launcher frame...");
-      const ppHrefFallback = await scanHrefs();
+      const ppHrefFallback = await launcherFrame.evaluate(() => {
+        const allLinks = Array.from(document.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+        const ppLink = allLinks.find(a => a.href.toLowerCase().includes("peopleplanner"));
+        return ppLink?.href ?? null;
+      }).catch(() => null);
 
       if (ppHrefFallback) {
         logger.info("Found People Planner via href scan, opening directly...", { url: ppHrefFallback });
@@ -568,21 +542,16 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
           await plannerPage.bringToFront();
           return plannerPage;
         } catch {
-          // fall through to direct URL attempt
+          // fall through to error
         }
       }
 
-      // Last resort: derive People Planner URL from branch URL directly
-      // Access Workspace typically routes PP at the branch org URL + a PP-specific path
-      // Log the full frame DOM to help debug future issues
+      // Log what's actually in the frame to help diagnose future issues
       const frameText = await launcherFrame.evaluate(() =>
-        document.body?.innerText?.slice(0, 800) ?? "(empty)"
+        document.body?.innerText?.slice(0, 500) ?? "(empty)"
       ).catch(() => "(error reading frame)");
       const allFrameUrls = page.frames().map(f => f.url()).join(", ");
-      const allHrefs = await launcherFrame.evaluate(() =>
-        Array.from(document.querySelectorAll("a[href]")).map((a) => (a as HTMLAnchorElement).href).join(" | ")
-      ).catch(() => "(error)");
-      logger.error("People Planner tile not found. Frame text: " + frameText, { allFrameUrls, allHrefs });
+      logger.error("People Planner tile not found. Launcher frame text preview: " + frameText, { allFrameUrls });
       await debugScreenshot(page, "no-pp-tile");
       throw new Error("People Planner tile not found in launcher frame.");
     }
