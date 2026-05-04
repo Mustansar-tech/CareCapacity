@@ -16,7 +16,7 @@ import { registerBdMatcherRoutes } from './routes/bd-matcher';
 import { registerEnquiriesRoutes } from './routes/enquiries';
 import { registerDebugRoutes } from './routes/debug';
 
-const PUBLIC_API_PATHS = ['/auth/', '/branches', '/pp/scheduler/trigger', '/cron/sync'];
+const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync'];
 
 function globalAuthGuard(req: Request, res: Response, next: NextFunction) {
   const path = req.path;
