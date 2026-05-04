@@ -6,7 +6,7 @@ modules = ["nodejs-20", "web", "javascript", "postgresql-16"]
   channel = "stable-24_05"
 
   [deployment]
-deploymentTarget = "vm"
+deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
 run = ["sh", "-c", "NODE_ENV=production node dist/index.js"]
 
