@@ -24,12 +24,10 @@ declare module 'express-session' {
 const isProduction = process.env.NODE_ENV === 'production';
 const app = express();
 
-// Trust all proxy hops (Replit uses a multi-layer reverse proxy in production).
-// This ensures req.protocol / req.ip are set from X-Forwarded-Proto / X-Forwarded-For.
-// Note: HTTP→HTTPS redirection is handled at the edge by Replit's load balancer,
-// so we do NOT add an enforceHttps middleware here — it would break internal
-// health-check probes that hit the container directly over plain HTTP.
-app.set('trust proxy', true);
+// Trust proxy for secure cookies behind reverse proxy
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
 
 app.use(securityHeaders);
 
@@ -84,37 +82,11 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  await seedAdminUser();
 
-  // Register static file serving / Vite HMR BEFORE listen so the catch-all
-  // route is in place when the first request arrives.
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // Global error handler — must be registered AFTER all routes and static
-  // middleware so it catches errors from every layer (including sendFile failures)
-  app.use(errorHandler);
-
-  // Start listening FIRST so Replit's deployment health-check probe (GET /)
-  // gets an immediate 200 from the static file handler.  DB-dependent work
-  // (seed, geo-sweeper) runs afterwards in the background and does NOT block
-  // the server from becoming ready.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
-  });
-
-  // --- background initialisation (non-blocking) ---
-
-  // Seed the admin user.  Runs after listen so a slow/hibernating Neon DB
-  // wake-up does not delay the health-check response.
-  seedAdminUser().catch((err) =>
-    logger.error('seedAdminUser error', err)
-  );
-
-  // Geocode any clients that have a postcode but no lat/lng.
+  // Run geo-sweeper in the background after startup to geocode any client
+  // locations that have a postcode but are still missing lat/lng coordinates.
+  // This is fire-and-forget — it does not block server startup.
   setTimeout(async () => {
     try {
       const { sweepMissingClientGeocode } = await import('./jobs/geo-sweeper');
@@ -126,6 +98,28 @@ app.use((req, res, next) => {
       logger.error('geo-sweeper startup error', err);
     }
   }, 5000);
+
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+
+  // Global error handler — must be registered AFTER all routes and static
+  // middleware so it catches errors from every layer (including sendFile failures)
+  app.use(errorHandler);
+
+  // ALWAYS serve the app on the port specified in the environment variable PORT
+  // Other ports are firewalled. Default to 5000 if not specified.
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = parseInt(process.env.PORT || '5000', 10);
+  server.listen(port, "0.0.0.0", () => {
+    log(`serving on port ${port}`);
+  });
 
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {

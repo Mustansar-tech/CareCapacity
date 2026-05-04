@@ -285,16 +285,6 @@ export async function programmaticQueueSync(
   const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
   const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-  // Deduplication: if this branch already has a running or queued session, skip
-  const alreadyPending = Array.from(activeSessions.values()).some(
-    s => s.branchId === branchId && (s.status === "running" || s.status === "queued")
-  );
-  if (alreadyPending) {
-    const queuePosition = sessionQueue.length + 1;
-    logger.info("Programmatic PP sync skipped — branch already queued/running", { branchId, queuePosition });
-    return { sessionId, queued: false, queuePosition };
-  }
-
   const activeSession = getAnyRunningSession();
   if (activeSession) {
     const pendingSession: PipelineSession = {

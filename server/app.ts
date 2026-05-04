@@ -15,9 +15,8 @@ import { registerTravelTimesRoutes } from './routes/travel-times';
 import { registerBdMatcherRoutes } from './routes/bd-matcher';
 import { registerEnquiriesRoutes } from './routes/enquiries';
 import { registerDebugRoutes } from './routes/debug';
-import { registerCronRoutes } from './routes/cron';
 
-const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/'];
+const PUBLIC_API_PATHS = ['/auth/', '/branches'];
 
 function globalAuthGuard(req: Request, res: Response, next: NextFunction) {
   const path = req.path;
@@ -78,7 +77,6 @@ export async function configureApp(app: Express): Promise<Server> {
   registerBdMatcherRoutes(app);
   registerEnquiriesRoutes(app);
   registerDebugRoutes(app);
-  registerCronRoutes(app);
 
   return createServer(app);
 }
