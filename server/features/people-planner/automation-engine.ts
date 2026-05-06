@@ -5,7 +5,6 @@ import { execSync } from "child_process";
 import { logger } from "../../infrastructure/logger";
 import type { ReportType } from "./report-configs";
 import { getReportConfig } from "./report-configs";
-import { waitForPlaywrightBrowser } from "./playwright-setup";
 
 export interface JobConfig {
   /** Direct Access Workspace URL for this branch, e.g. https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/ */
@@ -56,8 +55,6 @@ let sharedContext: BrowserContext | null = null;
 let sharedPlannerPage: Page | null = null;
 /** Branch URL that sharedPlannerPage was opened for — if this changes we must re-navigate */
 let sharedPlannerBranchUrl: string | null = null;
-/** Timestamp of the last browser crash — used to add recovery cooldown before next job */
-let lastBrowserCrashAt: number = 0;
 
 ensureDir(DOWNLOAD_DIR);
 
@@ -76,37 +73,16 @@ function addLog(job: AutomationJob, message: string) {
   logger.info(message, { jobId: job.id });
 }
 
-// Cached once at module load — avoids `which` subprocess failing under memory pressure
-// for jobs 2-10 when the OS is still recovering from a previous browser cleanup.
-let _cachedChromiumPath: string | undefined | null = null;
-
 function getChromiumExecutablePath(): string | undefined {
-  if (_cachedChromiumPath !== null) return _cachedChromiumPath;
-
-  // 1. Try well-known system paths first (no subprocess, instant)
-  const candidates = [
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-  ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) { _cachedChromiumPath = p; return p; }
-  }
-
-  // 2. Ask the shell (covers nix-store / PATH-based installs like pkgs.chromium)
   try {
-    const p = execSync(
-      "which chromium-browser 2>/dev/null || which chromium 2>/dev/null || echo ''",
-      { encoding: "utf-8", timeout: 5000 }
-    ).trim();
-    if (p) { _cachedChromiumPath = p; return p; }
+    const p = execSync("which chromium-browser 2>/dev/null || which chromium 2>/dev/null || echo ''", {
+      encoding: "utf-8",
+      timeout: 3000,
+    }).trim();
+    if (p) return p;
   } catch {
-    // fall through
+    // fall through — use Playwright's built-in
   }
-
-  // 3. Playwright-managed binary (downloaded by ensurePlaywrightBrowser at startup)
-  _cachedChromiumPath = undefined;
   return undefined;
 }
 
@@ -217,11 +193,7 @@ async function processNextQueuedJob(): Promise<void> {
     logger.error("Unhandled automation error", err instanceof Error ? err : undefined, { jobId: job.id });
   }).finally(() => {
     isProcessingQueue = false;
-    // If a browser crash happened recently, give the OS 6 seconds to free
-    // memory before launching the next job's browser process.
-    const msSinceCrash = Date.now() - lastBrowserCrashAt;
-    const cooldown = lastBrowserCrashAt > 0 && msSinceCrash < 30000 ? 6000 : 500;
-    setTimeout(() => processNextQueuedJob(), cooldown);
+    setImmediate(() => processNextQueuedJob());
   });
 }
 
@@ -242,21 +214,10 @@ async function runJob(job: AutomationJob): Promise<void> {
   }
 
   try {
-    // ── Ensure browser binary is installed before launching ────────────────
-    if (!sharedBrowser || !sharedBrowser.isConnected()) {
-      addLog(job, "Waiting for Playwright browser to be ready...");
-      await waitForPlaywrightBrowser();
-    }
-
     // ── Launch / reuse browser ──────────────────────────────────────────────
     if (!sharedBrowser || !sharedBrowser.isConnected()) {
       addLog(job, "Launching browser...");
       const executablePath = getChromiumExecutablePath();
-      if (executablePath) {
-        addLog(job, `Using system Chromium: ${executablePath}`);
-      } else {
-        addLog(job, "Using Playwright-managed Chromium.");
-      }
       sharedBrowser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
@@ -301,8 +262,8 @@ async function runJob(job: AutomationJob): Promise<void> {
 
       // Step 1 — Always go to login page first
       addLog(job, "Navigating to Access Workspace login...");
-      await workspacePage.goto(LOGIN_URL, { waitUntil: "commit", timeout: 60000 });
-      await workspacePage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+      await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
       const needsLogin = await checkNeedsLogin(workspacePage);
       if (needsLogin) {
@@ -318,7 +279,8 @@ async function runJob(job: AutomationJob): Promise<void> {
 
       // Step 2 — Navigate directly to the branch URL to select the branch
       addLog(job, `Selecting branch via URL: ${branchUrl}`);
-      await navigateToBranchUrl(workspacePage, branchUrl, job);
+      await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
       // Step 3 — Open People Planner from the launcher
       addLog(job, "Opening People Planner from the Access launcher...");
@@ -375,48 +337,9 @@ async function runJob(job: AutomationJob): Promise<void> {
     if (sharedBrowser) {
       await sharedBrowser.close().catch(() => {});
       sharedBrowser = null;
-      // Record crash time so processNextQueuedJob adds a recovery cooldown
-      lastBrowserCrashAt = Date.now();
     }
   } finally {
     currentJobId = null;
-  }
-}
-
-// ─── Branch navigation with retry ─────────────────────────────────────────────
-/**
- * Navigate to the Access Workspace branch URL.
- *
- * The workspace is a React SPA that goes through a redirect chain after login.
- * Using waitUntil:"commit" fires as soon as the first HTTP response headers
- * arrive (not waiting for the full DOM), which avoids 30-second timeouts on
- * slow SPA boots. If the first attempt fails we wait and retry once.
- */
-async function navigateToBranchUrl(page: Page, branchUrl: string, job: AutomationJob): Promise<void> {
-  const MAX_ATTEMPTS = 3;
-  const ATTEMPT_TIMEOUT = 60000;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      addLog(job, attempt > 1 ? `Branch navigation attempt ${attempt}...` : `Navigating to branch...`);
-      await page.goto(branchUrl, { waitUntil: "commit", timeout: ATTEMPT_TIMEOUT });
-      // Give the SPA a chance to finish client-side routing after the commit
-      await page.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
-      addLog(job, "Branch page loaded.");
-      return;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      addLog(job, `Branch navigation attempt ${attempt} failed: ${msg.slice(0, 120)}`);
-      logger.warn(`Branch URL navigation attempt ${attempt}/${MAX_ATTEMPTS} failed`, {
-        branchUrl,
-        jobId: job.id,
-        error: msg.slice(0, 200),
-      });
-      if (attempt === MAX_ATTEMPTS) throw err;
-      const backoff = attempt * 6000;
-      addLog(job, `Retrying in ${backoff / 1000}s...`);
-      await new Promise(r => setTimeout(r, backoff));
-    }
   }
 }
 
@@ -433,36 +356,15 @@ async function checkNeedsLogin(page: Page): Promise<boolean> {
 }
 
 async function login(page: Page, email: string, password: string): Promise<void> {
-  // Skip the goto if we're already on the login page — the caller already navigated there.
-  // Re-navigating a second time causes a redundant round-trip that times out under load.
-  if (!page.url().includes("identity.accessacloud.com")) {
-    await page.goto(LOGIN_URL, { waitUntil: "commit", timeout: 60000 });
-    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-  }
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
 
   const emailField = page.getByPlaceholder(/enter your email address/i);
-  await emailField.waitFor({ state: "visible", timeout: 30000 });
+  await emailField.waitFor({ state: "visible", timeout: 15000 });
   await emailField.fill(email);
-
-  // Click "Next" and wait for the page to transition to the password step
   await page.getByRole("button", { name: /next/i }).click();
-  await page.waitForTimeout(2500);
 
-  // The password step may animate in — allow generous time
   const pwField = page.getByPlaceholder(/enter your password/i);
-  try {
-    await pwField.waitFor({ state: "visible", timeout: 45000 });
-  } catch {
-    // Before throwing, capture state for debugging
-    await debugScreenshot(page, "login-pw-timeout");
-    const currentUrl = page.url();
-    const title = await page.title().catch(() => "(unknown)");
-    const bodyText = await page.locator("body").innerText({ timeout: 3000 }).catch(() => "");
-    throw new Error(
-      `Password field not visible after 45s. URL: ${currentUrl} — "${title}". ` +
-      `Page snippet: ${bodyText.slice(0, 300)}`
-    );
-  }
+  await pwField.waitFor({ state: "visible", timeout: 15000 });
   await pwField.fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 
@@ -488,9 +390,9 @@ async function login(page: Page, email: string, password: string): Promise<void>
 
   // Always land on workspace after login
   if (!page.url().includes("go.accessacloud.com")) {
-    await page.goto(WORKSPACE_URL, { waitUntil: "commit", timeout: 60000 });
+    await page.goto(WORKSPACE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
   }
-  await page.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
 }
 
 // ─── Workspace branch selection ───────────────────────────────────────────────
@@ -533,173 +435,98 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
   await page.keyboard.press("Escape");
   await page.waitForTimeout(800);
 
-  // ── Click the launcher button ───────────────────────────────────────────────
-  // The `access-button` is a web component that hydrates asynchronously after
-  // the SPA finishes routing. Wait up to 15s for it to be attached to the DOM
-  // before clicking, then use multiple fallback strategies.
-  async function clickLauncherButton(): Promise<void> {
-    const accessBtn = page.locator("access-button").first();
-    // Wait for the element to be in the DOM (attached), not just visible
-    await accessBtn.waitFor({ state: "attached", timeout: 15000 }).catch(() => {});
-    if (await accessBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await accessBtn.click({ force: true });
-      return;
-    }
-    // Web components can be in DOM but report not-visible — try force-click first
-    const count = await accessBtn.count().catch(() => 0);
-    if (count > 0) {
-      await accessBtn.click({ force: true }).catch(() => {});
-      return;
-    }
-    // Last resort: dispatch a click event via JS
+  const accessBtn = page.locator("access-button").first();
+  if (await accessBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await accessBtn.click({ force: true });
+  } else {
     await page.evaluate(() => {
       const btn = document.querySelector("access-button") as HTMLElement | null;
-      if (btn) {
-        btn.click();
-        btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-      }
+      if (btn) btn.click();
     });
   }
 
-  await clickLauncherButton();
-
-  // ── Find the EVO launcher iframe ────────────────────────────────────────────
-  // Poll up to 60s total. If the launcher hasn't appeared after 15s we retry
-  // the button click — the web component sometimes needs a second activation
-  // after a fresh login or branch change.
+  // Wait up to 30 seconds for the EVO launcher iframe to appear, polling every 2s
   let launcherFrame: import("playwright").Frame | null = null;
-  let foundViaBodyText = false;
-  const launcherDeadline = Date.now() + 60000;
-  let retryClickAt = Date.now() + 15000; // first retry at 15s
-
+  const launcherDeadline = Date.now() + 30000;
   while (!launcherFrame && Date.now() < launcherDeadline) {
     await page.waitForTimeout(2000);
     const currentFrames = page.frames();
-
-    // Strategy 1: authoritative URL match
     launcherFrame = currentFrames.find(f =>
       f.url().includes("button-app.production.workspace.accessacloud.com")
     ) ?? null;
-
-    // Strategy 2: any frame whose rendered text already contains "People Planner"
     if (!launcherFrame) {
       for (const frame of currentFrames) {
         const hasLauncher = await frame.evaluate(() =>
           !!(document.body?.innerText?.includes("People Planner"))
         ).catch(() => false);
-        if (hasLauncher) { launcherFrame = frame; foundViaBodyText = true; break; }
+        if (hasLauncher) { launcherFrame = frame; break; }
       }
-    }
-
-    // Retry the button click if the launcher hasn't appeared yet
-    if (!launcherFrame && Date.now() >= retryClickAt) {
-      retryClickAt = Date.now() + 20000; // next retry at +20s if still nothing
-      await clickLauncherButton().catch(() => {});
     }
   }
 
-  if (!launcherFrame) {
+  let plannerPage: Page;
+
+  if (launcherFrame) {
+    const productsTab = launcherFrame.getByText(/^Products$/i).first();
+    if (await productsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await productsTab.click();
+      await page.waitForTimeout(1200);
+    }
+
+    const ppCandidates = [
+      launcherFrame.getByText("People Planner", { exact: true }).first(),
+      launcherFrame.getByRole("link", { name: /people planner/i }).first(),
+      launcherFrame.locator("a").filter({ hasText: /people planner/i }).first(),
+      launcherFrame.locator("[href*='peopleplanner']").first(),
+    ];
+
+    let ppTile = null;
+    for (const c of ppCandidates) {
+      if (await c.isVisible({ timeout: 2000 }).catch(() => false)) { ppTile = c; break; }
+    }
+
+    if (!ppTile) {
+      await debugScreenshot(page, "no-pp-tile");
+      throw new Error("People Planner tile not found in launcher frame.");
+    }
+
+    const ppHref = await ppTile.evaluate((el) => {
+      const a = el instanceof HTMLAnchorElement ? el : el.closest("a");
+      return a?.href ?? "";
+    }).catch(() => "");
+
+    const pagesBefore = context.pages();
+    const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
+    newTabPromise.catch(() => {});
+    await ppTile.click({ force: true });
+
+    try {
+      plannerPage = await newTabPromise;
+    } catch {
+      const pagesAfter = context.pages();
+      const newPages = pagesAfter.filter(p => !pagesBefore.includes(p));
+      if (newPages.length > 0) {
+        plannerPage = newPages[newPages.length - 1];
+      } else if (ppHref) {
+        const newTabPromise2 = context.waitForEvent("page", { timeout: 30000 });
+        newTabPromise2.catch(() => {});
+        await page.evaluate((url) => window.open(url, "_blank"), ppHref);
+        plannerPage = await newTabPromise2;
+      } else {
+        await debugScreenshot(page, "no-new-tab");
+        throw new Error("Clicked People Planner but no new tab opened.");
+      }
+    }
+  } else {
     await debugScreenshot(page, "no-launcher-frame");
     const allFrameUrls = page.frames().map(f => f.url()).join(", ");
     throw new Error(
-      `Could not find EVO launcher iframe after 60s. Available frames: ${allFrameUrls}`
+      `Could not find EVO launcher iframe after 30s. Available frames: ${allFrameUrls}`
     );
-  }
-
-  // ── Give the iframe time to fully render its tiles ─────────────────────────
-  // When found via body-text the React app may still be painting interactive
-  // elements. Allow up to 10s for the iframe's network to settle.
-  if (foundViaBodyText) {
-    await launcherFrame.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(2000);
-  } else {
-    // URL-based match — still give a moment for tile content to paint
-    await page.waitForTimeout(1500);
-  }
-
-  // ── Click the Products tab if it exists ────────────────────────────────────
-  const productsTab = launcherFrame.getByText(/^Products$/i).first();
-  if (await productsTab.isVisible({ timeout: 8000 }).catch(() => false)) {
-    await productsTab.click();
-    await page.waitForTimeout(2000);
-  }
-
-  // ── Find the People Planner tile ───────────────────────────────────────────
-  // Use a generous timeout (15s per candidate) because the iframe SPA may
-  // still be lazy-loading tile content after the frame itself appeared.
-  const TILE_TIMEOUT = 15000;
-  const ppCandidates = [
-    launcherFrame.getByRole("link", { name: /people planner/i }).first(),
-    launcherFrame.getByText("People Planner", { exact: true }).first(),
-    launcherFrame.locator("a").filter({ hasText: /people planner/i }).first(),
-    launcherFrame.locator("[href*='peopleplanner']").first(),
-    launcherFrame.locator("[href*='people-planner']").first(),
-    launcherFrame.locator("*").filter({ hasText: /^people planner$/i }).first(),
-  ];
-
-  let ppTile = null;
-  for (const c of ppCandidates) {
-    if (await c.isVisible({ timeout: TILE_TIMEOUT }).catch(() => false)) { ppTile = c; break; }
-  }
-
-  if (!ppTile) {
-    // Last resort: scan all visible links for anything matching people planner
-    const allLinks = launcherFrame.locator("a");
-    const count = await allLinks.count().catch(() => 0);
-    for (let i = 0; i < count; i++) {
-      const link = allLinks.nth(i);
-      const text = await link.innerText({ timeout: 2000 }).catch(() => "");
-      const href = await link.getAttribute("href").catch(() => "");
-      if (/people.?planner/i.test(text) || /people.?planner/i.test(href ?? "")) {
-        ppTile = link;
-        break;
-      }
-    }
-  }
-
-  if (!ppTile) {
-    await debugScreenshot(page, "no-pp-tile");
-    const frameText = await launcherFrame.locator("body").innerText({ timeout: 3000 }).catch(() => "");
-    throw new Error(
-      `People Planner tile not found in launcher frame. Frame content snippet: ${frameText.slice(0, 400)}`
-    );
-  }
-
-  // ── Extract href before clicking (fallback if new tab event is missed) ──────
-  const ppHref = await ppTile.evaluate((el) => {
-    const a = el instanceof HTMLAnchorElement ? el : el.closest("a");
-    return a?.href ?? "";
-  }).catch(() => "");
-
-  // ── Click tile and capture the new tab ────────────────────────────────────
-  let plannerPage: Page;
-  const pagesBefore = context.pages();
-  const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
-  newTabPromise.catch(() => {});
-  await ppTile.click({ force: true });
-
-  try {
-    plannerPage = await newTabPromise;
-  } catch {
-    // Fallback 1: check if a new page appeared in the context
-    const pagesAfter = context.pages();
-    const newPages = pagesAfter.filter(p => !pagesBefore.includes(p));
-    if (newPages.length > 0) {
-      plannerPage = newPages[newPages.length - 1];
-    } else if (ppHref) {
-      // Fallback 2: open the href directly
-      const newTabPromise2 = context.waitForEvent("page", { timeout: 30000 });
-      newTabPromise2.catch(() => {});
-      await page.evaluate((url) => window.open(url, "_blank"), ppHref);
-      plannerPage = await newTabPromise2;
-    } else {
-      await debugScreenshot(page, "no-new-tab");
-      throw new Error("Clicked People Planner but no new tab opened.");
-    }
   }
 
   await plannerPage.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
-  await plannerPage.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
+  await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
   await plannerPage.bringToFront();
 
   return plannerPage;
@@ -715,19 +542,8 @@ async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<v
     // the PP tab runs on its own domain (e.g. peopleplanner.accessacloud.com).
     const targetUrl = new URL(reportConfig.directUrl, plannerPage.url()).toString();
     logger.info(`Navigating directly to ${config.reportType}`, { targetUrl });
-    // Use "commit" (first HTTP byte) so slow ASP.NET pages don't time out.
-    // Retry once if the first attempt fails.
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        await plannerPage.goto(targetUrl, { waitUntil: "commit", timeout: 60000 });
-        break;
-      } catch (err) {
-        if (attempt === 2) throw err;
-        logger.warn(`navigateToExport: goto attempt ${attempt} failed, retrying`, { targetUrl });
-        await plannerPage.waitForTimeout(4000);
-      }
-    }
-    await plannerPage.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
+    await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
     await plannerPage.waitForTimeout(2000);
   } else {
     for (const step of reportConfig.menuPath) {
