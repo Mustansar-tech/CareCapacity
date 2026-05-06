@@ -76,7 +76,13 @@ function addLog(job: AutomationJob, message: string) {
   logger.info(message, { jobId: job.id });
 }
 
+// Cached once at module load — avoids `which` subprocess failing under memory pressure
+// for jobs 2-10 when the OS is still recovering from a previous browser cleanup.
+let _cachedChromiumPath: string | undefined | null = null;
+
 function getChromiumExecutablePath(): string | undefined {
+  if (_cachedChromiumPath !== null) return _cachedChromiumPath;
+
   // 1. Try well-known system paths first (no subprocess, instant)
   const candidates = [
     "/usr/bin/chromium-browser",
@@ -85,7 +91,7 @@ function getChromiumExecutablePath(): string | undefined {
     "/usr/bin/google-chrome-stable",
   ];
   for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+    if (fs.existsSync(p)) { _cachedChromiumPath = p; return p; }
   }
 
   // 2. Ask the shell (covers nix-store / PATH-based installs like pkgs.chromium)
@@ -94,12 +100,13 @@ function getChromiumExecutablePath(): string | undefined {
       "which chromium-browser 2>/dev/null || which chromium 2>/dev/null || echo ''",
       { encoding: "utf-8", timeout: 5000 }
     ).trim();
-    if (p) return p;
+    if (p) { _cachedChromiumPath = p; return p; }
   } catch {
     // fall through
   }
 
   // 3. Playwright-managed binary (downloaded by ensurePlaywrightBrowser at startup)
+  _cachedChromiumPath = undefined;
   return undefined;
 }
 
@@ -294,8 +301,8 @@ async function runJob(job: AutomationJob): Promise<void> {
 
       // Step 1 — Always go to login page first
       addLog(job, "Navigating to Access Workspace login...");
-      await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+      await workspacePage.goto(LOGIN_URL, { waitUntil: "commit", timeout: 60000 });
+      await workspacePage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
 
       const needsLogin = await checkNeedsLogin(workspacePage);
       if (needsLogin) {
@@ -426,9 +433,12 @@ async function checkNeedsLogin(page: Page): Promise<boolean> {
 }
 
 async function login(page: Page, email: string, password: string): Promise<void> {
-  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-  // Let the SPA settle before looking for fields
-  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  // Skip the goto if we're already on the login page — the caller already navigated there.
+  // Re-navigating a second time causes a redundant round-trip that times out under load.
+  if (!page.url().includes("identity.accessacloud.com")) {
+    await page.goto(LOGIN_URL, { waitUntil: "commit", timeout: 60000 });
+    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+  }
 
   const emailField = page.getByPlaceholder(/enter your email address/i);
   await emailField.waitFor({ state: "visible", timeout: 30000 });
@@ -478,9 +488,9 @@ async function login(page: Page, email: string, password: string): Promise<void>
 
   // Always land on workspace after login
   if (!page.url().includes("go.accessacloud.com")) {
-    await page.goto(WORKSPACE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.goto(WORKSPACE_URL, { waitUntil: "commit", timeout: 60000 });
   }
-  await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
 }
 
 // ─── Workspace branch selection ───────────────────────────────────────────────
@@ -523,6 +533,7 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
   await page.keyboard.press("Escape");
   await page.waitForTimeout(800);
 
+  // Click the launcher button — try the custom element first, then JS fallback
   const accessBtn = page.locator("access-button").first();
   if (await accessBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
     await accessBtn.click({ force: true });
@@ -533,88 +544,135 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     });
   }
 
-  // Wait up to 30 seconds for the EVO launcher iframe to appear, polling every 2s
+  // ── Find the EVO launcher iframe ────────────────────────────────────────────
+  // Poll up to 45s (increased from 30s) for the iframe to appear.
+  // Two strategies: URL-based match first, then body-text scan as fallback.
   let launcherFrame: import("playwright").Frame | null = null;
-  const launcherDeadline = Date.now() + 30000;
+  let foundViaBodyText = false;
+  const launcherDeadline = Date.now() + 45000;
+
   while (!launcherFrame && Date.now() < launcherDeadline) {
     await page.waitForTimeout(2000);
     const currentFrames = page.frames();
+
+    // Strategy 1: authoritative URL match
     launcherFrame = currentFrames.find(f =>
       f.url().includes("button-app.production.workspace.accessacloud.com")
     ) ?? null;
+
+    // Strategy 2: any frame whose rendered text already contains "People Planner"
     if (!launcherFrame) {
       for (const frame of currentFrames) {
         const hasLauncher = await frame.evaluate(() =>
           !!(document.body?.innerText?.includes("People Planner"))
         ).catch(() => false);
-        if (hasLauncher) { launcherFrame = frame; break; }
+        if (hasLauncher) { launcherFrame = frame; foundViaBodyText = true; break; }
       }
     }
   }
 
-  let plannerPage: Page;
-
-  if (launcherFrame) {
-    const productsTab = launcherFrame.getByText(/^Products$/i).first();
-    if (await productsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await productsTab.click();
-      await page.waitForTimeout(1200);
-    }
-
-    const ppCandidates = [
-      launcherFrame.getByText("People Planner", { exact: true }).first(),
-      launcherFrame.getByRole("link", { name: /people planner/i }).first(),
-      launcherFrame.locator("a").filter({ hasText: /people planner/i }).first(),
-      launcherFrame.locator("[href*='peopleplanner']").first(),
-    ];
-
-    let ppTile = null;
-    for (const c of ppCandidates) {
-      if (await c.isVisible({ timeout: 2000 }).catch(() => false)) { ppTile = c; break; }
-    }
-
-    if (!ppTile) {
-      await debugScreenshot(page, "no-pp-tile");
-      throw new Error("People Planner tile not found in launcher frame.");
-    }
-
-    const ppHref = await ppTile.evaluate((el) => {
-      const a = el instanceof HTMLAnchorElement ? el : el.closest("a");
-      return a?.href ?? "";
-    }).catch(() => "");
-
-    const pagesBefore = context.pages();
-    const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
-    newTabPromise.catch(() => {});
-    await ppTile.click({ force: true });
-
-    try {
-      plannerPage = await newTabPromise;
-    } catch {
-      const pagesAfter = context.pages();
-      const newPages = pagesAfter.filter(p => !pagesBefore.includes(p));
-      if (newPages.length > 0) {
-        plannerPage = newPages[newPages.length - 1];
-      } else if (ppHref) {
-        const newTabPromise2 = context.waitForEvent("page", { timeout: 30000 });
-        newTabPromise2.catch(() => {});
-        await page.evaluate((url) => window.open(url, "_blank"), ppHref);
-        plannerPage = await newTabPromise2;
-      } else {
-        await debugScreenshot(page, "no-new-tab");
-        throw new Error("Clicked People Planner but no new tab opened.");
-      }
-    }
-  } else {
+  if (!launcherFrame) {
     await debugScreenshot(page, "no-launcher-frame");
     const allFrameUrls = page.frames().map(f => f.url()).join(", ");
     throw new Error(
-      `Could not find EVO launcher iframe after 30s. Available frames: ${allFrameUrls}`
+      `Could not find EVO launcher iframe after 45s. Available frames: ${allFrameUrls}`
     );
   }
 
+  // ── Give the iframe time to fully render its tiles ─────────────────────────
+  // When found via body-text the React app may still be painting interactive
+  // elements. Allow up to 10s for the iframe's network to settle.
+  if (foundViaBodyText) {
+    await launcherFrame.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+  } else {
+    // URL-based match — still give a moment for tile content to paint
+    await page.waitForTimeout(1500);
+  }
+
+  // ── Click the Products tab if it exists ────────────────────────────────────
+  const productsTab = launcherFrame.getByText(/^Products$/i).first();
+  if (await productsTab.isVisible({ timeout: 8000 }).catch(() => false)) {
+    await productsTab.click();
+    await page.waitForTimeout(2000);
+  }
+
+  // ── Find the People Planner tile ───────────────────────────────────────────
+  // Use a generous timeout (15s per candidate) because the iframe SPA may
+  // still be lazy-loading tile content after the frame itself appeared.
+  const TILE_TIMEOUT = 15000;
+  const ppCandidates = [
+    launcherFrame.getByRole("link", { name: /people planner/i }).first(),
+    launcherFrame.getByText("People Planner", { exact: true }).first(),
+    launcherFrame.locator("a").filter({ hasText: /people planner/i }).first(),
+    launcherFrame.locator("[href*='peopleplanner']").first(),
+    launcherFrame.locator("[href*='people-planner']").first(),
+    launcherFrame.locator("*").filter({ hasText: /^people planner$/i }).first(),
+  ];
+
+  let ppTile = null;
+  for (const c of ppCandidates) {
+    if (await c.isVisible({ timeout: TILE_TIMEOUT }).catch(() => false)) { ppTile = c; break; }
+  }
+
+  if (!ppTile) {
+    // Last resort: scan all visible links for anything matching people planner
+    const allLinks = launcherFrame.locator("a");
+    const count = await allLinks.count().catch(() => 0);
+    for (let i = 0; i < count; i++) {
+      const link = allLinks.nth(i);
+      const text = await link.innerText({ timeout: 2000 }).catch(() => "");
+      const href = await link.getAttribute("href").catch(() => "");
+      if (/people.?planner/i.test(text) || /people.?planner/i.test(href ?? "")) {
+        ppTile = link;
+        break;
+      }
+    }
+  }
+
+  if (!ppTile) {
+    await debugScreenshot(page, "no-pp-tile");
+    const frameText = await launcherFrame.locator("body").innerText({ timeout: 3000 }).catch(() => "");
+    throw new Error(
+      `People Planner tile not found in launcher frame. Frame content snippet: ${frameText.slice(0, 400)}`
+    );
+  }
+
+  // ── Extract href before clicking (fallback if new tab event is missed) ──────
+  const ppHref = await ppTile.evaluate((el) => {
+    const a = el instanceof HTMLAnchorElement ? el : el.closest("a");
+    return a?.href ?? "";
+  }).catch(() => "");
+
+  // ── Click tile and capture the new tab ────────────────────────────────────
+  let plannerPage: Page;
+  const pagesBefore = context.pages();
+  const newTabPromise = context.waitForEvent("page", { timeout: 60000 });
+  newTabPromise.catch(() => {});
+  await ppTile.click({ force: true });
+
+  try {
+    plannerPage = await newTabPromise;
+  } catch {
+    // Fallback 1: check if a new page appeared in the context
+    const pagesAfter = context.pages();
+    const newPages = pagesAfter.filter(p => !pagesBefore.includes(p));
+    if (newPages.length > 0) {
+      plannerPage = newPages[newPages.length - 1];
+    } else if (ppHref) {
+      // Fallback 2: open the href directly
+      const newTabPromise2 = context.waitForEvent("page", { timeout: 30000 });
+      newTabPromise2.catch(() => {});
+      await page.evaluate((url) => window.open(url, "_blank"), ppHref);
+      plannerPage = await newTabPromise2;
+    } else {
+      await debugScreenshot(page, "no-new-tab");
+      throw new Error("Clicked People Planner but no new tab opened.");
+    }
+  }
+
   await plannerPage.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {});
-  await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+  await plannerPage.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
   await plannerPage.bringToFront();
 
   return plannerPage;
