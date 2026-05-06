@@ -73,20 +73,21 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
 /**
  * Maximum account slots supported by the pool.
  *
- * Env-var layout (non-sequential — there is intentionally no _2 pair):
+ * Env-var layout:
  *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD          (required)
- *   Slot 2 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3        (optional)
- *   Slot 3 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4        (optional)
- *   Slot 4 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5        (optional)
- *   Slot 5 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6        (optional)
+ *   Slot 2 : ACCESS_EMAIL_1 / ACCESS_PASSWORD_1        (optional)
+ *   Slot 3 : ACCESS_EMAIL_2 / ACCESS_PASSWORD_2        (optional)
+ *   Slot 4 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3        (optional)
+ *   Slot 5 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4        (optional)
+ *   Slot 6 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5        (optional)
  *
- * With all five pairs configured the pool reaches its full capacity of 5
+ * With all six pairs configured the pool reaches its full capacity of 6
  * concurrent sessions.
  */
-export const MAX_ACCOUNT_SLOTS = 5;
+export const MAX_ACCOUNT_SLOTS = 6;
 
 /**
- * Load all configured accounts from the non-sequential env-var layout above.
+ * Load all configured accounts from the env-var layout above.
  *
  * Runtime slot numbers are contiguous (1..N) regardless of which optional
  * pairs are present, so session files are always
@@ -95,11 +96,10 @@ export const MAX_ACCOUNT_SLOTS = 5;
  */
 function loadAccountPool(): SlotState[] {
   const pool: SlotState[] = [];
-  const e1 = process.env.ACCESS_EMAIL;
-  const p1 = process.env.ACCESS_PASSWORD;
-  if (e1 && p1) pool.push(makeSlot(1, e1, p1));
-  // Env-var numbering jumps from the base pair directly to _3 (no _2 pair).
-  for (const n of [3, 4, 5, 6]) {
+  const e0 = process.env.ACCESS_EMAIL;
+  const p0 = process.env.ACCESS_PASSWORD;
+  if (e0 && p0) pool.push(makeSlot(1, e0, p0));
+  for (const n of [1, 2, 3, 4, 5]) {
     const e = process.env[`ACCESS_EMAIL_${n}`];
     const p = process.env[`ACCESS_PASSWORD_${n}`];
     if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
