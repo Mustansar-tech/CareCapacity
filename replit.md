@@ -156,9 +156,7 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 | `TRAVELTIME_API_KEY` | TravelTime API key |
 | `ACCESS_EMAIL` | Email for People Planner account slot 1 (required) |
 | `ACCESS_PASSWORD` | Password for People Planner account slot 1 (required) |
-| `ACCESS_EMAIL_2` | Email for account slot 2 (optional) |
-| `ACCESS_PASSWORD_2` | Password for account slot 2 |
-| `ACCESS_EMAIL_3` | Email for account slot 3 (optional) |
+| `ACCESS_EMAIL_3` | Email for account slot 3 (optional) — note: no `_2` pair; numbering jumps from base to `_3` |
 | `ACCESS_PASSWORD_3` | Password for account slot 3 |
 | `ACCESS_EMAIL_4` | Email for account slot 4 (optional) |
 | `ACCESS_PASSWORD_4` | Password for account slot 4 |
