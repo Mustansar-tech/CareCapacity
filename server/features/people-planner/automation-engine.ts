@@ -56,6 +56,8 @@ let sharedContext: BrowserContext | null = null;
 let sharedPlannerPage: Page | null = null;
 /** Branch URL that sharedPlannerPage was opened for — if this changes we must re-navigate */
 let sharedPlannerBranchUrl: string | null = null;
+/** Timestamp of the last browser crash — used to add recovery cooldown before next job */
+let lastBrowserCrashAt: number = 0;
 
 ensureDir(DOWNLOAD_DIR);
 
@@ -208,7 +210,11 @@ async function processNextQueuedJob(): Promise<void> {
     logger.error("Unhandled automation error", err instanceof Error ? err : undefined, { jobId: job.id });
   }).finally(() => {
     isProcessingQueue = false;
-    setImmediate(() => processNextQueuedJob());
+    // If a browser crash happened recently, give the OS 6 seconds to free
+    // memory before launching the next job's browser process.
+    const msSinceCrash = Date.now() - lastBrowserCrashAt;
+    const cooldown = lastBrowserCrashAt > 0 && msSinceCrash < 30000 ? 6000 : 500;
+    setTimeout(() => processNextQueuedJob(), cooldown);
   });
 }
 
@@ -305,8 +311,7 @@ async function runJob(job: AutomationJob): Promise<void> {
 
       // Step 2 — Navigate directly to the branch URL to select the branch
       addLog(job, `Selecting branch via URL: ${branchUrl}`);
-      await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-      await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+      await navigateToBranchUrl(workspacePage, branchUrl, job);
 
       // Step 3 — Open People Planner from the launcher
       addLog(job, "Opening People Planner from the Access launcher...");
@@ -363,9 +368,48 @@ async function runJob(job: AutomationJob): Promise<void> {
     if (sharedBrowser) {
       await sharedBrowser.close().catch(() => {});
       sharedBrowser = null;
+      // Record crash time so processNextQueuedJob adds a recovery cooldown
+      lastBrowserCrashAt = Date.now();
     }
   } finally {
     currentJobId = null;
+  }
+}
+
+// ─── Branch navigation with retry ─────────────────────────────────────────────
+/**
+ * Navigate to the Access Workspace branch URL.
+ *
+ * The workspace is a React SPA that goes through a redirect chain after login.
+ * Using waitUntil:"commit" fires as soon as the first HTTP response headers
+ * arrive (not waiting for the full DOM), which avoids 30-second timeouts on
+ * slow SPA boots. If the first attempt fails we wait and retry once.
+ */
+async function navigateToBranchUrl(page: Page, branchUrl: string, job: AutomationJob): Promise<void> {
+  const MAX_ATTEMPTS = 3;
+  const ATTEMPT_TIMEOUT = 60000;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      addLog(job, attempt > 1 ? `Branch navigation attempt ${attempt}...` : `Navigating to branch...`);
+      await page.goto(branchUrl, { waitUntil: "commit", timeout: ATTEMPT_TIMEOUT });
+      // Give the SPA a chance to finish client-side routing after the commit
+      await page.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
+      addLog(job, "Branch page loaded.");
+      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(job, `Branch navigation attempt ${attempt} failed: ${msg.slice(0, 120)}`);
+      logger.warn(`Branch URL navigation attempt ${attempt}/${MAX_ATTEMPTS} failed`, {
+        branchUrl,
+        jobId: job.id,
+        error: msg.slice(0, 200),
+      });
+      if (attempt === MAX_ATTEMPTS) throw err;
+      const backoff = attempt * 6000;
+      addLog(job, `Retrying in ${backoff / 1000}s...`);
+      await new Promise(r => setTimeout(r, backoff));
+    }
   }
 }
 
