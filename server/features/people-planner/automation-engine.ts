@@ -71,36 +71,37 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
 }
 
 /**
- * Maximum account slots supported by the pool (one base pair + five optional
- * numbered pairs = 6 total concurrent People Planner sessions).
+ * Maximum account slots supported by the pool.
+ *
+ * Env-var layout (non-sequential — there is intentionally no _2 pair):
+ *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD          (required)
+ *   Slot 2 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3        (optional)
+ *   Slot 3 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4        (optional)
+ *   Slot 4 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5        (optional)
+ *   Slot 5 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6        (optional)
+ *
+ * With all five pairs configured the pool reaches its full capacity of 5
+ * concurrent sessions.
  */
-export const MAX_ACCOUNT_SLOTS = 6;
+export const MAX_ACCOUNT_SLOTS = 5;
 
 /**
- * Load all configured accounts from environment variables (up to 6 slots).
+ * Load all configured accounts from the non-sequential env-var layout above.
  *
  * Runtime slot numbers are contiguous (1..N) regardless of which optional
- * env-var pairs are present, so session files are always
- * /tmp/pp-session-slot-1.json … /tmp/pp-session-slot-N.json with no gaps:
- *
- *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD   (required)
- *   Slot 2 : ACCESS_EMAIL_2 / ACCESS_PASSWORD_2 (optional — absent in some deployments)
- *   Slot 3 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 (optional)
- *   Slot 4 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4 (optional)
- *   Slot 5 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5 (optional)
- *   Slot 6 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6 (optional)
- *
- * Only slots where BOTH email and password are present are added to the pool.
+ * pairs are present, so session files are always
+ * /tmp/pp-session-slot-1.json … /tmp/pp-session-slot-N.json with no gaps.
+ * Only slots where BOTH email and password are set are added to the pool.
  */
 function loadAccountPool(): SlotState[] {
   const pool: SlotState[] = [];
   const e1 = process.env.ACCESS_EMAIL;
   const p1 = process.env.ACCESS_PASSWORD;
   if (e1 && p1) pool.push(makeSlot(1, e1, p1));
-  for (const n of [2, 3, 4, 5, 6]) {
+  // Env-var numbering jumps from the base pair directly to _3 (no _2 pair).
+  for (const n of [3, 4, 5, 6]) {
     const e = process.env[`ACCESS_EMAIL_${n}`];
     const p = process.env[`ACCESS_PASSWORD_${n}`];
-    // displayIndex is the contiguous pool position so session files have no gaps
     if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
   }
   return pool;
