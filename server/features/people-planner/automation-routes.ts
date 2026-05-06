@@ -17,8 +17,6 @@ import {
   getQueueLength,
   getDownloadPath,
   getSlotCount,
-  getIdleSlotIndex,
-  getSlotStatus,
   type JobConfig,
 } from "./automation-engine";
 
@@ -173,34 +171,87 @@ const activeSessions = new Map<string, PipelineSession>();
 /** FIFO queue of sessionIds waiting to start. */
 const sessionQueue: string[] = [];
 
+// ─── Session-level slot reservation ──────────────────────────────────────────
+// This map is the single source of truth for slot occupancy in the routing layer.
+// It is updated synchronously (before any async work starts and only after it
+// finishes), so there is no window where two callers can pick the same idle slot.
+//
+// The engine's per-job currentJobId is kept for engine-internal use only
+// (logging, cleanup) and is NOT used for routing decisions here.
+
+/** Maps 0-based slot array index → sessionId currently occupying it. */
+const slotReservations = new Map<number, string>();
+
+/** Atomically reserve a slot for a session. Must be called synchronously before launching async work. */
+function reserveSlot(slotIndex: number, sessionId: string): void {
+  slotReservations.set(slotIndex, sessionId);
+}
+
+/** Release a slot when a session completes or fails. */
+function releaseSlot(slotIndex: number): void {
+  slotReservations.delete(slotIndex);
+}
+
+/**
+ * Returns the 0-based index of the first unreserved slot, or -1 when all slots are busy.
+ * Uses the route-level reservation map — NOT the engine's per-job state — so the result
+ * is valid throughout the synchronous dispatch path.
+ */
+function findIdleSlotIndex(): number {
+  const total = getSlotCount();
+  for (let i = 0; i < total; i++) {
+    if (!slotReservations.has(i)) return i;
+  }
+  return -1;
+}
+
 /** True when every account slot is occupied by a running session. */
 function allSlotsBusy(): boolean {
-  return getIdleSlotIndex() === -1;
+  return findIdleSlotIndex() === -1;
+}
+
+/**
+ * Build the slot status array for the health endpoint.
+ * Reports session-level occupancy rather than per-job engine state.
+ */
+function routeSlotStatus(): Array<{ slotIndex: number; displayIndex: number; busy: boolean; currentSessionId: string | null }> {
+  const total = getSlotCount();
+  return Array.from({ length: total }, (_, i) => ({
+    slotIndex: i,
+    displayIndex: i + 1,
+    busy: slotReservations.has(i),
+    currentSessionId: slotReservations.get(i) ?? null,
+  }));
 }
 
 /** Returns queue position (1-based). Running sessions are position 1; queued sessions are 2+. */
 function getQueuePos(sessionId: string): number {
   if (activeSessions.get(sessionId)?.status === "running") return 1;
   const idx = sessionQueue.indexOf(sessionId);
-  const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
-  return idx === -1 ? 1 : runningSessions + idx + 1;
+  const runningCount = slotReservations.size;
+  return idx === -1 ? 1 : runningCount + idx + 1;
 }
 
 /**
  * Called after any session finishes. Drains the FIFO queue across all idle slots —
  * up to one queued session per idle slot is started on each call.
+ * Slot reservation happens synchronously inside the while loop before any async work
+ * begins, preventing two iterations from picking the same slot.
  */
 function startNextQueuedSession(): void {
   while (sessionQueue.length > 0) {
-    const idleSlot = getIdleSlotIndex();
+    const idleSlot = findIdleSlotIndex();
     if (idleSlot === -1) return; // all slots busy — stop draining
 
     const nextId = sessionQueue.shift()!;
     const session = activeSessions.get(nextId);
     if (!session?.pendingParams) {
       logger.warn("Queued session missing or has no params — skipping", { nextId });
-      continue; // skip and try the next one
+      continue; // skip and try the next one in the queue
     }
+
+    // Reserve the slot synchronously before launching any async work.
+    reserveSlot(idleSlot, nextId);
 
     const params = session.pendingParams;
     session.status = "running";
@@ -227,6 +278,7 @@ function startNextQueuedSession(): void {
       }
       logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
     }).finally(() => {
+      releaseSlot(idleSlot);
       setImmediate(() => startNextQueuedSession());
     });
   }
@@ -300,7 +352,9 @@ export async function programmaticQueueSync(
   const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
   const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-  if (allSlotsBusy()) {
+  // Check slot availability and reserve synchronously before any async work.
+  const idleSlot = findIdleSlotIndex();
+  if (idleSlot === -1) {
     const pendingSession: PipelineSession = {
       sessionId,
       status: "queued",
@@ -319,14 +373,13 @@ export async function programmaticQueueSync(
     };
     activeSessions.set(sessionId, pendingSession);
     sessionQueue.push(sessionId);
-    const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
-    const queuePosition = runningSessions + sessionQueue.length;
+    const queuePosition = slotReservations.size + sessionQueue.length;
     logger.info("Programmatic PP sync queued — all slots busy", { sessionId, branchId, queuePosition });
     return { sessionId, queued: true, queuePosition };
   }
 
-  // Start immediately on an idle slot
-  const idleSlot = getIdleSlotIndex();
+  // Reserve slot synchronously, then start the async pipeline.
+  reserveSlot(idleSlot, sessionId);
   const newSession: PipelineSession = {
     sessionId,
     status: "running",
@@ -349,6 +402,7 @@ export async function programmaticQueueSync(
     }
     logger.error("Programmatic pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
+    releaseSlot(idleSlot);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -413,8 +467,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       branchConfigured,
       playwrightReady,
       accountCount: getSlotCount(),
-      idleCount: getSlotCount() - Array.from(activeSessions.values()).filter(s => s.status === "running").length,
-      slots: getSlotStatus(),
+      idleCount: getSlotCount() - slotReservations.size,
+      slots: routeSlotStatus(),
     });
   });
 
@@ -594,8 +648,11 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const initiatedByUserId = req.session.userId ?? "unknown";
 
-      // ── Account pool: assign to idle slot or queue if all slots are busy ──
-      if (allSlotsBusy()) {
+      // ── Account pool: reserve a slot synchronously or queue ──────────────
+      // findIdleSlotIndex() + reserveSlot() both run synchronously in this
+      // event-loop turn, so no two concurrent HTTP requests can pick the same slot.
+      const idleSlot = findIdleSlotIndex();
+      if (idleSlot === -1) {
         const pendingSession: PipelineSession = {
           sessionId,
           status: "queued",
@@ -614,13 +671,13 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         };
         activeSessions.set(sessionId, pendingSession);
         sessionQueue.push(sessionId);
-        const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
-        const queuePosition = runningSessions + sessionQueue.length;
-        logger.info("PP sync queued — all slots busy", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: runningSessions });
+        const queuePosition = slotReservations.size + sessionQueue.length;
+        logger.info("PP sync queued — all slots busy", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: slotReservations.size });
         return res.status(202).json({ sessionId, queued: true, queuePosition });
       }
 
-      const idleSlot = getIdleSlotIndex();
+      // Reserve slot synchronously before any await.
+      reserveSlot(idleSlot, sessionId);
       const newSession: PipelineSession = {
         sessionId,
         status: "running",
@@ -656,6 +713,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
           });
         }
       }).finally(() => {
+        releaseSlot(idleSlot);
         setImmediate(() => startNextQueuedSession());
       });
 
