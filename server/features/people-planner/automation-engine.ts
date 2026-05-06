@@ -558,7 +558,7 @@ async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<v
       }
     }
     await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-    await plannerPage.waitForTimeout(2000);
+    await plannerPage.waitForTimeout(500);
   }
 }
 
@@ -696,25 +696,25 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
         });
       }
     }
-    await plannerPage.waitForTimeout(1000);
+    await plannerPage.waitForTimeout(400);
     si++;
   }
 
   if (reportConfig.fields.area && selectCount > si) {
     // Area is always left as "All" — Franchise selection is the branch filter
-    await plannerPage.waitForTimeout(800);
+    await plannerPage.waitForTimeout(200);
     si++;
   }
 
   if (reportConfig.fields.type && selectCount > si && config.careGiverType) {
     await selectBest(selects.nth(si), config.careGiverType, "Type");
-    await plannerPage.waitForTimeout(800);
+    await plannerPage.waitForTimeout(400);
     si++;
   }
 
   if (reportConfig.fields.status && selectCount > si && config.careGiverStatus) {
     await selectBest(selects.nth(si), config.careGiverStatus, "Status");
-    await plannerPage.waitForTimeout(800);
+    await plannerPage.waitForTimeout(400);
     si++;
   }
 
@@ -725,13 +725,13 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
     const dateCount = await dateInputs.count();
     if (reportConfig.fields.startDate && dateCount >= 1) {
       await fillDateInput(dateInputs.nth(0), config.startDate, "Start date");
-      await plannerPage.waitForTimeout(400);
+      await plannerPage.waitForTimeout(200);
     }
     if (reportConfig.fields.endDate && dateCount >= 2) {
       await fillDateInput(dateInputs.nth(1), config.endDate, "End date");
-      await plannerPage.waitForTimeout(400);
+      await plannerPage.waitForTimeout(200);
     }
-    await plannerPage.waitForTimeout(600);
+    await plannerPage.waitForTimeout(300);
   }
 
   if (reportConfig.fields.includeBankDetails) {
@@ -751,7 +751,7 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
       const opts = await selectsNow.nth(i).locator("option").allInnerTexts().catch(() => [] as string[]);
       if (opts.some(o => /csv|excel/i.test(o))) {
         await selectBest(selectsNow.nth(i), config.exportType, "Export Type");
-        await plannerPage.waitForTimeout(900);
+        await plannerPage.waitForTimeout(400);
         break;
       }
     }
@@ -764,7 +764,7 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
       const opts = await selectsNow.nth(i).locator("option").allInnerTexts().catch(() => [] as string[]);
       if (opts.some(o => o.toLowerCase().includes("template") || o.toLowerCase().includes("export"))) {
         await selectBest(selectsNow.nth(i), config.exportTemplate, "Export Template");
-        await plannerPage.waitForTimeout(900);
+        await plannerPage.waitForTimeout(400);
         break;
       }
     }
@@ -786,21 +786,29 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
       const checkboxes = formFrame.locator("input[type='checkbox']");
       const cbCount = await checkboxes.count().catch(() => 0);
       if (cbCount > 0) {
-        let checked = 0;
-        for (let i = 0; i < cbCount; i++) {
-          const isChecked = await checkboxes.nth(i).isChecked().catch(() => false);
-          if (!isChecked) {
-            await checkboxes.nth(i).check({ force: true }).catch(() => {});
-            checked++;
-          }
+        // Batch-read all checked states in one JS call to avoid N round-trips
+        const checkedStates: boolean[] = await checkboxes.evaluateAll(
+          (els) => (els as HTMLInputElement[]).map(el => el.checked)
+        ).catch(() => [] as boolean[]);
+
+        const uncheckedIndices = checkedStates
+          .map((checked, i) => (!checked ? i : -1))
+          .filter(i => i >= 0);
+
+        for (const i of uncheckedIndices) {
+          await checkboxes.nth(i).check({ force: true }).catch(() => {});
         }
-        logger.info("Checked care giver checkboxes", { total: cbCount, alreadyChecked: cbCount - checked });
-        await plannerPage.waitForTimeout(500);
+        logger.info("Checked care giver checkboxes", {
+          total: cbCount,
+          alreadyChecked: cbCount - uncheckedIndices.length,
+          checked: uncheckedIndices.length,
+        });
+        if (uncheckedIndices.length > 0) await plannerPage.waitForTimeout(300);
       }
     }
   }
 
-  await plannerPage.waitForTimeout(500);
+  await plannerPage.waitForTimeout(200);
 }
 
 // ─── Trigger download ─────────────────────────────────────────────────────────
@@ -874,7 +882,7 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
       if (count === 0) continue;
       for (let i = 0; i < count; i++) {
         const btn = loc.nth(i);
-        if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
+        if (await btn.isVisible({ timeout: 200 }).catch(() => false)) {
           await btn.click({ force: true });
           logger.info("Clicked export button", { label, index: i });
           return true;
