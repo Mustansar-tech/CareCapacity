@@ -216,9 +216,10 @@ function allSlotsBusy(): boolean {
  */
 function routeSlotStatus(): Array<{ slotIndex: number; displayIndex: number; busy: boolean; currentSessionId: string | null }> {
   const total = getSlotCount();
+  // displayIndex mirrors the engine's contiguous makeSlot(pool.length + 1) numbering
   return Array.from({ length: total }, (_, i) => ({
     slotIndex: i,
-    displayIndex: i + 1,
+    displayIndex: i + 1,   // same as engine: sequential 1-based display index
     busy: slotReservations.has(i),
     currentSessionId: slotReservations.get(i) ?? null,
   }));

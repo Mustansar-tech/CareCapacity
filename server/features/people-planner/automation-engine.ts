@@ -73,32 +73,32 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
 /**
  * Load all configured accounts from environment variables (up to 6 slots).
  *
- * Slot identities are **fixed** to their env-var number so session files are
- * stable and predictable regardless of which optional slots are configured:
+ * Runtime slot numbers are **contiguous** (1, 2, 3 … N) regardless of which
+ * optional env-var pairs are present, so session files are always
+ * /tmp/pp-session-slot-1.json … /tmp/pp-session-slot-N.json with no gaps:
  *
- *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD   → /tmp/pp-session-slot-1.json (required)
- *   Slot 3 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 → /tmp/pp-session-slot-3.json (optional)
- *   Slot 4 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4 → /tmp/pp-session-slot-4.json (optional)
- *   Slot 5 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5 → /tmp/pp-session-slot-5.json (optional)
- *   Slot 6 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6 → /tmp/pp-session-slot-6.json (optional)
+ *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD   (required)
+ *   Slot 2 : ACCESS_EMAIL_2 / ACCESS_PASSWORD_2 (optional)
+ *   Slot 3 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 (optional)
+ *   Slot 4 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4 (optional)
+ *   Slot 5 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5 (optional)
+ *   Slot 6 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6 (optional)
  *
- * There is intentionally no _2 pair — env-var numbering jumps from the base
- * pair to _3. Using the suffix as the display index keeps file names stable:
- * a deployment with only base + _3 + _6 will have slot-1, slot-3, slot-6
- * regardless of which other slots are absent.
- *
- * Only slots where BOTH email and password are set are loaded into the pool.
+ * The _2 suffix env vars may not be present in every deployment (the Access
+ * Workspace account numbering jumped from the base pair to _3 in earlier
+ * configurations). When _2 is absent the pool simply has fewer than 6 slots.
+ * Only slots where BOTH email and password are set are loaded.
  */
 function loadAccountPool(): SlotState[] {
   const pool: SlotState[] = [];
   const e1 = process.env.ACCESS_EMAIL;
   const p1 = process.env.ACCESS_PASSWORD;
   if (e1 && p1) pool.push(makeSlot(1, e1, p1));
-  // Suffixes 3–6 correspond to display indices 3–6 (slot 2 is intentionally absent)
-  for (const n of [3, 4, 5, 6]) {
+  for (const n of [2, 3, 4, 5, 6]) {
     const e = process.env[`ACCESS_EMAIL_${n}`];
     const p = process.env[`ACCESS_PASSWORD_${n}`];
-    if (e && p) pool.push(makeSlot(n, e, p));  // displayIndex = suffix number
+    // displayIndex is the contiguous pool position, not the env-var suffix
+    if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
   }
   return pool;
 }
