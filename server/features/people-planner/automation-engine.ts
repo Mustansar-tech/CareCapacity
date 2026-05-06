@@ -72,11 +72,12 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
 
 /**
  * Maximum supported account slots in the pool.
- * Matches the number of available Access Workspace accounts:
- *   base (slot 1) + _3.._6 (slots 2–5) = up to 5 loaded,
- *   supporting up to MAX_ACCOUNT_SLOTS concurrent syncs when all are configured.
+ * Env-var layout: base pair (slot 1) + ACCESS_EMAIL_3.._6 (slots 2–5).
+ * The _2 pair is intentionally absent — Account Workspace numbering jumps
+ * from the base pair directly to _3. With all five pairs configured the pool
+ * reaches its full 5-slot capacity.
  */
-export const MAX_ACCOUNT_SLOTS = 6;
+export const MAX_ACCOUNT_SLOTS = 5;
 
 /**
  * Load all configured accounts from environment variables.

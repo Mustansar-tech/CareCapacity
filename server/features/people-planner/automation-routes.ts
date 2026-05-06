@@ -466,8 +466,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       credentialsConfigured: hasCredentials,
       branchConfigured,
       playwrightReady,
-      accountCount: MAX_ACCOUNT_SLOTS,
-      configuredCount: getSlotCount(),
+      accountCount: getSlotCount(),
+      maxSlots: MAX_ACCOUNT_SLOTS,
       idleCount: getSlotCount() - slotReservations.size,
       slots: routeSlotStatus(),
     });
@@ -762,7 +762,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       queued: queued.map((s, i) => mapSession(s, allRunning.length + i + 1)),
       total: allRunning.length + queued.length,
       accountSlots: getSlotCount(),
-      idleSlots: allRunning.length < getSlotCount() ? getSlotCount() - allRunning.length : 0,
+      idleSlots: Math.max(0, getSlotCount() - allRunning.length),
     });
   });
 
