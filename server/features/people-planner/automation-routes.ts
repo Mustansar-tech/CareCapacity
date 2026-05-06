@@ -214,12 +214,10 @@ function allSlotsBusy(): boolean {
  * Build the slot status array for the health endpoint.
  * Reports session-level occupancy rather than per-job engine state.
  */
-function routeSlotStatus(): Array<{ slotIndex: number; displayIndex: number; busy: boolean; currentSessionId: string | null }> {
+function routeSlotStatus(): Array<{ index: number; busy: boolean; currentSessionId: string | null }> {
   const total = getSlotCount();
-  // displayIndex mirrors the engine's contiguous makeSlot(pool.length + 1) numbering
   return Array.from({ length: total }, (_, i) => ({
-    slotIndex: i,
-    displayIndex: i + 1,   // same as engine: sequential 1-based display index
+    index: i + 1,                             // 1-based slot number matching engine display index
     busy: slotReservations.has(i),
     currentSessionId: slotReservations.get(i) ?? null,
   }));
