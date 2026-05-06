@@ -36,6 +36,7 @@ export default function Dashboard() {
     setFilteredData,
     setSelectedDate,
     setSelectedWeekId,
+    resetToLatest,
   } = useWeek();
 
   const [files, setFiles] = useState<{
@@ -104,12 +105,11 @@ export default function Dashboard() {
       return response.json();
     },
     onSuccess: (data: ProcessingResult) => {
-      setProcessedData(data);
-      setSelectedWeekId(null);
+      // resetToLatest sets the fresh data immediately and arms a skip-flag so
+      // the WeekContext auto-load effect doesn't overwrite it with stale
+      // latestData before the /api/history/latest query re-fetches.
+      resetToLatest(data, data.dailySummary?.[0]?.date ?? null);
       setIsProcessing(false);
-      if (data.dailySummary && data.dailySummary.length > 0) {
-        setSelectedDate(data.dailySummary[0].date);
-      }
       setFiles({ availability: null, guaranteed: null, demand: null, cgData: null });
       queryClient.invalidateQueries({ queryKey: ['/api/history'] });
       queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
