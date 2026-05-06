@@ -202,11 +202,18 @@ async function runJob(job: AutomationJob): Promise<void> {
   job.status = "running";
   addLog(job, "Starting automation...");
 
-  const email = process.env.ACCESS_EMAIL;
-  const password = process.env.ACCESS_PASSWORD;
-  if (!email || !password) {
+  const primaryEmail = process.env.ACCESS_EMAIL;
+  const primaryPassword = process.env.ACCESS_PASSWORD;
+  const alternateEmail = process.env.ACCESS_EMAIL_2;
+  const alternatePassword = process.env.ACCESS_PASSWORD_2;
+  const credentials = [
+    { email: primaryEmail, password: primaryPassword, label: "primary" },
+    { email: alternateEmail, password: alternatePassword, label: "alternate" },
+  ].filter((c): c is { email: string; password: string; label: string } => !!(c.email && c.password));
+
+  if (credentials.length === 0) {
     job.status = "failed";
-    job.error = "ACCESS_EMAIL and ACCESS_PASSWORD environment variables are not set";
+    job.error = "ACCESS_EMAIL / ACCESS_PASSWORD credentials are not set";
     job.completedAt = new Date().toISOString();
     addLog(job, `Failed: ${job.error}`);
     currentJobId = null;
@@ -267,10 +274,23 @@ async function runJob(job: AutomationJob): Promise<void> {
 
       const needsLogin = await checkNeedsLogin(workspacePage);
       if (needsLogin) {
-        addLog(job, "Logging in with credentials...");
-        await login(workspacePage, email, password);
-        await sharedContext.storageState({ path: SESSION_FILE });
-        addLog(job, "Login successful, session saved.");
+        let loginError: unknown = null;
+        for (const creds of credentials) {
+          try {
+            addLog(job, `Logging in with ${creds.label} credentials...`);
+            await login(workspacePage, creds.email, creds.password);
+            await sharedContext.storageState({ path: SESSION_FILE });
+            addLog(job, `Login successful with ${creds.label} credentials, session saved.`);
+            loginError = null;
+            break;
+          } catch (err) {
+            loginError = err;
+            addLog(job, `Login failed with ${creds.label} credentials, trying next account...`);
+            await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+            await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+          }
+        }
+        if (loginError) throw loginError;
       } else {
         // force=true in LOGIN_URL normally always shows the form;
         // if we land elsewhere the saved session is still valid

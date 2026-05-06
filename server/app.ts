@@ -36,7 +36,7 @@ export async function configureApp(app: Express): Promise<Server> {
 
   registerAuthRoutes(app);
 
-  if (process.env.ACCESS_EMAIL) {
+  if (process.env.ACCESS_EMAIL || process.env.ACCESS_EMAIL_2) {
     registerPeoplePlannerRoutes(app);
     initScheduler();
   }

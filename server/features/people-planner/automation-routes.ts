@@ -346,7 +346,9 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // GET /api/pp/health — check automation is configured, usable, and Playwright accessible
   app.get("/api/pp/health", requireAuth, async (req, res) => {
-    const hasCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
+    const hasPrimaryCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
+    const hasAlternateCredentials = !!(process.env.ACCESS_EMAIL_2 && process.env.ACCESS_PASSWORD_2);
+    const hasCredentials = hasPrimaryCredentials || hasAlternateCredentials;
     const branchId = req.query.branchId as string | undefined;
     // Branch URLs are built-in for all known branches; check the specific branch if provided
     const branchConfigured = branchId
@@ -384,7 +386,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
     const healthy = hasCredentials && playwrightReady;
     const reason = !hasCredentials
-      ? "ACCESS_EMAIL / ACCESS_PASSWORD not configured"
+      ? "No Access Evo credentials configured"
       : !playwrightReady
       ? "Browser automation engine is not ready"
       : undefined;
@@ -393,6 +395,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       healthy,
       reason,
       credentialsConfigured: hasCredentials,
+      primaryCredentialsConfigured: hasPrimaryCredentials,
+      alternateCredentialsConfigured: hasAlternateCredentials,
       branchConfigured,
       playwrightReady,
     });
