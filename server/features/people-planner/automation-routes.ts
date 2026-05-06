@@ -709,6 +709,50 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     res.json(getSchedulerStatus());
   });
 
+  // GET /api/pp/scheduler/branches — which branches have PP configuration
+  app.get("/api/pp/scheduler/branches", requireAuth, requireRoleAtLeast("admin"), (_req, res) => {
+    const branchIds = getConfiguredBranchIds();
+    res.json({ branchIds, count: branchIds.length });
+  });
+
+  // POST /api/pp/scheduler/trigger — admin-initiated manual weekly run for all branches
+  // Body: { label: "previous" | "current" | "next" }
+  app.post("/api/pp/scheduler/trigger", requireAuth, requireRoleAtLeast("admin"), async (req, res) => {
+    const label = req.body?.label as string | undefined;
+    const OFFSETS: Record<string, number> = { previous: -7, current: 0, next: 7 };
+    if (!label || !(label in OFFSETS)) {
+      return res.status(400).json({ error: "Body field 'label' must be 'previous' | 'current' | 'next'" });
+    }
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({ error: "People Planner credentials not configured" });
+    }
+
+    const now = new Date();
+    const day = now.getUTCDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setUTCDate(now.getUTCDate() + diffToMonday + OFFSETS[label]);
+    monday.setUTCHours(0, 0, 0, 0);
+    const weekStartDate = monday.toISOString().split("T")[0];
+
+    const branchIds = getConfiguredBranchIds();
+    const userId = (req.session as any)?.userId ?? "unknown";
+    logger.info("Manual weekly sync triggered by admin", { label, weekStartDate, branchIds, userId });
+    updateSchedulerStatus({ lastRunAt: new Date().toISOString(), lastRunBranchIds: branchIds });
+
+    // Respond immediately — sync queuing runs in the background
+    res.json({ ok: true, label, weekStartDate, branchIds, branchCount: branchIds.length });
+
+    for (const branchId of branchIds) {
+      try {
+        const result = await programmaticQueueSync(branchId, weekStartDate, `manual-${label}`);
+        logger.info("Manual sync queued", { branchId, label, weekStartDate, ...result });
+      } catch (err) {
+        logger.error("Manual sync: failed to queue branch", err instanceof Error ? err : undefined, { branchId, label });
+      }
+    }
+  });
+
   // POST /api/cron/sync?label=previous|current|next — cron-job.org friendly alias
   // Secured by CRON_SECRET via standard "Authorization: Bearer <token>" header.
   // No session cookie required so sleeping autoscale instances can be woken up.
