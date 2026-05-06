@@ -9,7 +9,7 @@ function branchErrorStatus(message: string): number {
 
 export async function getHistory(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);
-  const analyses = await capacityRepo.getLatestWeeksAnalyses(branchId, 8);
+  const analyses = await capacityRepo.getLatestWeeksAnalyses(branchId, 12);
   res.json(analyses);
 }
 

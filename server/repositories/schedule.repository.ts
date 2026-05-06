@@ -102,7 +102,7 @@ export async function upsertCpScheduledVisitsByDates(branchId: string, dates: st
   });
 }
 
-export async function enforceRetentionCpScheduledVisits(branchId: string, keepWeeks = 8): Promise<void> {
+export async function enforceRetentionCpScheduledVisits(branchId: string, keepWeeks = 12): Promise<void> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
   const cutoffStr = cutoffDate.toISOString().slice(0, 10);

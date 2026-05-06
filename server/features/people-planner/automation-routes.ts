@@ -936,7 +936,7 @@ async function runPipelineSession(
           }
         }
         await storage.upsertCpScheduledVisitsByDates(branchId, weekDates, visitRows);
-        await storage.enforceRetentionCpScheduledVisits(branchId, 8);
+        await storage.enforceRetentionCpScheduledVisits(branchId, 12);
       }
     } catch (err) {
       logger.warn("Failed to persist CP visits (non-fatal)", { err });
