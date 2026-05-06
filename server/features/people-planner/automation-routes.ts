@@ -467,7 +467,6 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       branchConfigured,
       playwrightReady,
       accountCount: getSlotCount(),
-      maxSlots: MAX_ACCOUNT_SLOTS,
       idleCount: getSlotCount() - slotReservations.size,
       slots: routeSlotStatus(),
     });
