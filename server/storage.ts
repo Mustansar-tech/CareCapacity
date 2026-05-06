@@ -388,7 +388,7 @@ export class MemStorage implements IStorage {
     await this.saveCpScheduledVisits(visitRows);
   }
 
-  async enforceRetentionCpScheduledVisits(branchId: string, keepWeeks: number = 12): Promise<void> {
+  async enforceRetentionCpScheduledVisits(branchId: string, keepWeeks: number = 8): Promise<void> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
     const cutoffStr = cutoffDate.toISOString().slice(0, 10);

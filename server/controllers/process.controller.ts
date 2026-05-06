@@ -169,7 +169,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
         }
       }
       await scheduleRepo.upsertCpScheduledVisitsByDates(requestedBranchId, weekDates, visitRows);
-      await scheduleRepo.enforceRetentionCpScheduledVisits(requestedBranchId, 12);
+      await scheduleRepo.enforceRetentionCpScheduledVisits(requestedBranchId, 8);
       logger.info('Persisted CP scheduled visits to database (date-aware upsert)', {
         branchId: requestedBranchId, employees: scheduleMap.size, totalVisits: visitRows.length, weekDates: weekDates.length,
       });

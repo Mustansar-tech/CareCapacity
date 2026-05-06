@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useBranch } from "@/contexts/BranchContext";
 import { useWeek } from "@/contexts/WeekContext";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   Bot,
   Download,
@@ -25,8 +24,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Globe,
-  Play,
 } from "lucide-react";
 
 interface AutomationJob {
@@ -117,43 +114,16 @@ function elapsedTime(startedAt: string): string {
   return `${Math.floor(diff / 60)}m ${diff % 60}s`;
 }
 
-type WeekLabel = "previous" | "current" | "next";
-
-const WEEK_LABEL_DISPLAY: Record<WeekLabel, string> = {
-  previous: "Last week",
-  current: "This week",
-  next: "Next week",
-};
-
-function getWeekRangeForLabel(label: WeekLabel): { start: string; end: string } {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const OFFSETS: Record<WeekLabel, number> = { previous: -7, current: 0, next: 7 };
-  const monday = new Date(now);
-  monday.setUTCDate(now.getUTCDate() + diffToMonday + OFFSETS[label]);
-  monday.setUTCHours(0, 0, 0, 0);
-  const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
-  return {
-    start: monday.toISOString().split("T")[0],
-    end: sunday.toISOString().split("T")[0],
-  };
-}
-
 export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
   const { switchToLatest } = useWeek();
-  const { isAdmin } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
-  const [weeklyLabel, setWeeklyLabel] = useState<WeekLabel>("current");
-  const [weeklyTriggered, setWeeklyTriggered] = useState<{ label: WeekLabel; weekStart: string; branchCount: number } | null>(null);
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
@@ -254,30 +224,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         description: err.message,
         variant: "destructive",
       });
-    },
-  });
-
-  const weeklyTriggerMutation = useMutation({
-    mutationFn: async (label: WeekLabel) => {
-      const res = await fetch("/api/pp/scheduler/trigger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ label }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
-      return data as { ok: boolean; label: WeekLabel; weekStartDate: string; branchIds: string[]; branchCount: number };
-    },
-    onSuccess: (data) => {
-      setWeeklyTriggered({ label: data.label, weekStart: data.weekStartDate, branchCount: data.branchCount });
-      toast({
-        title: "Weekly sync started",
-        description: `Queued ${data.branchCount} branch${data.branchCount !== 1 ? "es" : ""} for ${WEEK_LABEL_DISPLAY[data.label].toLowerCase()} (w/c ${formatDate(data.weekStartDate)}).`,
-      });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Failed to trigger weekly sync", description: err.message, variant: "destructive" });
     },
   });
 
@@ -544,73 +490,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             </Button>
           )}
         </div>
-
-        {/* Admin-only: run all branches for a full week */}
-        {isAdmin && (
-          <div className="border-t pt-4 mt-2 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-                <Globe className="w-3.5 h-3.5 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold leading-tight">Weekly sync — all branches</p>
-                <p className="text-xs text-muted-foreground">Runs previous, current &amp; next week across every configured branch</p>
-              </div>
-            </div>
-
-            {/* Week selector tabs */}
-            <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
-              {(["previous", "current", "next"] as WeekLabel[]).map(label => {
-                const range = getWeekRangeForLabel(label);
-                return (
-                  <button
-                    key={label}
-                    onClick={() => { setWeeklyLabel(label); setWeeklyTriggered(null); }}
-                    className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${
-                      weeklyLabel === label
-                        ? "bg-white dark:bg-gray-800 shadow-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <span className="block">{WEEK_LABEL_DISPLAY[label]}</span>
-                    <span className="block text-[10px] opacity-70 mt-0.5">
-                      {formatDate(range.start)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Triggered success notice */}
-            {weeklyTriggered && weeklyTriggered.label === weeklyLabel && (
-              <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  Queued {weeklyTriggered.branchCount} branch{weeklyTriggered.branchCount !== 1 ? "es" : ""} — syncing in background
-                </p>
-              </div>
-            )}
-
-            <Button
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 shadow-md disabled:opacity-60"
-              onClick={() => weeklyTriggerMutation.mutate(weeklyLabel)}
-              disabled={weeklyTriggerMutation.isPending || !automationAvailable}
-              title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
-            >
-              {weeklyTriggerMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Queuing branches...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Run {WEEK_LABEL_DISPLAY[weeklyLabel].toLowerCase()} — all branches
-                </>
-              )}
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

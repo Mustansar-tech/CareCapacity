@@ -38,88 +38,10 @@ export interface AutomationJob {
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 const DOWNLOAD_DIR = path.resolve("/tmp/pp-automation-downloads");
-const SESSION_DIR  = path.resolve("/tmp/pp-access-sessions");
-const DEBUG_DIR    = path.resolve(process.cwd(), "pp-debug-screenshots");
-const LOGIN_URL    = "https://identity.accessacloud.com/auth/signin?force=true&setemail=false&settenant=false";
+const SESSION_FILE = path.resolve("/tmp/pp-access-session.json");
+const DEBUG_DIR = path.resolve(process.cwd(), "pp-debug-screenshots");
+const LOGIN_URL = "https://identity.accessacloud.com/auth/signin?force=true&setemail=false&settenant=false";
 const WORKSPACE_URL = "https://go.accessacloud.com/";
-
-// ─── Account pool ─────────────────────────────────────────────────────────────
-
-export interface AccessCredential {
-  email: string;
-  password: string;
-  /** Human-readable label: "account-1", "account-2", etc. */
-  label: string;
-  /** Per-account Playwright session file — keeps logins from overwriting each other */
-  sessionFile: string;
-}
-
-/**
- * Auto-discovers every configured Access Evo login from environment variables.
- *
- * Convention (adding more accounts never requires code changes):
- *   ACCESS_EMAIL  / ACCESS_PASSWORD    → account 1 (primary)
- *   ACCESS_EMAIL_2 / ACCESS_PASSWORD_2 → account 2
- *   ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 → account 3
- *   … and so on, any quantity
- *
- * The function scans all env var keys at call time, so new secrets added after
- * startup are picked up automatically on the next call.
- */
-export function getConfiguredCredentials(): AccessCredential[] {
-  const accounts: AccessCredential[] = [];
-
-  // Primary account (no numeric suffix)
-  if (process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD) {
-    accounts.push({
-      email: process.env.ACCESS_EMAIL,
-      password: process.env.ACCESS_PASSWORD,
-      label: "account-1",
-      sessionFile: path.join(SESSION_DIR, "session-1.json"),
-    });
-  }
-
-  // Numbered accounts — scan all env keys so any ACCESS_EMAIL_N is picked up
-  const numberedKeys = Object.keys(process.env)
-    .filter(k => /^ACCESS_EMAIL_\d+$/.test(k))
-    .sort((a, b) => {
-      const na = parseInt(a.replace("ACCESS_EMAIL_", ""), 10);
-      const nb = parseInt(b.replace("ACCESS_EMAIL_", ""), 10);
-      return na - nb;
-    });
-
-  for (const key of numberedKeys) {
-    const n = key.replace("ACCESS_EMAIL_", "");
-    const email    = process.env[key];
-    const password = process.env[`ACCESS_PASSWORD_${n}`];
-    if (email && password) {
-      accounts.push({
-        email,
-        password,
-        label: `account-${n}`,
-        sessionFile: path.join(SESSION_DIR, `session-${n}.json`),
-      });
-    }
-  }
-
-  return accounts;
-}
-
-// ─── Round-robin rotation ─────────────────────────────────────────────────────
-let accountRoundRobinIndex = 0;
-
-/**
- * Returns the next credential in round-robin order across all configured accounts.
- * Each call advances the pointer, so consecutive jobs use different accounts.
- * Returns null if no accounts are configured.
- */
-function pickNextCredential(): AccessCredential | null {
-  const accounts = getConfiguredCredentials();
-  if (accounts.length === 0) return null;
-  const cred = accounts[accountRoundRobinIndex % accounts.length];
-  accountRoundRobinIndex = (accountRoundRobinIndex + 1) % accounts.length;
-  return cred;
-}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const jobs = new Map<string, AutomationJob>();
@@ -127,17 +49,14 @@ let currentJobId: string | null = null;
 const jobQueue: AutomationJob[] = []; // enqueue full job objects to preserve IDs
 let isProcessingQueue = false;
 
-// Shared browser resources reused across queued jobs in one session
+// Shared browser resources reused across all queued jobs in one session
 let sharedBrowser: Browser | null = null;
 let sharedContext: BrowserContext | null = null;
 let sharedPlannerPage: Page | null = null;
 /** Branch URL that sharedPlannerPage was opened for — if this changes we must re-navigate */
 let sharedPlannerBranchUrl: string | null = null;
-/** Which account label the current sharedContext was authenticated as */
-let sharedContextAccountLabel: string | null = null;
 
 ensureDir(DOWNLOAD_DIR);
-ensureDir(SESSION_DIR);
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function ensureDir(dir: string) {
@@ -283,18 +202,16 @@ async function runJob(job: AutomationJob): Promise<void> {
   job.status = "running";
   addLog(job, "Starting automation...");
 
-  // Pick the next account in round-robin order
-  const pickedCred = pickNextCredential();
-  if (!pickedCred) {
+  const email = process.env.ACCESS_EMAIL;
+  const password = process.env.ACCESS_PASSWORD;
+  if (!email || !password) {
     job.status = "failed";
-    job.error = "No Access Evo credentials configured (set ACCESS_EMAIL / ACCESS_PASSWORD)";
+    job.error = "ACCESS_EMAIL and ACCESS_PASSWORD environment variables are not set";
     job.completedAt = new Date().toISOString();
     addLog(job, `Failed: ${job.error}`);
     currentJobId = null;
     return;
   }
-
-  addLog(job, `Using ${pickedCred.label} (${pickedCred.email})`);
 
   try {
     // ── Launch / reuse browser ──────────────────────────────────────────────
@@ -308,27 +225,14 @@ async function runJob(job: AutomationJob): Promise<void> {
       });
       sharedContext = null;
       sharedPlannerPage = null;
-      sharedContextAccountLabel = null;
     }
 
-    // ── Tear down context if a different account was picked ─────────────────
-    if (sharedContext && sharedContextAccountLabel !== pickedCred.label) {
-      addLog(job, `Account changed (${sharedContextAccountLabel} → ${pickedCred.label}) — resetting browser context.`);
-      if (sharedPlannerPage && !sharedPlannerPage.isClosed()) await sharedPlannerPage.close().catch(() => {});
-      sharedPlannerPage = null;
-      sharedPlannerBranchUrl = null;
-      await sharedContext.close().catch(() => {});
-      sharedContext = null;
-      sharedContextAccountLabel = null;
-    }
-
-    // ── Create / reuse browser context for pickedCred ──────────────────────
+    // ── Create / reuse browser context ─────────────────────────────────────
     if (!sharedContext) {
       sharedContext = await sharedBrowser.newContext({
-        storageState: fs.existsSync(pickedCred.sessionFile) ? pickedCred.sessionFile : undefined,
+        storageState: fs.existsSync(SESSION_FILE) ? SESSION_FILE : undefined,
         acceptDownloads: true,
       });
-      sharedContextAccountLabel = pickedCred.label;
       sharedPlannerPage = null;
     }
 
@@ -363,29 +267,10 @@ async function runJob(job: AutomationJob): Promise<void> {
 
       const needsLogin = await checkNeedsLogin(workspacePage);
       if (needsLogin) {
-        // Try the picked account first; if it fails, try all others as fallback
-        const allCreds = getConfiguredCredentials();
-        const fallbacks = allCreds.filter(c => c.label !== pickedCred.label);
-        const toTry = [pickedCred, ...fallbacks];
-
-        let loginError: unknown = null;
-        for (const creds of toTry) {
-          try {
-            addLog(job, `Logging in as ${creds.label} (${creds.email})...`);
-            await login(workspacePage, creds.email, creds.password);
-            await sharedContext.storageState({ path: creds.sessionFile });
-            sharedContextAccountLabel = creds.label;
-            addLog(job, `Login successful as ${creds.label}, session saved.`);
-            loginError = null;
-            break;
-          } catch (err) {
-            loginError = err;
-            addLog(job, `Login failed for ${creds.label} — trying next account...`);
-            await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
-            await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
-          }
-        }
-        if (loginError) throw loginError;
+        addLog(job, "Logging in with credentials...");
+        await login(workspacePage, email, password);
+        await sharedContext.storageState({ path: SESSION_FILE });
+        addLog(job, "Login successful, session saved.");
       } else {
         // force=true in LOGIN_URL normally always shows the form;
         // if we land elsewhere the saved session is still valid
@@ -422,10 +307,7 @@ async function runJob(job: AutomationJob): Promise<void> {
     const rawName = path.basename(savedFile);
     const cleanName = rawName.replace(/^ppjob_\d+_[a-z0-9]+-/, "");
 
-    if (sharedContextAccountLabel) {
-      const activeCred = getConfiguredCredentials().find(c => c.label === sharedContextAccountLabel);
-      if (activeCred) await sharedContext.storageState({ path: activeCred.sessionFile });
-    }
+    await sharedContext.storageState({ path: SESSION_FILE });
 
     job.status = "completed";
     job.completedAt = new Date().toISOString();
@@ -448,7 +330,6 @@ async function runJob(job: AutomationJob): Promise<void> {
 
     sharedPlannerPage = null;
     sharedPlannerBranchUrl = null;
-    sharedContextAccountLabel = null;
     if (sharedContext) {
       await sharedContext.close().catch(() => {});
       sharedContext = null;
