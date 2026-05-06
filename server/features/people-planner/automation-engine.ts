@@ -533,23 +533,44 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
   await page.keyboard.press("Escape");
   await page.waitForTimeout(800);
 
-  // Click the launcher button — try the custom element first, then JS fallback
-  const accessBtn = page.locator("access-button").first();
-  if (await accessBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await accessBtn.click({ force: true });
-  } else {
+  // ── Click the launcher button ───────────────────────────────────────────────
+  // The `access-button` is a web component that hydrates asynchronously after
+  // the SPA finishes routing. Wait up to 15s for it to be attached to the DOM
+  // before clicking, then use multiple fallback strategies.
+  async function clickLauncherButton(): Promise<void> {
+    const accessBtn = page.locator("access-button").first();
+    // Wait for the element to be in the DOM (attached), not just visible
+    await accessBtn.waitFor({ state: "attached", timeout: 15000 }).catch(() => {});
+    if (await accessBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await accessBtn.click({ force: true });
+      return;
+    }
+    // Web components can be in DOM but report not-visible — try force-click first
+    const count = await accessBtn.count().catch(() => 0);
+    if (count > 0) {
+      await accessBtn.click({ force: true }).catch(() => {});
+      return;
+    }
+    // Last resort: dispatch a click event via JS
     await page.evaluate(() => {
       const btn = document.querySelector("access-button") as HTMLElement | null;
-      if (btn) btn.click();
+      if (btn) {
+        btn.click();
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      }
     });
   }
 
+  await clickLauncherButton();
+
   // ── Find the EVO launcher iframe ────────────────────────────────────────────
-  // Poll up to 45s (increased from 30s) for the iframe to appear.
-  // Two strategies: URL-based match first, then body-text scan as fallback.
+  // Poll up to 60s total. If the launcher hasn't appeared after 15s we retry
+  // the button click — the web component sometimes needs a second activation
+  // after a fresh login or branch change.
   let launcherFrame: import("playwright").Frame | null = null;
   let foundViaBodyText = false;
-  const launcherDeadline = Date.now() + 45000;
+  const launcherDeadline = Date.now() + 60000;
+  let retryClickAt = Date.now() + 15000; // first retry at 15s
 
   while (!launcherFrame && Date.now() < launcherDeadline) {
     await page.waitForTimeout(2000);
@@ -569,13 +590,19 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
         if (hasLauncher) { launcherFrame = frame; foundViaBodyText = true; break; }
       }
     }
+
+    // Retry the button click if the launcher hasn't appeared yet
+    if (!launcherFrame && Date.now() >= retryClickAt) {
+      retryClickAt = Date.now() + 20000; // next retry at +20s if still nothing
+      await clickLauncherButton().catch(() => {});
+    }
   }
 
   if (!launcherFrame) {
     await debugScreenshot(page, "no-launcher-frame");
     const allFrameUrls = page.frames().map(f => f.url()).join(", ");
     throw new Error(
-      `Could not find EVO launcher iframe after 45s. Available frames: ${allFrameUrls}`
+      `Could not find EVO launcher iframe after 60s. Available frames: ${allFrameUrls}`
     );
   }
 
@@ -688,8 +715,19 @@ async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<v
     // the PP tab runs on its own domain (e.g. peopleplanner.accessacloud.com).
     const targetUrl = new URL(reportConfig.directUrl, plannerPage.url()).toString();
     logger.info(`Navigating directly to ${config.reportType}`, { targetUrl });
-    await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+    // Use "commit" (first HTTP byte) so slow ASP.NET pages don't time out.
+    // Retry once if the first attempt fails.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await plannerPage.goto(targetUrl, { waitUntil: "commit", timeout: 60000 });
+        break;
+      } catch (err) {
+        if (attempt === 2) throw err;
+        logger.warn(`navigateToExport: goto attempt ${attempt} failed, retrying`, { targetUrl });
+        await plannerPage.waitForTimeout(4000);
+      }
+    }
+    await plannerPage.waitForLoadState("networkidle", { timeout: 25000 }).catch(() => {});
     await plannerPage.waitForTimeout(2000);
   } else {
     for (const step of reportConfig.menuPath) {
