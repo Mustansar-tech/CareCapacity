@@ -5,6 +5,7 @@ import { execSync } from "child_process";
 import { logger } from "../../infrastructure/logger";
 import type { ReportType } from "./report-configs";
 import { getReportConfig } from "./report-configs";
+import { waitForPlaywrightBrowser } from "./playwright-setup";
 
 export interface JobConfig {
   /** Direct Access Workspace URL for this branch, e.g. https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/ */
@@ -74,15 +75,29 @@ function addLog(job: AutomationJob, message: string) {
 }
 
 function getChromiumExecutablePath(): string | undefined {
+  // 1. Try well-known system paths first (no subprocess, instant)
+  const candidates = [
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+
+  // 2. Ask the shell (covers nix-store / PATH-based installs like pkgs.chromium)
   try {
-    const p = execSync("which chromium-browser 2>/dev/null || which chromium 2>/dev/null || echo ''", {
-      encoding: "utf-8",
-      timeout: 3000,
-    }).trim();
+    const p = execSync(
+      "which chromium-browser 2>/dev/null || which chromium 2>/dev/null || echo ''",
+      { encoding: "utf-8", timeout: 5000 }
+    ).trim();
     if (p) return p;
   } catch {
-    // fall through — use Playwright's built-in
+    // fall through
   }
+
+  // 3. Playwright-managed binary (downloaded by ensurePlaywrightBrowser at startup)
   return undefined;
 }
 
@@ -214,10 +229,21 @@ async function runJob(job: AutomationJob): Promise<void> {
   }
 
   try {
+    // ── Ensure browser binary is installed before launching ────────────────
+    if (!sharedBrowser || !sharedBrowser.isConnected()) {
+      addLog(job, "Waiting for Playwright browser to be ready...");
+      await waitForPlaywrightBrowser();
+    }
+
     // ── Launch / reuse browser ──────────────────────────────────────────────
     if (!sharedBrowser || !sharedBrowser.isConnected()) {
       addLog(job, "Launching browser...");
       const executablePath = getChromiumExecutablePath();
+      if (executablePath) {
+        addLog(job, `Using system Chromium: ${executablePath}`);
+      } else {
+        addLog(job, "Using Playwright-managed Chromium.");
+      }
       sharedBrowser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
@@ -357,14 +383,32 @@ async function checkNeedsLogin(page: Page): Promise<boolean> {
 
 async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  // Let the SPA settle before looking for fields
+  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
   const emailField = page.getByPlaceholder(/enter your email address/i);
-  await emailField.waitFor({ state: "visible", timeout: 15000 });
+  await emailField.waitFor({ state: "visible", timeout: 30000 });
   await emailField.fill(email);
-  await page.getByRole("button", { name: /next/i }).click();
 
+  // Click "Next" and wait for the page to transition to the password step
+  await page.getByRole("button", { name: /next/i }).click();
+  await page.waitForTimeout(2500);
+
+  // The password step may animate in — allow generous time
   const pwField = page.getByPlaceholder(/enter your password/i);
-  await pwField.waitFor({ state: "visible", timeout: 15000 });
+  try {
+    await pwField.waitFor({ state: "visible", timeout: 45000 });
+  } catch {
+    // Before throwing, capture state for debugging
+    await debugScreenshot(page, "login-pw-timeout");
+    const currentUrl = page.url();
+    const title = await page.title().catch(() => "(unknown)");
+    const bodyText = await page.locator("body").innerText({ timeout: 3000 }).catch(() => "");
+    throw new Error(
+      `Password field not visible after 45s. URL: ${currentUrl} — "${title}". ` +
+      `Page snippet: ${bodyText.slice(0, 300)}`
+    );
+  }
   await pwField.fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 

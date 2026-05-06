@@ -10,6 +10,7 @@ import { logger } from "./infrastructure/logger";
 import { seedAdminUser } from "./features/auth/auth";
 import { config } from "./config/index";
 import { errorHandler } from "./middleware/error-handler";
+import { ensurePlaywrightBrowser } from "./features/people-planner/playwright-setup";
 
 // Augment session type
 declare module 'express-session' {
@@ -83,6 +84,10 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   await seedAdminUser();
+
+  // Kick off Playwright browser install in the background immediately so it's
+  // ready well before the first automation job runs. Safe to call multiple times.
+  ensurePlaywrightBrowser();
 
   // Run geo-sweeper in the background after startup to geocode any client
   // locations that have a postcode but are still missing lat/lng coordinates.
