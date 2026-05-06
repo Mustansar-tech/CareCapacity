@@ -156,16 +156,14 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 | `TRAVELTIME_API_KEY` | TravelTime API key |
 | `ACCESS_EMAIL` | Email for People Planner account slot 1 (required) |
 | `ACCESS_PASSWORD` | Password for People Planner account slot 1 (required) |
-| `ACCESS_EMAIL_2` | Email for account slot 2 (optional — may not be present in all deployments) |
-| `ACCESS_PASSWORD_2` | Password for account slot 2 |
-| `ACCESS_EMAIL_3` | Email for account slot 3 (optional) |
-| `ACCESS_PASSWORD_3` | Password for account slot 3 |
-| `ACCESS_EMAIL_4` | Email for account slot 4 (optional) |
-| `ACCESS_PASSWORD_4` | Password for account slot 4 |
-| `ACCESS_EMAIL_5` | Email for account slot 5 (optional) |
-| `ACCESS_PASSWORD_5` | Password for account slot 5 |
-| `ACCESS_EMAIL_6` | Email for account slot 6 (optional) |
-| `ACCESS_PASSWORD_6` | Password for account slot 6 |
+| `ACCESS_EMAIL_3` | Email for account slot 2 (optional) — **no _2 pair**; numbering jumps from base to `_3` |
+| `ACCESS_PASSWORD_3` | Password for account slot 2 |
+| `ACCESS_EMAIL_4` | Email for account slot 3 (optional) |
+| `ACCESS_PASSWORD_4` | Password for account slot 3 |
+| `ACCESS_EMAIL_5` | Email for account slot 4 (optional) |
+| `ACCESS_PASSWORD_5` | Password for account slot 4 |
+| `ACCESS_EMAIL_6` | Email for account slot 5 (optional) |
+| `ACCESS_PASSWORD_6` | Password for account slot 5 |
 | `PEOPLE_PLANNER_BRANCH_CONFIG` | JSON map of branchId → `{workspaceBranch, plannerArea}` |
 
 ## People Planner Automation

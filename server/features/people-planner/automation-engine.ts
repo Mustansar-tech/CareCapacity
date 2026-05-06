@@ -71,33 +71,37 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
 }
 
 /**
- * Load all configured accounts from environment variables (up to 6 slots).
+ * Maximum supported account slots in the pool.
+ * Matches the number of available Access Workspace accounts:
+ *   base (slot 1) + _3.._6 (slots 2–5) = up to 5 loaded,
+ *   supporting up to MAX_ACCOUNT_SLOTS concurrent syncs when all are configured.
+ */
+export const MAX_ACCOUNT_SLOTS = 6;
+
+/**
+ * Load all configured accounts from environment variables.
  *
- * Runtime slot numbers are **contiguous** (1, 2, 3 … N) regardless of which
- * optional env-var pairs are present, so session files are always
- * /tmp/pp-session-slot-1.json … /tmp/pp-session-slot-N.json with no gaps:
+ * Env-var naming for Access Workspace accounts is non-sequential (no _2 pair):
  *
- *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD   (required)
- *   Slot 2 : ACCESS_EMAIL_2 / ACCESS_PASSWORD_2 (optional)
- *   Slot 3 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 (optional)
- *   Slot 4 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4 (optional)
- *   Slot 5 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5 (optional)
- *   Slot 6 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6 (optional)
+ *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD   → /tmp/pp-session-slot-1.json (required)
+ *   Slot 2 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 → /tmp/pp-session-slot-2.json (optional)
+ *   Slot 3 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4 → /tmp/pp-session-slot-3.json (optional)
+ *   Slot 4 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5 → /tmp/pp-session-slot-4.json (optional)
+ *   Slot 5 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6 → /tmp/pp-session-slot-5.json (optional)
  *
- * The _2 suffix env vars may not be present in every deployment (the Access
- * Workspace account numbering jumped from the base pair to _3 in earlier
- * configurations). When _2 is absent the pool simply has fewer than 6 slots.
- * Only slots where BOTH email and password are set are loaded.
+ * Runtime slot numbers are contiguous (1..N); session files never have gaps.
+ * Only slots where BOTH email and password are set are added to the pool.
  */
 function loadAccountPool(): SlotState[] {
   const pool: SlotState[] = [];
   const e1 = process.env.ACCESS_EMAIL;
   const p1 = process.env.ACCESS_PASSWORD;
   if (e1 && p1) pool.push(makeSlot(1, e1, p1));
-  for (const n of [2, 3, 4, 5, 6]) {
+  // Access Workspace account env vars jump from base to _3 (no _2 pair exists)
+  for (const n of [3, 4, 5, 6]) {
     const e = process.env[`ACCESS_EMAIL_${n}`];
     const p = process.env[`ACCESS_PASSWORD_${n}`];
-    // displayIndex is the contiguous pool position, not the env-var suffix
+    // displayIndex is the contiguous pool position so session files have no gaps
     if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
   }
   return pool;

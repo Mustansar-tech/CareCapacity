@@ -17,6 +17,7 @@ import {
   getQueueLength,
   getDownloadPath,
   getSlotCount,
+  MAX_ACCOUNT_SLOTS,
   type JobConfig,
 } from "./automation-engine";
 
@@ -465,7 +466,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       credentialsConfigured: hasCredentials,
       branchConfigured,
       playwrightReady,
-      accountCount: getSlotCount(),
+      accountCount: MAX_ACCOUNT_SLOTS,
+      configuredCount: getSlotCount(),
       idleCount: getSlotCount() - slotReservations.size,
       slots: routeSlotStatus(),
     });
