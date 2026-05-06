@@ -16,6 +16,9 @@ import {
   isRunning,
   getQueueLength,
   getDownloadPath,
+  getSlotCount,
+  getIdleSlotIndex,
+  getSlotStatus,
   type JobConfig,
 } from "./automation-engine";
 
@@ -161,6 +164,8 @@ interface PipelineSession {
   initiatedByUserId?: string;
   result?: unknown;
   pendingParams?: QueuedRunParams;
+  /** 0-based index into the account pool slot array assigned to this session */
+  slotArrayIndex?: number;
 }
 
 const activeSessions = new Map<string, PipelineSession>();
@@ -168,53 +173,63 @@ const activeSessions = new Map<string, PipelineSession>();
 /** FIFO queue of sessionIds waiting to start. */
 const sessionQueue: string[] = [];
 
-/** Returns the oldest running session — the one currently using the browser. */
-function getAnyRunningSession(): PipelineSession | undefined {
-  return Array.from(activeSessions.values())
-    .filter(s => s.status === "running")
-    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0];
+/** True when every account slot is occupied by a running session. */
+function allSlotsBusy(): boolean {
+  return getIdleSlotIndex() === -1;
 }
 
-/** Returns queue position (1-based). 1 = currently running, 2 = first in queue, etc. */
+/** Returns queue position (1-based). Running sessions are position 1; queued sessions are 2+. */
 function getQueuePos(sessionId: string): number {
   if (activeSessions.get(sessionId)?.status === "running") return 1;
   const idx = sessionQueue.indexOf(sessionId);
-  return idx === -1 ? 1 : idx + 2; // +2: position 1 is running, queue starts at 2
+  const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
+  return idx === -1 ? 1 : runningSessions + idx + 1;
 }
 
-/** Called after any session finishes. Picks up the next queued session if one exists. */
+/**
+ * Called after any session finishes. Drains the FIFO queue across all idle slots —
+ * up to one queued session per idle slot is started on each call.
+ */
 function startNextQueuedSession(): void {
-  if (sessionQueue.length === 0) return;
-  if (getAnyRunningSession()) return; // something already running
+  while (sessionQueue.length > 0) {
+    const idleSlot = getIdleSlotIndex();
+    if (idleSlot === -1) return; // all slots busy — stop draining
 
-  const nextId = sessionQueue.shift()!;
-  const session = activeSessions.get(nextId);
-  if (!session?.pendingParams) {
-    logger.warn("Queued session missing or has no params — skipping", { nextId });
-    setImmediate(() => startNextQueuedSession());
-    return;
-  }
-
-  const params = session.pendingParams;
-  session.status = "running";
-  session.phase = "starting";
-  session.pendingParams = undefined;
-  activeSessions.set(nextId, session);
-
-  logger.info("Auto-starting next queued session", { sessionId: nextId, branchId: session.branchId, remaining: sessionQueue.length });
-
-  runPipelineSession(
-    nextId, session.branchId, params.branchDisplayName, params.ppConfig,
-    params.startDate, params.endDate, params.reportTypes, session.initiatedByUserId ?? "unknown"
-  ).catch(err => {
-    const s = activeSessions.get(nextId);
-    if (s && s.status === "running") {
-      activeSessions.set(nextId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), phase: "error", completedAt: new Date().toISOString() });
+    const nextId = sessionQueue.shift()!;
+    const session = activeSessions.get(nextId);
+    if (!session?.pendingParams) {
+      logger.warn("Queued session missing or has no params — skipping", { nextId });
+      continue; // skip and try the next one
     }
-    logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
-  }).finally(() => {
-    setImmediate(() => startNextQueuedSession());
-  });
+
+    const params = session.pendingParams;
+    session.status = "running";
+    session.phase = "starting";
+    session.slotArrayIndex = idleSlot;
+    session.pendingParams = undefined;
+    activeSessions.set(nextId, session);
+
+    logger.info("Auto-starting next queued session", {
+      sessionId: nextId,
+      branchId: session.branchId,
+      slotArrayIndex: idleSlot,
+      remaining: sessionQueue.length,
+    });
+
+    runPipelineSession(
+      nextId, session.branchId, params.branchDisplayName, params.ppConfig,
+      params.startDate, params.endDate, params.reportTypes,
+      session.initiatedByUserId ?? "unknown", idleSlot
+    ).catch(err => {
+      const s = activeSessions.get(nextId);
+      if (s && s.status === "running") {
+        activeSessions.set(nextId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), phase: "error", completedAt: new Date().toISOString() });
+      }
+      logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
+    }).finally(() => {
+      setImmediate(() => startNextQueuedSession());
+    });
+  }
 }
 
 // ─── Access guard helpers ─────────────────────────────────────────────────────
@@ -285,8 +300,7 @@ export async function programmaticQueueSync(
   const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
   const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-  const activeSession = getAnyRunningSession();
-  if (activeSession) {
+  if (allSlotsBusy()) {
     const pendingSession: PipelineSession = {
       sessionId,
       status: "queued",
@@ -305,12 +319,14 @@ export async function programmaticQueueSync(
     };
     activeSessions.set(sessionId, pendingSession);
     sessionQueue.push(sessionId);
-    const queuePosition = sessionQueue.length + 1;
-    logger.info("Programmatic PP sync queued", { sessionId, branchId, queuePosition });
+    const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
+    const queuePosition = runningSessions + sessionQueue.length;
+    logger.info("Programmatic PP sync queued — all slots busy", { sessionId, branchId, queuePosition });
     return { sessionId, queued: true, queuePosition };
   }
 
-  // Start immediately
+  // Start immediately on an idle slot
+  const idleSlot = getIdleSlotIndex();
   const newSession: PipelineSession = {
     sessionId,
     status: "running",
@@ -319,12 +335,13 @@ export async function programmaticQueueSync(
     startedAt: new Date().toISOString(),
     branchId,
     initiatedByUserId,
+    slotArrayIndex: idleSlot,
   };
   activeSessions.set(sessionId, newSession);
 
   runPipelineSession(
     sessionId, branchId, branch.displayName, ppConfig,
-    fmt(startDate), fmt(endDate), reportTypes, initiatedByUserId
+    fmt(startDate), fmt(endDate), reportTypes, initiatedByUserId, idleSlot
   ).catch(err => {
     const s = activeSessions.get(sessionId);
     if (s && s.status === "running") {
@@ -335,7 +352,7 @@ export async function programmaticQueueSync(
     setImmediate(() => startNextQueuedSession());
   });
 
-  logger.info("Programmatic PP sync started", { sessionId, branchId });
+  logger.info("Programmatic PP sync started", { sessionId, branchId, slotArrayIndex: idleSlot });
   return { sessionId, queued: false, queuePosition: 1 };
 }
 
@@ -395,6 +412,9 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       credentialsConfigured: hasCredentials,
       branchConfigured,
       playwrightReady,
+      accountCount: getSlotCount(),
+      idleCount: getSlotCount() - Array.from(activeSessions.values()).filter(s => s.status === "running").length,
+      slots: getSlotStatus(),
     });
   });
 
@@ -574,11 +594,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const initiatedByUserId = req.session.userId ?? "unknown";
 
-      // ── Global server lock: one browser, one login ──────────────────────────
-      // If a sync is already running, queue this request so it starts
-      // automatically when the current one finishes — no manual retry needed.
-      const activeSession = getAnyRunningSession();
-      if (activeSession) {
+      // ── Account pool: assign to idle slot or queue if all slots are busy ──
+      if (allSlotsBusy()) {
         const pendingSession: PipelineSession = {
           sessionId,
           status: "queued",
@@ -597,10 +614,24 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         };
         activeSessions.set(sessionId, pendingSession);
         sessionQueue.push(sessionId);
-        const queuePosition = sessionQueue.length + 1; // +1: position 1 is the currently running session
-        logger.info("PP sync queued", { sessionId, branchId: requestedBranchId, queuePosition, queueLength: sessionQueue.length });
+        const runningSessions = Array.from(activeSessions.values()).filter(s => s.status === "running").length;
+        const queuePosition = runningSessions + sessionQueue.length;
+        logger.info("PP sync queued — all slots busy", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: runningSessions });
         return res.status(202).json({ sessionId, queued: true, queuePosition });
       }
+
+      const idleSlot = getIdleSlotIndex();
+      const newSession: PipelineSession = {
+        sessionId,
+        status: "running",
+        jobIds: [],
+        phase: "starting",
+        startedAt: new Date().toISOString(),
+        branchId: requestedBranchId,
+        initiatedByUserId,
+        slotArrayIndex: idleSlot,
+      };
+      activeSessions.set(sessionId, newSession);
 
       runPipelineSession(
         sessionId,
@@ -610,7 +641,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         fmt(startDate),
         fmt(endDate),
         reportTypes,
-        initiatedByUserId
+        initiatedByUserId,
+        idleSlot
       ).catch(err => {
         logger.error("Pipeline session failed outside handler", err instanceof Error ? err : undefined, { sessionId });
         const existing = activeSessions.get(sessionId);
@@ -627,6 +659,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         setImmediate(() => startNextQueuedSession());
       });
 
+      logger.info("PP sync started", { sessionId, branchId: requestedBranchId, slotArrayIndex: idleSlot });
       return res.status(202).json({ sessionId, queued: false, queuePosition: 1 });
 
     } catch (error) {
@@ -654,15 +687,23 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       };
     };
 
-    const running = getAnyRunningSession();
+    const allRunning = Array.from(activeSessions.values())
+      .filter(s => s.status === "running")
+      .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+
     const queued = sessionQueue
       .map(id => activeSessions.get(id))
       .filter((s): s is PipelineSession => !!s);
 
     res.json({
-      running: running ? mapSession(running, 1) : null,
-      queued: queued.map((s, i) => mapSession(s, i + 2)),
-      total: (running ? 1 : 0) + queued.length,
+      // `running` keeps the single-value shape for backwards compatibility with SyncStatusBar
+      running: allRunning.length > 0 ? mapSession(allRunning[0], 1) : null,
+      // `runningAll` exposes all concurrently running sessions
+      runningAll: allRunning.map(s => mapSession(s, 1)),
+      queued: queued.map((s, i) => mapSession(s, allRunning.length + i + 1)),
+      total: allRunning.length + queued.length,
+      accountSlots: getSlotCount(),
+      idleSlots: allRunning.length < getSlotCount() ? getSlotCount() - allRunning.length : 0,
     });
   });
 
@@ -773,7 +814,8 @@ async function runPipelineSession(
   startDate: string,
   endDate: string,
   reportTypes: readonly ("visitsExport" | "careGiverExport" | "careGiverAvailabilityExport")[],
-  initiatedByUserId: string
+  initiatedByUserId: string,
+  slotArrayIndex = 0
 ): Promise<void> {
   // If a queued session already exists for this ID (promoted from queue), merge into it
   // rather than overwriting — preserving the original startedAt and userId.
@@ -805,7 +847,7 @@ async function runPipelineSession(
         branchId,
       };
 
-      const jobId = await runAutomationJob(config);
+      const jobId = await runAutomationJob(config, slotArrayIndex);
       session.jobIds.push(jobId);
       activeSessions.set(sessionId, session);
 

@@ -154,8 +154,16 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 | `ORS_API_KEY` | OpenRouteService API key |
 | `TRAVELTIME_APP_ID` | TravelTime application ID |
 | `TRAVELTIME_API_KEY` | TravelTime API key |
-| `ACCESS_EMAIL` | Email for People Planner / Access Workspace login |
-| `ACCESS_PASSWORD` | Password for People Planner / Access Workspace login |
+| `ACCESS_EMAIL` | Email for People Planner account slot 1 (required) |
+| `ACCESS_PASSWORD` | Password for People Planner account slot 1 (required) |
+| `ACCESS_EMAIL_3` | Email for account slot 2 (optional — note: no `_2` pair) |
+| `ACCESS_PASSWORD_3` | Password for account slot 2 |
+| `ACCESS_EMAIL_4` | Email for account slot 3 (optional) |
+| `ACCESS_PASSWORD_4` | Password for account slot 3 |
+| `ACCESS_EMAIL_5` | Email for account slot 4 (optional) |
+| `ACCESS_PASSWORD_5` | Password for account slot 4 |
+| `ACCESS_EMAIL_6` | Email for account slot 5 (optional) |
+| `ACCESS_PASSWORD_6` | Password for account slot 5 |
 | `PEOPLE_PLANNER_BRANCH_CONFIG` | JSON map of branchId → `{workspaceBranch, plannerArea}` |
 
 ## People Planner Automation

@@ -38,25 +38,64 @@ export interface AutomationJob {
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 const DOWNLOAD_DIR = path.resolve("/tmp/pp-automation-downloads");
-const SESSION_FILE = path.resolve("/tmp/pp-access-session.json");
 const DEBUG_DIR = path.resolve(process.cwd(), "pp-debug-screenshots");
 const LOGIN_URL = "https://identity.accessacloud.com/auth/signin?force=true&setemail=false&settenant=false";
 const WORKSPACE_URL = "https://go.accessacloud.com/";
 
+// ─── Account pool ─────────────────────────────────────────────────────────────
+interface SlotState {
+  /** 1-based display index */
+  index: number;
+  email: string;
+  password: string;
+  sessionFile: string;
+  browser: Browser | null;
+  context: BrowserContext | null;
+  plannerPage: Page | null;
+  plannerBranchUrl: string | null;
+  currentJobId: string | null;
+}
+
+function makeSlot(displayIndex: number, email: string, password: string): SlotState {
+  return {
+    index: displayIndex,
+    email,
+    password,
+    sessionFile: path.resolve(`/tmp/pp-session-slot-${displayIndex}.json`),
+    browser: null,
+    context: null,
+    plannerPage: null,
+    plannerBranchUrl: null,
+    currentJobId: null,
+  };
+}
+
+/**
+ * Load all configured accounts from environment variables.
+ * Slot 1: ACCESS_EMAIL / ACCESS_PASSWORD (required)
+ * Slots 2–5: ACCESS_EMAIL_3 / ACCESS_PASSWORD_3 through _6
+ * (there is no _2 pair — the numbering in env vars jumps from base to _3)
+ */
+function loadAccountPool(): SlotState[] {
+  const pool: SlotState[] = [];
+  const e1 = process.env.ACCESS_EMAIL;
+  const p1 = process.env.ACCESS_PASSWORD;
+  if (e1 && p1) pool.push(makeSlot(1, e1, p1));
+  for (const n of ["3", "4", "5", "6"]) {
+    const e = process.env[`ACCESS_EMAIL_${n}`];
+    const p = process.env[`ACCESS_PASSWORD_${n}`];
+    if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
+  }
+  return pool;
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const jobs = new Map<string, AutomationJob>();
-let currentJobId: string | null = null;
-const jobQueue: AutomationJob[] = []; // enqueue full job objects to preserve IDs
-let isProcessingQueue = false;
-
-// Shared browser resources reused across all queued jobs in one session
-let sharedBrowser: Browser | null = null;
-let sharedContext: BrowserContext | null = null;
-let sharedPlannerPage: Page | null = null;
-/** Branch URL that sharedPlannerPage was opened for — if this changes we must re-navigate */
-let sharedPlannerBranchUrl: string | null = null;
+const slotStates: SlotState[] = loadAccountPool();
 
 ensureDir(DOWNLOAD_DIR);
+
+logger.info("People Planner account pool loaded", { slotCount: slotStates.length, slots: slotStates.map(s => s.index) });
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function ensureDir(dir: string) {
@@ -108,17 +147,44 @@ export function listJobs(): AutomationJob[] {
 }
 
 export function getCurrentJob(): AutomationJob | null {
-  if (!currentJobId) return null;
-  return jobs.get(currentJobId) ?? null;
+  const slot0 = slotStates[0];
+  if (!slot0?.currentJobId) return null;
+  return jobs.get(slot0.currentJobId) ?? null;
 }
 
 export function isRunning(): boolean {
-  const job = getCurrentJob();
-  return job?.status === "running" || job?.status === "pending";
+  return slotStates.some(s => s.currentJobId !== null);
 }
 
 export function getQueueLength(): number {
-  return jobQueue.length;
+  return 0; // Queue is managed at the session layer in automation-routes.ts
+}
+
+/** Returns the total number of configured account slots. */
+export function getSlotCount(): number {
+  return slotStates.length;
+}
+
+/** Returns the 0-based array index of the first idle slot, or -1 if all are busy. */
+export function getIdleSlotIndex(): number {
+  return slotStates.findIndex(s => s.currentJobId === null);
+}
+
+export interface SlotStatus {
+  slotIndex: number;
+  displayIndex: number;
+  busy: boolean;
+  currentJobId: string | null;
+}
+
+/** Returns the status of every slot in the pool. */
+export function getSlotStatus(): SlotStatus[] {
+  return slotStates.map((s, i) => ({
+    slotIndex: i,
+    displayIndex: s.index,
+    busy: s.currentJobId !== null,
+    currentJobId: s.currentJobId,
+  }));
 }
 
 export function getDownloadPath(jobId: string): string | null {
@@ -132,8 +198,18 @@ export function getDownloadPath(jobId: string): string | null {
   return null;
 }
 
-export async function runAutomationJob(config: JobConfig): Promise<string> {
+/**
+ * Run an automation job on the given slot. The slot index is 0-based (array index).
+ * The caller (automation-routes.ts) is responsible for assigning sessions to slots
+ * and ensuring only one job runs per slot at a time.
+ */
+export async function runAutomationJob(config: JobConfig, slotArrayIndex = 0): Promise<string> {
   ensureDir(DOWNLOAD_DIR);
+
+  const slot = slotStates[slotArrayIndex];
+  if (!slot) {
+    throw new Error(`Slot ${slotArrayIndex} does not exist (pool has ${slotStates.length} slot(s))`);
+  }
 
   const id = generateId();
   const job: AutomationJob = {
@@ -150,19 +226,13 @@ export async function runAutomationJob(config: JobConfig): Promise<string> {
   };
 
   jobs.set(id, job);
+  slot.currentJobId = id;
 
-  if (!isRunning()) {
-    currentJobId = id;
-    runJob(job).catch((err) => {
-      logger.error("Unhandled automation error", err, { jobId: id });
-    }).finally(() => {
-      setImmediate(() => processNextQueuedJob());
-    });
-  } else {
-    // Push the full job object so the ID is preserved when the queue drains
-    jobQueue.push(job);
-    logger.info("Job queued for sequential processing", { jobId: id, queueLength: jobQueue.length });
-  }
+  runJob(job, slot).catch((err) => {
+    logger.error("Unhandled automation error", err, { jobId: id, slotIndex: slotArrayIndex });
+  }).finally(() => {
+    slot.currentJobId = null;
+  });
 
   return id;
 }
@@ -179,88 +249,67 @@ export async function waitForJob(jobId: string, timeoutMs = 300000): Promise<Aut
   throw new Error(`Job ${jobId} timed out after ${timeoutMs}ms`);
 }
 
-// ─── Queue processor ─────────────────────────────────────────────────────────
-async function processNextQueuedJob(): Promise<void> {
-  if (jobQueue.length === 0 || isProcessingQueue) return;
-
-  isProcessingQueue = true;
-  const job = jobQueue.shift(); // already registered in `jobs` map with correct ID
-  if (!job) { isProcessingQueue = false; return; }
-
-  currentJobId = job.id;
-
-  await runJob(job).catch((err) => {
-    logger.error("Unhandled automation error", err instanceof Error ? err : undefined, { jobId: job.id });
-  }).finally(() => {
-    isProcessingQueue = false;
-    setImmediate(() => processNextQueuedJob());
-  });
-}
-
-// ─── Core job runner ─────────────────────────────────────────────────────────
-async function runJob(job: AutomationJob): Promise<void> {
+// ─── Core job runner (slot-aware) ────────────────────────────────────────────
+async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
   job.status = "running";
-  addLog(job, "Starting automation...");
+  addLog(job, `Starting automation on account slot ${slot.index}...`);
 
-  const email = process.env.ACCESS_EMAIL;
-  const password = process.env.ACCESS_PASSWORD;
+  const { email, password } = slot;
   if (!email || !password) {
     job.status = "failed";
-    job.error = "ACCESS_EMAIL and ACCESS_PASSWORD environment variables are not set";
+    job.error = `No credentials configured for slot ${slot.index}`;
     job.completedAt = new Date().toISOString();
     addLog(job, `Failed: ${job.error}`);
-    currentJobId = null;
     return;
   }
 
   try {
     // ── Launch / reuse browser ──────────────────────────────────────────────
-    if (!sharedBrowser || !sharedBrowser.isConnected()) {
+    if (!slot.browser || !slot.browser.isConnected()) {
       addLog(job, "Launching browser...");
       const executablePath = getChromiumExecutablePath();
-      sharedBrowser = await chromium.launch({
+      slot.browser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
         ...(executablePath ? { executablePath } : {}),
       });
-      sharedContext = null;
-      sharedPlannerPage = null;
+      slot.context = null;
+      slot.plannerPage = null;
     }
 
     // ── Create / reuse browser context ─────────────────────────────────────
-    if (!sharedContext) {
-      sharedContext = await sharedBrowser.newContext({
-        storageState: fs.existsSync(SESSION_FILE) ? SESSION_FILE : undefined,
+    if (!slot.context) {
+      slot.context = await slot.browser.newContext({
+        storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
         acceptDownloads: true,
       });
-      sharedPlannerPage = null;
+      slot.plannerPage = null;
     }
 
     // ── Step 1: Login ─────────────────────────────────────────────────────
     // ── Step 2: Navigate to branch URL to select the branch ───────────────
     // ── Step 3: Open People Planner from the Access launcher ─────────────
     const branchUrl = job.config.branchUrl;
-    const branchUrlChanged = sharedPlannerBranchUrl !== null && sharedPlannerBranchUrl !== branchUrl;
+    const branchUrlChanged = slot.plannerBranchUrl !== null && slot.plannerBranchUrl !== branchUrl;
 
     if (branchUrlChanged) {
-      // Branch switched — close existing PP tab so we re-navigate to the correct workspace
-      addLog(job, `Branch URL changed (${sharedPlannerBranchUrl} → ${branchUrl}). Re-opening People Planner for new branch.`);
+      addLog(job, `Branch URL changed (${slot.plannerBranchUrl} → ${branchUrl}). Re-opening People Planner for new branch.`);
       logger.info("Branch URL changed — resetting PP session", {
-        previous: sharedPlannerBranchUrl,
+        previous: slot.plannerBranchUrl,
         next: branchUrl,
+        slotIndex: slot.index,
       });
-      if (sharedPlannerPage && !sharedPlannerPage.isClosed()) {
-        await sharedPlannerPage.close().catch(() => {});
+      if (slot.plannerPage && !slot.plannerPage.isClosed()) {
+        await slot.plannerPage.close().catch(() => {});
       }
-      sharedPlannerPage = null;
-      sharedPlannerBranchUrl = null;
+      slot.plannerPage = null;
+      slot.plannerBranchUrl = null;
     }
 
     let plannerPage: Page;
-    if (!sharedPlannerPage || sharedPlannerPage.isClosed()) {
-      const workspacePage = await sharedContext.newPage();
+    if (!slot.plannerPage || slot.plannerPage.isClosed()) {
+      const workspacePage = await slot.context.newPage();
 
-      // Step 1 — Always go to login page first
       addLog(job, "Navigating to Access Workspace login...");
       await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
       await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
@@ -269,29 +318,25 @@ async function runJob(job: AutomationJob): Promise<void> {
       if (needsLogin) {
         addLog(job, "Logging in with credentials...");
         await login(workspacePage, email, password);
-        await sharedContext.storageState({ path: SESSION_FILE });
+        await slot.context.storageState({ path: slot.sessionFile });
         addLog(job, "Login successful, session saved.");
       } else {
-        // force=true in LOGIN_URL normally always shows the form;
-        // if we land elsewhere the saved session is still valid
         addLog(job, "Active session detected — skipping login form.");
       }
 
-      // Step 2 — Navigate directly to the branch URL to select the branch
       addLog(job, `Selecting branch via URL: ${branchUrl}`);
       await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
       await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
-      // Step 3 — Open People Planner from the launcher
       addLog(job, "Opening People Planner from the Access launcher...");
-      sharedPlannerPage = await openPeoplePlanner(sharedContext, workspacePage);
-      sharedPlannerBranchUrl = branchUrl;
+      slot.plannerPage = await openPeoplePlanner(slot.context, workspacePage);
+      slot.plannerBranchUrl = branchUrl;
       addLog(job, "People Planner opened.");
     } else {
       addLog(job, `Reusing existing People Planner session for ${branchUrl}.`);
     }
 
-    plannerPage = sharedPlannerPage;
+    plannerPage = slot.plannerPage;
 
     const reportConfig = getReportConfig(job.config.reportType);
     addLog(job, `Navigating to ${reportConfig.key} export...`);
@@ -307,7 +352,7 @@ async function runJob(job: AutomationJob): Promise<void> {
     const rawName = path.basename(savedFile);
     const cleanName = rawName.replace(/^ppjob_\d+_[a-z0-9]+-/, "");
 
-    await sharedContext.storageState({ path: SESSION_FILE });
+    await slot.context.storageState({ path: slot.sessionFile });
 
     job.status = "completed";
     job.completedAt = new Date().toISOString();
@@ -315,31 +360,29 @@ async function runJob(job: AutomationJob): Promise<void> {
     job.fileName = cleanName;
     job.filePath = savedFile;
     addLog(job, `Download complete: ${cleanName}`);
-    logger.info("Job completed", { jobId: job.id, cleanName, savedFile });
+    logger.info("Job completed", { jobId: job.id, cleanName, savedFile, slotIndex: slot.index });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     job.status = "failed";
     job.error = message;
     job.completedAt = new Date().toISOString();
     addLog(job, `Error: ${message}`);
-    logger.error("Automation job failed", err instanceof Error ? err : undefined, { jobId: job.id });
+    logger.error("Automation job failed", err instanceof Error ? err : undefined, { jobId: job.id, slotIndex: slot.index });
 
-    if (sharedPlannerPage && !sharedPlannerPage.isClosed()) {
-      await debugScreenshot(sharedPlannerPage, `fail-${job.id}`).catch(() => {});
+    if (slot.plannerPage && !slot.plannerPage.isClosed()) {
+      await debugScreenshot(slot.plannerPage, `fail-${job.id}`).catch(() => {});
     }
 
-    sharedPlannerPage = null;
-    sharedPlannerBranchUrl = null;
-    if (sharedContext) {
-      await sharedContext.close().catch(() => {});
-      sharedContext = null;
+    slot.plannerPage = null;
+    slot.plannerBranchUrl = null;
+    if (slot.context) {
+      await slot.context.close().catch(() => {});
+      slot.context = null;
     }
-    if (sharedBrowser) {
-      await sharedBrowser.close().catch(() => {});
-      sharedBrowser = null;
+    if (slot.browser) {
+      await slot.browser.close().catch(() => {});
+      slot.browser = null;
     }
-  } finally {
-    currentJobId = null;
   }
 }
 
