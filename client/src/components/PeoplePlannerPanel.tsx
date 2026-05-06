@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useBranch } from "@/contexts/BranchContext";
+import { useWeek } from "@/contexts/WeekContext";
 import {
   Bot,
   Download,
@@ -116,6 +117,7 @@ function elapsedTime(startedAt: string): string {
 export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
+  const { switchToLatest } = useWeek();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
@@ -169,6 +171,10 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
   useEffect(() => {
     if (session?.status === "completed") {
+      // Arms the skip guard and clears current data BEFORE invalidating so the
+      // auto-load effect waits for the fresh latestData instead of showing the
+      // stale cache.
+      switchToLatest();
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history/latest"] });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });

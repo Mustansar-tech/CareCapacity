@@ -20,14 +20,23 @@ interface WeekContextType {
   setFilteredData: (data: ProcessingResult | null) => void;
   setSelectedDate: (date: string | null) => void;
   setSelectedWeekId: (id: string | null) => void;
-  /**
-   * Call this after processing fresh data so the context switches to "latest"
-   * without the stale-latestData race condition overwriting the new data.
-   */
+  /** After uploading & processing new files — sets fresh data immediately, guards against stale cache overwrite. */
   resetToLatest: (freshData: ProcessingResult, freshDate: string | null) => void;
+  /** After an external sync (e.g. People Planner) — clears data, guards against stale cache, waits for fresh latestData. */
+  switchToLatest: () => void;
 }
 
 const WeekContext = createContext<WeekContextType | undefined>(undefined);
+
+/**
+ * Returns a stable string key for a latestData snapshot.
+ * Used to detect when latestData has actually been refreshed with new content.
+ */
+function latestDataKey(d: ProcessingResultWithMeta | undefined | null): string {
+  if (!d) return 'none';
+  const ts = d.uploadedAt ? new Date(d.uploadedAt as any).getTime() : 0;
+  return `${d.id ?? 'no-id'}_${ts}`;
+}
 
 export function WeekProvider({ children }: { children: ReactNode }) {
   const { selectedBranchId } = useBranch();
@@ -38,12 +47,20 @@ export function WeekProvider({ children }: { children: ReactNode }) {
   const [processedData, setProcessedData] = useState<ProcessingResult | null>(null);
   const [filteredData, setFilteredData] = useState<ProcessingResult | null>(null);
 
+  // Refs so effects can read current values without becoming their dependencies
+  const processedDataRef = useRef<ProcessingResult | null>(null);
+  const latestDataRef = useRef<ProcessingResultWithMeta | undefined>(undefined);
+  const toastRef = useRef(toast);
+
+  useEffect(() => { processedDataRef.current = processedData; });
+  useEffect(() => { toastRef.current = toast; });
+
   /**
-   * When set to true the auto-load effect will skip ONE fire (the one where
-   * latestData is still stale) and reset itself.  This prevents freshly
-   * processed data from being overwritten before the query cache refreshes.
+   * When defined: the auto-load effect will skip any latestData whose key
+   * matches this value (i.e. the stale entry we were on before triggering a
+   * reset/switch). Cleared as soon as latestData changes to a new key.
    */
-  const skipNextAutoLoad = useRef(false);
+  const skipLatestKey = useRef<string | undefined>(undefined);
 
   const { data: allHistoryData } = useQuery<CapacityAnalysisSummary[]>({
     queryKey: ['/api/history'],
@@ -57,20 +74,23 @@ export function WeekProvider({ children }: { children: ReactNode }) {
     refetchOnMount: false,
   });
 
-  // When branch changes: clear selected week and reload latest for new branch
+  // Keep latestDataRef in sync
+  useEffect(() => { latestDataRef.current = latestData; }, [latestData]);
+
+  // Branch change: clear everything and reload for the new branch
   useEffect(() => {
     clientLogger.log('🧹 Branch changed - clearing week selection and processed data');
     setProcessedData(null);
     setFilteredData(null);
     setSelectedWeekId(null);
     setSelectedDate(null);
-    skipNextAutoLoad.current = false;
+    skipLatestKey.current = undefined;
     queryClient.invalidateQueries({ queryKey: ['/api/history'] });
     queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
     queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
   }, [selectedBranchId]);
 
-  // If latestData arrives from a different branch, discard it
+  // Discard latestData that arrived for a different branch
   useEffect(() => {
     if (latestData && latestData.branchId !== selectedBranchId) {
       clientLogger.log('🧹 Clearing stale data from different branch');
@@ -81,17 +101,22 @@ export function WeekProvider({ children }: { children: ReactNode }) {
 
   // Auto-load latest data when no week is explicitly selected
   useEffect(() => {
-    if (!latestData || selectedWeekId || latestData.branchId !== selectedBranchId) return;
+    if (!latestData || selectedWeekId !== null || latestData.branchId !== selectedBranchId) return;
 
-    // If a fresh process just completed, skip the first fire (stale cache) and
-    // wait for the updated latestData to arrive on the next fire.
-    if (skipNextAutoLoad.current) {
-      clientLogger.log('⏭️ Skipping stale latestData overwrite — waiting for fresh refetch');
-      skipNextAutoLoad.current = false;
-      return;
+    const key = latestDataKey(latestData);
+
+    if (skipLatestKey.current !== undefined) {
+      if (key === skipLatestKey.current) {
+        // Still the same stale entry — wait for the fresh refetch
+        clientLogger.log('⏭️ Auto-load skipping stale latestData, waiting for fresh refetch', { key });
+        return;
+      }
+      // latestData has changed to a fresh entry — clear the guard and proceed
+      clientLogger.log('✅ Auto-load: fresh latestData detected, clearing skip guard', { key });
+      skipLatestKey.current = undefined;
     }
 
-    const isInitialLoad = !processedData;
+    const isInitialLoad = processedDataRef.current === null;
     setProcessedData({
       kpis: latestData.kpis,
       dailySummary: latestData.dailySummary,
@@ -102,12 +127,12 @@ export function WeekProvider({ children }: { children: ReactNode }) {
     } as any);
     setSelectedDate(latestData.dailySummary?.[0]?.date || null);
     if (isInitialLoad) {
-      toast({
+      toastRef.current({
         title: 'Latest Data Loaded',
         description: 'Automatically loaded your most recent analysis.',
       });
     }
-  }, [latestData, selectedWeekId, selectedBranchId, toast]);
+  }, [latestData, selectedWeekId, selectedBranchId]);
 
   const handleWeekChange = useCallback(
     async (value: string) => {
@@ -132,27 +157,41 @@ export function WeekProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         clientLogger.error('Error loading selected week:', error);
-        toast({
+        toastRef.current({
           variant: 'destructive',
           title: 'Error Loading Week',
           description: 'Failed to load the selected week data.',
         });
       }
     },
-    [allHistoryData, toast]
+    [allHistoryData]
   );
 
   /**
-   * Use this after processing fresh data (upload or People Planner sync).
-   * It sets the fresh data immediately and arms the skip-flag so the
-   * auto-load effect doesn't overwrite it with stale latestData cache.
-   * The effect will run once more when the fresh latestData arrives and
-   * confirm the correct data.
+   * For the Excel upload pipeline.
+   * Sets fresh data immediately (no loading flash) and guards the effect
+   * against overwriting it with the stale latestData cache.
+   * The effect will run once more when the real refetch arrives and confirm
+   * the fresh data (or silently update if slightly different).
    */
   const resetToLatest = useCallback((freshData: ProcessingResult, freshDate: string | null) => {
-    skipNextAutoLoad.current = true;
+    skipLatestKey.current = latestDataKey(latestDataRef.current);
     setProcessedData(freshData);
     setSelectedDate(freshDate);
+    setSelectedWeekId(null);
+    setFilteredData(null);
+  }, []);
+
+  /**
+   * For external syncs (People Planner) where we don't have the fresh data yet.
+   * Clears the current data, arms the skip guard, then waits for latestData to
+   * refresh before the auto-load effect shows the new week.
+   * Call this BEFORE invalidating /api/history/latest.
+   */
+  const switchToLatest = useCallback(() => {
+    skipLatestKey.current = latestDataKey(latestDataRef.current);
+    setProcessedData(null);
+    setSelectedDate(null);
     setSelectedWeekId(null);
     setFilteredData(null);
   }, []);
@@ -174,6 +213,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
         setSelectedDate,
         setSelectedWeekId,
         resetToLatest,
+        switchToLatest,
       }}
     >
       {children}
