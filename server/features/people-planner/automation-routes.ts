@@ -16,6 +16,7 @@ import {
   isRunning,
   getQueueLength,
   getDownloadPath,
+  getConfiguredCredentials,
   type JobConfig,
 } from "./automation-engine";
 
@@ -346,9 +347,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // GET /api/pp/health — check automation is configured, usable, and Playwright accessible
   app.get("/api/pp/health", requireAuth, async (req, res) => {
-    const hasPrimaryCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
-    const hasAlternateCredentials = !!(process.env.ACCESS_EMAIL_2 && process.env.ACCESS_PASSWORD_2);
-    const hasCredentials = hasPrimaryCredentials || hasAlternateCredentials;
+    const configuredAccounts = getConfiguredCredentials();
+    const hasCredentials = configuredAccounts.length > 0;
     const branchId = req.query.branchId as string | undefined;
     // Branch URLs are built-in for all known branches; check the specific branch if provided
     const branchConfigured = branchId
@@ -395,8 +395,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       healthy,
       reason,
       credentialsConfigured: hasCredentials,
-      primaryCredentialsConfigured: hasPrimaryCredentials,
-      alternateCredentialsConfigured: hasAlternateCredentials,
+      accountCount: configuredAccounts.length,
+      accountLabels: configuredAccounts.map(c => c.label),
       branchConfigured,
       playwrightReady,
     });
@@ -541,7 +541,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // POST /api/pp/run — run all 3 reports and feed into pipeline
   app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
-    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+    if (getConfiguredCredentials().length === 0) {
       return res.status(503).json({
         error: "People Planner credentials not configured. Please set ACCESS_EMAIL and ACCESS_PASSWORD in environment secrets.",
       });
@@ -727,7 +727,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     if (!label || !(label in OFFSETS)) {
       return res.status(400).json({ error: "Body field 'label' must be 'previous' | 'current' | 'next'" });
     }
-    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+    if (getConfiguredCredentials().length === 0) {
       return res.status(503).json({ error: "People Planner credentials not configured" });
     }
 
@@ -776,7 +776,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       return res.status(401).json({ ok: false, error: "Unauthorised" });
     }
 
-    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+    if (getConfiguredCredentials().length === 0) {
       return res.status(503).json({ ok: false, error: "People Planner credentials not configured" });
     }
 
