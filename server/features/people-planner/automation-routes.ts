@@ -3,7 +3,6 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { requireAuth, requireRoleAtLeast } from "../../features/auth/auth";
-import { asyncHandler } from "../../middleware/error-handler";
 import { storage } from "../../storage";
 import { logger } from "../../infrastructure/logger";
 import { parseExcelFiles, processCapacityData, generateExcelExport } from "../../pipeline";
@@ -24,10 +23,10 @@ import {
 } from "./automation-engine";
 
 /**
- * env-var suffix of the all-access fallback account (ACCESS_EMAIL_6).
+ * env-var suffix of the all-access fallback account (ACCESS_EMAIL_7).
  * Used when a branch's preferred account slot is busy.
  */
-const FALLBACK_ACCOUNT_SUFFIX = 6;
+const FALLBACK_ACCOUNT_SUFFIX = 7;
 
 // ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {
@@ -675,8 +674,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   });
 
   // POST /api/pp/run — run all 3 reports and feed into pipeline
-  app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), asyncHandler(async (req, res) => {
-    logger.info("PP /api/pp/run handler entered", { body: req.body, userId: req.session?.userId });
+  app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
     if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
       return res.status(503).json({
         error: "People Planner credentials not configured. Please set ACCESS_EMAIL and ACCESS_PASSWORD in environment secrets.",
@@ -738,7 +736,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         activeSessions.set(sessionId, pendingSession);
         sessionQueue.push(sessionId);
         const queuePosition = slotReservations.size + sessionQueue.length;
-        logger.info("PP sync queued — sending 202", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: slotReservations.size });
+        logger.info("PP sync queued — all slots busy", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: slotReservations.size });
         return res.status(202).json({ sessionId, queued: true, queuePosition });
       }
 
@@ -783,15 +781,14 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         setImmediate(() => startNextQueuedSession());
       });
 
-      logger.info("PP sync started — sending 202", { sessionId, branchId: requestedBranchId, slotArrayIndex: idleSlot });
+      logger.info("PP sync started", { sessionId, branchId: requestedBranchId, slotArrayIndex: idleSlot });
       return res.status(202).json({ sessionId, queued: false, queuePosition: 1 });
-
 
     } catch (error) {
       logger.error("Error starting People Planner run", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to start automation" });
     }
-  }));
+  });
 
   // GET /api/pp/active — global sync status (no branch names exposed)
   // Used by the persistent SyncStatusBar in the app header.

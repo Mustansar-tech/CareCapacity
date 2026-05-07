@@ -206,20 +206,11 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         credentials: "include",
         body: JSON.stringify({ weekStartDate: monday, branchId: selectedBranchId }),
       });
-      const text = await res.text();
+      const data = await res.json();
       if (!res.ok) {
-        let errMsg = `Server error ${res.status}`;
-        try { errMsg = (JSON.parse(text) as { error?: string })?.error ?? errMsg; } catch { /* non-JSON body */ }
-        throw new Error(errMsg);
+        throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
       }
-      let data: { sessionId: string; queued: boolean; queuePosition: number };
-      try {
-        data = JSON.parse(text) as typeof data;
-      } catch {
-        console.error("POST /api/pp/run returned non-JSON (status:", res.status, "):", text.slice(0, 300));
-        throw new Error("Unexpected server response — please reload and try again");
-      }
-      return data;
+      return data as { sessionId: string; queued: boolean; queuePosition: number };
     },
     onSuccess: (data) => {
       setQueuePosition(data.queued ? data.queuePosition : null);
