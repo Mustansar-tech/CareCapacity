@@ -42,6 +42,50 @@ const DEBUG_DIR = path.resolve(process.cwd(), "pp-debug-screenshots");
 const LOGIN_URL = "https://identity.accessacloud.com/auth/signin?force=true&setemail=false&settenant=false";
 const WORKSPACE_URL = "https://go.accessacloud.com/";
 
+// ─── Shared browser ───────────────────────────────────────────────────────────
+// A single Chromium process is shared across all account slots. Each slot gets
+// its own BrowserContext (fully isolated: separate cookies, localStorage, sessions).
+// Using one process instead of N processes avoids OS-level resource contention
+// (memory, sandbox limits) that causes "navigation interrupted" collisions when
+// multiple slots try to launch their own browser simultaneously.
+
+let sharedBrowser: Browser | null = null;
+let browserLaunchPromise: Promise<Browser> | null = null;
+
+async function getOrLaunchSharedBrowser(): Promise<Browser> {
+  if (sharedBrowser?.isConnected()) return sharedBrowser;
+
+  // Coalesce concurrent launch attempts into one Promise so we never start two
+  // Chromium processes at the same time.
+  if (browserLaunchPromise) return browserLaunchPromise;
+
+  browserLaunchPromise = (async () => {
+    const executablePath = getChromiumExecutablePath();
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      ...(executablePath ? { executablePath } : {}),
+    });
+    browser.on("disconnected", () => {
+      sharedBrowser = null;
+      browserLaunchPromise = null;
+      // Invalidate all slot contexts so the next job on each slot gets a fresh one.
+      for (const s of slotStates) {
+        s.context = null;
+        s.plannerPage = null;
+        s.plannerBranchUrl = null;
+      }
+      logger.warn("Shared Chromium browser disconnected — all slot contexts reset");
+    });
+    sharedBrowser = browser;
+    browserLaunchPromise = null;
+    logger.info("Shared Chromium browser launched");
+    return browser;
+  })();
+
+  return browserLaunchPromise;
+}
+
 // ─── Account pool ─────────────────────────────────────────────────────────────
 interface SlotState {
   /** 1-based display index */
@@ -49,7 +93,7 @@ interface SlotState {
   email: string;
   password: string;
   sessionFile: string;
-  browser: Browser | null;
+  /** Each slot owns one BrowserContext inside the shared browser. */
   context: BrowserContext | null;
   plannerPage: Page | null;
   plannerBranchUrl: string | null;
@@ -62,7 +106,6 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
     email,
     password,
     sessionFile: path.resolve(`/tmp/pp-session-slot-${displayIndex}.json`),
-    browser: null,
     context: null,
     plannerPage: null,
     plannerBranchUrl: null,
@@ -282,26 +325,20 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
   }
 
   try {
-    // ── Launch / reuse browser ──────────────────────────────────────────────
-    if (!slot.browser || !slot.browser.isConnected()) {
-      addLog(job, "Launching browser...");
-      const executablePath = getChromiumExecutablePath();
-      slot.browser = await chromium.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-        ...(executablePath ? { executablePath } : {}),
-      });
-      slot.context = null;
-      slot.plannerPage = null;
-    }
-
-    // ── Create / reuse browser context ─────────────────────────────────────
+    // ── Shared browser + per-slot context ──────────────────────────────────
+    // All slots share one Chromium process; each gets its own isolated context
+    // (separate cookies, sessions, storage). This avoids OS-level resource
+    // contention that caused "navigation interrupted" errors when multiple
+    // browser processes tried to run in parallel.
     if (!slot.context) {
-      slot.context = await slot.browser.newContext({
+      addLog(job, "Acquiring shared browser...");
+      const browser = await getOrLaunchSharedBrowser();
+      slot.context = await browser.newContext({
         storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
         acceptDownloads: true,
       });
       slot.plannerPage = null;
+      addLog(job, `Browser context ready for slot ${slot.index}.`);
     }
 
     // ── Step 1: Login ─────────────────────────────────────────────────────
@@ -391,15 +428,13 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       await debugScreenshot(slot.plannerPage, `fail-${job.id}`).catch(() => {});
     }
 
+    // Close this slot's context so the next job starts with a clean state.
+    // We do NOT close the shared browser — other slots continue unaffected.
     slot.plannerPage = null;
     slot.plannerBranchUrl = null;
     if (slot.context) {
       await slot.context.close().catch(() => {});
       slot.context = null;
-    }
-    if (slot.browser) {
-      await slot.browser.close().catch(() => {});
-      slot.browser = null;
     }
   }
 }
