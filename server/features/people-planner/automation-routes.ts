@@ -23,10 +23,13 @@ import {
 } from "./automation-engine";
 
 /**
- * env-var suffix of the all-access fallback account (ACCESS_EMAIL_7).
- * Used when a branch's preferred account slot is busy.
+ * env-var suffixes of all-access fallback accounts, in priority order.
+ * Used when a branch's preferred account slot is busy. The first one whose
+ * env-var pair is actually set is used; the rest are skipped.
+ * (`_7` is the documented all-access account; `_6` is kept as a legacy
+ * fallback so the app works whether the secret is named `_6` or `_7`.)
  */
-const FALLBACK_ACCOUNT_SUFFIX = 7;
+const FALLBACK_ACCOUNT_SUFFIXES = [7, 6] as const;
 
 // ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {
@@ -248,9 +251,11 @@ function findSlotForBranch(branchId: string): number {
     if (idx !== -1 && !slotReservations.has(idx)) return idx;
   }
 
-  // 2. All-access fallback
-  const fallbackIdx = getSlotArrayIndexBySuffix(FALLBACK_ACCOUNT_SUFFIX);
-  if (fallbackIdx !== -1 && !slotReservations.has(fallbackIdx)) return fallbackIdx;
+  // 2. All-access fallback (try each configured fallback suffix in order)
+  for (const suffix of FALLBACK_ACCOUNT_SUFFIXES) {
+    const fallbackIdx = getSlotArrayIndexBySuffix(suffix);
+    if (fallbackIdx !== -1 && !slotReservations.has(fallbackIdx)) return fallbackIdx;
+  }
 
   // 3. Any idle slot
   return findIdleSlotIndex();
@@ -481,7 +486,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // GET /api/pp/health — check automation is configured, usable, and Playwright accessible
   app.get("/api/pp/health", requireAuth, async (req, res) => {
-    const hasCredentials = !!(process.env.ACCESS_EMAIL && process.env.ACCESS_PASSWORD);
+    const hasCredentials = getSlotCount() > 0;
     const branchId = req.query.branchId as string | undefined;
     // Branch URLs are built-in for all known branches; check the specific branch if provided
     const branchConfigured = branchId
@@ -519,7 +524,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
     const healthy = hasCredentials && playwrightReady;
     const reason = !hasCredentials
-      ? "ACCESS_EMAIL / ACCESS_PASSWORD not configured"
+      ? "No People Planner accounts configured (set at least one ACCESS_EMAIL / ACCESS_PASSWORD pair)"
       : !playwrightReady
       ? "Browser automation engine is not ready"
       : undefined;
@@ -675,9 +680,9 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // POST /api/pp/run — run all 3 reports and feed into pipeline
   app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
-    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+    if (getSlotCount() === 0) {
       return res.status(503).json({
-        error: "People Planner credentials not configured. Please set ACCESS_EMAIL and ACCESS_PASSWORD in environment secrets.",
+        error: "People Planner credentials not configured. Please set at least one ACCESS_EMAIL / ACCESS_PASSWORD pair (base or numbered _1–_7) in environment secrets.",
       });
     }
 
@@ -891,7 +896,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       return res.status(401).json({ ok: false, error: "Unauthorised" });
     }
 
-    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+    if (getSlotCount() === 0) {
       return res.status(503).json({ ok: false, error: "People Planner credentials not configured" });
     }
 
