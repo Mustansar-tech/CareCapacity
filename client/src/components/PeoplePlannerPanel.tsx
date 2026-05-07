@@ -206,11 +206,14 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         credentials: "include",
         body: JSON.stringify({ weekStartDate: monday, branchId: selectedBranchId }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
+        const text = await res.text();
+        let errMsg = `Server error ${res.status}`;
+        try { errMsg = (JSON.parse(text) as { error?: string })?.error ?? errMsg; } catch { /* non-JSON body */ }
+        throw new Error(errMsg);
       }
-      return data as { sessionId: string; queued: boolean; queuePosition: number };
+      const data = await res.json() as { sessionId: string; queued: boolean; queuePosition: number };
+      return data;
     },
     onSuccess: (data) => {
       setQueuePosition(data.queued ? data.queuePosition : null);
