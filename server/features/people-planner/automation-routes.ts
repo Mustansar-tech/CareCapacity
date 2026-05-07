@@ -17,9 +17,16 @@ import {
   getQueueLength,
   getDownloadPath,
   getSlotCount,
+  getSlotArrayIndexBySuffix,
   MAX_ACCOUNT_SLOTS,
   type JobConfig,
 } from "./automation-engine";
+
+/**
+ * env-var suffix of the all-access fallback account (ACCESS_EMAIL_7).
+ * Used when a branch's preferred account slot is busy.
+ */
+const FALLBACK_ACCOUNT_SUFFIX = 7;
 
 // ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {
@@ -27,6 +34,12 @@ export interface BranchPPConfig {
   branchUrl: string;
   /** Exact Franchise name to select in PP export forms (Area is always left as "All") */
   plannerArea?: string;
+  /**
+   * env-var suffix of the preferred account for this branch (e.g. 3 for ACCESS_EMAIL_3).
+   * When that slot is busy the system falls back to ACCESS_EMAIL_7 (all-access), then
+   * any idle slot as last resort.
+   */
+  accountSuffix?: number;
 }
 
 /**
@@ -40,51 +53,61 @@ export interface BranchPPConfig {
  * from the Access Workspace URL slug.
  */
 const DEFAULT_BRANCH_PP_CONFIGS: Record<string, BranchPPConfig> = {
-  // Ayr & Kilmarnock — solo PP, no area filter needed
+  // Ayr & Kilmarnock — solo PP; ACCESS_EMAIL_3 covers Ayr, SB & EL
   "7bc2f2fe-c0e4-4b55-b32b-04954f4f86a7": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-ayr-kilmarnock/",
+    accountSuffix: 3,
   },
-  // Glasgow North — shares PP with North Lanarkshire; select Glasgow North area
+  // Glasgow North — shares PP with North Lanarkshire; ACCESS_EMAIL_1 covers Glasgow North
   "2f706320-5585-4e3c-8eb2-6c624acd7fca": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/",
     plannerArea: "Glasgow North",
+    accountSuffix: 1,
   },
-  // North Lanarkshire — shares PP with Glasgow North; select North Lanarkshire area
+  // North Lanarkshire — shares PP with Glasgow North; ACCESS_EMAIL_4 covers NL & GS
   "c812f593-9ec6-4a18-b48e-c847cc2eac81": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/",
     plannerArea: "North Lanarkshire & Glasgow East",
+    accountSuffix: 4,
   },
-  // Aberdeen — shares PP with Perth; select Aberdeen area
+  // Aberdeen — shares PP with Perth; ACCESS_EMAIL_2 covers Aberdeen & West Fife
   "0d087ea2-68ed-45f3-9738-85de38d4ec9e": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-perthshire/",
     plannerArea: "Home Instead Aberdeen",
+    accountSuffix: 2,
   },
-  // Perth — shares PP with Aberdeen; select Perthshire area
+  // Perth — shares PP with Aberdeen; ACCESS_EMAIL_5 covers Stirling & Perth
   "92a144e1-b9d5-4ec6-b6fb-e8269ddf521d": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-perthshire/",
     plannerArea: "Home Instead Perthshire",
+    accountSuffix: 5,
   },
-  // East Lothian and Midlothian — shares PP with Scottish Borders
+  // East Lothian and Midlothian — shares PP with Scottish Borders; ACCESS_EMAIL_3 covers EL
   "b661f59b-750f-4d75-9343-31bdc3fd9c60": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-east-lothian/",
     plannerArea: "East Lothian and Midlothian",
+    accountSuffix: 3,
   },
-  // Scottish Borders — shares PP with East Lothian
+  // Scottish Borders — shares PP with East Lothian; ACCESS_EMAIL_3 covers SB
   "2587f931-4a8c-4afd-bedf-6621ba55f0b4": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-east-lothian/",
     plannerArea: "Scottish Borders",
+    accountSuffix: 3,
   },
-  // Glasgow South — solo PP, no area filter needed
+  // Glasgow South — solo PP; ACCESS_EMAIL_4 covers NL & GS
   "d3859b52-cfbb-4c23-b94a-4ca4f5351d65": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-glasgow-south/",
+    accountSuffix: 4,
   },
-  // Stirling & Falkirk — solo PP, no area filter needed
+  // Stirling & Falkirk — solo PP; ACCESS_EMAIL_5 covers Stirling & Perth
   "311ed83e-0715-4a83-9cdf-ca6b7792b624": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-sterling-falkirk/",
+    accountSuffix: 5,
   },
-  // West Fife / Dunfermline — solo PP, no area filter needed
+  // West Fife / Dunfermline — solo PP; ACCESS_EMAIL_2 covers Aberdeen & West Fife
   "7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4": {
     branchUrl: "https://go.accessacloud.com/o/home-instead-uk-dunfermline/",
+    accountSuffix: 2,
   },
 };
 
@@ -115,10 +138,13 @@ function getMergedBranchConfig(branchId: string): BranchPPConfig | null {
   const branchUrl = override?.branchUrl ?? envConfig?.branchUrl ?? defaultConfig?.branchUrl;
   if (!branchUrl) return null;
 
-  // plannerArea: override > env > default (so built-in area mapping is always used unless overridden)
+  // plannerArea: override > env > default
   const plannerArea = override?.plannerArea ?? envConfig?.plannerArea ?? defaultConfig?.plannerArea;
 
-  return { branchUrl, plannerArea };
+  // accountSuffix: override > env > default (built-in mapping is the authoritative source)
+  const accountSuffix = override?.accountSuffix ?? envConfig?.accountSuffix ?? defaultConfig?.accountSuffix;
+
+  return { branchUrl, plannerArea, accountSuffix };
 }
 
 // ─── Report type → pipeline field name mapping ───────────────────────────────
@@ -195,8 +221,7 @@ function releaseSlot(slotIndex: number): void {
 
 /**
  * Returns the 0-based index of the first unreserved slot, or -1 when all slots are busy.
- * Uses the route-level reservation map — NOT the engine's per-job state — so the result
- * is valid throughout the synchronous dispatch path.
+ * Uses the route-level reservation map — NOT the engine's per-job state.
  */
 function findIdleSlotIndex(): number {
   const total = getSlotCount();
@@ -204,6 +229,31 @@ function findIdleSlotIndex(): number {
     if (!slotReservations.has(i)) return i;
   }
   return -1;
+}
+
+/**
+ * Branch-aware slot selection. Priority order:
+ *   1. Branch's preferred account (accountSuffix from config) — if idle
+ *   2. All-access fallback account (ACCESS_EMAIL_7) — if idle
+ *   3. Any idle slot (last resort — may fail if account lacks org access)
+ * Returns -1 only when every slot is occupied.
+ */
+function findSlotForBranch(branchId: string): number {
+  const config = getMergedBranchConfig(branchId);
+  const preferredSuffix = config?.accountSuffix;
+
+  // 1. Preferred account for this branch
+  if (preferredSuffix != null) {
+    const idx = getSlotArrayIndexBySuffix(preferredSuffix);
+    if (idx !== -1 && !slotReservations.has(idx)) return idx;
+  }
+
+  // 2. All-access fallback
+  const fallbackIdx = getSlotArrayIndexBySuffix(FALLBACK_ACCOUNT_SUFFIX);
+  if (fallbackIdx !== -1 && !slotReservations.has(fallbackIdx)) return fallbackIdx;
+
+  // 3. Any idle slot
+  return findIdleSlotIndex();
 }
 
 /** True when every account slot is occupied by a running session. */
@@ -233,24 +283,37 @@ function getQueuePos(sessionId: string): number {
 }
 
 /**
- * Called after any session finishes. Drains the FIFO queue across all idle slots —
- * up to one queued session per idle slot is started on each call.
- * Slot reservation happens synchronously inside the while loop before any async work
- * begins, preventing two iterations from picking the same slot.
+ * Called after any session finishes. Iterates the entire queue looking for sessions
+ * whose preferred account slot (or fallback) is now idle, starting as many as
+ * possible in parallel. This maximises throughput: when multiple different-branch
+ * sessions are queued and their respective accounts are all free, they all start
+ * simultaneously rather than one at a time.
  */
 function startNextQueuedSession(): void {
-  while (sessionQueue.length > 0) {
-    const idleSlot = findIdleSlotIndex();
-    if (idleSlot === -1) return; // all slots busy — stop draining
+  let i = 0;
+  while (i < sessionQueue.length) {
+    // Stop if no slots are available at all
+    if (findIdleSlotIndex() === -1) return;
 
-    const nextId = sessionQueue.shift()!;
+    const nextId = sessionQueue[i];
     const session = activeSessions.get(nextId);
+
     if (!session?.pendingParams) {
-      logger.warn("Queued session missing or has no params — skipping", { nextId });
-      continue; // skip and try the next one in the queue
+      // Stale entry — remove and keep scanning
+      sessionQueue.splice(i, 1);
+      continue;
     }
 
-    // Reserve the slot synchronously before launching any async work.
+    // Find the best idle slot for this specific branch
+    const idleSlot = findSlotForBranch(session.branchId);
+    if (idleSlot === -1) {
+      // No suitable slot free right now — leave in queue and try the next entry
+      i++;
+      continue;
+    }
+
+    // Remove from queue and reserve slot synchronously before any async work.
+    sessionQueue.splice(i, 1);
     reserveSlot(idleSlot, nextId);
 
     const params = session.pendingParams;
@@ -260,7 +323,7 @@ function startNextQueuedSession(): void {
     session.pendingParams = undefined;
     activeSessions.set(nextId, session);
 
-    logger.info("Auto-starting next queued session", {
+    logger.info("Auto-starting queued session on idle slot", {
       sessionId: nextId,
       branchId: session.branchId,
       slotArrayIndex: idleSlot,
@@ -281,6 +344,7 @@ function startNextQueuedSession(): void {
       releaseSlot(idleSlot);
       setImmediate(() => startNextQueuedSession());
     });
+    // Don't increment i — splicing removed this entry so i now points to the next one
   }
 }
 
@@ -352,8 +416,8 @@ export async function programmaticQueueSync(
   const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
   const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-  // Check slot availability and reserve synchronously before any async work.
-  const idleSlot = findIdleSlotIndex();
+  // Find the best slot for this branch and reserve it synchronously.
+  const idleSlot = findSlotForBranch(branchId);
   if (idleSlot === -1) {
     const pendingSession: PipelineSession = {
       sessionId,
@@ -648,10 +712,10 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const initiatedByUserId = req.session.userId ?? "unknown";
 
-      // ── Account pool: reserve a slot synchronously or queue ──────────────
-      // findIdleSlotIndex() + reserveSlot() both run synchronously in this
+      // ── Account pool: reserve the best slot for this branch or queue ─────
+      // findSlotForBranch() + reserveSlot() both run synchronously in this
       // event-loop turn, so no two concurrent HTTP requests can pick the same slot.
-      const idleSlot = findIdleSlotIndex();
+      const idleSlot = findSlotForBranch(requestedBranchId);
       if (idleSlot === -1) {
         const pendingSession: PipelineSession = {
           sessionId,
