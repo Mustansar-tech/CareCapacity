@@ -736,7 +736,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         activeSessions.set(sessionId, pendingSession);
         sessionQueue.push(sessionId);
         const queuePosition = slotReservations.size + sessionQueue.length;
-        logger.info("PP sync queued — all slots busy", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: slotReservations.size });
+        logger.info("PP sync queued — sending 202", { sessionId, branchId: requestedBranchId, queuePosition, accountSlots: slotReservations.size });
         return res.status(202).json({ sessionId, queued: true, queuePosition });
       }
 
@@ -781,8 +781,9 @@ export function registerPeoplePlannerRoutes(app: Express): void {
         setImmediate(() => startNextQueuedSession());
       });
 
-      logger.info("PP sync started", { sessionId, branchId: requestedBranchId, slotArrayIndex: idleSlot });
+      logger.info("PP sync started — sending 202", { sessionId, branchId: requestedBranchId, slotArrayIndex: idleSlot });
       return res.status(202).json({ sessionId, queued: false, queuePosition: 1 });
+
 
     } catch (error) {
       logger.error("Error starting People Planner run", error instanceof Error ? error : undefined);
