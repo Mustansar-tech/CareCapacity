@@ -172,6 +172,40 @@ const activeSessions = new Map<string, PipelineSession>();
 /** FIFO queue of sessionIds waiting to start. */
 const sessionQueue: string[] = [];
 
+// ─── Branch → preferred account slot mapping ─────────────────────────────────
+// Each Access Workspace account only has permission to access specific branches.
+// This map routes each branch to the slot whose credentials have access to it.
+// Slot 0 (ACCESS_EMAIL) is a universal fallback with access to all branches.
+//
+// Slot index (0-based) → env var → branches covered:
+//   0 : ACCESS_EMAIL   — all branches (fallback)
+//   1 : ACCESS_EMAIL_1 — Glasgow North
+//   2 : ACCESS_EMAIL_2 — Aberdeen, West Fife / Dunfermline
+//   3 : ACCESS_EMAIL_3 — Ayr & Kilmarnock, East Lothian & Midlothian, Scottish Borders
+//   4 : ACCESS_EMAIL_4 — North Lanarkshire, Glasgow South
+//   5 : ACCESS_EMAIL_5 — Stirling & Falkirk, Perth
+const BRANCH_SLOT_MAP: Record<string, number> = {
+  // Slot 1 — Glasgow North (ACCESS_EMAIL_1)
+  "2f706320-5585-4e3c-8eb2-6c624acd7fca": 1, // Glasgow North
+
+  // Slot 2 — Aberdeen & West Fife (ACCESS_EMAIL_2)
+  "0d087ea2-68ed-45f3-9738-85de38d4ec9e": 2, // Aberdeen
+  "7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4": 2, // West Fife / Dunfermline
+
+  // Slot 3 — Ayr, East Lothian & Scottish Borders (ACCESS_EMAIL_3)
+  "7bc2f2fe-c0e4-4b55-b32b-04954f4f86a7": 3, // Ayr & Kilmarnock
+  "b661f59b-750f-4d75-9343-31bdc3fd9c60": 3, // East Lothian & Midlothian
+  "2587f931-4a8c-4afd-bedf-6621ba55f0b4": 3, // Scottish Borders
+
+  // Slot 4 — North Lanarkshire & Glasgow South (ACCESS_EMAIL_4)
+  "c812f593-9ec6-4a18-b48e-c847cc2eac81": 4, // North Lanarkshire
+  "d3859b52-cfbb-4c23-b94a-4ca4f5351d65": 4, // Glasgow South
+
+  // Slot 5 — Stirling & Perth (ACCESS_EMAIL_5)
+  "311ed83e-0715-4a83-9cdf-ca6b7792b624": 5, // Stirling & Falkirk
+  "92a144e1-b9d5-4ec6-b6fb-e8269ddf521d": 5, // Perth / Perthshire
+};
+
 // ─── Session-level slot reservation ──────────────────────────────────────────
 // This map is the single source of truth for slot occupancy in the routing layer.
 // It is updated synchronously (before any async work starts and only after it
@@ -194,21 +228,34 @@ function releaseSlot(slotIndex: number): void {
 }
 
 /**
- * Returns the 0-based index of the first unreserved slot, or -1 when all slots are busy.
- * Uses the route-level reservation map — NOT the engine's per-job state — so the result
- * is valid throughout the synchronous dispatch path.
+ * Returns the 0-based index of the best available slot for a branch, or -1 when no
+ * slot is free and the session should queue.
+ *
+ * Selection order:
+ *   1. Preferred slot from BRANCH_SLOT_MAP (if configured and idle).
+ *   2. Slot 0 (ACCESS_EMAIL — universal fallback, access to all branches).
+ *   3. -1 — queue; both the preferred slot and the fallback are busy.
+ *
+ * Uses the route-level reservation map so the result is valid throughout the
+ * synchronous dispatch path (no async gaps between check and reserve).
  */
-function findIdleSlotIndex(): number {
-  const total = getSlotCount();
-  for (let i = 0; i < total; i++) {
-    if (!slotReservations.has(i)) return i;
+function findPreferredSlotForBranch(branchId: string): number {
+  const preferred = BRANCH_SLOT_MAP[branchId];
+  // Try preferred slot first (must exist in the loaded pool)
+  if (preferred !== undefined && preferred < getSlotCount() && !slotReservations.has(preferred)) {
+    return preferred;
   }
+  // Fall back to slot 0 (ACCESS_EMAIL — all branches)
+  if (!slotReservations.has(0)) {
+    return 0;
+  }
+  // Both are busy — caller should queue
   return -1;
 }
 
 /** True when every account slot is occupied by a running session. */
 function allSlotsBusy(): boolean {
-  return findIdleSlotIndex() === -1;
+  return slotReservations.size >= getSlotCount();
 }
 
 /**
@@ -240,8 +287,13 @@ function getQueuePos(sessionId: string): number {
  */
 function startNextQueuedSession(): void {
   while (sessionQueue.length > 0) {
-    const idleSlot = findIdleSlotIndex();
-    if (idleSlot === -1) return; // all slots busy — stop draining
+    // Peek at the next queued session to choose its preferred slot before shifting
+    const peekId = sessionQueue[0];
+    const peekSession = activeSessions.get(peekId);
+    const idleSlot = peekSession
+      ? findPreferredSlotForBranch(peekSession.branchId)
+      : -1;
+    if (idleSlot === -1) return; // no suitable slot free — stop draining
 
     const nextId = sessionQueue.shift()!;
     const session = activeSessions.get(nextId);
@@ -353,7 +405,7 @@ export async function programmaticQueueSync(
   const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
   // Check slot availability and reserve synchronously before any async work.
-  const idleSlot = findIdleSlotIndex();
+  const idleSlot = findPreferredSlotForBranch(branchId);
   if (idleSlot === -1) {
     const pendingSession: PipelineSession = {
       sessionId,
@@ -649,9 +701,9 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       const initiatedByUserId = req.session.userId ?? "unknown";
 
       // ── Account pool: reserve a slot synchronously or queue ──────────────
-      // findIdleSlotIndex() + reserveSlot() both run synchronously in this
-      // event-loop turn, so no two concurrent HTTP requests can pick the same slot.
-      const idleSlot = findIdleSlotIndex();
+      // findPreferredSlotForBranch() + reserveSlot() both run synchronously in
+      // this event-loop turn, so no two concurrent requests can pick the same slot.
+      const idleSlot = findPreferredSlotForBranch(requestedBranchId);
       if (idleSlot === -1) {
         const pendingSession: PipelineSession = {
           sessionId,

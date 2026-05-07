@@ -176,6 +176,21 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 - **`report-configs.ts`** — Per-report-type URL, field config, and export template names.
 - **`automation-routes.ts`** — Express routes under `/api/pp/`. Runs all 3 reports sequentially and feeds results through the existing pipeline, then persists to DB.
 
+### Branch → Account Slot Mapping
+
+Each Access Workspace account only has permission to access specific branches. Syncs are routed to the correct account automatically. `ACCESS_EMAIL` (slot 0) has access to all branches and is used as a fallback if the preferred slot is busy.
+
+| Env var        | Slot | Branches covered                                              |
+|----------------|------|---------------------------------------------------------------|
+| ACCESS_EMAIL   | 0    | All branches (fallback)                                       |
+| ACCESS_EMAIL_1 | 1    | Glasgow North                                                 |
+| ACCESS_EMAIL_2 | 2    | Aberdeen, West Fife / Dunfermline                             |
+| ACCESS_EMAIL_3 | 3    | Ayr & Kilmarnock, East Lothian & Midlothian, Scottish Borders |
+| ACCESS_EMAIL_4 | 4    | North Lanarkshire, Glasgow South                              |
+| ACCESS_EMAIL_5 | 5    | Stirling & Falkirk, Perth                                     |
+
+Branches from different groups run in parallel (different slots). Branches from the same group fall back to slot 0 if their preferred slot is busy, or queue if both are occupied.
+
 Frontend:
 - **`client/src/components/PeoplePlannerPanel.tsx`** — Sheet-based panel, week date picker, per-report status indicators, progress bar, polling via `/api/pp/session/:sessionId` every 2s.
 - Dashboard trigger button (purple "Sync from People Planner") appears when no data is loaded.
