@@ -197,6 +197,42 @@ async function debugScreenshot(page: Page, name: string): Promise<void> {
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Tear down the slot's browser context before a NEW pipeline session starts.
+ *
+ * Why this is necessary
+ * ─────────────────────
+ * When session A finishes on slot N, its BrowserContext stays open (pages still
+ * alive, cookies still hot).  If session B is then dispatched to the same slot,
+ * `runJob` finds `slot.context !== null` and reuses it — inheriting orphaned
+ * pages from session A.  When `openPeoplePlanner` subsequently listens for a
+ * new-tab event on that context, it may capture a stale tab that is mid-redirect
+ * to the login page rather than the freshly-opened PP tab, producing the
+ * "Could not find EVO launcher iframe" error.
+ *
+ * The fix: save the session file first (so the next context can skip re-login),
+ * then close the entire context.  `runJob` will create a clean context on the
+ * next call, using the saved session file to restore cookies.
+ */
+export async function resetSlotForNextSession(slotArrayIndex: number): Promise<void> {
+  const slot = slotStates[slotArrayIndex];
+  if (!slot) return;
+  if (!slot.context) return; // nothing to reset
+
+  // Persist cookies/session so the next context can skip the login form.
+  await slot.context.storageState({ path: slot.sessionFile }).catch(() => {});
+
+  // Close every page in the context (workspacePage, plannerPage, any orphans).
+  await slot.context.close().catch(() => {});
+
+  slot.context = null;
+  slot.plannerPage = null;
+  slot.plannerBranchUrl = null;
+
+  logger.info("Slot context reset for next session", { slotArrayIndex, displayIndex: slot.index });
+}
+
 export function getJob(id: string): AutomationJob | undefined {
   return jobs.get(id);
 }
@@ -387,6 +423,11 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       slot.plannerPage = await openPeoplePlanner(slot.context, workspacePage);
       slot.plannerBranchUrl = branchUrl;
       addLog(job, "People Planner opened.");
+
+      // Close the workspace page — PP is now open in its own tab and we no longer
+      // need the launcher page.  Leaving it open risks future context.waitForEvent("page")
+      // calls capturing stale redirects from this orphaned page.
+      await workspacePage.close().catch(() => {});
     } else {
       addLog(job, `Reusing existing People Planner session for ${branchUrl}.`);
     }

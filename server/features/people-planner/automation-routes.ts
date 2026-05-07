@@ -18,6 +18,7 @@ import {
   getDownloadPath,
   getSlotCount,
   MAX_ACCOUNT_SLOTS,
+  resetSlotForNextSession,
   type JobConfig,
 } from "./automation-engine";
 
@@ -950,6 +951,18 @@ async function runPipelineSession(
   activeSessions.set(sessionId, session);
 
   try {
+    // ── Reset any leftover context from a previous session on this slot ────────
+    // When slot N is released after session A completes, its BrowserContext stays
+    // open with live pages from session A.  If session B then runs on the same
+    // slot, `runJob` would reuse that context and inherit orphaned pages.
+    // `openPeoplePlanner` listens for a new-tab event on the context, so any
+    // stale page navigating in the background can be captured instead of the real
+    // PP tab — causing the "Could not find EVO launcher iframe" error.
+    // Resetting here (saving cookies first) gives each pipeline session a clean
+    // context while still allowing the login step to be skipped via the saved
+    // session file.
+    await resetSlotForNextSession(slotArrayIndex);
+
     const downloadedBuffers: Record<string, Buffer> = {};
 
     for (const reportType of reportTypes) {
