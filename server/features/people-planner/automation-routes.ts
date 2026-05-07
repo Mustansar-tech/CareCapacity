@@ -23,10 +23,10 @@ import {
 } from "./automation-engine";
 
 /**
- * env-var suffix of the all-access fallback account (ACCESS_EMAIL_7).
+ * env-var suffix of the all-access fallback account (ACCESS_EMAIL_6).
  * Used when a branch's preferred account slot is busy.
  */
-const FALLBACK_ACCOUNT_SUFFIX = 7;
+const FALLBACK_ACCOUNT_SUFFIX = 6;
 
 // ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {

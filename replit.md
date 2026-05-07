@@ -166,9 +166,9 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 | `ACCESS_PASSWORD_4` | Password for above |
 | `ACCESS_EMAIL_5` | Email — Stirling & Perth (accountSuffix 5) |
 | `ACCESS_PASSWORD_5` | Password for above |
-| `ACCESS_EMAIL_6` | Email — reserved / additional account (accountSuffix 6) |
+| `ACCESS_EMAIL_6` | Email — all-access fallback account (accountSuffix 6) |
 | `ACCESS_PASSWORD_6` | Password for above |
-| `ACCESS_EMAIL_7` | Email — all-access fallback account (accountSuffix 7) |
+| `ACCESS_EMAIL_7` | Email — reserved / additional account (accountSuffix 7) |
 | `ACCESS_PASSWORD_7` | Password for above |
 | `PEOPLE_PLANNER_BRANCH_CONFIG` | JSON map of branchId → `{workspaceBranch, plannerArea}` |
 
