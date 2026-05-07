@@ -464,6 +464,20 @@ export async function programmaticQueueSync(
 
 // ─── Register routes ──────────────────────────────────────────────────────────
 export function registerPeoplePlannerRoutes(app: Express): void {
+  // ── Startup diagnostics ────────────────────────────────────────────────────
+  // Log the effective branch→preferred-slot mapping so operators can verify
+  // that each branch is wired to the correct Access Workspace account at boot.
+  const slotCount = getSlotCount();
+  const mappingReport = Object.entries(BRANCH_SLOT_MAP).reduce<Record<string, { preferredSlot: number; slotConfigured: boolean }>>((acc, [bId, slot]) => {
+    acc[bId] = { preferredSlot: slot, slotConfigured: slot < slotCount };
+    return acc;
+  }, {});
+  logger.info("PP branch→slot mapping effective at startup", {
+    slotCount,
+    mapping: mappingReport,
+    unmappedBranchesFallToSlot0: true,
+  });
+
   // Only register if credentials are configured (or can be configured later)
   // Routes are always registered but gracefully return 503 if not configured
 
