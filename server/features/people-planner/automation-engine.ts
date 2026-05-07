@@ -419,6 +419,22 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
       await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
+      // Access Cloud may trigger a tenant-specific OAuth challenge after navigating
+      // to the branch workspace URL (even when the general login already succeeded).
+      // Detect and complete that before trying to open People Planner.
+      const reAuthed = await handleTenantReAuth(workspacePage, email, password);
+      if (reAuthed) {
+        addLog(job, "Tenant re-auth completed — re-saving session and re-navigating to branch...");
+        await slot.context.storageState({ path: slot.sessionFile });
+        await workspacePage.goto(branchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await workspacePage.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+        // One more safety check — if still on identity, throw clearly
+        const urlAfter = workspacePage.url();
+        if (urlAfter.includes("identity.accessacloud.com/auth/")) {
+          throw new Error(`Still on login page after re-auth for branch ${branchUrl}: ${urlAfter}`);
+        }
+      }
+
       addLog(job, "Opening People Planner from the Access launcher...");
       slot.plannerPage = await openPeoplePlanner(slot.context, workspacePage);
       slot.plannerBranchUrl = branchUrl;
@@ -532,6 +548,51 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
 }
 
+// ─── Tenant re-auth handler ───────────────────────────────────────────────────
+/**
+ * After a general login, navigating to a specific Access Cloud workspace
+ * (e.g. /o/home-instead-uk-perthshire/) can trigger a TENANT-specific OAuth
+ * challenge.  Access Cloud redirects to identity.accessacloud.com/auth/password
+ * with acr_values=tenant:<slug>.  This is NOT caught by checkNeedsLogin (which
+ * only checks the initial auth/signin URL), so openPeoplePlanner would spin for
+ * 30 s and then fail.
+ *
+ * This function detects the password-step challenge and completes it so the
+ * workspace page lands on the correct tenant.
+ *
+ * Returns true if re-auth was performed (caller should re-save session + re-navigate).
+ */
+async function handleTenantReAuth(page: Page, email: string, password: string): Promise<boolean> {
+  const url = page.url();
+  const onIdentity = url.includes("identity.accessacloud.com/auth/");
+  if (!onIdentity) return false;
+
+  logger.warn("Tenant-specific re-auth challenge detected", { url });
+
+  // If we landed on auth/password (email already known — just need password)
+  if (url.includes("auth/password")) {
+    try {
+      const pwField = page.getByPlaceholder(/enter your password/i);
+      if (await pwField.isVisible({ timeout: 8000 }).catch(() => false)) {
+        await pwField.fill(password);
+        await page.getByRole("button", { name: /sign in/i }).click();
+        await page.waitForURL(
+          (u) => !u.href.includes("identity.accessacloud.com/auth/"),
+          { timeout: 60000, waitUntil: "commit" },
+        );
+        await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+        return true;
+      }
+    } catch {
+      // Fall through to full re-login below
+    }
+  }
+
+  // Full re-login (covers auth/signin or any other identity page)
+  await login(page, email, password);
+  return true;
+}
+
 // ─── Workspace branch selection ───────────────────────────────────────────────
 function branchNameToSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -582,11 +643,24 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     });
   }
 
-  // Wait up to 30 seconds for the EVO launcher iframe to appear, polling every 2s
+  // Wait up to 30 seconds for the EVO launcher iframe to appear, polling every 2s.
+  // Fail fast if the page redirects to an identity/login page — that means Access
+  // Cloud triggered a tenant re-auth that should have been handled before this call.
   let launcherFrame: import("playwright").Frame | null = null;
   const launcherDeadline = Date.now() + 30000;
   while (!launcherFrame && Date.now() < launcherDeadline) {
     await page.waitForTimeout(2000);
+
+    // Fast-fail: if the page is now on identity.accessacloud.com, the workspace
+    // session was lost — throw immediately so the caller can retry with re-auth.
+    const currentUrl = page.url();
+    if (currentUrl.includes("identity.accessacloud.com/auth/")) {
+      const allFrameUrls = page.frames().map(f => f.url()).join(", ");
+      throw new Error(
+        `Could not find EVO launcher iframe after 30s. Available frames: ${allFrameUrls}`
+      );
+    }
+
     const currentFrames = page.frames();
     launcherFrame = currentFrames.find(f =>
       f.url().includes("button-app.production.workspace.accessacloud.com")
