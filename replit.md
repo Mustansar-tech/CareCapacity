@@ -154,22 +154,18 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 | `ORS_API_KEY` | OpenRouteService API key |
 | `TRAVELTIME_APP_ID` | TravelTime application ID |
 | `TRAVELTIME_API_KEY` | TravelTime API key |
-| `ACCESS_EMAIL` | Email for People Planner base account (required — general access) |
-| `ACCESS_PASSWORD` | Password for base account |
-| `ACCESS_EMAIL_1` | Email — Glasgow North (accountSuffix 1) |
-| `ACCESS_PASSWORD_1` | Password for above |
-| `ACCESS_EMAIL_2` | Email — Aberdeen & West Fife (accountSuffix 2) |
-| `ACCESS_PASSWORD_2` | Password for above |
-| `ACCESS_EMAIL_3` | Email — Ayr, Scottish Borders & East Lothian (accountSuffix 3) |
-| `ACCESS_PASSWORD_3` | Password for above |
-| `ACCESS_EMAIL_4` | Email — North Lanarkshire & Glasgow South (accountSuffix 4) |
-| `ACCESS_PASSWORD_4` | Password for above |
-| `ACCESS_EMAIL_5` | Email — Stirling & Perth (accountSuffix 5) |
-| `ACCESS_PASSWORD_5` | Password for above |
-| `ACCESS_EMAIL_6` | Email — reserved / additional account (accountSuffix 6) |
-| `ACCESS_PASSWORD_6` | Password for above |
-| `ACCESS_EMAIL_7` | Email — all-access fallback account (accountSuffix 7) |
-| `ACCESS_PASSWORD_7` | Password for above |
+| `ACCESS_EMAIL` | Email for People Planner account slot 1 (required) |
+| `ACCESS_PASSWORD` | Password for People Planner account slot 1 (required) |
+| `ACCESS_EMAIL_1` | Email for account slot 2 (optional) |
+| `ACCESS_PASSWORD_1` | Password for account slot 2 |
+| `ACCESS_EMAIL_2` | Email for account slot 3 (optional) |
+| `ACCESS_PASSWORD_2` | Password for account slot 3 |
+| `ACCESS_EMAIL_3` | Email for account slot 4 (optional) |
+| `ACCESS_PASSWORD_3` | Password for account slot 4 |
+| `ACCESS_EMAIL_4` | Email for account slot 5 (optional) |
+| `ACCESS_PASSWORD_4` | Password for account slot 5 |
+| `ACCESS_EMAIL_5` | Email for account slot 6 (optional) |
+| `ACCESS_PASSWORD_5` | Password for account slot 6 |
 | `PEOPLE_PLANNER_BRANCH_CONFIG` | JSON map of branchId → `{workspaceBranch, plannerArea}` |
 
 ## People Planner Automation

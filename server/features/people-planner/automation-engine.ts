@@ -44,10 +44,8 @@ const WORKSPACE_URL = "https://go.accessacloud.com/";
 
 // ─── Account pool ─────────────────────────────────────────────────────────────
 interface SlotState {
-  /** 1-based display index (contiguous regardless of env-var suffix gaps) */
+  /** 1-based display index */
   index: number;
-  /** env-var suffix number (1–7), or null for the base ACCESS_EMAIL pair */
-  envSuffix: number | null;
   email: string;
   password: string;
   sessionFile: string;
@@ -58,10 +56,9 @@ interface SlotState {
   currentJobId: string | null;
 }
 
-function makeSlot(displayIndex: number, envSuffix: number | null, email: string, password: string): SlotState {
+function makeSlot(displayIndex: number, email: string, password: string): SlotState {
   return {
     index: displayIndex,
-    envSuffix,
     email,
     password,
     sessionFile: path.resolve(`/tmp/pp-session-slot-${displayIndex}.json`),
@@ -76,34 +73,36 @@ function makeSlot(displayIndex: number, envSuffix: number | null, email: string,
 /**
  * Maximum account slots supported by the pool.
  *
- * Env-var layout (base pair + optional numbered pairs _1–_7):
- *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD          (required — general/limited access)
- *   Slot 2 : ACCESS_EMAIL_1 / ACCESS_PASSWORD_1        (optional — Glasgow North)
- *   Slot 3 : ACCESS_EMAIL_2 / ACCESS_PASSWORD_2        (optional — Aberdeen & West Fife)
- *   Slot 4 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3        (optional — Ayr, Scottish Borders & East Lothian)
- *   Slot 5 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4        (optional — North Lanarkshire & Glasgow South)
- *   Slot 6 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5        (optional — Stirling & Perth)
- *   Slot 7 : ACCESS_EMAIL_6 / ACCESS_PASSWORD_6        (optional)
- *   Slot 8 : ACCESS_EMAIL_7 / ACCESS_PASSWORD_7        (optional — all-access fallback)
+ * Env-var layout:
+ *   Slot 1 : ACCESS_EMAIL   / ACCESS_PASSWORD          (required)
+ *   Slot 2 : ACCESS_EMAIL_1 / ACCESS_PASSWORD_1        (optional)
+ *   Slot 3 : ACCESS_EMAIL_2 / ACCESS_PASSWORD_2        (optional)
+ *   Slot 4 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3        (optional)
+ *   Slot 5 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4        (optional)
+ *   Slot 6 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5        (optional)
  *
- * Runtime slot numbers are contiguous (1..N); the envSuffix field records
- * which env-var pair the slot came from so routing can select by account.
+ * With all six pairs configured the pool reaches its full capacity of 6
+ * concurrent sessions.
  */
-export const MAX_ACCOUNT_SLOTS = 8;
+export const MAX_ACCOUNT_SLOTS = 6;
 
 /**
  * Load all configured accounts from the env-var layout above.
+ *
+ * Runtime slot numbers are contiguous (1..N) regardless of which optional
+ * pairs are present, so session files are always
+ * /tmp/pp-session-slot-1.json … /tmp/pp-session-slot-N.json with no gaps.
  * Only slots where BOTH email and password are set are added to the pool.
  */
 function loadAccountPool(): SlotState[] {
   const pool: SlotState[] = [];
   const e0 = process.env.ACCESS_EMAIL;
   const p0 = process.env.ACCESS_PASSWORD;
-  if (e0 && p0) pool.push(makeSlot(pool.length + 1, null, e0, p0));
-  for (const n of [1, 2, 3, 4, 5, 6, 7]) {
+  if (e0 && p0) pool.push(makeSlot(1, e0, p0));
+  for (const n of [1, 2, 3, 4, 5]) {
     const e = process.env[`ACCESS_EMAIL_${n}`];
     const p = process.env[`ACCESS_PASSWORD_${n}`];
-    if (e && p) pool.push(makeSlot(pool.length + 1, n, e, p));
+    if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
   }
   return pool;
 }
@@ -187,14 +186,6 @@ export function getSlotCount(): number {
 /** Returns the 0-based array index of the first idle slot, or -1 if all are busy. */
 export function getIdleSlotIndex(): number {
   return slotStates.findIndex(s => s.currentJobId === null);
-}
-
-/**
- * Returns the 0-based array index of the slot whose env-var suffix matches,
- * or -1 when that account is not loaded (env var not set).
- */
-export function getSlotArrayIndexBySuffix(suffix: number): number {
-  return slotStates.findIndex(s => s.envSuffix === suffix);
 }
 
 export interface SlotStatus {
