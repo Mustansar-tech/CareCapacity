@@ -99,6 +99,12 @@ app.use((req, res, next) => {
     }
   }, 5000);
 
+  // Global error handler — registered BEFORE Vite/static so that Express
+  // route errors always return JSON rather than falling through to Vite's
+  // HTML catch-all. The 4-argument signature marks it as an error handler
+  // and Express skips it for normal requests.
+  app.use(errorHandler);
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -107,10 +113,6 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
-
-  // Global error handler — must be registered AFTER all routes and static
-  // middleware so it catches errors from every layer (including sendFile failures)
-  app.use(errorHandler);
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

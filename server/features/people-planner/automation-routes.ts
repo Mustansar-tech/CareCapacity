@@ -3,6 +3,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { requireAuth, requireRoleAtLeast } from "../../features/auth/auth";
+import { asyncHandler } from "../../middleware/error-handler";
 import { storage } from "../../storage";
 import { logger } from "../../infrastructure/logger";
 import { parseExcelFiles, processCapacityData, generateExcelExport } from "../../pipeline";
@@ -674,7 +675,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   });
 
   // POST /api/pp/run — run all 3 reports and feed into pipeline
-  app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
+  app.post("/api/pp/run", requireAuth, requireRoleAtLeast("scheduler"), asyncHandler(async (req, res) => {
+    logger.info("PP /api/pp/run handler entered", { body: req.body, userId: req.session?.userId });
     if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
       return res.status(503).json({
         error: "People Planner credentials not configured. Please set ACCESS_EMAIL and ACCESS_PASSWORD in environment secrets.",
@@ -789,7 +791,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       logger.error("Error starting People Planner run", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to start automation" });
     }
-  });
+  }));
 
   // GET /api/pp/active — global sync status (no branch names exposed)
   // Used by the persistent SyncStatusBar in the app header.
