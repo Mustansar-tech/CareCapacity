@@ -1,8 +1,9 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import { sql } from 'drizzle-orm';
 import ws from "ws";
 import * as schema from "@shared/schema";
-import { logger } from "./logger"; // Assuming logger is configured in a separate file
+import { logger } from "./logger";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -12,20 +13,21 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Configure connection pool with retry logic and timeouts
+// For autoscale deployments, keep the pool small — multiple cold instances can
+// compete for Neon's connection limit.  10 is plenty for a care-ops dashboard.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Wait 10 seconds for a connection
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 15000, // Give Neon cold-start up to 15s
 });
 
-// Handle pool errors gracefully
+// Pool-level errors (e.g. idle WebSocket drops) are non-fatal and self-healing.
+// Log at warn, not error, to avoid false alarms in production monitoring.
 pool.on('error', (err) => {
-  logger.error('❌ Unexpected database pool error:', err); // Use logger for errors
+  logger.warn('Database pool connection error (non-fatal)', { message: (err as Error).message });
 });
 
-// Add connection retry wrapper
 export const db = drizzle({ client: pool, schema });
 
 // Helper function for query retry logic
@@ -38,15 +40,14 @@ export async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
-      logger.error(`❌ Database operation failed (attempt ${attempt}/${maxRetries}):`, error); // Use logger for errors
+      logger.error(`Database operation failed (attempt ${attempt}/${maxRetries})`, { error });
 
       if (attempt === maxRetries) {
         throw error;
       }
 
-      // Exponential backoff
       const waitTime = delay * Math.pow(2, attempt - 1);
-      logger.info(`⏳ Retrying in ${waitTime}ms...`); // Use logger for info
+      logger.info(`Retrying database operation in ${waitTime}ms`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
@@ -54,25 +55,28 @@ export async function withRetry<T>(
   throw new Error('Database operation failed after all retries');
 }
 
-// Health check function
+// Health check — uses a real SELECT 1 query through Drizzle so that Neon's
+// compute wakes up and registers activity.  pool.connect()+release() alone
+// does not count as activity from Neon's perspective, causing the compute to
+// suspend between checks even when the interval is shorter than the idle timeout.
 export async function checkDatabaseHealth(): Promise<boolean> {
   try {
-    // Use the pool to check connection health
-    const client = await pool.connect();
-    client.release(); // Release the client back to the pool
+    await db.execute(sql`SELECT 1`);
     return true;
   } catch (error) {
-    logger.error('Database health check failed', error);
+    logger.error('Database health check failed', { message: (error as Error).message });
     return false;
   }
 }
 
-// Periodic health monitoring
+// Periodic keep-alive in production.  Neon suspends compute after ~5 minutes
+// of inactivity.  Running SELECT 1 every 4 minutes prevents cold-start latency
+// for end users and keeps the pool connections alive.
 if (process.env.NODE_ENV === 'production') {
   setInterval(async () => {
     const isHealthy = await checkDatabaseHealth();
     if (!isHealthy) {
-      logger.error('Database connection unhealthy - requires attention');
+      logger.warn('Database keep-alive ping failed — Neon may be cold-starting');
     }
-  }, 60000); // Check every minute
+  }, 4 * 60 * 1000); // Every 4 minutes
 }
