@@ -1,5 +1,10 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Backend base URL — set VITE_API_BASE_URL when the API lives on a different
+// origin (e.g. Hetzner/DigitalOcean) from the frontend (e.g. Vercel).
+// Leave unset for local dev where both run on the same port.
+const API_BASE: string = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
+
 // Global handler called when any authenticated API request returns 401
 // (i.e., the server session has expired). The AuthProvider sets this.
 let globalUnauthorizedHandler: (() => void) | null = null;
@@ -17,6 +22,15 @@ async function throwIfResNotOk(res: Response) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
+}
+
+// Prepend the configured API base to any path that starts with /api
+// Absolute URLs (e.g. http://...) are returned unchanged.
+function toAbsoluteUrl(path: string): string {
+  if (!API_BASE || path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  return `${API_BASE}${path}`;
 }
 
 // Helper to get branchId from localStorage
@@ -56,8 +70,9 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Add branchId to request based on method
-  const finalUrl = method === 'GET' ? appendBranchIdToUrl(url) : url;
+  // Add branchId to request based on method, then resolve against API base
+  const withBranch = method === 'GET' ? appendBranchIdToUrl(url) : url;
+  const finalUrl = toAbsoluteUrl(withBranch);
   const finalData = method !== 'GET' && method !== 'DELETE' ? addBranchIdToBody(data) : data;
   
   const res = await fetch(finalUrl, {
@@ -78,7 +93,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const url = queryKey.join("/") as string;
-    const finalUrl = appendBranchIdToUrl(url);
+    const finalUrl = toAbsoluteUrl(appendBranchIdToUrl(url));
     
     const res = await fetch(finalUrl, {
       credentials: "include",

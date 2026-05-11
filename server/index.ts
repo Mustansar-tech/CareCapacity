@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
@@ -23,11 +24,27 @@ declare module 'express-session' {
 }
 
 const isProduction = process.env.NODE_ENV === 'production';
+
+// CORS_ORIGIN is set when the frontend lives on a different origin (e.g. Vercel)
+// from the API server (e.g. Hetzner/DigitalOcean). Leave unset for same-origin.
+const corsOrigin = process.env.CORS_ORIGIN?.trim() || null;
+
 const app = express();
 
 // Trust proxy for secure cookies behind reverse proxy
 if (isProduction) {
   app.set('trust proxy', 1);
+}
+
+// Cross-origin support — must come before all routes and session middleware
+if (corsOrigin) {
+  app.use(cors({
+    origin: corsOrigin,
+    credentials: true,          // allow cookies to be sent cross-origin
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+  log(`CORS enabled for origin: ${corsOrigin}`);
 }
 
 app.use(securityHeaders);
@@ -54,10 +71,13 @@ app.use(session({
   saveUninitialized: false,
   rolling: true,               // Reset expiry on every authenticated request
   cookie: {
+    // When the frontend is on a different origin (Vercel), cookies must be
+    // sameSite: 'none' + secure: true for browsers to send them cross-site.
+    // For same-origin deployments, 'lax' is safer and works without HTTPS.
     secure: isProduction,
     httpOnly: true,
     maxAge: SESSION_MAX_AGE_MS,
-    sameSite: 'lax',
+    sameSite: corsOrigin ? 'none' : 'lax',
   },
 }));
 
@@ -101,13 +121,17 @@ app.use((req, res, next) => {
     }
   }, 5000);
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Serve the frontend:
+  //  - Development: Vite dev server with HMR
+  //  - Production, same-origin: serve the built dist/public
+  //  - Production, split-origin (CORS_ORIGIN set): frontend is on Vercel,
+  //    so the backend only serves the API — no static files needed.
   if (app.get("env") === "development") {
     await setupVite(app, server);
-  } else {
+  } else if (!corsOrigin) {
     serveStatic(app);
+  } else {
+    log("Split-origin mode: frontend served by Vercel, API-only server");
   }
 
   // Global error handler — must be registered AFTER all routes and static
