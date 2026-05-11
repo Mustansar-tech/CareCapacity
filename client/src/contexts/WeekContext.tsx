@@ -62,14 +62,34 @@ export function WeekProvider({ children }: { children: ReactNode }) {
    */
   const skipLatestKey = useRef<string | undefined>(undefined);
 
+  // ─── Queries — branchId is part of the key so they re-fire on branch change
+  // and only run once a branch is actually selected (enabled: !!selectedBranchId)
+
   const { data: allHistoryData } = useQuery<CapacityAnalysisSummary[]>({
-    queryKey: ['/api/history'],
+    queryKey: ['/api/history', selectedBranchId],
+    enabled: !!selectedBranchId,
+    queryFn: async () => {
+      const res = await fetch(`/api/history?branchId=${encodeURIComponent(selectedBranchId!)}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch history');
+      return res.json();
+    },
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
   const { data: latestData, error: latestDataError, isLoading: isLoadingLatest } = useQuery<ProcessingResultWithMeta>({
-    queryKey: ['/api/history/latest'],
+    queryKey: ['/api/history/latest', selectedBranchId],
+    enabled: !!selectedBranchId,
+    queryFn: async () => {
+      const res = await fetch(`/api/history/latest?branchId=${encodeURIComponent(selectedBranchId!)}`, {
+        credentials: 'include',
+      });
+      if (res.status === 404) return undefined as any;
+      if (!res.ok) throw new Error('Failed to fetch latest data');
+      return res.json();
+    },
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
@@ -77,7 +97,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
   // Keep latestDataRef in sync
   useEffect(() => { latestDataRef.current = latestData; }, [latestData]);
 
-  // Branch change: clear everything and reload for the new branch
+  // Branch change: clear local state — the query key change handles the refetch automatically
   useEffect(() => {
     clientLogger.log('🧹 Branch changed - clearing week selection and processed data');
     setProcessedData(null);
@@ -85,8 +105,9 @@ export function WeekProvider({ children }: { children: ReactNode }) {
     setSelectedWeekId(null);
     setSelectedDate(null);
     skipLatestKey.current = undefined;
-    queryClient.invalidateQueries({ queryKey: ['/api/history'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/history/latest'] });
+    // Invalidate so any cached data for this branch is refreshed
+    queryClient.invalidateQueries({ queryKey: ['/api/history', selectedBranchId] });
+    queryClient.invalidateQueries({ queryKey: ['/api/history/latest', selectedBranchId] });
     queryClient.invalidateQueries({ queryKey: ['/api/locations'] });
   }, [selectedBranchId]);
 
@@ -171,8 +192,6 @@ export function WeekProvider({ children }: { children: ReactNode }) {
    * For the Excel upload pipeline.
    * Sets fresh data immediately (no loading flash) and guards the effect
    * against overwriting it with the stale latestData cache.
-   * The effect will run once more when the real refetch arrives and confirm
-   * the fresh data (or silently update if slightly different).
    */
   const resetToLatest = useCallback((freshData: ProcessingResult, freshDate: string | null) => {
     skipLatestKey.current = latestDataKey(latestDataRef.current);

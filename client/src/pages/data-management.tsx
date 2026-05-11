@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, Shield, Clock, Database, AlertTriangle, CheckCircle, Eye } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { useBranch } from '@/contexts/BranchContext';
 import type { CapacityAnalysisSummary } from '@shared/schema';
 
 interface CleanupPreview {
@@ -27,6 +28,7 @@ interface CleanupResult {
 export default function DataManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedBranchId } = useBranch();
   const [selectedMonths, setSelectedMonths] = useState(6);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -35,9 +37,17 @@ export default function DataManagement() {
     queryKey: ['/api/cleanup/preview', selectedMonths],
   });
 
-  // Get all historical data for overview
+  // Get all historical data for overview — scoped to the selected branch
   const { data: allData } = useQuery<CapacityAnalysisSummary[]>({
-    queryKey: ['/api/history'],
+    queryKey: ['/api/history', selectedBranchId],
+    enabled: !!selectedBranchId,
+    queryFn: async () => {
+      const res = await fetch(`/api/history?branchId=${encodeURIComponent(selectedBranchId!)}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch history');
+      return res.json();
+    },
   });
 
   // Cleanup mutation
