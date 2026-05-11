@@ -218,7 +218,7 @@ export default function PrivacyPolicy() {
               We implement appropriate technical and organisational measures to protect personal data, including:
             </p>
             <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
-              <li>Password hashing using bcrypt with 12 salt rounds</li>
+              <li>Password management via Supabase Auth with secure credential storage</li>
               <li>Session management with 30-minute inactivity timeout and secure, HTTP-only cookies</li>
               <li>Role-based access control limiting data visibility by branch and user role</li>
               <li>HTTPS encryption in transit for all external API calls</li>

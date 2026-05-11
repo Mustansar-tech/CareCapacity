@@ -1,7 +1,7 @@
-
 import type { Express, Request, Response } from 'express';
 import { storage } from '../../storage';
-import { hashPassword, verifyPassword, requireAuth, requireRole, auditLog } from './auth';
+import { requireAuth, requireRole, auditLog } from './auth';
+import { supabaseAdmin, supabaseAnon } from '../../infrastructure/supabase';
 import { logger } from '../../infrastructure/logger';
 import { z } from 'zod';
 import { userRoles } from '@shared/schema';
@@ -29,98 +29,7 @@ const updateUserSchema = z.object({
 
 export function registerAuthRoutes(app: Express) {
 
-  // ─── Bootstrap: Create first admin user (only if no users exist) ────────────
-
-  app.post('/api/auth/bootstrap-admin', async (req: Request, res: Response) => {
-    try {
-      // In production, disable the bootstrap endpoint entirely to prevent
-      // accidental privilege escalation. Return 404 to avoid leaking its existence.
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(404).json({ message: 'Not found' });
-      }
-
-      // Check if any users exist yet
-      const allUsers = await storage.getAllUsers();
-      if (allUsers.length > 0) {
-        return res.status(403).json({ message: 'Users already exist. Use /api/auth/login' });
-      }
-
-      const parsed = loginSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ message: 'Invalid email or password format' });
-      }
-
-      const { email, password } = parsed.data;
-
-      // Create admin user
-      const hash = await hashPassword(password);
-      const user = await storage.createUser({
-        email,
-        passwordHash: hash,
-        displayName: 'System Administrator',
-        role: 'admin',
-        isActive: 1,
-      } as any);
-
-      logger.info(`Bootstrap admin user created: ${email}`);
-
-      // Log in the new admin
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
-
-      return res.json({
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        role: user.role,
-        branches: [],
-      });
-    } catch (err) {
-      logger.error('Failed to bootstrap admin:', err);
-      return res.status(500).json({ message: 'Failed to create admin user' });
-    }
-  });
-
-  // ─── Reset admin password (recovery endpoint) ────────────────────────────
-  // This route is not registered at all in production, so every caller
-  // (authenticated or not) receives the Express default 404 and no
-  // information about the endpoint is leaked.
-  // In non-production environments it is protected by requireRole('admin').
-
-  if (process.env.NODE_ENV !== 'production') {
-    app.post('/api/auth/reset-admin-password', requireRole('admin'), async (req: Request, res: Response) => {
-      const parsed = loginSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ message: 'Invalid email or password format' });
-      }
-
-      const { email, password } = parsed.data;
-
-      // Only allow resetting if email is admin@homeinstead.com
-      if (email !== 'admin@homeinstead.com') {
-        return res.status(403).json({ message: 'Only admin@homeinstead.com can be reset via this endpoint' });
-      }
-
-      try {
-        const user = await storage.getUserByEmail(email);
-        if (!user) {
-          return res.status(404).json({ message: 'Admin user not found' });
-        }
-
-        const hash = await hashPassword(password);
-        await storage.updateUser(user.id, { passwordHash: hash });
-
-        logger.info(`Admin password reset for ${email}`);
-
-        return res.json({ message: 'Admin password reset successfully' });
-      } catch (err) {
-        logger.error('Failed to reset admin password:', err);
-        return res.status(500).json({ message: 'Failed to reset password' });
-      }
-    });
-  }
-
-  // ─── Auth endpoints ─────────────────────────────────────────────────────────
+  // ─── Login via Supabase Auth ─────────────────────────────────────────────────
 
   app.post('/api/auth/login', async (req: Request, res: Response) => {
     const parsed = loginSchema.safeParse(req.body);
@@ -131,23 +40,28 @@ export function registerAuthRoutes(app: Express) {
     const { email, password } = parsed.data;
 
     try {
-      const user = await storage.getUserByEmail(email);
-      if (!user || !user.isActive) {
+      // Verify credentials with Supabase (anon client required for signInWithPassword)
+      const { data: authData, error: authError } = await supabaseAnon.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError || !authData.user) {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 
-      const valid = await verifyPassword(password, user.passwordHash);
-      if (!valid) {
-        return res.status(401).json({ message: 'Invalid email or password' });
+      // Load local user profile (role, branches, active status)
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: 'Account is inactive. Contact your administrator.' });
       }
 
       req.session.userId = user.id;
       req.session.userRole = user.role;
       req.session.userEmail = user.email;
       req.session.displayName = user.displayName;
-      req.session.touch(); // Mark session as modified
+      req.session.touch();
 
-      // Save session to database before responding
       return new Promise((resolve) => {
         req.session.save(async (err) => {
           if (err) {
@@ -175,6 +89,8 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ─── Logout ──────────────────────────────────────────────────────────────────
+
   app.post('/api/auth/logout', requireAuth, async (req: Request, res: Response) => {
     const { userId, userEmail } = req.session;
     await auditLog(userId ?? null, userEmail ?? null, null, 'LOGOUT', 'User logged out');
@@ -183,6 +99,8 @@ export function registerAuthRoutes(app: Express) {
       res.json({ message: 'Logged out' });
     });
   });
+
+  // ─── Current user ────────────────────────────────────────────────────────────
 
   app.get('/api/auth/me', async (req: Request, res: Response) => {
     if (!req.session?.userId) {
@@ -239,8 +157,20 @@ export function registerAuthRoutes(app: Express) {
         return res.status(409).json({ message: 'A user with this email already exists' });
       }
 
-      const passwordHash = await hashPassword(password);
-      const user = await storage.createUser({ email, passwordHash, displayName, role, isActive: 1 });
+      // Create in Supabase Auth first
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
+      if (authError) {
+        logger.error('Supabase create user error', authError);
+        return res.status(500).json({ message: authError.message || 'Failed to create auth user' });
+      }
+
+      // Create local profile record
+      const user = await storage.createUser({ email, passwordHash: '', displayName, role, isActive: 1 });
 
       for (const branchId of branchIds) {
         await storage.assignUserToBranch(user.id, branchId);
@@ -279,7 +209,24 @@ export function registerAuthRoutes(app: Express) {
       if (displayName !== undefined) updates.displayName = displayName;
       if (role !== undefined) updates.role = role;
       if (isActive !== undefined) updates.isActive = isActive;
-      if (newPassword) updates.passwordHash = await hashPassword(newPassword);
+
+      // If password is being reset, update in Supabase
+      if (newPassword) {
+        const targetUser = await storage.getUserById(userId);
+        if (targetUser) {
+          const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+          const supaUser = list?.users?.find(u => u.email === targetUser.email);
+          if (supaUser) {
+            const { error } = await supabaseAdmin.auth.admin.updateUserById(supaUser.id, {
+              password: newPassword,
+            });
+            if (error) {
+              logger.error('Supabase password update error', error);
+              return res.status(500).json({ message: 'Failed to update password' });
+            }
+          }
+        }
+      }
 
       const user = await storage.updateUser(userId, updates);
 

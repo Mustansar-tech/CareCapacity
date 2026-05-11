@@ -8,6 +8,7 @@ import { generalLimiter } from "./infrastructure/rate-limiter";
 import { securityHeaders } from "./infrastructure/security";
 import { logger } from "./infrastructure/logger";
 import { seedAdminUser } from "./features/auth/auth";
+import { migrateUsersToSupabase } from "./features/auth/migrate-to-supabase";
 import { config } from "./config/index";
 import { errorHandler } from "./middleware/error-handler";
 
@@ -83,6 +84,7 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   await seedAdminUser();
+  await migrateUsersToSupabase();
 
   // Run geo-sweeper in the background after startup to geocode any client
   // locations that have a postcode but are still missing lat/lng coordinates.

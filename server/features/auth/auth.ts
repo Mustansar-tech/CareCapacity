@@ -1,18 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import bcrypt from 'bcrypt';
 import { storage } from '../../storage';
 import { logger } from '../../infrastructure/logger';
+import { supabaseAdmin } from '../../infrastructure/supabase';
 import type { UserRole } from '@shared/schema';
-
-export const SALT_ROUNDS = 12;
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, SALT_ROUNDS);
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.userId) {
@@ -82,20 +72,45 @@ export async function seedAdminUser() {
     const existing = await storage.getUserByEmail(adminEmail);
     if (existing) {
       logger.info('Admin user already exists, skipping seed');
+      await ensureSupabaseAuthUser(adminEmail, adminPassword, existing.id);
       return;
     }
 
-    const passwordHash = await hashPassword(adminPassword);
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: adminEmail,
+      password: adminPassword,
+      email_confirm: true,
+    });
+
+    if (authError) throw authError;
+
     await storage.createUser({
       email: adminEmail,
-      passwordHash,
+      passwordHash: '',
       displayName: 'System Administrator',
       role: 'admin',
       isActive: 1,
     });
 
-    logger.info(`Admin user seeded: ${adminEmail}`);
+    logger.info(`Admin user seeded: ${adminEmail} (Supabase UID: ${authData.user.id})`);
   } catch (err) {
     logger.error('Failed to seed admin user', err);
+  }
+}
+
+async function ensureSupabaseAuthUser(email: string, password: string, _localId: string) {
+  try {
+    const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+    const exists = list?.users?.some(u => u.email === email);
+    if (!exists) {
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      logger.info(`Supabase auth user created for existing local user: ${email}`);
+    }
+  } catch (err) {
+    logger.warn('Could not verify/create Supabase auth user for existing admin', { err });
   }
 }
