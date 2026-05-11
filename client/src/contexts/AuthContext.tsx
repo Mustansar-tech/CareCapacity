@@ -75,6 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: (data) => {
       // Immediately set the user data so navigation works without waiting for a refetch
       qc.setQueryData(['/api/auth/me'], data);
+      // Invalidate all data queries so the dashboard refetches with the new session.
+      // History/latest queries fired with 401 before login and won't retry automatically
+      // (refetchOnMount/refetchOnWindowFocus are off), so we must force them here.
+      qc.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key !== '/api/auth/me' && key !== '/api/branches';
+        },
+      });
     },
   });
 
