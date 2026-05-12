@@ -1,0 +1,81 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ─── Type-check ────────────────────────────────────────────────────────────
+  typecheck:
+    name: TypeScript check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  # ─── Backend: build image → push to ghcr.io → deploy to server ────────────
+  deploy-backend:
+    name: Build & deploy backend
+    runs-on: ubuntu-latest
+    needs: typecheck
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+
+            # Log in to ghcr.io so the server can pull the image
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+
+            # Pull the new image and restart
+            API_IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }} docker compose pull
+            API_IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }} docker compose up -d --remove-orphans
+
+            # Remove old images to keep the disk clean
+            docker image prune -f
+
+  # ─── Frontend ──────────────────────────────────────────────────────────────
+  # Vercel deploys automatically on every push to main when connected to GitHub.
+  # No action step needed here — Vercel handles it natively.
