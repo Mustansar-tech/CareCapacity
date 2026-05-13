@@ -25,9 +25,26 @@ declare module 'express-session' {
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// CORS_ORIGIN is set when the frontend lives on a different origin (e.g. Vercel)
-// from the API server (e.g. Hetzner/DigitalOcean). Leave unset for same-origin.
-const corsOrigin = process.env.CORS_ORIGIN?.trim() || null;
+// CORS_ORIGIN accepts a comma-separated list of allowed origins.
+// e.g. CORS_ORIGIN=https://your-app.vercel.app,http://77.42.66.79:5000
+// Localhost URLs are always allowed so local development keeps working.
+const ALWAYS_ALLOWED = [
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+];
+
+const explicitOrigins: string[] = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+const hasCorsOrigins = explicitOrigins.length > 0;
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return false;
+  if (ALWAYS_ALLOWED.some(re => re.test(origin))) return true;
+  return explicitOrigins.includes(origin);
+}
 
 const app = express();
 
@@ -36,15 +53,24 @@ if (isProduction) {
   app.set('trust proxy', 1);
 }
 
-// Cross-origin support — must come before all routes and session middleware
-if (corsOrigin) {
-  app.use(cors({
-    origin: corsOrigin,
-    credentials: true,          // allow cookies to be sent cross-origin
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
-  log(`CORS enabled for origin: ${corsOrigin}`);
+// Cross-origin support — must come before all routes and session middleware.
+// Always mount so localhost dev works even without CORS_ORIGIN being set.
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no Origin header (e.g. curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin not allowed — ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+if (hasCorsOrigins) {
+  log(`CORS enabled for: ${explicitOrigins.join(', ')} + localhost`);
+} else {
+  log('CORS enabled for localhost only (set CORS_ORIGIN for production origins)');
 }
 
 app.use(securityHeaders);
@@ -77,7 +103,7 @@ app.use(session({
     secure: isProduction,
     httpOnly: true,
     maxAge: SESSION_MAX_AGE_MS,
-    sameSite: corsOrigin ? 'none' : 'lax',
+    sameSite: hasCorsOrigins ? 'none' : 'lax',
   },
 }));
 
@@ -128,7 +154,7 @@ app.use((req, res, next) => {
   //    so the backend only serves the API — no static files needed.
   if (app.get("env") === "development") {
     await setupVite(app, server);
-  } else if (!corsOrigin) {
+  } else if (!hasCorsOrigins) {
     serveStatic(app);
   } else {
     log("Split-origin mode: frontend served by Vercel, API-only server");
