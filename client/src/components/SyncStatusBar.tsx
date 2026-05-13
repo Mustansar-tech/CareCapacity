@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Loader2, Clock, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
 import { useBranch } from "@/contexts/BranchContext";
+import { toAbsoluteUrl } from "@/lib/queryClient";
 
 interface ActiveSession {
   sessionId: string;
@@ -68,7 +69,7 @@ export function SyncStatusBar() {
     const gone = [...prevOwnSessionIds.current].filter(id => !currentOwnIds.has(id));
 
     gone.forEach(id => {
-      fetch(`/api/pp/session/${id}`, { credentials: "include" })
+      fetch(toAbsoluteUrl(`/api/pp/session/${id}`), { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
         .then(s => {
           if (!s) return;

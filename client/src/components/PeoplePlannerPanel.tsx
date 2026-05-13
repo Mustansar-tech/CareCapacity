@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, toAbsoluteUrl } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -130,7 +130,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { data: health } = useQuery<{ healthy: boolean; reason?: string }>({
     queryKey: ["/api/pp/health"],
     queryFn: async () => {
-      const r = await fetch("/api/pp/health");
+      const r = await fetch(toAbsoluteUrl("/api/pp/health"), { credentials: "include" });
       if (!r.ok) return { healthy: false, reason: "Health check request failed" };
       return r.json();
     },
@@ -142,7 +142,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { data: session } = useQuery<PipelineSession>({
     queryKey: ["/api/pp/session", activeSessionId],
     queryFn: async () => {
-      const r = await fetch(`/api/pp/session/${activeSessionId}`);
+      const r = await fetch(toAbsoluteUrl(`/api/pp/session/${activeSessionId}`), { credentials: "include" });
       if (!r.ok) throw new Error("Session not found");
       return r.json();
     },
@@ -161,7 +161,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
       const url = selectedBranchId
         ? `/api/pp/sessions?branchId=${selectedBranchId}`
         : "/api/pp/sessions";
-      const r = await fetch(url);
+      const r = await fetch(toAbsoluteUrl(url), { credentials: "include" });
       if (!r.ok) throw new Error("Could not load sessions");
       return r.json();
     },
@@ -200,7 +200,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const triggerMutation = useMutation({
     mutationFn: async () => {
       const monday = normalizeToMonday(weekStartDate);
-      const res = await fetch("/api/pp/run", {
+      const res = await fetch(toAbsoluteUrl("/api/pp/run"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

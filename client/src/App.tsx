@@ -1,5 +1,5 @@
 import { Switch, Route, Link, useSearch } from "wouter";
-import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
+import { queryClient, setUnauthorizedHandler, toAbsoluteUrl } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -392,7 +392,7 @@ function SessionTimeoutManager() {
 
   const handleStayIn = async () => {
     extend();
-    try { await fetch('/api/auth/me', { credentials: 'include' }); } catch { /* ignore */ }
+    try { await fetch(toAbsoluteUrl('/api/auth/me'), { credentials: 'include' }); } catch { /* ignore */ }
   };
 
   return (

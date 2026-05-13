@@ -15,7 +15,7 @@ import {
   AlertCircle, Info, XCircle, TrendingUp, BarChart3, Home, Play, Square
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, toAbsoluteUrl } from "@/lib/queryClient";
 import type { ProcessingResult } from "@shared/schema";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -140,7 +140,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
   // Query run optimization for selected date
   const { data: runOptimization, isLoading: isLoadingOptimization, refetch: refetchOptimization } = useQuery<RunOptimization>({
     queryKey: ['/api/run-optimization', optimizationDate],
-    queryFn: () => fetch(`/api/run-optimization/${optimizationDate}`).then(res => res.json()),
+    queryFn: () => fetch(toAbsoluteUrl(`/api/run-optimization/${optimizationDate}`), { credentials: "include" }).then(res => res.json()),
   });
 
   // Run optimization mutation

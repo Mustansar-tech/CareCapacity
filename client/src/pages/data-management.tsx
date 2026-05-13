@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, Shield, Clock, Database, AlertTriangle, CheckCircle, Eye } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, toAbsoluteUrl } from '@/lib/queryClient';
 import { useBranch } from '@/contexts/BranchContext';
 import type { CapacityAnalysisSummary } from '@shared/schema';
 
@@ -42,7 +42,7 @@ export default function DataManagement() {
     queryKey: ['/api/history', selectedBranchId],
     enabled: !!selectedBranchId,
     queryFn: async () => {
-      const res = await fetch(`/api/history?branchId=${encodeURIComponent(selectedBranchId!)}`, {
+      const res = await fetch(toAbsoluteUrl(`/api/history?branchId=${encodeURIComponent(selectedBranchId!)}`), {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch history');

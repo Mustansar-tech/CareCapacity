@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useLocation, useSearch } from "wouter";
 import { useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, toAbsoluteUrl } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -94,8 +94,9 @@ export default function Dashboard() {
 
   const processMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await fetch('/api/process', {
+      const response = await fetch(toAbsoluteUrl('/api/process'), {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
       if (!response.ok) {
