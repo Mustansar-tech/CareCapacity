@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { clientLogger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, toAbsoluteUrl } from '@/lib/queryClient';
 import { useBranch } from '@/contexts/BranchContext';
 import type { ProcessingResult, CapacityAnalysisSummary, ProcessingResultWithMeta } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
@@ -69,7 +69,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
     queryKey: ['/api/history', selectedBranchId],
     enabled: !!selectedBranchId,
     queryFn: async () => {
-      const res = await fetch(`/api/history?branchId=${encodeURIComponent(selectedBranchId!)}`, {
+      const res = await fetch(toAbsoluteUrl(`/api/history?branchId=${encodeURIComponent(selectedBranchId!)}`), {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch history');
@@ -83,7 +83,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
     queryKey: ['/api/history/latest', selectedBranchId],
     enabled: !!selectedBranchId,
     queryFn: async () => {
-      const res = await fetch(`/api/history/latest?branchId=${encodeURIComponent(selectedBranchId!)}`, {
+      const res = await fetch(toAbsoluteUrl(`/api/history/latest?branchId=${encodeURIComponent(selectedBranchId!)}`), {
         credentials: 'include',
       });
       if (res.status === 404) return undefined as any;

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { clientLogger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, toAbsoluteUrl } from '@/lib/queryClient';
 
 interface Branch {
   id: string;
@@ -36,7 +36,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const res = await fetch(toAbsoluteUrl('/api/auth/me'), { credentials: 'include' });
         if (res.status === 401) return null;
         if (!res.ok) return null;
         return res.json();
@@ -84,12 +84,13 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     setSelectedBranchIdState(branchId);
     localStorage.setItem('selectedBranchId', branchId);
     
-    // Invalidate ALL queries except the branches list to force fresh data from new branch
-    // This is more elegant than window.location.reload() and preserves UI state
+    // Invalidate all data queries except the branch list and current auth session.
+    // Invalidating /api/auth/me would trigger a cross-origin cookie re-check that
+    // can return 401 in split-origin deployments, logging the user out inadvertently.
     queryClient.invalidateQueries({
       predicate: (query) => {
         const queryKey = query.queryKey[0] as string;
-        return queryKey !== '/api/branches'; // Keep branches cached, invalidate everything else
+        return queryKey !== '/api/branches' && queryKey !== '/api/auth/me';
       }
     });
     

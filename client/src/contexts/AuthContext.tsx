@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, toAbsoluteUrl } from '@/lib/queryClient';
 
 export type UserRole = 'admin' | 'scheduler' | 'viewer';
 
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ['/api/auth/me'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const res = await fetch(toAbsoluteUrl('/api/auth/me'), { credentials: 'include' });
         if (res.status === 401) return null;
         if (!res.ok) throw new Error('Failed to fetch auth state');
         return res.json();

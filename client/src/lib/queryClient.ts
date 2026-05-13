@@ -24,9 +24,10 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// Prepend the configured API base to any path that starts with /api
+// Prepend the configured API base to any path that starts with /api.
 // Absolute URLs (e.g. http://...) are returned unchanged.
-function toAbsoluteUrl(path: string): string {
+// Exported so contexts with custom queryFns can use it too.
+export function toAbsoluteUrl(path: string): string {
   if (!API_BASE || path.startsWith("http://") || path.startsWith("https://")) {
     return path;
   }

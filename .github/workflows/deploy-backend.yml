@@ -1,0 +1,46 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'drizzle.config.ts'
+
+jobs:
+  deploy:
+    name: Build & Deploy to Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/care-capacity
+
+            echo "⬇️  Pulling latest code..."
+            git pull origin main
+
+            echo "🐳  Rebuilding and restarting containers..."
+            docker compose pull --quiet || true
+            docker compose up -d --build --remove-orphans
+
+            echo "⏳  Waiting for health check..."
+            sleep 8
+            curl -fs http://localhost:5000/health || (docker compose logs --tail=40 app && exit 1)
+
+            echo "✅  Deploy complete."

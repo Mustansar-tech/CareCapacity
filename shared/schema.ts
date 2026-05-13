@@ -14,8 +14,18 @@ export const users = pgTable("users", {
   displayName: text("display_name").notNull(),
   role: text("role").notNull().default('viewer'),
   isActive: integer("is_active").notNull().default(1), // 1=active, 0=inactive
+  supabaseUserId: text("supabase_user_id"),            // Supabase Auth UUID
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// PostgreSQL session store table (managed by connect-pg-simple)
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => ({
+  expireIdx: index("IDX_session_expire").on(table.expire),
+}));
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
