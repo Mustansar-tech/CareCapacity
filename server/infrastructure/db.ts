@@ -11,11 +11,21 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// Detect whether this process is the background worker so we can apply
+// a tighter pool cap without requiring separate DB modules.
+const _isWorker =
+  process.env.PM2_PROCESS_NAME === "care-capacity-worker" ||
+  Boolean(process.argv[1]?.includes("worker"));
+
+const _poolMax = _isWorker
+  ? Number(process.env.WORKER_POOL_MAX || 2)
+  : Number(process.env.PGPOOL_MAX || 3);
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,
+  max: _poolMax,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 15000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {

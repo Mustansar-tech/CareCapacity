@@ -69,7 +69,12 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Session setup using PostgreSQL store
 const PgSession = connectPgSimple(session);
-const sessionPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const sessionPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: Number(process.env.SESSION_POOL_MAX || 2),
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
 
 const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
