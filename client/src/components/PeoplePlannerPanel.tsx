@@ -130,20 +130,33 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [showLogs, setShowLogs] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
-  // Admin-only: manual three-week sync trigger
+  // Admin-only: manual week sync trigger
   const [weeklySyncResult, setWeeklySyncResult] = useState<{
     branches: number;
     weeks: Array<{ label: string; weekStartDate: string }>;
   } | null>(null);
+  const [selectedWeeks, setSelectedWeeks] = useState<Set<"previous" | "current" | "next">>(
+    new Set(["previous", "current", "next"])
+  );
+  const toggleWeek = (week: "previous" | "current" | "next") => {
+    setSelectedWeeks(prev => {
+      const next = new Set(prev);
+      if (next.has(week)) { next.delete(week); } else { next.add(week); }
+      return next;
+    });
+  };
   const weeklySyncMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/pp/trigger-weekly-sync");
+      const weeks = Array.from(selectedWeeks);
+      const res = await apiRequest("POST", "/api/pp/trigger-weekly-sync", { weeks });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Unknown error"); }
       return res.json();
     },
     onSuccess: (data) => {
       setWeeklySyncResult(data);
-      toast({ title: "Weekly sync started", description: `Queued ${data.branches} branches across all three weeks.` });
+      const count = data.weeks.length;
+      const label = count === 3 ? "all three weeks" : count === 1 ? "1 week" : `${count} weeks`;
+      toast({ title: "Weekly sync started", description: `Queued ${data.branches} branches across ${label}.` });
     },
     onError: (err: Error) => {
       toast({ title: "Sync failed", description: err.message, variant: "destructive" });
@@ -519,58 +532,91 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
       </CardContent>
     </Card>
 
-    {/* Admin-only: run all three weeks now */}
-    {isAdmin && (
-      <Card className="border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm mt-3">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">Monday auto-sync</p>
-              <p className="text-xs text-muted-foreground">
-                Runs automatically Mon 01:00 · 03:00 · 05:00 (UK time) for all branches
-              </p>
+    {/* Admin-only: manual week sync */}
+    {isAdmin && (() => {
+      const WEEK_META = [
+        { label: "previous" as const, display: "Previous", time: "Mon 01:00", dot: "bg-amber-400" },
+        { label: "current"  as const, display: "Current",  time: "Mon 03:00", dot: "bg-blue-500"  },
+        { label: "next"     as const, display: "Next",     time: "Mon 05:00", dot: "bg-emerald-500" },
+      ];
+      const runLabel = selectedWeeks.size === 3
+        ? "Run all three weeks now"
+        : selectedWeeks.size === 0
+          ? "Select a week"
+          : `Run ${Array.from(selectedWeeks).join(" + ")} now`;
+      return (
+        <Card className="border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm mt-3">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Monday auto-sync</p>
+                <p className="text-xs text-muted-foreground">
+                  Select which weeks to run now for all branches
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Week date chips — populated after a run */}
-          {weeklySyncResult && (
-            <div className="flex gap-2 flex-wrap">
-              {weeklySyncResult.weeks.map(w => (
-                <span
-                  key={w.label}
-                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-mono"
-                >
-                  {w.label === "previous" ? "prev" : w.label === "current" ? "curr" : "next"} · {w.weekStartDate}
+            {/* Week selector tiles */}
+            <div className="grid grid-cols-3 gap-2">
+              {WEEK_META.map(({ label, display, time, dot }) => {
+                const isSelected = selectedWeeks.has(label);
+                const dateStr = weeklySyncResult?.weeks.find(w => w.label === label)?.weekStartDate;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => toggleWeek(label)}
+                    className={`rounded-lg border p-2.5 text-left transition-all ${
+                      isSelected
+                        ? "border-purple-500 bg-purple-100/70 dark:bg-purple-900/50 ring-1 ring-purple-500"
+                        : "border-border bg-background/50 opacity-50 hover:opacity-80"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${dot}`} />
+                      <span className="text-xs font-semibold text-foreground">{display}</span>
+                      {isSelected && <CheckCircle2 className="h-3 w-3 text-purple-500 ml-auto" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{time}</p>
+                    {dateStr && <p className="text-xs font-mono text-muted-foreground">{dateStr}</p>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Select all / clear */}
+            <div className="flex gap-3 text-xs">
+              <button type="button" onClick={() => setSelectedWeeks(new Set(["previous", "current", "next"]))} className="text-purple-600 dark:text-purple-400 hover:underline">All</button>
+              <span className="text-muted-foreground">·</span>
+              <button type="button" onClick={() => setSelectedWeeks(new Set())} className="text-muted-foreground hover:underline">Clear</button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                onClick={() => weeklySyncMutation.mutate()}
+                disabled={weeklySyncMutation.isPending || selectedWeeks.size === 0}
+                className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+              >
+                {weeklySyncMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                {weeklySyncMutation.isPending ? "Queuing…" : runLabel}
+              </Button>
+              {weeklySyncResult && !weeklySyncMutation.isPending && (
+                <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {weeklySyncResult.branches} branches queued
                 </span>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              onClick={() => weeklySyncMutation.mutate()}
-              disabled={weeklySyncMutation.isPending}
-              className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
-            >
-              {weeklySyncMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Play className="h-3.5 w-3.5" />
               )}
-              {weeklySyncMutation.isPending ? "Queuing…" : "Run all three weeks now"}
-            </Button>
-            {weeklySyncResult && !weeklySyncMutation.isPending && (
-              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {weeklySyncResult.branches} branches queued
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    )}
+            </div>
+          </CardContent>
+        </Card>
+      );
+    })()}
   </>
   );
 }

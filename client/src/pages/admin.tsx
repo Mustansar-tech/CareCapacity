@@ -410,10 +410,22 @@ type WeeklySyncResult = {
 function AutomationTab() {
   const { toast } = useToast();
   const [lastResult, setLastResult] = useState<WeeklySyncResult | null>(null);
+  const [selectedWeeks, setSelectedWeeks] = useState<Set<'previous' | 'current' | 'next'>>(
+    new Set(['previous', 'current', 'next'])
+  );
+
+  const toggleWeek = (week: 'previous' | 'current' | 'next') => {
+    setSelectedWeeks(prev => {
+      const next = new Set(prev);
+      if (next.has(week)) { next.delete(week); } else { next.add(week); }
+      return next;
+    });
+  };
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/pp/trigger-weekly-sync');
+      const weeks = Array.from(selectedWeeks);
+      const res = await apiRequest('POST', '/api/pp/trigger-weekly-sync', { weeks });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error ?? 'Unknown error');
@@ -422,24 +434,26 @@ function AutomationTab() {
     },
     onSuccess: (data) => {
       setLastResult(data);
-      toast({ title: 'Weekly sync started', description: `Queued ${data.branches} branch${data.branches !== 1 ? 'es' : ''} across all three weeks.` });
+      const count = data.weeks.length;
+      const label = count === 3 ? 'all three weeks' : count === 1 ? `1 week` : `${count} weeks`;
+      toast({ title: 'Weekly sync started', description: `Queued ${data.branches} branch${data.branches !== 1 ? 'es' : ''} across ${label}.` });
     },
     onError: (err: Error) => {
       toast({ title: 'Sync failed', description: err.message, variant: 'destructive' });
     },
   });
 
-  const WEEK_LABELS: Record<string, string> = {
-    previous: 'Previous week',
-    current:  'Current week',
-    next:     'Next week',
-  };
+  const WEEK_META = [
+    { label: 'previous' as const, display: 'Previous week', time: 'Auto Mon 01:00', dot: 'bg-amber-400' },
+    { label: 'current'  as const, display: 'Current week',  time: 'Auto Mon 03:00', dot: 'bg-blue-500'  },
+    { label: 'next'     as const, display: 'Next week',     time: 'Auto Mon 05:00', dot: 'bg-emerald-500' },
+  ];
 
-  const WEEK_TIMES: Record<string, string> = {
-    previous: 'Runs automatically Mon 01:00',
-    current:  'Runs automatically Mon 03:00',
-    next:     'Runs automatically Mon 05:00',
-  };
+  const runLabel = selectedWeeks.size === 3
+    ? 'Run all three weeks now'
+    : selectedWeeks.size === 0
+      ? 'Select at least one week'
+      : `Run ${Array.from(selectedWeeks).join(' + ')} week${selectedWeeks.size > 1 ? 's' : ''} now`;
 
   return (
     <div className="space-y-4">
@@ -453,42 +467,66 @@ function AutomationTab() {
             <div>
               <CardTitle className="text-base">People Planner — Weekly Sync</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Manually trigger the same three-week sync that runs automatically each Monday
+                Select which weeks to sync, then run for all branches immediately
               </p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Schedule overview */}
+          {/* Week selector tiles */}
           <div className="grid grid-cols-3 gap-3">
-            {(['previous', 'current', 'next'] as const).map((label, i) => (
-              <div
-                key={label}
-                className="rounded-lg border border-border bg-muted/30 p-3 space-y-1"
-              >
-                <div className="flex items-center gap-1.5">
-                  <div className={`h-2 w-2 rounded-full ${
-                    i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-blue-500' : 'bg-emerald-500'
-                  }`} />
-                  <span className="text-xs font-semibold text-foreground">
-                    {WEEK_LABELS[label]}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">{WEEK_TIMES[label]}</p>
-                {lastResult && (
-                  <p className="text-xs font-mono text-muted-foreground">
-                    {lastResult.weeks.find(w => w.label === label)?.weekStartDate ?? '—'}
-                  </p>
-                )}
-              </div>
-            ))}
+            {WEEK_META.map(({ label, display, time, dot }) => {
+              const selected = selectedWeeks.has(label);
+              const dateStr = lastResult?.weeks.find(w => w.label === label)?.weekStartDate;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => toggleWeek(label)}
+                  className={`rounded-lg border p-3 space-y-1 text-left transition-all ${
+                    selected
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 ring-1 ring-purple-500'
+                      : 'border-border bg-muted/30 opacity-50 hover:opacity-80'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className={`h-2 w-2 rounded-full ${dot}`} />
+                    <span className="text-xs font-semibold text-foreground">{display}</span>
+                    {selected && <CheckCircle2 className="h-3 w-3 text-purple-500 ml-auto" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{time}</p>
+                  {dateStr && (
+                    <p className="text-xs font-mono text-muted-foreground">{dateStr}</p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Select all / none shortcuts */}
+          <div className="flex gap-3 text-xs">
+            <button
+              type="button"
+              onClick={() => setSelectedWeeks(new Set(['previous', 'current', 'next']))}
+              className="text-purple-600 dark:text-purple-400 hover:underline"
+            >
+              Select all
+            </button>
+            <span className="text-muted-foreground">·</span>
+            <button
+              type="button"
+              onClick={() => setSelectedWeeks(new Set())}
+              className="text-muted-foreground hover:underline"
+            >
+              Clear
+            </button>
           </div>
 
           {/* Trigger button */}
           <div className="flex items-center gap-3 pt-1">
             <Button
               onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
+              disabled={syncMutation.isPending || selectedWeeks.size === 0}
               className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
             >
               {syncMutation.isPending ? (
@@ -496,7 +534,7 @@ function AutomationTab() {
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              {syncMutation.isPending ? 'Queuing syncs…' : 'Run all three weeks now'}
+              {syncMutation.isPending ? 'Queuing syncs…' : runLabel}
             </Button>
             {lastResult && !syncMutation.isPending && (
               <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">

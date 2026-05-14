@@ -929,8 +929,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   });
 
   // ─── Manual test trigger (admin-only) ───────────────────────────────────────
-  // Fires all three Monday sync runs immediately — useful for verifying the
-  // scheduler logic without waiting until next Monday.
+  // Fires selected Monday sync runs immediately.
+  // Body: { weeks?: Array<"previous" | "current" | "next"> }  — defaults to all three.
   // POST /api/pp/trigger-weekly-sync
   app.post("/api/pp/trigger-weekly-sync", requireAuth, requireRoleAtLeast("admin"), async (req, res) => {
     if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
@@ -945,11 +945,23 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       return d.toISOString().split("T")[0];
     }
 
-    const runs = [
+    const allRuns = [
       { label: "previous", dayOffset: -7 },
       { label: "current",  dayOffset:  0 },
       { label: "next",     dayOffset: +7 },
     ] as const;
+
+    // Filter to requested weeks, defaulting to all three
+    const requestedWeeks: Array<"previous" | "current" | "next"> =
+      Array.isArray(req.body?.weeks) && req.body.weeks.length > 0
+        ? req.body.weeks.filter((w: unknown) => ["previous", "current", "next"].includes(w as string))
+        : ["previous", "current", "next"];
+
+    const runs = allRuns.filter(r => requestedWeeks.includes(r.label));
+
+    if (runs.length === 0) {
+      return res.status(400).json({ ok: false, error: "No valid weeks specified" });
+    }
 
     const branchIds = getConfiguredBranchIds();
     if (branchIds.length === 0) {
@@ -961,7 +973,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     // Respond immediately so the client isn't left waiting; fan-out runs in background.
     res.json({
       ok: true,
-      message: "Weekly sync test triggered for all three weeks — check server logs for progress",
+      message: `Weekly sync triggered for ${runs.map(r => r.label).join(", ")} — check server logs for progress`,
       branches: branchIds.length,
       weeks: runs.map(r => ({ label: r.label, weekStartDate: getMondayOffset(r.dayOffset) })),
     });
@@ -989,7 +1001,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       logger.info(`Test trigger: ${run.label} week complete`, { weekStartDate, queued, failed });
     }
 
-    logger.info("Test trigger: all three weeks complete", { summary });
+    logger.info("Test trigger: sync complete", { runs: runs.map(r => r.label), summary });
   });
 
 }
