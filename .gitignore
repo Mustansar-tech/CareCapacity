@@ -7,3 +7,6 @@ vite.config.ts.*
 attached_assets/
 *.xlsx
 capacity_dashboard.xlsx
+.env
+deploy.sh
+production-fixes.patch

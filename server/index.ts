@@ -31,6 +31,17 @@ const corsOrigin = process.env.CORS_ORIGIN?.trim() || null;
 
 const app = express();
 
+// Public health-check routes — must be registered before all middleware
+// (auth, CORS, rate-limiting) so load-balancers and uptime monitors always
+// get a 200 without needing a session cookie or any credentials.
+app.get("/", (_req, res) => {
+  res.json({ status: "ok", service: "Care Capacity API" });
+});
+
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", service: "Care Capacity API" });
+});
+
 // Trust proxy for secure cookies behind reverse proxy
 if (isProduction) {
   app.set('trust proxy', 1);
