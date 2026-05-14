@@ -5,6 +5,8 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { BranchProvider } from "./contexts/BranchContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from './App';
 import "./index.css";
 
@@ -18,5 +20,7 @@ createRoot(document.getElementById("root")!).render(
         </BranchProvider>
       </QueryClientProvider>
     </ErrorBoundary>
+    <Analytics />
+    <SpeedInsights />
   </StrictMode>,
 );
