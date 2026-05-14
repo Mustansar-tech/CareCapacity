@@ -1144,3 +1144,85 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
   logger.info("Download completed", { source: result.source, path: result.path });
   return result.path;
 }
+
+// ─── Session pre-warming ──────────────────────────────────────────────────────
+/**
+ * Pre-warm all configured account slot sessions.
+ *
+ * For each slot, this function:
+ *  1. Acquires (or reuses) the shared Chromium browser.
+ *  2. Creates a BrowserContext loaded from the saved session file (if present),
+ *     so returning users skip the login form entirely.
+ *  3. Navigates to the Access Cloud login URL to verify the session is still live.
+ *  4. Logs in and saves a fresh session file only when the session has expired.
+ *  5. Closes the temporary page — the context stays open so runJob can reuse it.
+ *
+ * This is fire-and-forget background work. Failures are logged but not thrown.
+ * Called once at worker startup so the first user-triggered sync is instant.
+ */
+export async function prewarmAllSlots(): Promise<void> {
+  if (slotStates.length === 0) {
+    logger.info("Session pre-warm: no account slots configured — skipping");
+    return;
+  }
+
+  logger.info("Session pre-warm: starting for all slots", { slotCount: slotStates.length });
+
+  const results = await Promise.allSettled(
+    slotStates.map(async (slot) => {
+      try {
+        // Reuse existing context if already warm from a previous pre-warm or job.
+        if (slot.context && !slot.context.browser()?.isConnected() === false) {
+          logger.info("Session pre-warm: slot already has a context — skipping", { slotIndex: slot.index });
+          return;
+        }
+
+        const browser = await getOrLaunchSharedBrowser();
+
+        if (!slot.context) {
+          slot.context = await browser.newContext({
+            storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
+            acceptDownloads: false,
+          });
+          slot.plannerPage = null;
+        }
+
+        const page = await slot.context.newPage();
+
+        try {
+          await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+          await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+
+          const needsLogin = await checkNeedsLogin(page);
+          if (needsLogin) {
+            logger.info("Session pre-warm: cold session — logging in", { slotIndex: slot.index });
+            await login(page, slot.email, slot.password);
+            await slot.context.storageState({ path: slot.sessionFile });
+            logger.info("Session pre-warm: login complete, session saved", { slotIndex: slot.index });
+          } else {
+            logger.info("Session pre-warm: session still warm — no login needed", { slotIndex: slot.index });
+            // Refresh the saved session file with the latest cookies.
+            await slot.context.storageState({ path: slot.sessionFile });
+          }
+        } finally {
+          await page.close().catch(() => {});
+        }
+      } catch (err) {
+        logger.error("Session pre-warm: slot failed", err instanceof Error ? err : undefined, {
+          slotIndex: slot.index,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        // On failure, discard the context so runJob starts fresh for this slot.
+        if (slot.context) {
+          await slot.context.close().catch(() => {});
+          slot.context = null;
+          slot.plannerPage = null;
+        }
+      }
+    })
+  );
+
+  const succeeded = results.filter(r => r.status === "fulfilled").length;
+  const failed = results.filter(r => r.status === "rejected").length;
+  logger.info("Session pre-warm: complete", { succeeded, failed, total: slotStates.length });
+}
