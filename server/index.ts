@@ -31,16 +31,20 @@ const corsOrigin = process.env.CORS_ORIGIN?.trim() || null;
 
 const app = express();
 
-// Public health-check routes — must be registered before all middleware
-// (auth, CORS, rate-limiting) so load-balancers and uptime monitors always
-// get a 200 without needing a session cookie or any credentials.
-app.get("/", (_req, res) => {
-  res.json({ status: "ok", service: "Care Capacity API" });
-});
-
+// /api/health — always available, no auth needed (used by Hetzner health checks
+// and uptime monitors). Registered before all middleware.
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "Care Capacity API" });
 });
+
+// Root health check — only when running as an API-only backend (i.e. the
+// frontend is deployed separately on Vercel). In development and same-origin
+// production, Vite/static serves the frontend at "/", so this must not run.
+if (corsOrigin) {
+  app.get("/", (_req, res) => {
+    res.json({ status: "ok", service: "Care Capacity API" });
+  });
+}
 
 // Trust proxy for secure cookies behind reverse proxy
 if (isProduction) {
