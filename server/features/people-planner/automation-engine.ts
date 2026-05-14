@@ -1172,8 +1172,8 @@ export async function prewarmAllSlots(): Promise<void> {
     slotStates.map(async (slot) => {
       try {
         // Reuse existing context if already warm from a previous pre-warm or job.
-        if (slot.context && !slot.context.browser()?.isConnected() === false) {
-          logger.info("Session pre-warm: slot already has a context — skipping", { slotIndex: slot.index });
+        if (slot.context && slot.context.browser()?.isConnected()) {
+          logger.info("Session pre-warm: slot already has a live context — skipping", { slotIndex: slot.index });
           return;
         }
 

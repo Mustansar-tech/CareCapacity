@@ -40,10 +40,15 @@ process.on("unhandledRejection", (reason) => {
 });
 
 process.on("uncaughtException", (err) => {
-  logger.error("Worker: uncaught exception — keeping process alive", err, {
+  // For uncaught exceptions (truly fatal errors) we log and exit so PM2 can
+  // restart the process into a clean state rather than continuing in a
+  // potentially corrupted one. unhandledRejection is kept alive because
+  // Playwright throws these on network failures and they are non-fatal.
+  logger.error("Worker: uncaught exception — exiting for clean PM2 restart", err, {
     message: err.message,
     stack: err.stack,
   });
+  process.exit(1);
 });
 
 // ─── Date helper ──────────────────────────────────────────────────────────────
