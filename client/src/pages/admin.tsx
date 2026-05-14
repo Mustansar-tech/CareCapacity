@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
   Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft,
-  Bug, MessageSquare
+  Bug, MessageSquare, CalendarClock, Play, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -398,6 +398,146 @@ interface FeedbackItem {
   submittedAt: string;
 }
 
+// ─── Automation Tab ───────────────────────────────────────────────────────────
+
+type WeeklySyncResult = {
+  ok: boolean;
+  message: string;
+  branches: number;
+  weeks: Array<{ label: string; weekStartDate: string }>;
+};
+
+function AutomationTab() {
+  const { toast } = useToast();
+  const [lastResult, setLastResult] = useState<WeeklySyncResult | null>(null);
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/pp/trigger-weekly-sync');
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? 'Unknown error');
+      }
+      return res.json() as Promise<WeeklySyncResult>;
+    },
+    onSuccess: (data) => {
+      setLastResult(data);
+      toast({ title: 'Weekly sync started', description: `Queued ${data.branches} branch${data.branches !== 1 ? 'es' : ''} across all three weeks.` });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Sync failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const WEEK_LABELS: Record<string, string> = {
+    previous: 'Previous week',
+    current:  'Current week',
+    next:     'Next week',
+  };
+
+  const WEEK_TIMES: Record<string, string> = {
+    previous: 'Runs automatically Mon 01:00',
+    current:  'Runs automatically Mon 03:00',
+    next:     'Runs automatically Mon 05:00',
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Manual trigger card */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950">
+              <CalendarClock className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base">People Planner — Weekly Sync</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Manually trigger the same three-week sync that runs automatically each Monday
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Schedule overview */}
+          <div className="grid grid-cols-3 gap-3">
+            {(['previous', 'current', 'next'] as const).map((label, i) => (
+              <div
+                key={label}
+                className="rounded-lg border border-border bg-muted/30 p-3 space-y-1"
+              >
+                <div className="flex items-center gap-1.5">
+                  <div className={`h-2 w-2 rounded-full ${
+                    i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-blue-500' : 'bg-emerald-500'
+                  }`} />
+                  <span className="text-xs font-semibold text-foreground">
+                    {WEEK_LABELS[label]}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{WEEK_TIMES[label]}</p>
+                {lastResult && (
+                  <p className="text-xs font-mono text-muted-foreground">
+                    {lastResult.weeks.find(w => w.label === label)?.weekStartDate ?? '—'}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Trigger button */}
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+            >
+              {syncMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              {syncMutation.isPending ? 'Queuing syncs…' : 'Run all three weeks now'}
+            </Button>
+            {lastResult && !syncMutation.isPending && (
+              <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Queued for {lastResult.branches} branches</span>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Syncs start immediately — monitor progress in the People Planner panel on the main dashboard.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Schedule info card */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm text-muted-foreground font-medium">Automatic schedule (UK time)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm">
+            {[
+              { time: 'Every Monday 01:00', desc: 'Previous week — catches any late changes before the working week starts' },
+              { time: 'Every Monday 03:00', desc: 'Current week — main operational data for the week ahead' },
+              { time: 'Every Monday 05:00', desc: 'Next week — advance visibility for scheduling decisions' },
+            ].map(row => (
+              <div key={row.time} className="flex items-start gap-3 py-1.5 border-b border-border/50 last:border-0">
+                <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground shrink-0 mt-0.5">
+                  {row.time}
+                </span>
+                <span className="text-muted-foreground text-xs">{row.desc}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function FeedbackTab() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -601,6 +741,9 @@ export default function AdminPage() {
             <TabsTrigger value="feedback" className="rounded-lg gap-2 flex-1">
               <MessageSquare className="h-4 w-4" /> Feedback
             </TabsTrigger>
+            <TabsTrigger value="automation" className="rounded-lg gap-2 flex-1">
+              <CalendarClock className="h-4 w-4" /> Automation
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Users Tab ── */}
@@ -740,6 +883,11 @@ export default function AdminPage() {
 
           {/* ── Feedback Tab ── */}
           <FeedbackTab />
+
+          {/* ── Automation Tab ── */}
+          <TabsContent value="automation">
+            <AutomationTab />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
