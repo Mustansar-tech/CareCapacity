@@ -207,11 +207,16 @@ function CreateUserDialog({ branches, onCreated }: { branches: Branch[]; onCreat
 
 // ─── Edit User Dialog ─────────────────────────────────────────────────────────
 
+const SUPABASE_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|<>?,./`~]).{8,}$/;
+
 const editUserSchema = z.object({
   displayName: z.string().min(1),
   role: z.enum(['admin', 'scheduler', 'viewer']),
   branchIds: z.array(z.string()).min(1),
-  newPassword: z.string().min(8).optional().or(z.literal('')),
+  newPassword: z.union([
+    z.literal(''),
+    z.string().regex(SUPABASE_PASSWORD_REGEX, 'Must be 8+ chars with uppercase, lowercase, number and special character'),
+  ]).optional(),
 });
 type EditUserForm = z.infer<typeof editUserSchema>;
 
@@ -327,6 +332,7 @@ function EditUserDialog({ user, branches, onUpdated }: { user: AdminUser; branch
                   <FormControl>
                     <Input {...field} type="password" placeholder="Leave blank to keep" />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">8+ chars · uppercase · lowercase · number · special character</p>
                   <FormMessage />
                 </FormItem>
               )} />

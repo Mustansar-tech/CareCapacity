@@ -19,12 +19,18 @@ const createUserSchema = z.object({
   branchIds: z.array(z.string()).min(1, 'Assign at least one branch'),
 });
 
+const SUPABASE_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|<>?,./`~]).{8,}$/;
+
 const updateUserSchema = z.object({
   displayName: z.string().min(1).optional(),
   role: z.enum(userRoles).optional(),
   isActive: z.number().optional(),
   branchIds: z.array(z.string()).optional(),
-  newPassword: z.string().min(8).optional(),
+  newPassword: z.string()
+    .refine(v => !v || SUPABASE_PASSWORD_REGEX.test(v), {
+      message: 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character',
+    })
+    .optional(),
 });
 
 export function registerAuthRoutes(app: Express) {
@@ -222,7 +228,7 @@ export function registerAuthRoutes(app: Express) {
             });
             if (error) {
               logger.error('Supabase password update error', error);
-              return res.status(500).json({ message: 'Failed to update password' });
+              return res.status(400).json({ message: error.message ?? 'Failed to update password' });
             }
           }
         }
