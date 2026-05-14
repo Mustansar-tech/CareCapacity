@@ -6,14 +6,10 @@
  *
  * Responsibilities
  * ────────────────
- * 1. Weekly People Planner scheduler — three node-cron jobs every Monday
- *    (Europe/London timezone):
- *      01:00  →  previous week  (replaces external cron-job.org trigger)
- *      03:00  →  current week
- *      05:00  →  next week
- *    All configured branches are fanned out in parallel for each run.
- *    node-cron keeps the event loop alive (no unref), so PM2 never needs to
- *    restart the worker just because no Playwright work is in-flight.
+ * 1. Weekly People Planner scheduler — Monday 01:00 Europe/London.
+ *    Queues all configured branches for the previous week in parallel across
+ *    the available account slots. Replaces any external cron-job.org trigger —
+ *    PM2 keeps this process alive so no external service is needed.
  *
  * 2. Session pre-warm — all account slots log in / restore saved session files
  *    at startup so the first user-triggered sync of the day is instant.
@@ -23,7 +19,6 @@
  *
  * Development testing:
  *   tsx server/worker.ts
- *   (arms the cron jobs + pre-warms sessions without starting the Express API)
  */
 
 import cron from "node-cron";
@@ -51,20 +46,18 @@ process.on("uncaughtException", (err) => {
   });
 });
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+// ─── Date helper ──────────────────────────────────────────────────────────────
 
 /**
  * Returns the ISO date (YYYY-MM-DD) of the Monday that is `dayOffset` days
  * from the Monday of the week in which `from` falls.
  *
- * Examples when `from` is any day of the week of Mon 12 May 2026:
- *   dayOffset -7  →  "2026-05-05"  (previous week)
- *   dayOffset  0  →  "2026-05-12"  (current week)
- *   dayOffset +7  →  "2026-05-19"  (next week)
+ * dayOffset -7  →  previous week's Monday
+ * dayOffset  0  →  current week's Monday
  */
 function getMondayWithOffset(from: Date, dayOffset: number): string {
   const d = new Date(from);
-  const day = d.getUTCDay(); // 0=Sun…6=Sat
+  const day = d.getUTCDay(); // 0=Sun … 6=Sat
   const diffToMonday = day === 0 ? -6 : 1 - day;
   d.setUTCDate(d.getUTCDate() + diffToMonday + dayOffset);
   return d.toISOString().split("T")[0];
@@ -72,18 +65,17 @@ function getMondayWithOffset(from: Date, dayOffset: number): string {
 
 // ─── Sync fan-out ─────────────────────────────────────────────────────────────
 
-async function runSync(label: "previous" | "current" | "next", dayOffset: number): Promise<void> {
-  const now = new Date();
-  const weekStartDate = getMondayWithOffset(now, dayOffset);
+async function runMondaySync(): Promise<void> {
+  const weekStartDate = getMondayWithOffset(new Date(), -7); // previous week
   const branchIds = getConfiguredBranchIds();
 
-  logger.info(`Worker scheduler: firing ${label} week run`, {
+  logger.info("Worker scheduler: Monday 01:00 firing — previous week sync", {
     weekStartDate,
     branchCount: branchIds.length,
   });
 
   if (branchIds.length === 0) {
-    logger.warn(`Worker scheduler: no branches configured for ${label} run — nothing to do`);
+    logger.warn("Worker scheduler: no branches configured — nothing to do");
     return;
   }
 
@@ -93,9 +85,9 @@ async function runSync(label: "previous" | "current" | "next", dayOffset: number
       const result = await programmaticQueueSync(
         branchId,
         weekStartDate,
-        `worker-scheduler-${label}`,
+        "worker-scheduler-monday",
       );
-      logger.info(`Worker scheduler: branch queued (${label})`, {
+      logger.info("Worker scheduler: branch queued", {
         branchId,
         weekStartDate,
         sessionId: result.sessionId,
@@ -109,18 +101,16 @@ async function runSync(label: "previous" | "current" | "next", dayOffset: number
   const succeeded = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
 
-  if (failed > 0) {
-    results.forEach((r, i) => {
-      if (r.status === "rejected") {
-        logger.error(`Worker scheduler: branch queue failed (${label})`, undefined, {
-          branchId: branchIds[i],
-          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
-        });
-      }
-    });
-  }
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      logger.error("Worker scheduler: branch queue failed", undefined, {
+        branchId: branchIds[i],
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      });
+    }
+  });
 
-  logger.info(`Worker scheduler: ${label} run complete`, {
+  logger.info("Worker scheduler: Monday sync complete", {
     weekStartDate,
     succeeded,
     failed,
@@ -128,39 +118,22 @@ async function runSync(label: "previous" | "current" | "next", dayOffset: number
   });
 }
 
-// ─── Three Monday cron jobs (Europe/London) ───────────────────────────────────
-// node-cron does NOT unref its internal timers, so these keep the process alive
+// ─── Monday 01:00 cron (Europe/London) ───────────────────────────────────────
+// node-cron does NOT unref its internal timers, so this keeps the process alive
 // in a standalone worker without Express holding the event loop open.
 
 if (process.env.ACCESS_EMAIL) {
-  // 01:00 — previous week
   cron.schedule("0 1 * * 1", () => {
-    logger.info("Worker scheduler: Monday 01:00 cron fired (previous week)");
-    runSync("previous", -7).catch((err) => {
-      logger.error("Worker scheduler: previous week run threw", err instanceof Error ? err : undefined);
+    logger.info("Worker scheduler: Monday 01:00 cron fired (Europe/London)");
+    runMondaySync().catch((err) => {
+      logger.error("Worker scheduler: sync threw unexpectedly", err instanceof Error ? err : undefined);
     });
   }, { timezone: "Europe/London" });
 
-  // 03:00 — current week
-  cron.schedule("0 3 * * 1", () => {
-    logger.info("Worker scheduler: Monday 03:00 cron fired (current week)");
-    runSync("current", 0).catch((err) => {
-      logger.error("Worker scheduler: current week run threw", err instanceof Error ? err : undefined);
-    });
-  }, { timezone: "Europe/London" });
-
-  // 05:00 — next week
-  cron.schedule("0 5 * * 1", () => {
-    logger.info("Worker scheduler: Monday 05:00 cron fired (next week)");
-    runSync("next", 7).catch((err) => {
-      logger.error("Worker scheduler: next week run threw", err instanceof Error ? err : undefined);
-    });
-  }, { timezone: "Europe/London" });
-
-  logger.info("Worker: three Monday cron jobs armed", {
-    times: ["01:00", "03:00", "05:00"],
+  logger.info("Worker: Monday 01:00 cron armed", {
+    schedule: "0 1 * * 1",
     timezone: "Europe/London",
-    runs: ["previous week", "current week", "next week"],
+    syncs: "previous week — all configured branches in parallel",
   });
 } else {
   logger.warn("Worker: ACCESS_EMAIL not configured — Monday scheduler not armed");
