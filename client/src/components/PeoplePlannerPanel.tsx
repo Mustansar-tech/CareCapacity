@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useBranch } from "@/contexts/BranchContext";
 import { useWeek } from "@/contexts/WeekContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Bot,
   Download,
@@ -24,6 +25,9 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Play,
+  CheckCircle2,
+  CalendarClock,
 } from "lucide-react";
 
 interface AutomationJob {
@@ -118,12 +122,33 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
   const { switchToLatest } = useWeek();
+  const { user } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+
+  // Admin-only: manual three-week sync trigger
+  const [weeklySyncResult, setWeeklySyncResult] = useState<{
+    branches: number;
+    weeks: Array<{ label: string; weekStartDate: string }>;
+  } | null>(null);
+  const weeklySyncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/pp/trigger-weekly-sync");
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Unknown error"); }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setWeeklySyncResult(data);
+      toast({ title: "Weekly sync started", description: `Queued ${data.branches} branches across all three weeks.` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Sync failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
@@ -261,6 +286,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
+    <>
     <Card className="material-card hover-lift animate-slide-up mb-4 elevation-2">
       <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg pb-4">
         <div className="flex items-center justify-between">
@@ -492,5 +518,59 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         </div>
       </CardContent>
     </Card>
+
+    {/* Admin-only: run all three weeks now */}
+    {user?.role === "admin" && (
+      <Card className="border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm mt-3">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Monday auto-sync</p>
+              <p className="text-xs text-muted-foreground">
+                Runs automatically Mon 01:00 · 03:00 · 05:00 (UK time) for all branches
+              </p>
+            </div>
+          </div>
+
+          {/* Week date chips — populated after a run */}
+          {weeklySyncResult && (
+            <div className="flex gap-2 flex-wrap">
+              {weeklySyncResult.weeks.map(w => (
+                <span
+                  key={w.label}
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-mono"
+                >
+                  {w.label === "previous" ? "prev" : w.label === "current" ? "curr" : "next"} · {w.weekStartDate}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              onClick={() => weeklySyncMutation.mutate()}
+              disabled={weeklySyncMutation.isPending}
+              className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+            >
+              {weeklySyncMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Play className="h-3.5 w-3.5" />
+              )}
+              {weeklySyncMutation.isPending ? "Queuing…" : "Run all three weeks now"}
+            </Button>
+            {weeklySyncResult && !weeklySyncMutation.isPending && (
+              <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {weeklySyncResult.branches} branches queued
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    )}
+  </>
   );
 }
