@@ -122,7 +122,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
   const { switchToLatest } = useWeek();
-  const { user } = useAuth();
+  const { isAdmin } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
@@ -520,7 +520,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     </Card>
 
     {/* Admin-only: run all three weeks now */}
-    {user?.role === "admin" && (
+    {isAdmin && (
       <Card className="border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm mt-3">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
