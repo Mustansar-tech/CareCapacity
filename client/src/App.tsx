@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { lazy, Suspense } from "react";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import ResetPasswordPage from "@/pages/reset-password";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
@@ -583,6 +584,7 @@ function App() {
                 <Route path="/terms" component={Terms} />
                 <Route path="/docs"><Redirect to="/app/docs" /></Route>
                 <Route path="/login" component={LoginRoute} />
+                <Route path="/reset-password" component={ResetPasswordPage} />
                 <Route>
                   <ProtectedRoute>
                     <Router />

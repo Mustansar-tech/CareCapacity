@@ -35,6 +35,65 @@ const updateUserSchema = z.object({
 
 export function registerAuthRoutes(app: Express) {
 
+  // ─── Forgot password — sends Supabase reset email ────────────────────────────
+
+  app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+    const parsed = z.object({ email: z.string().email() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Valid email required' });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://carecapacity.sur-group.co.uk';
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(parsed.data.email, {
+      redirectTo: `${frontendUrl}/reset-password`,
+    });
+
+    if (error) {
+      logger.error('Forgot password error', error);
+      // Always return success to avoid email enumeration
+    }
+
+    return res.json({ ok: true, message: 'If that email is registered, a reset link has been sent.' });
+  });
+
+  // ─── Reset password — exchange recovery token + set new password ─────────────
+
+  app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+    const parsed = z.object({
+      accessToken: z.string().min(1),
+      newPassword: z.string().refine(v => SUPABASE_PASSWORD_REGEX.test(v), {
+        message: 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character',
+      }),
+    }).safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+
+    const { accessToken, newPassword } = parsed.data;
+
+    try {
+      // Verify the recovery token by fetching the user it belongs to
+      const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(accessToken);
+      if (userError || !userData.user) {
+        return res.status(401).json({ message: 'Reset link is invalid or has expired. Please request a new one.' });
+      }
+
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userData.user.id, {
+        password: newPassword,
+      });
+
+      if (updateError) {
+        logger.error('Reset password: Supabase update failed', updateError);
+        return res.status(400).json({ message: updateError.message ?? 'Failed to update password' });
+      }
+
+      logger.info('Password reset completed', { email: userData.user.email });
+      return res.json({ ok: true, message: 'Password updated successfully.' });
+    } catch (err) {
+      logger.error('Reset password error', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
   // ─── Login via Supabase Auth ─────────────────────────────────────────────────
 
   app.post('/api/auth/login', async (req: Request, res: Response) => {
