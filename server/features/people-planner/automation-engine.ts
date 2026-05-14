@@ -1218,6 +1218,9 @@ export async function prewarmAllSlots(): Promise<void> {
           slot.context = null;
           slot.plannerPage = null;
         }
+        // Re-throw so Promise.allSettled records this slot as rejected and the
+        // summary counts (succeeded / failed) are accurate.
+        throw err;
       }
     })
   );
