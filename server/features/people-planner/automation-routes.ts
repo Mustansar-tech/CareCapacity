@@ -928,6 +928,70 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     }
   });
 
+  // ─── Manual test trigger (admin-only) ───────────────────────────────────────
+  // Fires all three Monday sync runs immediately — useful for verifying the
+  // scheduler logic without waiting until next Monday.
+  // POST /api/pp/trigger-weekly-sync
+  app.post("/api/pp/trigger-weekly-sync", requireAuth, requireRoleAtLeast("admin"), async (req, res) => {
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({ ok: false, error: "People Planner credentials not configured" });
+    }
+
+    function getMondayOffset(dayOffset: number): string {
+      const d = new Date();
+      const day = d.getUTCDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      d.setUTCDate(d.getUTCDate() + diffToMonday + dayOffset);
+      return d.toISOString().split("T")[0];
+    }
+
+    const runs = [
+      { label: "previous", dayOffset: -7 },
+      { label: "current",  dayOffset:  0 },
+      { label: "next",     dayOffset: +7 },
+    ] as const;
+
+    const branchIds = getConfiguredBranchIds();
+    if (branchIds.length === 0) {
+      return res.status(503).json({ ok: false, error: "No branches configured" });
+    }
+
+    const summary: Array<{ label: string; weekStartDate: string; queued: number; failed: number }> = [];
+
+    // Respond immediately so the client isn't left waiting; fan-out runs in background.
+    res.json({
+      ok: true,
+      message: "Weekly sync test triggered for all three weeks — check server logs for progress",
+      branches: branchIds.length,
+      weeks: runs.map(r => ({ label: r.label, weekStartDate: getMondayOffset(r.dayOffset) })),
+    });
+
+    for (const run of runs) {
+      const weekStartDate = getMondayOffset(run.dayOffset);
+      const results = await Promise.allSettled(
+        branchIds.map(async (branchId) => {
+          const result = await programmaticQueueSync(branchId, weekStartDate, `test-trigger-${run.label}`);
+          logger.info(`Test trigger: branch queued (${run.label})`, { branchId, weekStartDate, ...result });
+          return result;
+        }),
+      );
+      const queued = results.filter(r => r.status === "fulfilled").length;
+      const failed = results.filter(r => r.status === "rejected").length;
+      results.forEach((r, i) => {
+        if (r.status === "rejected") {
+          logger.error(`Test trigger: branch queue failed (${run.label})`, undefined, {
+            branchId: branchIds[i],
+            error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+          });
+        }
+      });
+      summary.push({ label: run.label, weekStartDate, queued, failed });
+      logger.info(`Test trigger: ${run.label} week complete`, { weekStartDate, queued, failed });
+    }
+
+    logger.info("Test trigger: all three weeks complete", { summary });
+  });
+
 }
 
 // ─── Pipeline session runner ──────────────────────────────────────────────────
