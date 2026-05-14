@@ -71,7 +71,7 @@ app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 const PgSession = connectPgSimple(session);
 const sessionPool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.SESSION_POOL_MAX || 2),
+  max: Number(process.env.SESSION_POOL_MAX || 3),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });

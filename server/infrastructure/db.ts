@@ -18,8 +18,8 @@ const _isWorker =
   Boolean(process.argv[1]?.includes("worker"));
 
 const _poolMax = _isWorker
-  ? Number(process.env.WORKER_POOL_MAX || 2)
-  : Number(process.env.PGPOOL_MAX || 3);
+  ? Number(process.env.WORKER_POOL_MAX || 3)
+  : Number(process.env.PGPOOL_MAX || 7);
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
