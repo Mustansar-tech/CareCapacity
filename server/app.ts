@@ -5,7 +5,6 @@ import { logger } from './infrastructure/logger';
 import { requireAuth } from './features/auth/auth';
 import { registerAuthRoutes } from './features/auth/auth.routes';
 import { registerPeoplePlannerRoutes } from './features/people-planner/automation-routes';
-import { initScheduler } from './features/people-planner/scheduler';
 import { registerProcessRoutes } from './routes/process';
 import { registerHistoryRoutes } from './routes/history';
 import { registerVisitsRoutes } from './routes/visits';
@@ -38,7 +37,9 @@ export async function configureApp(app: Express): Promise<Server> {
 
   if (process.env.ACCESS_EMAIL) {
     registerPeoplePlannerRoutes(app);
-    initScheduler();
+    // Scheduler is now handled by the worker process (server/worker.ts).
+    // On Hetzner + PM2, care-capacity-worker arms the Monday timers.
+    // In development, run `tsx server/worker.ts` alongside the dev server.
   }
 
   app.get('/health', async (_req, res) => {
