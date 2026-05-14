@@ -18,4 +18,27 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
-            /root/CareCapacity/deploy.sh
+            set -e
+
+            cd /root/CareCapacity
+
+            echo "Resetting to GitHub main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "Installing dependencies..."
+            npm install
+
+            echo "Installing Playwright Chromium..."
+            npx playwright install chromium
+
+            echo "Building app..."
+            npm run build
+
+            echo "Restarting PM2 ecosystem..."
+            pm2 startOrRestart ecosystem.config.cjs --update-env
+
+            echo "Saving PM2 state..."
+            pm2 save
+
+            echo "Deployment complete."
