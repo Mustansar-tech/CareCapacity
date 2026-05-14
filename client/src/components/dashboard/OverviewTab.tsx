@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toAbsoluteUrl } from "@/lib/queryClient";
 import { useBranch } from "@/contexts/BranchContext";
 import { clientLogger } from '@/lib/logger';
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,7 @@ export function OverviewTab({
       const url = currentWeekStartDate
         ? `/api/pp/last-sync/${selectedBranchId}?weekStartDate=${currentWeekStartDate}`
         : `/api/pp/last-sync/${selectedBranchId}`;
-      const res = await fetch(url);
+      const res = await fetch(toAbsoluteUrl(url), { credentials: "include" });
       if (!res.ok) return { uploadedAt: null };
       return res.json();
     },
