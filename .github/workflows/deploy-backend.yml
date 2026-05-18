@@ -1,39 +1,3 @@
-name: Deploy Backend to Hetzner
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  deploy:
-    name: Deploy backend
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
-          script: |
-            set -e
-            cd /root/CareCapacity
-
-            echo "Resetting to GitHub main..."
-            git fetch origin main
-            git reset --hard origin/main
-
-            echo "Installing dependencies..."
-            npm install
-
-            echo "Installing Playwright Chromium..."
-            npx playwright install chromium
-
-            echo "Building app..."
-            npm run build
-
             echo "Restarting PM2 ecosystem..."
             pm2 startOrRestart ecosystem.config.cjs --update-env
 
@@ -41,6 +5,40 @@ jobs:
             pm2 save
 
             echo "Checking backend health..."
-            curl -f https://api.carecapacity.sur-group.co.uk/api/health
+
+            for i in {1..12}; do
+              if curl -fsS http://localhost:5000/api/health; then
+                echo "Local backend health check passed."
+                break
+              fi
+
+              echo "Backend not ready yet. Retry $i/12..."
+              sleep 5
+
+              if [ "$i" -eq 12 ]; then
+                echo "Backend health check failed after retries."
+                pm2 status
+                pm2 logs care-capacity-api --lines 80 --nostream
+                exit 1
+              fi
+            done
+
+            echo "Checking public API health..."
+
+            for i in {1..6}; do
+              if curl -fsS https://api.carecapacity.sur-group.co.uk/api/health; then
+                echo "Public backend health check passed."
+                break
+              fi
+
+              echo "Public API not ready yet. Retry $i/6..."
+              sleep 5
+
+              if [ "$i" -eq 6 ]; then
+                echo "Public API health check failed after retries."
+                systemctl status nginx --no-pager
+                exit 1
+              fi
+            done
 
             echo "Deployment complete and health check passed."
