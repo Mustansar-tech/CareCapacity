@@ -19,7 +19,6 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -e
-
             cd /root/CareCapacity
 
             echo "Resetting to GitHub main..."
@@ -41,4 +40,7 @@ jobs:
             echo "Saving PM2 state..."
             pm2 save
 
-            echo "Deployment complete."
+            echo "Checking backend health..."
+            curl -f https://api.carecapacity.sur-group.co.uk/api/health
+
+            echo "Deployment complete and health check passed."
