@@ -28,6 +28,10 @@
  *   POST /api/pp/trigger-weekly-sync  (admin-only — fires all three runs now)
  */
 
+// Sentry must be the very first import so it instruments all downstream modules.
+import "./infrastructure/sentry";
+import { Sentry } from "./infrastructure/sentry";
+
 import cron from "node-cron";
 import { logger } from "./infrastructure/logger";
 import { prewarmAllSlots } from "./features/people-planner/automation-engine";
@@ -44,9 +48,10 @@ process.on("unhandledRejection", (reason) => {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,
   });
+  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
 });
 
-process.on("uncaughtException", (err) => {
+process.on("uncaughtException", async (err) => {
   // Fatal errors exit so PM2 can restart into a clean state.
   // unhandledRejection is kept alive because Playwright throws these on
   // network failures and they are non-fatal.
@@ -54,6 +59,9 @@ process.on("uncaughtException", (err) => {
     message: err.message,
     stack: err.stack,
   });
+  Sentry.captureException(err);
+  // Flush Sentry before exiting so the event is not lost
+  await Sentry.flush(2000).catch(() => undefined);
   process.exit(1);
 });
 
@@ -121,6 +129,9 @@ export async function runSync(
         branchId: branchIds[i],
         error: r.reason instanceof Error ? r.reason.message : String(r.reason),
       });
+      Sentry.captureException(r.reason instanceof Error ? r.reason : new Error(String(r.reason)), {
+        tags: { label, branchId: branchIds[i] },
+      });
     }
   });
 
@@ -142,6 +153,7 @@ if (process.env.ACCESS_EMAIL) {
     logger.info("Worker scheduler: Monday 01:00 cron fired (previous week)");
     runSync("previous", -7).catch((err) => {
       logger.error("Worker scheduler: previous week sync threw", err instanceof Error ? err : undefined);
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { cronJob: "previous-week" } });
     });
   }, { timezone: "Europe/London" });
 
@@ -150,6 +162,7 @@ if (process.env.ACCESS_EMAIL) {
     logger.info("Worker scheduler: Monday 03:00 cron fired (current week)");
     runSync("current", 0).catch((err) => {
       logger.error("Worker scheduler: current week sync threw", err instanceof Error ? err : undefined);
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { cronJob: "current-week" } });
     });
   }, { timezone: "Europe/London" });
 
@@ -158,6 +171,7 @@ if (process.env.ACCESS_EMAIL) {
     logger.info("Worker scheduler: Monday 05:00 cron fired (next week)");
     runSync("next", 7).catch((err) => {
       logger.error("Worker scheduler: next week sync threw", err instanceof Error ? err : undefined);
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { cronJob: "next-week" } });
     });
   }, { timezone: "Europe/London" });
 
@@ -187,6 +201,7 @@ setTimeout(async () => {
     logger.error("Session pre-warm: unexpected top-level error", err instanceof Error ? err : undefined, {
       error: err instanceof Error ? err.message : String(err),
     });
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { phase: "session-prewarm" } });
   }
 }, 5000);
 

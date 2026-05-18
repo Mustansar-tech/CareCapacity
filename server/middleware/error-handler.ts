@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../infrastructure/logger';
+import { Sentry } from '../infrastructure/sentry';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -25,6 +26,11 @@ export function errorHandler(
   const internalMessage = err.message || 'Internal Server Error';
 
   logger.error(`HTTP ${status}: ${internalMessage}`, err);
+
+  // Report unexpected server errors to Sentry; skip deliberate 4xx responses
+  if (status >= 500) {
+    Sentry.captureException(err);
+  }
 
   const clientMessage = isProduction
     ? (status >= 500 ? 'Internal Server Error' : 'Request failed')

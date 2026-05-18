@@ -1,3 +1,8 @@
+// Sentry must be initialised before any other imports so it can instrument
+// all downstream modules (HTTP, pg, etc.) from the start.
+import "./infrastructure/sentry";
+import { Sentry } from "./infrastructure/sentry";
+
 import express from "express";
 import cors from "cors";
 import session from "express-session";
@@ -154,6 +159,10 @@ app.use((req, res, next) => {
     log("Split-origin mode: frontend served by Vercel, API-only server");
   }
 
+  // Sentry error handler — must come BEFORE the custom error handler so Sentry
+  // captures the original exception before we transform the response.
+  Sentry.setupExpressErrorHandler(app);
+
   // Global error handler — must be registered AFTER all routes and static
   // middleware so it catches errors from every layer (including sendFile failures)
   app.use(errorHandler);
@@ -191,11 +200,12 @@ app.use((req, res, next) => {
 // Playwright browser automation throws unhandled rejections on network/TLS
 // failures. Without these handlers the entire Node process exits (exit status 1)
 // which takes down the whole app for all users.
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled promise rejection — keeping process alive', undefined, {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,
   });
+  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
 });
 
 process.on('uncaughtException', (err) => {
@@ -203,4 +213,5 @@ process.on('uncaughtException', (err) => {
     message: err.message,
     stack: err.stack,
   });
+  Sentry.captureException(err);
 });
