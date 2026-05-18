@@ -126,7 +126,7 @@ function armRun(index: number): void {
     }
   }, delay);
 
-  if (timers[index]!.unref) timers[index]!.unref();
+  timers[index]!.unref?.();
 }
 
 function buildNextRunsSummary(): Record<string, string> {

@@ -256,7 +256,7 @@ export class MemStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.email === username); }
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, username: insertUser.username ?? null, id, createdAt: new Date() };
+    const user: User = { ...insertUser, username: insertUser.username ?? null, supabaseUserId: insertUser.supabaseUserId ?? null, id, createdAt: new Date() };
     this.users.set(id, user);
     return user;
   }
@@ -292,7 +292,7 @@ export class MemStorage implements IStorage {
 
   async saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
     const id = randomUUID();
-    const result: CapacityAnalysis = { ...analysis, id, uploadedAt: new Date(), employeeSummaryByDate: analysis.employeeSummaryByDate || {}, warnings: analysis.warnings || [] };
+    const result: CapacityAnalysis = { ...analysis, id, uploadedAt: new Date(), employeeSummaryByDate: analysis.employeeSummaryByDate || {}, warnings: analysis.warnings || [], ghLossRawSummary: analysis.ghLossRawSummary ?? null };
     this.capacityAnalyses.set(id, result);
     return result;
   }

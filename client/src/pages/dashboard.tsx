@@ -225,7 +225,7 @@ export default function Dashboard() {
                     <span className="text-sm text-blue-600">Loading latest data...</span>
                   </div>
                 )}
-                {latestDataError && (
+                {Boolean(latestDataError) && (
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-orange-500" />
                     <span className="text-sm text-orange-600">No previous data found</span>
