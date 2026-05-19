@@ -136,12 +136,16 @@ export function CareProMap({
     setIsSearching(true);
     setSearchError('');
     try {
-      const branchId = localStorage.getItem('selectedBranchId');
-      const url = `/api/geo/postcode/${encodeURIComponent(pc)}${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ''}`;
-      const res  = await fetch(url, { credentials: 'include' });
+      // postcodes.io is a public API — call it directly from the browser to
+      // avoid server-side auth/branch-resolution complexity in production.
+      const res  = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
       const data = await res.json();
-      if (res.ok && data.lat && data.lng) {
-        setSearchResult({ lat: data.lat, lng: data.lng, postcode: data.postcode });
+      if (res.ok && data.status === 200 && data.result?.latitude != null) {
+        setSearchResult({
+          lat: data.result.latitude,
+          lng: data.result.longitude,
+          postcode: data.result.postcode,
+        });
         setSearchError('');
       } else {
         setSearchError(`"${searchInput.trim().toUpperCase()}" not found`);

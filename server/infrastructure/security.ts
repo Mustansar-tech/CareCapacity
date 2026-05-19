@@ -28,7 +28,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: https:; " +
-    "connect-src 'self' https://api.openrouteservice.org https://api.traveltimeapp.com;"
+    "connect-src 'self' https://api.openrouteservice.org https://api.traveltimeapp.com https://api.postcodes.io;"
   );
   
   // Referrer policy
