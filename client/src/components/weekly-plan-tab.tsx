@@ -61,6 +61,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
 
   // Get week boundaries - default to current week if no date selected
@@ -361,6 +362,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
       setWeeklySchedule(correctedResult);
+      setLastGeneratedAt(new Date());
 
       // ── Phase 2: Apply Haversine heuristic to walker/public routes ──
       // Collect only the routes that were actually assigned to walker/public employees.
@@ -603,6 +605,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 <p className="text-2xl font-bold text-purple-600">{weeklySchedule.metrics.employeesUtilized}</p>
               </div>
             </div>
+            {lastGeneratedAt && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Last generated: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
