@@ -61,7 +61,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
-  const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(() => {
+    try {
+      const stored = localStorage.getItem('scheduleLastGeneratedAt');
+      return stored ? new Date(stored) : null;
+    } catch { return null; }
+  });
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
 
   // Get week boundaries - default to current week if no date selected
@@ -362,7 +367,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
       setWeeklySchedule(correctedResult);
-      setLastGeneratedAt(new Date());
+      const now = new Date();
+      setLastGeneratedAt(now);
+      try { localStorage.setItem('scheduleLastGeneratedAt', now.toISOString()); } catch { /* ignore */ }
 
       // ── Phase 2: Apply Haversine heuristic to walker/public routes ──
       // Collect only the routes that were actually assigned to walker/public employees.
@@ -554,30 +561,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             Automatically assign visits to employees for the entire week using VRPTW optimization
           </p>
         </div>
-        <Button
-          onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending || allWeekVisits.length === 0 || !canGenerate}
-          title={!canGenerate ? "Only Schedulers and Admins can generate schedules" : ""}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-          data-testid="button-generate-weekly"
-        >
-          {generateMutation.isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : !canGenerate ? (
-            <>
-              <Lock className="h-4 w-4 mr-2" />
-              View Only
-            </>
-          ) : (
-            <>
-              <Zap className="h-4 w-4 mr-2" />
-              Generate Weekly Schedule
-            </>
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending || allWeekVisits.length === 0 || !canGenerate}
+            title={!canGenerate ? "Only Schedulers and Admins can generate schedules" : ""}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            data-testid="button-generate-weekly"
+          >
+            {generateMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : !canGenerate ? (
+              <>
+                <Lock className="h-4 w-4 mr-2" />
+                View Only
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                Generate Weekly Schedule
+              </>
+            )}
+          </Button>
+          {lastGeneratedAt && (
+            <p className="text-xs text-muted-foreground">
+              Last generated: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            </p>
           )}
-        </Button>
+        </div>
       </div>
 
       {/* Metrics Card */}
@@ -605,11 +619,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 <p className="text-2xl font-bold text-purple-600">{weeklySchedule.metrics.employeesUtilized}</p>
               </div>
             </div>
-            {lastGeneratedAt && (
-              <p className="text-xs text-muted-foreground mt-3">
-                Last generated: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            )}
           </CardContent>
         </Card>
       )}
