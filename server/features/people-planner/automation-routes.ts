@@ -1153,6 +1153,39 @@ async function runPipelineSession(
       logger.warn("Failed to persist CP visits (non-fatal)", { err });
     }
 
+    try {
+      const { extractAllClientVisitsFromGHExcel } = await import("../../features/imports/excel-visit-extractor");
+      const weekDates2 = result.dailySummary?.map(d => d.date) ?? [];
+      if (weekDates2.length > 0) {
+        const clientVisitMap = await extractAllClientVisitsFromGHExcel(guaranteedBuf, weekDates2, branchId, storage);
+        const clientVisitRows: import("@shared/schema").InsertGhClientVisit[] = [];
+        for (const [date, visits] of clientVisitMap) {
+          for (const v of visits) {
+            clientVisitRows.push({
+              branchId,
+              clientName: v.clientName,
+              date,
+              startTime: v.startTime,
+              endTime: v.endTime,
+              durationMinutes: v.durationMinutes,
+              serviceType: v.serviceType ?? null,
+              priority: v.priority ?? 1,
+              lat: v.lat != null ? String(v.lat) : null,
+              lng: v.lng != null ? String(v.lng) : null,
+              postcode: v.postcode ?? null,
+            });
+          }
+        }
+        await storage.upsertGhClientVisitsByDates(branchId, weekDates2, clientVisitRows);
+        await storage.enforceRetentionGhClientVisits(branchId, 8);
+        logger.info("Persisted GH client visits to database (date-aware upsert)", {
+          branchId, totalVisits: clientVisitRows.length, weekDates: weekDates2.length,
+        });
+      }
+    } catch (clientErr) {
+      logger.warn("Failed to persist GH client visits (non-fatal)", { err: clientErr });
+    }
+
     if (result.dailySummary && result.dailySummary.length > 0) {
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(result.dailySummary[0].date);
       await storage.saveCapacityAnalysis({

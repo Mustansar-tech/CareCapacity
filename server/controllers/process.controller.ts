@@ -179,6 +179,40 @@ export async function processCapacity(req: Request, res: Response): Promise<void
   }
 
   try {
+    const { extractAllClientVisitsFromGHExcel } = await import('../features/imports/excel-visit-extractor');
+    const { storage } = await import('../storage');
+    const weekDates = result.dailySummary?.map(d => d.date) ?? [];
+    if (weekDates.length > 0) {
+      const clientVisitMap = await extractAllClientVisitsFromGHExcel(guaranteedFile.buffer, weekDates, requestedBranchId, storage);
+      const clientVisitRows: import('@shared/schema').InsertGhClientVisit[] = [];
+      for (const [date, visits] of clientVisitMap) {
+        for (const v of visits) {
+          clientVisitRows.push({
+            branchId: requestedBranchId,
+            clientName: v.clientName,
+            date,
+            startTime: v.startTime,
+            endTime: v.endTime,
+            durationMinutes: v.durationMinutes,
+            serviceType: v.serviceType ?? null,
+            priority: v.priority ?? 1,
+            lat: v.lat != null ? String(v.lat) : null,
+            lng: v.lng != null ? String(v.lng) : null,
+            postcode: v.postcode ?? null,
+          });
+        }
+      }
+      await scheduleRepo.upsertGhClientVisitsByDates(requestedBranchId, weekDates, clientVisitRows);
+      await scheduleRepo.enforceRetentionGhClientVisits(requestedBranchId, 8);
+      logger.info('Persisted GH client visits to database (date-aware upsert)', {
+        branchId: requestedBranchId, totalVisits: clientVisitRows.length, weekDates: weekDates.length,
+      });
+    }
+  } catch (clientErr) {
+    logger.warn('Failed to persist GH client visits (non-fatal):', clientErr);
+  }
+
+  try {
     if (result.dailySummary && result.dailySummary.length > 0) {
       const firstDate = result.dailySummary[0].date;
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(firstDate);

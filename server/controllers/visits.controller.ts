@@ -1,77 +1,60 @@
 import { Request, Response } from 'express';
 import { resolveBranch } from '../utils/helpers';
+import * as scheduleRepo from '../repositories/schedule.repository';
 import * as geoRepo from '../repositories/geo.repository';
-import { getLatestGuaranteedBuffer, getGuaranteedBufferVersion } from '../routes/state';
+import { getCanonicalWeekBoundaries } from '@shared/schema';
 import { logger } from '../infrastructure/logger';
-import type { ExcelClientVisit } from '../features/imports/excel-visit-extractor';
+import type { ClientVisit } from '@shared/schema';
 
-// ---------------------------------------------------------------------------
-// In-memory visits parse cache
-// ---------------------------------------------------------------------------
-// Key: `${branchId}:${date}:${bufferVersion}`
-// Avoids re-reading and re-parsing the ~5 MB Excel file on every request.
-// The cache entry is invalidated automatically when a new file is uploaded
-// (setLatestGuaranteedBuffer bumps the version counter).
-// ---------------------------------------------------------------------------
-interface VisitsCacheEntry {
-  visits: ExcelClientVisit[];
-  createdAt: number; // ms timestamp — for optional TTL eviction
+/** Convert a GhClientVisit DB row into the ClientVisit shape the frontend expects */
+function toClientVisit(row: { id: string; clientName: string; date: string; startTime: string; endTime: string; durationMinutes: number; serviceType: string | null; priority: number | null; lat: string | null; lng: string | null }): ClientVisit {
+  return {
+    id: row.id,
+    clientName: row.clientName,
+    date: row.date,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    durationMinutes: row.durationMinutes,
+    serviceType: row.serviceType ?? undefined,
+    priority: row.priority ?? 1,
+    lat: row.lat != null ? Number(row.lat) : undefined,
+    lng: row.lng != null ? Number(row.lng) : undefined,
+  };
 }
 
-const visitsCache = new Map<string, VisitsCacheEntry>();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour safety TTL
-
-function makeCacheKey(branchId: string, date: string, version: number): string {
-  return `${branchId}:${date}:${version}`;
-}
-
-/** Evict cache entries older than CACHE_TTL_MS */
-function evictStaleEntries(): void {
-  const now = Date.now();
-  for (const [key, entry] of visitsCache.entries()) {
-    if (now - entry.createdAt > CACHE_TTL_MS) {
-      visitsCache.delete(key);
-    }
-  }
-}
-
+/**
+ * GET /api/visits/:date
+ * Returns client-demand visits for a single date from the DB.
+ * Data is populated at processing time — no Excel parsing at request time.
+ */
 export async function getVisitsByDate(req: Request, res: Response): Promise<void> {
   const { date } = req.params;
   const branchId = await resolveBranch(req);
-  logger.debug('getVisitsByDate', { date, branchId });
+  logger.debug('getVisitsByDate (DB)', { date, branchId });
 
-  const guaranteedBuffer = await getLatestGuaranteedBuffer(branchId);
-  if (!guaranteedBuffer) {
-    res.status(404).json({
-      error: 'No processed data available for this branch. Please upload the Excel files first to enable scheduling.',
-    });
-    return;
-  }
-
-  const version = getGuaranteedBufferVersion(branchId);
-  const cacheKey = makeCacheKey(branchId, date, version);
-
-  const cached = visitsCache.get(cacheKey);
-  if (cached) {
-    logger.debug('visits cache hit', { cacheKey, count: cached.visits.length });
-    res.json(cached.visits);
-    return;
-  }
-
-  logger.debug('visits cache miss — parsing Excel', { cacheKey });
-  const { extractClientVisitsFromGHExcel } = await import('../features/imports/excel-visit-extractor');
-  const { storage } = await import('../storage');
-  const parsedDate = new Date(date + 'T00:00:00.000Z');
-  const visits = await extractClientVisitsFromGHExcel(guaranteedBuffer, parsedDate, branchId, storage);
-
-  // Store in cache
-  evictStaleEntries();
-  visitsCache.set(cacheKey, { visits, createdAt: Date.now() });
-  logger.debug('visits cached', { cacheKey, count: visits.length });
-
-  res.json(visits);
+  const rows = await scheduleRepo.getGhClientVisitsByDate(branchId, date);
+  res.json(rows.map(toClientVisit));
 }
 
+/**
+ * GET /api/visits/week/:weekStart
+ * Returns all client-demand visits for the Mon–Sun week in one DB query.
+ * Replaces 7× /api/visits/:date calls from the weekly plan tab.
+ */
+export async function getVisitsByWeek(req: Request, res: Response): Promise<void> {
+  const { weekStart } = req.params;
+  const branchId = await resolveBranch(req);
+  logger.debug('getVisitsByWeek (DB)', { weekStart, branchId });
+
+  const { weekStart: monday, weekEnd: sunday } = getCanonicalWeekBoundaries(weekStart);
+  const rows = await scheduleRepo.getGhClientVisitsByWeek(branchId, monday, sunday);
+  res.json(rows.map(toClientVisit));
+}
+
+/**
+ * GET /api/visits?startDate=&endDate=
+ * Legacy range query against the old visits table (kept for backward compat).
+ */
 export async function listVisitsBetween(req: Request, res: Response): Promise<void> {
   const { startDate, endDate } = req.query;
   const branchId = await resolveBranch(req);
@@ -81,8 +64,6 @@ export async function listVisitsBetween(req: Request, res: Response): Promise<vo
     return;
   }
 
-  logger.debug('Fetching visits', { branchId, startDate, endDate });
   const visits = await geoRepo.listVisitsBetween(branchId, String(startDate), String(endDate));
-  logger.debug('Found visits for date range', { count: visits.length });
   res.json(visits);
 }

@@ -395,6 +395,140 @@ export async function extractClientVisitsFromGHExcel(
   return finalVisits;
 }
 
+/**
+ * Parse the GH workbook ONCE and return client-demand visits for every date in weekDates.
+ * Called at processing time (upload + PP automation) so /api/visits/:date can query the DB
+ * instead of re-parsing the Excel on every page load.
+ *
+ * Returns Map<yyyy-MM-dd, ExcelClientVisit[]>
+ */
+export async function extractAllClientVisitsFromGHExcel(
+  ghWorkbookBuffer: Buffer,
+  weekDates: string[],
+  branchId: string,
+  storage: any,
+): Promise<Map<string, ExcelClientVisit[]>> {
+  const allowedDates = new Set(weekDates);
+  const result = new Map<string, ExcelClientVisit[]>(weekDates.map(d => [d, []]));
+  if (weekDates.length === 0) return result;
+
+  const wb = await XLSX.read(ghWorkbookBuffer, { type: 'buffer' });
+  const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
+  const rows2d = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sheetName], {
+    header: 1, raw: true, blankrows: false,
+  }) as any[][];
+
+  let headerIdx = rows2d.findIndex(r => r.some(cell => String(cell ?? '').trim() !== ''));
+  if (headerIdx < 0) headerIdx = 0;
+
+  const headers = rows2d[headerIdx].map(v => String(v ?? '').trim());
+  const data = rows2d.slice(headerIdx + 1).map(r => {
+    const o: Record<string, any> = {};
+    headers.forEach((h, i) => (o[h] = r[i]));
+    return o;
+  });
+
+  // Per-date dedup maps to handle multiple-care visits at same time
+  const visitsMaps = new Map<string, Map<string, ExcelClientVisit>>(
+    weekDates.map(d => [d, new Map()]),
+  );
+
+  for (const row of data) {
+    const cancelRaw = pickCol(row, [CANCEL_COL]);
+    if (String(cancelRaw ?? '').toLowerCase().includes('cancel')) continue;
+
+    const clientNameRaw = pickCol(row, CLIENT_COLS);
+    if (!clientNameRaw) continue;
+    const clientName = String(clientNameRaw).trim();
+
+    const serviceTypeRaw = pickCol(row, SERVICE_TYPE_COLS);
+    if (serviceTypeRaw) {
+      const serviceTypeLower = String(serviceTypeRaw).trim().toLowerCase();
+      if (EXCLUDED_SERVICE_TYPES.some(ex => serviceTypeLower.includes(ex.toLowerCase()))) continue;
+    }
+
+    const startRaw = pickCol(row, START_COLS);
+    if (!startRaw) continue;
+    const startDateRaw = toDate(startRaw);
+    if (!startDateRaw) continue;
+    const startDate = roundToNearest15Minutes(startDateRaw);
+
+    let durationMinutes = NaN;
+    for (const c of DUR_COLS) {
+      const val = Number(pickCol(row, [c]));
+      if (!isFinite(val)) continue;
+      durationMinutes = (c === 'Planned Duration' || c === 'Service Requirement Duration' || c === 'Actual Duration')
+        ? Math.round(val * 60)
+        : Math.round(val);
+      break;
+    }
+    if (!isFinite(durationMinutes) || durationMinutes <= 0) continue;
+
+    const endRaw = pickCol(row, END_COLS);
+    const endDateRaw = endRaw ? toDate(endRaw) : addMinutes(startDate, durationMinutes);
+    if (!endDateRaw) continue;
+    const endDate = roundToNearest15Minutes(endDateRaw);
+
+    // Reject overnight visits (crosses midnight)
+    const visitDate = format(startDate, 'yyyy-MM-dd');
+    const endDateStr = format(endDate, 'yyyy-MM-dd');
+    if (visitDate !== endDateStr) continue;
+
+    // Skip dates we didn't ask for
+    if (!allowedDates.has(visitDate)) continue;
+
+    const addressRaw = pickCol(row, ADDRESS_COLS);
+    const address = addressRaw ? String(addressRaw).trim() : undefined;
+    const postcodeRaw = pickCol(row, POSTCODE_COLS);
+    let postcode: string | undefined;
+    if (postcodeRaw) {
+      postcode = String(postcodeRaw).trim().toUpperCase();
+    } else if (address) {
+      const m = address.match(/([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})/i);
+      postcode = m ? m[1].toUpperCase() : undefined;
+    }
+
+    const duration = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+    const startTimeStr = format(startDate, 'HH:mm');
+    const endTimeStr = format(endDate, 'HH:mm');
+    const baseKey = `${clientName}-${visitDate}-${startTimeStr}`;
+    const dateMap = visitsMaps.get(visitDate)!;
+    let visitKey = baseKey;
+    let counter = 1;
+    while (dateMap.has(visitKey)) { visitKey = `${baseKey}-CP${counter}`; counter++; }
+
+    let clientLocation: any = null;
+    try { clientLocation = await storage.getClientLocationByName(branchId, clientName); } catch { /* no coords */ }
+
+    const serviceType = String(serviceTypeRaw ?? '').trim() || undefined;
+
+    dateMap.set(visitKey, {
+      id: visitKey,
+      clientName,
+      startTime: startTimeStr,
+      endTime: endTimeStr,
+      durationMinutes: duration,
+      date: visitDate,
+      lat: clientLocation?.lat || undefined,
+      lng: clientLocation?.lng || undefined,
+      serviceType,
+      priority: 1,
+      postcode,
+    } as ExcelClientVisit);
+  }
+
+  for (const [date, dateMap] of visitsMaps) {
+    result.set(date, Array.from(dateMap.values()));
+  }
+
+  logger.debug('extractAllClientVisitsFromGHExcel: done', {
+    dates: weekDates.length,
+    totals: weekDates.map(d => `${d}:${result.get(d)?.length ?? 0}`).join(', '),
+  });
+
+  return result;
+}
+
 // ─── Per-employee schedule extraction ────────────────────────────────────────
 // Used by the BD Matcher to determine realistic departure points.
 

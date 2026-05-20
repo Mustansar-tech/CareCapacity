@@ -31,6 +31,8 @@ import {
   type InsertAuditLog,
   type CpScheduledVisit,
   type InsertCpScheduledVisit,
+  type GhClientVisit,
+  type InsertGhClientVisit,
   type Feedback,
   type InsertFeedback,
 } from "@shared/schema";
@@ -110,6 +112,12 @@ export interface IStorage {
   replaceCpScheduledVisits(branchId: string, visits: InsertCpScheduledVisit[]): Promise<void>;
   upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visits: InsertCpScheduledVisit[]): Promise<void>;
   enforceRetentionCpScheduledVisits(branchId: string, keepWeeks?: number): Promise<void>;
+
+  // GH Client Visits (client-demand, parsed at processing time)
+  upsertGhClientVisitsByDates(branchId: string, dates: string[], visits: InsertGhClientVisit[]): Promise<void>;
+  enforceRetentionGhClientVisits(branchId: string, keepWeeks?: number): Promise<void>;
+  getGhClientVisitsByDate(branchId: string, date: string): Promise<GhClientVisit[]>;
+  getGhClientVisitsByWeek(branchId: string, weekStart: string, weekEnd: string): Promise<GhClientVisit[]>;
 
   saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan>;
   getRoutePlansByDate(branchId: string, date: string): Promise<RoutePlan[]>;
@@ -227,6 +235,10 @@ export class DatabaseStorage implements IStorage {
   replaceCpScheduledVisits(branchId: string, visits: InsertCpScheduledVisit[]) { return scheduleRepo.replaceCpScheduledVisits(branchId, visits); }
   upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visits: InsertCpScheduledVisit[]) { return scheduleRepo.upsertCpScheduledVisitsByDates(branchId, dates, visits); }
   enforceRetentionCpScheduledVisits(branchId: string, keepWeeks?: number) { return scheduleRepo.enforceRetentionCpScheduledVisits(branchId, keepWeeks); }
+  upsertGhClientVisitsByDates(branchId: string, dates: string[], visits: InsertGhClientVisit[]) { return scheduleRepo.upsertGhClientVisitsByDates(branchId, dates, visits); }
+  enforceRetentionGhClientVisits(branchId: string, keepWeeks?: number) { return scheduleRepo.enforceRetentionGhClientVisits(branchId, keepWeeks); }
+  getGhClientVisitsByDate(branchId: string, date: string) { return scheduleRepo.getGhClientVisitsByDate(branchId, date); }
+  getGhClientVisitsByWeek(branchId: string, weekStart: string, weekEnd: string) { return scheduleRepo.getGhClientVisitsByWeek(branchId, weekStart, weekEnd); }
 
   // ─── Enquiries / feedback ─────────────────────────────────────────────────────
   saveClientEnquiry(enquiry: InsertClientEnquiry) { return enquiryRepo.saveClientEnquiry(enquiry); }
@@ -395,6 +407,33 @@ export class MemStorage implements IStorage {
     Array.from(this.cpVisits.entries()).forEach(([id, v]) => {
       if (v.branchId === branchId && v.date < cutoffStr) this.cpVisits.delete(id);
     });
+  }
+
+  // GH Client Visits - in-memory stubs (dev/test only)
+  private ghVisits: Map<string, GhClientVisit> = new Map();
+  async upsertGhClientVisitsByDates(branchId: string, dates: string[], visitRows: InsertGhClientVisit[]): Promise<void> {
+    const dateSet = new Set(dates);
+    Array.from(this.ghVisits.entries()).forEach(([id, v]) => {
+      if (v.branchId === branchId && dateSet.has(v.date)) this.ghVisits.delete(id);
+    });
+    for (const v of visitRows) {
+      const id = randomUUID();
+      this.ghVisits.set(id, { ...v, id, serviceType: v.serviceType ?? null, priority: v.priority ?? 1, lat: v.lat ?? null, lng: v.lng ?? null, postcode: v.postcode ?? null });
+    }
+  }
+  async enforceRetentionGhClientVisits(branchId: string, keepWeeks: number = 8): Promise<void> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+    const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+    Array.from(this.ghVisits.entries()).forEach(([id, v]) => {
+      if (v.branchId === branchId && v.date < cutoffStr) this.ghVisits.delete(id);
+    });
+  }
+  async getGhClientVisitsByDate(branchId: string, date: string): Promise<GhClientVisit[]> {
+    return Array.from(this.ghVisits.values()).filter(v => v.branchId === branchId && v.date === date);
+  }
+  async getGhClientVisitsByWeek(branchId: string, weekStart: string, weekEnd: string): Promise<GhClientVisit[]> {
+    return Array.from(this.ghVisits.values()).filter(v => v.branchId === branchId && v.date >= weekStart && v.date <= weekEnd);
   }
 
   async saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {

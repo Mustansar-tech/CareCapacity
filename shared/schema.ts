@@ -705,6 +705,30 @@ export const insertCpScheduledVisitSchema = createInsertSchema(cpScheduledVisits
 export type InsertCpScheduledVisit = z.infer<typeof insertCpScheduledVisitSchema>;
 export type CpScheduledVisit = typeof cpScheduledVisits.$inferSelect;
 
+// GH Client Visits - client-demand visits parsed from GH Excel at processing time.
+// Replaces per-request Excel parsing for /api/visits/:date and /api/visits/week/:weekStart.
+// 8-week rolling retention mirrors cpScheduledVisits.
+export const ghClientVisits = pgTable("gh_client_visits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  clientName: text("client_name").notNull(),
+  date: text("date").notNull(),            // yyyy-MM-dd
+  startTime: text("start_time").notNull(), // HH:MM
+  endTime: text("end_time").notNull(),     // HH:MM
+  durationMinutes: integer("duration_minutes").notNull(),
+  serviceType: text("service_type"),
+  priority: integer("priority").default(1),
+  lat: text("lat"),
+  lng: text("lng"),
+  postcode: text("postcode"),
+}, (table) => ({
+  branchDateIdx: index("gh_visit_branch_date_idx").on(table.branchId, table.date),
+}));
+
+export const insertGhClientVisitSchema = createInsertSchema(ghClientVisits).omit({ id: true });
+export type InsertGhClientVisit = z.infer<typeof insertGhClientVisitSchema>;
+export type GhClientVisit = typeof ghClientVisits.$inferSelect;
+
 // ── Feedback / Bug reports ────────────────────────────────────────────────────
 
 export const feedbackTypes = ['bug', 'general'] as const;
