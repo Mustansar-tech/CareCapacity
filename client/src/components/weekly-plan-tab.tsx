@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranch } from "@/contexts/BranchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,15 +59,11 @@ interface WeeklyScheduleData {
 export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const { toast } = useToast();
   const { canGenerate } = useAuth();
+  const { selectedBranchId } = useBranch();
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
-  const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(() => {
-    try {
-      const stored = localStorage.getItem('scheduleLastGeneratedAt');
-      return stored ? new Date(stored) : null;
-    } catch { return null; }
-  });
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
 
   // Get week boundaries - default to current week if no date selected
@@ -86,6 +83,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   })();
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  // Reload the correct "last generated" stamp whenever branch or week changes
+  useEffect(() => {
+    if (!selectedBranchId || !weekStart) { setLastGeneratedAt(null); return; }
+    try {
+      const key = `scheduleLastGenerated_${selectedBranchId}_${weekStart}`;
+      const stored = localStorage.getItem(key);
+      setLastGeneratedAt(stored ? new Date(stored) : null);
+    } catch { setLastGeneratedAt(null); }
+  }, [selectedBranchId, weekStart]);
 
   // Fetch locations
   const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
@@ -369,7 +376,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       setWeeklySchedule(correctedResult);
       const now = new Date();
       setLastGeneratedAt(now);
-      try { localStorage.setItem('scheduleLastGeneratedAt', now.toISOString()); } catch { /* ignore */ }
+      try {
+        const key = `scheduleLastGenerated_${selectedBranchId}_${weekStart}`;
+        localStorage.setItem(key, now.toISOString());
+      } catch { /* ignore */ }
 
       // ── Phase 2: Apply Haversine heuristic to walker/public routes ──
       // Collect only the routes that were actually assigned to walker/public employees.
