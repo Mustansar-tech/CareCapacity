@@ -596,8 +596,7 @@ export default function CapacityOutlookPage() {
   const [editingJoiner, setEditingJoiner] = useState<Joiner | null>(null);
   const [deletingLeaverId, setDeletingLeaverId] = useState<string | null>(null);
   const [deletingJoinerId, setDeletingJoinerId] = useState<string | null>(null);
-  const [leaversOpen, setLeaversOpen] = useState(true);
-  const [joinersOpen, setJoinersOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'leavers' | 'pipeline'>('leavers');
 
   type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'firstDayOfNotice' | 'lastWorkingDay';
   type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'postcode';
@@ -967,31 +966,64 @@ export default function CapacityOutlookPage() {
           </span>
         </div>
 
-        {/* Active Leavers table */}
+        {/* Leavers / Pipeline tabbed card */}
         <Card className="glass">
-          <button
-            className="w-full text-left cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg"
-            onClick={() => setLeaversOpen(v => !v)}
-          >
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
-                  <TrendingDown className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-sm font-semibold">Active Leavers</span>
-                {leaversQuery.data && (
-                  <Badge variant="secondary">{leaversQuery.data.length}</Badge>
-                )}
+          {/* Tab bar */}
+          <div className="flex items-center border-b border-border px-2 pt-1 gap-0">
+            <button
+              onClick={() => setActiveTab('leavers')}
+              className={[
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+                activeTab === 'leavers'
+                  ? "border-red-500 text-red-600 dark:text-red-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40",
+              ].join(' ')}
+            >
+              <div className={`w-5 h-5 rounded flex items-center justify-center ${activeTab === 'leavers' ? 'bg-red-500' : 'bg-muted'}`}>
+                <TrendingDown className="w-3 h-3 text-white" />
               </div>
-              {leaversOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-            </div>
-          </button>
-          {leaversOpen && (
-            <CardContent className="pt-0">
-              {leaversQuery.isLoading ? (
-                <div className="h-16 bg-muted animate-pulse rounded" />
+              Active Leavers
+              <span className={[
+                "inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px]",
+                activeTab === 'leavers'
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                  : "bg-muted text-muted-foreground",
+              ].join(' ')}>
+                {leaversQuery.data?.length ?? 0}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('pipeline')}
+              className={[
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+                activeTab === 'pipeline'
+                  ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40",
+              ].join(' ')}
+            >
+              <div className={`w-5 h-5 rounded flex items-center justify-center ${activeTab === 'pipeline' ? 'bg-emerald-500' : 'bg-muted'}`}>
+                <TrendingUp className="w-3 h-3 text-white" />
+              </div>
+              Active Pipeline
+              <span className={[
+                "inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px]",
+                activeTab === 'pipeline'
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                  : "bg-muted text-muted-foreground",
+              ].join(' ')}>
+                {activeJoiners.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Tab content */}
+          <CardContent className="pt-0 px-0">
+            {activeTab === 'leavers' && (
+              leaversQuery.isLoading ? (
+                <div className="h-16 bg-muted animate-pulse rounded m-4" />
               ) : !leaversQuery.data?.length ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No active leavers recorded.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">No active leavers recorded.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -1021,20 +1053,12 @@ export default function CapacityOutlookPage() {
                         {isScheduler && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}
-                              >
+                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
                                 <Pencil className="w-3.5 h-3.5" />
                               </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-red-500 hover:text-red-700"
-                                onClick={() => setDeletingLeaverId(l.id)}
-                              >
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                onClick={() => setDeletingLeaverId(l.id)}>
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </div>
@@ -1044,36 +1068,14 @@ export default function CapacityOutlookPage() {
                     ))}
                   </TableBody>
                 </Table>
-              )}
-            </CardContent>
-          )}
-        </Card>
+              )
+            )}
 
-        {/* Active Pipeline table */}
-        <Card className="glass">
-          <button
-            className="w-full text-left cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg"
-            onClick={() => setJoinersOpen(v => !v)}
-          >
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                  <TrendingUp className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-sm font-semibold">Active Pipeline</span>
-                {joinersQuery.data && (
-                  <Badge variant="secondary">{joinersQuery.data.length}</Badge>
-                )}
-              </div>
-              {joinersOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-            </div>
-          </button>
-          {joinersOpen && (
-            <CardContent className="pt-0">
-              {joinersQuery.isLoading ? (
-                <div className="h-16 bg-muted animate-pulse rounded" />
-              ) : !joinersQuery.data?.length ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No active joiners in pipeline.</p>
+            {activeTab === 'pipeline' && (
+              joinersQuery.isLoading ? (
+                <div className="h-16 bg-muted animate-pulse rounded m-4" />
+              ) : !activeJoiners.length ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No active joiners in pipeline.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -1127,20 +1129,12 @@ export default function CapacityOutlookPage() {
                         {isScheduler && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}
-                              >
+                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
                                 <Pencil className="w-3.5 h-3.5" />
                               </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-red-500 hover:text-red-700"
-                                onClick={() => setDeletingJoinerId(j.id)}
-                              >
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                onClick={() => setDeletingJoinerId(j.id)}>
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </div>
@@ -1150,9 +1144,9 @@ export default function CapacityOutlookPage() {
                     ))}
                   </TableBody>
                 </Table>
-              )}
-            </CardContent>
-          )}
+              )
+            )}
+          </CardContent>
         </Card>
 
       </div>
