@@ -92,8 +92,6 @@ const leaverFormSchema = z.object({
   firstDayOfNotice: z.string().optional(),
   lastWorkingDay: z.string().min(1, "Last working day is required"),
   terminationDate: z.string().min(1, "Termination date is required"),
-  leavingReason: z.string().optional(),
-  reRecruitEligible: z.string().optional(),
   notes: z.string().optional(),
 }).refine(d => !d.lastWorkingDay || !d.terminationDate || d.lastWorkingDay <= d.terminationDate, {
   message: "Last working day cannot be after termination date",
@@ -138,8 +136,6 @@ function LeaverModal({
       firstDayOfNotice: "",
       lastWorkingDay: "",
       terminationDate: "",
-      leavingReason: "",
-      reRecruitEligible: "",
       notes: "",
     },
   });
@@ -155,8 +151,6 @@ function LeaverModal({
           firstDayOfNotice: editing.firstDayOfNotice ?? "",
           lastWorkingDay: editing.lastWorkingDay,
           terminationDate: editing.terminationDate,
-          leavingReason: editing.leavingReason ?? "",
-          reRecruitEligible: editing.reRecruitEligible ?? "",
           notes: editing.notes ?? "",
         });
       } else {
@@ -166,8 +160,6 @@ function LeaverModal({
           firstDayOfNotice: "",
           lastWorkingDay: "",
           terminationDate: "",
-          leavingReason: "",
-          reRecruitEligible: "",
           notes: "",
         });
       }
@@ -269,38 +261,6 @@ function LeaverModal({
                 <FormItem>
                   <FormLabel>Termination Date <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="leavingReason" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Leaving Reason</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="Resigned">Resigned</SelectItem>
-                      <SelectItem value="Dismissed">Dismissed</SelectItem>
-                      <SelectItem value="End of Contract">End of Contract</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="reRecruitEligible" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Re-recruit Eligible</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="Yes">Yes</SelectItem>
-                      <SelectItem value="No">No</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -1017,8 +977,6 @@ export default function CapacityOutlookPage() {
                       <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="lastWorkingDay" label="Last Working Day" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="terminationDate" label="Termination" current={leaverSort} onSort={toggleLeaverSort} />
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Re-recruit</TableHead>
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -1032,8 +990,6 @@ export default function CapacityOutlookPage() {
                         <TableCell>{l.weeklyHours}h</TableCell>
                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
                         <TableCell>{formatDate(l.terminationDate)}</TableCell>
-                        <TableCell>{l.leavingReason ?? '—'}</TableCell>
-                        <TableCell>{l.reRecruitEligible ?? '—'}</TableCell>
                         {isScheduler && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -1200,8 +1156,6 @@ export default function CapacityOutlookPage() {
                     <div className="text-xs text-muted-foreground mt-1 grid grid-cols-2 gap-1">
                       <span>Weekly hours: <strong>{l.weeklyHours}h</strong></span>
                       <span>Last day: <strong>{formatDate(l.lastWorkingDay)}</strong></span>
-                      {l.leavingReason && <span>Reason: {l.leavingReason}</span>}
-                      {l.reRecruitEligible && <span>Re-recruit: {l.reRecruitEligible}</span>}
                     </div>
                   </div>
                 ))}
