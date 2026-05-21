@@ -95,6 +95,7 @@ const leaverFormSchema = z.object({
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   weeklyHours: z.coerce.number().positive("Must be greater than 0"),
   postcode: z.string().optional(),
+  firstDayOfNotice: z.string().optional(),
   lastWorkingDay: z.string().min(1, "Termination day is required"),
   notes: z.string().optional(),
 });
@@ -138,6 +139,7 @@ function LeaverModal({
       gender: undefined,
       weeklyHours: undefined as any,
       postcode: "",
+      firstDayOfNotice: "",
       lastWorkingDay: "",
       notes: "",
     },
@@ -152,6 +154,7 @@ function LeaverModal({
           employmentType: editing.employmentType as "driver" | "walker",
           weeklyHours: editing.weeklyHours ?? (undefined as any),
           postcode: editing.postcode ?? "",
+          firstDayOfNotice: editing.firstDayOfNotice ?? "",
           lastWorkingDay: editing.lastWorkingDay,
           notes: editing.notes ?? "",
         });
@@ -161,6 +164,7 @@ function LeaverModal({
           gender: undefined,
           weeklyHours: undefined as any,
           postcode: "",
+          firstDayOfNotice: "",
           lastWorkingDay: "",
           notes: "",
         });
@@ -266,14 +270,22 @@ function LeaverModal({
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="lastWorkingDay" render={({ field }) => (
+              <FormField control={form.control} name="firstDayOfNotice" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Termination Day <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Day of Notice</FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
             </div>
+
+            <FormField control={form.control} name="lastWorkingDay" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Termination Day <span className="text-red-500">*</span></FormLabel>
+                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>

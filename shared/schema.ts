@@ -774,6 +774,7 @@ export const leavers = pgTable("leavers", {
   employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
   weeklyHours: real("weekly_hours").notNull(),
   postcode: text("postcode"),
+  firstDayOfNotice: text("first_day_of_notice"),
   lastWorkingDay: text("last_working_day").notNull(),
   notes: text("notes"),
   status: text("status", { enum: ["active", "processed"] }).notNull().default("active"),
