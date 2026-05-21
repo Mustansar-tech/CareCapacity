@@ -735,16 +735,6 @@ export class TravelTimeService {
     // All walker/public pairs use Haversine heuristic only (no API calls).
     if (nonCarEmployees.length > 0) {
       logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — Haversine heuristic`);
-      for (const emp of nonCarEmployees) {
-        for (const client of clientLocations) {
-          const distKm = this.calculateHaversineDistance(emp, client);
-          const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, emp.transportMode);
-          const sk = this.sessionKey(emp.lat.toString(), emp.lng.toString(), client.lat.toString(), client.lng.toString(), emp.transportMode);
-          this._sessionCache.set(sk, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
-          this.trackSource('heuristic');
-          totalNew++;
-        }
-      }
     }
 
     // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
@@ -781,21 +771,7 @@ export class TravelTimeService {
 
       // Phase 2b: Walker/public client→client — Haversine heuristic only (no API calls).
       if (nonCarEmployees.length > 0) {
-        const walkerModes = [...new Set(nonCarEmployees.map(e => e.transportMode))];
-        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients × ${walkerModes.join(',')} modes) — Haversine heuristic`);
-        for (const mode of walkerModes) {
-          for (const src of clientLocations) {
-            for (const dst of clientLocations) {
-              if (src.id === dst.id) continue;
-              const distKm = this.calculateHaversineDistance(src, dst);
-              const heuristicMinutes = this.calculateHeuristicTravelTime(distKm, mode);
-              const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), mode);
-              this._sessionCache.set(sk, { durationMinutes: heuristicMinutes, distanceMeters: Math.round(distKm * this.ROAD_FACTOR * 1000), source: 'heuristic' });
-              this.trackSource('heuristic');
-              totalNew++;
-            }
-          }
-        }
+        logger.info(`[Cache Pre-warm] Phase 2b: client→client walker/public (${clientLocations.length} clients) — Haversine heuristic`);
       }
     }
 
