@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, toAbsoluteUrl } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -133,17 +133,7 @@ function LeaverModal({
   const { toast } = useToast();
   const form = useForm<LeaverFormData>({
     resolver: zodResolver(leaverFormSchema),
-    defaultValues: editing ? {
-      employeeName: editing.employeeName,
-      employmentType: editing.employmentType as "driver" | "walker",
-      weeklyHours: editing.weeklyHours ?? 0,
-      firstDayOfNotice: editing.firstDayOfNotice ?? "",
-      lastWorkingDay: editing.lastWorkingDay,
-      terminationDate: editing.terminationDate,
-      leavingReason: editing.leavingReason ?? "",
-      reRecruitEligible: editing.reRecruitEligible ?? "",
-      notes: editing.notes ?? "",
-    } : {
+    defaultValues: {
       employeeName: "",
       weeklyHours: 0,
       firstDayOfNotice: "",
@@ -154,6 +144,36 @@ function LeaverModal({
       notes: "",
     },
   });
+
+  // Reliably pre-fill the form whenever editing changes or the modal opens
+  useEffect(() => {
+    if (open) {
+      if (editing) {
+        form.reset({
+          employeeName: editing.employeeName,
+          employmentType: editing.employmentType as "driver" | "walker",
+          weeklyHours: editing.weeklyHours ?? 0,
+          firstDayOfNotice: editing.firstDayOfNotice ?? "",
+          lastWorkingDay: editing.lastWorkingDay,
+          terminationDate: editing.terminationDate,
+          leavingReason: editing.leavingReason ?? "",
+          reRecruitEligible: editing.reRecruitEligible ?? "",
+          notes: editing.notes ?? "",
+        });
+      } else {
+        form.reset({
+          employeeName: "",
+          weeklyHours: 0,
+          firstDayOfNotice: "",
+          lastWorkingDay: "",
+          terminationDate: "",
+          leavingReason: "",
+          reRecruitEligible: "",
+          notes: "",
+        });
+      }
+    }
+  }, [open, editing?.id]);
 
   const mutation = useMutation({
     mutationFn: async (data: LeaverFormData) => {
@@ -324,15 +344,7 @@ function JoinerModal({
   const { toast } = useToast();
   const form = useForm<JoinerFormData>({
     resolver: zodResolver(joinerFormSchema),
-    defaultValues: editing ? {
-      candidateName: editing.candidateName,
-      employmentType: editing.employmentType as "driver" | "walker",
-      desiredWeeklyHours: editing.desiredWeeklyHours ?? 0,
-      trainingDate: editing.trainingDate ?? "",
-      expectedStartDate: editing.expectedStartDate,
-      stage: editing.stage as any,
-      notes: editing.notes ?? "",
-    } : {
+    defaultValues: {
       candidateName: "",
       desiredWeeklyHours: 0,
       trainingDate: "",
@@ -341,6 +353,32 @@ function JoinerModal({
       notes: "",
     },
   });
+
+  // Reliably pre-fill the form whenever editing changes or the modal opens
+  useEffect(() => {
+    if (open) {
+      if (editing) {
+        form.reset({
+          candidateName: editing.candidateName,
+          employmentType: editing.employmentType as "driver" | "walker",
+          desiredWeeklyHours: editing.desiredWeeklyHours ?? 0,
+          trainingDate: editing.trainingDate ?? "",
+          expectedStartDate: editing.expectedStartDate,
+          stage: editing.stage as any,
+          notes: editing.notes ?? "",
+        });
+      } else {
+        form.reset({
+          candidateName: "",
+          desiredWeeklyHours: 0,
+          trainingDate: "",
+          expectedStartDate: "",
+          stage: undefined,
+          notes: "",
+        });
+      }
+    }
+  }, [open, editing?.id]);
 
   const watchStage = form.watch("stage");
   const confidenceWeight = watchStage ? getConfidenceWeight(watchStage) : null;
@@ -504,6 +542,13 @@ export default function CapacityOutlookPage() {
   const [leaversOpen, setLeaversOpen] = useState(true);
   const [joinersOpen, setJoinersOpen] = useState(true);
 
+  type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'lastWorkingDay' | 'terminationDate';
+  type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'expectedStartDate';
+  type SortDir = 'asc' | 'desc';
+
+  const [leaverSort, setLeaverSort] = useState<{ col: LeaverSortCol; dir: SortDir }>({ col: 'lastWorkingDay', dir: 'asc' });
+  const [joinerSort, setJoinerSort] = useState<{ col: JoinerSortCol; dir: SortDir }>({ col: 'expectedStartDate', dir: 'asc' });
+
   const branchId = selectedBranchId ?? '';
 
   // Outlook aggregates
@@ -623,6 +668,52 @@ export default function CapacityOutlookPage() {
       return new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
     } catch { return d; }
   };
+
+  function sortBy<T>(arr: T[], col: keyof T, dir: 'asc' | 'desc'): T[] {
+    return [...arr].sort((a, b) => {
+      const av = a[col] ?? '';
+      const bv = b[col] ?? '';
+      const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
+      return dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  const sortedLeavers = useMemo(
+    () => sortBy(leaversQuery.data ?? [], leaverSort.col, leaverSort.dir),
+    [leaversQuery.data, leaverSort.col, leaverSort.dir],
+  );
+
+  const sortedJoiners = useMemo(
+    () => sortBy(joinersQuery.data ?? [], joinerSort.col, joinerSort.dir),
+    [joinersQuery.data, joinerSort.col, joinerSort.dir],
+  );
+
+  function SortHead<C extends string>({
+    col, label, current, onSort,
+  }: { col: C; label: string; current: { col: C; dir: SortDir }; onSort: (c: C) => void }) {
+    const active = current.col === col;
+    return (
+      <TableHead
+        className="cursor-pointer select-none hover:bg-muted/40 transition-colors"
+        onClick={() => onSort(col)}
+      >
+        <span className="flex items-center gap-1">
+          {label}
+          <span className="text-muted-foreground text-[10px]">
+            {active ? (current.dir === 'asc' ? '▲' : '▼') : '⇅'}
+          </span>
+        </span>
+      </TableHead>
+    );
+  }
+
+  function toggleLeaverSort(col: LeaverSortCol) {
+    setLeaverSort(prev => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }));
+  }
+
+  function toggleJoinerSort(col: JoinerSortCol) {
+    setJoinerSort(prev => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }));
+  }
 
   if (!branchId) {
     return (
@@ -942,18 +1033,18 @@ export default function CapacityOutlookPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Hours/wk</TableHead>
-                      <TableHead>Last Working Day</TableHead>
-                      <TableHead>Termination</TableHead>
+                      <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
+                      <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
+                      <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                      <SortHead col="lastWorkingDay" label="Last Working Day" current={leaverSort} onSort={toggleLeaverSort} />
+                      <SortHead col="terminationDate" label="Termination" current={leaverSort} onSort={toggleLeaverSort} />
                       <TableHead>Reason</TableHead>
                       <TableHead>Re-recruit</TableHead>
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {leaversQuery.data.map(l => (
+                    {sortedLeavers.map(l => (
                       <TableRow key={l.id}>
                         <TableCell className="font-medium">{l.employeeName}</TableCell>
                         <TableCell>
@@ -1024,18 +1115,18 @@ export default function CapacityOutlookPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Hours/wk</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Confidence</TableHead>
-                      <TableHead>Training Date</TableHead>
-                      <TableHead>Expected Start</TableHead>
+                      <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="desiredWeeklyHours" label="Hours/wk" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="confidenceWeight" label="Confidence" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="trainingDate" label="Training Date" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="expectedStartDate" label="Expected Start" current={joinerSort} onSort={toggleJoinerSort} />
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {joinersQuery.data.map(j => (
+                    {sortedJoiners.map(j => (
                       <TableRow key={j.id}>
                         <TableCell className="font-medium">{j.candidateName}</TableCell>
                         <TableCell>
