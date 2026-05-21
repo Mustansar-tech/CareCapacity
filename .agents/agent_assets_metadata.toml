@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "vOW6smyHGL0lqhHfheYYw"
+uri = "file://docs/capacity-outlook.md"
+type = "text"
+title = "Capacity Outlook — Rules, Logic & Improvements"
