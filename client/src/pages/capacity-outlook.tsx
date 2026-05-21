@@ -93,9 +93,9 @@ const leaverFormSchema = z.object({
   employeeName: z.string().min(1, "Name is required"),
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  weeklyHours: z.coerce.number().positive("Must be > 0"),
+  weeklyHours: z.coerce.number().positive("Must be greater than 0"),
   firstDayOfNotice: z.string().optional(),
-  lastWorkingDay: z.string().min(1, "Last working day is required"),
+  lastWorkingDay: z.string().min(1, "Termination day is required"),
   notes: z.string().optional(),
 });
 
@@ -136,7 +136,7 @@ function LeaverModal({
     defaultValues: {
       employeeName: "",
       gender: undefined,
-      weeklyHours: 0,
+      weeklyHours: undefined as any,
       firstDayOfNotice: "",
       lastWorkingDay: "",
       notes: "",
@@ -151,7 +151,7 @@ function LeaverModal({
           employeeName: editing.employeeName,
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
-          weeklyHours: editing.weeklyHours ?? 0,
+          weeklyHours: editing.weeklyHours ?? (undefined as any),
           firstDayOfNotice: editing.firstDayOfNotice ?? "",
           lastWorkingDay: editing.lastWorkingDay,
           notes: editing.notes ?? "",
@@ -160,7 +160,7 @@ function LeaverModal({
         form.reset({
           employeeName: "",
           gender: undefined,
-          weeklyHours: 0,
+          weeklyHours: undefined as any,
           firstDayOfNotice: "",
           lastWorkingDay: "",
           notes: "",
@@ -252,29 +252,28 @@ function LeaverModal({
               <FormField control={form.control} name="weeklyHours" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Weekly Hours <span className="text-red-500">*</span></FormLabel>
-                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 37.5" {...field} /></FormControl>
+                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 37.5" {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
             </div>
 
-            <FormField control={form.control} name="firstDayOfNotice" render={({ field }) => (
-              <FormItem>
-                <FormLabel>First Day of Notice</FormLabel>
-                <FormControl><Input type="date" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="lastWorkingDay" render={({ field }) => (
+              <FormField control={form.control} name="firstDayOfNotice" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Working Day <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Day of Notice</FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
 
+              <FormField control={form.control} name="lastWorkingDay" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Termination Day <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (
@@ -900,7 +899,7 @@ export default function CapacityOutlookPage() {
                       <TableHead>Gender</TableHead>
                       <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
-                      <SortHead col="lastWorkingDay" label="Last Working Day" current={leaverSort} onSort={toggleLeaverSort} />
+                      <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
