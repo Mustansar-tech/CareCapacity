@@ -694,7 +694,16 @@ export default function CapacityOutlookPage() {
   // Steady-state weekly KPIs — computed from raw leaver/joiner lists
   const activeLeavers = leaversQuery.data ?? [];
   const activeJoiners = (joinersQuery.data ?? []).filter(j => j.status !== 'dropped');
-  const weeklyLossRate = Math.round(activeLeavers.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
+
+  // Split leavers: already gone (past termination) vs still on notice (still working)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const alreadyGone = activeLeavers.filter(l => l.lastWorkingDay && l.lastWorkingDay < todayStr);
+  const onNotice   = activeLeavers.filter(l => !l.lastWorkingDay || l.lastWorkingDay >= todayStr);
+  const hoursAlreadyGone = Math.round(alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
+  const hoursOnNotice    = Math.round(onNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
+
+  // For coverage/net: only hours actually lost (already gone) count against us now
+  const weeklyLossRate = hoursAlreadyGone;
   const weeklyGainRate = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
   const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
 
@@ -820,8 +829,20 @@ export default function CapacityOutlookPage() {
                   <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                     {activeLeavers.length} <span className="text-base font-medium">staff</span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {weeklyLossRate}h/wk capacity leaving
+                  <div className="mt-1 space-y-0.5">
+                    {hoursAlreadyGone > 0 && (
+                      <div className="text-xs text-red-600 dark:text-red-400 font-medium">
+                        {hoursAlreadyGone}h/wk already gone
+                      </div>
+                    )}
+                    {hoursOnNotice > 0 && (
+                      <div className="text-xs text-amber-600 dark:text-amber-400">
+                        {hoursOnNotice}h/wk still on notice
+                      </div>
+                    )}
+                    {hoursAlreadyGone === 0 && hoursOnNotice === 0 && (
+                      <div className="text-xs text-muted-foreground">no hours at risk</div>
+                    )}
                   </div>
                 </>
               )}
