@@ -691,6 +691,13 @@ export default function CapacityOutlookPage() {
   const outlook = outlookQuery.data;
   const totals = outlook?.totals;
 
+  // Steady-state weekly KPIs — computed from raw leaver/joiner lists
+  const activeLeavers = leaversQuery.data ?? [];
+  const activeJoiners = (joinersQuery.data ?? []).filter(j => j.status !== 'dropped');
+  const weeklyLossRate = Math.round(activeLeavers.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
+  const weeklyGainRate = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
+  const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
+
   const formatDate = (d: string | null | undefined) => {
     if (!d) return '—';
     try {
@@ -794,78 +801,83 @@ export default function CapacityOutlookPage() {
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {/* Hours Lost */}
+
+          {/* Staff Leaving */}
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
                   <TrendingDown className="w-3.5 h-3.5 text-white" />
                 </div>
-                Hours Lost
+                Staff Leaving
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {outlookQuery.isLoading ? (
+              {leaversQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
                   <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {totals?.hoursLost ?? 0}h
+                    {activeLeavers.length} <span className="text-base font-medium">staff</span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">over {horizonWeeks} weeks</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {weeklyLossRate}h/wk capacity leaving
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* Hours Gained */}
+          {/* In Pipeline */}
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
                   <TrendingUp className="w-3.5 h-3.5 text-white" />
                 </div>
-                Hours Gained
+                In Pipeline
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {outlookQuery.isLoading ? (
+              {joinersQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
                   <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {totals?.hoursGained ?? 0}h
+                    {activeJoiners.length} <span className="text-base font-medium">candidates</span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">weighted pipeline</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {weeklyGainRate}h/wk expected (weighted)
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* Net Change */}
+          {/* Weekly Net */}
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                   <Minus className="w-3.5 h-3.5 text-white" />
                 </div>
-                Net Change
+                Weekly Net
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {outlookQuery.isLoading ? (
+              {leaversQuery.isLoading || joinersQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
                   <div className={[
                     "text-2xl font-bold",
-                    (totals?.netChange ?? 0) >= 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-red-600 dark:text-red-400",
+                    weeklyNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
                   ].join(' ')}>
-                    {(totals?.netChange ?? 0) >= 0 ? '+' : ''}{totals?.netChange ?? 0}h
+                    {weeklyNet >= 0 ? '+' : ''}{weeklyNet}h/wk
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">gained minus lost</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    ongoing capacity change
+                  </div>
                 </>
               )}
             </CardContent>
@@ -886,16 +898,23 @@ export default function CapacityOutlookPage() {
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {totals?.hoursLost === 0 ? '—' : `${Math.round((totals?.coverage ?? 0) * 100)}%`}
+                  <div className={[
+                    "text-2xl font-bold",
+                    (totals?.coverage ?? 0) >= 1
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : (totals?.coverage ?? 0) >= 0.5
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-red-600 dark:text-red-400",
+                  ].join(' ')}>
+                    {weeklyLossRate === 0 ? '—' : `${Math.round((weeklyGainRate / weeklyLossRate) * 100)}%`}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">pipeline vs losses</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">pipeline covers leavers</div>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* RAG */}
+          {/* Risk */}
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
