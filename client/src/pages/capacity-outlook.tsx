@@ -43,7 +43,6 @@ import { joinerStages } from "@shared/schema";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Segment = 'all' | 'driver' | 'walker';
 
 // ── Confidence weight helper (mirrors server) ─────────────────────────────────
 
@@ -530,7 +529,6 @@ export default function CapacityOutlookPage() {
 
   const isScheduler = user?.role === 'scheduler' || user?.role === 'admin';
 
-  const [segment, setSegment] = useState<Segment>('all');
   const [horizonWeeks] = useState(4);
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [leaverModalOpen, setLeaverModalOpen] = useState(false);
@@ -553,10 +551,10 @@ export default function CapacityOutlookPage() {
 
   // Outlook aggregates
   const outlookQuery = useQuery<OutlookResponse>({
-    queryKey: ['/api/capacity-outlook', branchId, horizonWeeks, segment],
+    queryKey: ['/api/capacity-outlook', branchId, horizonWeeks],
     queryFn: async () => {
       const res = await fetch(
-        toAbsoluteUrl(`/api/capacity-outlook?branchId=${branchId}&weeks=${horizonWeeks}&segment=${segment}`),
+        toAbsoluteUrl(`/api/capacity-outlook?branchId=${branchId}&weeks=${horizonWeeks}&segment=all`),
         { credentials: 'include' },
       );
       if (!res.ok) throw new Error('Failed to load outlook');
@@ -762,25 +760,6 @@ export default function CapacityOutlookPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-
-        {/* Segment toggle */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground font-medium">View:</span>
-          {(['all', 'driver', 'walker'] as Segment[]).map(s => (
-            <button
-              key={s}
-              onClick={() => setSegment(s)}
-              className={[
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-                segment === s
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80",
-              ].join(' ')}
-            >
-              {s === 'all' ? 'All' : s === 'driver' ? 'Drivers' : 'Walkers'}
-            </button>
-          ))}
-        </div>
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
