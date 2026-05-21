@@ -15,8 +15,28 @@ import {
   updateJoiner,
   deleteJoiner,
   getOutlookDetail,
-  getConfidenceWeight,
 } from '../repositories/capacity-outlook.repository';
+
+const MILESTONE_WEIGHTS: Record<string, number> = {
+  'Onboarding': 0.33,
+  'Training Attended': 0.33,
+  'PVG': 0.11,
+  'REF1': 0.11,
+  'REF2': 0.11,
+};
+const MILESTONE_PRIORITY = ['REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
+
+function computeConfidenceFromMilestones(stages: string[]): number {
+  return stages.reduce((sum, s) => sum + (MILESTONE_WEIGHTS[s] ?? 0), 0);
+}
+
+function deriveStageFromMilestones(stages: string[], status: string): string {
+  if (status === 'dropped') return 'Dropped';
+  for (const m of MILESTONE_PRIORITY) {
+    if (stages.includes(m)) return m;
+  }
+  return 'Onboarding';
+}
 import { insertLeaverSchema, insertJoinerSchema } from '@shared/schema';
 import { z } from 'zod';
 
@@ -152,10 +172,16 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid joiner data', 400);
       }
       const data = parsed.data;
-      const confidenceWeight = getConfidenceWeight(data.stage);
+      const completedStages = data.completedStages ?? [];
+      const status = data.status ?? 'active';
+      const stage = deriveStageFromMilestones(completedStages, status) as string;
+      const confidenceWeight = status === 'dropped' ? 0 : computeConfidenceFromMilestones(completedStages);
 
       const joiner = await createJoiner({
         ...data,
+        stage,
+        status,
+        completedStages,
         confidenceWeight,
         createdBy: req.session?.userId ?? null,
       });
@@ -187,12 +213,14 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       }
 
       const data = parsed.data;
-      const extra: { confidenceWeight?: number } = {};
-      if (data.stage) {
-        extra.confidenceWeight = getConfidenceWeight(data.stage);
-      }
+      const completedStages = data.completedStages ?? [];
+      const status = data.status ?? 'active';
+      const stage = deriveStageFromMilestones(completedStages, status) as string;
+      const confidenceWeight = status === 'dropped' ? 0 : computeConfidenceFromMilestones(completedStages);
 
-      const updated = await updateJoiner(id, branchId, { ...data, ...extra });
+      const updated = await updateJoiner(id, branchId, {
+        ...data, stage, status, completedStages, confidenceWeight,
+      });
       if (!updated) throw createAppError('Joiner not found or access denied', 404);
 
       await auditLog(

@@ -150,10 +150,10 @@ export async function deleteLeaver(id: string, branchId: string): Promise<boolea
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function createJoiner(data: InsertJoiner & { confidenceWeight: number }): Promise<Joiner> {
+export async function createJoiner(data: Omit<InsertJoiner, 'stage'> & { stage: string; confidenceWeight: number }): Promise<Joiner> {
   const [row] = await db
     .insert(joiners)
-    .values({ ...data, updatedAt: new Date() })
+    .values({ ...data, updatedAt: new Date() } as any)
     .returning();
   return row;
 }
@@ -161,7 +161,7 @@ export async function createJoiner(data: InsertJoiner & { confidenceWeight: numb
 export async function updateJoiner(
   id: string,
   branchId: string,
-  data: Partial<InsertJoiner & { confidenceWeight: number }>,
+  data: Partial<Omit<InsertJoiner, 'stage'> & { stage: string; confidenceWeight: number }>,
 ): Promise<Joiner | null> {
   const [row] = await db
     .update(joiners)

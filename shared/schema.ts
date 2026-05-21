@@ -801,14 +801,10 @@ export type Leaver = typeof leavers.$inferSelect;
 
 // ── Capacity Outlook — Joiners ────────────────────────────────────────────────
 
-export const joinerStages = [
-  'Onboarding',
-  'Training Attended',
-  'PVG',
-  'REF1',
-  'REF2',
-  'Dropped',
-] as const;
+export const joinerMilestones = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2'] as const;
+export type JoinerMilestone = typeof joinerMilestones[number];
+
+export const joinerStages = [...joinerMilestones, 'Dropped'] as const;
 export type JoinerStage = typeof joinerStages[number];
 
 export const joinerStatuses = ['active', 'dropped'] as const;
@@ -825,6 +821,7 @@ export const joiners = pgTable("joiners", {
   postcode: text("postcode"),
   trainingDate: text("training_date"),
   expectedStartDate: text("expected_start_date"),
+  completedStages: text("completed_stages").array(),
   stage: text("stage").notNull(),
   status: text("status", { enum: ["active", "dropped"] }).notNull().default("active"),
   confidenceWeight: real("confidence_weight").notNull(),
@@ -846,7 +843,8 @@ export const insertJoinerSchema = createInsertSchema(joiners).omit({
   desiredWeeklyHours: z.number().positive(),
   contractedHours: z.number().nonnegative().optional().nullable(),
   postcode: z.string().optional().nullable(),
-  stage: z.enum(joinerStages),
+  completedStages: z.array(z.string()).default([]),
+  stage: z.enum(joinerStages).optional(),
   status: z.enum(["active", "dropped"]).default("active"),
   expectedStartDate: z.string().optional().nullable(),
 });

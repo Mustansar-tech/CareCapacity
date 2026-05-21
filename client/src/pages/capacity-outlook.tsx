@@ -38,18 +38,28 @@ import { joinerStages } from "@shared/schema";
 // ── Types ────────────────────────────────────────────────────────────────────
 
 
-// ── Confidence weight helper (mirrors server) ─────────────────────────────────
+// ── Milestone confidence helpers ──────────────────────────────────────────────
 
-function getConfidenceWeight(stage: string): number {
-  switch (stage) {
-    case 'Onboarding':
-    case 'Training Attended': return 0.33;
-    case 'PVG':
-    case 'REF1':
-    case 'REF2': return 0.11;
-    case 'Dropped': return 0;
-    default: return 0.33;
-  }
+const MILESTONE_WEIGHTS: Record<string, number> = {
+  'Onboarding': 0.33,
+  'Training Attended': 0.33,
+  'PVG': 0.11,
+  'REF1': 0.11,
+  'REF2': 0.11,
+};
+const MILESTONE_ORDER = ['REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
+const ALL_MILESTONES = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2'] as const;
+
+function calcMilestoneConfidence(stages: string[]): number {
+  return stages.reduce((sum, s) => sum + (MILESTONE_WEIGHTS[s] ?? 0), 0);
+}
+
+function getInitialCompletedStages(editing: Joiner): string[] {
+  if (editing.completedStages && editing.completedStages.length > 0) return editing.completedStages;
+  if (editing.stage === 'Dropped') return [];
+  const base = ['Onboarding'];
+  if (editing.stage && editing.stage !== 'Onboarding') base.push(editing.stage);
+  return base;
 }
 
 function daysSince(dateStr: string): number {
@@ -57,8 +67,9 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - d) / 86400000);
 }
 
-function isStale14Days(j: { stage: string; trainingDate?: string | null }): boolean {
-  return j.stage === 'Training Attended' && !!j.trainingDate && daysSince(j.trainingDate) >= 14;
+function isStale14Days(j: { stage: string; completedStages?: string[] | null; trainingDate?: string | null }): boolean {
+  const hasTraining = j.completedStages ? j.completedStages.includes('Training Attended') : j.stage === 'Training Attended';
+  return hasTraining && !!j.trainingDate && daysSince(j.trainingDate) >= 14;
 }
 
 // ── RAG helpers ───────────────────────────────────────────────────────────────
@@ -112,7 +123,8 @@ const joinerFormSchema = z.object({
   contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
   postcode: z.string().optional(),
   trainingDate: z.string().optional(),
-  stage: z.enum(joinerStages, { required_error: "Stage is required" }),
+  completedStages: z.array(z.string()).default([]),
+  status: z.enum(["active", "dropped"]).default("active"),
   notes: z.string().optional(),
 });
 
@@ -331,12 +343,12 @@ function JoinerModal({
       contractedHours: undefined,
       postcode: "",
       trainingDate: "",
-      stage: undefined,
+      completedStages: ['Onboarding'],
+      status: "active",
       notes: "",
     },
   });
 
-  // Reliably pre-fill the form whenever editing changes or the modal opens
   useEffect(() => {
     if (open) {
       if (editing) {
@@ -348,7 +360,8 @@ function JoinerModal({
           contractedHours: editing.contractedHours ?? undefined,
           postcode: editing.postcode ?? "",
           trainingDate: editing.trainingDate ?? "",
-          stage: editing.stage as any,
+          completedStages: getInitialCompletedStages(editing),
+          status: (editing.status as "active" | "dropped") ?? "active",
           notes: editing.notes ?? "",
         });
       } else {
@@ -359,15 +372,17 @@ function JoinerModal({
           contractedHours: undefined,
           postcode: "",
           trainingDate: "",
-          stage: undefined,
+          completedStages: ['Onboarding'],
+          status: "active",
           notes: "",
         });
       }
     }
   }, [open, editing?.id]);
 
-  const watchStage = form.watch("stage");
-  const confidenceWeight = watchStage ? getConfidenceWeight(watchStage) : null;
+  const watchedStages = form.watch("completedStages");
+  const watchedStatus = form.watch("status");
+  const liveConfidence = watchedStatus === 'dropped' ? 0 : calcMilestoneConfidence(watchedStages ?? []);
 
   const mutation = useMutation({
     mutationFn: async (data: JoinerFormData) => {
@@ -476,30 +491,65 @@ function JoinerModal({
               )} />
             </div>
 
-            <FormField control={form.control} name="stage" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Stage <span className="text-red-500">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select recruitment stage…" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {joinerStages.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-                {confidenceWeight !== null && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className="text-xs">
-                      Confidence: {Math.round(confidenceWeight * 100)}%
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      Hours counted at {Math.round(confidenceWeight * 100)}% weighted certainty
-                    </span>
-                  </div>
-                )}
-              </FormItem>
-            )} />
+            <FormItem>
+              <FormLabel>Milestones Completed <span className="text-red-500">*</span></FormLabel>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {ALL_MILESTONES.map(m => {
+                  const checked = watchedStages?.includes(m) ?? false;
+                  const disabled = watchedStatus === 'dropped';
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        const current = form.getValues('completedStages') ?? [];
+                        form.setValue(
+                          'completedStages',
+                          checked ? current.filter(s => s !== m) : [...current, m],
+                          { shouldValidate: true }
+                        );
+                      }}
+                      className={[
+                        "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                        disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
+                        checked && !disabled
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700"
+                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80",
+                      ].join(' ')}
+                    >
+                      {m} <span className="opacity-60">+{Math.round((MILESTONE_WEIGHTS[m] ?? 0) * 100)}%</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-3 mt-2">
+                <div className={[
+                  "text-sm font-semibold",
+                  liveConfidence >= 0.7 ? "text-emerald-600 dark:text-emerald-400"
+                  : liveConfidence >= 0.4 ? "text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground",
+                ].join(' ')}>
+                  Total confidence: {Math.round(liveConfidence * 100)}%
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isDrop = watchedStatus !== 'dropped';
+                    form.setValue('status', isDrop ? 'dropped' : 'active', { shouldValidate: true });
+                    if (isDrop) form.setValue('completedStages', [], { shouldValidate: true });
+                  }}
+                  className={[
+                    "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                    watchedStatus === 'dropped'
+                      ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700"
+                      : "bg-muted text-muted-foreground border-border hover:bg-red-50 hover:text-red-600",
+                  ].join(' ')}
+                >
+                  {watchedStatus === 'dropped' ? '✕ Dropped' : 'Mark as Dropped'}
+                </button>
+              </div>
+            </FormItem>
 
             <FormField control={form.control} name="trainingDate" render={({ field }) => (
               <FormItem>
@@ -549,7 +599,7 @@ export default function CapacityOutlookPage() {
   const [leaversOpen, setLeaversOpen] = useState(true);
   const [joinersOpen, setJoinersOpen] = useState(true);
 
-  type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'lastWorkingDay';
+  type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'firstDayOfNotice' | 'lastWorkingDay';
   type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'postcode';
   type SortDir = 'asc' | 'desc';
 
@@ -1012,24 +1062,22 @@ export default function CapacityOutlookPage() {
                         <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                         <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge
-                              className={[
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {j.stage === 'Dropped' ? (
+                              <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
+                            ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage]).map(m => (
+                              <Badge key={m} className={[
                                 "text-xs",
-                                j.stage === 'Training Attended'
+                                m === 'Training Attended'
                                   ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                  : j.stage === 'PVG' || j.stage === 'REF1' || j.stage === 'REF2'
+                                  : m === 'PVG' || m === 'REF1' || m === 'REF2'
                                   ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                  : j.stage === 'Dropped'
-                                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                                   : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-                              ].join(' ')}
-                            >
-                              {j.stage}
-                            </Badge>
+                              ].join(' ')}>{m}</Badge>
+                            ))}
                             {isStale14Days(j) && (
                               <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Stale 14+ days
+                                <AlertTriangle className="w-3 h-3" /> Stale
                               </Badge>
                             )}
                           </div>
