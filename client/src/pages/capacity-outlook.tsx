@@ -42,13 +42,23 @@ import { joinerStages } from "@shared/schema";
 
 function getConfidenceWeight(stage: string): number {
   switch (stage) {
-    case 'Confirmed start': case 'Started': return 0.75;
-    case 'Training booked': return 0.70;
-    case 'Pre-employment checks': case 'Offer': return 0.60;
-    case 'Interview': case 'Pipeline': return 0.50;
+    case 'Onboarding':
+    case 'Training Attended': return 0.33;
+    case 'PVG':
+    case 'REF1':
+    case 'REF2': return 0.11;
     case 'Dropped': return 0;
-    default: return 0.50;
+    default: return 0.33;
   }
+}
+
+function daysSince(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00Z').getTime();
+  return Math.floor((Date.now() - d) / 86400000);
+}
+
+function isStale14Days(j: { stage: string; trainingDate?: string | null }): boolean {
+  return j.stage === 'Training Attended' && !!j.trainingDate && daysSince(j.trainingDate) >= 14;
 }
 
 // ── RAG helpers ───────────────────────────────────────────────────────────────
@@ -98,8 +108,9 @@ const joinerFormSchema = z.object({
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   desiredWeeklyHours: z.coerce.number().positive("Must be > 0"),
+  contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
+  postcode: z.string().optional(),
   trainingDate: z.string().optional(),
-  expectedStartDate: z.string().min(1, "Start date is required"),
   stage: z.enum(joinerStages, { required_error: "Stage is required" }),
   notes: z.string().optional(),
 });
@@ -307,8 +318,9 @@ function JoinerModal({
       candidateName: "",
       gender: undefined,
       desiredWeeklyHours: 0,
+      contractedHours: undefined,
+      postcode: "",
       trainingDate: "",
-      expectedStartDate: "",
       stage: undefined,
       notes: "",
     },
@@ -323,8 +335,9 @@ function JoinerModal({
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
           desiredWeeklyHours: editing.desiredWeeklyHours ?? 0,
+          contractedHours: editing.contractedHours ?? undefined,
+          postcode: editing.postcode ?? "",
           trainingDate: editing.trainingDate ?? "",
-          expectedStartDate: editing.expectedStartDate,
           stage: editing.stage as any,
           notes: editing.notes ?? "",
         });
@@ -333,8 +346,9 @@ function JoinerModal({
           candidateName: "",
           gender: undefined,
           desiredWeeklyHours: 0,
+          contractedHours: undefined,
+          postcode: "",
           trainingDate: "",
-          expectedStartDate: "",
           stage: undefined,
           notes: "",
         });
@@ -427,8 +441,26 @@ function JoinerModal({
 
               <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Weekly Hours <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Desired Hours <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="number" step="0.5" placeholder="e.g. 35" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="contractedHours" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contracted Hours</FormLabel>
+                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 30" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="postcode" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Postcode</FormLabel>
+                  <FormControl><Input placeholder="e.g. G12 8QQ" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -459,23 +491,13 @@ function JoinerModal({
               </FormItem>
             )} />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="trainingDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Training Date</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-
-              <FormField control={form.control} name="expectedStartDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Expected Start Date <span className="text-red-500">*</span></FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
+            <FormField control={form.control} name="trainingDate" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Training Attended</FormLabel>
+                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
@@ -518,11 +540,11 @@ export default function CapacityOutlookPage() {
   const [joinersOpen, setJoinersOpen] = useState(true);
 
   type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'lastWorkingDay';
-  type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'expectedStartDate';
+  type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'postcode';
   type SortDir = 'asc' | 'desc';
 
   const [leaverSort, setLeaverSort] = useState<{ col: LeaverSortCol; dir: SortDir }>({ col: 'lastWorkingDay', dir: 'asc' });
-  const [joinerSort, setJoinerSort] = useState<{ col: JoinerSortCol; dir: SortDir }>({ col: 'expectedStartDate', dir: 'asc' });
+  const [joinerSort, setJoinerSort] = useState<{ col: JoinerSortCol; dir: SortDir }>({ col: 'trainingDate', dir: 'asc' });
 
   const branchId = selectedBranchId ?? '';
 
@@ -955,42 +977,51 @@ export default function CapacityOutlookPage() {
                       <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
                       <TableHead>Gender</TableHead>
                       <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="desiredWeeklyHours" label="Hours/wk" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="desiredWeeklyHours" label="Desired Hrs" current={joinerSort} onSort={toggleJoinerSort} />
+                      <TableHead>Contracted Hrs</TableHead>
+                      <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
                       <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
                       <SortHead col="confidenceWeight" label="Confidence" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="trainingDate" label="Training Date" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="expectedStartDate" label="Expected Start" current={joinerSort} onSort={toggleJoinerSort} />
+                      <SortHead col="trainingDate" label="Training Attended" current={joinerSort} onSort={toggleJoinerSort} />
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedJoiners.map(j => (
-                      <TableRow key={j.id}>
+                      <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
                         <TableCell className="font-medium">{j.candidateName}</TableCell>
                         <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                         </TableCell>
                         <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                        <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
+                        <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
                         <TableCell>
-                          <Badge
-                            className={[
-                              "text-xs",
-                              j.stage === 'Confirmed start' || j.stage === 'Started'
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                : j.stage === 'Training booked'
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                : j.stage === 'Dropped'
-                                ? "bg-gray-100 text-gray-600"
-                                : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-                            ].join(' ')}
-                          >
-                            {j.stage}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge
+                              className={[
+                                "text-xs",
+                                j.stage === 'Training Attended'
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                  : j.stage === 'PVG' || j.stage === 'REF1' || j.stage === 'REF2'
+                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                  : j.stage === 'Dropped'
+                                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                  : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+                              ].join(' ')}
+                            >
+                              {j.stage}
+                            </Badge>
+                            {isStale14Days(j) && (
+                              <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Stale 14+ days
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{Math.round((j.confidenceWeight ?? 0) * 100)}%</TableCell>
                         <TableCell>{formatDate(j.trainingDate)}</TableCell>
-                        <TableCell>{formatDate(j.expectedStartDate)}</TableCell>
                         {isScheduler && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">

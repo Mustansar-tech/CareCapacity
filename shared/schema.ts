@@ -804,13 +804,11 @@ export type Leaver = typeof leavers.$inferSelect;
 // ── Capacity Outlook — Joiners ────────────────────────────────────────────────
 
 export const joinerStages = [
-  'Pipeline',
-  'Interview',
-  'Offer',
-  'Pre-employment checks',
-  'Training booked',
-  'Confirmed start',
-  'Started',
+  'Onboarding',
+  'Training Attended',
+  'PVG',
+  'REF1',
+  'REF2',
   'Dropped',
 ] as const;
 export type JoinerStage = typeof joinerStages[number];
@@ -825,8 +823,10 @@ export const joiners = pgTable("joiners", {
   gender: text("gender", { enum: ["male", "female", "other"] }),
   employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
   desiredWeeklyHours: real("desired_weekly_hours").notNull(),
+  contractedHours: real("contracted_hours"),
+  postcode: text("postcode"),
   trainingDate: text("training_date"),
-  expectedStartDate: text("expected_start_date").notNull(),
+  expectedStartDate: text("expected_start_date"),
   stage: text("stage").notNull(),
   status: text("status", { enum: ["active", "dropped"] }).notNull().default("active"),
   confidenceWeight: real("confidence_weight").notNull(),
@@ -836,7 +836,6 @@ export const joiners = pgTable("joiners", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   branchIdx: index("joiner_branch_idx").on(table.branchId),
-  expectedStartIdx: index("joiner_start_idx").on(table.expectedStartDate),
 }));
 
 export const insertJoinerSchema = createInsertSchema(joiners).omit({
@@ -847,8 +846,11 @@ export const insertJoinerSchema = createInsertSchema(joiners).omit({
 }).extend({
   employmentType: z.enum(["driver", "walker"]),
   desiredWeeklyHours: z.number().positive(),
+  contractedHours: z.number().nonnegative().optional().nullable(),
+  postcode: z.string().optional().nullable(),
   stage: z.enum(joinerStages),
   status: z.enum(["active", "dropped"]).default("active"),
+  expectedStartDate: z.string().optional().nullable(),
 });
 
 export type InsertJoiner = z.infer<typeof insertJoinerSchema>;

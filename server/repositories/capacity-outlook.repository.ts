@@ -10,15 +10,13 @@ import { eq, and, lte, gte, or } from 'drizzle-orm';
 
 export function getConfidenceWeight(stage: string): number {
   switch (stage) {
-    case 'Confirmed start':
-    case 'Started': return 0.75;
-    case 'Training booked': return 0.70;
-    case 'Pre-employment checks':
-    case 'Offer': return 0.60;
-    case 'Interview':
-    case 'Pipeline': return 0.50;
+    case 'Onboarding':
+    case 'Training Attended': return 0.33;
+    case 'PVG':
+    case 'REF1':
+    case 'REF2': return 0.11;
     case 'Dropped': return 0;
-    default: return 0.50;
+    default: return 0.33;
   }
 }
 
@@ -78,10 +76,12 @@ function calcLossForWeek(leaver: Leaver, weekStart: string, weekEnd: string): nu
 }
 
 function calcGainForWeek(joiner: Joiner, weekStart: string, weekEnd: string): number {
-  const esd = joiner.expectedStartDate;
-  if (esd > weekEnd) return 0;
   const weight = joiner.confidenceWeight ?? 0;
   const hours = joiner.desiredWeeklyHours ?? 0;
+  // If no expected start date, count the joiner's full weighted hours in every week
+  const esd = joiner.expectedStartDate;
+  if (!esd) return hours * weight;
+  if (esd > weekEnd) return 0;
   if (esd <= weekStart) return hours * weight;
   const daysWorked = diffDays(esd, weekEnd) + 1;
   return hours * weight * Math.max(0, daysWorked) / 7;
@@ -116,13 +116,13 @@ export async function getLeavers(branchId: string, includeProcessed = false): Pr
 export async function getJoiners(branchId: string, includeDropped = false): Promise<Joiner[]> {
   const baseWhere = eq(joiners.branchId, branchId);
   if (includeDropped) {
-    return db.select().from(joiners).where(baseWhere).orderBy(joiners.expectedStartDate);
+    return db.select().from(joiners).where(baseWhere).orderBy(joiners.createdAt);
   }
   return db
     .select()
     .from(joiners)
     .where(and(baseWhere, eq(joiners.status, 'active')))
-    .orderBy(joiners.expectedStartDate);
+    .orderBy(joiners.createdAt);
 }
 
 export async function createLeaver(data: InsertLeaver): Promise<Leaver> {
