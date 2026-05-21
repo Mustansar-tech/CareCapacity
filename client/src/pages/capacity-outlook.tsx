@@ -94,7 +94,7 @@ const leaverFormSchema = z.object({
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   weeklyHours: z.coerce.number().positive("Must be greater than 0"),
-  firstDayOfNotice: z.string().optional(),
+  postcode: z.string().optional(),
   lastWorkingDay: z.string().min(1, "Termination day is required"),
   notes: z.string().optional(),
 });
@@ -137,13 +137,12 @@ function LeaverModal({
       employeeName: "",
       gender: undefined,
       weeklyHours: undefined as any,
-      firstDayOfNotice: "",
+      postcode: "",
       lastWorkingDay: "",
       notes: "",
     },
   });
 
-  // Reliably pre-fill the form whenever editing changes or the modal opens
   useEffect(() => {
     if (open) {
       if (editing) {
@@ -152,7 +151,7 @@ function LeaverModal({
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
           weeklyHours: editing.weeklyHours ?? (undefined as any),
-          firstDayOfNotice: editing.firstDayOfNotice ?? "",
+          postcode: editing.postcode ?? "",
           lastWorkingDay: editing.lastWorkingDay,
           notes: editing.notes ?? "",
         });
@@ -161,7 +160,7 @@ function LeaverModal({
           employeeName: "",
           gender: undefined,
           weeklyHours: undefined as any,
-          firstDayOfNotice: "",
+          postcode: "",
           lastWorkingDay: "",
           notes: "",
         });
@@ -259,10 +258,10 @@ function LeaverModal({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="firstDayOfNotice" render={({ field }) => (
+              <FormField control={form.control} name="postcode" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Day of Notice</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormLabel>Postcode</FormLabel>
+                  <FormControl><Input placeholder="e.g. G1 1AA" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -899,6 +898,7 @@ export default function CapacityOutlookPage() {
                       <TableHead>Gender</TableHead>
                       <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                      <TableHead>Postcode</TableHead>
                       <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
@@ -912,6 +912,7 @@ export default function CapacityOutlookPage() {
                           <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                         </TableCell>
                         <TableCell>{l.weeklyHours}h</TableCell>
+                        <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
                         {isScheduler && (
                           <TableCell className="text-right">

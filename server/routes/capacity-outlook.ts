@@ -65,12 +65,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
     requireRoleAtLeast('scheduler'),
     asyncHandler(async (req, res) => {
       const branchId = await resolveBranch(req);
-      const body = { ...req.body, branchId };
-      // terminationDate = lastWorkingDay (same concept; form only sends lastWorkingDay)
-      if (!body.terminationDate && body.lastWorkingDay) {
-        body.terminationDate = body.lastWorkingDay;
-      }
-      const parsed = insertLeaverSchema.safeParse(body);
+      const parsed = insertLeaverSchema.safeParse({ ...req.body, branchId });
       if (!parsed.success) {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid leaver data', 400);
       }
@@ -102,12 +97,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       const { id } = req.params;
 
       const updateSchema = insertLeaverSchema.partial().omit({ branchId: true });
-      const updateBody = { ...req.body };
-      // Keep terminationDate in sync with lastWorkingDay
-      if (updateBody.lastWorkingDay && !updateBody.terminationDate) {
-        updateBody.terminationDate = updateBody.lastWorkingDay;
-      }
-      const parsed = updateSchema.safeParse(updateBody);
+      const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid update data', 400);
       }
