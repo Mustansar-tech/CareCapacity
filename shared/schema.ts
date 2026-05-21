@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -754,3 +754,134 @@ export const insertFeedbackSchema = createInsertSchema(feedback).omit({
 
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Feedback = typeof feedback.$inferSelect;
+
+// ── Capacity Outlook — Leavers ────────────────────────────────────────────────
+
+export const leaverStatuses = ['active', 'processed'] as const;
+export type LeaverStatus = typeof leaverStatuses[number];
+
+export const employmentTypes = ['driver', 'walker'] as const;
+export type EmploymentType = typeof employmentTypes[number];
+
+export const leaverReasons = ['Resigned', 'Dismissed', 'End of Contract', 'Other'] as const;
+export type LeaverReason = typeof leaverReasons[number];
+
+export const leavers = pgTable("leavers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  employeeName: text("employee_name").notNull(),
+  employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
+  weeklyHours: real("weekly_hours").notNull(),
+  firstDayOfNotice: text("first_day_of_notice"),
+  lastWorkingDay: text("last_working_day").notNull(),
+  terminationDate: text("termination_date").notNull(),
+  leavingReason: text("leaving_reason"),
+  reRecruitEligible: text("re_recruit_eligible"),
+  notes: text("notes"),
+  status: text("status", { enum: ["active", "processed"] }).notNull().default("active"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  branchIdx: index("leaver_branch_idx").on(table.branchId),
+  lastWorkingDayIdx: index("leaver_lwd_idx").on(table.lastWorkingDay),
+}));
+
+export const insertLeaverSchema = createInsertSchema(leavers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  employmentType: z.enum(["driver", "walker"]),
+  weeklyHours: z.number().positive(),
+  status: z.enum(["active", "processed"]).default("active"),
+});
+
+export type InsertLeaver = z.infer<typeof insertLeaverSchema>;
+export type Leaver = typeof leavers.$inferSelect;
+
+// ── Capacity Outlook — Joiners ────────────────────────────────────────────────
+
+export const joinerStages = [
+  'Pipeline',
+  'Interview',
+  'Offer',
+  'Pre-employment checks',
+  'Training booked',
+  'Confirmed start',
+  'Started',
+  'Dropped',
+] as const;
+export type JoinerStage = typeof joinerStages[number];
+
+export const joinerStatuses = ['active', 'dropped'] as const;
+export type JoinerStatus = typeof joinerStatuses[number];
+
+export const joiners = pgTable("joiners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  candidateName: text("candidate_name").notNull(),
+  employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
+  desiredWeeklyHours: real("desired_weekly_hours").notNull(),
+  trainingDate: text("training_date"),
+  expectedStartDate: text("expected_start_date").notNull(),
+  stage: text("stage").notNull(),
+  status: text("status", { enum: ["active", "dropped"] }).notNull().default("active"),
+  confidenceWeight: real("confidence_weight").notNull(),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  branchIdx: index("joiner_branch_idx").on(table.branchId),
+  expectedStartIdx: index("joiner_start_idx").on(table.expectedStartDate),
+}));
+
+export const insertJoinerSchema = createInsertSchema(joiners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  confidenceWeight: true,
+}).extend({
+  employmentType: z.enum(["driver", "walker"]),
+  desiredWeeklyHours: z.number().positive(),
+  stage: z.enum(joinerStages),
+  status: z.enum(["active", "dropped"]).default("active"),
+});
+
+export type InsertJoiner = z.infer<typeof insertJoinerSchema>;
+export type Joiner = typeof joiners.$inferSelect;
+
+// ── Capacity Outlook — computed types ────────────────────────────────────────
+
+export type OutlookRag = 'green' | 'amber' | 'red';
+
+export interface OutlookWeek {
+  weekStart: string;
+  weekEnd: string;
+  label: string;
+  hoursLost: number;
+  hoursGained: number;
+  netChange: number;
+  coverage: number;
+  rag: OutlookRag;
+}
+
+export interface OutlookTotals {
+  hoursLost: number;
+  hoursGained: number;
+  netChange: number;
+  coverage: number;
+  rag: OutlookRag;
+}
+
+export interface OutlookResponse {
+  weeks: OutlookWeek[];
+  totals: OutlookTotals;
+  computedAt: string;
+}
+
+export interface OutlookDetail {
+  leavers: Leaver[];
+  joiners: Joiner[];
+}

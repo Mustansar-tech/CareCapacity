@@ -14,6 +14,7 @@ import { registerTravelTimesRoutes } from './routes/travel-times';
 import { registerBdMatcherRoutes } from './routes/bd-matcher';
 import { registerEnquiriesRoutes } from './routes/enquiries';
 import { registerDebugRoutes } from './routes/debug';
+import { registerCapacityOutlookRoutes } from './routes/capacity-outlook';
 
 const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync'];
 
@@ -78,6 +79,7 @@ export async function configureApp(app: Express): Promise<Server> {
   registerBdMatcherRoutes(app);
   registerEnquiriesRoutes(app);
   registerDebugRoutes(app);
+  registerCapacityOutlookRoutes(app);
 
   return createServer(app);
 }

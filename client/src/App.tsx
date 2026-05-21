@@ -17,7 +17,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, BookOpen } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, BookOpen, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,6 +46,7 @@ import { SyncStatusBar } from "@/components/SyncStatusBar";
 const DashboardModule = lazy(() => import("@/pages/dashboard"));
 const AdminModule = lazy(() => import("@/pages/admin"));
 const BDMatrixModule = lazy(() => import("@/pages/bd-matrix"));
+const CapacityOutlookModule = lazy(() => import("@/pages/capacity-outlook"));
 const ScheduleModule = lazy(() => import("@/pages/schedule"));
 const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
 const DocsModule = lazy(() => import("@/pages/docs"));
@@ -245,10 +246,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Home",            path: "/app/dashboard",                         icon: BarChart3 },
-  { label: "Daily View",      path: "/app/dashboard", search: "view=daily",   icon: Calendar  },
-  { label: "BD Matrix",       path: "/app/bd-matrix",                         icon: Users     },
-  { label: "Schedule",        path: "/app/schedule",                          icon: Calendar  },
+  { label: "Home",             path: "/app/dashboard",                         icon: BarChart3  },
+  { label: "Daily View",       path: "/app/dashboard", search: "view=daily",   icon: Calendar   },
+  { label: "BD Matrix",        path: "/app/bd-matrix",                         icon: Users      },
+  { label: "Schedule",         path: "/app/schedule",                          icon: Calendar   },
+  { label: "Capacity Outlook", path: "/app/capacity-outlook",                  icon: TrendingUp },
 ];
 
 function Navigation() {
@@ -542,6 +544,9 @@ function Router() {
             </Route>
             <Route path="/app/people-planner">
               <AppLayout><PageSuspense><PeoplePlannerModule /></PageSuspense></AppLayout>
+            </Route>
+            <Route path="/app/capacity-outlook">
+              <AppLayout><PageSuspense><CapacityOutlookModule /></PageSuspense></AppLayout>
             </Route>
             <Route path="/app/docs">
               <PageSuspense><DocsModule /></PageSuspense>
