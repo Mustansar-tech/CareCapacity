@@ -7,18 +7,12 @@ import { z } from "zod";
 import { useBranch } from "@/contexts/BranchContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell,
-} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
@@ -514,7 +508,6 @@ export default function CapacityOutlookPage() {
   const isScheduler = user?.role === 'scheduler' || user?.role === 'admin';
 
   const [horizonWeeks] = useState(4);
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [leaverModalOpen, setLeaverModalOpen] = useState(false);
   const [joinerModalOpen, setJoinerModalOpen] = useState(false);
   const [editingLeaver, setEditingLeaver] = useState<Leaver | null>(null);
@@ -578,21 +571,6 @@ export default function CapacityOutlookPage() {
     staleTime: 30_000,
   });
 
-  // Drill-down detail
-  const detailQuery = useQuery<OutlookDetail>({
-    queryKey: ['/api/capacity-outlook/detail', branchId, selectedWeekStart],
-    queryFn: async () => {
-      const res = await fetch(
-        toAbsoluteUrl(`/api/capacity-outlook/detail?branchId=${branchId}&weekStart=${selectedWeekStart}`),
-        { credentials: 'include' },
-      );
-      if (!res.ok) throw new Error('Failed to load detail');
-      return res.json();
-    },
-    enabled: !!branchId && !!selectedWeekStart,
-    staleTime: 30_000,
-  });
-
   // Delete mutations
   const deleteLeaverMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -630,19 +608,6 @@ export default function CapacityOutlookPage() {
 
   const outlook = outlookQuery.data;
   const totals = outlook?.totals;
-
-  // Chart data
-  const chartData = useMemo(() => {
-    if (!outlook?.weeks) return [];
-    return outlook.weeks.map(w => ({
-      week: w.label,
-      weekStart: w.weekStart,
-      lost: w.hoursLost,
-      gained: w.hoursGained,
-      net: w.netChange,
-      rag: w.rag,
-    }));
-  }, [outlook]);
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return '—';
@@ -870,93 +835,6 @@ export default function CapacityOutlookPage() {
           </Card>
         </div>
 
-        {/* Bar chart */}
-        <Card className="glass">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              Lost vs Gained by Week
-              <span className="text-xs font-normal text-muted-foreground">(click a bar to see who's affected)</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {outlookQuery.isLoading ? (
-              <div className="h-48 bg-muted animate-pulse rounded" />
-            ) : chartData.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-                No data for this period
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-                  <XAxis dataKey="week" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} unit="h" />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `${value}h`,
-                      name === 'lost' ? 'Hours Lost' : name === 'gained' ? 'Hours Gained (weighted)' : 'Net',
-                    ]}
-                    contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
-                  />
-                  <Legend
-                    formatter={v => v === 'lost' ? 'Hours Lost' : v === 'gained' ? 'Hours Gained (weighted)' : 'Net'}
-                    wrapperStyle={{ fontSize: 12 }}
-                  />
-                  <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="4 4" />
-                  <Bar
-                    dataKey="lost"
-                    fill="#ef4444"
-                    radius={[3, 3, 0, 0]}
-                    cursor="pointer"
-                    onClick={(d) => setSelectedWeekStart(d.weekStart)}
-                  >
-                    {chartData.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={selectedWeekStart === entry.weekStart ? "#b91c1c" : "#ef4444"}
-                      />
-                    ))}
-                  </Bar>
-                  <Bar
-                    dataKey="gained"
-                    fill="#10b981"
-                    radius={[3, 3, 0, 0]}
-                    cursor="pointer"
-                    onClick={(d) => setSelectedWeekStart(d.weekStart)}
-                  >
-                    {chartData.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={selectedWeekStart === entry.weekStart ? "#047857" : "#10b981"}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-
-            {/* Week RAG row */}
-            {!outlookQuery.isLoading && outlook?.weeks && (
-              <div className="flex gap-2 mt-3">
-                {outlook.weeks.map(w => (
-                  <button
-                    key={w.weekStart}
-                    onClick={() => setSelectedWeekStart(prev => prev === w.weekStart ? null : w.weekStart)}
-                    className={[
-                      "flex-1 py-1.5 rounded-md text-xs font-medium border transition-all",
-                      selectedWeekStart === w.weekStart
-                        ? "border-primary bg-primary/10"
-                        : "border-transparent bg-muted hover:bg-muted/80",
-                    ].join(' ')}
-                  >
-                    <span className="block">{w.label}</span>
-                    <RagBadge rag={w.rag} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Disclaimer */}
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
@@ -1145,76 +1023,6 @@ export default function CapacityOutlookPage() {
         </Card>
 
       </div>
-
-      {/* Drill-down Sheet */}
-      <Sheet open={!!selectedWeekStart} onOpenChange={v => { if (!v) setSelectedWeekStart(null); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>
-              Week of {selectedWeekStart ? formatDate(selectedWeekStart) : ''}
-            </SheetTitle>
-            <SheetDescription>
-              People affecting capacity in this week
-            </SheetDescription>
-          </SheetHeader>
-
-          {detailQuery.isLoading ? (
-            <div className="mt-6 space-y-3">
-              {[1, 2, 3].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded" />)}
-            </div>
-          ) : (
-            <div className="mt-6 space-y-6">
-              {/* Leavers in this week */}
-              <div>
-                <h3 className="font-semibold text-sm text-red-600 dark:text-red-400 mb-2 flex items-center gap-1.5">
-                  <TrendingDown className="w-4 h-4" />
-                  Leavers
-                  {detailQuery.data?.leavers.length === 0 && (
-                    <span className="text-muted-foreground font-normal">— none affecting this week</span>
-                  )}
-                </h3>
-                {detailQuery.data?.leavers.map(l => (
-                  <div key={l.id} className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10 mb-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{l.employeeName}</span>
-                      <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 grid grid-cols-2 gap-1">
-                      <span>Weekly hours: <strong>{l.weeklyHours}h</strong></span>
-                      <span>Last day: <strong>{formatDate(l.lastWorkingDay)}</strong></span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Joiners in this week */}
-              <div>
-                <h3 className="font-semibold text-sm text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
-                  <TrendingUp className="w-4 h-4" />
-                  Pipeline joiners
-                  {detailQuery.data?.joiners.length === 0 && (
-                    <span className="text-muted-foreground font-normal">— none starting this week</span>
-                  )}
-                </h3>
-                {detailQuery.data?.joiners.map(j => (
-                  <div key={j.id} className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10 mb-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{j.candidateName}</span>
-                      <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 grid grid-cols-2 gap-1">
-                      <span>Desired hours: <strong>{j.desiredWeeklyHours}h</strong></span>
-                      <span>Expected start: <strong>{formatDate(j.expectedStartDate)}</strong></span>
-                      <span>Stage: <strong>{j.stage}</strong></span>
-                      <span>Confidence: <strong>{Math.round((j.confidenceWeight ?? 0) * 100)}%</strong></span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
 
       {/* Leaver modal */}
       {branchId && (
