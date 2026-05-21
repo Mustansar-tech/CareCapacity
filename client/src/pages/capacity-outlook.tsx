@@ -87,6 +87,7 @@ function ragBgClass(rag: string): string {
 
 const leaverFormSchema = z.object({
   employeeName: z.string().min(1, "Name is required"),
+  gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   weeklyHours: z.coerce.number().positive("Must be > 0"),
   firstDayOfNotice: z.string().optional(),
@@ -100,6 +101,7 @@ type LeaverFormData = z.infer<typeof leaverFormSchema>;
 
 const joinerFormSchema = z.object({
   candidateName: z.string().min(1, "Name is required"),
+  gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   desiredWeeklyHours: z.coerce.number().positive("Must be > 0"),
   trainingDate: z.string().optional(),
@@ -128,10 +130,10 @@ function LeaverModal({
     resolver: zodResolver(leaverFormSchema),
     defaultValues: {
       employeeName: "",
+      gender: undefined,
       weeklyHours: 0,
       firstDayOfNotice: "",
       lastWorkingDay: "",
-
       notes: "",
     },
   });
@@ -142,6 +144,7 @@ function LeaverModal({
       if (editing) {
         form.reset({
           employeeName: editing.employeeName,
+          gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
           weeklyHours: editing.weeklyHours ?? 0,
           firstDayOfNotice: editing.firstDayOfNotice ?? "",
@@ -151,10 +154,10 @@ function LeaverModal({
       } else {
         form.reset({
           employeeName: "",
+          gender: undefined,
           weeklyHours: 0,
           firstDayOfNotice: "",
           lastWorkingDay: "",
-    
           notes: "",
         });
       }
@@ -211,7 +214,22 @@ function LeaverModal({
               </FormItem>
             )} />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <FormField control={form.control} name="gender" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="employmentType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type <span className="text-red-500">*</span></FormLabel>
@@ -293,6 +311,7 @@ function JoinerModal({
     resolver: zodResolver(joinerFormSchema),
     defaultValues: {
       candidateName: "",
+      gender: undefined,
       desiredWeeklyHours: 0,
       trainingDate: "",
       expectedStartDate: "",
@@ -307,6 +326,7 @@ function JoinerModal({
       if (editing) {
         form.reset({
           candidateName: editing.candidateName,
+          gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
           desiredWeeklyHours: editing.desiredWeeklyHours ?? 0,
           trainingDate: editing.trainingDate ?? "",
@@ -317,6 +337,7 @@ function JoinerModal({
       } else {
         form.reset({
           candidateName: "",
+          gender: undefined,
           desiredWeeklyHours: 0,
           trainingDate: "",
           expectedStartDate: "",
@@ -380,7 +401,22 @@ function JoinerModal({
               </FormItem>
             )} />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <FormField control={form.control} name="gender" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="employmentType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type <span className="text-red-500">*</span></FormLabel>
@@ -397,7 +433,7 @@ function JoinerModal({
 
               <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Desired Weekly Hours <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Weekly Hours <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="number" step="0.5" placeholder="e.g. 35" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -961,6 +997,7 @@ export default function CapacityOutlookPage() {
                   <TableHeader>
                     <TableRow>
                       <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
+                      <TableHead>Gender</TableHead>
                       <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="lastWorkingDay" label="Last Working Day" current={leaverSort} onSort={toggleLeaverSort} />
@@ -971,6 +1008,7 @@ export default function CapacityOutlookPage() {
                     {sortedLeavers.map(l => (
                       <TableRow key={l.id}>
                         <TableCell className="font-medium">{l.employeeName}</TableCell>
+                        <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                         </TableCell>
@@ -1037,6 +1075,7 @@ export default function CapacityOutlookPage() {
                   <TableHeader>
                     <TableRow>
                       <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
+                      <TableHead>Gender</TableHead>
                       <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
                       <SortHead col="desiredWeeklyHours" label="Hours/wk" current={joinerSort} onSort={toggleJoinerSort} />
                       <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
@@ -1050,6 +1089,7 @@ export default function CapacityOutlookPage() {
                     {sortedJoiners.map(j => (
                       <TableRow key={j.id}>
                         <TableCell className="font-medium">{j.candidateName}</TableCell>
+                        <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                         </TableCell>
