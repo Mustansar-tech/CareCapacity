@@ -911,6 +911,7 @@ export default function CapacityOutlookPage() {
                       <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
                       <TableHead>Postcode</TableHead>
+                      <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
@@ -925,6 +926,7 @@ export default function CapacityOutlookPage() {
                         </TableCell>
                         <TableCell>{l.weeklyHours}h</TableCell>
                         <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
+                        <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
                         {isScheduler && (
                           <TableCell className="text-right">
