@@ -65,15 +65,16 @@ export function registerCapacityOutlookRoutes(app: Express): void {
     requireRoleAtLeast('scheduler'),
     asyncHandler(async (req, res) => {
       const branchId = await resolveBranch(req);
-      const parsed = insertLeaverSchema.safeParse({ ...req.body, branchId });
+      const body = { ...req.body, branchId };
+      // terminationDate = lastWorkingDay (same concept; form only sends lastWorkingDay)
+      if (!body.terminationDate && body.lastWorkingDay) {
+        body.terminationDate = body.lastWorkingDay;
+      }
+      const parsed = insertLeaverSchema.safeParse(body);
       if (!parsed.success) {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid leaver data', 400);
       }
       const data = parsed.data;
-
-      if (data.lastWorkingDay > data.terminationDate) {
-        throw createAppError('Last working day cannot be after termination date', 400);
-      }
 
       const leaver = await createLeaver({
         ...data,
@@ -101,15 +102,17 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       const { id } = req.params;
 
       const updateSchema = insertLeaverSchema.partial().omit({ branchId: true });
-      const parsed = updateSchema.safeParse(req.body);
+      const updateBody = { ...req.body };
+      // Keep terminationDate in sync with lastWorkingDay
+      if (updateBody.lastWorkingDay && !updateBody.terminationDate) {
+        updateBody.terminationDate = updateBody.lastWorkingDay;
+      }
+      const parsed = updateSchema.safeParse(updateBody);
       if (!parsed.success) {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid update data', 400);
       }
 
       const data = parsed.data;
-      if (data.lastWorkingDay && data.terminationDate && data.lastWorkingDay > data.terminationDate) {
-        throw createAppError('Last working day cannot be after termination date', 400);
-      }
 
       const updated = await updateLeaver(id, branchId, data);
       if (!updated) throw createAppError('Leaver not found or access denied', 404);
