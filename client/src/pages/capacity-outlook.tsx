@@ -91,11 +91,7 @@ const leaverFormSchema = z.object({
   weeklyHours: z.coerce.number().positive("Must be > 0"),
   firstDayOfNotice: z.string().optional(),
   lastWorkingDay: z.string().min(1, "Last working day is required"),
-  terminationDate: z.string().min(1, "Termination date is required"),
   notes: z.string().optional(),
-}).refine(d => !d.lastWorkingDay || !d.terminationDate || d.lastWorkingDay <= d.terminationDate, {
-  message: "Last working day cannot be after termination date",
-  path: ["lastWorkingDay"],
 });
 
 type LeaverFormData = z.infer<typeof leaverFormSchema>;
@@ -135,7 +131,7 @@ function LeaverModal({
       weeklyHours: 0,
       firstDayOfNotice: "",
       lastWorkingDay: "",
-      terminationDate: "",
+
       notes: "",
     },
   });
@@ -150,7 +146,6 @@ function LeaverModal({
           weeklyHours: editing.weeklyHours ?? 0,
           firstDayOfNotice: editing.firstDayOfNotice ?? "",
           lastWorkingDay: editing.lastWorkingDay,
-          terminationDate: editing.terminationDate,
           notes: editing.notes ?? "",
         });
       } else {
@@ -159,7 +154,7 @@ function LeaverModal({
           weeklyHours: 0,
           firstDayOfNotice: "",
           lastWorkingDay: "",
-          terminationDate: "",
+    
           notes: "",
         });
       }
@@ -257,13 +252,6 @@ function LeaverModal({
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="terminationDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Termination Date <span className="text-red-500">*</span></FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (
@@ -500,7 +488,7 @@ export default function CapacityOutlookPage() {
   const [leaversOpen, setLeaversOpen] = useState(true);
   const [joinersOpen, setJoinersOpen] = useState(true);
 
-  type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'lastWorkingDay' | 'terminationDate';
+  type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'lastWorkingDay';
   type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'expectedStartDate';
   type SortDir = 'asc' | 'desc';
 
@@ -976,7 +964,6 @@ export default function CapacityOutlookPage() {
                       <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
                       <SortHead col="lastWorkingDay" label="Last Working Day" current={leaverSort} onSort={toggleLeaverSort} />
-                      <SortHead col="terminationDate" label="Termination" current={leaverSort} onSort={toggleLeaverSort} />
                       {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -989,7 +976,6 @@ export default function CapacityOutlookPage() {
                         </TableCell>
                         <TableCell>{l.weeklyHours}h</TableCell>
                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
-                        <TableCell>{formatDate(l.terminationDate)}</TableCell>
                         {isScheduler && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
