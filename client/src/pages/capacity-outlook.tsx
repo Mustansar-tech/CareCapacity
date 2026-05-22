@@ -841,7 +841,7 @@ export default function CapacityOutlookPage() {
               Capacity Outlook
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Rolling {horizonWeeks}-week forecast — leavers vs pipeline joiners
+              Monthly rolling forecast — leavers vs pipeline joiners
             </p>
           </div>
           <div className="flex items-center gap-2">
