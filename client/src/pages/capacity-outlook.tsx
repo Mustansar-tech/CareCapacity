@@ -1214,29 +1214,62 @@ export default function CapacityOutlookPage() {
 
                   {/* Already terminated strip */}
                   {alreadyGone.length > 0 && (
-                    <div className="border-t border-red-200 dark:border-red-800/40 bg-red-50/50 dark:bg-red-900/10 px-4 py-3">
-                      <div className="flex items-center gap-2 mb-2">
+                    <div className="border-t border-red-200 dark:border-red-800/40 bg-red-50/50 dark:bg-red-900/10">
+                      <div className="flex items-center gap-2 px-4 py-2">
                         <UserMinus className="w-4 h-4 text-red-600 dark:text-red-400" />
                         <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">
                           Already terminated — {alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0)}h/wk · {alreadyGone.length} {alreadyGone.length === 1 ? 'person' : 'people'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {alreadyGone.map(l => (
-                          <div key={l.id} className="flex items-center gap-2 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg px-3 py-1.5">
-                            <span className="text-xs font-medium text-red-800 dark:text-red-200">{l.employeeName}</span>
-                            <span className="text-xs text-red-600 dark:text-red-400">{l.weeklyHours}h/wk</span>
-                            <Badge variant="outline" className="text-xs capitalize border-red-400 text-red-700 dark:text-red-400 py-0 px-1.5">{l.employmentType}</Badge>
-                            <span className="text-xs text-red-500 dark:text-red-400">left {formatDate(l.lastWorkingDay)}</span>
-                            {isScheduler && (
-                              <Button size="icon" variant="ghost" className="h-5 w-5 text-red-600 hover:text-red-800 dark:text-red-400"
-                                onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-red-100/60 dark:bg-red-900/20">
+                            <TableHead>Name</TableHead>
+                            <TableHead>Emp No</TableHead>
+                            <TableHead>Gender</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Desired Hrs/wk</TableHead>
+                            <TableHead>Contracted Hrs</TableHead>
+                            <TableHead>Postcode</TableHead>
+                            <TableHead>Day of Notice</TableHead>
+                            <TableHead>Termination Day</TableHead>
+                            <TableHead>Notes</TableHead>
+                            {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {alreadyGone.map(l => (
+                            <TableRow key={l.id}>
+                              <TableCell className="font-medium">{l.employeeName}</TableCell>
+                              <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
+                              <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                              </TableCell>
+                              <TableCell>{l.weeklyHours}h</TableCell>
+                              <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
+                              <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
+                              <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
+                              <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
+                              {isScheduler && (
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button size="icon" variant="ghost" className="h-7 w-7"
+                                      onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                      onClick={() => setDeletingLeaverId(l.id)}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   )}
 
@@ -1327,28 +1360,64 @@ export default function CapacityOutlookPage() {
                   )}
 
                   {hiredJoiners.length > 0 && (
-                    <div className="border-t border-yellow-200 dark:border-yellow-800/40 bg-yellow-50/60 dark:bg-yellow-900/10 px-4 py-3">
-                      <div className="flex items-center gap-2 mb-2">
+                    <div className="border-t border-yellow-200 dark:border-yellow-800/40 bg-yellow-50/60 dark:bg-yellow-900/10">
+                      <div className="flex items-center gap-2 px-4 py-2">
                         <CheckCircle2 className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                         <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
                           Hired this month — {hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk · {hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {hiredJoiners.map(j => (
-                          <div key={j.id} className="flex items-center gap-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg px-3 py-1.5">
-                            <span className="text-xs font-medium text-yellow-800 dark:text-yellow-200">{j.candidateName}</span>
-                            <span className="text-xs text-yellow-600 dark:text-yellow-400">{j.desiredWeeklyHours}h/wk</span>
-                            <Badge variant="outline" className="text-xs capitalize border-yellow-400 text-yellow-700 dark:text-yellow-400 py-0 px-1.5">{j.employmentType}</Badge>
-                            {isScheduler && (
-                              <Button size="icon" variant="ghost" className="h-5 w-5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400"
-                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-yellow-100/60 dark:bg-yellow-900/20">
+                            <TableHead>Name</TableHead>
+                            <TableHead>Gender</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Desired Hrs/wk</TableHead>
+                            <TableHead>Contracted Hrs</TableHead>
+                            <TableHead>Postcode</TableHead>
+                            <TableHead>Stage</TableHead>
+                            <TableHead>Confidence</TableHead>
+                            <TableHead>Training Attended</TableHead>
+                            <TableHead>Notes</TableHead>
+                            {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {hiredJoiners.map(j => (
+                            <TableRow key={j.id}>
+                              <TableCell className="font-medium">{j.candidateName}</TableCell>
+                              <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                              </TableCell>
+                              <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                              <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
+                              <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
+                              <TableCell>
+                                {j.stage ? <Badge className="text-xs capitalize">{j.stage}</Badge> : '—'}
+                              </TableCell>
+                              <TableCell>{j.confidenceWeight != null ? `${Math.round(j.confidenceWeight * 100)}%` : '—'}</TableCell>
+                              <TableCell>{j.trainingDate ? formatDate(j.trainingDate) : '—'}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
+                              {isScheduler && (
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button size="icon" variant="ghost" className="h-7 w-7"
+                                      onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                      onClick={() => setDeletingJoinerId(j.id)}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   )}
                 </>
