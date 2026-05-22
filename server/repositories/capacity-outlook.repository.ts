@@ -423,17 +423,20 @@ export async function updateMonthlySnapshot(
   year: number,
   month: number,
   data: { hoursIn: number; headsIn: number; hoursOut: number; headsOut: number },
-): Promise<MonthlySnapshot | null> {
+): Promise<MonthlySnapshot> {
   const [row] = await db
-    .update(monthlyCapacitySnapshots)
-    .set({ ...data, snapshotCreatedAt: new Date() })
-    .where(and(
-      eq(monthlyCapacitySnapshots.branchId, branchId),
-      eq(monthlyCapacitySnapshots.year, year),
-      eq(monthlyCapacitySnapshots.month, month),
-    ))
+    .insert(monthlyCapacitySnapshots)
+    .values({ branchId, year, month, ...data, snapshotCreatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [
+        monthlyCapacitySnapshots.branchId,
+        monthlyCapacitySnapshots.year,
+        monthlyCapacitySnapshots.month,
+      ],
+      set: { ...data, snapshotCreatedAt: new Date() },
+    })
     .returning();
-  return row ?? null;
+  return row;
 }
 
 export async function autoCloseForAllBranches(): Promise<void> {

@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   TrendingDown, TrendingUp, Minus, Users, AlertTriangle,
-  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2,
+  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -1131,54 +1131,88 @@ export default function CapacityOutlookPage() {
               ) : !leaversQuery.data?.length ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No active leavers recorded.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
-                      <TableHead>Gender</TableHead>
-                      <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
-                      <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
-                      <TableHead>Postcode</TableHead>
-                      <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
-                      <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
-                      {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedLeavers.map(l => (
-                      <TableRow key={l.id}>
-                        <TableCell>
-                          <div className="font-medium">{l.employeeName}</div>
-                          {l.notes && (
-                            <div className="text-xs text-muted-foreground italic mt-0.5 max-w-[180px] truncate" title={l.notes}>{l.notes}</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
-                        </TableCell>
-                        <TableCell>{l.weeklyHours}h</TableCell>
-                        <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
-                        <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
-                        <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
-                        {isScheduler && (
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                <>
+                  {/* On-notice leavers (still working) */}
+                  {sortBy(onNotice, leaverSort.col, leaverSort.dir).length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Gender</TableHead>
+                          <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
+                          <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Postcode</TableHead>
+                          <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
+                          <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Notes</TableHead>
+                          {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortBy(onNotice, leaverSort.col, leaverSort.dir).map(l => (
+                          <TableRow key={l.id}>
+                            <TableCell className="font-medium">{l.employeeName}</TableCell>
+                            <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                            </TableCell>
+                            <TableCell>{l.weeklyHours}h</TableCell>
+                            <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
+                            <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
+                            <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
+                            {isScheduler && (
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                                    onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                    onClick={() => setDeletingLeaverId(l.id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  {/* Already terminated strip */}
+                  {alreadyGone.length > 0 && (
+                    <div className="border-t border-red-200 dark:border-red-800/40 bg-red-50/50 dark:bg-red-900/10 px-4 py-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <UserMinus className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">
+                          Already terminated — {alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0)}h/wk · {alreadyGone.length} {alreadyGone.length === 1 ? 'person' : 'people'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {alreadyGone.map(l => (
+                          <div key={l.id} className="flex items-center gap-2 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg px-3 py-1.5">
+                            <span className="text-xs font-medium text-red-800 dark:text-red-200">{l.employeeName}</span>
+                            <span className="text-xs text-red-600 dark:text-red-400">{l.weeklyHours}h/wk</span>
+                            <Badge variant="outline" className="text-xs capitalize border-red-400 text-red-700 dark:text-red-400 py-0 px-1.5">{l.employmentType}</Badge>
+                            <span className="text-xs text-red-500 dark:text-red-400">left {formatDate(l.lastWorkingDay)}</span>
+                            {isScheduler && (
+                              <Button size="icon" variant="ghost" className="h-5 w-5 text-red-600 hover:text-red-800 dark:text-red-400"
                                 onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Pencil className="w-3 h-3" />
                               </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                onClick={() => setDeletingLeaverId(l.id)}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {onNotice.length === 0 && alreadyGone.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">No active leavers recorded.</p>
+                  )}
+                </>
               )
             )}
 
@@ -1202,18 +1236,14 @@ export default function CapacityOutlookPage() {
                           <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="confidenceWeight" label="Confidence" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="trainingDate" label="Training Attended" current={joinerSort} onSort={toggleJoinerSort} />
+                          <TableHead>Notes</TableHead>
                           {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
                           <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
-                            <TableCell>
-                              <div className="font-medium">{j.candidateName}</div>
-                              {j.notes && (
-                                <div className="text-xs text-muted-foreground italic mt-0.5 max-w-[180px] truncate" title={j.notes}>{j.notes}</div>
-                              )}
-                            </TableCell>
+                            <TableCell className="font-medium">{j.candidateName}</TableCell>
                             <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
@@ -1244,6 +1274,7 @@ export default function CapacityOutlookPage() {
                             </TableCell>
                             <TableCell>{Math.round((j.confidenceWeight ?? 0) * 100)}%</TableCell>
                             <TableCell>{formatDate(j.trainingDate)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                             {isScheduler && (
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1">
@@ -1465,32 +1496,43 @@ function MonthlyViewSheet({
     },
   });
 
-  // Build rows: current month first (live or locked), then past closed months
-  const rows = useMemo(() => {
+  type MonthRow = {
+    year: number; month: number;
+    hoursIn: number; headsIn: number; hoursOut: number; headsOut: number;
+    isLive: boolean; isClosed: boolean; isEmpty: boolean;
+  };
+
+  // Build rows: all months from Jan of current year to current month (newest first),
+  // then any closed snapshots from earlier years that exist in the DB.
+  const rows = useMemo((): MonthRow[] => {
     if (!monthlyData) return [];
     const { snapshots, live, currentYear, currentMonth } = monthlyData;
 
-    // If a snapshot already exists for the current month (manual close), show
-    // it as locked rather than the live running total to preserve the record.
-    const closedCurrentMonth = snapshots.find(
-      s => s.year === currentYear && s.month === currentMonth,
+    const result: MonthRow[] = [];
+
+    // Current month (top of list)
+    const closedCurrent = snapshots.find(s => s.year === currentYear && s.month === currentMonth);
+    result.push(closedCurrent
+      ? { ...closedCurrent, isLive: false, isClosed: true, isEmpty: false }
+      : { year: currentYear, month: currentMonth, hoursIn: live.hoursIn, headsIn: live.headsIn, hoursOut: live.hoursOut, headsOut: live.headsOut, isLive: true, isClosed: false, isEmpty: false },
     );
 
-    const currentMonthRow = closedCurrentMonth
-      ? { ...closedCurrentMonth, isLive: false, isClosed: true }
-      : {
-          year: currentYear, month: currentMonth,
-          hoursIn: live.hoursIn, headsIn: live.headsIn,
-          hoursOut: live.hoursOut, headsOut: live.headsOut,
-          isLive: true, isClosed: false,
-        };
+    // Jan → month-1 of current year (newest first) — snapshot or blank editable row
+    for (let m = currentMonth - 1; m >= 1; m--) {
+      const existing = snapshots.find(s => s.year === currentYear && s.month === m);
+      result.push(existing
+        ? { ...existing, isLive: false, isClosed: true, isEmpty: false }
+        : { year: currentYear, month: m, hoursIn: 0, headsIn: 0, hoursOut: 0, headsOut: 0, isLive: false, isClosed: false, isEmpty: true },
+      );
+    }
 
-    // Past snapshots — server returns DESC order (newest first)
-    const pastRows = snapshots
-      .filter(s => !(s.year === currentYear && s.month === currentMonth))
-      .map(s => ({ ...s, isLive: false, isClosed: true }));
+    // Any closed snapshots from previous years (already in DB)
+    snapshots
+      .filter(s => s.year < currentYear)
+      .sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month)
+      .forEach(s => result.push({ ...s, isLive: false, isClosed: true, isEmpty: false }));
 
-    return [currentMonthRow, ...pastRows];
+    return result;
   }, [monthlyData]);
 
   return (
@@ -1551,8 +1593,9 @@ function MonthlyViewSheet({
                   const isCurrentMonth = row.year === monthlyData?.currentYear && row.month === monthlyData?.currentMonth;
                   const isLive = 'isLive' in row && row.isLive;
                   const isClosed = 'isClosed' in row && row.isClosed;
+                  const isEmpty = row.isEmpty;
                   const isEditing = editingRow?.year === row.year && editingRow?.month === row.month;
-                  const canEdit = isScheduler && isClosed;
+                  const canEdit = isScheduler && (isClosed || isEmpty);
                   const displayHoursIn  = isEditing ? editValues.hoursIn  : row.hoursIn;
                   const displayHeadsIn  = isEditing ? editValues.headsIn  : row.headsIn;
                   const displayHoursOut = isEditing ? editValues.hoursOut : row.hoursOut;
@@ -1666,13 +1709,15 @@ function MonthlyViewSheet({
                             </div>
                           ) : canEdit ? (
                             <Button
-                              size="icon" variant="ghost" className="h-7 w-7"
+                              size="icon"
+                              variant={isEmpty ? "outline" : "ghost"}
+                              className={isEmpty ? "h-7 w-7 border-dashed text-muted-foreground hover:text-foreground" : "h-7 w-7"}
                               onClick={() => {
                                 setEditingRow({ year: row.year, month: row.month });
                                 setEditValues({ hoursIn: row.hoursIn, headsIn: row.headsIn, hoursOut: row.hoursOut, headsOut: row.headsOut });
                               }}
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              {isEmpty ? <Plus className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
                             </Button>
                           ) : null}
                         </TableCell>

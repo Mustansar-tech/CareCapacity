@@ -148,8 +148,6 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         hoursOut: Number(hoursOut) || 0,
         headsOut: Number(headsOut) || 0,
       });
-      if (!snapshot) throw createAppError('Snapshot not found for this month', 404);
-
       await auditLog(
         req.session?.userId ?? null,
         req.session?.userEmail ?? null,
