@@ -1165,9 +1165,11 @@ export default function CapacityOutlookPage() {
                       <TableHeader>
                         <TableRow>
                           <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Emp No</TableHead>
                           <TableHead>Gender</TableHead>
                           <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                           <SortHead col="weeklyHours" label="Desired Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Contracted Hrs</TableHead>
                           <TableHead>Postcode</TableHead>
                           <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
                           <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
@@ -1179,11 +1181,13 @@ export default function CapacityOutlookPage() {
                         {sortBy(onNotice, leaverSort.col, leaverSort.dir).map(l => (
                           <TableRow key={l.id}>
                             <TableCell className="font-medium">{l.employeeName}</TableCell>
+                            <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                             <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                             </TableCell>
                             <TableCell>{l.weeklyHours}h</TableCell>
+                            <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                             <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
                             <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
                             <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
