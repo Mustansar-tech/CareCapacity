@@ -475,7 +475,7 @@ function JoinerModal({
 
               <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Desired Hours <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="number" step="0.5" placeholder="e.g. 35" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -947,7 +947,10 @@ export default function CapacityOutlookPage() {
                     {pipelineJoiners.length} <span className="text-base font-medium">candidates</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {weeklyGainRate}h/wk expected (weighted)
+                    {weeklyGainRate}h/wk expected
+                  </div>
+                  <div className="text-xs text-muted-foreground/70 mt-0.5">
+                    = desired hrs × confidence %
                   </div>
                   {hiredJoiners.length > 0 && (
                     <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-0.5 flex items-center gap-1">
@@ -1230,7 +1233,7 @@ export default function CapacityOutlookPage() {
                           <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
                           <TableHead>Gender</TableHead>
                           <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="desiredWeeklyHours" label="Desired Hrs" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="desiredWeeklyHours" label="Desired Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
                           <TableHead>Contracted Hrs</TableHead>
                           <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
