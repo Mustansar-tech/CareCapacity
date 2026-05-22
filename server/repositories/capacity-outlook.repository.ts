@@ -5,7 +5,7 @@ import type {
   OutlookWeek, OutlookTotals, OutlookResponse, OutlookDetail, OutlookRag,
   MonthlySnapshot,
 } from '@shared/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 
 // ── Confidence weights by stage ───────────────────────────────────────────────
 
@@ -285,7 +285,8 @@ export async function getMonthlySnapshots(branchId: string): Promise<MonthlySnap
     .select()
     .from(monthlyCapacitySnapshots)
     .where(eq(monthlyCapacitySnapshots.branchId, branchId))
-    .orderBy(monthlyCapacitySnapshots.year, monthlyCapacitySnapshots.month);
+    .orderBy(desc(monthlyCapacitySnapshots.year), desc(monthlyCapacitySnapshots.month))
+    .limit(12);
 }
 
 export async function getCurrentMonthLive(branchId: string): Promise<{
@@ -376,13 +377,28 @@ export async function closeMonth(
     snapshot = row;
   }
 
-  // Archive processed hired joiners
+  // Archive hired joiners from this month
   const idsToArchive = hiredThisMonth.map(j => j.id);
   if (idsToArchive.length > 0) {
     await db
       .update(joiners)
       .set({ status: 'hired_archived', updatedAt: new Date() })
       .where(inArray(joiners.id, idsToArchive));
+  }
+
+  // Archive leavers whose last working day falls within the closed month
+  const activeLeaversForBranch = await db
+    .select()
+    .from(leavers)
+    .where(and(eq(leavers.branchId, branchId), eq(leavers.status, 'active')));
+  const leaverIdsToProcess = activeLeaversForBranch
+    .filter(l => l.lastWorkingDay >= start && l.lastWorkingDay < end)
+    .map(l => l.id);
+  if (leaverIdsToProcess.length > 0) {
+    await db
+      .update(leavers)
+      .set({ status: 'processed', updatedAt: new Date() })
+      .where(inArray(leavers.id, leaverIdsToProcess));
   }
 
   return snapshot;

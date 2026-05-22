@@ -694,6 +694,28 @@ export default function CapacityOutlookPage() {
     staleTime: 60_000,
   });
 
+  // Page-load rollover check: if the previous month's snapshot is missing,
+  // auto-close it. Scheduler-only — viewers can't call the close endpoint.
+  useEffect(() => {
+    if (!monthlyQuery.data || !branchId || !isScheduler) return;
+    const { snapshots, currentYear, currentMonth } = monthlyQuery.data;
+    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const hasPrevSnapshot = snapshots.some(s => s.year === prevYear && s.month === prevMonth);
+    if (!hasPrevSnapshot) {
+      fetch(toAbsoluteUrl(`/api/capacity-outlook/monthly/close?branchId=${branchId}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ year: prevYear, month: prevMonth }),
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/leavers'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
+      }).catch(() => {});
+    }
+  }, [monthlyQuery.data, branchId, isScheduler]);
+
   // Delete mutations
   const deleteLeaverMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -893,6 +915,11 @@ export default function CapacityOutlookPage() {
                     {hoursAlreadyGone === 0 && hoursOnNotice === 0 && (
                       <div className="text-xs text-muted-foreground">no hours at risk</div>
                     )}
+                    {(monthlyQuery.data?.live.hoursOut ?? 0) > 0 && (
+                      <div className="text-xs text-red-500/70 dark:text-red-400/70 mt-0.5 border-t border-red-100 dark:border-red-900/30 pt-0.5">
+                        {monthlyQuery.data!.live.hoursOut}h out this month
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -924,6 +951,11 @@ export default function CapacityOutlookPage() {
                     <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-0.5 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
                       {hiredJoiners.length} hired this month
+                    </div>
+                  )}
+                  {(monthlyQuery.data?.live.hoursIn ?? 0) > 0 && (
+                    <div className="text-xs text-emerald-500/70 dark:text-emerald-400/70 mt-0.5 border-t border-emerald-100 dark:border-emerald-900/30 pt-0.5">
+                      {monthlyQuery.data!.live.hoursIn}h in this month
                     </div>
                   )}
                 </>
@@ -1308,6 +1340,7 @@ export default function CapacityOutlookPage() {
         monthlyData={monthlyQuery.data ?? null}
         isLoading={monthlyQuery.isLoading}
         isScheduler={isScheduler}
+        hiredJoiners={hiredJoiners}
       />
     </div>
   );
@@ -1334,6 +1367,7 @@ function MonthlyViewSheet({
   monthlyData,
   isLoading,
   isScheduler,
+  hiredJoiners,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1341,18 +1375,21 @@ function MonthlyViewSheet({
   monthlyData: MonthlyData | null;
   isLoading: boolean;
   isScheduler: boolean;
+  hiredJoiners: Joiner[];
 }) {
   const { toast } = useToast();
 
   const closeMonthMutation = useMutation({
     mutationFn: async () => {
+      const year = monthlyData?.currentYear ?? new Date().getUTCFullYear();
+      const month = monthlyData?.currentMonth ?? (new Date().getUTCMonth() + 1);
       const res = await fetch(
         toAbsoluteUrl(`/api/capacity-outlook/monthly/close?branchId=${branchId}`),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({}),
+          body: JSON.stringify({ year, month }),
         },
       );
       if (!res.ok) {
@@ -1387,11 +1424,10 @@ function MonthlyViewSheet({
       isLive: true,
     };
 
-    // Past snapshots — exclude if already has current month (manual close)
+    // Past snapshots — server returns DESC order (newest first), exclude current month if already closed
     const pastRows = snapshots
       .filter(s => !(s.year === currentYear && s.month === currentMonth))
-      .map(s => ({ ...s, isLive: false }))
-      .reverse(); // newest first
+      .map(s => ({ ...s, isLive: false }));
 
     return [liveRow, ...pastRows];
   }, [monthlyData]);
@@ -1488,12 +1524,56 @@ function MonthlyViewSheet({
               </TableBody>
             </Table>
           )}
+
+          {/* Hires this month — individual breakdown */}
+          {!isLoading && hiredJoiners.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
+                  Hires this month
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'} ·{' '}
+                  {hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk
+                </span>
+              </div>
+              <div className="rounded-lg border border-yellow-200 dark:border-yellow-800/40 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-yellow-50/80 dark:bg-yellow-900/10">
+                      <TableHead className="text-xs py-2">Name</TableHead>
+                      <TableHead className="text-xs py-2">Type</TableHead>
+                      <TableHead className="text-xs py-2">Hours/wk</TableHead>
+                      <TableHead className="text-xs py-2">Hired on</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {hiredJoiners.map(j => (
+                      <TableRow key={j.id} className="bg-yellow-50/40 dark:bg-yellow-900/5">
+                        <TableCell className="text-xs font-medium py-2">{j.candidateName}</TableCell>
+                        <TableCell className="text-xs py-2 capitalize">{j.employmentType ?? '—'}</TableCell>
+                        <TableCell className="text-xs py-2 text-emerald-700 dark:text-emerald-400 font-semibold">
+                          {j.desiredWeeklyHours ? `${j.desiredWeeklyHours}h` : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs py-2 text-muted-foreground">
+                          {j.hiredAt
+                            ? new Date(j.hiredAt + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </div>
 
         {!isLoading && rows.length > 0 && (
           <div className="px-6 py-3 border-t border-border bg-muted/30 shrink-0">
             <p className="text-xs text-muted-foreground">
-              {rows.length - 1} closed month{rows.length - 1 !== 1 ? 's' : ''} · 1 live (current month)
+              Up to 12 months history · {rows.length - 1} closed · 1 live (current month)
               {isScheduler && (
                 <span> · Use <strong>Close Month</strong> to lock the current month and archive hired staff</span>
               )}
