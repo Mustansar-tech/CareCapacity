@@ -330,12 +330,14 @@ export async function closeMonth(
 ): Promise<MonthlySnapshot> {
   const { start, end } = monthBounds(year, month);
 
+  // Include hired_archived so re-closing the same month stays idempotent:
+  // records already archived on first close are still counted for In totals.
   const hiredJoiners = await db
     .select()
     .from(joiners)
     .where(and(
       eq(joiners.branchId, branchId),
-      eq(joiners.status, 'hired'),
+      inArray(joiners.status, ['hired', 'hired_archived']),
     ));
   const hiredThisMonth = hiredJoiners.filter(j =>
     j.hiredAt && j.hiredAt >= start && j.hiredAt < end,

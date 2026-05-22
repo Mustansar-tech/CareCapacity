@@ -1408,28 +1408,32 @@ function MonthlyViewSheet({
     },
   });
 
-  // Build rows: saved snapshots (newest first) + current month live row
+  // Build rows: current month first (live or locked), then past closed months
   const rows = useMemo(() => {
     if (!monthlyData) return [];
     const { snapshots, live, currentYear, currentMonth } = monthlyData;
 
-    // Current month row (live)
-    const liveRow = {
-      year: currentYear,
-      month: currentMonth,
-      hoursIn: live.hoursIn,
-      headsIn: live.headsIn,
-      hoursOut: live.hoursOut,
-      headsOut: live.headsOut,
-      isLive: true,
-    };
+    // If a snapshot already exists for the current month (manual close), show
+    // it as locked rather than the live running total to preserve the record.
+    const closedCurrentMonth = snapshots.find(
+      s => s.year === currentYear && s.month === currentMonth,
+    );
 
-    // Past snapshots — server returns DESC order (newest first), exclude current month if already closed
+    const currentMonthRow = closedCurrentMonth
+      ? { ...closedCurrentMonth, isLive: false, isClosed: true }
+      : {
+          year: currentYear, month: currentMonth,
+          hoursIn: live.hoursIn, headsIn: live.headsIn,
+          hoursOut: live.hoursOut, headsOut: live.headsOut,
+          isLive: true, isClosed: false,
+        };
+
+    // Past snapshots — server returns DESC order (newest first)
     const pastRows = snapshots
       .filter(s => !(s.year === currentYear && s.month === currentMonth))
-      .map(s => ({ ...s, isLive: false }));
+      .map(s => ({ ...s, isLive: false, isClosed: true }));
 
-    return [liveRow, ...pastRows];
+    return [currentMonthRow, ...pastRows];
   }, [monthlyData]);
 
   return (
@@ -1485,16 +1489,26 @@ function MonthlyViewSheet({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row, idx) => {
+                {rows.map((row) => {
                   const net = Math.round((row.hoursIn - row.hoursOut) * 10) / 10;
-                  const isCurrentMonth = row.isLive;
+                  const isCurrentMonth = row.year === monthlyData?.currentYear && row.month === monthlyData?.currentMonth;
+                  const isLive = 'isLive' in row && row.isLive;
+                  const isClosed = 'isClosed' in row && row.isClosed;
                   return (
-                    <TableRow key={`${row.year}-${row.month}`} className={isCurrentMonth ? "bg-blue-50/60 dark:bg-blue-900/10 font-medium" : undefined}>
+                    <TableRow
+                      key={`${row.year}-${row.month}`}
+                      className={isCurrentMonth ? "bg-blue-50/60 dark:bg-blue-900/10 font-medium" : undefined}
+                    >
                       <TableCell>
                         <span className="font-medium">{MONTH_NAMES[row.month]} {row.year}</span>
-                        {isCurrentMonth && (
+                        {isLive && (
                           <Badge className="ml-2 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200">
                             Live
+                          </Badge>
+                        )}
+                        {isCurrentMonth && isClosed && (
+                          <Badge className="ml-2 text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200">
+                            Closed
                           </Badge>
                         )}
                       </TableCell>
