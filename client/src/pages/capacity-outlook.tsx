@@ -107,9 +107,11 @@ function ragBgClass(rag: string): string {
 
 const leaverFormSchema = z.object({
   employeeName: z.string().min(1, "Name is required"),
+  employeeNo: z.string().optional(),
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   weeklyHours: z.coerce.number().positive("Must be greater than 0"),
+  contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
   postcode: z.string().optional(),
   firstDayOfNotice: z.string().optional(),
   lastWorkingDay: z.string().min(1, "Termination day is required"),
@@ -154,8 +156,10 @@ function LeaverModal({
     resolver: zodResolver(leaverFormSchema),
     defaultValues: {
       employeeName: "",
+      employeeNo: "",
       gender: undefined,
       weeklyHours: undefined as any,
+      contractedHours: undefined,
       postcode: "",
       firstDayOfNotice: "",
       lastWorkingDay: "",
@@ -168,9 +172,11 @@ function LeaverModal({
       if (editing) {
         form.reset({
           employeeName: editing.employeeName,
+          employeeNo: editing.employeeNo ?? "",
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
           weeklyHours: editing.weeklyHours ?? (undefined as any),
+          contractedHours: editing.contractedHours ?? undefined,
           postcode: editing.postcode ?? "",
           firstDayOfNotice: editing.firstDayOfNotice ?? "",
           lastWorkingDay: editing.lastWorkingDay,
@@ -179,8 +185,10 @@ function LeaverModal({
       } else {
         form.reset({
           employeeName: "",
+          employeeNo: "",
           gender: undefined,
           weeklyHours: undefined as any,
+          contractedHours: undefined,
           postcode: "",
           firstDayOfNotice: "",
           lastWorkingDay: "",
@@ -232,13 +240,23 @@ function LeaverModal({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(d => mutation.mutate(d))} className="space-y-4">
-            <FormField control={form.control} name="employeeName" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Employee Name <span className="text-red-500">*</span></FormLabel>
-                <FormControl><Input placeholder="Full name" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="employeeName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Employee Name <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input placeholder="Full name" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="employeeNo" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Employee No</FormLabel>
+                  <FormControl><Input placeholder="e.g. 10042" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
 
             <div className="grid grid-cols-3 gap-4">
               <FormField control={form.control} name="gender" render={({ field }) => (
@@ -272,7 +290,7 @@ function LeaverModal({
 
               <FormField control={form.control} name="weeklyHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Weekly Hours <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="number" step="0.5" placeholder="e.g. 37.5" {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -280,6 +298,14 @@ function LeaverModal({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="contractedHours" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contracted Hours</FormLabel>
+                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 30" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="postcode" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Postcode</FormLabel>
@@ -1141,7 +1167,7 @@ export default function CapacityOutlookPage() {
                           <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
                           <TableHead>Gender</TableHead>
                           <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
-                          <SortHead col="weeklyHours" label="Hours/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                          <SortHead col="weeklyHours" label="Desired Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
                           <TableHead>Postcode</TableHead>
                           <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
                           <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />

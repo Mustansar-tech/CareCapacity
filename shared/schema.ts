@@ -770,9 +770,11 @@ export const leavers = pgTable("leavers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   branchId: varchar("branch_id").notNull().references(() => branches.id),
   employeeName: text("employee_name").notNull(),
+  employeeNo: text("employee_no"),
   gender: text("gender", { enum: ["male", "female", "other"] }),
   employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
   weeklyHours: real("weekly_hours").notNull(),
+  contractedHours: real("contracted_hours"),
   postcode: text("postcode"),
   firstDayOfNotice: text("first_day_of_notice"),
   lastWorkingDay: text("last_working_day").notNull(),
@@ -793,6 +795,7 @@ export const insertLeaverSchema = createInsertSchema(leavers).omit({
 }).extend({
   employmentType: z.enum(["driver", "walker"]),
   weeklyHours: z.number().positive(),
+  contractedHours: z.number().nonnegative().optional().nullable(),
   status: z.enum(["active", "processed"]).default("active"),
 });
 
