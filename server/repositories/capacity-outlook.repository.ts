@@ -312,8 +312,8 @@ export async function getCurrentMonthLive(branchId: string): Promise<{
   const hoursIn = round2(hiredThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
   const headsIn = hiredThisMonth.length;
 
-  const allLeavers = await getLeavers(branchId, true);
-  // Running total: only count leavers whose last working day has actually passed (≤ today)
+  const allLeavers = await getLeavers(branchId, false);
+  // Running total: only count active leavers whose last working day has actually passed (≤ today)
   const leaversThisMonth = allLeavers.filter(l =>
     l.lastWorkingDay >= start && l.lastWorkingDay < end && l.lastWorkingDay <= todayStr,
   );
