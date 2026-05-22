@@ -987,7 +987,7 @@ export default function CapacityOutlookPage() {
               ) : (() => {
                 const liveHoursIn = monthlyQuery.data?.live.hoursIn ?? 0;
                 const confirmedNet = Math.round((liveHoursIn - hoursAlreadyGone) * 10) / 10;
-                const projectedNet = Math.round((weeklyGainRate - hoursOnNotice) * 10) / 10;
+                const projectedNet = Math.round((rawWeeklyHours - hoursOnNotice) * 10) / 10;
                 const fmtNet = (n: number) => n === 0 ? '±0h/wk' : n > 0 ? `+${n}h/wk` : `${n}h/wk`;
                 return (
                   <>
@@ -1000,13 +1000,13 @@ export default function CapacityOutlookPage() {
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {liveHoursIn}h hired − {hoursAlreadyGone}h gone
                     </div>
-                    {(hoursOnNotice > 0 || weeklyGainRate > 0) && (
+                    {(hoursOnNotice > 0 || rawWeeklyHours > 0) && (
                       <div className={[
                         "text-xs mt-1 border-t border-blue-100 dark:border-blue-900/30 pt-1",
                         projectedNet >= 0 ? "text-emerald-600/70 dark:text-emerald-400/70" : "text-amber-600/80 dark:text-amber-400/80",
                       ].join(' ')}>
                         {fmtNet(projectedNet)} projected
-                        <span className="text-muted-foreground"> · {weeklyGainRate}h pipeline − {hoursOnNotice}h on notice</span>
+                        <span className="text-muted-foreground"> · {rawWeeklyHours}h pipeline − {hoursOnNotice}h on notice</span>
                       </div>
                     )}
                   </>
