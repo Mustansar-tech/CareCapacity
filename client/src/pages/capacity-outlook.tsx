@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   TrendingDown, TrendingUp, Minus, Users, AlertTriangle,
-  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus,
+  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus, RotateCcw,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -1519,6 +1519,27 @@ function MonthlyViewSheet({
   const [editingRow, setEditingRow] = useState<{ year: number; month: number } | null>(null);
   const [editValues, setEditValues] = useState({ hoursIn: 0, headsIn: 0, hoursOut: 0, headsOut: 0 });
 
+  const reopenMonthMutation = useMutation({
+    mutationFn: async ({ year, month }: { year: number; month: number }) => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/monthly/${year}/${month}?branchId=${branchId}`),
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to reopen month');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
+      toast({ title: "Month reopened", description: "Now showing as Live." });
+    },
+    onError: (err: Error) => {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    },
+  });
+
   const updateSnapshotMutation = useMutation({
     mutationFn: async ({ year, month, values }: { year: number; month: number; values: typeof editValues }) => {
       const res = await fetch(
@@ -1746,19 +1767,34 @@ function MonthlyViewSheet({
                                 Cancel
                               </Button>
                             </div>
-                          ) : canEdit ? (
-                            <Button
-                              size="icon"
-                              variant={isEmpty ? "outline" : "ghost"}
-                              className={isEmpty ? "h-7 w-7 border-dashed text-muted-foreground hover:text-foreground" : "h-7 w-7"}
-                              onClick={() => {
-                                setEditingRow({ year: row.year, month: row.month });
-                                setEditValues({ hoursIn: row.hoursIn, headsIn: row.headsIn, hoursOut: row.hoursOut, headsOut: row.headsOut });
-                              }}
-                            >
-                              {isEmpty ? <Plus className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
-                            </Button>
-                          ) : null}
+                          ) : (
+                            <div className="flex items-center justify-end gap-1">
+                              {canEdit && (
+                                <Button
+                                  size="icon"
+                                  variant={isEmpty ? "outline" : "ghost"}
+                                  className={isEmpty ? "h-7 w-7 border-dashed text-muted-foreground hover:text-foreground" : "h-7 w-7"}
+                                  onClick={() => {
+                                    setEditingRow({ year: row.year, month: row.month });
+                                    setEditValues({ hoursIn: row.hoursIn, headsIn: row.headsIn, hoursOut: row.hoursOut, headsOut: row.headsOut });
+                                  }}
+                                >
+                                  {isEmpty ? <Plus className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                                </Button>
+                              )}
+                              {isClosed && (
+                                <Button
+                                  size="icon" variant="ghost"
+                                  className="h-7 w-7 text-muted-foreground hover:text-amber-600"
+                                  title="Reopen month"
+                                  disabled={reopenMonthMutation.isPending}
+                                  onClick={() => reopenMonthMutation.mutate({ year: row.year, month: row.month })}
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>

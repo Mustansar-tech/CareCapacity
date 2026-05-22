@@ -439,6 +439,21 @@ export async function updateMonthlySnapshot(
   return row;
 }
 
+export async function deleteMonthlySnapshot(
+  branchId: string,
+  year: number,
+  month: number,
+): Promise<boolean> {
+  const result = await db
+    .delete(monthlyCapacitySnapshots)
+    .where(and(
+      eq(monthlyCapacitySnapshots.branchId, branchId),
+      eq(monthlyCapacitySnapshots.year, year),
+      eq(monthlyCapacitySnapshots.month, month),
+    ));
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function autoCloseForAllBranches(): Promise<void> {
   const now = new Date();
   const year = now.getUTCFullYear();

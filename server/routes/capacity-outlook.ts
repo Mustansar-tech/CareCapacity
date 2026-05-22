@@ -18,6 +18,7 @@ import {
   getMonthlySnapshots,
   getCurrentMonthLive,
   updateMonthlySnapshot,
+  deleteMonthlySnapshot,
 } from '../repositories/capacity-outlook.repository';
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
@@ -128,6 +129,30 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       );
 
       res.json(snapshot);
+    }),
+  );
+
+  // DELETE /api/capacity-outlook/monthly/:year/:month — reopen a closed month
+  app.delete(
+    '/api/capacity-outlook/monthly/:year/:month',
+    requireRoleAtLeast('scheduler'),
+    asyncHandler(async (req, res) => {
+      const branchId = await resolveBranch(req);
+      const year = parseInt(req.params.year, 10);
+      const month = parseInt(req.params.month, 10);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        throw createAppError('Invalid year or month', 400);
+      }
+      const ok = await deleteMonthlySnapshot(branchId, year, month);
+      if (!ok) throw createAppError('Snapshot not found', 404);
+      await auditLog(
+        req.session?.userId ?? null,
+        req.session?.userEmail ?? null,
+        branchId,
+        'MONTH_REOPENED',
+        `Monthly snapshot deleted (reopened): ${year}-${String(month).padStart(2, '0')}`,
+      );
+      res.json({ success: true });
     }),
   );
 
