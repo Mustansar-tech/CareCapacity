@@ -915,9 +915,9 @@ export default function CapacityOutlookPage() {
                     {hoursAlreadyGone === 0 && hoursOnNotice === 0 && (
                       <div className="text-xs text-muted-foreground">no hours at risk</div>
                     )}
-                    {(monthlyQuery.data?.live.hoursOut ?? 0) > 0 && (
+                    {((monthlyQuery.data?.live.hoursOut ?? 0) > 0 || (monthlyQuery.data?.live.headsOut ?? 0) > 0) && (
                       <div className="text-xs text-red-500/70 dark:text-red-400/70 mt-0.5 border-t border-red-100 dark:border-red-900/30 pt-0.5">
-                        {monthlyQuery.data!.live.hoursOut}h out this month
+                        {monthlyQuery.data!.live.hoursOut}h out · {monthlyQuery.data!.live.headsOut} {monthlyQuery.data!.live.headsOut === 1 ? 'leaver' : 'leavers'} this month
                       </div>
                     )}
                   </div>
@@ -953,9 +953,9 @@ export default function CapacityOutlookPage() {
                       {hiredJoiners.length} hired this month
                     </div>
                   )}
-                  {(monthlyQuery.data?.live.hoursIn ?? 0) > 0 && (
+                  {((monthlyQuery.data?.live.hoursIn ?? 0) > 0 || (monthlyQuery.data?.live.headsIn ?? 0) > 0) && (
                     <div className="text-xs text-emerald-500/70 dark:text-emerald-400/70 mt-0.5 border-t border-emerald-100 dark:border-emerald-900/30 pt-0.5">
-                      {monthlyQuery.data!.live.hoursIn}h in this month
+                      {monthlyQuery.data!.live.hoursIn}h in · {monthlyQuery.data!.live.headsIn} {monthlyQuery.data!.live.headsIn === 1 ? 'hire' : 'hires'} this month
                     </div>
                   )}
                 </>

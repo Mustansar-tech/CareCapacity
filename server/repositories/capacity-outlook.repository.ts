@@ -293,6 +293,7 @@ export async function getCurrentMonthLive(branchId: string): Promise<{
   hoursIn: number; headsIn: number; hoursOut: number; headsOut: number;
 }> {
   const now = new Date();
+  const todayStr = isoDate(now);
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth() + 1;
   const { start, end } = monthBounds(year, month);
@@ -312,8 +313,9 @@ export async function getCurrentMonthLive(branchId: string): Promise<{
   const headsIn = hiredThisMonth.length;
 
   const allLeavers = await getLeavers(branchId, true);
+  // Running total: only count leavers whose last working day has actually passed (≤ today)
   const leaversThisMonth = allLeavers.filter(l =>
-    l.lastWorkingDay >= start && l.lastWorkingDay < end,
+    l.lastWorkingDay >= start && l.lastWorkingDay < end && l.lastWorkingDay <= todayStr,
   );
   const hoursOut = round2(leaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
   const headsOut = leaversThisMonth.length;
@@ -386,13 +388,23 @@ export async function closeMonth(
       .where(inArray(joiners.id, idsToArchive));
   }
 
-  // Archive leavers whose last working day falls within the closed month
+  // Archive leavers whose last working day falls within the closed month.
+  // For the current (not-yet-ended) month, only archive leavers whose
+  // termination day has actually passed (≤ today) — never pre-archive
+  // staff who are still on notice.
+  const nowStr = isoDate(new Date());
+  const isCurrentMonth = year === new Date().getUTCFullYear() && month === (new Date().getUTCMonth() + 1);
   const activeLeaversForBranch = await db
     .select()
     .from(leavers)
     .where(and(eq(leavers.branchId, branchId), eq(leavers.status, 'active')));
   const leaverIdsToProcess = activeLeaversForBranch
-    .filter(l => l.lastWorkingDay >= start && l.lastWorkingDay < end)
+    .filter(l => {
+      const lwd = l.lastWorkingDay;
+      if (!(lwd >= start && lwd < end)) return false;
+      if (isCurrentMonth && lwd > nowStr) return false; // still on notice
+      return true;
+    })
     .map(l => l.id);
   if (leaverIdsToProcess.length > 0) {
     await db
