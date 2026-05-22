@@ -898,25 +898,27 @@ export default function CapacityOutlookPage() {
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {activeLeavers.length} <span className="text-base font-medium">staff</span>
-                  </div>
-                  <div className="mt-1 space-y-0.5">
-                    {hoursAlreadyGone > 0 && (
-                      <div className="text-xs text-red-600 dark:text-red-400 font-medium">
-                        {hoursAlreadyGone}h/wk already gone
-                      </div>
-                    )}
-                    {hoursOnNotice > 0 && (
-                      <div className="text-xs text-amber-600 dark:text-amber-400">
-                        {hoursOnNotice}h/wk still on notice
-                      </div>
-                    )}
-                    {hoursAlreadyGone === 0 && hoursOnNotice === 0 && (
-                      <div className="text-xs text-muted-foreground">no hours at risk</div>
+                  <div className="mt-1 space-y-1">
+                    {alreadyGone.length === 0 && onNotice.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">no active leavers</div>
+                    ) : (
+                      <>
+                        {alreadyGone.length > 0 && (
+                          <div className="flex items-baseline gap-1.5 text-red-600 dark:text-red-400">
+                            <span className="text-2xl font-bold leading-none">{alreadyGone.length}</span>
+                            <span className="text-xs font-medium">{hoursAlreadyGone}h/wk already gone</span>
+                          </div>
+                        )}
+                        {onNotice.length > 0 && (
+                          <div className="flex items-baseline gap-1.5 text-amber-600 dark:text-amber-400">
+                            <span className="text-2xl font-bold leading-none">{onNotice.length}</span>
+                            <span className="text-xs">{hoursOnNotice}h/wk still on notice</span>
+                          </div>
+                        )}
+                      </>
                     )}
                     {((monthlyQuery.data?.live.hoursOut ?? 0) > 0 || (monthlyQuery.data?.live.headsOut ?? 0) > 0) && (
-                      <div className="text-xs text-red-500/70 dark:text-red-400/70 mt-0.5 border-t border-red-100 dark:border-red-900/30 pt-0.5">
+                      <div className="text-xs text-red-500/70 dark:text-red-400/70 border-t border-red-100 dark:border-red-900/30 pt-1 mt-1">
                         {monthlyQuery.data!.live.hoursOut}h out · {monthlyQuery.data!.live.headsOut} {monthlyQuery.data!.live.headsOut === 1 ? 'leaver' : 'leavers'} this month
                       </div>
                     )}
@@ -976,19 +978,34 @@ export default function CapacityOutlookPage() {
             <CardContent className="px-4 pb-4">
               {leaversQuery.isLoading || joinersQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
-              ) : (
-                <>
-                  <div className={[
-                    "text-2xl font-bold",
-                    weeklyNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
-                  ].join(' ')}>
-                    {weeklyNet >= 0 ? '+' : ''}{weeklyNet}h/wk
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    ongoing capacity change
-                  </div>
-                </>
-              )}
+              ) : (() => {
+                const liveHoursIn = monthlyQuery.data?.live.hoursIn ?? 0;
+                const confirmedNet = Math.round((liveHoursIn - hoursAlreadyGone) * 10) / 10;
+                const projectedNet = Math.round((weeklyGainRate - hoursOnNotice) * 10) / 10;
+                const fmtNet = (n: number) => n === 0 ? '±0h/wk' : n > 0 ? `+${n}h/wk` : `${n}h/wk`;
+                return (
+                  <>
+                    <div className={[
+                      "text-2xl font-bold",
+                      confirmedNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                    ].join(' ')}>
+                      {fmtNet(confirmedNet)}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {liveHoursIn}h hired − {hoursAlreadyGone}h gone
+                    </div>
+                    {(hoursOnNotice > 0 || weeklyGainRate > 0) && (
+                      <div className={[
+                        "text-xs mt-1 border-t border-blue-100 dark:border-blue-900/30 pt-1",
+                        projectedNet >= 0 ? "text-emerald-600/70 dark:text-emerald-400/70" : "text-amber-600/80 dark:text-amber-400/80",
+                      ].join(' ')}>
+                        {fmtNet(projectedNet)} projected
+                        <span className="text-muted-foreground"> · {weeklyGainRate}h pipeline − {hoursOnNotice}h on notice</span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -1130,7 +1147,12 @@ export default function CapacityOutlookPage() {
                   <TableBody>
                     {sortedLeavers.map(l => (
                       <TableRow key={l.id}>
-                        <TableCell className="font-medium">{l.employeeName}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{l.employeeName}</div>
+                          {l.notes && (
+                            <div className="text-xs text-muted-foreground italic mt-0.5 max-w-[180px] truncate" title={l.notes}>{l.notes}</div>
+                          )}
+                        </TableCell>
                         <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
@@ -1186,7 +1208,12 @@ export default function CapacityOutlookPage() {
                       <TableBody>
                         {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
                           <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
-                            <TableCell className="font-medium">{j.candidateName}</TableCell>
+                            <TableCell>
+                              <div className="font-medium">{j.candidateName}</div>
+                              {j.notes && (
+                                <div className="text-xs text-muted-foreground italic mt-0.5 max-w-[180px] truncate" title={j.notes}>{j.notes}</div>
+                              )}
+                            </TableCell>
                             <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
@@ -1379,6 +1406,36 @@ function MonthlyViewSheet({
 }) {
   const { toast } = useToast();
 
+  const [editingRow, setEditingRow] = useState<{ year: number; month: number } | null>(null);
+  const [editValues, setEditValues] = useState({ hoursIn: 0, headsIn: 0, hoursOut: 0, headsOut: 0 });
+
+  const updateSnapshotMutation = useMutation({
+    mutationFn: async ({ year, month, values }: { year: number; month: number; values: typeof editValues }) => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/monthly/${year}/${month}?branchId=${branchId}`),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(values),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to update snapshot');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
+      setEditingRow(null);
+      toast({ title: "Snapshot updated" });
+    },
+    onError: (err: Error) => {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    },
+  });
+
   const closeMonthMutation = useMutation({
     mutationFn: async () => {
       const year = monthlyData?.currentYear ?? new Date().getUTCFullYear();
@@ -1486,14 +1543,21 @@ function MonthlyViewSheet({
                   <TableHead className="text-red-600 dark:text-red-400">Out (h/wk)</TableHead>
                   <TableHead className="text-red-600 dark:text-red-400">Leavers</TableHead>
                   <TableHead>Net</TableHead>
+                  {isScheduler && <TableHead />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row) => {
-                  const net = Math.round((row.hoursIn - row.hoursOut) * 10) / 10;
                   const isCurrentMonth = row.year === monthlyData?.currentYear && row.month === monthlyData?.currentMonth;
                   const isLive = 'isLive' in row && row.isLive;
                   const isClosed = 'isClosed' in row && row.isClosed;
+                  const isEditing = editingRow?.year === row.year && editingRow?.month === row.month;
+                  const canEdit = isScheduler && isClosed;
+                  const displayHoursIn  = isEditing ? editValues.hoursIn  : row.hoursIn;
+                  const displayHeadsIn  = isEditing ? editValues.headsIn  : row.headsIn;
+                  const displayHoursOut = isEditing ? editValues.hoursOut : row.hoursOut;
+                  const displayHeadsOut = isEditing ? editValues.headsOut : row.headsOut;
+                  const net = Math.round((displayHoursIn - displayHoursOut) * 10) / 10;
                   return (
                     <TableRow
                       key={`${row.year}-${row.month}`}
@@ -1512,18 +1576,64 @@ function MonthlyViewSheet({
                           </Badge>
                         )}
                       </TableCell>
+
+                      {/* In h/wk */}
                       <TableCell className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                        {row.hoursIn > 0 ? `+${row.hoursIn}h` : '—'}
+                        {isEditing ? (
+                          <input
+                            type="number" min={0} step={0.5}
+                            value={editValues.hoursIn}
+                            onChange={e => setEditValues(v => ({ ...v, hoursIn: parseFloat(e.target.value) || 0 }))}
+                            className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
+                        ) : (
+                          displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'
+                        )}
                       </TableCell>
+
+                      {/* Hires */}
                       <TableCell className="text-emerald-600 dark:text-emerald-400">
-                        {row.headsIn > 0 ? row.headsIn : '—'}
+                        {isEditing ? (
+                          <input
+                            type="number" min={0} step={1}
+                            value={editValues.headsIn}
+                            onChange={e => setEditValues(v => ({ ...v, headsIn: parseInt(e.target.value) || 0 }))}
+                            className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
+                        ) : (
+                          displayHeadsIn > 0 ? displayHeadsIn : '—'
+                        )}
                       </TableCell>
+
+                      {/* Out h/wk */}
                       <TableCell className="text-red-600 dark:text-red-400 font-semibold">
-                        {row.hoursOut > 0 ? `${row.hoursOut}h` : '—'}
+                        {isEditing ? (
+                          <input
+                            type="number" min={0} step={0.5}
+                            value={editValues.hoursOut}
+                            onChange={e => setEditValues(v => ({ ...v, hoursOut: parseFloat(e.target.value) || 0 }))}
+                            className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
+                          />
+                        ) : (
+                          displayHoursOut > 0 ? `${displayHoursOut}h` : '—'
+                        )}
                       </TableCell>
+
+                      {/* Leavers */}
                       <TableCell className="text-red-500 dark:text-red-400">
-                        {row.headsOut > 0 ? row.headsOut : '—'}
+                        {isEditing ? (
+                          <input
+                            type="number" min={0} step={1}
+                            value={editValues.headsOut}
+                            onChange={e => setEditValues(v => ({ ...v, headsOut: parseInt(e.target.value) || 0 }))}
+                            className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
+                          />
+                        ) : (
+                          displayHeadsOut > 0 ? displayHeadsOut : '—'
+                        )}
                       </TableCell>
+
+                      {/* Net */}
                       <TableCell className={[
                         "font-semibold",
                         net > 0 ? "text-emerald-600 dark:text-emerald-400"
@@ -1532,6 +1642,41 @@ function MonthlyViewSheet({
                       ].join(' ')}>
                         {net === 0 ? '±0h' : net > 0 ? `+${net}h` : `${net}h`}
                       </TableCell>
+
+                      {/* Edit / Save / Cancel */}
+                      {isScheduler && (
+                        <TableCell className="text-right py-1">
+                          {isEditing ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm" variant="default"
+                                className="h-7 px-2 text-xs"
+                                disabled={updateSnapshotMutation.isPending}
+                                onClick={() => updateSnapshotMutation.mutate({ year: row.year, month: row.month, values: editValues })}
+                              >
+                                {updateSnapshotMutation.isPending ? 'Saving…' : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm" variant="ghost"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => setEditingRow(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : canEdit ? (
+                            <Button
+                              size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={() => {
+                                setEditingRow({ year: row.year, month: row.month });
+                                setEditValues({ hoursIn: row.hoursIn, headsIn: row.headsIn, hoursOut: row.hoursOut, headsOut: row.headsOut });
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}

@@ -418,6 +418,24 @@ export async function closeMonth(
   return snapshot;
 }
 
+export async function updateMonthlySnapshot(
+  branchId: string,
+  year: number,
+  month: number,
+  data: { hoursIn: number; headsIn: number; hoursOut: number; headsOut: number },
+): Promise<MonthlySnapshot | null> {
+  const [row] = await db
+    .update(monthlyCapacitySnapshots)
+    .set({ ...data, snapshotCreatedAt: new Date() })
+    .where(and(
+      eq(monthlyCapacitySnapshots.branchId, branchId),
+      eq(monthlyCapacitySnapshots.year, year),
+      eq(monthlyCapacitySnapshots.month, month),
+    ))
+    .returning();
+  return row ?? null;
+}
+
 export async function autoCloseForAllBranches(): Promise<void> {
   const now = new Date();
   const year = now.getUTCFullYear();

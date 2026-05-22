@@ -142,6 +142,17 @@ app.use((req, res, next) => {
     }
   }, 8000);
 
+  // Hourly check: auto-close the previous month on month rollover.
+  // autoCloseForAllBranches is idempotent — does nothing if snapshot already exists.
+  setInterval(async () => {
+    try {
+      const { autoCloseForAllBranches } = await import('./repositories/capacity-outlook.repository');
+      await autoCloseForAllBranches();
+    } catch (err) {
+      logger.error('monthly capacity auto-close hourly error', err);
+    }
+  }, 60 * 60 * 1000);
+
   // Run geo-sweeper in the background after startup to geocode any client
   // locations that have a postcode but are still missing lat/lng coordinates.
   // This is fire-and-forget — it does not block server startup.

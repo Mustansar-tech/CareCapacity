@@ -18,6 +18,7 @@ import {
   getMonthlySnapshots,
   getCurrentMonthLive,
   closeMonth,
+  updateMonthlySnapshot,
 } from '../repositories/capacity-outlook.repository';
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
@@ -123,6 +124,38 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         branchId,
         'MONTH_CLOSED',
         `Monthly snapshot closed: ${year}-${String(month).padStart(2, '0')}`,
+      );
+
+      res.json(snapshot);
+    }),
+  );
+
+  // PUT /api/capacity-outlook/monthly/:year/:month — edit a saved snapshot
+  app.put(
+    '/api/capacity-outlook/monthly/:year/:month',
+    requireRoleAtLeast('scheduler'),
+    asyncHandler(async (req, res) => {
+      const branchId = await resolveBranch(req);
+      const year = parseInt(req.params.year, 10);
+      const month = parseInt(req.params.month, 10);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        throw createAppError('Invalid year or month', 400);
+      }
+      const { hoursIn, headsIn, hoursOut, headsOut } = req.body;
+      const snapshot = await updateMonthlySnapshot(branchId, year, month, {
+        hoursIn: Number(hoursIn) || 0,
+        headsIn: Number(headsIn) || 0,
+        hoursOut: Number(hoursOut) || 0,
+        headsOut: Number(headsOut) || 0,
+      });
+      if (!snapshot) throw createAppError('Snapshot not found for this month', 404);
+
+      await auditLog(
+        req.session?.userId ?? null,
+        req.session?.userEmail ?? null,
+        branchId,
+        'MONTH_UPDATED',
+        `Monthly snapshot updated: ${year}-${String(month).padStart(2, '0')}`,
       );
 
       res.json(snapshot);
