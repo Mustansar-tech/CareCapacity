@@ -1,15 +1,17 @@
 import { db } from '../infrastructure/db';
-import { leavers, joiners } from '@shared/schema';
+import { leavers, joiners, monthlyCapacitySnapshots, branches } from '@shared/schema';
 import type {
   Leaver, InsertLeaver, Joiner, InsertJoiner,
   OutlookWeek, OutlookTotals, OutlookResponse, OutlookDetail, OutlookRag,
+  MonthlySnapshot,
 } from '@shared/schema';
-import { eq, and, lte, gte, or } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 // ── Confidence weights by stage ───────────────────────────────────────────────
 
 export function getConfidenceWeight(stage: string): number {
   switch (stage) {
+    case 'Hired': return 1.0;
     case 'Onboarding':
     case 'Training Attended': return 0.33;
     case 'PVG':
@@ -40,7 +42,7 @@ function diffDays(from: string, to: string): number {
 
 function currentIsoWeekMonday(): string {
   const now = new Date();
-  const dow = now.getUTCDay(); // 0=Sun
+  const dow = now.getUTCDay();
   const daysBack = dow === 0 ? 6 : dow - 1;
   const mon = new Date(now);
   mon.setUTCDate(now.getUTCDate() - daysBack);
@@ -70,7 +72,6 @@ function calcLossForWeek(leaver: Leaver, weekStart: string, weekEnd: string): nu
   if (lwd >= weekEnd) {
     return 0;
   }
-  // Partial week: they work from weekStart up to and including lwd, then gone
   const daysWorked = diffDays(weekStart, lwd) + 1;
   return (leaver.weeklyHours ?? 0) * Math.max(0, 7 - daysWorked) / 7;
 }
@@ -78,7 +79,6 @@ function calcLossForWeek(leaver: Leaver, weekStart: string, weekEnd: string): nu
 function calcGainForWeek(joiner: Joiner, weekStart: string, weekEnd: string): number {
   const weight = joiner.confidenceWeight ?? 0;
   const hours = joiner.desiredWeeklyHours ?? 0;
-  // If no expected start date, count the joiner's full weighted hours in every week
   const esd = joiner.expectedStartDate;
   if (!esd) return hours * weight;
   if (esd > weekEnd) return 0;
@@ -118,10 +118,11 @@ export async function getJoiners(branchId: string, includeDropped = false): Prom
   if (includeDropped) {
     return db.select().from(joiners).where(baseWhere).orderBy(joiners.createdAt);
   }
+  // Return active + hired (pipeline view)
   return db
     .select()
     .from(joiners)
-    .where(and(baseWhere, eq(joiners.status, 'active')))
+    .where(and(baseWhere, inArray(joiners.status, ['active', 'hired'])))
     .orderBy(joiners.createdAt);
 }
 
@@ -194,7 +195,9 @@ export async function computeOutlook(
   segment = 'all',
 ): Promise<OutlookResponse> {
   const allLeavers = await getLeavers(branchId);
-  const allJoiners = await getJoiners(branchId);
+  const allJoinersRaw = await getJoiners(branchId);
+  // Only active (not-yet-hired) pipeline joiners in the outlook forecast
+  const allJoiners = allJoinersRaw.filter(j => j.status === 'active');
 
   const segLeavers = filterBySegment(allLeavers, segment);
   const segJoiners = filterBySegment(allJoiners, segment);
@@ -251,7 +254,8 @@ export async function getOutlookDetail(branchId: string, weekStart: string): Pro
   const weekEnd = addDays(weekStart, 6);
 
   const allLeavers = await getLeavers(branchId);
-  const allJoiners = await getJoiners(branchId);
+  const allJoinersRaw = await getJoiners(branchId);
+  const allJoiners = allJoinersRaw.filter(j => j.status === 'active');
 
   const affectedLeavers = allLeavers.filter(l => {
     const loss = calcLossForWeek(l, weekStart, weekEnd);
@@ -264,4 +268,150 @@ export async function getOutlookDetail(branchId: string, weekStart: string): Pro
   });
 
   return { leavers: affectedLeavers, joiners: affectedJoiners };
+}
+
+// ── Monthly snapshot helpers ──────────────────────────────────────────────────
+
+function monthBounds(year: number, month: number): { start: string; end: string } {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+  return { start, end };
+}
+
+export async function getMonthlySnapshots(branchId: string): Promise<MonthlySnapshot[]> {
+  return db
+    .select()
+    .from(monthlyCapacitySnapshots)
+    .where(eq(monthlyCapacitySnapshots.branchId, branchId))
+    .orderBy(monthlyCapacitySnapshots.year, monthlyCapacitySnapshots.month);
+}
+
+export async function getCurrentMonthLive(branchId: string): Promise<{
+  hoursIn: number; headsIn: number; hoursOut: number; headsOut: number;
+}> {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  const { start, end } = monthBounds(year, month);
+
+  const hiredJoiners = await db
+    .select()
+    .from(joiners)
+    .where(and(
+      eq(joiners.branchId, branchId),
+      eq(joiners.status, 'hired'),
+    ));
+
+  const hiredThisMonth = hiredJoiners.filter(j =>
+    j.hiredAt && j.hiredAt >= start && j.hiredAt < end,
+  );
+  const hoursIn = round2(hiredThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
+  const headsIn = hiredThisMonth.length;
+
+  const allLeavers = await getLeavers(branchId, true);
+  const leaversThisMonth = allLeavers.filter(l =>
+    l.lastWorkingDay >= start && l.lastWorkingDay < end,
+  );
+  const hoursOut = round2(leaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
+  const headsOut = leaversThisMonth.length;
+
+  return { hoursIn, headsIn, hoursOut, headsOut };
+}
+
+export async function closeMonth(
+  branchId: string,
+  year: number,
+  month: number,
+): Promise<MonthlySnapshot> {
+  const { start, end } = monthBounds(year, month);
+
+  const hiredJoiners = await db
+    .select()
+    .from(joiners)
+    .where(and(
+      eq(joiners.branchId, branchId),
+      eq(joiners.status, 'hired'),
+    ));
+  const hiredThisMonth = hiredJoiners.filter(j =>
+    j.hiredAt && j.hiredAt >= start && j.hiredAt < end,
+  );
+  const hoursIn = round2(hiredThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
+  const headsIn = hiredThisMonth.length;
+
+  const allLeavers = await getLeavers(branchId, true);
+  const leaversThisMonth = allLeavers.filter(l =>
+    l.lastWorkingDay >= start && l.lastWorkingDay < end,
+  );
+  const hoursOut = round2(leaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
+  const headsOut = leaversThisMonth.length;
+
+  const existing = await db
+    .select()
+    .from(monthlyCapacitySnapshots)
+    .where(and(
+      eq(monthlyCapacitySnapshots.branchId, branchId),
+      eq(monthlyCapacitySnapshots.year, year),
+      eq(monthlyCapacitySnapshots.month, month),
+    ));
+
+  let snapshot: MonthlySnapshot;
+  if (existing.length > 0) {
+    const [row] = await db
+      .update(monthlyCapacitySnapshots)
+      .set({ hoursIn, headsIn, hoursOut, headsOut, snapshotCreatedAt: new Date() })
+      .where(and(
+        eq(monthlyCapacitySnapshots.branchId, branchId),
+        eq(monthlyCapacitySnapshots.year, year),
+        eq(monthlyCapacitySnapshots.month, month),
+      ))
+      .returning();
+    snapshot = row;
+  } else {
+    const [row] = await db
+      .insert(monthlyCapacitySnapshots)
+      .values({ branchId, year, month, hoursIn, headsIn, hoursOut, headsOut })
+      .returning();
+    snapshot = row;
+  }
+
+  // Archive processed hired joiners
+  const idsToArchive = hiredThisMonth.map(j => j.id);
+  if (idsToArchive.length > 0) {
+    await db
+      .update(joiners)
+      .set({ status: 'hired_archived', updatedAt: new Date() })
+      .where(inArray(joiners.id, idsToArchive));
+  }
+
+  return snapshot;
+}
+
+export async function autoCloseForAllBranches(): Promise<void> {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+
+  const allBranches = await db.select({ id: branches.id }).from(branches);
+
+  for (const branch of allBranches) {
+    const existing = await db
+      .select()
+      .from(monthlyCapacitySnapshots)
+      .where(and(
+        eq(monthlyCapacitySnapshots.branchId, branch.id),
+        eq(monthlyCapacitySnapshots.year, prevYear),
+        eq(monthlyCapacitySnapshots.month, prevMonth),
+      ));
+    if (existing.length === 0) {
+      try {
+        await closeMonth(branch.id, prevYear, prevMonth);
+      } catch {
+        // non-fatal per-branch
+      }
+    }
+  }
 }

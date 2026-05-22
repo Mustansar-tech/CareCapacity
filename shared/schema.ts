@@ -801,13 +801,13 @@ export type Leaver = typeof leavers.$inferSelect;
 
 // ── Capacity Outlook — Joiners ────────────────────────────────────────────────
 
-export const joinerMilestones = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2'] as const;
+export const joinerMilestones = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2', 'Hired'] as const;
 export type JoinerMilestone = typeof joinerMilestones[number];
 
 export const joinerStages = [...joinerMilestones, 'Dropped'] as const;
 export type JoinerStage = typeof joinerStages[number];
 
-export const joinerStatuses = ['active', 'dropped'] as const;
+export const joinerStatuses = ['active', 'dropped', 'hired', 'hired_archived'] as const;
 export type JoinerStatus = typeof joinerStatuses[number];
 
 export const joiners = pgTable("joiners", {
@@ -823,7 +823,8 @@ export const joiners = pgTable("joiners", {
   expectedStartDate: text("expected_start_date"),
   completedStages: text("completed_stages").array(),
   stage: text("stage").notNull(),
-  status: text("status", { enum: ["active", "dropped"] }).notNull().default("active"),
+  status: text("status", { enum: ["active", "dropped", "hired", "hired_archived"] }).notNull().default("active"),
+  hiredAt: text("hired_at"),
   confidenceWeight: real("confidence_weight").notNull(),
   notes: text("notes"),
   createdBy: varchar("created_by"),
@@ -845,12 +846,43 @@ export const insertJoinerSchema = createInsertSchema(joiners).omit({
   postcode: z.string().optional().nullable(),
   completedStages: z.array(z.string()).default([]),
   stage: z.enum(joinerStages).optional(),
-  status: z.enum(["active", "dropped"]).default("active"),
+  status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   expectedStartDate: z.string().optional().nullable(),
+  hiredAt: z.string().optional().nullable(),
 });
 
 export type InsertJoiner = z.infer<typeof insertJoinerSchema>;
 export type Joiner = typeof joiners.$inferSelect;
+
+// ── Capacity Outlook — Monthly Snapshots ─────────────────────────────────────
+
+export const monthlyCapacitySnapshots = pgTable("monthly_capacity_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  hoursIn: real("hours_in").notNull().default(0),
+  headsIn: integer("heads_in").notNull().default(0),
+  hoursOut: real("hours_out").notNull().default(0),
+  headsOut: integer("heads_out").notNull().default(0),
+  snapshotCreatedAt: timestamp("snapshot_created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueMonthBranch: unique("unique_month_branch").on(table.branchId, table.year, table.month),
+  snapshotBranchIdx: index("snapshot_branch_idx").on(table.branchId),
+}));
+
+export const insertMonthlySnapshotSchema = createInsertSchema(monthlyCapacitySnapshots).omit({
+  id: true,
+  snapshotCreatedAt: true,
+}).extend({
+  hoursIn: z.number().nonnegative().default(0),
+  headsIn: z.number().int().nonnegative().default(0),
+  hoursOut: z.number().nonnegative().default(0),
+  headsOut: z.number().int().nonnegative().default(0),
+});
+
+export type InsertMonthlySnapshot = z.infer<typeof insertMonthlySnapshotSchema>;
+export type MonthlySnapshot = typeof monthlyCapacitySnapshots.$inferSelect;
 
 // ── Capacity Outlook — computed types ────────────────────────────────────────
 

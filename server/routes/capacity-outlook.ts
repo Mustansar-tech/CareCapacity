@@ -15,28 +15,35 @@ import {
   updateJoiner,
   deleteJoiner,
   getOutlookDetail,
+  getMonthlySnapshots,
+  getCurrentMonthLive,
+  closeMonth,
 } from '../repositories/capacity-outlook.repository';
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
+  'Hired': 1.0,
   'Onboarding': 0.33,
   'Training Attended': 0.33,
   'PVG': 0.11,
   'REF1': 0.11,
   'REF2': 0.11,
 };
-const MILESTONE_PRIORITY = ['REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
+const MILESTONE_PRIORITY = ['Hired', 'REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
 
 function computeConfidenceFromMilestones(stages: string[]): number {
+  if (stages.includes('Hired')) return 1.0;
   return stages.reduce((sum, s) => sum + (MILESTONE_WEIGHTS[s] ?? 0), 0);
 }
 
 function deriveStageFromMilestones(stages: string[], status: string): string {
   if (status === 'dropped') return 'Dropped';
+  if (status === 'hired' || status === 'hired_archived') return 'Hired';
   for (const m of MILESTONE_PRIORITY) {
     if (stages.includes(m)) return m;
   }
   return 'Onboarding';
 }
+
 import { insertLeaverSchema, insertJoinerSchema } from '@shared/schema';
 import { z } from 'zod';
 
@@ -78,6 +85,49 @@ export function registerCapacityOutlookRoutes(app: Express): void {
     const detail = await getOutlookDetail(branchId, weekStart);
     res.json(detail);
   }));
+
+  // GET /api/capacity-outlook/monthly — saved snapshots + live current month
+  app.get('/api/capacity-outlook/monthly', asyncHandler(async (req, res) => {
+    const branchId = await resolveBranch(req);
+    const snapshots = await getMonthlySnapshots(branchId);
+    const live = await getCurrentMonthLive(branchId);
+    const now = new Date();
+    res.json({
+      snapshots,
+      live,
+      currentYear: now.getUTCFullYear(),
+      currentMonth: now.getUTCMonth() + 1,
+    });
+  }));
+
+  // POST /api/capacity-outlook/monthly/close — manual or auto close
+  app.post(
+    '/api/capacity-outlook/monthly/close',
+    requireRoleAtLeast('scheduler'),
+    asyncHandler(async (req, res) => {
+      const branchId = await resolveBranch(req);
+      const now = new Date();
+      const defaultYear = now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
+      const defaultMonth = now.getUTCMonth() === 0 ? 12 : now.getUTCMonth();
+
+      const year = typeof req.body.year === 'number' ? req.body.year : defaultYear;
+      const month = typeof req.body.month === 'number' ? req.body.month : defaultMonth;
+
+      if (month < 1 || month > 12) throw createAppError('month must be 1–12', 400);
+
+      const snapshot = await closeMonth(branchId, year, month);
+
+      await auditLog(
+        req.session?.userId ?? null,
+        req.session?.userEmail ?? null,
+        branchId,
+        'MONTH_CLOSED',
+        `Monthly snapshot closed: ${year}-${String(month).padStart(2, '0')}`,
+      );
+
+      res.json(snapshot);
+    }),
+  );
 
   // POST /api/capacity-outlook/leavers
   app.post(
@@ -177,12 +227,18 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       const stage = deriveStageFromMilestones(completedStages, status) as string;
       const confidenceWeight = status === 'dropped' ? 0 : computeConfidenceFromMilestones(completedStages);
 
+      // Auto-set hiredAt when marking as hired
+      const hiredAt = (status === 'hired' && !data.hiredAt)
+        ? new Date().toISOString().split('T')[0]
+        : (data.hiredAt ?? null);
+
       const joiner = await createJoiner({
         ...data,
         stage,
         status,
         completedStages,
         confidenceWeight,
+        hiredAt,
         createdBy: req.session?.userId ?? null,
       });
 
@@ -191,7 +247,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         req.session?.userEmail ?? null,
         branchId,
         'JOINER_CREATED',
-        `Joiner created: ${data.candidateName}, stage ${data.stage}, start ${data.expectedStartDate}`,
+        `Joiner created: ${data.candidateName}, stage ${stage}`,
       );
 
       res.status(201).json(joiner);
@@ -218,8 +274,13 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       const stage = deriveStageFromMilestones(completedStages, status) as string;
       const confidenceWeight = status === 'dropped' ? 0 : computeConfidenceFromMilestones(completedStages);
 
+      // Auto-set hiredAt when transitioning to hired
+      const hiredAt = (status === 'hired' && !data.hiredAt)
+        ? new Date().toISOString().split('T')[0]
+        : (data.hiredAt ?? undefined);
+
       const updated = await updateJoiner(id, branchId, {
-        ...data, stage, status, completedStages, confidenceWeight,
+        ...data, stage, status, completedStages, confidenceWeight, hiredAt,
       });
       if (!updated) throw createAppError('Joiner not found or access denied', 404);
 
@@ -228,7 +289,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         req.session?.userEmail ?? null,
         branchId,
         'JOINER_UPDATED',
-        `Joiner updated: ${id}`,
+        `Joiner updated: ${id}, stage ${stage}`,
       );
 
       res.json(updated);

@@ -131,6 +131,17 @@ app.use((req, res, next) => {
   await seedAdminUser();
   await migrateUsersToSupabase();
 
+  // Auto-close previous month's capacity snapshot if it hasn't been done yet.
+  // Fire-and-forget — runs 8 s after startup to let DB connections settle.
+  setTimeout(async () => {
+    try {
+      const { autoCloseForAllBranches } = await import('./repositories/capacity-outlook.repository');
+      await autoCloseForAllBranches();
+    } catch (err) {
+      logger.error('monthly capacity auto-close startup error', err);
+    }
+  }, 8000);
+
   // Run geo-sweeper in the background after startup to geocode any client
   // locations that have a postcode but are still missing lat/lng coordinates.
   // This is fire-and-forget — it does not block server startup.

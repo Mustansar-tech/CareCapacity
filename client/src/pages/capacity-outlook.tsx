@@ -30,9 +30,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   TrendingDown, TrendingUp, Minus, Users, AlertTriangle,
-  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info,
+  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2,
 } from "lucide-react";
-import type { OutlookResponse, OutlookDetail, Leaver, Joiner } from "@shared/schema";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import type { OutlookResponse, OutlookDetail, Leaver, Joiner, MonthlySnapshot } from "@shared/schema";
 import { joinerStages } from "@shared/schema";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -41,16 +44,18 @@ import { joinerStages } from "@shared/schema";
 // ── Milestone confidence helpers ──────────────────────────────────────────────
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
+  'Hired': 1.0,
   'Onboarding': 0.33,
   'Training Attended': 0.33,
   'PVG': 0.11,
   'REF1': 0.11,
   'REF2': 0.11,
 };
-const MILESTONE_ORDER = ['REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
-const ALL_MILESTONES = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2'] as const;
+const MILESTONE_ORDER = ['Hired', 'REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
+const ALL_MILESTONES = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2', 'Hired'] as const;
 
 function calcMilestoneConfidence(stages: string[]): number {
+  if (stages.includes('Hired')) return 1.0;
   return stages.reduce((sum, s) => sum + (MILESTONE_WEIGHTS[s] ?? 0), 0);
 }
 
@@ -124,7 +129,8 @@ const joinerFormSchema = z.object({
   postcode: z.string().optional(),
   trainingDate: z.string().optional(),
   completedStages: z.array(z.string()).default([]),
-  status: z.enum(["active", "dropped"]).default("active"),
+  status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
+  hiredAt: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -361,7 +367,8 @@ function JoinerModal({
           postcode: editing.postcode ?? "",
           trainingDate: editing.trainingDate ?? "",
           completedStages: getInitialCompletedStages(editing),
-          status: (editing.status as "active" | "dropped") ?? "active",
+          status: (editing.status as "active" | "dropped" | "hired" | "hired_archived") ?? "active",
+          hiredAt: editing.hiredAt ?? "",
           notes: editing.notes ?? "",
         });
       } else {
@@ -374,6 +381,7 @@ function JoinerModal({
           trainingDate: "",
           completedStages: ['Onboarding'],
           status: "active",
+          hiredAt: "",
           notes: "",
         });
       }
@@ -382,7 +390,8 @@ function JoinerModal({
 
   const watchedStages = form.watch("completedStages");
   const watchedStatus = form.watch("status");
-  const liveConfidence = watchedStatus === 'dropped' ? 0 : calcMilestoneConfidence(watchedStages ?? []);
+  const isHired = watchedStages?.includes('Hired') || watchedStatus === 'hired';
+  const liveConfidence = watchedStatus === 'dropped' ? 0 : isHired ? 1.0 : calcMilestoneConfidence(watchedStages ?? []);
 
   const mutation = useMutation({
     mutationFn: async (data: JoinerFormData) => {
@@ -497,6 +506,7 @@ function JoinerModal({
                 {ALL_MILESTONES.map(m => {
                   const checked = watchedStages?.includes(m) ?? false;
                   const disabled = watchedStatus === 'dropped';
+                  const isHiredMilestone = m === 'Hired';
                   return (
                     <button
                       key={m}
@@ -504,21 +514,34 @@ function JoinerModal({
                       disabled={disabled}
                       onClick={() => {
                         const current = form.getValues('completedStages') ?? [];
-                        form.setValue(
-                          'completedStages',
-                          checked ? current.filter(s => s !== m) : [...current, m],
-                          { shouldValidate: true }
-                        );
+                        const next = checked ? current.filter(s => s !== m) : [...current, m];
+                        form.setValue('completedStages', next, { shouldValidate: true });
+                        // Toggling Hired milestone also sets status + hiredAt
+                        if (isHiredMilestone) {
+                          if (!checked) {
+                            form.setValue('status', 'hired', { shouldValidate: true });
+                            form.setValue('hiredAt', new Date().toISOString().split('T')[0]);
+                          } else {
+                            form.setValue('status', 'active', { shouldValidate: true });
+                            form.setValue('hiredAt', '');
+                          }
+                        }
                       }}
                       className={[
                         "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
                         disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
-                        checked && !disabled
+                        checked && !disabled && isHiredMilestone
+                          ? "bg-yellow-100 text-yellow-800 border-yellow-400 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-600"
+                          : checked && !disabled
                           ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700"
                           : "bg-muted text-muted-foreground border-border hover:bg-muted/80",
                       ].join(' ')}
                     >
-                      {m} <span className="opacity-60">+{Math.round((MILESTONE_WEIGHTS[m] ?? 0) * 100)}%</span>
+                      {isHiredMilestone ? '🏆 ' : ''}{m}
+                      {isHiredMilestone
+                        ? <span className="opacity-60 ml-1">= 100%</span>
+                        : <span className="opacity-60"> +{Math.round((MILESTONE_WEIGHTS[m] ?? 0) * 100)}%</span>
+                      }
                     </button>
                   );
                 })}
@@ -526,28 +549,31 @@ function JoinerModal({
               <div className="flex items-center gap-3 mt-2">
                 <div className={[
                   "text-sm font-semibold",
-                  liveConfidence >= 0.7 ? "text-emerald-600 dark:text-emerald-400"
+                  liveConfidence >= 1.0 ? "text-yellow-600 dark:text-yellow-400"
+                  : liveConfidence >= 0.7 ? "text-emerald-600 dark:text-emerald-400"
                   : liveConfidence >= 0.4 ? "text-amber-600 dark:text-amber-400"
                   : "text-muted-foreground",
                 ].join(' ')}>
-                  Total confidence: {Math.round(liveConfidence * 100)}%
+                  {isHired ? '✓ Hired — 100% confident' : `Total confidence: ${Math.round(liveConfidence * 100)}%`}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const isDrop = watchedStatus !== 'dropped';
-                    form.setValue('status', isDrop ? 'dropped' : 'active', { shouldValidate: true });
-                    if (isDrop) form.setValue('completedStages', [], { shouldValidate: true });
-                  }}
-                  className={[
-                    "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                    watchedStatus === 'dropped'
-                      ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700"
-                      : "bg-muted text-muted-foreground border-border hover:bg-red-50 hover:text-red-600",
-                  ].join(' ')}
-                >
-                  {watchedStatus === 'dropped' ? '✕ Dropped' : 'Mark as Dropped'}
-                </button>
+                {!isHired && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const isDrop = watchedStatus !== 'dropped';
+                      form.setValue('status', isDrop ? 'dropped' : 'active', { shouldValidate: true });
+                      if (isDrop) form.setValue('completedStages', [], { shouldValidate: true });
+                    }}
+                    className={[
+                      "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                      watchedStatus === 'dropped'
+                        ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700"
+                        : "bg-muted text-muted-foreground border-border hover:bg-red-50 hover:text-red-600",
+                    ].join(' ')}
+                  >
+                    {watchedStatus === 'dropped' ? '✕ Dropped' : 'Mark as Dropped'}
+                  </button>
+                )}
               </div>
             </FormItem>
 
@@ -597,6 +623,7 @@ export default function CapacityOutlookPage() {
   const [deletingLeaverId, setDeletingLeaverId] = useState<string | null>(null);
   const [deletingJoinerId, setDeletingJoinerId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'leavers' | 'pipeline'>('pipeline');
+  const [monthlyViewOpen, setMonthlyViewOpen] = useState(false);
 
   type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'firstDayOfNotice' | 'lastWorkingDay';
   type JoinerSortCol = 'candidateName' | 'employmentType' | 'desiredWeeklyHours' | 'stage' | 'confidenceWeight' | 'trainingDate' | 'postcode';
@@ -652,6 +679,21 @@ export default function CapacityOutlookPage() {
     staleTime: 30_000,
   });
 
+  // Monthly capacity data
+  const monthlyQuery = useQuery<MonthlyData>({
+    queryKey: ['/api/capacity-outlook/monthly', branchId],
+    queryFn: async () => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/monthly?branchId=${branchId}`),
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to load monthly data');
+      return res.json();
+    },
+    enabled: !!branchId,
+    staleTime: 60_000,
+  });
+
   // Delete mutations
   const deleteLeaverMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -681,6 +723,7 @@ export default function CapacityOutlookPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook'] });
       queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
       setDeletingJoinerId(null);
       toast({ title: "Joiner removed" });
     },
@@ -692,7 +735,10 @@ export default function CapacityOutlookPage() {
 
   // Steady-state weekly KPIs — computed from raw leaver/joiner lists
   const activeLeavers = leaversQuery.data ?? [];
-  const activeJoiners = (joinersQuery.data ?? []).filter(j => j.status !== 'dropped');
+  // Split pipeline joiners: active (not yet hired) vs hired this month
+  const pipelineJoiners = (joinersQuery.data ?? []).filter(j => j.status === 'active');
+  const hiredJoiners = (joinersQuery.data ?? []).filter(j => j.status === 'hired');
+  const activeJoiners = pipelineJoiners; // alias for coverage/net calculation
 
   // Split leavers: already gone (past termination) vs still on notice (still working)
   const todayStr = new Date().toISOString().split('T')[0];
@@ -727,10 +773,6 @@ export default function CapacityOutlookPage() {
     [leaversQuery.data, leaverSort.col, leaverSort.dir],
   );
 
-  const sortedJoiners = useMemo(
-    () => sortBy(joinersQuery.data ?? [], joinerSort.col, joinerSort.dir),
-    [joinersQuery.data, joinerSort.col, joinerSort.dir],
-  );
 
   function SortHead<C extends string>({
     col, label, current, onSort,
@@ -781,6 +823,15 @@ export default function CapacityOutlookPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setMonthlyViewOpen(true)}
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Monthly View
+            </Button>
             {isScheduler && (
               <>
                 <Button
@@ -864,11 +915,17 @@ export default function CapacityOutlookPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {activeJoiners.length} <span className="text-base font-medium">candidates</span>
+                    {pipelineJoiners.length} <span className="text-base font-medium">candidates</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {weeklyGainRate}h/wk expected (weighted)
                   </div>
+                  {hiredJoiners.length > 0 && (
+                    <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-0.5 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {hiredJoiners.length} hired this month
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
@@ -989,7 +1046,7 @@ export default function CapacityOutlookPage() {
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : "bg-muted text-muted-foreground",
               ].join(' ')}>
-                {activeJoiners.length}
+                {pipelineJoiners.length}
               </span>
             </button>
 
@@ -1074,76 +1131,106 @@ export default function CapacityOutlookPage() {
             {activeTab === 'pipeline' && (
               joinersQuery.isLoading ? (
                 <div className="h-16 bg-muted animate-pulse rounded m-4" />
-              ) : !activeJoiners.length ? (
+              ) : !pipelineJoiners.length && !hiredJoiners.length ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No active joiners in pipeline.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
-                      <TableHead>Gender</TableHead>
-                      <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="desiredWeeklyHours" label="Desired Hrs" current={joinerSort} onSort={toggleJoinerSort} />
-                      <TableHead>Contracted Hrs</TableHead>
-                      <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="confidenceWeight" label="Confidence" current={joinerSort} onSort={toggleJoinerSort} />
-                      <SortHead col="trainingDate" label="Training Attended" current={joinerSort} onSort={toggleJoinerSort} />
-                      {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedJoiners.map(j => (
-                      <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
-                        <TableCell className="font-medium">{j.candidateName}</TableCell>
-                        <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
-                        </TableCell>
-                        <TableCell>{j.desiredWeeklyHours}h</TableCell>
-                        <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
-                        <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {j.stage === 'Dropped' ? (
-                              <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
-                            ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage]).map(m => (
-                              <Badge key={m} className={[
-                                "text-xs",
-                                m === 'Training Attended'
-                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                  : m === 'PVG' || m === 'REF1' || m === 'REF2'
-                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                  : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-                              ].join(' ')}>{m}</Badge>
-                            ))}
-                            {isStale14Days(j) && (
-                              <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Stale
-                              </Badge>
+                <>
+                  {pipelineJoiners.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
+                          <TableHead>Gender</TableHead>
+                          <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="desiredWeeklyHours" label="Desired Hrs" current={joinerSort} onSort={toggleJoinerSort} />
+                          <TableHead>Contracted Hrs</TableHead>
+                          <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="confidenceWeight" label="Confidence" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="trainingDate" label="Training Attended" current={joinerSort} onSort={toggleJoinerSort} />
+                          {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
+                          <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
+                            <TableCell className="font-medium">{j.candidateName}</TableCell>
+                            <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                            </TableCell>
+                            <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                            <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
+                            <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {j.stage === 'Dropped' ? (
+                                  <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
+                                ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage]).map(m => (
+                                  <Badge key={m} className={[
+                                    "text-xs",
+                                    m === 'Training Attended'
+                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                      : m === 'PVG' || m === 'REF1' || m === 'REF2'
+                                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                      : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+                                  ].join(' ')}>{m}</Badge>
+                                ))}
+                                {isStale14Days(j) && (
+                                  <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
+                                    <AlertTriangle className="w-3 h-3" /> Stale
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{Math.round((j.confidenceWeight ?? 0) * 100)}%</TableCell>
+                            <TableCell>{formatDate(j.trainingDate)}</TableCell>
+                            {isScheduler && (
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                                    onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                    onClick={() => setDeletingJoinerId(j.id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  {hiredJoiners.length > 0 && (
+                    <div className="border-t border-yellow-200 dark:border-yellow-800/40 bg-yellow-50/60 dark:bg-yellow-900/10 px-4 py-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
+                          Hired this month — {hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk · {hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {hiredJoiners.map(j => (
+                          <div key={j.id} className="flex items-center gap-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg px-3 py-1.5">
+                            <span className="text-xs font-medium text-yellow-800 dark:text-yellow-200">{j.candidateName}</span>
+                            <span className="text-xs text-yellow-600 dark:text-yellow-400">{j.desiredWeeklyHours}h/wk</span>
+                            <Badge variant="outline" className="text-xs capitalize border-yellow-400 text-yellow-700 dark:text-yellow-400 py-0 px-1.5">{j.employmentType}</Badge>
+                            {isScheduler && (
+                              <Button size="icon" variant="ghost" className="h-5 w-5 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400"
+                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell>{Math.round((j.confidenceWeight ?? 0) * 100)}%</TableCell>
-                        <TableCell>{formatDate(j.trainingDate)}</TableCell>
-                        {isScheduler && (
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                onClick={() => setDeletingJoinerId(j.id)}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )
             )}
           </CardContent>
@@ -1212,6 +1299,208 @@ export default function CapacityOutlookPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Monthly View Sheet */}
+      <MonthlyViewSheet
+        open={monthlyViewOpen}
+        onClose={() => setMonthlyViewOpen(false)}
+        branchId={branchId}
+        monthlyData={monthlyQuery.data ?? null}
+        isLoading={monthlyQuery.isLoading}
+        isScheduler={isScheduler}
+      />
     </div>
+  );
+}
+
+// ── Monthly View Sheet ────────────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+type MonthlyData = {
+  snapshots: MonthlySnapshot[];
+  live: { hoursIn: number; headsIn: number; hoursOut: number; headsOut: number };
+  currentYear: number;
+  currentMonth: number;
+};
+
+function MonthlyViewSheet({
+  open,
+  onClose,
+  branchId,
+  monthlyData,
+  isLoading,
+  isScheduler,
+}: {
+  open: boolean;
+  onClose: () => void;
+  branchId: string;
+  monthlyData: MonthlyData | null;
+  isLoading: boolean;
+  isScheduler: boolean;
+}) {
+  const { toast } = useToast();
+
+  const closeMonthMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/monthly/close?branchId=${branchId}`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({}),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to close month');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
+      toast({ title: "Month closed", description: "Snapshot saved and hired staff archived." });
+    },
+    onError: (err: Error) => {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    },
+  });
+
+  // Build rows: saved snapshots (newest first) + current month live row
+  const rows = useMemo(() => {
+    if (!monthlyData) return [];
+    const { snapshots, live, currentYear, currentMonth } = monthlyData;
+
+    // Current month row (live)
+    const liveRow = {
+      year: currentYear,
+      month: currentMonth,
+      hoursIn: live.hoursIn,
+      headsIn: live.headsIn,
+      hoursOut: live.hoursOut,
+      headsOut: live.headsOut,
+      isLive: true,
+    };
+
+    // Past snapshots — exclude if already has current month (manual close)
+    const pastRows = snapshots
+      .filter(s => !(s.year === currentYear && s.month === currentMonth))
+      .map(s => ({ ...s, isLive: false }))
+      .reverse(); // newest first
+
+    return [liveRow, ...pastRows];
+  }, [monthlyData]);
+
+  return (
+    <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0">
+        <SheetHeader className="px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-center justify-between">
+            <SheetTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-white" />
+              </div>
+              Monthly In / Out History
+            </SheetTitle>
+            {isScheduler && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => closeMonthMutation.mutate()}
+                disabled={closeMonthMutation.isPending}
+                className="gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {closeMonthMutation.isPending ? 'Closing…' : 'Close Month'}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Hours In = staff hired · Hours Out = termination days · Net = In − Out
+          </p>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">
+              No data yet. Once staff are hired or leave, this table will populate.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Month</TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">In (h/wk)</TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">Hires</TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">Out (h/wk)</TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">Leavers</TableHead>
+                  <TableHead>Net</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, idx) => {
+                  const net = Math.round((row.hoursIn - row.hoursOut) * 10) / 10;
+                  const isCurrentMonth = row.isLive;
+                  return (
+                    <TableRow key={`${row.year}-${row.month}`} className={isCurrentMonth ? "bg-blue-50/60 dark:bg-blue-900/10 font-medium" : undefined}>
+                      <TableCell>
+                        <span className="font-medium">{MONTH_NAMES[row.month]} {row.year}</span>
+                        {isCurrentMonth && (
+                          <Badge className="ml-2 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200">
+                            Live
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                        {row.hoursIn > 0 ? `+${row.hoursIn}h` : '—'}
+                      </TableCell>
+                      <TableCell className="text-emerald-600 dark:text-emerald-400">
+                        {row.headsIn > 0 ? row.headsIn : '—'}
+                      </TableCell>
+                      <TableCell className="text-red-600 dark:text-red-400 font-semibold">
+                        {row.hoursOut > 0 ? `${row.hoursOut}h` : '—'}
+                      </TableCell>
+                      <TableCell className="text-red-500 dark:text-red-400">
+                        {row.headsOut > 0 ? row.headsOut : '—'}
+                      </TableCell>
+                      <TableCell className={[
+                        "font-semibold",
+                        net > 0 ? "text-emerald-600 dark:text-emerald-400"
+                        : net < 0 ? "text-red-600 dark:text-red-400"
+                        : "text-muted-foreground",
+                      ].join(' ')}>
+                        {net === 0 ? '±0h' : net > 0 ? `+${net}h` : `${net}h`}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {!isLoading && rows.length > 0 && (
+          <div className="px-6 py-3 border-t border-border bg-muted/30 shrink-0">
+            <p className="text-xs text-muted-foreground">
+              {rows.length - 1} closed month{rows.length - 1 !== 1 ? 's' : ''} · 1 live (current month)
+              {isScheduler && (
+                <span> · Use <strong>Close Month</strong> to lock the current month and archive hired staff</span>
+              )}
+            </p>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
