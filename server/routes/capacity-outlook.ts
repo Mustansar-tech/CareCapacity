@@ -17,7 +17,6 @@ import {
   getOutlookDetail,
   getMonthlySnapshots,
   getCurrentMonthLive,
-  closeMonth,
   updateMonthlySnapshot,
 } from '../repositories/capacity-outlook.repository';
 
@@ -101,34 +100,6 @@ export function registerCapacityOutlookRoutes(app: Express): void {
     });
   }));
 
-  // POST /api/capacity-outlook/monthly/close — manual or auto close
-  app.post(
-    '/api/capacity-outlook/monthly/close',
-    requireRoleAtLeast('scheduler'),
-    asyncHandler(async (req, res) => {
-      const branchId = await resolveBranch(req);
-      const now = new Date();
-      const defaultYear = now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
-      const defaultMonth = now.getUTCMonth() === 0 ? 12 : now.getUTCMonth();
-
-      const year = typeof req.body.year === 'number' ? req.body.year : defaultYear;
-      const month = typeof req.body.month === 'number' ? req.body.month : defaultMonth;
-
-      if (month < 1 || month > 12) throw createAppError('month must be 1–12', 400);
-
-      const snapshot = await closeMonth(branchId, year, month);
-
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'MONTH_CLOSED',
-        `Monthly snapshot closed: ${year}-${String(month).padStart(2, '0')}`,
-      );
-
-      res.json(snapshot);
-    }),
-  );
 
   // PUT /api/capacity-outlook/monthly/:year/:month — edit a saved snapshot
   app.put(

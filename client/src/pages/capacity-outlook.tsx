@@ -720,27 +720,6 @@ export default function CapacityOutlookPage() {
     staleTime: 60_000,
   });
 
-  // Page-load rollover check: if the previous month's snapshot is missing,
-  // auto-close it. Scheduler-only — viewers can't call the close endpoint.
-  useEffect(() => {
-    if (!monthlyQuery.data || !branchId || !isScheduler) return;
-    const { snapshots, currentYear, currentMonth } = monthlyQuery.data;
-    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-    const hasPrevSnapshot = snapshots.some(s => s.year === prevYear && s.month === prevMonth);
-    if (!hasPrevSnapshot) {
-      fetch(toAbsoluteUrl(`/api/capacity-outlook/monthly/close?branchId=${branchId}`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ year: prevYear, month: prevMonth }),
-      }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/leavers'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
-      }).catch(() => {});
-    }
-  }, [monthlyQuery.data, branchId, isScheduler]);
 
   // Delete mutations
   const deleteLeaverMutation = useMutation({
@@ -1567,34 +1546,6 @@ function MonthlyViewSheet({
     },
   });
 
-  const closeMonthMutation = useMutation({
-    mutationFn: async () => {
-      const year = monthlyData?.currentYear ?? new Date().getUTCFullYear();
-      const month = monthlyData?.currentMonth ?? (new Date().getUTCMonth() + 1);
-      const res = await fetch(
-        toAbsoluteUrl(`/api/capacity-outlook/monthly/close?branchId=${branchId}`),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ year, month }),
-        },
-      );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to close month');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
-      toast({ title: "Month closed", description: "Snapshot saved and hired staff archived." });
-    },
-    onError: (err: Error) => {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    },
-  });
 
   type MonthRow = {
     year: number; month: number;
@@ -1646,18 +1597,6 @@ function MonthlyViewSheet({
               </div>
               Monthly In / Out History
             </SheetTitle>
-            {isScheduler && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => closeMonthMutation.mutate()}
-                disabled={closeMonthMutation.isPending}
-                className="gap-1.5"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {closeMonthMutation.isPending ? 'Closing…' : 'Close Month'}
-              </Button>
-            )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             Hours In = staff hired · Hours Out = termination days · Net = In − Out
