@@ -772,6 +772,7 @@ export default function CapacityOutlookPage() {
   // For coverage/net: only hours actually lost (already gone) count against us now
   const weeklyLossRate = hoursAlreadyGone;
   const weeklyGainRate = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
+  const rawWeeklyHours = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10;
   const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
 
   const formatDate = (d: string | null | undefined) => {
@@ -947,10 +948,7 @@ export default function CapacityOutlookPage() {
                     {pipelineJoiners.length} <span className="text-base font-medium">candidates</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {weeklyGainRate}h/wk expected
-                  </div>
-                  <div className="text-xs text-muted-foreground/70 mt-0.5">
-                    = desired hrs × confidence %
+                    {rawWeeklyHours}h/wk expected
                   </div>
                   {hiredJoiners.length > 0 && (
                     <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-0.5 flex items-center gap-1">
