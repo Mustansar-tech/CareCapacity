@@ -9,17 +9,8 @@ function branchErrorStatus(message: string): number {
 
 export async function getHistory(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);
-  const headers = await capacityRepo.getCapacityAnalysisHeaders(branchId, 17);
-  res.json(headers);
-}
-
-export async function getHistoryById(req: Request, res: Response): Promise<void> {
-  const branchId = await resolveBranch(req);
-  const { id } = req.params;
-  if (!id) { res.status(400).json({ message: 'id is required' }); return; }
-  const analysis = await capacityRepo.getCapacityAnalysisById(id, branchId);
-  if (!analysis) { res.status(404).json({ message: 'Analysis not found' }); return; }
-  res.json(analysis);
+  const analyses = await capacityRepo.getLatestWeeksAnalyses(branchId, 17);
+  res.json(analyses);
 }
 
 export async function getLatestHistory(req: Request, res: Response): Promise<void> {

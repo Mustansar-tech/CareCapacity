@@ -82,8 +82,6 @@ export interface IStorage {
   getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined>;
   getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(branchId: string, limit?: number): Promise<CapacityAnalysis[]>;
-  getCapacityAnalysisHeaders(branchId: string, limit?: number): Promise<import('@shared/schema').CapacityAnalysisHeader[]>;
-  getCapacityAnalysisById(id: string, branchId: string): Promise<CapacityAnalysis | undefined>;
   enforceRetentionLatestWeeks(branchId: string): Promise<number>;
   cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number>;
 
@@ -195,8 +193,6 @@ export class DatabaseStorage implements IStorage {
   getLatestCapacityAnalysis(branchId: string) { return capacityRepo.getLatestCapacityAnalysis(branchId); }
   getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string) { return capacityRepo.getCapacityAnalysisByWeekStart(branchId, weekStartDate); }
   getLatestWeeksAnalyses(branchId: string, limit?: number) { return capacityRepo.getLatestWeeksAnalyses(branchId, limit); }
-  getCapacityAnalysisHeaders(branchId: string, limit?: number) { return capacityRepo.getCapacityAnalysisHeaders(branchId, limit); }
-  getCapacityAnalysisById(id: string, branchId: string) { return capacityRepo.getCapacityAnalysisById(id, branchId); }
   enforceRetentionLatestWeeks(branchId: string) { return capacityRepo.enforceRetentionLatestWeeks(branchId); }
   cleanupOldAnalyses(branchId: string, monthsOld: number) { return capacityRepo.cleanupOldAnalyses(branchId, monthsOld); }
 
@@ -325,17 +321,6 @@ export class MemStorage implements IStorage {
   }
   async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
     return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)).slice(0, limit);
-  }
-  async getCapacityAnalysisHeaders(branchId: string, limit: number = 17) {
-    return Array.from(this.capacityAnalyses.values())
-      .filter(a => a.branchId === branchId)
-      .sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate))
-      .slice(0, limit)
-      .map(({ id, branchId, weekStartDate, weekEndDate, uploadedAt }) => ({ id, branchId, weekStartDate, weekEndDate, uploadedAt: uploadedAt.toISOString() }));
-  }
-  async getCapacityAnalysisById(id: string, branchId: string): Promise<CapacityAnalysis | undefined> {
-    const a = this.capacityAnalyses.get(id);
-    return a?.branchId === branchId ? a : undefined;
   }
   async enforceRetentionLatestWeeks(branchId: string): Promise<number> { return 0; }
   async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> { return 0; }

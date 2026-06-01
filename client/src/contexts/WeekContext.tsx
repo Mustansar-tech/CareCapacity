@@ -3,7 +3,7 @@ import { clientLogger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient, toAbsoluteUrl } from '@/lib/queryClient';
 import { useBranch } from '@/contexts/BranchContext';
-import type { ProcessingResult, CapacityAnalysisHeader, CapacityAnalysisSummary, ProcessingResultWithMeta } from '@shared/schema';
+import type { ProcessingResult, CapacityAnalysisSummary, ProcessingResultWithMeta } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 
 interface WeekContextType {
@@ -11,7 +11,7 @@ interface WeekContextType {
   selectedDate: string | null;
   processedData: ProcessingResult | null;
   filteredData: ProcessingResult | null;
-  allHistoryData: CapacityAnalysisHeader[] | undefined;
+  allHistoryData: CapacityAnalysisSummary[] | undefined;
   latestData: ProcessingResultWithMeta | undefined;
   isLoadingLatest: boolean;
   latestDataError: unknown;
@@ -65,7 +65,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
   // ─── Queries — branchId is part of the key so they re-fire on branch change
   // and only run once a branch is actually selected (enabled: !!selectedBranchId)
 
-  const { data: allHistoryData } = useQuery<CapacityAnalysisHeader[]>({
+  const { data: allHistoryData } = useQuery<CapacityAnalysisSummary[]>({
     queryKey: ['/api/history', selectedBranchId],
     enabled: !!selectedBranchId,
     queryFn: async () => {
@@ -163,23 +163,19 @@ export function WeekProvider({ children }: { children: ReactNode }) {
       }
       try {
         setSelectedWeekId(value);
-        setFilteredData(null);
-        if (!selectedBranchId) return;
-        const res = await fetch(
-          toAbsoluteUrl(`/api/history/${encodeURIComponent(value)}?branchId=${encodeURIComponent(selectedBranchId)}`),
-          { credentials: 'include' },
-        );
-        if (!res.ok) throw new Error('Failed to fetch week data');
-        const analysis: CapacityAnalysisSummary = await res.json();
-        setProcessedData({
-          kpis: analysis.kpis,
-          dailySummary: analysis.dailySummary,
-          employeesByDate: analysis.employeesByDate,
-          employeeSummaryByDate: analysis.employeeSummaryByDate,
-          warnings: analysis.warnings,
-          ghLossRawSummary: (analysis as any).ghLossRawSummary,
-        } as any);
-        setSelectedDate(analysis.dailySummary?.[0]?.date || null);
+        const analysis = allHistoryData?.find((item) => item.id === value);
+        if (analysis) {
+          setProcessedData({
+            kpis: analysis.kpis,
+            dailySummary: analysis.dailySummary,
+            employeesByDate: analysis.employeesByDate,
+            employeeSummaryByDate: analysis.employeeSummaryByDate,
+            warnings: analysis.warnings,
+            ghLossRawSummary: (analysis as any).ghLossRawSummary,
+          } as any);
+          setSelectedDate(analysis.dailySummary?.[0]?.date || null);
+          setFilteredData(null);
+        }
       } catch (error) {
         clientLogger.error('Error loading selected week:', error);
         toastRef.current({
@@ -189,7 +185,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [selectedBranchId]
+    [allHistoryData]
   );
 
   /**

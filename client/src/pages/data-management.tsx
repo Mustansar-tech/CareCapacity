@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Trash2, Shield, Clock, Database, AlertTriangle, CheckCircle, Eye } from 'lucide-react';
 import { apiRequest, toAbsoluteUrl } from '@/lib/queryClient';
 import { useBranch } from '@/contexts/BranchContext';
-import type { CapacityAnalysisHeader } from '@shared/schema';
+import type { CapacityAnalysisSummary } from '@shared/schema';
 
 interface CleanupPreview {
   cutoffDate: string;
@@ -38,7 +38,7 @@ export default function DataManagement() {
   });
 
   // Get all historical data for overview — scoped to the selected branch
-  const { data: allData } = useQuery<CapacityAnalysisHeader[]>({
+  const { data: allData } = useQuery<CapacityAnalysisSummary[]>({
     queryKey: ['/api/history', selectedBranchId],
     enabled: !!selectedBranchId,
     queryFn: async () => {
