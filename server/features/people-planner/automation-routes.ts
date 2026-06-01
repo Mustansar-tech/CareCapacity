@@ -1420,6 +1420,15 @@ async function runMultiWeekPipelineSession(
 
     logger.info("Multi-week pipeline session starting", { sessionId, branchId, weekCount: weekStartDates.length });
 
+    // Clear employee/client locations ONCE before the loop so that all weeks
+    // accumulate into the locations table rather than each week wiping the
+    // previous one.  Without this, the last processed week (often a future
+    // week with a smaller CG-data export) would leave earlier employees with
+    // no location record, causing them to show as walkers in the scheduling tab.
+    await storage.clearEmployeeLocations(branchId);
+    await storage.clearClientLocations(branchId);
+    logger.info("Cleared employee/client locations before multi-week loop — will accumulate across all weeks", { branchId });
+
     for (let wi = 0; wi < weekStartDates.length; wi++) {
       const weekStartDate = weekStartDates[wi];
       const weekEnd = new Date(weekStartDate);
@@ -1499,7 +1508,7 @@ async function runMultiWeekPipelineSession(
           parsedData.guaranteed,
           parsedData.demand,
           parsedData.cgData,
-          { ghWorkbookBuffer: guaranteedBuf, branchId, guaranteedRaw: parsedData.guaranteedRaw }
+          { ghWorkbookBuffer: guaranteedBuf, branchId, guaranteedRaw: parsedData.guaranteedRaw, skipClearLocations: true }
         );
 
         if (parsedData.warnings.length > 0) {

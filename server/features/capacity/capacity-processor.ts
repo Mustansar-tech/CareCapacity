@@ -48,7 +48,7 @@ export async function processCapacityData(
   guaranteed: GuaranteedHoursRow[],
   demand: ClientDemandRow[],
   cgData: CGDataRow[],
-  options?: { ghWorkbookBuffer?: Buffer; branchId?: string; guaranteedRaw?: GuaranteedHoursRow[] },
+  options?: { ghWorkbookBuffer?: Buffer; branchId?: string; guaranteedRaw?: GuaranteedHoursRow[]; skipClearLocations?: boolean },
 ): Promise<ProcessingResult & { cleanedRecords: CleanedEmployeeRecord[] }> {
   const warnings: string[] = [];
   const branchId = options?.branchId;
@@ -814,7 +814,7 @@ export async function processCapacityData(
 
   // ── Extract geographical data ──
   if (branchId) {
-    await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer);
+    await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer, options?.skipClearLocations);
   } else {
     logger.debug(`WARNING: No branchId provided - skipping geographical data extraction`);
   }
