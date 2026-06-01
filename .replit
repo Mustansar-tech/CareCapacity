@@ -49,4 +49,4 @@ SCHEDULER_SECRET = "4425b6eb6f0aeace3a9a152706766ebeef73addefaf3cde25ab483af7b4e
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 20000
+timeoutMs = 60000
