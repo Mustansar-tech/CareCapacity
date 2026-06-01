@@ -662,8 +662,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       const location = employeeLocationMap.get(empName);
 
                       // Determine transport mode icon
-                      // Only show car icon when transport mode explicitly includes 'car'
-                      // Unknown/missing transport mode defaults to walker (conservative)
                       const transportMode = location?.transportMode?.toLowerCase() || '';
                       const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
@@ -848,8 +846,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 const firstVisit = dayVisits[0];
                                 let displayMin = firstVisit.travelTimeBefore;
                                 if (displayMin >= 999 && empLoc?.homeLat && empLoc?.homeLng && firstVisit.lat && firstVisit.lng) {
-                                  const _tm849 = empLoc.transportMode?.toLowerCase() || '';
-                                  const mode: 'car' | 'walking' | 'public' = _tm849.includes('car') ? 'car' : 'walking';
+                                  const mode: 'car' | 'walking' | 'public' = (empLoc.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
                                   const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: firstVisit.lat, lng: firstVisit.lng });
                                   displayMin = calculateTravelTime(dist, mode);
                                 }
@@ -921,7 +918,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                        // Only use car routing when transport mode explicitly says car
+                                        // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
                                         const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                         const currentEndMin = timeToMinutes(currentVisit.endTime);
                                         const nextStartMin = timeToMinutes(nextVisit.startTime);
@@ -984,8 +981,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                     let interDisplayMin = nextVisit.travelTimeBefore;
                                     if (interDisplayMin >= 999 && currentVisit.lat && currentVisit.lng && nextVisit.lat && nextVisit.lng) {
                                       const empLocInter = employeeLocationMap.get(selectedEmployee || '');
-                                      const _tmInter = empLocInter?.transportMode?.toLowerCase() || '';
-                                      const modeInter: 'car' | 'walking' | 'public' = _tmInter.includes('car') ? 'car' : 'walking';
+                                      const modeInter: 'car' | 'walking' | 'public' = (empLocInter?.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
                                       const distInter = haversineDistance({ lat: currentVisit.lat, lng: currentVisit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng });
                                       interDisplayMin = calculateTravelTime(distInter, modeInter);
                                     }
@@ -1010,7 +1006,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                  // Only use car routing when transport mode explicitly says car
+                                  // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
                                   const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                   const lastVisitEndMin = timeToMinutes(lastVisit.endTime);
 

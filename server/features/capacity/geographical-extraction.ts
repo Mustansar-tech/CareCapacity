@@ -21,21 +21,15 @@ export async function extractAndStoreGeographicalData(
   guaranteed: any[],
   branchId: string,
   ghWorkbookBuffer?: Buffer,
-  skipClearLocations?: boolean,
 ): Promise<void> {
   logger.debug(`EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
   logger.debug(`CG Data rows to process: ${cgData.length}`);
   logger.debug(`Branch ID: ${branchId}`);
-  logger.debug(`Skip clear: ${skipClearLocations ?? false}`);
 
   try {
-    if (!skipClearLocations) {
-      const clearedEmployees = await storage.clearEmployeeLocations(branchId);
-      const clearedClients = await storage.clearClientLocations(branchId);
-      logger.debug(`Cleared ${clearedEmployees} old employee locations and ${clearedClients} old client locations for branch ${branchId} — repopulating fresh from uploaded files`);
-    } else {
-      logger.debug(`Skipping clear — accumulating locations across weeks for branch ${branchId}`);
-    }
+    const clearedEmployees = await storage.clearEmployeeLocations(branchId);
+    const clearedClients = await storage.clearClientLocations(branchId);
+    logger.debug(`Cleared ${clearedEmployees} old employee locations and ${clearedClients} old client locations for branch ${branchId} — repopulating fresh from uploaded files`);
 
     const employeeLocationsMap = new Map<string, any>();
 
