@@ -24,36 +24,29 @@ export function lastDayOfMonth(year: number, month: number): Date {
   return new Date(Date.UTC(year, month + 1, 0));
 }
 
+/** Number of weeks ahead (from the current Monday) included in every sync window. */
+export const FORWARD_WEEKS = 15;
+
 /**
  * Compute the list of week-start Mondays to sync.
  *
- * @param firingDate   - The date the sync is firing (or any date in the firing day).
+ * @param firingDate       - The date the sync is firing (or any date in the firing day).
  * @param includesPrevious - Include the previous week's Monday (true on Mondays).
  * @returns Array of ISO "YYYY-MM-DD" Monday strings.
  *
- * Window logic:
- *   - Normal weeks  (this Monday is not the last Monday of the month):
- *       window end = last day of next month → typically 5–8 forward Mondays.
- *   - Last week of month (next Monday falls in the following month):
- *       window end = last day of month-after-next → typically 9–13 forward Mondays.
+ * Window logic: always cover FORWARD_WEEKS (15) weeks ahead from the current Monday.
+ * When includesPrevious is true (firing on a Monday), the previous week is prepended.
  */
 export function getWeeksToSync(firingDate: Date, includesPrevious: boolean): string[] {
   const currentMonday = snapToMonday(firingDate);
   const fmt = (d: Date) => d.toISOString().split("T")[0];
 
-  const nextMonday = new Date(currentMonday);
-  nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
-  const isLastMondayOfMonth = nextMonday.getUTCMonth() !== currentMonday.getUTCMonth();
-
-  const curMonth = currentMonday.getUTCMonth();
-  const curYear  = currentMonday.getUTCFullYear();
-  const windowEnd = isLastMondayOfMonth
-    ? lastDayOfMonth(curYear, curMonth + 2)
-    : lastDayOfMonth(curYear, curMonth + 1);
+  const windowEnd = new Date(currentMonday);
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + FORWARD_WEEKS * 7);
 
   const weeks: string[] = [];
   const cursor = new Date(currentMonday);
-  while (cursor <= windowEnd) {
+  while (cursor < windowEnd) {
     weeks.push(fmt(cursor));
     cursor.setUTCDate(cursor.getUTCDate() + 7);
   }
