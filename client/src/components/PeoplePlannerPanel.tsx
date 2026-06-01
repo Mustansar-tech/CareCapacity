@@ -385,8 +385,8 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         </div>
 
-        {/* Mode selector */}
-        {!isActive && !session && (
+        {/* Mode selector — All weeks is admin-only */}
+        {isAdmin && !isActive && !session && (
           <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
             <button
               type="button"
@@ -437,8 +437,8 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* All-weeks explanation */}
-        {syncMode === "all" && !isActive && !session && (
+        {/* All-weeks explanation — admin only */}
+        {isAdmin && syncMode === "all" && !isActive && !session && (
           <div className="rounded-md bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-3 py-2.5">
             <p className="text-xs text-violet-700 dark:text-violet-300 font-medium">Syncs all generated weeks in one go</p>
             <p className="text-xs text-violet-600/80 dark:text-violet-400 mt-0.5">
@@ -617,7 +617,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 Close
               </Button>
             </div>
-          ) : syncMode === "single" ? (
+          ) : syncMode === "single" || !isAdmin ? (
             <Button
               className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
               onClick={handleStartSingle}
