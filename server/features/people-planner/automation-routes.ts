@@ -1616,6 +1616,7 @@ async function runMultiWeekPipelineSession(
     try {
       await storage.enforceRetentionCpScheduledVisits(branchId);
       await storage.enforceRetentionGhClientVisits(branchId);
+      await storage.enforceRetentionLatestWeeks(branchId);
     } catch (retErr) {
       logger.warn("Failed to enforce retention after multi-week sync (non-fatal)", { err: retErr });
     }
