@@ -1353,6 +1353,9 @@ async function runPipelineSession(
         employeeSummaryByDate: result.employeeSummaryByDate || {},
         warnings: result.warnings || [],
       });
+      storage.enforceRetentionLatestWeeks(branchId).catch((e) =>
+        logger.warn('Retention sweep failed (non-fatal)', { err: e }),
+      );
     }
 
     session.status     = "completed";
@@ -1587,6 +1590,7 @@ async function runMultiWeekPipelineSession(
             employeeSummaryByDate: result.employeeSummaryByDate || {},
             warnings: result.warnings || [],
           });
+          // Retention is enforced once for all weeks at the end of a multi-week run (below).
         }
 
         // Mark this week as completed.

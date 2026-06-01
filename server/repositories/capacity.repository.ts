@@ -1,7 +1,7 @@
 import { db } from '../infrastructure/db';
 import { capacityAnalyses } from '@shared/schema';
 import type { CapacityAnalysis, InsertCapacityAnalysis } from '@shared/schema';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, desc, sql } from 'drizzle-orm';
 
 export async function saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
   const [result] = await db
@@ -72,16 +72,32 @@ export async function getLatestWeeksAnalyses(branchId: string, limit = 4): Promi
     .limit(limit);
 }
 
-export async function enforceRetentionLatestWeeks(branchId: string, limit = 4): Promise<number> {
-  const analyses = await getLatestWeeksAnalyses(branchId, limit);
-  if (analyses.length < limit) return 0;
-  const lastKeepDate = analyses[analyses.length - 1].weekStartDate;
+/**
+ * 15-week rolling window: keep 2 past weeks + current week + 13 future weeks.
+ * Anything outside that window (too old OR too far ahead) is deleted.
+ */
+export async function enforceRetentionLatestWeeks(branchId: string, _limit?: number): Promise<number> {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+
+  // Lower bound: 2 weeks before current Monday
+  const lowerCutoff = new Date(currentMonday);
+  lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
+  const lowerStr = lowerCutoff.toISOString().slice(0, 10);
+
+  // Upper bound: 13 weeks after current Monday
+  const upperCutoff = new Date(currentMonday);
+  upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7);
+  const upperStr = upperCutoff.toISOString().slice(0, 10);
+
   const result = await db
     .delete(capacityAnalyses)
     .where(
       and(
         eq(capacityAnalyses.branchId, branchId),
-        sql`${capacityAnalyses.weekStartDate} < ${lastKeepDate}`,
+        sql`(${capacityAnalyses.weekStartDate} < ${lowerStr} OR ${capacityAnalyses.weekStartDate} > ${upperStr})`,
       ),
     );
   return result.rowCount ?? 0;

@@ -5,7 +5,7 @@ import type {
   CpScheduledVisit, InsertCpScheduledVisit,
   GhClientVisit, InsertGhClientVisit,
 } from '@shared/schema';
-import { eq, and, lt, gte, lte, desc, inArray } from 'drizzle-orm';
+import { eq, and, lt, gte, lte, desc, inArray, sql } from 'drizzle-orm';
 
 export async function saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
   const [result] = await db
@@ -104,16 +104,25 @@ export async function upsertCpScheduledVisitsByDates(branchId: string, dates: st
 }
 
 export async function enforceRetentionCpScheduledVisits(branchId: string): Promise<void> {
-  // Keep 2 past weeks (14 days before the current UTC Monday) + all future weeks.
+  // 15-week window: 2 past weeks + current + 13 future weeks.
   const now = new Date();
   const day = now.getUTCDay();
   const diff = day === 0 ? -6 : 1 - day;
   const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-  const cutoffDate = new Date(currentMonday);
-  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
-  const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+
+  const lowerCutoff = new Date(currentMonday);
+  lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
+  const lowerStr = lowerCutoff.toISOString().slice(0, 10);
+
+  const upperCutoff = new Date(currentMonday);
+  upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7 + 6); // +6 to include the last day of the 13th future week
+  const upperStr = upperCutoff.toISOString().slice(0, 10);
+
   await db.delete(cpScheduledVisits).where(
-    and(eq(cpScheduledVisits.branchId, branchId), lt(cpScheduledVisits.date, cutoffStr)),
+    and(
+      eq(cpScheduledVisits.branchId, branchId),
+      sql`(${cpScheduledVisits.date} < ${lowerStr} OR ${cpScheduledVisits.date} > ${upperStr})`,
+    ),
   );
 }
 
@@ -135,16 +144,25 @@ export async function upsertGhClientVisitsByDates(branchId: string, dates: strin
 }
 
 export async function enforceRetentionGhClientVisits(branchId: string): Promise<void> {
-  // Keep 2 past weeks (14 days before the current UTC Monday) + all future weeks.
+  // 15-week window: 2 past weeks + current + 13 future weeks.
   const now = new Date();
   const day = now.getUTCDay();
   const diff = day === 0 ? -6 : 1 - day;
   const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-  const cutoffDate = new Date(currentMonday);
-  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
-  const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+
+  const lowerCutoff = new Date(currentMonday);
+  lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
+  const lowerStr = lowerCutoff.toISOString().slice(0, 10);
+
+  const upperCutoff = new Date(currentMonday);
+  upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7 + 6); // +6 to include the last day of the 13th future week
+  const upperStr = upperCutoff.toISOString().slice(0, 10);
+
   await db.delete(ghClientVisits).where(
-    and(eq(ghClientVisits.branchId, branchId), lt(ghClientVisits.date, cutoffStr)),
+    and(
+      eq(ghClientVisits.branchId, branchId),
+      sql`(${ghClientVisits.date} < ${lowerStr} OR ${ghClientVisits.date} > ${upperStr})`,
+    ),
   );
 }
 

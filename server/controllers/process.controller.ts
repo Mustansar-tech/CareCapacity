@@ -228,6 +228,9 @@ export async function processCapacity(req: Request, res: Response): Promise<void
         warnings: result.warnings || [],
       });
       logger.info('Analysis persisted successfully', { weekStart, branchName: branch.name });
+      capacityRepo.enforceRetentionLatestWeeks(requestedBranchId).catch((e) =>
+        logger.warn('Retention sweep failed (non-fatal)', { err: e }),
+      );
     } else {
       logger.warn('No daily summary data to persist');
     }

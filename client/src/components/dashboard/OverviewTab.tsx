@@ -396,22 +396,40 @@ export function OverviewTab({
                           }
                         })()}
                       </SelectItem>
-                      {allHistoryData?.map((analysis) => {
-                        try {
-                          if (!analysis.weekStartDate || !analysis.weekEndDate) return null;
-                          const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
-                          const endDate = new Date(analysis.weekEndDate).toLocaleDateString('en-GB');
-                          const monthYear = new Date(analysis.weekStartDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                          return (
-                            <SelectItem key={analysis.id} value={analysis.id}>
-                              Week of {startDate} - {endDate} ({monthYear})
-                            </SelectItem>
-                          );
-                        } catch (error) {
-                          clientLogger.error('Error rendering week option:', error);
-                          return null;
-                        }
-                      }).filter(Boolean)}
+                      {(() => {
+                        // 15-week window: 2 past weeks + current week + 13 future weeks
+                        const now = new Date();
+                        const day = now.getUTCDay();
+                        const diff = day === 0 ? -6 : 1 - day;
+                        const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+                        const lowerCutoff = new Date(currentMonday);
+                        lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
+                        const upperCutoff = new Date(currentMonday);
+                        upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7);
+                        return allHistoryData
+                          ?.filter((a) => {
+                            if (!a.weekStartDate) return false;
+                            const d = new Date(a.weekStartDate);
+                            return d >= lowerCutoff && d <= upperCutoff;
+                          })
+                          .map((analysis) => {
+                            try {
+                              if (!analysis.weekStartDate || !analysis.weekEndDate) return null;
+                              const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
+                              const endDate = new Date(analysis.weekEndDate).toLocaleDateString('en-GB');
+                              const monthYear = new Date(analysis.weekStartDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                              return (
+                                <SelectItem key={analysis.id} value={analysis.id}>
+                                  Week of {startDate} - {endDate} ({monthYear})
+                                </SelectItem>
+                              );
+                            } catch (error) {
+                              clientLogger.error('Error rendering week option:', error);
+                              return null;
+                            }
+                          })
+                          .filter(Boolean);
+                      })()}
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-3 mt-1">
