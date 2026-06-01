@@ -363,7 +363,16 @@ export interface WeeklyScheduleMetrics {
   employeesUtilized: number;
 }
 
-// ── History list item returned by GET /api/history ────────────────────────────
+// ── Lightweight header returned by GET /api/history (no JSON blobs) ──────────
+export interface CapacityAnalysisHeader {
+  id: string;
+  branchId: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  uploadedAt: string;
+}
+
+// ── Full analysis returned by GET /api/history/:id ────────────────────────────
 export interface CapacityAnalysisSummary {
   id: string;
   branchId: string;

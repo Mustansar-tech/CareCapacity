@@ -1,6 +1,6 @@
 import { db } from '../infrastructure/db';
 import { capacityAnalyses } from '@shared/schema';
-import type { CapacityAnalysis, InsertCapacityAnalysis } from '@shared/schema';
+import type { CapacityAnalysis, CapacityAnalysisHeader, InsertCapacityAnalysis } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 
 export async function saveCapacityAnalysis(analysis: InsertCapacityAnalysis): Promise<CapacityAnalysis> {
@@ -70,6 +70,32 @@ export async function getLatestWeeksAnalyses(branchId: string, limit = 4): Promi
     .where(eq(capacityAnalyses.branchId, branchId))
     .orderBy(desc(capacityAnalyses.weekStartDate))
     .limit(limit);
+}
+
+/** Lightweight list — header fields only, no JSON blobs. Used by GET /api/history. */
+export async function getCapacityAnalysisHeaders(branchId: string, limit = 17): Promise<CapacityAnalysisHeader[]> {
+  return db
+    .select({
+      id: capacityAnalyses.id,
+      branchId: capacityAnalyses.branchId,
+      weekStartDate: capacityAnalyses.weekStartDate,
+      weekEndDate: capacityAnalyses.weekEndDate,
+      uploadedAt: capacityAnalyses.uploadedAt,
+    })
+    .from(capacityAnalyses)
+    .where(eq(capacityAnalyses.branchId, branchId))
+    .orderBy(desc(capacityAnalyses.weekStartDate))
+    .limit(limit);
+}
+
+/** Full analysis by ID. Used by GET /api/history/:id when a week is selected. */
+export async function getCapacityAnalysisById(id: string, branchId: string): Promise<CapacityAnalysis | undefined> {
+  const [analysis] = await db
+    .select()
+    .from(capacityAnalyses)
+    .where(and(eq(capacityAnalyses.id, id), eq(capacityAnalyses.branchId, branchId)))
+    .limit(1);
+  return analysis;
 }
 
 export async function enforceRetentionLatestWeeks(branchId: string): Promise<number> {

@@ -8,6 +8,7 @@ const router = Router();
 router.get('/history', asyncHandler(historyController.getHistory));
 router.get('/history/latest', asyncHandler(historyController.getLatestHistory));
 router.get('/history/range/:startDate/:endDate', asyncHandler(historyController.getHistoryByDateRange));
+router.get('/history/:id', asyncHandler(historyController.getHistoryById));
 router.post('/cleanup', requireRoleAtLeast('admin'), asyncHandler(historyController.cleanupOldData));
 router.get('/cleanup/preview/:months', requireRoleAtLeast('admin'), asyncHandler(historyController.previewCleanup));
 router.post('/cleanup/routes-visits', requireRoleAtLeast('admin'), asyncHandler(historyController.cleanupRoutesAndVisits));

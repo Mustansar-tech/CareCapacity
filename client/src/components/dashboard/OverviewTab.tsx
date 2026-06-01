@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MetricCardSkeleton } from "@/components/loading-skeleton";
-import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
+import type { ProcessingResult, CapacityAnalysisHeader } from "@shared/schema";
 import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
 
 interface FilesState {
@@ -49,7 +49,7 @@ interface OverviewTabProps {
   setFiles: (files: FilesState) => void;
   selectedWeekId: string | null;
   handleWeekChange: (value: string) => void;
-  allHistoryData: CapacityAnalysisSummary[] | undefined;
+  allHistoryData: CapacityAnalysisHeader[] | undefined;
   navigate: (path: string) => void;
 }
 
