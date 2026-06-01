@@ -170,7 +170,7 @@ export function OverviewTab({
   }, [data, dayBreakdown.unavailability]);
   const holidayBreakdown = useMemo(() => {
     const items = buildBreakdown(["Holiday", "Partial Holiday"]);
-    const total = Math.round((data?.kpis?.holidaysSum ?? 0) * 100) / 100;
+    const total = Math.round((data?.kpis.holidaysSum ?? 0) * 100) / 100;
     return { total, items };
   }, [data]);
 
@@ -446,7 +446,7 @@ export function OverviewTab({
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
                   <Clock className="w-4 h-4" />
-                  <span className="font-medium">{data?.dailySummary?.length || 0} days</span>
+                  <span className="font-medium">{data?.dailySummary.length || 0} days</span>
                 </Badge>
               </div>
             </div>
@@ -496,7 +496,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent mb-1" data-testid="text-desired-sum">
-                  {data?.kpis?.totalDesiredHoursSum || 0}h
+                  {data?.kpis.totalDesiredHoursSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly desired</div>
               </CardContent>
@@ -519,7 +519,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
-                  {data?.kpis?.unavailabilitySum}h
+                  {data?.kpis.unavailabilitySum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"} unavailable
@@ -544,7 +544,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
-                  {data?.kpis?.sicknessSum}h
+                  {data?.kpis.sicknessSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} off sick
@@ -569,7 +569,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
-                  {data?.kpis?.holidaysSum || 0}h
+                  {data?.kpis.holidaysSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday
@@ -594,7 +594,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
-                  {data?.kpis?.netCapacitySum}h
+                  {data?.kpis.netCapacitySum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
               </CardContent>
@@ -617,7 +617,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
-                  {data?.kpis?.clientRequiredSum}h
+                  {data?.kpis.clientRequiredSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">client care Hours</div>
               </CardContent>
@@ -640,7 +640,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
-                  {data?.kpis?.clientScheduledHoursSum}h
+                  {data?.kpis.clientScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Hours scheduled to meet demand</div>
               </CardContent>
@@ -663,7 +663,7 @@ export function OverviewTab({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
-                  {data?.kpis?.otherScheduledHoursSum}h
+                  {data?.kpis.otherScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
               </CardContent>
@@ -687,8 +687,8 @@ export function OverviewTab({
               <CardContent>
                 <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
                   {(() => {
-                    const sum = data?.dailySummary?.reduce((acc, day) => {
-                      const employees = data?.employeesByDate?.[day.date] || [];
+                    const sum = data?.dailySummary.reduce((acc, day) => {
+                      const employees = data?.employeesByDate[day.date] || [];
                       const daySum = employees.reduce((acc, emp) => {
                         const val = emp.netCapacity - emp.scheduledHours;
                         return acc + (val >= 1 ? Math.floor(val) : 0);
