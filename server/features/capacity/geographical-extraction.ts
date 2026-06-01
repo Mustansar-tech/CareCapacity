@@ -27,10 +27,6 @@ export async function extractAndStoreGeographicalData(
   logger.debug(`Branch ID: ${branchId}`);
 
   try {
-    const clearedEmployees = await storage.clearEmployeeLocations(branchId);
-    const clearedClients = await storage.clearClientLocations(branchId);
-    logger.debug(`Cleared ${clearedEmployees} old employee locations and ${clearedClients} old client locations for branch ${branchId} — repopulating fresh from uploaded files`);
-
     const employeeLocationsMap = new Map<string, any>();
 
     logger.debug(`Starting to iterate through ${cgData.length} CG Data rows...`);
