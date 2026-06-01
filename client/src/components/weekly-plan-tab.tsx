@@ -662,9 +662,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       const location = employeeLocationMap.get(empName);
 
                       // Determine transport mode icon
-                      // Default to car (not walker) when transport mode is unknown/missing
+                      // Only show car icon when transport mode explicitly includes 'car'
+                      // Unknown/missing transport mode defaults to walker (conservative)
                       const transportMode = location?.transportMode?.toLowerCase() || '';
-                      const isWalker = transportMode.includes('walk') || transportMode.includes('public');
+                      const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
 
                       // Get gender from employee gender map
@@ -848,7 +849,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 let displayMin = firstVisit.travelTimeBefore;
                                 if (displayMin >= 999 && empLoc?.homeLat && empLoc?.homeLng && firstVisit.lat && firstVisit.lng) {
                                   const _tm849 = empLoc.transportMode?.toLowerCase() || '';
-                                  const mode: 'car' | 'walking' | 'public' = (_tm849.includes('walk') || _tm849.includes('public')) ? 'walking' : 'car';
+                                  const mode: 'car' | 'walking' | 'public' = _tm849.includes('car') ? 'car' : 'walking';
                                   const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: firstVisit.lat, lng: firstVisit.lng });
                                   displayMin = calculateTravelTime(dist, mode);
                                 }
@@ -920,8 +921,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                                       if (empLocation?.homeLat && empLocation?.homeLng) {
                                         const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                        // Default to 'car' when transport mode is unknown/missing
-                                        const mode: 'car' | 'walking' | 'public' = (transportMode.includes('walk') || transportMode.includes('public')) ? 'walking' : 'car';
+                                        // Only use car routing when transport mode explicitly says car
+                                        const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                         const currentEndMin = timeToMinutes(currentVisit.endTime);
                                         const nextStartMin = timeToMinutes(nextVisit.startTime);
 
@@ -984,7 +985,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                     if (interDisplayMin >= 999 && currentVisit.lat && currentVisit.lng && nextVisit.lat && nextVisit.lng) {
                                       const empLocInter = employeeLocationMap.get(selectedEmployee || '');
                                       const _tmInter = empLocInter?.transportMode?.toLowerCase() || '';
-                                      const modeInter: 'car' | 'walking' | 'public' = (_tmInter.includes('walk') || _tmInter.includes('public')) ? 'walking' : 'car';
+                                      const modeInter: 'car' | 'walking' | 'public' = _tmInter.includes('car') ? 'car' : 'walking';
                                       const distInter = haversineDistance({ lat: currentVisit.lat, lng: currentVisit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng });
                                       interDisplayMin = calculateTravelTime(distInter, modeInter);
                                     }
@@ -1009,8 +1010,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 let travelToHome = 0;
                                 if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
                                   const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                  // Default to 'car' when transport mode is unknown/missing
-                                  const mode: 'car' | 'walking' | 'public' = (transportMode.includes('walk') || transportMode.includes('public')) ? 'walking' : 'car';
+                                  // Only use car routing when transport mode explicitly says car
+                                  const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
                                   const lastVisitEndMin = timeToMinutes(lastVisit.endTime);
 
                                   // Prefer the per-date refined value — avoids the date-less cache
