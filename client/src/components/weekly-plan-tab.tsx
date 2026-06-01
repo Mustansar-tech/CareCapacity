@@ -117,7 +117,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeWeeklyHoursMap = new Map<string, number>();
   const employeeWeeklyNetCapacityMap = new Map<string, number>();
   const employeeGenderMap = new Map<string, string>();
-  const employeeTransportModeMap = new Map<string, string>(); // from capacity analysis (week-specific)
 
   // Track holidays and unavailability per employee
   const employeeHolidaysMap = new Map<string, number>();
@@ -133,10 +132,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       // Store gender info
       if (emp.gender && !employeeGenderMap.has(emp.employeeName)) {
         employeeGenderMap.set(emp.employeeName, emp.gender);
-      }
-      // Store transport mode from analysis data (week-specific, used as fallback when no location record)
-      if (emp.transportMode && !employeeTransportModeMap.has(emp.employeeName)) {
-        employeeTransportModeMap.set(emp.employeeName, emp.transportMode);
       }
       // Track holidays and unavailability from status
       const statusLower = (emp.status || '').toLowerCase();
@@ -666,14 +661,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     filteredEmployees.map(empName => {
                       const location = employeeLocationMap.get(empName);
 
-                      // Determine transport mode icon — prefer geocoded location record,
-                      // fall back to transport mode stored in the capacity analysis for this week.
-                      const rawMode = (
-                        location?.transportMode ||
-                        employeeTransportModeMap.get(empName) ||
-                        'car'
-                      ).toLowerCase();
-                      const isWalker = rawMode.includes('walk') || rawMode.includes('public') || rawMode.includes('bus') || rawMode.includes('transit');
+                      // Determine transport mode icon
+                      const transportMode = location?.transportMode?.toLowerCase() || '';
+                      const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
 
                       // Get gender from employee gender map

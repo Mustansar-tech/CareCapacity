@@ -27,8 +27,9 @@ export async function extractAndStoreGeographicalData(
   logger.debug(`Branch ID: ${branchId}`);
 
   try {
+    const clearedEmployees = await storage.clearEmployeeLocations(branchId);
     const clearedClients = await storage.clearClientLocations(branchId);
-    logger.debug(`Cleared ${clearedClients} old client locations for branch ${branchId} — repopulating fresh. Employee locations are accumulated (not cleared) so all weeks retain their transport mode records.`);
+    logger.debug(`Cleared ${clearedEmployees} old employee locations and ${clearedClients} old client locations for branch ${branchId} — repopulating fresh from uploaded files`);
 
     const employeeLocationsMap = new Map<string, any>();
 
