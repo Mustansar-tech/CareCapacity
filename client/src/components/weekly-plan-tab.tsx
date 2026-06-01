@@ -662,7 +662,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       const location = employeeLocationMap.get(empName);
 
                       // Determine transport mode icon
-                      const transportMode = location?.transportMode?.toLowerCase() || 'car';
+                      const transportMode = location?.transportMode?.toLowerCase() || '';
                       const isWalker = !transportMode.includes('car');
                       const TransportIcon = isWalker ? User : Car;
 

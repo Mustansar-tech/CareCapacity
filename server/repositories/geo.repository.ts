@@ -24,8 +24,7 @@ export async function upsertEmployeeLocation(location: InsertEmployeeLocation): 
         homePostcode: location.homePostcode,
         homeLat: location.homeLat,
         homeLng: location.homeLng,
-        // Never overwrite a known transport mode with null — keep existing DB value
-        ...(location.transportMode != null && { transportMode: location.transportMode }),
+        transportMode: location.transportMode,
         gender: location.gender,
         geocodedAt: location.homeLat && location.homeLng ? new Date() : null,
       },
