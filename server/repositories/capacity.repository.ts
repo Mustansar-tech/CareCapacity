@@ -72,21 +72,16 @@ export async function getLatestWeeksAnalyses(branchId: string, limit = 4): Promi
     .limit(limit);
 }
 
-export async function enforceRetentionLatestWeeks(branchId: string): Promise<number> {
-  // Keep 2 past weeks (14 days before the current UTC Monday) + all future weeks.
-  const now = new Date();
-  const day = now.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-  const cutoffDate = new Date(currentMonday);
-  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
-  const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+export async function enforceRetentionLatestWeeks(branchId: string, limit = 4): Promise<number> {
+  const analyses = await getLatestWeeksAnalyses(branchId, limit);
+  if (analyses.length < limit) return 0;
+  const lastKeepDate = analyses[analyses.length - 1].weekStartDate;
   const result = await db
     .delete(capacityAnalyses)
     .where(
       and(
         eq(capacityAnalyses.branchId, branchId),
-        sql`${capacityAnalyses.weekStartDate} < ${cutoffStr}`,
+        sql`${capacityAnalyses.weekStartDate} < ${lastKeepDate}`,
       ),
     );
   return result.rowCount ?? 0;

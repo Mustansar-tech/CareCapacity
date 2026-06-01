@@ -82,7 +82,7 @@ export interface IStorage {
   getLatestCapacityAnalysis(branchId: string): Promise<CapacityAnalysis | undefined>;
   getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string): Promise<CapacityAnalysis | undefined>;
   getLatestWeeksAnalyses(branchId: string, limit?: number): Promise<CapacityAnalysis[]>;
-  enforceRetentionLatestWeeks(branchId: string): Promise<number>;
+  enforceRetentionLatestWeeks(branchId: string, limit?: number): Promise<number>;
   cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number>;
 
   // Geographical scheduling
@@ -193,7 +193,7 @@ export class DatabaseStorage implements IStorage {
   getLatestCapacityAnalysis(branchId: string) { return capacityRepo.getLatestCapacityAnalysis(branchId); }
   getCapacityAnalysisByWeekStart(branchId: string, weekStartDate: string) { return capacityRepo.getCapacityAnalysisByWeekStart(branchId, weekStartDate); }
   getLatestWeeksAnalyses(branchId: string, limit?: number) { return capacityRepo.getLatestWeeksAnalyses(branchId, limit); }
-  enforceRetentionLatestWeeks(branchId: string) { return capacityRepo.enforceRetentionLatestWeeks(branchId); }
+  enforceRetentionLatestWeeks(branchId: string, limit?: number) { return capacityRepo.enforceRetentionLatestWeeks(branchId, limit); }
   cleanupOldAnalyses(branchId: string, monthsOld: number) { return capacityRepo.cleanupOldAnalyses(branchId, monthsOld); }
 
   // ─── Geo / locations / visits ─────────────────────────────────────────────────
@@ -322,7 +322,7 @@ export class MemStorage implements IStorage {
   async getLatestWeeksAnalyses(branchId: string, limit: number = 4): Promise<CapacityAnalysis[]> {
     return Array.from(this.capacityAnalyses.values()).filter(a => a.branchId === branchId).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)).slice(0, limit);
   }
-  async enforceRetentionLatestWeeks(branchId: string): Promise<number> { return 0; }
+  async enforceRetentionLatestWeeks(branchId: string, limit: number = 4): Promise<number> { return 0; }
   async cleanupOldAnalyses(branchId: string, monthsOld: number): Promise<number> { return 0; }
 
   async upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation> {
