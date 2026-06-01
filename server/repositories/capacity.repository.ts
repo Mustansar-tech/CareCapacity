@@ -63,13 +63,45 @@ export async function getCapacityAnalysisByWeekStart(branchId: string, weekStart
   return analysis;
 }
 
-export async function getLatestWeeksAnalyses(branchId: string, limit = 4): Promise<CapacityAnalysis[]> {
+export async function getLatestWeeksAnalyses(branchId: string, limit = 15): Promise<CapacityAnalysis[]> {
   return db
     .select()
     .from(capacityAnalyses)
     .where(eq(capacityAnalyses.branchId, branchId))
     .orderBy(desc(capacityAnalyses.weekStartDate))
     .limit(limit);
+}
+
+/**
+ * Return all capacity analyses within the 15-week rolling window:
+ * 2 past weeks + current week + 13 future weeks.
+ * Ordered most-recent-first (highest weekStartDate first).
+ */
+export async function getWindowedAnalyses(branchId: string): Promise<CapacityAnalysis[]> {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+
+  const lowerCutoff = new Date(currentMonday);
+  lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
+  const lowerStr = lowerCutoff.toISOString().slice(0, 10);
+
+  const upperCutoff = new Date(currentMonday);
+  upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7);
+  const upperStr = upperCutoff.toISOString().slice(0, 10);
+
+  return db
+    .select()
+    .from(capacityAnalyses)
+    .where(
+      and(
+        eq(capacityAnalyses.branchId, branchId),
+        gte(capacityAnalyses.weekStartDate, lowerStr),
+        lte(capacityAnalyses.weekStartDate, upperStr),
+      ),
+    )
+    .orderBy(desc(capacityAnalyses.weekStartDate));
 }
 
 /**
