@@ -169,7 +169,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
         }
       }
       await scheduleRepo.upsertCpScheduledVisitsByDates(requestedBranchId, weekDates, visitRows);
-      await scheduleRepo.enforceRetentionCpScheduledVisits(requestedBranchId, 8);
+      await scheduleRepo.enforceRetentionCpScheduledVisits(requestedBranchId);
       logger.info('Persisted CP scheduled visits to database (date-aware upsert)', {
         branchId: requestedBranchId, employees: scheduleMap.size, totalVisits: visitRows.length, weekDates: weekDates.length,
       });
@@ -203,7 +203,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
         }
       }
       await scheduleRepo.upsertGhClientVisitsByDates(requestedBranchId, weekDates, clientVisitRows);
-      await scheduleRepo.enforceRetentionGhClientVisits(requestedBranchId, 8);
+      await scheduleRepo.enforceRetentionGhClientVisits(requestedBranchId);
       logger.info('Persisted GH client visits to database (date-aware upsert)', {
         branchId: requestedBranchId, totalVisits: clientVisitRows.length, weekDates: weekDates.length,
       });

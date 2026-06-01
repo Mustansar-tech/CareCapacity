@@ -21,13 +21,8 @@ import {
   Building2,
   AlertTriangle,
   FileDown,
-  Terminal,
-  ChevronDown,
-  ChevronUp,
   Clock,
-  Play,
-  CheckCircle2,
-  CalendarClock,
+  CalendarRange,
 } from "lucide-react";
 
 interface AutomationJob {
@@ -48,6 +43,13 @@ interface AutomationJob {
   logs: string[];
 }
 
+interface WeekProgress {
+  weekStartDate: string;
+  weekEndDate: string;
+  status: "pending" | "downloading" | "processing" | "completed" | "failed";
+  error?: string;
+}
+
 interface PipelineSession {
   sessionId: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -58,6 +60,7 @@ interface PipelineSession {
   completedAt?: string;
   branchId?: string;
   jobs?: AutomationJob[];
+  weeklyProgress?: WeekProgress[];
 }
 
 interface Props {
@@ -93,6 +96,14 @@ const REPORT_LABELS: Record<string, string> = {
   careGiverAvailabilityExport:   "Availability Export",
 };
 
+const WEEK_STATUS_LABELS: Record<WeekProgress["status"], string> = {
+  pending:     "Waiting",
+  downloading: "Downloading...",
+  processing:  "Processing...",
+  completed:   "Done",
+  failed:      "Failed",
+};
+
 function getMondayOf(d = new Date()): string {
   const date = new Date(d);
   const day = date.getDay();
@@ -118,6 +129,24 @@ function elapsedTime(startedAt: string): string {
   return `${Math.floor(diff / 60)}m ${diff % 60}s`;
 }
 
+function getPhaseLabel(phase: string): string {
+  if (PHASE_LABELS[phase]) return PHASE_LABELS[phase];
+  if (phase.startsWith("downloading_visitsExport")) return "Preparing visit data...";
+  if (phase.startsWith("downloading_careGiverExport")) return "Downloading staff data...";
+  if (phase.startsWith("downloading_careGiverAvailabilityExport")) return "Downloading availability...";
+  if (phase.startsWith("processing")) return "Processing week data...";
+  return phase;
+}
+
+function getPhaseProgress(phase: string, weeklyProgress?: WeekProgress[]): number {
+  if (PHASE_PROGRESS[phase] !== undefined) return PHASE_PROGRESS[phase];
+  if (!weeklyProgress || weeklyProgress.length === 0) return 10;
+  const total = weeklyProgress.length;
+  const done = weeklyProgress.filter(w => w.status === "completed").length;
+  const inProgress = weeklyProgress.filter(w => w.status === "downloading" || w.status === "processing").length;
+  return Math.round(((done + inProgress * 0.5) / total) * 100);
+}
+
 export function PeoplePlannerPanel({ open, onClose }: Props) {
   const { selectedBranchId, branches } = useBranch();
   const { toast } = useToast();
@@ -127,41 +156,8 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   const [weekStartDate, setWeekStartDate] = useState<string>(getMondayOf());
   const [elapsed, setElapsed] = useState<string>("");
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
-  const [showLogs, setShowLogs] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
-
-  // Admin-only: manual week sync trigger
-  const [weeklySyncResult, setWeeklySyncResult] = useState<{
-    branches: number;
-    weeks: Array<{ label: string; weekStartDate: string }>;
-  } | null>(null);
-  const [selectedWeeks, setSelectedWeeks] = useState<Set<"previous" | "current" | "next">>(
-    new Set(["previous", "current", "next"])
-  );
-  const toggleWeek = (week: "previous" | "current" | "next") => {
-    setSelectedWeeks(prev => {
-      const next = new Set(prev);
-      if (next.has(week)) { next.delete(week); } else { next.add(week); }
-      return next;
-    });
-  };
-  const weeklySyncMutation = useMutation({
-    mutationFn: async () => {
-      const weeks = Array.from(selectedWeeks);
-      const res = await apiRequest("POST", "/api/pp/trigger-weekly-sync", { weeks });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Unknown error"); }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setWeeklySyncResult(data);
-      const count = data.weeks.length;
-      const label = count === 3 ? "all three weeks" : count === 1 ? "1 week" : `${count} weeks`;
-      toast({ title: "Weekly sync started", description: `Queued ${data.branches} branches across ${label}.` });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Sync failed", description: err.message, variant: "destructive" });
-    },
-  });
+  const [syncMode, setSyncMode] = useState<"single" | "all">("single");
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
 
@@ -188,7 +184,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return 2000;
-      return data.status === "running" ? 2000 : false;
+      return data.status === "running" || data.status === "queued" ? 2000 : false;
     },
     refetchIntervalInBackground: true,
   });
@@ -209,9 +205,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
 
   useEffect(() => {
     if (session?.status === "completed") {
-      // Arms the skip guard and clears current data BEFORE invalidating so the
-      // auto-load effect waits for the fresh latestData instead of showing the
-      // stale cache.
       switchToLatest();
       queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/history/latest"] });
@@ -230,7 +223,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   }, [session?.status]);
 
   useEffect(() => {
-    if (!sessionStartedAt || session?.status !== "running") return;
+    if (!sessionStartedAt || (session?.status !== "running" && session?.status !== "queued")) return;
     const interval = setInterval(() => setElapsed(elapsedTime(sessionStartedAt)), 1000);
     return () => clearInterval(interval);
   }, [sessionStartedAt, session?.status]);
@@ -245,9 +238,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
         body: JSON.stringify({ weekStartDate: monday, branchId: selectedBranchId }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
       return data as { sessionId: string; queued: boolean; queuePosition: number };
     },
     onSuccess: (data) => {
@@ -257,26 +248,59 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
       setElapsed("0s");
     },
     onError: (err: Error) => {
-      toast({
-        title: "Failed to start sync",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to start sync", description: err.message, variant: "destructive" });
     },
   });
 
-  const isActive = session?.status === "running" || session?.status === "queued" || triggerMutation.isPending;
+  const allWeeksMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(toAbsoluteUrl("/api/pp/run-multi-week"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ branchId: selectedBranchId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `${res.status}: ${res.statusText}`);
+      return data as { sessionId: string; queued: boolean; queuePosition: number; weekCount: number; weeks: string[] };
+    },
+    onSuccess: (data) => {
+      setQueuePosition(data.queued ? data.queuePosition : null);
+      setActiveSessionId(data.sessionId);
+      setSessionStartedAt(new Date().toISOString());
+      setElapsed("0s");
+      toast({
+        title: "Multi-week sync started",
+        description: `Syncing ${data.weekCount} weeks for ${selectedBranch?.displayName ?? "this branch"}.`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to start multi-week sync", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const isActive = session?.status === "running" || session?.status === "queued" || triggerMutation.isPending || allWeeksMutation.isPending;
   const automationAvailable = health?.healthy ?? true;
   const phase = session?.phase ?? "starting";
-  const progress = PHASE_PROGRESS[phase] ?? 10;
-  const phaseLabel = PHASE_LABELS[phase] ?? phase;
+  const progress = getPhaseProgress(phase, session?.weeklyProgress);
+  const phaseLabel = getPhaseLabel(phase);
 
-  const handleStart = () => {
+  const isMultiWeekSession = !!(session?.weeklyProgress && session.weeklyProgress.length > 0);
+
+  const handleStartSingle = () => {
     setActiveSessionId(null);
     setElapsed("");
     setSessionStartedAt(null);
     setQueuePosition(null);
     triggerMutation.mutate();
+  };
+
+  const handleStartAllWeeks = () => {
+    setActiveSessionId(null);
+    setElapsed("");
+    setSessionStartedAt(null);
+    setQueuePosition(null);
+    allWeeksMutation.mutate();
   };
 
   const handleReset = () => {
@@ -299,7 +323,6 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <>
     <Card className="material-card hover-lift animate-slide-up mb-4 elevation-2">
       <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg pb-4">
         <div className="flex items-center justify-between">
@@ -309,7 +332,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             </div>
             <div>
               <CardTitle className="text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">Process Data</CardTitle>
-              <CardDescription className="text-xs">select the week to process new data</CardDescription>
+              <CardDescription className="text-xs">sync from People Planner automatically</CardDescription>
             </div>
           </div>
           <button
@@ -336,7 +359,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* Queued banner — shown while waiting for the server to become free */}
+        {/* Queued banner */}
         {session?.status === "queued" && queuePosition && (
           <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2.5 flex items-start gap-2">
             <Clock className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -345,25 +368,55 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 Sync queued — position {queuePosition - 1} in line
               </p>
               <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-0.5">
-                Another branch is currently syncing. Your sync will start automatically when it finishes — no need to retry.
+                Another branch is currently syncing. Your sync will start automatically.
               </p>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Branch display */}
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
-            <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Branch</p>
-              <p className="text-sm font-medium truncate">
-                {selectedBranch?.displayName ?? selectedBranchId ?? "—"}
-              </p>
-            </div>
+        {/* Branch display */}
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Branch</p>
+            <p className="text-sm font-medium truncate">
+              {selectedBranch?.displayName ?? selectedBranchId ?? "—"}
+            </p>
           </div>
+        </div>
 
-          {/* Week selector */}
+        {/* Mode selector */}
+        {!isActive && !session && (
+          <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
+            <button
+              type="button"
+              onClick={() => setSyncMode("single")}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                syncMode === "single"
+                  ? "bg-white dark:bg-gray-800 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Single week
+            </button>
+            <button
+              type="button"
+              onClick={() => setSyncMode("all")}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                syncMode === "all"
+                  ? "bg-white dark:bg-gray-800 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarRange className="w-3.5 h-3.5" />
+              All weeks
+            </button>
+          </div>
+        )}
+
+        {/* Single-week date picker */}
+        {syncMode === "single" && !isActive && !session && (
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
@@ -382,7 +435,17 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               </p>
             )}
           </div>
-        </div>
+        )}
+
+        {/* All-weeks explanation */}
+        {syncMode === "all" && !isActive && !session && (
+          <div className="rounded-md bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 px-3 py-2.5">
+            <p className="text-xs text-violet-700 dark:text-violet-300 font-medium">Syncs all generated weeks in one go</p>
+            <p className="text-xs text-violet-600/80 dark:text-violet-400 mt-0.5">
+              This week plus all published forward weeks — typically 5–13 weeks depending on where you are in the month. One login, all weeks downloaded.
+            </p>
+          </div>
+        )}
 
         {/* Active session progress */}
         {(isActive || session) && (
@@ -390,7 +453,7 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">{phaseLabel}</p>
               <div className="flex items-center gap-2">
-                {session?.status === "running" && elapsed && (
+                {(session?.status === "running" || session?.status === "queued") && elapsed && (
                   <span className="text-xs text-muted-foreground">{elapsed}</span>
                 )}
                 {session?.status === "completed" && (
@@ -417,6 +480,44 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
               }`}
             />
 
+            {/* Per-week progress (multi-week sessions) */}
+            {isMultiWeekSession && session?.weeklyProgress && (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {session.weeklyProgress.map((wp, i) => (
+                  <div
+                    key={wp.weekStartDate}
+                    className={`flex items-center gap-2 rounded px-2 py-1 text-xs ${
+                      wp.status === "completed" ? "bg-emerald-50 dark:bg-emerald-950/20" :
+                      wp.status === "failed"    ? "bg-red-50 dark:bg-red-950/20" :
+                      wp.status === "downloading" || wp.status === "processing" ? "bg-blue-50 dark:bg-blue-950/20" :
+                      "bg-muted/30"
+                    }`}
+                  >
+                    {wp.status === "completed" ? (
+                      <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                    ) : wp.status === "failed" ? (
+                      <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                    ) : wp.status === "downloading" || wp.status === "processing" ? (
+                      <Loader2 className="w-3 h-3 text-blue-500 animate-spin flex-shrink-0" />
+                    ) : (
+                      <div className="w-3 h-3 rounded-full border border-muted-foreground/30 flex-shrink-0" />
+                    )}
+                    <span className="flex-1 text-foreground/80">
+                      w/c {formatDate(wp.weekStartDate)} – {formatDate(wp.weekEndDate)}
+                    </span>
+                    <span className={`flex-shrink-0 ${
+                      wp.status === "completed" ? "text-emerald-600 dark:text-emerald-400" :
+                      wp.status === "failed"    ? "text-red-600 dark:text-red-400" :
+                      wp.status === "downloading" || wp.status === "processing" ? "text-blue-600 dark:text-blue-400" :
+                      "text-muted-foreground"
+                    }`}>
+                      {WEEK_STATUS_LABELS[wp.status]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {session?.status === "failed" && session.error && (
               <div className="rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
                 <div className="flex gap-2">
@@ -431,7 +532,9 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 <div className="flex gap-2">
                   <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                    Dashboard updated successfully and ready to explore.
+                    {isMultiWeekSession
+                      ? `Sync complete — ${session.weeklyProgress?.filter(w => w.status === "completed").length ?? 0} weeks updated.`
+                      : "Dashboard updated successfully and ready to explore."}
                   </p>
                 </div>
               </div>
@@ -445,9 +548,10 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent syncs</p>
             <div className="space-y-1.5">
               {recentSessions.slice(0, 5).map(s => {
-                const reportDate = s.jobs?.[0]?.config?.startDate;
+                const reportDate = s.jobs?.[0]?.config?.startDate ?? s.weeklyProgress?.[0]?.weekStartDate;
                 const completedJobs = s.jobs?.filter(j => j.status === "completed").length ?? 0;
                 const totalJobs = s.jobs?.length ?? s.jobIds.length;
+                const isMulti = !!(s.weeklyProgress && s.weeklyProgress.length > 0);
                 return (
                   <div key={s.sessionId} className="rounded-md border px-3 py-2 text-xs bg-muted/20 space-y-1">
                     <div className="flex items-center gap-2">
@@ -459,21 +563,26 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                         <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
                       )}
                       <span className="flex-1 font-medium text-foreground/80">
-                        {reportDate ? `w/c ${formatDate(reportDate)}` : "Sync"}
+                        {isMulti
+                          ? `All weeks (${s.weeklyProgress!.length} weeks)`
+                          : reportDate ? `w/c ${formatDate(reportDate)}` : "Sync"}
                       </span>
                       <span className="text-muted-foreground/70 flex-shrink-0">
                         {new Date(s.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 pl-5 text-muted-foreground">
-                      <span>{completedJobs}/{totalJobs} reports downloaded</span>
+                      {isMulti
+                        ? <span>{s.weeklyProgress!.filter(w => w.status === "completed").length}/{s.weeklyProgress!.length} weeks complete</span>
+                        : <span>{completedJobs}/{totalJobs} reports downloaded</span>
+                      }
                       {s.status === "failed" && s.error && (
                         <span className="text-red-500 truncate max-w-[160px]" title={s.error}>
                           — {s.error}
                         </span>
                       )}
                     </div>
-                    {s.jobs && s.jobs.filter(j => j.downloadReady && j.fileName).length > 0 && (
+                    {!isMulti && s.jobs && s.jobs.filter(j => j.downloadReady && j.fileName).length > 0 && (
                       <div className="flex flex-wrap gap-2 pl-5 pt-0.5">
                         {s.jobs.filter(j => j.downloadReady && j.fileName).map(j => (
                           <a
@@ -508,10 +617,10 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 Close
               </Button>
             </div>
-          ) : (
+          ) : syncMode === "single" ? (
             <Button
               className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
-              onClick={handleStart}
+              onClick={handleStartSingle}
               disabled={isActive || !weekStartDate || !selectedBranchId || !automationAvailable}
               title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
             >
@@ -527,96 +636,28 @@ export function PeoplePlannerPanel({ open, onClose }: Props) {
                 </>
               )}
             </Button>
+          ) : (
+            <Button
+              className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white border-0 shadow-lg disabled:opacity-60"
+              onClick={handleStartAllWeeks}
+              disabled={isActive || !selectedBranchId || !automationAvailable}
+              title={!automationAvailable ? (health?.reason ?? "Automation unavailable") : undefined}
+            >
+              {isActive ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Syncing all weeks...
+                </>
+              ) : (
+                <>
+                  <CalendarRange className="w-4 h-4 mr-2" />
+                  Sync all weeks
+                </>
+              )}
+            </Button>
           )}
         </div>
       </CardContent>
     </Card>
-
-    {/* Admin-only: manual week sync */}
-    {isAdmin && (() => {
-      const WEEK_META = [
-        { label: "previous" as const, display: "Previous", time: "Mon 01:00", dot: "bg-amber-400" },
-        { label: "current"  as const, display: "Current",  time: "Mon 03:00", dot: "bg-blue-500"  },
-        { label: "next"     as const, display: "Next",     time: "Mon 05:00", dot: "bg-emerald-500" },
-      ];
-      const runLabel = selectedWeeks.size === 3
-        ? "Run all three weeks now"
-        : selectedWeeks.size === 0
-          ? "Select a week"
-          : `Run ${Array.from(selectedWeeks).join(" + ")} now`;
-      return (
-        <Card className="border border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm mt-3">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">Monday auto-sync</p>
-                <p className="text-xs text-muted-foreground">
-                  Select which weeks to run now for all branches
-                </p>
-              </div>
-            </div>
-
-            {/* Week selector tiles */}
-            <div className="grid grid-cols-3 gap-2">
-              {WEEK_META.map(({ label, display, time, dot }) => {
-                const isSelected = selectedWeeks.has(label);
-                const dateStr = weeklySyncResult?.weeks.find(w => w.label === label)?.weekStartDate;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => toggleWeek(label)}
-                    className={`rounded-lg border p-2.5 text-left transition-all ${
-                      isSelected
-                        ? "border-purple-500 bg-purple-100/70 dark:bg-purple-900/50 ring-1 ring-purple-500"
-                        : "border-border bg-background/50 opacity-50 hover:opacity-80"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${dot}`} />
-                      <span className="text-xs font-semibold text-foreground">{display}</span>
-                      {isSelected && <CheckCircle2 className="h-3 w-3 text-purple-500 ml-auto" />}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{time}</p>
-                    {dateStr && <p className="text-xs font-mono text-muted-foreground">{dateStr}</p>}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Select all / clear */}
-            <div className="flex gap-3 text-xs">
-              <button type="button" onClick={() => setSelectedWeeks(new Set(["previous", "current", "next"]))} className="text-purple-600 dark:text-purple-400 hover:underline">All</button>
-              <span className="text-muted-foreground">·</span>
-              <button type="button" onClick={() => setSelectedWeeks(new Set())} className="text-muted-foreground hover:underline">Clear</button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                size="sm"
-                onClick={() => weeklySyncMutation.mutate()}
-                disabled={weeklySyncMutation.isPending || selectedWeeks.size === 0}
-                className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
-              >
-                {weeklySyncMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {weeklySyncMutation.isPending ? "Queuing…" : runLabel}
-              </Button>
-              {weeklySyncResult && !weeklySyncMutation.isPending && (
-                <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {weeklySyncResult.branches} branches queued
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      );
-    })()}
-  </>
   );
 }

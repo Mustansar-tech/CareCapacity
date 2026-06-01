@@ -103,9 +103,14 @@ export async function upsertCpScheduledVisitsByDates(branchId: string, dates: st
   });
 }
 
-export async function enforceRetentionCpScheduledVisits(branchId: string, keepWeeks = 8): Promise<void> {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+export async function enforceRetentionCpScheduledVisits(branchId: string): Promise<void> {
+  // Keep 2 past weeks (14 days before the current UTC Monday) + all future weeks.
+  const now = new Date();
+  const day = now.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+  const cutoffDate = new Date(currentMonday);
+  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
   const cutoffStr = cutoffDate.toISOString().slice(0, 10);
   await db.delete(cpScheduledVisits).where(
     and(eq(cpScheduledVisits.branchId, branchId), lt(cpScheduledVisits.date, cutoffStr)),
@@ -129,9 +134,14 @@ export async function upsertGhClientVisitsByDates(branchId: string, dates: strin
   });
 }
 
-export async function enforceRetentionGhClientVisits(branchId: string, keepWeeks = 8): Promise<void> {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+export async function enforceRetentionGhClientVisits(branchId: string): Promise<void> {
+  // Keep 2 past weeks (14 days before the current UTC Monday) + all future weeks.
+  const now = new Date();
+  const day = now.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+  const cutoffDate = new Date(currentMonday);
+  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
   const cutoffStr = cutoffDate.toISOString().slice(0, 10);
   await db.delete(ghClientVisits).where(
     and(eq(ghClientVisits.branchId, branchId), lt(ghClientVisits.date, cutoffStr)),

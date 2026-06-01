@@ -111,11 +111,11 @@ export interface IStorage {
   deleteCpScheduledVisitsByBranch(branchId: string): Promise<void>;
   replaceCpScheduledVisits(branchId: string, visits: InsertCpScheduledVisit[]): Promise<void>;
   upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visits: InsertCpScheduledVisit[]): Promise<void>;
-  enforceRetentionCpScheduledVisits(branchId: string, keepWeeks?: number): Promise<void>;
+  enforceRetentionCpScheduledVisits(branchId: string): Promise<void>;
 
   // GH Client Visits (client-demand, parsed at processing time)
   upsertGhClientVisitsByDates(branchId: string, dates: string[], visits: InsertGhClientVisit[]): Promise<void>;
-  enforceRetentionGhClientVisits(branchId: string, keepWeeks?: number): Promise<void>;
+  enforceRetentionGhClientVisits(branchId: string): Promise<void>;
   getGhClientVisitsByDate(branchId: string, date: string): Promise<GhClientVisit[]>;
   getGhClientVisitsByWeek(branchId: string, weekStart: string, weekEnd: string): Promise<GhClientVisit[]>;
 
@@ -234,9 +234,9 @@ export class DatabaseStorage implements IStorage {
   deleteCpScheduledVisitsByBranch(branchId: string) { return scheduleRepo.deleteCpScheduledVisitsByBranch(branchId); }
   replaceCpScheduledVisits(branchId: string, visits: InsertCpScheduledVisit[]) { return scheduleRepo.replaceCpScheduledVisits(branchId, visits); }
   upsertCpScheduledVisitsByDates(branchId: string, dates: string[], visits: InsertCpScheduledVisit[]) { return scheduleRepo.upsertCpScheduledVisitsByDates(branchId, dates, visits); }
-  enforceRetentionCpScheduledVisits(branchId: string, keepWeeks?: number) { return scheduleRepo.enforceRetentionCpScheduledVisits(branchId, keepWeeks); }
+  enforceRetentionCpScheduledVisits(branchId: string) { return scheduleRepo.enforceRetentionCpScheduledVisits(branchId); }
   upsertGhClientVisitsByDates(branchId: string, dates: string[], visits: InsertGhClientVisit[]) { return scheduleRepo.upsertGhClientVisitsByDates(branchId, dates, visits); }
-  enforceRetentionGhClientVisits(branchId: string, keepWeeks?: number) { return scheduleRepo.enforceRetentionGhClientVisits(branchId, keepWeeks); }
+  enforceRetentionGhClientVisits(branchId: string) { return scheduleRepo.enforceRetentionGhClientVisits(branchId); }
   getGhClientVisitsByDate(branchId: string, date: string) { return scheduleRepo.getGhClientVisitsByDate(branchId, date); }
   getGhClientVisitsByWeek(branchId: string, weekStart: string, weekEnd: string) { return scheduleRepo.getGhClientVisitsByWeek(branchId, weekStart, weekEnd); }
 
@@ -400,9 +400,14 @@ export class MemStorage implements IStorage {
     await this.saveCpScheduledVisits(visitRows);
   }
 
-  async enforceRetentionCpScheduledVisits(branchId: string, keepWeeks: number = 8): Promise<void> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+  async enforceRetentionCpScheduledVisits(branchId: string): Promise<void> {
+    // Keep 2 past weeks (14 days before current Monday) + all future weeks.
+    const now = new Date();
+    const day = now.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+    const cutoffDate = new Date(currentMonday);
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
     const cutoffStr = cutoffDate.toISOString().slice(0, 10);
     Array.from(this.cpVisits.entries()).forEach(([id, v]) => {
       if (v.branchId === branchId && v.date < cutoffStr) this.cpVisits.delete(id);
@@ -421,9 +426,14 @@ export class MemStorage implements IStorage {
       this.ghVisits.set(id, { ...v, id, serviceType: v.serviceType ?? null, priority: v.priority ?? 1, lat: v.lat ?? null, lng: v.lng ?? null, postcode: v.postcode ?? null });
     }
   }
-  async enforceRetentionGhClientVisits(branchId: string, keepWeeks: number = 8): Promise<void> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - keepWeeks * 7);
+  async enforceRetentionGhClientVisits(branchId: string): Promise<void> {
+    // Keep 2 past weeks (14 days before current Monday) + all future weeks.
+    const now = new Date();
+    const day = now.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+    const cutoffDate = new Date(currentMonday);
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 14);
     const cutoffStr = cutoffDate.toISOString().slice(0, 10);
     Array.from(this.ghVisits.entries()).forEach(([id, v]) => {
       if (v.branchId === branchId && v.date < cutoffStr) this.ghVisits.delete(id);

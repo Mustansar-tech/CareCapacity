@@ -150,6 +150,16 @@ interface QueuedRunParams {
   endDate: string;
   branchDisplayName: string;
   reportTypes: readonly ("visitsExport" | "careGiverExport" | "careGiverAvailabilityExport")[];
+  /** Multi-week mode: list of Monday dates to process in one session */
+  weekStartDates?: string[];
+  isMultiWeek?: boolean;
+}
+
+export interface WeekProgress {
+  weekStartDate: string;
+  weekEndDate: string;
+  status: "pending" | "downloading" | "processing" | "completed" | "failed";
+  error?: string;
 }
 
 interface PipelineSession {
@@ -166,6 +176,8 @@ interface PipelineSession {
   pendingParams?: QueuedRunParams;
   /** 0-based index into the account pool slot array assigned to this session */
   slotArrayIndex?: number;
+  /** Per-week progress for multi-week sessions */
+  weeklyProgress?: WeekProgress[];
 }
 
 const activeSessions = new Map<string, PipelineSession>();
@@ -317,14 +329,22 @@ function startNextQueuedSession(): void {
       sessionId: nextId,
       branchId: session.branchId,
       slotArrayIndex: idleSlot,
+      isMultiWeek: params.isMultiWeek,
       remaining: sessionQueue.length,
     });
 
-    runPipelineSession(
-      nextId, session.branchId, params.branchDisplayName, params.ppConfig,
-      params.startDate, params.endDate, params.reportTypes,
-      session.initiatedByUserId ?? "unknown", idleSlot
-    ).catch(err => {
+    const runner = params.isMultiWeek && params.weekStartDates && params.weekStartDates.length > 0
+      ? runMultiWeekPipelineSession(
+          nextId, session.branchId, params.branchDisplayName, params.ppConfig,
+          params.weekStartDates, session.initiatedByUserId ?? "unknown", idleSlot
+        )
+      : runPipelineSession(
+          nextId, session.branchId, params.branchDisplayName, params.ppConfig,
+          params.startDate, params.endDate, params.reportTypes,
+          session.initiatedByUserId ?? "unknown", idleSlot
+        );
+
+    runner.catch(err => {
       const s = activeSessions.get(nextId);
       if (s && s.status === "running") {
         activeSessions.set(nextId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), phase: "error", completedAt: new Date().toISOString() });
@@ -460,6 +480,96 @@ export async function programmaticQueueSync(
   });
 
   logger.info("Programmatic PP sync started", { sessionId, branchId, slotArrayIndex: idleSlot });
+  return { sessionId, queued: false, queuePosition: 1 };
+}
+
+/**
+ * Programmatically queue a multi-week sync for a branch — processes all weeks
+ * in `weekStartDates` in a single Playwright session (login once, iterate, logout).
+ * Returns { sessionId, queued, queuePosition }.
+ */
+export async function programmaticQueueMultiWeekSync(
+  branchId: string,
+  weekStartDates: string[],
+  initiatedByUserId = "system"
+): Promise<{ sessionId: string; queued: boolean; queuePosition: number }> {
+  if (weekStartDates.length === 0) throw new Error("weekStartDates must not be empty");
+  const branch = await storage.getBranchById(branchId);
+  if (!branch) throw new Error(`Branch not found: ${branchId}`);
+
+  const ppConfig = getMergedBranchConfig(branchId);
+  if (!ppConfig) throw new Error(`No PP config for branch ${branch.displayName}`);
+
+  const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
+  const sessionId = `ppsession_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  // Initialise per-week progress entries.
+  const weeklyProgress: WeekProgress[] = weekStartDates.map(ws => {
+    const end = new Date(ws);
+    end.setUTCDate(end.getUTCDate() + 6);
+    return {
+      weekStartDate: ws,
+      weekEndDate: end.toISOString().split("T")[0],
+      status: "pending",
+    };
+  });
+
+  const idleSlot = findPreferredSlotForBranch(branchId);
+  if (idleSlot === -1) {
+    const pendingSession: PipelineSession = {
+      sessionId,
+      status: "queued",
+      jobIds: [],
+      phase: "queued",
+      startedAt: new Date().toISOString(),
+      branchId,
+      initiatedByUserId,
+      weeklyProgress,
+      pendingParams: {
+        ppConfig,
+        startDate: weekStartDates[0],
+        endDate: weeklyProgress[weeklyProgress.length - 1].weekEndDate,
+        branchDisplayName: branch.displayName,
+        reportTypes,
+        weekStartDates,
+        isMultiWeek: true,
+      },
+    };
+    activeSessions.set(sessionId, pendingSession);
+    sessionQueue.push(sessionId);
+    const queuePosition = slotReservations.size + sessionQueue.length;
+    logger.info("Programmatic PP multi-week sync queued — all slots busy", { sessionId, branchId, weekCount: weekStartDates.length, queuePosition });
+    return { sessionId, queued: true, queuePosition };
+  }
+
+  reserveSlot(idleSlot, sessionId);
+  const newSession: PipelineSession = {
+    sessionId,
+    status: "running",
+    jobIds: [],
+    phase: "starting",
+    startedAt: new Date().toISOString(),
+    branchId,
+    initiatedByUserId,
+    slotArrayIndex: idleSlot,
+    weeklyProgress,
+  };
+  activeSessions.set(sessionId, newSession);
+
+  runMultiWeekPipelineSession(
+    sessionId, branchId, branch.displayName, ppConfig, weekStartDates, initiatedByUserId, idleSlot
+  ).catch(err => {
+    const s = activeSessions.get(sessionId);
+    if (s && s.status === "running") {
+      activeSessions.set(sessionId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), phase: "error", completedAt: new Date().toISOString() });
+    }
+    logger.error("Programmatic multi-week pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
+  }).finally(() => {
+    releaseSlot(idleSlot);
+    setImmediate(() => startNextQueuedSession());
+  });
+
+  logger.info("Programmatic PP multi-week sync started", { sessionId, branchId, weekCount: weekStartDates.length, slotArrayIndex: idleSlot });
   return { sessionId, queued: false, queuePosition: 1 };
 }
 
@@ -928,6 +1038,51 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     }
   });
 
+  // POST /api/pp/run-multi-week — sync all forward weeks for a branch in one session
+  app.post("/api/pp/run-multi-week", requireAuth, requireRoleAtLeast("scheduler"), async (req, res) => {
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({ error: "People Planner credentials not configured." });
+    }
+
+    try {
+      const { branchId: requestedBranchId } = req.body as { branchId: string };
+
+      if (!requestedBranchId) {
+        return res.status(400).json({ error: "branchId is required" });
+      }
+
+      const branch = await storage.getBranchById(requestedBranchId);
+      if (!branch) return res.status(400).json({ error: "Invalid branch" });
+
+      const ppConfig = getMergedBranchConfig(requestedBranchId);
+      if (!ppConfig) {
+        return res.status(400).json({
+          error: `No Access Workspace URL configured for branch "${branch.displayName}".`,
+        });
+      }
+
+      const { getWeeksToSync } = await import("./week-helpers");
+      const now = new Date();
+      const isMonday = now.getUTCDay() === 1;
+      const weekStartDates = getWeeksToSync(now, isMonday);
+
+      const initiatedByUserId = req.session.userId ?? "unknown";
+      const result = await programmaticQueueMultiWeekSync(requestedBranchId, weekStartDates, initiatedByUserId);
+
+      logger.info("Multi-week PP sync triggered via API", {
+        branchId: requestedBranchId,
+        weekCount: weekStartDates.length,
+        weeks: weekStartDates,
+        ...result,
+      });
+
+      return res.status(202).json({ ...result, weekCount: weekStartDates.length, weeks: weekStartDates });
+    } catch (error) {
+      logger.error("Error starting multi-week People Planner run", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to start multi-week sync" });
+    }
+  });
+
   // ─── Manual test trigger (admin-only) ───────────────────────────────────────
   // Fires selected Monday sync runs immediately.
   // Body: { weeks?: Array<"previous" | "current" | "next"> }  — defaults to all three.
@@ -1147,7 +1302,7 @@ async function runPipelineSession(
           }
         }
         await storage.upsertCpScheduledVisitsByDates(branchId, weekDates, visitRows);
-        await storage.enforceRetentionCpScheduledVisits(branchId, 8);
+        await storage.enforceRetentionCpScheduledVisits(branchId);
       }
     } catch (err) {
       logger.warn("Failed to persist CP visits (non-fatal)", { err });
@@ -1177,7 +1332,7 @@ async function runPipelineSession(
           }
         }
         await storage.upsertGhClientVisitsByDates(branchId, weekDates2, clientVisitRows);
-        await storage.enforceRetentionGhClientVisits(branchId, 8);
+        await storage.enforceRetentionGhClientVisits(branchId);
         logger.info("Persisted GH client visits to database (date-aware upsert)", {
           branchId, totalVisits: clientVisitRows.length, weekDates: weekDates2.length,
         });
@@ -1216,6 +1371,278 @@ async function runPipelineSession(
     session.completedAt = new Date().toISOString();
     activeSessions.set(sessionId, session);
     logger.error("Pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
+    throw err;
+  }
+}
+
+// ─── Multi-week pipeline session ─────────────────────────────────────────────
+/**
+ * Run all weeks for one branch in a SINGLE Playwright session.
+ * Login once → iterate weeks downloading + processing each → logout.
+ * The slot is held across all weeks; no context reset happens between weeks.
+ */
+async function runMultiWeekPipelineSession(
+  sessionId: string,
+  branchId: string,
+  branchDisplayName: string,
+  ppConfig: BranchPPConfig,
+  weekStartDates: string[],
+  initiatedByUserId: string,
+  slotArrayIndex = 0
+): Promise<void> {
+  const existingSession = activeSessions.get(sessionId);
+  const session: PipelineSession = existingSession
+    ? { ...existingSession, status: "running", jobIds: [], phase: "starting", pendingParams: undefined }
+    : {
+        sessionId, status: "running", jobIds: [], phase: "starting",
+        startedAt: new Date().toISOString(), branchId, initiatedByUserId,
+      };
+
+  // Initialise weeklyProgress if not already set (e.g. when promoted from queue).
+  if (!session.weeklyProgress || session.weeklyProgress.length === 0) {
+    session.weeklyProgress = weekStartDates.map(ws => {
+      const end = new Date(ws);
+      end.setUTCDate(end.getUTCDate() + 6);
+      return { weekStartDate: ws, weekEndDate: end.toISOString().split("T")[0], status: "pending" as const };
+    });
+  }
+
+  activeSessions.set(sessionId, session);
+
+  const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
+
+  try {
+    // Reset any leftover context from a previous session on this slot (once, at start).
+    await resetSlotForNextSession(slotArrayIndex);
+
+    logger.info("Multi-week pipeline session starting", { sessionId, branchId, weekCount: weekStartDates.length });
+
+    for (let wi = 0; wi < weekStartDates.length; wi++) {
+      const weekStartDate = weekStartDates[wi];
+      const weekEnd = new Date(weekStartDate);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+      const weekEndDate = weekEnd.toISOString().split("T")[0];
+
+      // Update this week's progress to "downloading".
+      if (session.weeklyProgress) {
+        session.weeklyProgress[wi] = { ...session.weeklyProgress[wi], status: "downloading" };
+        activeSessions.set(sessionId, session);
+      }
+
+      const downloadedBuffers: Record<string, Buffer> = {};
+
+      try {
+        // Download all 3 reports for this week.
+        for (const reportType of reportTypes) {
+          const templateMap = REPORT_TEMPLATE_MAP[reportType];
+          const exportTemplate = REPORT_EXPORT_TEMPLATES[reportType];
+
+          session.phase = `downloading_${reportType} (week ${wi + 1}/${weekStartDates.length})`;
+          activeSessions.set(sessionId, session);
+
+          const config: JobConfig = {
+            branchUrl: ppConfig.branchUrl,
+            plannerArea: ppConfig.plannerArea,
+            startDate: weekStartDate,
+            endDate: weekEndDate,
+            reportType,
+            exportType: "Excel",
+            exportTemplate,
+            selectAllCareGivers: reportType === "careGiverAvailabilityExport",
+            branchId,
+          };
+
+          const jobId = await runAutomationJob(config, slotArrayIndex);
+          session.jobIds.push(jobId);
+          activeSessions.set(sessionId, session);
+
+          const completedJob = await waitForJob(jobId, 1800000);
+          if (completedJob.status === "failed") {
+            throw new Error(`${reportType} download failed: ${completedJob.error}`);
+          }
+
+          const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+          if (!filePath || !fs.existsSync(filePath)) {
+            throw new Error(`Downloaded file not found on disk for ${reportType}`);
+          }
+
+          downloadedBuffers[templateMap.fieldName] = fs.readFileSync(filePath);
+          logger.info("File buffered", {
+            reportType, weekStartDate, fieldName: templateMap.fieldName,
+            bytes: downloadedBuffers[templateMap.fieldName].length,
+          });
+        }
+
+        // Process this week's data.
+        if (session.weeklyProgress) {
+          session.weeklyProgress[wi] = { ...session.weeklyProgress[wi], status: "processing" };
+          activeSessions.set(sessionId, session);
+        }
+        session.phase = `processing (week ${wi + 1}/${weekStartDates.length})`;
+        activeSessions.set(sessionId, session);
+
+        const availabilityBuf = downloadedBuffers["availability"];
+        const guaranteedBuf   = downloadedBuffers["guaranteed"];
+        const cgDataBuf       = downloadedBuffers["cgData"];
+
+        if (!availabilityBuf || !guaranteedBuf || !cgDataBuf) {
+          throw new Error("One or more downloaded files are missing");
+        }
+
+        const parsedData = await parseExcelFiles(availabilityBuf, guaranteedBuf, cgDataBuf, undefined, branchId);
+
+        const result = await processCapacityData(
+          parsedData.availability,
+          parsedData.guaranteed,
+          parsedData.demand,
+          parsedData.cgData,
+          { ghWorkbookBuffer: guaranteedBuf, branchId, guaranteedRaw: parsedData.guaranteedRaw }
+        );
+
+        if (parsedData.warnings.length > 0) {
+          result.warnings = [...(result.warnings || []), ...parsedData.warnings];
+        }
+
+        const exportBuffer = await generateExcelExport(result, result.cleanedRecords, parsedData.cgData);
+        latestAutomationExportBuffer = exportBuffer;
+        fs.writeFileSync(path.join(process.cwd(), "capacity_dashboard.xlsx"), exportBuffer);
+
+        try {
+          await storage.saveBranchUpload({
+            branchId,
+            uploadType: "guaranteedHours",
+            fileBuffer: guaranteedBuf.toString("base64"),
+            originalFileName: "Care Pro Guaranteed Hours.xlsx",
+            fileSize: guaranteedBuf.length,
+            sha256: null,
+          });
+        } catch (err) {
+          logger.warn("Failed to persist GH buffer to DB (non-fatal)", { weekStartDate, err });
+        }
+
+        // NOTE: Do NOT call clearAllVisits between weeks — that would wipe data
+        // from already-processed weeks. The date-aware upsert handles isolation.
+
+        try {
+          const { extractEmployeeVisitsFromGHExcel } = await import("../../features/imports/excel-visit-extractor");
+          const weekDates = result.dailySummary?.map(d => d.date) ?? [];
+          if (weekDates.length > 0) {
+            const scheduleMap = await extractEmployeeVisitsFromGHExcel(guaranteedBuf, weekDates, branchId, storage);
+            const visitRows: import("@shared/schema").InsertCpScheduledVisit[] = [];
+            for (const [cpName, dayMap] of scheduleMap) {
+              for (const [date, entries] of dayMap) {
+                for (const entry of entries) {
+                  visitRows.push({
+                    branchId, cpName,
+                    clientName: entry.clientName,
+                    clientLat:  entry.lat  != null ? String(entry.lat)  : null,
+                    clientLng:  entry.lng  != null ? String(entry.lng)  : null,
+                    clientPostcode: entry.postcode ?? null,
+                    date, startTime: entry.startTime, endTime: entry.endTime,
+                  });
+                }
+              }
+            }
+            await storage.upsertCpScheduledVisitsByDates(branchId, weekDates, visitRows);
+          }
+        } catch (err) {
+          logger.warn("Failed to persist CP visits (non-fatal)", { weekStartDate, err });
+        }
+
+        try {
+          const { extractAllClientVisitsFromGHExcel } = await import("../../features/imports/excel-visit-extractor");
+          const weekDates2 = result.dailySummary?.map(d => d.date) ?? [];
+          if (weekDates2.length > 0) {
+            const clientVisitMap = await extractAllClientVisitsFromGHExcel(guaranteedBuf, weekDates2, branchId, storage);
+            const clientVisitRows: import("@shared/schema").InsertGhClientVisit[] = [];
+            for (const [date, visits] of clientVisitMap) {
+              for (const v of visits) {
+                clientVisitRows.push({
+                  branchId, clientName: v.clientName, date,
+                  startTime: v.startTime, endTime: v.endTime,
+                  durationMinutes: v.durationMinutes,
+                  serviceType: v.serviceType ?? null,
+                  priority: v.priority ?? 1,
+                  lat: v.lat != null ? String(v.lat) : null,
+                  lng: v.lng != null ? String(v.lng) : null,
+                  postcode: v.postcode ?? null,
+                });
+              }
+            }
+            await storage.upsertGhClientVisitsByDates(branchId, weekDates2, clientVisitRows);
+          }
+        } catch (clientErr) {
+          logger.warn("Failed to persist GH client visits (non-fatal)", { weekStartDate, err: clientErr });
+        }
+
+        if (result.dailySummary && result.dailySummary.length > 0) {
+          const { weekStart, weekEnd: wkEnd } = getCanonicalWeekBoundaries(result.dailySummary[0].date);
+          await storage.saveCapacityAnalysis({
+            branchId,
+            weekStartDate: weekStart,
+            weekEndDate:   wkEnd,
+            kpis:          result.kpis,
+            dailySummary:  result.dailySummary,
+            employeesByDate: result.employeesByDate,
+            employeeSummaryByDate: result.employeeSummaryByDate || {},
+            warnings: result.warnings || [],
+          });
+        }
+
+        // Mark this week as completed.
+        if (session.weeklyProgress) {
+          session.weeklyProgress[wi] = { ...session.weeklyProgress[wi], status: "completed" };
+          activeSessions.set(sessionId, session);
+        }
+
+        logger.info("Multi-week: week processed", { sessionId, branchId, weekStartDate, weekIndex: wi + 1, weekCount: weekStartDates.length });
+
+      } catch (weekErr) {
+        const weekMsg = weekErr instanceof Error ? weekErr.message : String(weekErr);
+        logger.error("Multi-week: week failed", weekErr instanceof Error ? weekErr : undefined, { sessionId, branchId, weekStartDate });
+        if (session.weeklyProgress) {
+          session.weeklyProgress[wi] = { ...session.weeklyProgress[wi], status: "failed", error: weekMsg };
+          activeSessions.set(sessionId, session);
+        }
+        // Continue processing remaining weeks rather than aborting the whole session.
+      }
+    }
+
+    // Run retention once after all weeks are done.
+    try {
+      await storage.enforceRetentionCpScheduledVisits(branchId);
+      await storage.enforceRetentionGhClientVisits(branchId);
+    } catch (retErr) {
+      logger.warn("Failed to enforce retention after multi-week sync (non-fatal)", { err: retErr });
+    }
+
+    const failedCount = session.weeklyProgress?.filter(w => w.status === "failed").length ?? 0;
+    const completedCount = session.weeklyProgress?.filter(w => w.status === "completed").length ?? 0;
+
+    if (completedCount === 0 && failedCount > 0) {
+      session.status      = "failed";
+      session.error       = `All ${weekStartDates.length} weeks failed`;
+      session.phase       = "error";
+    } else {
+      session.status      = "completed";
+      session.phase       = "complete";
+    }
+    session.completedAt = new Date().toISOString();
+    session.result      = { completedWeeks: completedCount, failedWeeks: failedCount };
+    activeSessions.set(sessionId, session);
+
+    logger.info("Multi-week pipeline session completed", {
+      sessionId, branchId, completedCount, failedCount, totalWeeks: weekStartDates.length,
+    });
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    session.status      = "failed";
+    session.error       = message;
+    session.phase       = "error";
+    session.completedAt = new Date().toISOString();
+    activeSessions.set(sessionId, session);
+    logger.error("Multi-week pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
     throw err;
   }
 }

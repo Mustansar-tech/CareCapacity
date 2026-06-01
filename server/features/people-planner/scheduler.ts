@@ -1,103 +1,95 @@
 /**
- * Weekly People Planner scheduler.
+ * Daily People Planner scheduler.
  *
- * Three runs every Monday (UTC):
- *   01:00  →  previous week  (Mon -7  … Sun -1)
- *   03:00  →  current week   (Mon  0  … Sun +6)
- *   05:00  →  next week      (Mon +7  … Sun +13)
+ * Fires once per weekday (Mon–Fri) at 01:00 UTC.
  *
- * Each run queues all configured branches one-at-a-time via the existing
- * session queue.
+ * Monday run:  previous week + current week + all generated forward weeks
+ * Tue–Fri run: current week  + all generated forward weeks
+ *
+ * "Generated forward weeks" = Mondays from current week up to:
+ *   - Normal weeks  : last Monday of next month  (~5–8 weeks)
+ *   - Last week of month: last Monday of month-after-next (~9–13 weeks)
+ *
+ * Each branch is processed in one multi-week session (login once, iterate weeks, logout).
  */
 
 import { logger } from "../../infrastructure/logger";
 import {
   getConfiguredBranchIds,
-  programmaticQueueSync,
+  programmaticQueueMultiWeekSync,
   updateSchedulerStatus,
 } from "./automation-routes";
+import { getWeeksToSync } from "./week-helpers";
 
-// ─── Run definitions ──────────────────────────────────────────────────────────
-
-interface RunDef {
-  /** UTC hour at which this run fires (0-23) */
-  hour: number;
-  /** Days to offset from the firing Monday (negative = past, positive = future) */
-  weekDayOffset: number;
-  label: "previous" | "current" | "next";
-}
-
-const RUN_DEFS: RunDef[] = [
-  { hour: 1, weekDayOffset: -7, label: "previous" },
-  { hour: 3, weekDayOffset:  0, label: "current"  },
-  { hour: 5, weekDayOffset: +7, label: "next"      },
-];
-
-// ─── Timer handles ────────────────────────────────────────────────────────────
-
-const timers: (ReturnType<typeof setTimeout> | null)[] = RUN_DEFS.map(() => null);
+export { getWeeksToSync };
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 /**
- * Returns ms until the next Monday at `targetHour:00:00 UTC`.
- * If today is Monday but we've already passed `targetHour`, advances to the
- * following Monday.
+ * Returns ms until the next Mon–Fri at 01:00 UTC.
+ * If today is a weekday but we've already passed 01:00, advances to tomorrow
+ * (skipping weekend).
  */
-function msUntilNextMondayAtHourUTC(targetHour: number): number {
-  return nextMondayAtHourUTC(targetHour).getTime() - Date.now();
+function msUntilNextWeekdayAtHourUTC(): number {
+  return nextWeekdayAtHourUTC().getTime() - Date.now();
 }
 
-function nextMondayAtHourUTC(targetHour: number): Date {
+function nextWeekdayAtHourUTC(targetHour = 1): Date {
   const now = new Date();
-  const next = new Date(now);
-  const day = now.getUTCDay(); // 0=Sun … 6=Sat
-  const daysUntilMonday = day === 1 ? 0 : (8 - day) % 7 || 7;
-  next.setUTCDate(now.getUTCDate() + daysUntilMonday);
-  next.setUTCHours(targetHour, 0, 0, 0);
-  if (next <= now) next.setUTCDate(next.getUTCDate() + 7);
-  return next;
+  const candidate = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    targetHour, 0, 0, 0,
+  ));
+
+  // Advance until we land on a weekday that is still in the future.
+  while (true) {
+    const day = candidate.getUTCDay(); // 0=Sun, 6=Sat
+    if (day !== 0 && day !== 6 && candidate > now) break;
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+    candidate.setUTCHours(targetHour, 0, 0, 0);
+  }
+  return candidate;
 }
 
-/**
- * Returns the Monday of the *current* firing week offset by `dayOffset` days,
- * as YYYY-MM-DD (UTC).
- *
- * Example — firing on Monday 4 May:
- *   dayOffset  -7 → 2026-04-27  (previous week)
- *   dayOffset   0 → 2026-05-04  (current week)
- *   dayOffset  +7 → 2026-05-11  (next week)
- */
-function getMondayWithOffset(firingDate: Date, dayOffset: number): string {
-  const d = new Date(firingDate);
-  // Snap to the Monday of the firing week
-  const day = d.getUTCDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diffToMonday + dayOffset);
-  return d.toISOString().split("T")[0];
-}
+// ─── Timer handle ─────────────────────────────────────────────────────────────
 
-// ─── Single run ───────────────────────────────────────────────────────────────
+let timer: ReturnType<typeof setTimeout> | null = null;
 
-async function runSync(def: RunDef): Promise<void> {
+// ─── Single daily run ─────────────────────────────────────────────────────────
+
+async function runSync(): Promise<void> {
+  const now = new Date();
+  const isMonday = now.getUTCDay() === 1;
+  const weeksToDo = getWeeksToSync(now, isMonday);
   const branchIds = getConfiguredBranchIds();
-  const weekStartDate = getMondayWithOffset(new Date(), def.weekDayOffset);
 
-  logger.info("PP scheduled sync firing", { label: def.label, weekStartDate, branchIds });
+  logger.info("PP daily sync firing", {
+    isMonday,
+    weekCount: weeksToDo.length,
+    weeks: weeksToDo,
+    branchCount: branchIds.length,
+  });
+
   updateSchedulerStatus({
-    lastRunAt: new Date().toISOString(),
+    lastRunAt: now.toISOString(),
     lastRunBranchIds: branchIds,
   });
 
   for (const branchId of branchIds) {
     try {
-      const result = await programmaticQueueSync(branchId, weekStartDate, `system-scheduler-${def.label}`);
-      logger.info("Scheduled sync queued", { label: def.label, branchId, weekStartDate, ...result });
+      const result = await programmaticQueueMultiWeekSync(
+        branchId,
+        weeksToDo,
+        "system-scheduler",
+      );
+      logger.info("Daily sync queued", { branchId, weekCount: weeksToDo.length, ...result });
     } catch (err) {
       logger.error(
-        "Failed to queue scheduled sync",
+        "Failed to queue daily sync",
         err instanceof Error ? err : undefined,
-        { label: def.label, branchId, weekStartDate }
+        { branchId, weekCount: weeksToDo.length }
       );
     }
   }
@@ -105,52 +97,46 @@ async function runSync(def: RunDef): Promise<void> {
 
 // ─── Scheduler arm / disarm ───────────────────────────────────────────────────
 
-function armRun(index: number): void {
-  const def = RUN_DEFS[index];
-  if (timers[index]) clearTimeout(timers[index]!);
+function armTimer(): void {
+  if (timer) clearTimeout(timer);
 
-  const delay = msUntilNextMondayAtHourUTC(def.hour);
-  const nextRunAt = nextMondayAtHourUTC(def.hour).toISOString();
+  const delay = msUntilNextWeekdayAtHourUTC();
+  const nextRunAt = nextWeekdayAtHourUTC().toISOString();
 
-  logger.info("PP scheduler armed", {
-    label: def.label,
+  logger.info("PP daily scheduler armed", {
     nextRunAt,
-    delayHours: Math.round(delay / 1000 / 60 / 60),
+    delayHours: +(delay / 1000 / 60 / 60).toFixed(2),
   });
 
-  timers[index] = setTimeout(async () => {
+  updateSchedulerStatus({ nextRunAt });
+
+  timer = setTimeout(async () => {
     try {
-      await runSync(def);
+      await runSync();
     } finally {
-      armRun(index); // re-arm for the following Monday
+      armTimer(); // re-arm for the next weekday
     }
   }, delay);
 
-  timers[index]!.unref?.();
-}
-
-function buildNextRunsSummary(): Record<string, string> {
-  return Object.fromEntries(
-    RUN_DEFS.map(def => [def.label, nextMondayAtHourUTC(def.hour).toISOString()])
-  );
+  timer!.unref?.();
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function initScheduler(): void {
-  RUN_DEFS.forEach((_, i) => armRun(i));
+  armTimer();
 
   updateSchedulerStatus({
     enabled: true,
-    nextRunAt: nextMondayAtHourUTC(RUN_DEFS[0].hour).toISOString(),
+    nextRunAt: nextWeekdayAtHourUTC().toISOString(),
   });
 
-  logger.info("People Planner weekly scheduler initialised", buildNextRunsSummary());
+  logger.info("People Planner daily scheduler initialised", {
+    nextRun: nextWeekdayAtHourUTC().toISOString(),
+  });
 }
 
 export function destroyScheduler(): void {
-  timers.forEach((t, i) => {
-    if (t) { clearTimeout(t); timers[i] = null; }
-  });
+  if (timer) { clearTimeout(timer); timer = null; }
   updateSchedulerStatus({ enabled: false, nextRunAt: null });
 }
