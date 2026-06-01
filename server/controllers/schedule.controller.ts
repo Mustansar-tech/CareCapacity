@@ -80,7 +80,7 @@ async function getAvailableEmployeesForDate(branchId: string, date: string) {
         employeeName: emp.employeeName,
         homeLat: location?.homeLat ? Number(location.homeLat) : 55.9533,
         homeLng: location?.homeLng ? Number(location.homeLng) : -3.1883,
-        transportMode: location?.transportMode?.toLowerCase().includes('car') ? 'car' : 'walking',
+        transportMode: (location?.transportMode?.toLowerCase() || 'car').includes('car') ? 'car' : 'walking',
         timeWindows: parseTimeWindowsForRouting(emp.timeWindows),
         contractedDailyHours: emp.contractedDailyHours,
         visits: [],

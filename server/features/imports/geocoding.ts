@@ -64,8 +64,8 @@ export function normalisePostcode(pc: string) {
 
 // ─── Transport mode normalization ─────────────────────────────────────────────
 
-export function toTransportMode(raw: string | null | undefined): 'car' | 'walking' | 'public' | null {
-  if (!raw) return null;
+export function toTransportMode(raw: string | null | undefined): 'car' | 'walking' | 'public' {
+  if (!raw) return 'car';
   const normalized = raw.toLowerCase().trim();
   if (normalized.includes('car') || normalized.includes('driver') || normalized.includes('driv')) {
     return 'car';
