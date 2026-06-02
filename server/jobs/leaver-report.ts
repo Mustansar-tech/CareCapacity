@@ -63,7 +63,7 @@ export async function sendLeaverReport(
   }
 
   const resend = new Resend(apiKey);
-  const recipients = getRecipients();
+  const recipients = await getRecipients();
   if (!recipients.length) {
     logger.warn('Leaver report: no recipients configured — skipping');
     return { month: '', branchesCovered: 0, totalLeavers: 0, recipients: [], skipped: true, reason: 'No recipients configured' };
