@@ -6,16 +6,15 @@
  *
  * Responsibilities
  * ────────────────
- * 1. Weekly People Planner scheduler — three node-cron jobs each Monday
- *    (Europe/London timezone), replacing the old app.ts initScheduler():
+ * 1. Daily People Planner scheduler — fires once per weekday (Mon–Fri) at
+ *    01:00 Europe/London via node-cron.
  *
- *      01:00  →  previous week  (Mon −7 … Sun −1)
- *      03:00  →  current week   (Mon  0 … Sun +6)
- *      05:00  →  next week      (Mon +7 … Sun +13)
+ *    Each run computes the full forward-week window with getWeeksToSync():
+ *      Monday  : previous week + current week + all forward weeks (~10–14 weeks)
+ *      Tue–Fri : current week + all forward weeks (~5–13 weeks)
  *
- *    All configured branches are fanned out in parallel for every run.
- *    node-cron keeps the event loop alive so PM2 never needs to force-restart
- *    the worker just because no Playwright work is in-flight.
+ *    Every branch is synced in a single multi-week session (login once,
+ *    iterate weeks, logout) using programmaticQueueMultiWeekSync.
  *
  * 2. Session pre-warm — all account slots log in / restore saved session files
  *    at startup so the first user-triggered sync of the day is instant.
@@ -36,9 +35,10 @@ import cron from "node-cron";
 import { logger } from "./infrastructure/logger";
 import { prewarmAllSlots } from "./features/people-planner/automation-engine";
 import {
-  programmaticQueueSync,
+  programmaticQueueMultiWeekSync,
   getConfiguredBranchIds,
 } from "./features/people-planner/automation-routes";
+import { getWeeksToSync } from "./features/people-planner/week-helpers";
 
 logger.info("Care Capacity worker starting");
 
@@ -65,126 +65,82 @@ process.on("uncaughtException", async (err) => {
   process.exit(1);
 });
 
-// ─── Date helper ──────────────────────────────────────────────────────────────
+// ─── Daily sync runner ────────────────────────────────────────────────────────
 
-/**
- * Returns the ISO date (YYYY-MM-DD) of the Monday that is `dayOffset` days
- * from the Monday of the week in which `from` falls.
- *
- *   dayOffset -7  →  previous week's Monday
- *   dayOffset  0  →  current week's Monday
- *   dayOffset +7  →  next week's Monday
- */
-export function getMondayWithOffset(from: Date, dayOffset: number): string {
-  const d = new Date(from);
-  const day = d.getUTCDay(); // 0=Sun … 6=Sat
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diffToMonday + dayOffset);
-  return d.toISOString().split("T")[0];
-}
-
-// ─── Sync fan-out ─────────────────────────────────────────────────────────────
-
-export async function runSync(
-  label: "previous" | "current" | "next",
-  dayOffset: number,
-): Promise<{ succeeded: number; failed: number; total: number; weekStartDate: string }> {
-  const weekStartDate = getMondayWithOffset(new Date(), dayOffset);
+export async function runDailySync(): Promise<void> {
+  const now = new Date();
+  const isMonday = now.getUTCDay() === 1;
+  const weeksToDo = getWeeksToSync(now, isMonday);
   const branchIds = getConfiguredBranchIds();
 
-  logger.info(`Worker scheduler: ${label} week sync starting`, {
-    weekStartDate,
+  logger.info("Worker: daily sync firing", {
+    isMonday,
+    weekCount: weeksToDo.length,
+    weeks: weeksToDo,
     branchCount: branchIds.length,
   });
 
   if (branchIds.length === 0) {
-    logger.warn(`Worker scheduler: no branches configured for ${label} run — nothing to do`);
-    return { succeeded: 0, failed: 0, total: 0, weekStartDate };
+    logger.warn("Worker: no branches configured — nothing to do");
+    return;
   }
 
-  const results = await Promise.allSettled(
-    branchIds.map(async (branchId) => {
-      const result = await programmaticQueueSync(
+  for (const branchId of branchIds) {
+    try {
+      const result = await programmaticQueueMultiWeekSync(
         branchId,
-        weekStartDate,
-        `worker-scheduler-${label}`,
+        weeksToDo,
+        "worker-scheduler",
       );
-      logger.info(`Worker scheduler: branch queued (${label})`, {
+      logger.info("Worker: branch queued", {
         branchId,
-        weekStartDate,
+        weekCount: weeksToDo.length,
         sessionId: result.sessionId,
         queued: result.queued,
         queuePosition: result.queuePosition,
       });
-      return result;
-    }),
-  );
-
-  const succeeded = results.filter((r) => r.status === "fulfilled").length;
-  const failed = results.filter((r) => r.status === "rejected").length;
-
-  results.forEach((r, i) => {
-    if (r.status === "rejected") {
-      logger.error(`Worker scheduler: branch queue failed (${label})`, undefined, {
-        branchId: branchIds[i],
-        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
-      });
-      Sentry.captureException(r.reason instanceof Error ? r.reason : new Error(String(r.reason)), {
-        tags: { label, branchId: branchIds[i] },
-      });
+    } catch (err) {
+      logger.error(
+        "Worker: failed to queue branch",
+        err instanceof Error ? err : undefined,
+        { branchId, weekCount: weeksToDo.length },
+      );
+      Sentry.captureException(
+        err instanceof Error ? err : new Error(String(err)),
+        { tags: { branchId } },
+      );
     }
-  });
-
-  logger.info(`Worker scheduler: ${label} week sync complete`, {
-    weekStartDate,
-    succeeded,
-    failed,
-    total: branchIds.length,
-  });
-
-  return { succeeded, failed, total: branchIds.length, weekStartDate };
+  }
 }
 
-// ─── Three Monday cron jobs (Europe/London) ───────────────────────────────────
+// ─── Weekday cron — 01:00 Europe/London, Mon–Fri ─────────────────────────────
+// "0 1 * * 1-5" = minute 0, hour 1, any date, any month, Mon–Fri.
+// Europe/London handles BST/GMT automatically:
+//   Summer (BST = UTC+1): fires at 00:00 UTC
+//   Winter (GMT = UTC)  : fires at 01:00 UTC
 
 if (process.env.ACCESS_EMAIL) {
-  // 01:00 — previous week
-  cron.schedule("0 1 * * 1", () => {
-    logger.info("Worker scheduler: Monday 01:00 cron fired (previous week)");
-    runSync("previous", -7).catch((err) => {
-      logger.error("Worker scheduler: previous week sync threw", err instanceof Error ? err : undefined);
-      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { cronJob: "previous-week" } });
+  cron.schedule("0 1 * * 1-5", () => {
+    const now = new Date();
+    logger.info("Worker: daily cron fired", {
+      localTime: now.toISOString(),
+      dayOfWeek: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][now.getUTCDay()],
+    });
+    runDailySync().catch((err) => {
+      logger.error("Worker: daily sync threw", err instanceof Error ? err : undefined);
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+        tags: { cronJob: "daily-sync" },
+      });
     });
   }, { timezone: "Europe/London" });
 
-  // 03:00 — current week
-  cron.schedule("0 3 * * 1", () => {
-    logger.info("Worker scheduler: Monday 03:00 cron fired (current week)");
-    runSync("current", 0).catch((err) => {
-      logger.error("Worker scheduler: current week sync threw", err instanceof Error ? err : undefined);
-      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { cronJob: "current-week" } });
-    });
-  }, { timezone: "Europe/London" });
-
-  // 05:00 — next week
-  cron.schedule("0 5 * * 1", () => {
-    logger.info("Worker scheduler: Monday 05:00 cron fired (next week)");
-    runSync("next", 7).catch((err) => {
-      logger.error("Worker scheduler: next week sync threw", err instanceof Error ? err : undefined);
-      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { tags: { cronJob: "next-week" } });
-    });
-  }, { timezone: "Europe/London" });
-
-  logger.info("Worker: three Monday cron jobs armed", {
-    runs: [
-      { time: "01:00", label: "previous week", dayOffset: -7 },
-      { time: "03:00", label: "current week",  dayOffset:  0 },
-      { time: "05:00", label: "next week",     dayOffset: +7 },
-    ],
+  logger.info("Worker: daily cron armed", {
+    schedule: "0 1 * * 1-5",
     timezone: "Europe/London",
+    description: "Mon–Fri 01:00 BST/GMT — full forward-week multi-week sync",
   });
 } else {
-  logger.warn("Worker: ACCESS_EMAIL not configured — Monday scheduler not armed");
+  logger.warn("Worker: ACCESS_EMAIL not configured — daily scheduler not armed");
 }
 
 // ─── Startup: pre-warm all sessions ──────────────────────────────────────────
