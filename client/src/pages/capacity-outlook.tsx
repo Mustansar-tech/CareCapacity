@@ -805,8 +805,12 @@ export default function CapacityOutlookPage() {
 
   // Active leaver splits (current month only)
   const todayStr = new Date().toISOString().split('T')[0];
-  const alreadyGone = activeLeavers.filter(l => l.lastWorkingDay && l.lastWorkingDay < todayStr);
-  const onNotice   = activeLeavers.filter(l => !l.lastWorkingDay || l.lastWorkingDay >= todayStr);
+  const currentMonthStart = todayStr.slice(0, 7) + '-01';
+  // Leavers whose termination date is in a PAST calendar month — shown in the archive, not the current strip
+  const pastMonthActiveLeavers = activeLeavers.filter(l => l.lastWorkingDay && l.lastWorkingDay < currentMonthStart);
+  const currentMonthActiveLeavers = activeLeavers.filter(l => !l.lastWorkingDay || l.lastWorkingDay >= currentMonthStart);
+  const alreadyGone = currentMonthActiveLeavers.filter(l => l.lastWorkingDay && l.lastWorkingDay < todayStr);
+  const onNotice   = currentMonthActiveLeavers.filter(l => !l.lastWorkingDay || l.lastWorkingDay >= todayStr);
   const hoursAlreadyGone = Math.round(alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
   const hoursOnNotice    = Math.round(onNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
 
@@ -1293,14 +1297,15 @@ export default function CapacityOutlookPage() {
                     </div>
                   )}
 
-                  {onNotice.length === 0 && alreadyGone.length === 0 && terminatedLeavers.length === 0 && (
+                  {onNotice.length === 0 && alreadyGone.length === 0 && terminatedLeavers.length === 0 && pastMonthActiveLeavers.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-8">No leavers recorded.</p>
                   )}
 
                   {/* Past months — terminated (closed month archives, collapsible) */}
-                  {terminatedLeavers.length > 0 && (() => {
-                    const groups: Record<string, typeof terminatedLeavers> = {};
-                    for (const l of terminatedLeavers) {
+                  {(terminatedLeavers.length > 0 || pastMonthActiveLeavers.length > 0) && (() => {
+                    const archiveRows = [...terminatedLeavers, ...pastMonthActiveLeavers];
+                    const groups: Record<string, typeof archiveRows> = {};
+                    for (const l of archiveRows) {
                       const key = (l.lastWorkingDay ?? '').slice(0, 7);
                       if (!key) continue;
                       (groups[key] ??= []).push(l);
