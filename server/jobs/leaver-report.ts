@@ -15,7 +15,7 @@ import { eq, and, gte, lt } from 'drizzle-orm';
 import { logger } from '../infrastructure/logger';
 
 const FROM_ADDRESS = 'noreply@mail.sur-group.co.uk';
-const DEFAULT_RECIPIENTS = 'mark.youngson@sg.homeinstead.co.uk,gerard.millar@sg.homeinstead.co.uk';
+const DEFAULT_RECIPIENTS = 'mark.youngson@sg.homeinstead.co.uk,gerard.millar@sg.homeinstead.co.uk,mustansar.hussain@sg.homeinstead.co.uk';
 
 function getRecipients(): string[] {
   const raw = process.env.LEAVER_REPORT_EMAILS ?? DEFAULT_RECIPIENTS;

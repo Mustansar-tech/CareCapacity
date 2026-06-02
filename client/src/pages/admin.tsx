@@ -611,7 +611,7 @@ function AutomationTab() {
               <span>Automatic send</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Recipients: <span className="font-medium text-foreground">mark.youngson@sg.homeinstead.co.uk, gerard.millar@sg.homeinstead.co.uk</span> (set via <span className="font-mono">LEAVER_REPORT_EMAILS</span> secret)
+              Recipients: <span className="font-medium text-foreground">mark.youngson@sg.homeinstead.co.uk, gerard.millar@sg.homeinstead.co.uk, mustansar.hussain@sg.homeinstead.co.uk</span> (set via <span className="font-mono">LEAVER_REPORT_EMAILS</span> secret)
             </p>
           </div>
 
