@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   TrendingDown, TrendingUp, Minus, Users, AlertTriangle,
-  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus, RotateCcw,
+  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus, RotateCcw, Archive,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -677,10 +677,10 @@ export default function CapacityOutlookPage() {
 
   // Leavers list
   const leaversQuery = useQuery<Leaver[]>({
-    queryKey: ['/api/capacity-outlook/leavers', branchId],
+    queryKey: ['/api/capacity-outlook/leavers', branchId, 'all'],
     queryFn: async () => {
       const res = await fetch(
-        toAbsoluteUrl(`/api/capacity-outlook/leavers?branchId=${branchId}`),
+        toAbsoluteUrl(`/api/capacity-outlook/leavers?branchId=${branchId}&includeProcessed=true`),
         { credentials: 'include' },
       );
       if (!res.ok) throw new Error('Failed to load leavers');
@@ -690,12 +690,12 @@ export default function CapacityOutlookPage() {
     staleTime: 30_000,
   });
 
-  // Joiners list
+  // Joiners list — includes hired_archived so past months remain visible
   const joinersQuery = useQuery<Joiner[]>({
-    queryKey: ['/api/capacity-outlook/joiners', branchId],
+    queryKey: ['/api/capacity-outlook/joiners', branchId, 'all'],
     queryFn: async () => {
       const res = await fetch(
-        toAbsoluteUrl(`/api/capacity-outlook/joiners?branchId=${branchId}`),
+        toAbsoluteUrl(`/api/capacity-outlook/joiners?branchId=${branchId}&includeAll=true`),
         { credentials: 'include' },
       );
       if (!res.ok) throw new Error('Failed to load joiners');
@@ -760,25 +760,44 @@ export default function CapacityOutlookPage() {
   const outlook = outlookQuery.data;
   const totals = outlook?.totals;
 
-  // Steady-state weekly KPIs — computed from raw leaver/joiner lists
-  const activeLeavers = leaversQuery.data ?? [];
-  // Split pipeline joiners: active (not yet hired) vs hired this month
-  const pipelineJoiners = (joinersQuery.data ?? []).filter(j => j.status === 'active');
-  const hiredJoiners = (joinersQuery.data ?? []).filter(j => j.status === 'hired');
-  const activeJoiners = pipelineJoiners; // alias for coverage/net calculation
+  // All leavers: active (on notice / already gone) + processed (terminated in closed months)
+  const allLeavers = leaversQuery.data ?? [];
+  const activeLeavers = allLeavers.filter(l => l.status === 'active');
+  const terminatedLeavers = allLeavers.filter(l => l.status === 'processed');
 
-  // Split leavers: already gone (past termination) vs still on notice (still working)
+  // All joiners: active pipeline + hired this month + hired_archived from closed months
+  const allJoiners = joinersQuery.data ?? [];
+  const pipelineJoiners = allJoiners.filter(j => j.status === 'active');
+  const hiredJoiners = allJoiners.filter(j => j.status === 'hired');
+  const archivedJoiners = allJoiners.filter(j => j.status === 'hired_archived');
+  const activeJoiners = pipelineJoiners;
+
+  // Active leaver splits (current month only)
   const todayStr = new Date().toISOString().split('T')[0];
   const alreadyGone = activeLeavers.filter(l => l.lastWorkingDay && l.lastWorkingDay < todayStr);
   const onNotice   = activeLeavers.filter(l => !l.lastWorkingDay || l.lastWorkingDay >= todayStr);
   const hoursAlreadyGone = Math.round(alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
   const hoursOnNotice    = Math.round(onNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
 
-  // For coverage/net: only hours actually lost (already gone) count against us now
+  // For the Staff Leaving / In Pipeline KPI cards (current period)
   const weeklyLossRate = hoursAlreadyGone;
   const weeklyGainRate = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
   const rawWeeklyHours = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10;
   const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
+
+  // Cumulative (all-time) KPIs — includes closed months
+  const cumulativeLost = Math.round((
+    terminatedLeavers.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) +
+    alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0)
+  ) * 10) / 10;
+  const cumulativeHired = Math.round((
+    archivedJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) +
+    hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)
+  ) * 10) / 10;
+  const pipelineWeighted = Math.round(pipelineJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
+  const cumNet = Math.round((cumulativeHired + pipelineWeighted - cumulativeLost) * 10) / 10;
+  const cumCoverage = cumulativeLost === 0 ? 1 : Math.round((cumulativeHired + pipelineWeighted) / cumulativeLost * 1000) / 1000;
+  const cumRag: 'green' | 'amber' | 'red' = cumulativeLost === 0 ? 'green' : cumCoverage < 0.5 ? 'red' : cumCoverage < 1.0 ? 'amber' : 'green';
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return '—';
@@ -971,42 +990,35 @@ export default function CapacityOutlookPage() {
             </CardContent>
           </Card>
 
-          {/* Weekly Net */}
+          {/* Running Net */}
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                   <Minus className="w-3.5 h-3.5 text-white" />
                 </div>
-                Weekly Net
+                Running Net
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
               {leaversQuery.isLoading || joinersQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (() => {
-                const liveHoursIn = monthlyQuery.data?.live.hoursIn ?? 0;
-                const confirmedNet = Math.round((liveHoursIn - hoursAlreadyGone) * 10) / 10;
-                const projectedNet = Math.round((rawWeeklyHours - hoursOnNotice) * 10) / 10;
                 const fmtNet = (n: number) => n === 0 ? '±0h/wk' : n > 0 ? `+${n}h/wk` : `${n}h/wk`;
                 return (
                   <>
                     <div className={[
                       "text-2xl font-bold",
-                      confirmedNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                      cumNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
                     ].join(' ')}>
-                      {fmtNet(confirmedNet)}
+                      {fmtNet(cumNet)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {liveHoursIn}h hired − {hoursAlreadyGone}h gone
+                      {cumulativeHired}h hired − {cumulativeLost}h lost (all time)
                     </div>
-                    {(hoursOnNotice > 0 || rawWeeklyHours > 0) && (
-                      <div className={[
-                        "text-xs mt-1 border-t border-blue-100 dark:border-blue-900/30 pt-1",
-                        projectedNet >= 0 ? "text-emerald-600/70 dark:text-emerald-400/70" : "text-amber-600/80 dark:text-amber-400/80",
-                      ].join(' ')}>
-                        {fmtNet(projectedNet)} projected
-                        <span className="text-muted-foreground"> · {rawWeeklyHours}h pipeline − {hoursOnNotice}h on notice</span>
+                    {pipelineWeighted > 0 && (
+                      <div className="text-xs mt-1 border-t border-blue-100 dark:border-blue-900/30 pt-1 text-muted-foreground">
+                        +{pipelineWeighted}h weighted pipeline
                       </div>
                     )}
                   </>
@@ -1026,21 +1038,21 @@ export default function CapacityOutlookPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {outlookQuery.isLoading ? (
+              {leaversQuery.isLoading || joinersQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
                   <div className={[
                     "text-2xl font-bold",
-                    (totals?.coverage ?? 0) >= 1
+                    cumCoverage >= 1
                       ? "text-emerald-600 dark:text-emerald-400"
-                      : (totals?.coverage ?? 0) >= 0.5
+                      : cumCoverage >= 0.5
                       ? "text-amber-600 dark:text-amber-400"
                       : "text-red-600 dark:text-red-400",
                   ].join(' ')}>
-                    {weeklyLossRate === 0 ? '—' : `${Math.round((weeklyGainRate / weeklyLossRate) * 100)}%`}
+                    {cumulativeLost === 0 ? '—' : `${Math.round(cumCoverage * 100)}%`}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">pipeline covers leavers</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">hires + pipeline vs all leavers</div>
                 </>
               )}
             </CardContent>
@@ -1050,18 +1062,18 @@ export default function CapacityOutlookPage() {
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(totals?.rag ?? 'green')} flex items-center justify-center`}>
+                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(cumRag)} flex items-center justify-center`}>
                   <AlertTriangle className="w-3.5 h-3.5 text-white" />
                 </div>
                 Risk
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {outlookQuery.isLoading ? (
+              {leaversQuery.isLoading || joinersQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <div className="mt-1">
-                  <RagBadge rag={totals?.rag ?? 'green'} />
+                  <RagBadge rag={cumRag} />
                 </div>
               )}
             </CardContent>
@@ -1094,14 +1106,14 @@ export default function CapacityOutlookPage() {
               <div className={`w-5 h-5 rounded flex items-center justify-center ${activeTab === 'pipeline' ? 'bg-emerald-500' : 'bg-muted'}`}>
                 <TrendingUp className="w-3 h-3 text-white" />
               </div>
-              Active Pipeline
+              All Joiners
               <span className={[
                 "inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px]",
                 activeTab === 'pipeline'
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : "bg-muted text-muted-foreground",
               ].join(' ')}>
-                {pipelineJoiners.length}
+                {allJoiners.length}
               </span>
             </button>
 
@@ -1117,14 +1129,14 @@ export default function CapacityOutlookPage() {
               <div className={`w-5 h-5 rounded flex items-center justify-center ${activeTab === 'leavers' ? 'bg-red-500' : 'bg-muted'}`}>
                 <TrendingDown className="w-3 h-3 text-white" />
               </div>
-              Active Leavers
+              All Leavers
               <span className={[
                 "inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px]",
                 activeTab === 'leavers'
                   ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
                   : "bg-muted text-muted-foreground",
               ].join(' ')}>
-                {leaversQuery.data?.length ?? 0}
+                {allLeavers.length}
               </span>
             </button>
           </div>
@@ -1252,9 +1264,79 @@ export default function CapacityOutlookPage() {
                     </div>
                   )}
 
-                  {onNotice.length === 0 && alreadyGone.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-8">No active leavers recorded.</p>
+                  {onNotice.length === 0 && alreadyGone.length === 0 && terminatedLeavers.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">No leavers recorded.</p>
                   )}
+
+                  {/* Past months — terminated (closed month archives) */}
+                  {terminatedLeavers.length > 0 && (() => {
+                    const groups: Record<string, typeof terminatedLeavers> = {};
+                    for (const l of terminatedLeavers) {
+                      const key = (l.lastWorkingDay ?? '').slice(0, 7);
+                      if (!key) continue;
+                      (groups[key] ??= []).push(l);
+                    }
+                    const sortedGroups = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+                    return (
+                      <>
+                        {sortedGroups.map(([monthKey, rows]) => {
+                          const label = new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                          const totalHrs = rows.reduce((s, l) => s + (l.weeklyHours ?? 0), 0);
+                          return (
+                            <div key={monthKey} className="border-t border-red-200 dark:border-red-800/40 bg-red-50/20 dark:bg-red-900/5">
+                              <div className="flex items-center gap-2 px-4 py-2">
+                                <Archive className="w-4 h-4 text-red-400 dark:text-red-500" />
+                                <span className="text-xs font-semibold text-red-600/70 dark:text-red-400/70 uppercase tracking-wide">
+                                  {label} — {totalHrs}h/wk · {rows.length} {rows.length === 1 ? 'person' : 'people'} terminated
+                                </span>
+                              </div>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-red-100/30 dark:bg-red-900/10">
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Emp No</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Hrs/wk</TableHead>
+                                    <TableHead>Termination Day</TableHead>
+                                    <TableHead>Notes</TableHead>
+                                    {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {rows.map(l => (
+                                    <TableRow key={l.id} className="opacity-60">
+                                      <TableCell className="font-medium">{l.employeeName}</TableCell>
+                                      <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                                      </TableCell>
+                                      <TableCell>{l.weeklyHours}h</TableCell>
+                                      <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
+                                      <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
+                                      {isScheduler && (
+                                        <TableCell className="text-right">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                                              onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                              onClick={() => setDeletingLeaverId(l.id)}>
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      )}
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
                 </>
               )
             )}
@@ -1262,8 +1344,8 @@ export default function CapacityOutlookPage() {
             {activeTab === 'pipeline' && (
               joinersQuery.isLoading ? (
                 <div className="h-16 bg-muted animate-pulse rounded m-4" />
-              ) : !pipelineJoiners.length && !hiredJoiners.length ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No active joiners in pipeline.</p>
+              ) : !pipelineJoiners.length && !hiredJoiners.length && !archivedJoiners.length ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No joiners recorded.</p>
               ) : (
                 <>
                   {pipelineJoiners.length > 0 && (
@@ -1399,6 +1481,74 @@ export default function CapacityOutlookPage() {
                       </Table>
                     </div>
                   )}
+
+                  {/* Past months — hired (closed month archives) */}
+                  {archivedJoiners.length > 0 && (() => {
+                    const groups: Record<string, typeof archivedJoiners> = {};
+                    for (const j of archivedJoiners) {
+                      const key = (j.hiredAt ?? '').slice(0, 7);
+                      if (!key) continue;
+                      (groups[key] ??= []).push(j);
+                    }
+                    const sortedGroups = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+                    return (
+                      <>
+                        {sortedGroups.map(([monthKey, rows]) => {
+                          const label = new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                          const totalHrs = rows.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0);
+                          return (
+                            <div key={monthKey} className="border-t border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/20 dark:bg-emerald-900/5">
+                              <div className="flex items-center gap-2 px-4 py-2">
+                                <Archive className="w-4 h-4 text-emerald-400 dark:text-emerald-500" />
+                                <span className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wide">
+                                  {label} — {totalHrs}h/wk · {rows.length} {rows.length === 1 ? 'person' : 'people'} hired
+                                </span>
+                              </div>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-emerald-100/30 dark:bg-emerald-900/10">
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Hrs/wk</TableHead>
+                                    <TableHead>Hired</TableHead>
+                                    <TableHead>Notes</TableHead>
+                                    {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {rows.map(j => (
+                                    <TableRow key={j.id} className="opacity-60">
+                                      <TableCell className="font-medium">{j.candidateName}</TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                                      </TableCell>
+                                      <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                                      <TableCell>{formatDate(j.hiredAt)}</TableCell>
+                                      <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
+                                      {isScheduler && (
+                                        <TableCell className="text-right">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                                              onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                              onClick={() => setDeletingJoinerId(j.id)}>
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      )}
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
                 </>
               )
             )}

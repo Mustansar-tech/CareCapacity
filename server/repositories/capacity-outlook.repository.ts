@@ -113,12 +113,20 @@ export async function getLeavers(branchId: string, includeProcessed = false): Pr
     .orderBy(leavers.lastWorkingDay);
 }
 
-export async function getJoiners(branchId: string, includeDropped = false): Promise<Joiner[]> {
+export async function getJoiners(branchId: string, includeDropped = false, includeAll = false): Promise<Joiner[]> {
   const baseWhere = eq(joiners.branchId, branchId);
   if (includeDropped) {
     return db.select().from(joiners).where(baseWhere).orderBy(joiners.createdAt);
   }
-  // Return active + hired (pipeline view)
+  if (includeAll) {
+    // active + hired + hired_archived (everything except dropped)
+    return db
+      .select()
+      .from(joiners)
+      .where(and(baseWhere, inArray(joiners.status, ['active', 'hired', 'hired_archived'])))
+      .orderBy(joiners.createdAt);
+  }
+  // Default: active + hired (current pipeline view)
   return db
     .select()
     .from(joiners)

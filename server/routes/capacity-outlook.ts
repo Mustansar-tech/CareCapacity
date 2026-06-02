@@ -72,7 +72,8 @@ export function registerCapacityOutlookRoutes(app: Express): void {
   app.get('/api/capacity-outlook/joiners', asyncHandler(async (req, res) => {
     const branchId = await resolveBranch(req);
     const includeDropped = req.query.includeDropped === 'true';
-    const rows = await getJoiners(branchId, includeDropped);
+    const includeAll = req.query.includeAll === 'true';
+    const rows = await getJoiners(branchId, includeDropped, includeAll);
     res.json(rows);
   }));
 
