@@ -1545,7 +1545,8 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Name</TableHead>
                                       <TableHead>Status</TableHead>
                                       <TableHead>Type</TableHead>
-                                      <TableHead>Hrs/wk</TableHead>
+                                      <TableHead>Desired Hrs/wk</TableHead>
+                                      <TableHead>Contracted Hrs</TableHead>
                                       <TableHead>Hired</TableHead>
                                       <TableHead>Notes</TableHead>
                                     </TableRow>
@@ -1561,6 +1562,7 @@ export default function CapacityOutlookPage() {
                                           <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                                         </TableCell>
                                         <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                                        <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(j.hiredAt)}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                                       </TableRow>
