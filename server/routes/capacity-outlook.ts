@@ -19,6 +19,7 @@ import {
   getCurrentMonthLive,
   updateMonthlySnapshot,
   deleteMonthlySnapshot,
+  computeCumulativeKpi,
 } from '../repositories/capacity-outlook.repository';
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
@@ -102,6 +103,12 @@ export function registerCapacityOutlookRoutes(app: Express): void {
     });
   }));
 
+  // GET /api/capacity-outlook/cumulative-kpi — all-time KPI from snapshots + live month
+  app.get('/api/capacity-outlook/cumulative-kpi', asyncHandler(async (req, res) => {
+    const branchId = await resolveBranch(req);
+    const result = await computeCumulativeKpi(branchId);
+    res.json(result);
+  }));
 
   // PUT /api/capacity-outlook/monthly/:year/:month — edit a saved snapshot
   app.put(

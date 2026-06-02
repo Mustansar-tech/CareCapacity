@@ -40,6 +40,16 @@ import { joinerStages } from "@shared/schema";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+interface CumulativeKpiResult {
+  cumulativeHoursLost: number;
+  cumulativeHoursHired: number;
+  pipelineWeightedHours: number;
+  pipelineRawHours: number;
+  coverage: number;
+  net: number;
+  rag: 'green' | 'amber' | 'red';
+  computedAt: string;
+}
 
 // ── Milestone confidence helpers ──────────────────────────────────────────────
 
@@ -720,6 +730,20 @@ export default function CapacityOutlookPage() {
     staleTime: 60_000,
   });
 
+  // Cumulative KPI — snapshots (authoritative for closed months) + live current month
+  const cumulativeKpiQuery = useQuery<CumulativeKpiResult>({
+    queryKey: ['/api/capacity-outlook/cumulative-kpi', branchId],
+    queryFn: async () => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/cumulative-kpi?branchId=${branchId}`),
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to load cumulative KPI');
+      return res.json();
+    },
+    enabled: !!branchId,
+    staleTime: 30_000,
+  });
 
   // Delete mutations
   const deleteLeaverMutation = useMutation({
@@ -785,19 +809,8 @@ export default function CapacityOutlookPage() {
   const rawWeeklyHours = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10;
   const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
 
-  // Cumulative (all-time) KPIs — includes closed months
-  const cumulativeLost = Math.round((
-    terminatedLeavers.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) +
-    alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0)
-  ) * 10) / 10;
-  const cumulativeHired = Math.round((
-    archivedJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) +
-    hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)
-  ) * 10) / 10;
-  const pipelineWeighted = Math.round(pipelineJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
-  const cumNet = Math.round((cumulativeHired + pipelineWeighted - cumulativeLost) * 10) / 10;
-  const cumCoverage = cumulativeLost === 0 ? 1 : Math.round((cumulativeHired + pipelineWeighted) / cumulativeLost * 1000) / 1000;
-  const cumRag: 'green' | 'amber' | 'red' = cumulativeLost === 0 ? 'green' : cumCoverage < 0.5 ? 'red' : cumCoverage < 1.0 ? 'amber' : 'green';
+  // Cumulative KPI values come from the API (snapshots + live month)
+  const cumKpi = cumulativeKpiQuery.data;
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return '—';
@@ -1001,24 +1014,25 @@ export default function CapacityOutlookPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {leaversQuery.isLoading || joinersQuery.isLoading ? (
+              {cumulativeKpiQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (() => {
+                const net = cumKpi?.net ?? 0;
                 const fmtNet = (n: number) => n === 0 ? '±0h/wk' : n > 0 ? `+${n}h/wk` : `${n}h/wk`;
                 return (
                   <>
                     <div className={[
                       "text-2xl font-bold",
-                      cumNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                      net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
                     ].join(' ')}>
-                      {fmtNet(cumNet)}
+                      {fmtNet(net)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {cumulativeHired}h hired − {cumulativeLost}h lost (all time)
+                      {cumKpi?.cumulativeHoursHired ?? 0}h hired − {cumKpi?.cumulativeHoursLost ?? 0}h lost (all time)
                     </div>
-                    {pipelineWeighted > 0 && (
+                    {(cumKpi?.pipelineWeightedHours ?? 0) > 0 && (
                       <div className="text-xs mt-1 border-t border-blue-100 dark:border-blue-900/30 pt-1 text-muted-foreground">
-                        +{pipelineWeighted}h weighted pipeline
+                        +{cumKpi?.pipelineWeightedHours}h weighted pipeline
                       </div>
                     )}
                   </>
@@ -1038,19 +1052,19 @@ export default function CapacityOutlookPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {leaversQuery.isLoading || joinersQuery.isLoading ? (
+              {cumulativeKpiQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <>
                   <div className={[
                     "text-2xl font-bold",
-                    cumCoverage >= 1
+                    (cumKpi?.coverage ?? 1) >= 1
                       ? "text-emerald-600 dark:text-emerald-400"
-                      : cumCoverage >= 0.5
+                      : (cumKpi?.coverage ?? 1) >= 0.5
                       ? "text-amber-600 dark:text-amber-400"
                       : "text-red-600 dark:text-red-400",
                   ].join(' ')}>
-                    {cumulativeLost === 0 ? '—' : `${Math.round(cumCoverage * 100)}%`}
+                    {(cumKpi?.cumulativeHoursLost ?? 0) === 0 ? '—' : `${Math.round((cumKpi?.coverage ?? 0) * 100)}%`}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">hires + pipeline vs all leavers</div>
                 </>
@@ -1062,18 +1076,18 @@ export default function CapacityOutlookPage() {
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(cumRag)} flex items-center justify-center`}>
+                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(cumKpi?.rag ?? 'green')} flex items-center justify-center`}>
                   <AlertTriangle className="w-3.5 h-3.5 text-white" />
                 </div>
                 Risk
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              {leaversQuery.isLoading || joinersQuery.isLoading ? (
+              {cumulativeKpiQuery.isLoading ? (
                 <div className="h-8 bg-muted animate-pulse rounded" />
               ) : (
                 <div className="mt-1">
-                  <RagBadge rag={cumRag} />
+                  <RagBadge rag={cumKpi?.rag ?? 'green'} />
                 </div>
               )}
             </CardContent>
@@ -1156,6 +1170,7 @@ export default function CapacityOutlookPage() {
                       <TableHeader>
                         <TableRow>
                           <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Status</TableHead>
                           <TableHead>Emp No</TableHead>
                           <TableHead>Gender</TableHead>
                           <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
@@ -1172,6 +1187,9 @@ export default function CapacityOutlookPage() {
                         {sortBy(onNotice, leaverSort.col, leaverSort.dir).map(l => (
                           <TableRow key={l.id}>
                             <TableCell className="font-medium">{l.employeeName}</TableCell>
+                            <TableCell>
+                              <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">On Notice</Badge>
+                            </TableCell>
                             <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                             <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                             <TableCell>
@@ -1216,6 +1234,7 @@ export default function CapacityOutlookPage() {
                         <TableHeader>
                           <TableRow className="bg-red-100/60 dark:bg-red-900/20">
                             <TableHead>Name</TableHead>
+                            <TableHead>Status</TableHead>
                             <TableHead>Emp No</TableHead>
                             <TableHead>Gender</TableHead>
                             <TableHead>Type</TableHead>
@@ -1232,6 +1251,9 @@ export default function CapacityOutlookPage() {
                           {alreadyGone.map(l => (
                             <TableRow key={l.id}>
                               <TableCell className="font-medium">{l.employeeName}</TableCell>
+                              <TableCell>
+                                <Badge className="text-xs bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">Terminated</Badge>
+                              </TableCell>
                               <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                               <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                               <TableCell>

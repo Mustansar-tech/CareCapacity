@@ -331,6 +331,51 @@ export async function getCurrentMonthLive(branchId: string): Promise<{
   return { hoursIn, headsIn, hoursOut, headsOut };
 }
 
+export interface CumulativeKpiResult {
+  cumulativeHoursLost: number;
+  cumulativeHoursHired: number;
+  pipelineWeightedHours: number;
+  pipelineRawHours: number;
+  coverage: number;
+  net: number;
+  rag: OutlookRag;
+  computedAt: string;
+}
+
+export async function computeCumulativeKpi(branchId: string): Promise<CumulativeKpiResult> {
+  // Closed months: use monthly snapshots as the authoritative source —
+  // this correctly reflects any manual edits made via the Monthly View.
+  const snapshots = await getMonthlySnapshots(branchId);
+  const closedHoursOut = round2(snapshots.reduce((s, sn) => s + sn.hoursOut, 0));
+  const closedHoursIn = round2(snapshots.reduce((s, sn) => s + sn.hoursIn, 0));
+
+  // Current live month (active leavers already gone + confirmed hires this month)
+  const live = await getCurrentMonthLive(branchId);
+
+  // Active pipeline (not yet hired) — weighted by confidence probability
+  const allJoiners = await getJoiners(branchId);
+  const activePipeline = allJoiners.filter(j => j.status === 'active');
+  const pipelineWeightedHours = round2(activePipeline.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0));
+  const pipelineRawHours = round2(activePipeline.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
+
+  const cumulativeHoursLost = round2(closedHoursOut + live.hoursOut);
+  const cumulativeHoursHired = round2(closedHoursIn + live.hoursIn);
+  const net = round2(cumulativeHoursHired + pipelineWeightedHours - cumulativeHoursLost);
+  const coverage = cumulativeHoursLost === 0 ? 1 : round2((cumulativeHoursHired + pipelineWeightedHours) / cumulativeHoursLost);
+  const rag = computeRag(cumulativeHoursLost, cumulativeHoursHired + pipelineWeightedHours);
+
+  return {
+    cumulativeHoursLost,
+    cumulativeHoursHired,
+    pipelineWeightedHours,
+    pipelineRawHours,
+    coverage,
+    net,
+    rag,
+    computedAt: new Date().toISOString(),
+  };
+}
+
 export async function closeMonth(
   branchId: string,
   year: number,
