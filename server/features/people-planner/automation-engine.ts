@@ -233,42 +233,6 @@ export async function resetSlotForNextSession(slotArrayIndex: number): Promise<v
   logger.info("Slot context reset for next session", { slotArrayIndex, displayIndex: slot.index });
 }
 
-/**
- * Close just the People Planner tab between weeks in a multi-week session.
- *
- * Why this is necessary
- * ─────────────────────
- * After a download completes, People Planner leaves the tab in a
- * post-submission state (the export form has been POSTed; PP may show a
- * "preparing download" spinner or a stale results page).  Reusing that tab
- * for the next week's `navigateToExport` + `triggerDownload` sequence causes
- * `waitForEvent("download")` to time out after 90 s — the page never sends a
- * new download event because the form was never re-submitted cleanly.
- *
- * Closing just the plannerPage (not the whole context) forces `runJob` to
- * open a fresh PP tab for the next week while keeping the login cookies alive,
- * so no re-authentication is needed.
- */
-export async function closePlannerPageForNextWeek(slotArrayIndex: number): Promise<void> {
-  const slot = slotStates[slotArrayIndex];
-  if (!slot) return;
-  if (!slot.plannerPage) return;
-
-  // Save cookies before closing so the context can reuse them.
-  if (slot.context) {
-    await slot.context.storageState({ path: slot.sessionFile }).catch(() => {});
-  }
-
-  await slot.plannerPage.close().catch(() => {});
-  slot.plannerPage = null;
-  slot.plannerBranchUrl = null;
-
-  logger.info("Planner tab closed between weeks — fresh tab will open for next week", {
-    slotArrayIndex,
-    displayIndex: slot.index,
-  });
-}
-
 export function getJob(id: string): AutomationJob | undefined {
   return jobs.get(id);
 }

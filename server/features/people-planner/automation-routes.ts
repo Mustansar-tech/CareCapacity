@@ -19,7 +19,6 @@ import {
   getSlotCount,
   MAX_ACCOUNT_SLOTS,
   resetSlotForNextSession,
-  closePlannerPageForNextWeek,
   type JobConfig,
 } from "./automation-engine";
 
@@ -1610,16 +1609,6 @@ async function runMultiWeekPipelineSession(
           activeSessions.set(sessionId, session);
         }
         // Continue processing remaining weeks rather than aborting the whole session.
-      } finally {
-        // Always close the PP tab between weeks (success or failure).
-        // After a download the tab is in a post-submission state; reusing it for
-        // the next week's export causes the download event to never fire (90 s timeout).
-        // Closing forces runJob to open a fresh tab while keeping the login context alive.
-        if (wi < weekStartDates.length - 1) {
-          await closePlannerPageForNextWeek(slotArrayIndex).catch(e =>
-            logger.warn("Could not close planner tab between weeks (non-fatal)", { err: e })
-          );
-        }
       }
     }
 
