@@ -1276,8 +1276,6 @@ async function runPipelineSession(
       logger.warn("Failed to persist GH buffer to DB (non-fatal)", { err });
     }
 
-    await storage.clearAllVisits(branchId);
-
     try {
       const { extractEmployeeVisitsFromGHExcel } = await import("../../features/imports/excel-visit-extractor");
       const weekDates = result.dailySummary?.map(d => d.date) ?? [];
