@@ -920,3 +920,21 @@ export interface OutlookDetail {
   leavers: Leaver[];
   joiners: Joiner[];
 }
+
+// ── Leaver Report Recipients ──────────────────────────────────────────────────
+
+export const leaverReportRecipients = pgTable("leaver_report_recipients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+});
+
+export const insertLeaverReportRecipientSchema = createInsertSchema(leaverReportRecipients).omit({
+  id: true,
+  addedAt: true,
+}).extend({
+  email: z.string().email('Must be a valid email address'),
+});
+
+export type InsertLeaverReportRecipient = z.infer<typeof insertLeaverReportRecipientSchema>;
+export type LeaverReportRecipient = typeof leaverReportRecipients.$inferSelect;

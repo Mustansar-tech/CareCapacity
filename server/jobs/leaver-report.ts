@@ -10,14 +10,20 @@
 
 import { Resend } from 'resend';
 import { db } from '../infrastructure/db';
-import { leavers, branches } from '@shared/schema';
+import { leavers, branches, leaverReportRecipients } from '@shared/schema';
 import { eq, and, gte, lt } from 'drizzle-orm';
 import { logger } from '../infrastructure/logger';
 
 const FROM_ADDRESS = 'noreply@mail.sur-group.co.uk';
 const DEFAULT_RECIPIENTS = 'mark.youngson@sg.homeinstead.co.uk,gerard.millar@sg.homeinstead.co.uk,mustansar.hussain@sg.homeinstead.co.uk';
 
-function getRecipients(): string[] {
+async function getRecipients(): Promise<string[]> {
+  try {
+    const rows = await db.select().from(leaverReportRecipients).orderBy(leaverReportRecipients.addedAt);
+    if (rows.length > 0) return rows.map(r => r.email);
+  } catch {
+    // table may not exist yet on first deploy — fall through to env var
+  }
   const raw = process.env.LEAVER_REPORT_EMAILS ?? DEFAULT_RECIPIENTS;
   return raw.split(',').map(e => e.trim()).filter(Boolean);
 }

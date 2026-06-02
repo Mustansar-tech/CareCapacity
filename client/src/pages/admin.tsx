@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
   Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft,
-  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail
+  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -423,6 +423,124 @@ type LeaverReportResult = {
   reason?: string;
 };
 
+type Recipient = { id: string; email: string; addedAt: string };
+
+function LeaverRecipientManager() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [newEmail, setNewEmail] = useState('');
+
+  const { data: recipients = [], isLoading } = useQuery<Recipient[]>({
+    queryKey: ['/api/leaver-report/recipients'],
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiRequest('POST', '/api/leaver-report/recipients', { email });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message ?? 'Failed to add');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leaver-report/recipients'] });
+      setNewEmail('');
+      toast({ title: 'Recipient added' });
+    },
+    onError: (err: Error) => toast({ title: 'Failed to add', description: err.message, variant: 'destructive' }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('DELETE', `/api/leaver-report/recipients/${id}`, undefined);
+      if (!res.ok) throw new Error('Failed to remove');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leaver-report/recipients'] });
+      toast({ title: 'Recipient removed' });
+    },
+    onError: (err: Error) => toast({ title: 'Failed to remove', description: err.message, variant: 'destructive' }),
+  });
+
+  const handleAdd = () => {
+    const trimmed = newEmail.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    addMutation.mutate(trimmed);
+  };
+
+  const isDbManaged = recipients.length > 0;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">Recipients</p>
+        {!isDbManaged && !isLoading && (
+          <span className="text-xs text-muted-foreground">Using defaults — add an address to take over</span>
+        )}
+      </div>
+
+      {/* Current list */}
+      <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+        {isLoading ? (
+          <div className="px-3 py-2 text-sm text-muted-foreground">Loading…</div>
+        ) : isDbManaged ? (
+          recipients.map(r => (
+            <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm bg-background">
+              <span className="font-medium">{r.email}</span>
+              <button
+                onClick={() => removeMutation.mutate(r.id)}
+                disabled={removeMutation.isPending}
+                className="text-muted-foreground hover:text-destructive transition-colors ml-2 shrink-0"
+                title="Remove"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))
+        ) : (
+          ['mark.youngson@sg.homeinstead.co.uk', 'gerard.millar@sg.homeinstead.co.uk', 'mustansar.hussain@sg.homeinstead.co.uk'].map(e => (
+            <div key={e} className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-muted/30">
+              <span>{e}</span>
+              <span className="text-xs italic">(default)</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Add row */}
+      <div className="flex gap-2">
+        <Input
+          type="email"
+          placeholder="name@example.com"
+          value={newEmail}
+          onChange={e => setNewEmail(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          className="h-8 text-sm"
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleAdd}
+          disabled={addMutation.isPending || !newEmail.trim()}
+          className="gap-1.5 shrink-0"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add
+        </Button>
+      </div>
+      {isDbManaged && (
+        <p className="text-xs text-muted-foreground">
+          These addresses are stored in the database and override the <span className="font-mono">LEAVER_REPORT_EMAILS</span> secret.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AutomationTab() {
   const { toast } = useToast();
   const [lastResult, setLastResult] = useState<WeeklySyncResult | null>(null);
@@ -605,17 +723,17 @@ function AutomationTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg bg-muted/40 border border-border px-4 py-3 text-sm space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="font-mono text-xs bg-background border rounded px-1.5 py-0.5">1st of every month · 08:00 UTC</span>
-              <span>Automatic send</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Recipients: <span className="font-medium text-foreground">mark.youngson@sg.homeinstead.co.uk, gerard.millar@sg.homeinstead.co.uk, mustansar.hussain@sg.homeinstead.co.uk</span> (set via <span className="font-mono">LEAVER_REPORT_EMAILS</span> secret)
-            </p>
+          {/* Schedule info */}
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <span className="font-mono text-xs bg-muted border rounded px-1.5 py-0.5">1st of every month · 08:00 UTC</span>
+            <span>Automatic send</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Recipient manager */}
+          <LeaverRecipientManager />
+
+          {/* Manual trigger */}
+          <div className="flex items-center gap-3 pt-1">
             <Button
               onClick={() => leaverReportMutation.mutate()}
               disabled={leaverReportMutation.isPending}
