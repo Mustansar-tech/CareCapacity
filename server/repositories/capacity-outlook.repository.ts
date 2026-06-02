@@ -343,11 +343,15 @@ export interface CumulativeKpiResult {
 }
 
 export async function computeCumulativeKpi(branchId: string): Promise<CumulativeKpiResult> {
-  // Closed months: use monthly snapshots as the authoritative source —
-  // this correctly reflects any manual edits made via the Monthly View.
-  const snapshots = await getMonthlySnapshots(branchId);
-  const closedHoursOut = round2(snapshots.reduce((s, sn) => s + sn.hoursOut, 0));
-  const closedHoursIn = round2(snapshots.reduce((s, sn) => s + sn.hoursIn, 0));
+  // Closed months: query ALL snapshots (no row cap) — authoritative source that
+  // reflects any manual edits made via Monthly View.
+  const allSnapshots = await db
+    .select()
+    .from(monthlyCapacitySnapshots)
+    .where(eq(monthlyCapacitySnapshots.branchId, branchId))
+    .orderBy(desc(monthlyCapacitySnapshots.year), desc(monthlyCapacitySnapshots.month));
+  const closedHoursOut = round2(allSnapshots.reduce((s, sn) => s + sn.hoursOut, 0));
+  const closedHoursIn = round2(allSnapshots.reduce((s, sn) => s + sn.hoursIn, 0));
 
   // Current live month (active leavers already gone + confirmed hires this month)
   const live = await getCurrentMonthLive(branchId);

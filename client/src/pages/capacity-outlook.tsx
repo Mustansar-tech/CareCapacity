@@ -1530,6 +1530,7 @@ export default function CapacityOutlookPage() {
                                 <TableHeader>
                                   <TableRow className="bg-emerald-100/30 dark:bg-emerald-900/10">
                                     <TableHead>Name</TableHead>
+                                    <TableHead>Status</TableHead>
                                     <TableHead>Type</TableHead>
                                     <TableHead>Hrs/wk</TableHead>
                                     <TableHead>Hired</TableHead>
@@ -1541,6 +1542,9 @@ export default function CapacityOutlookPage() {
                                   {rows.map(j => (
                                     <TableRow key={j.id} className="opacity-60">
                                       <TableCell className="font-medium">{j.candidateName}</TableCell>
+                                      <TableCell>
+                                        <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
+                                      </TableCell>
                                       <TableCell>
                                         <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                                       </TableCell>
