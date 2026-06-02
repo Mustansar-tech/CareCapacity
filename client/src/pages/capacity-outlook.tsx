@@ -667,6 +667,13 @@ export default function CapacityOutlookPage() {
 
   const [leaverSort, setLeaverSort] = useState<{ col: LeaverSortCol; dir: SortDir }>({ col: 'lastWorkingDay', dir: 'asc' });
   const [joinerSort, setJoinerSort] = useState<{ col: JoinerSortCol; dir: SortDir }>({ col: 'trainingDate', dir: 'asc' });
+  const [expandedLeaverMonths, setExpandedLeaverMonths] = useState<Set<string>>(new Set());
+  const [expandedJoinerMonths, setExpandedJoinerMonths] = useState<Set<string>>(new Set());
+
+  const toggleLeaverMonth = (key: string) =>
+    setExpandedLeaverMonths(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
+  const toggleJoinerMonth = (key: string) =>
+    setExpandedJoinerMonths(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
 
   const branchId = selectedBranchId ?? '';
 
@@ -1290,7 +1297,7 @@ export default function CapacityOutlookPage() {
                     <p className="text-sm text-muted-foreground text-center py-8">No leavers recorded.</p>
                   )}
 
-                  {/* Past months — terminated (closed month archives) */}
+                  {/* Past months — terminated (closed month archives, collapsible) */}
                   {terminatedLeavers.length > 0 && (() => {
                     const groups: Record<string, typeof terminatedLeavers> = {};
                     for (const l of terminatedLeavers) {
@@ -1304,55 +1311,50 @@ export default function CapacityOutlookPage() {
                         {sortedGroups.map(([monthKey, rows]) => {
                           const label = new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
                           const totalHrs = rows.reduce((s, l) => s + (l.weeklyHours ?? 0), 0);
+                          const isOpen = expandedLeaverMonths.has(monthKey);
                           return (
                             <div key={monthKey} className="border-t border-red-200 dark:border-red-800/40 bg-red-50/20 dark:bg-red-900/5">
-                              <div className="flex items-center gap-2 px-4 py-2">
-                                <Archive className="w-4 h-4 text-red-400 dark:text-red-500" />
-                                <span className="text-xs font-semibold text-red-600/70 dark:text-red-400/70 uppercase tracking-wide">
+                              <button
+                                onClick={() => toggleLeaverMonth(monthKey)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-red-50/60 dark:hover:bg-red-900/10 transition-colors text-left"
+                              >
+                                <Archive className="w-4 h-4 text-red-400 dark:text-red-500 shrink-0" />
+                                <span className="text-xs font-semibold text-red-600/70 dark:text-red-400/70 uppercase tracking-wide flex-1">
                                   {label} — {totalHrs}h/wk · {rows.length} {rows.length === 1 ? 'person' : 'people'} terminated
                                 </span>
-                              </div>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-red-100/30 dark:bg-red-900/10">
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Emp No</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Hrs/wk</TableHead>
-                                    <TableHead>Termination Day</TableHead>
-                                    <TableHead>Notes</TableHead>
-                                    {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {rows.map(l => (
-                                    <TableRow key={l.id} className="opacity-60">
-                                      <TableCell className="font-medium">{l.employeeName}</TableCell>
-                                      <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
-                                      </TableCell>
-                                      <TableCell>{l.weeklyHours}h</TableCell>
-                                      <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
-                                      <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
-                                      {isScheduler && (
-                                        <TableCell className="text-right">
-                                          <div className="flex items-center justify-end gap-1">
-                                            <Button size="icon" variant="ghost" className="h-7 w-7"
-                                              onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
-                                              <Pencil className="w-3.5 h-3.5" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                              onClick={() => setDeletingLeaverId(l.id)}>
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </Button>
-                                          </div>
-                                        </TableCell>
-                                      )}
+                                {isOpen
+                                  ? <ChevronUp className="w-3.5 h-3.5 text-red-400 dark:text-red-500 shrink-0" />
+                                  : <ChevronDown className="w-3.5 h-3.5 text-red-400 dark:text-red-500 shrink-0" />
+                                }
+                              </button>
+                              {isOpen && (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-red-100/30 dark:bg-red-900/10">
+                                      <TableHead>Name</TableHead>
+                                      <TableHead>Emp No</TableHead>
+                                      <TableHead>Type</TableHead>
+                                      <TableHead>Hrs/wk</TableHead>
+                                      <TableHead>Termination Day</TableHead>
+                                      <TableHead>Notes</TableHead>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {rows.map(l => (
+                                      <TableRow key={l.id} className="opacity-60">
+                                        <TableCell className="font-medium">{l.employeeName}</TableCell>
+                                        <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                                        </TableCell>
+                                        <TableCell>{l.weeklyHours}h</TableCell>
+                                        <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              )}
                             </div>
                           );
                         })}
@@ -1504,7 +1506,7 @@ export default function CapacityOutlookPage() {
                     </div>
                   )}
 
-                  {/* Past months — hired (closed month archives) */}
+                  {/* Past months — hired (closed month archives, collapsible) */}
                   {archivedJoiners.length > 0 && (() => {
                     const groups: Record<string, typeof archivedJoiners> = {};
                     for (const j of archivedJoiners) {
@@ -1518,57 +1520,52 @@ export default function CapacityOutlookPage() {
                         {sortedGroups.map(([monthKey, rows]) => {
                           const label = new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
                           const totalHrs = rows.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0);
+                          const isOpen = expandedJoinerMonths.has(monthKey);
                           return (
                             <div key={monthKey} className="border-t border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/20 dark:bg-emerald-900/5">
-                              <div className="flex items-center gap-2 px-4 py-2">
-                                <Archive className="w-4 h-4 text-emerald-400 dark:text-emerald-500" />
-                                <span className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wide">
+                              <button
+                                onClick={() => toggleJoinerMonth(monthKey)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/10 transition-colors text-left"
+                              >
+                                <Archive className="w-4 h-4 text-emerald-400 dark:text-emerald-500 shrink-0" />
+                                <span className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wide flex-1">
                                   {label} — {totalHrs}h/wk · {rows.length} {rows.length === 1 ? 'person' : 'people'} hired
                                 </span>
-                              </div>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-emerald-100/30 dark:bg-emerald-900/10">
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Hrs/wk</TableHead>
-                                    <TableHead>Hired</TableHead>
-                                    <TableHead>Notes</TableHead>
-                                    {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {rows.map(j => (
-                                    <TableRow key={j.id} className="opacity-60">
-                                      <TableCell className="font-medium">{j.candidateName}</TableCell>
-                                      <TableCell>
-                                        <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
-                                      </TableCell>
-                                      <TableCell>{j.desiredWeeklyHours}h</TableCell>
-                                      <TableCell>{formatDate(j.hiredAt)}</TableCell>
-                                      <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
-                                      {isScheduler && (
-                                        <TableCell className="text-right">
-                                          <div className="flex items-center justify-end gap-1">
-                                            <Button size="icon" variant="ghost" className="h-7 w-7"
-                                              onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
-                                              <Pencil className="w-3.5 h-3.5" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                              onClick={() => setDeletingJoinerId(j.id)}>
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </Button>
-                                          </div>
-                                        </TableCell>
-                                      )}
+                                {isOpen
+                                  ? <ChevronUp className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-500 shrink-0" />
+                                  : <ChevronDown className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-500 shrink-0" />
+                                }
+                              </button>
+                              {isOpen && (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-emerald-100/30 dark:bg-emerald-900/10">
+                                      <TableHead>Name</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead>Type</TableHead>
+                                      <TableHead>Hrs/wk</TableHead>
+                                      <TableHead>Hired</TableHead>
+                                      <TableHead>Notes</TableHead>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {rows.map(j => (
+                                      <TableRow key={j.id} className="opacity-60">
+                                        <TableCell className="font-medium">{j.candidateName}</TableCell>
+                                        <TableCell>
+                                          <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                                        </TableCell>
+                                        <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                                        <TableCell>{formatDate(j.hiredAt)}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              )}
                             </div>
                           );
                         })}
