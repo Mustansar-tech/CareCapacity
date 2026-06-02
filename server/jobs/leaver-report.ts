@@ -15,7 +15,6 @@ import { eq, and, gte, lt } from 'drizzle-orm';
 import { logger } from '../infrastructure/logger';
 
 const FROM_ADDRESS = 'noreply@mail.sur-group.co.uk';
-const DEFAULT_RECIPIENTS = 'mark.youngson@sg.homeinstead.co.uk,gerard.millar@sg.homeinstead.co.uk,mustansar.hussain@sg.homeinstead.co.uk';
 
 async function getRecipients(): Promise<string[]> {
   try {
@@ -24,7 +23,7 @@ async function getRecipients(): Promise<string[]> {
   } catch {
     // table may not exist yet on first deploy — fall through to env var
   }
-  const raw = process.env.LEAVER_REPORT_EMAILS ?? DEFAULT_RECIPIENTS;
+  const raw = process.env.LEAVER_REPORT_EMAILS ?? '';
   return raw.split(',').map(e => e.trim()).filter(Boolean);
 }
 

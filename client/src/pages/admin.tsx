@@ -479,7 +479,7 @@ function LeaverRecipientManager() {
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">Recipients</p>
         {!isDbManaged && !isLoading && (
-          <span className="text-xs text-muted-foreground">Using defaults — add an address to take over</span>
+          <span className="text-xs text-muted-foreground">No recipients — report will be skipped until you add one</span>
         )}
       </div>
 
@@ -502,12 +502,9 @@ function LeaverRecipientManager() {
             </div>
           ))
         ) : (
-          ['mark.youngson@sg.homeinstead.co.uk', 'gerard.millar@sg.homeinstead.co.uk', 'mustansar.hussain@sg.homeinstead.co.uk'].map(e => (
-            <div key={e} className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-muted/30">
-              <span>{e}</span>
-              <span className="text-xs italic">(default)</span>
-            </div>
-          ))
+          <div className="px-3 py-2 text-sm text-muted-foreground italic">
+            No recipients added yet — add one below.
+          </div>
         )}
       </div>
 
