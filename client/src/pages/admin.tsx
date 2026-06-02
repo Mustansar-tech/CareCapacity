@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
   Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft,
-  Bug, MessageSquare, CalendarClock, Play, CheckCircle2
+  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -413,9 +413,20 @@ type WeeklySyncResult = {
   weeks: Array<{ label: string; weekStartDate: string }>;
 };
 
+type LeaverReportResult = {
+  ok: boolean;
+  month: string;
+  branchesCovered: number;
+  totalLeavers: number;
+  recipients: string[];
+  skipped: boolean;
+  reason?: string;
+};
+
 function AutomationTab() {
   const { toast } = useToast();
   const [lastResult, setLastResult] = useState<WeeklySyncResult | null>(null);
+  const [lastReportResult, setLastReportResult] = useState<LeaverReportResult | null>(null);
   const [selectedWeeks, setSelectedWeeks] = useState<Set<'previous' | 'current' | 'next'>>(
     new Set(['previous', 'current', 'next'])
   );
@@ -446,6 +457,28 @@ function AutomationTab() {
     },
     onError: (err: Error) => {
       toast({ title: 'Sync failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const leaverReportMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/leaver-report/send', {});
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message ?? 'Unknown error');
+      }
+      return res.json() as Promise<LeaverReportResult>;
+    },
+    onSuccess: (data) => {
+      setLastReportResult(data);
+      if (data.skipped) {
+        toast({ title: 'Report skipped', description: data.reason ?? 'No leavers found', variant: 'destructive' });
+      } else {
+        toast({ title: 'Leaver report sent', description: `${data.totalLeavers} leaver${data.totalLeavers !== 1 ? 's' : ''} across ${data.branchesCovered} branch${data.branchesCovered !== 1 ? 'es' : ''} — sent to ${data.recipients.length} recipient${data.recipients.length !== 1 ? 's' : ''}.` });
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Report failed', description: err.message, variant: 'destructive' });
     },
   });
 
@@ -552,6 +585,65 @@ function AutomationTab() {
 
           <p className="text-xs text-muted-foreground">
             Syncs start immediately — monitor progress in the People Planner panel on the main dashboard.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Leaver report card */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-950">
+              <Mail className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Monthly Leaver Report</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Emails a summary of last month's leavers (all branches) to configured recipients
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-muted/40 border border-border px-4 py-3 text-sm space-y-1">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="font-mono text-xs bg-background border rounded px-1.5 py-0.5">1st of every month · 08:00 UTC</span>
+              <span>Automatic send</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Recipients: <span className="font-medium text-foreground">mark.youngson@sg.homeinstead.co.uk, gerard.millar@sg.homeinstead.co.uk</span> (set via <span className="font-mono">LEAVER_REPORT_EMAILS</span> secret)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => leaverReportMutation.mutate()}
+              disabled={leaverReportMutation.isPending}
+              variant="outline"
+              className="gap-2 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+            >
+              {leaverReportMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              {leaverReportMutation.isPending ? 'Sending…' : 'Send test report now'}
+            </Button>
+            {lastReportResult && !leaverReportMutation.isPending && (
+              lastReportResult.skipped ? (
+                <span className="text-sm text-amber-600 dark:text-amber-400">
+                  Skipped — {lastReportResult.reason}
+                </span>
+              ) : (
+                <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Sent · {lastReportResult.totalLeavers} leavers · {lastReportResult.month}</span>
+                </div>
+              )
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Sends the report for the previous calendar month. Requires <span className="font-mono">RESEND_API_KEY</span> in Replit Secrets.
           </p>
         </CardContent>
       </Card>
