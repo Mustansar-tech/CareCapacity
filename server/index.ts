@@ -153,6 +153,14 @@ app.use((req, res, next) => {
     }
   }, 60 * 60 * 1000);
 
+  // Monthly leaver report scheduler — fires at 08:00 UTC daily, sends on the 1st.
+  try {
+    const { initLeaverReportScheduler } = await import('./jobs/leaver-report-scheduler');
+    initLeaverReportScheduler();
+  } catch (err) {
+    logger.error('Failed to init leaver report scheduler', err);
+  }
+
   // Run geo-sweeper in the background after startup to geocode any client
   // locations that have a postcode but are still missing lat/lng coordinates.
   // This is fire-and-forget — it does not block server startup.

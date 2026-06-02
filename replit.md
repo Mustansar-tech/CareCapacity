@@ -167,6 +167,8 @@ All callers (controllers, middleware, repositories, routes, services, and root f
 | `ACCESS_EMAIL_5` | Email for account slot 6 (optional) |
 | `ACCESS_PASSWORD_5` | Password for account slot 6 |
 | `PEOPLE_PLANNER_BRANCH_CONFIG` | JSON map of branchId → `{workspaceBranch, plannerArea}` |
+| `RESEND_API_KEY` | Resend API key for sending automated emails (create at resend.com/api-keys) |
+| `LEAVER_REPORT_EMAILS` | Comma-separated recipient list for monthly leaver reports (default: mark.youngson@sg.homeinstead.co.uk,gerard.millar@sg.homeinstead.co.uk) |
 
 ## People Planner Automation
 
