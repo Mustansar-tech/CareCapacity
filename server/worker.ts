@@ -42,6 +42,24 @@ import { getWeeksToSync } from "./features/people-planner/week-helpers";
 
 logger.info("Care Capacity worker starting");
 
+// ─── Date helper (exported for unit tests) ────────────────────────────────────
+
+/**
+ * Returns the ISO date (YYYY-MM-DD) of the Monday that is `dayOffset` days
+ * from the Monday of the week in which `from` falls.
+ *
+ *   dayOffset -7  →  previous week's Monday
+ *   dayOffset  0  →  current week's Monday
+ *   dayOffset +7  →  next week's Monday
+ */
+export function getMondayWithOffset(from: Date, dayOffset: number): string {
+  const d = new Date(from);
+  const day = d.getUTCDay(); // 0=Sun … 6=Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diffToMonday + dayOffset);
+  return d.toISOString().split("T")[0];
+}
+
 // ─── Crash protection ─────────────────────────────────────────────────────────
 process.on("unhandledRejection", (reason) => {
   logger.error("Worker: unhandled promise rejection — keeping process alive", undefined, {
