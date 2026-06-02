@@ -201,17 +201,33 @@ app.use((req, res, next) => {
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
     log(`${signal} received, starting graceful shutdown...`);
-    
+
+    // People Planner automation jobs can take 10–20 minutes per run.
+    // Give active jobs up to 25 minutes to finish before forcing exit.
+    // If no automation is running, 30 seconds is plenty.
+    let forceTimeoutMs = 30_000;
+    try {
+      const { isRunning } = await import('./features/people-planner/automation-engine');
+      if (isRunning()) {
+        forceTimeoutMs = 25 * 60 * 1000; // 25 minutes
+        log('People Planner automation is active — extending shutdown grace period to 25 minutes');
+      }
+    } catch {
+      // Non-fatal — fall back to 30 s
+    }
+
     server.close(() => {
       log('HTTP server closed');
       process.exit(0);
     });
 
-    // Force shutdown after 30 seconds
-    setTimeout(() => {
+    const forceTimer = setTimeout(() => {
       log('Forced shutdown after timeout');
       process.exit(1);
-    }, 30000);
+    }, forceTimeoutMs);
+
+    // Don't let this timer keep the event loop alive if everything else exits.
+    forceTimer.unref?.();
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
