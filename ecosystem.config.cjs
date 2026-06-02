@@ -12,7 +12,7 @@ module.exports = {
       },
       autorestart: true,
       restart_delay: 5000,
-      max_memory_restart: "3G"
+      max_memory_restart: "5G"
     },
     {
       name: "care-capacity-worker",
