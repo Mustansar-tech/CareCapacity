@@ -1051,15 +1051,11 @@ export default function CapacityOutlookPage() {
                       {fmtNet(net)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {cumKpi?.cumulativeHoursHired ?? 0}h hired
-                      {(cumKpi?.pipelineWeightedHours ?? 0) > 0 && (
-                        <> + {cumKpi!.pipelineWeightedHours}h pipeline*</>
-                      )}
-                      {' '}− {cumKpi?.cumulativeHoursLost ?? 0}h lost
+                      {cumKpi?.cumulativeHoursHired ?? 0}h hired − {cumKpi?.cumulativeHoursLost ?? 0}h terminated
                     </div>
-                    {(cumKpi?.pipelineWeightedHours ?? 0) > 0 && (
-                      <div className="text-xs mt-0.5 text-muted-foreground/60 italic">
-                        *pipeline weighted by confidence
+                    {(cumKpi?.pipelineRawHours ?? 0) > 0 && (
+                      <div className="text-xs mt-1 text-blue-500/70 dark:text-blue-400/60">
+                        {cumKpi!.pipelineRawHours}h/wk in pipeline (not confirmed)
                       </div>
                     )}
                   </>
@@ -1093,7 +1089,7 @@ export default function CapacityOutlookPage() {
                   ].join(' ')}>
                     {(cumKpi?.cumulativeHoursLost ?? 0) === 0 ? '—' : `${Math.round((cumKpi?.coverage ?? 0) * 100)}%`}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">hires + pipeline vs all leavers</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">confirmed hires vs terminated</div>
                 </>
               )}
             </CardContent>

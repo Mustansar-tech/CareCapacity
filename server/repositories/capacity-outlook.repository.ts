@@ -366,9 +366,11 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
 
   const cumulativeHoursLost = round2(closedHoursOut + live.hoursOut);
   const cumulativeHoursHired = round2(closedHoursIn + live.hoursIn);
-  const net = round2(cumulativeHoursHired + pipelineWeightedHours - cumulativeHoursLost);
-  const coverage = cumulativeHoursLost === 0 ? 1 : round2((cumulativeHoursHired + pipelineWeightedHours) / cumulativeHoursLost);
-  const rag = computeRag(cumulativeHoursLost, cumulativeHoursHired + pipelineWeightedHours);
+  // Net, coverage, and risk are based on confirmed hired vs terminated only.
+  // Pipeline is informational and never assumed to convert.
+  const net = round2(cumulativeHoursHired - cumulativeHoursLost);
+  const coverage = cumulativeHoursLost === 0 ? 1 : round2(cumulativeHoursHired / cumulativeHoursLost);
+  const rag = computeRag(cumulativeHoursLost, cumulativeHoursHired);
 
   // Year-to-date counts
   const currentYear = new Date().getUTCFullYear();
