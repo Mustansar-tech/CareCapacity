@@ -340,6 +340,8 @@ export interface CumulativeKpiResult {
   net: number;
   rag: OutlookRag;
   computedAt: string;
+  terminatedYtd: number;
+  hiredYtd: number;
 }
 
 export async function computeCumulativeKpi(branchId: string): Promise<CumulativeKpiResult> {
@@ -357,7 +359,7 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
   const live = await getCurrentMonthLive(branchId);
 
   // Active pipeline (not yet hired) — weighted by confidence probability
-  const allJoiners = await getJoiners(branchId);
+  const allJoiners = await getJoiners(branchId, false, true);
   const activePipeline = allJoiners.filter(j => j.status === 'active');
   const pipelineWeightedHours = round2(activePipeline.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0));
   const pipelineRawHours = round2(activePipeline.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
@@ -368,6 +370,21 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
   const coverage = cumulativeHoursLost === 0 ? 1 : round2((cumulativeHoursHired + pipelineWeightedHours) / cumulativeHoursLost);
   const rag = computeRag(cumulativeHoursLost, cumulativeHoursHired + pipelineWeightedHours);
 
+  // Year-to-date counts
+  const currentYear = new Date().getUTCFullYear();
+  const ytdStart = `${currentYear}-01-01`;
+  const ytdEnd = `${currentYear + 1}-01-01`;
+
+  const allLeaversRaw = await getLeavers(branchId, true);
+  const terminatedYtd = allLeaversRaw.filter(l =>
+    l.lastWorkingDay >= ytdStart && l.lastWorkingDay < ytdEnd,
+  ).length;
+
+  const hiredYtd = allJoiners.filter(j =>
+    (j.status === 'hired' || j.status === 'hired_archived') &&
+    j.hiredAt && j.hiredAt >= ytdStart && j.hiredAt < ytdEnd,
+  ).length;
+
   return {
     cumulativeHoursLost,
     cumulativeHoursHired,
@@ -377,6 +394,8 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
     net,
     rag,
     computedAt: new Date().toISOString(),
+    terminatedYtd,
+    hiredYtd,
   };
 }
 

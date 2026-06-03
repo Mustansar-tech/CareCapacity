@@ -49,6 +49,8 @@ interface CumulativeKpiResult {
   net: number;
   rag: 'green' | 'amber' | 'red';
   computedAt: string;
+  terminatedYtd: number;
+  hiredYtd: number;
 }
 
 // ── Milestone confidence helpers ──────────────────────────────────────────────
@@ -971,6 +973,11 @@ export default function CapacityOutlookPage() {
                         {monthlyQuery.data!.live.hoursOut}h out · {monthlyQuery.data!.live.headsOut} {monthlyQuery.data!.live.headsOut === 1 ? 'leaver' : 'leavers'} this month
                       </div>
                     )}
+                    {(cumKpi?.terminatedYtd ?? 0) > 0 && (
+                      <div className="text-xs text-red-400/70 dark:text-red-500/60 mt-1">
+                        {cumKpi!.terminatedYtd} terminated this year
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -1009,6 +1016,11 @@ export default function CapacityOutlookPage() {
                       {monthlyQuery.data!.live.hoursIn}h in · {monthlyQuery.data!.live.headsIn} {monthlyQuery.data!.live.headsIn === 1 ? 'hire' : 'hires'} this month
                     </div>
                   )}
+                  {(cumKpi?.hiredYtd ?? 0) > 0 && (
+                    <div className="text-xs text-emerald-400/70 dark:text-emerald-500/60 mt-1">
+                      {cumKpi!.hiredYtd} hired this year
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
@@ -1039,11 +1051,15 @@ export default function CapacityOutlookPage() {
                       {fmtNet(net)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {cumKpi?.cumulativeHoursHired ?? 0}h hired − {cumKpi?.cumulativeHoursLost ?? 0}h lost (all time)
+                      {cumKpi?.cumulativeHoursHired ?? 0}h hired
+                      {(cumKpi?.pipelineWeightedHours ?? 0) > 0 && (
+                        <> + {cumKpi!.pipelineWeightedHours}h pipeline*</>
+                      )}
+                      {' '}− {cumKpi?.cumulativeHoursLost ?? 0}h lost
                     </div>
                     {(cumKpi?.pipelineWeightedHours ?? 0) > 0 && (
-                      <div className="text-xs mt-1 border-t border-blue-100 dark:border-blue-900/30 pt-1 text-muted-foreground">
-                        +{cumKpi?.pipelineWeightedHours}h weighted pipeline
+                      <div className="text-xs mt-0.5 text-muted-foreground/60 italic">
+                        *pipeline weighted by confidence
                       </div>
                     )}
                   </>
