@@ -38,6 +38,19 @@ function latestDataKey(d: ProcessingResultWithMeta | undefined | null): string {
   return `${d.id ?? 'no-id'}_${ts}`;
 }
 
+/**
+ * Returns today's ISO week Monday as YYYY-MM-DD (UTC).
+ * ISO weeks start on Monday (Sun = end of previous week).
+ */
+function getCurrentWeekMonday(): string {
+  const now = new Date();
+  const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon … 6=Sat
+  const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() - daysToSubtract);
+  return monday.toISOString().split('T')[0];
+}
+
 export function WeekProvider({ children }: { children: ReactNode }) {
   const { selectedBranchId } = useBranch();
   const { toast } = useToast();
@@ -120,40 +133,79 @@ export function WeekProvider({ children }: { children: ReactNode }) {
     }
   }, [latestData, selectedBranchId]);
 
-  // Auto-load latest data when no week is explicitly selected
+  // Auto-load: prefer the current calendar week; fall back to most-recent if not available.
+  // Waits for allHistoryData so we can find the current-week entry before deciding.
   useEffect(() => {
-    if (!latestData || selectedWeekId !== null || latestData.branchId !== selectedBranchId) return;
+    if (selectedWeekId !== null) return; // user has explicitly chosen a week — don't override
+    if (!selectedBranchId) return;
+    if (!latestData || latestData.branchId !== selectedBranchId) return;
+    if (!allHistoryData) return; // wait for history list before deciding which week to show
 
     const key = latestDataKey(latestData);
 
     if (skipLatestKey.current !== undefined) {
       if (key === skipLatestKey.current) {
-        // Still the same stale entry — wait for the fresh refetch
         clientLogger.log('⏭️ Auto-load skipping stale latestData, waiting for fresh refetch', { key });
         return;
       }
-      // latestData has changed to a fresh entry — clear the guard and proceed
       clientLogger.log('✅ Auto-load: fresh latestData detected, clearing skip guard', { key });
       skipLatestKey.current = undefined;
     }
 
     const isInitialLoad = processedDataRef.current === null;
-    setProcessedData({
-      kpis: latestData.kpis,
-      dailySummary: latestData.dailySummary,
-      employeesByDate: latestData.employeesByDate,
-      employeeSummaryByDate: latestData.employeeSummaryByDate,
-      warnings: latestData.warnings,
-      ghLossRawSummary: (latestData as any).ghLossRawSummary,
-    } as any);
-    setSelectedDate(latestData.dailySummary?.[0]?.date || null);
-    if (isInitialLoad) {
-      toastRef.current({
-        title: 'Latest Data Loaded',
-        description: 'Automatically loaded your most recent analysis.',
+
+    // Try to find the current calendar week in history
+    const currentWeekMonday = getCurrentWeekMonday();
+    const currentWeekEntry = allHistoryData.find(a => a.weekStartDate === currentWeekMonday);
+
+    if (currentWeekEntry) {
+      // Don't reload if we're already on this week
+      if (selectedWeekId === currentWeekEntry.id) return;
+
+      clientLogger.log('📅 Auto-load: loading current calendar week', {
+        weekStart: currentWeekMonday,
+        id: currentWeekEntry.id,
       });
+      setProcessedData({
+        kpis: currentWeekEntry.kpis,
+        dailySummary: currentWeekEntry.dailySummary,
+        employeesByDate: currentWeekEntry.employeesByDate,
+        employeeSummaryByDate: currentWeekEntry.employeeSummaryByDate,
+        warnings: currentWeekEntry.warnings,
+        ghLossRawSummary: (currentWeekEntry as any).ghLossRawSummary,
+      } as any);
+      setSelectedDate(currentWeekEntry.dailySummary?.[0]?.date || null);
+      setSelectedWeekId(currentWeekEntry.id);
+      setFilteredData(null);
+      if (isInitialLoad) {
+        toastRef.current({
+          title: 'Current Week Loaded',
+          description: 'Showing this week\'s data.',
+        });
+      }
+    } else {
+      // Current week not synced yet — fall back to the most recently uploaded record
+      clientLogger.log('📅 Auto-load: current week not found, falling back to latest', {
+        currentWeekMonday,
+        latestWeek: latestData.weekStartDate,
+      });
+      setProcessedData({
+        kpis: latestData.kpis,
+        dailySummary: latestData.dailySummary,
+        employeesByDate: latestData.employeesByDate,
+        employeeSummaryByDate: latestData.employeeSummaryByDate,
+        warnings: latestData.warnings,
+        ghLossRawSummary: (latestData as any).ghLossRawSummary,
+      } as any);
+      setSelectedDate(latestData.dailySummary?.[0]?.date || null);
+      if (isInitialLoad) {
+        toastRef.current({
+          title: 'Latest Data Loaded',
+          description: 'Automatically loaded your most recent analysis.',
+        });
+      }
     }
-  }, [latestData, selectedWeekId, selectedBranchId]);
+  }, [latestData, allHistoryData, selectedWeekId, selectedBranchId]);
 
   const handleWeekChange = useCallback(
     async (value: string) => {
@@ -204,7 +256,7 @@ export function WeekProvider({ children }: { children: ReactNode }) {
   /**
    * For external syncs (People Planner) where we don't have the fresh data yet.
    * Clears the current data, arms the skip guard, then waits for latestData to
-   * refresh before the auto-load effect shows the new week.
+   * refresh. The auto-load effect will then prefer the current calendar week.
    * Call this BEFORE invalidating /api/history/latest.
    */
   const switchToLatest = useCallback(() => {

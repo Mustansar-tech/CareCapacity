@@ -384,14 +384,16 @@ export function OverviewTab({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="latest">
-                        Latest Week{(() => {
+                        Current Week{(() => {
                           try {
-                            if (!data?.dailySummary || data.dailySummary.length === 0) return '';
-                            const startDate = new Date(data.dailySummary[0].date).toLocaleDateString('en-GB');
-                            const endDate = new Date(data.dailySummary[data.dailySummary.length - 1].date).toLocaleDateString('en-GB');
-                            return `(${startDate} - ${endDate})`;
-                          } catch (error) {
-                            clientLogger.error('Error formatting latest week dates:', error);
+                            const now = new Date();
+                            const day = now.getUTCDay();
+                            const diff = day === 0 ? -6 : 1 - day;
+                            const mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+                            const sun = new Date(mon);
+                            sun.setUTCDate(mon.getUTCDate() + 6);
+                            return ` (${mon.toLocaleDateString('en-GB')} – ${sun.toLocaleDateString('en-GB')})`;
+                          } catch {
                             return '';
                           }
                         })()}
