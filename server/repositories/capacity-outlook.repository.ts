@@ -378,8 +378,9 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
   const ytdEnd = `${currentYear + 1}-01-01`;
 
   const allLeaversRaw = await getLeavers(branchId, true);
+  const todayStr = isoDate(new Date());
   const terminatedYtd = allLeaversRaw.filter(l =>
-    l.lastWorkingDay >= ytdStart && l.lastWorkingDay < ytdEnd,
+    l.lastWorkingDay >= ytdStart && l.lastWorkingDay < ytdEnd && l.lastWorkingDay <= todayStr,
   ).length;
 
   const hiredYtd = allJoiners.filter(j =>
