@@ -13,20 +13,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ChevronLeft, ChevronRight, Download, Plus, Search, X, AlertTriangle,
+  ChevronLeft, ChevronRight, Download, Plus, Search, X,
   ChevronDown, Pencil, Trash2, User, BarChart3, RefreshCw, Filter,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { HrCalendar } from "@shared/schema";
 import {
   getStatusConfig, MANUAL_STATUSES, LONG_TERM_STATUSES, formatMonthYear,
-  getDaysInMonth, isWeekend, isToday, dayLabel, dayWeekday, isAbsence, isLeave,
+  getDaysInMonth, isWeekend, isToday, dayLabel, dayWeekday,
   normalizeEmployeeKey,
 } from "@/utils/hr-utils";
 
@@ -77,8 +76,6 @@ export default function WorkforcePage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [search, setSearch] = useState('');
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
-  const [flaggedOnly, setFlaggedOnly] = useState(false);
-  const [alertsOpen, setAlertsOpen] = useState(true);
   const [form, setForm] = useState<ManualFormState>(emptyForm());
   const [detailEmployee, setDetailEmployee] = useState<{ key: string; name: string } | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
@@ -132,44 +129,6 @@ export default function WorkforcePage() {
     return m;
   }, [records]);
 
-  const alerts = useMemo(() => {
-    const consecutiveSick: Array<{ key: string; name: string; days: number; from: string }> = [];
-    const upcomingReturn: Array<{ key: string; name: string; lastDay: string; status: string }> = [];
-
-    for (const emp of employees) {
-      let streak = 0;
-      let streakFrom = '';
-      for (const d of days) {
-        const r = byKeyDate.get(`${emp.key}|${d}`);
-        const isSick = r && ['Sick', 'Long-term Sick', 'AWOL', 'Partial Sick'].includes(r.status);
-        if (isSick) {
-          if (streak === 0) streakFrom = d;
-          streak++;
-        } else {
-          if (streak >= 3) consecutiveSick.push({ key: emp.key, name: emp.name, days: streak, from: streakFrom });
-          streak = 0;
-        }
-      }
-      if (streak >= 3) consecutiveSick.push({ key: emp.key, name: emp.name, days: streak, from: streakFrom });
-    }
-
-    const sevenDaysLater = new Date(TODAY_STR);
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-    const upperBound = `${sevenDaysLater.getFullYear()}-${String(sevenDaysLater.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysLater.getDate()).padStart(2, '0')}`;
-
-    for (const emp of employees) {
-      const empRecords = records.filter(r => r.employeeKey === emp.key && r.source === 'manual' && (isLeave(r.status) || isAbsence(r.status)));
-      if (empRecords.length === 0) continue;
-      const sorted = empRecords.sort((a, b) => b.date.localeCompare(a.date));
-      const last = sorted[0];
-      if (last.date >= TODAY_STR && last.date <= upperBound) {
-        upcomingReturn.push({ key: emp.key, name: emp.name, lastDay: last.date, status: last.status });
-      }
-    }
-
-    return { consecutiveSick, upcomingReturn, total: consecutiveSick.length + upcomingReturn.length };
-  }, [employees, days, byKeyDate, records]);
-
   const longTermMap = useMemo(() => {
     const m = new Set<string>();
     for (const r of records) {
@@ -190,15 +149,8 @@ export default function WorkforcePage() {
         return s !== undefined && statusFilters.includes(s);
       }));
     }
-    if (flaggedOnly) {
-      const flagged = new Set([
-        ...alerts.consecutiveSick.map(a => a.key),
-        ...alerts.upcomingReturn.map(a => a.key),
-      ]);
-      list = list.filter(e => flagged.has(e.key));
-    }
     return list;
-  }, [employees, search, statusFilters, flaggedOnly, days, byKeyDate, alerts]);
+  }, [employees, search, statusFilters, days, byKeyDate]);
 
   const allStatuses = useMemo(() => {
     const s = new Set<string>();
@@ -331,11 +283,6 @@ export default function WorkforcePage() {
     }
   }
 
-  function scrollToEmployee(key: string) {
-    const row = gridRef.current?.querySelector(`[data-empkey="${key}"]`);
-    row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
   function handleExport() {
     window.open(apiUrl(`/api/hr/export?branchId=${selectedBranchId}&year=${year}&month=${month}`), '_blank');
   }
@@ -376,39 +323,6 @@ export default function WorkforcePage() {
 
       <div className="flex-1 overflow-y-auto px-3 pb-6">
 
-        {/* ── Alerts ── */}
-        {alerts.total > 0 && (
-          <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen} className="mt-3">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 text-sm font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
-                <span className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  {alerts.total} alert{alerts.total !== 1 ? 's' : ''} this month
-                </span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${alertsOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-1 rounded-lg border border-amber-200 dark:border-amber-800 overflow-hidden">
-              {alerts.consecutiveSick.map(a => (
-                <button key={`sick-${a.key}`} onClick={() => scrollToEmployee(a.key)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors border-b border-amber-100 dark:border-amber-900 last:border-b-0">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                  <span className="font-medium">{a.name}</span>
-                  <span className="text-muted-foreground">— {a.days} consecutive sick days from {a.from}</span>
-                </button>
-              ))}
-              {alerts.upcomingReturn.map(a => (
-                <button key={`ret-${a.key}`} onClick={() => scrollToEmployee(a.key)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors border-b border-amber-100 dark:border-amber-900 last:border-b-0">
-                  <div className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
-                  <span className="font-medium">{a.name}</span>
-                  <span className="text-muted-foreground">— returning from {a.status} on {a.lastDay}</span>
-                </button>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-
         {/* ── Filter bar ── */}
         <div className="flex flex-wrap items-center gap-2 mt-3">
           <div className="relative">
@@ -445,15 +359,6 @@ export default function WorkforcePage() {
               {allStatuses.length === 0 && <p className="text-xs text-muted-foreground px-1 py-2">No data this month</p>}
             </PopoverContent>
           </Popover>
-          {alerts.total > 0 && (
-            <button
-              onClick={() => setFlaggedOnly(f => !f)}
-              className={`h-8 px-3 text-sm rounded-md border transition-colors flex items-center gap-1.5 ${flaggedOnly ? 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-300' : 'border-border hover:bg-muted'}`}
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Flagged only {flaggedOnly && <X className="w-3 h-3" />}
-            </button>
-          )}
           <span className="text-xs text-muted-foreground ml-auto">{filteredEmployees.length} of {employees.length} employees</span>
         </div>
 
