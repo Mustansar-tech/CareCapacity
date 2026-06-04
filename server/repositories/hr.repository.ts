@@ -194,7 +194,7 @@ export async function syncHrCalendarFromResult(
   if (hrRows.length > 0) await upsertProcessedRecords(hrRows);
 }
 
-const SICK_STATUSES = ['Sick', 'Long-term Sick', 'Partial Sick', 'AWOL'];
+const AVAILABILITY_STATUSES_CHART = new Set(['Available', 'Ad-hoc', 'Partial Availability']);
 
 export async function getEmployeeSummary(
   branchId: string,
@@ -202,40 +202,24 @@ export async function getEmployeeSummary(
   year: number,
   month: number,
 ): Promise<{
-  ytdManualDays: number;
-  sickByMonth: Array<{ year: number; month: number; days: number }>;
+  leaveByMonth: Array<{ year: number; month: number; byStatus: Record<string, number> }>;
   contractedHours: number | null;
-  transportMode: string | null;
 }> {
-  // Compute 6-month window: the 6 months ending with the viewed month
   const windowStart = (() => {
     const d = new Date(Date.UTC(year, month - 6, 1));
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
   })();
-  const yearStart = `${year}-01-01`;
-  const yearEnd = `${year}-12-31`;
 
-  const [windowRows, ytdCount, processedRows] = await Promise.all([
-    // Rows in the 6-month sick window
+  const [windowRows, processedRows] = await Promise.all([
     db.select({ date: employeeHrCalendar.date, status: employeeHrCalendar.status })
       .from(employeeHrCalendar)
       .where(and(
         eq(employeeHrCalendar.branchId, branchId),
         eq(employeeHrCalendar.employeeKey, employeeKey),
         gte(employeeHrCalendar.date, windowStart),
+        notInArray(employeeHrCalendar.status, [...AVAILABILITY_STATUSES_CHART]),
       )),
-    // Count of manual entries this year
-    db.select({ count: sql<number>`cast(count(*) as int)` })
-      .from(employeeHrCalendar)
-      .where(and(
-        eq(employeeHrCalendar.branchId, branchId),
-        eq(employeeHrCalendar.employeeKey, employeeKey),
-        eq(employeeHrCalendar.source, 'manual'),
-        gte(employeeHrCalendar.date, yearStart),
-        lte(employeeHrCalendar.date, yearEnd),
-      )),
-    // Latest processed records for contractedHours / transportMode
-    db.select({ date: employeeHrCalendar.date, contractedHours: employeeHrCalendar.contractedHours, transportMode: employeeHrCalendar.transportMode })
+    db.select({ contractedHours: employeeHrCalendar.contractedHours })
       .from(employeeHrCalendar)
       .where(and(
         eq(employeeHrCalendar.branchId, branchId),
@@ -246,26 +230,25 @@ export async function getEmployeeSummary(
       .limit(30),
   ]);
 
-  // Build 6-month sick-by-month array
-  const sickByMonth: Array<{ year: number; month: number; days: number }> = [];
+  // Build 6-month leave breakdown by status
+  const leaveByMonth: Array<{ year: number; month: number; byStatus: Record<string, number> }> = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(Date.UTC(year, month - 1 - i, 1));
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth() + 1;
     const prefix = `${y}-${String(m).padStart(2, '0')}-`;
-    const days = windowRows.filter(r => r.date.startsWith(prefix) && SICK_STATUSES.includes(r.status)).length;
-    sickByMonth.push({ year: y, month: m, days });
+    const byStatus: Record<string, number> = {};
+    for (const r of windowRows) {
+      if (r.date.startsWith(prefix)) {
+        byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+      }
+    }
+    leaveByMonth.push({ year: y, month: m, byStatus });
   }
 
   const contractedHours = processedRows.find(r => r.contractedHours != null)?.contractedHours ?? null;
-  const transportMode = processedRows.find(r => r.transportMode != null)?.transportMode ?? null;
 
-  return {
-    ytdManualDays: ytdCount[0]?.count ?? 0,
-    sickByMonth,
-    contractedHours,
-    transportMode,
-  };
+  return { leaveByMonth, contractedHours };
 }
 
 const AVAILABILITY_STATUSES = ['Available', 'Ad-hoc', 'Partial Availability'];

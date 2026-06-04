@@ -22,7 +22,7 @@ import {
   ChevronLeft, ChevronRight, Download, Plus, Search, X, AlertTriangle,
   ChevronDown, Pencil, Trash2, User, BarChart3, RefreshCw, Filter,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { HrCalendar } from "@shared/schema";
 import {
   getStatusConfig, MANUAL_STATUSES, LONG_TERM_STATUSES, formatMonthYear,
@@ -109,10 +109,8 @@ export default function WorkforcePage() {
   const historyPageCount = Math.ceil(historyTotal / HISTORY_PAGE_SIZE);
 
   const { data: employeeSummary } = useQuery<{
-    ytdManualDays: number;
-    sickByMonth: Array<{ year: number; month: number; days: number }>;
+    leaveByMonth: Array<{ year: number; month: number; byStatus: Record<string, number> }>;
     contractedHours: number | null;
-    transportMode: string | null;
   }>({
     queryKey: ['/api/hr/employee', selectedBranchId, detailEmployee?.key, 'summary', year, month],
     queryFn: () => apiFetch(`/api/hr/employee/${encodeURIComponent(detailEmployee!.key)}/summary?branchId=${selectedBranchId}&year=${year}&month=${month}`),
@@ -208,23 +206,25 @@ export default function WorkforcePage() {
     return Array.from(s).sort();
   }, [records]);
 
-  // Detail panel metrics are sourced from the server-side summary (full history, not paginated)
-  const sickHistoryData = useMemo(() => {
-    if (!employeeSummary) return [];
-    return employeeSummary.sickByMonth.map(s => {
+  // Build chart data: 6 months × all leave/absence types
+  const { leaveChartData, leaveChartKeys } = useMemo(() => {
+    if (!employeeSummary?.leaveByMonth) return { leaveChartData: [], leaveChartKeys: [] };
+    const allKeys = new Set<string>();
+    const data = employeeSummary.leaveByMonth.map(s => {
       const d = new Date(Date.UTC(s.year, s.month - 1, 1));
-      return {
+      const entry: Record<string, string | number> = {
         month: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
-        days: s.days,
       };
+      for (const [status, count] of Object.entries(s.byStatus)) {
+        entry[status] = count;
+        allKeys.add(status);
+      }
+      return entry;
     });
+    return { leaveChartData: data, leaveChartKeys: Array.from(allKeys) };
   }, [employeeSummary]);
 
-  const ytdManualDays = employeeSummary?.ytdManualDays ?? 0;
-
-  const latestProcessedDetails = employeeSummary
-    ? { contractedHours: employeeSummary.contractedHours, transportMode: employeeSummary.transportMode }
-    : null;
+  const contractedHours = employeeSummary?.contractedHours ?? null;
 
   const createMutation = useMutation({
     mutationFn: (body: object) => apiFetch('/api/hr/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
@@ -733,52 +733,56 @@ export default function WorkforcePage() {
           </SheetHeader>
           {detailEmployee && (
             <div className="space-y-5 mt-5">
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="bg-violet-50 dark:bg-violet-950/30 border-0">
+              {contractedHours != null && (
+                <Card className="bg-blue-50 dark:bg-blue-950/30 border-0">
                   <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">YTD Manual Days</p>
-                    <p className="text-2xl font-bold text-violet-700 dark:text-violet-400">{ytdManualDays}</p>
+                    <p className="text-xs text-muted-foreground">Contracted Hours/Day</p>
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{contractedHours}h</p>
                   </CardContent>
                 </Card>
-                <Card className="bg-amber-50 dark:bg-amber-950/30 border-0">
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">Sick Days (this month)</p>
-                    <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">
-                      {sickHistoryData[sickHistoryData.length - 1]?.days ?? 0}
-                    </p>
-                  </CardContent>
-                </Card>
-                {latestProcessedDetails?.contractedHours != null && (
-                  <Card className="bg-blue-50 dark:bg-blue-950/30 border-0">
-                    <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground">Contracted Hours/Day</p>
-                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{latestProcessedDetails.contractedHours}h</p>
-                    </CardContent>
-                  </Card>
-                )}
-                {latestProcessedDetails?.transportMode && (
-                  <Card className="bg-slate-50 dark:bg-slate-800/30 border-0">
-                    <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground">Transport Mode</p>
-                      <p className="text-base font-bold text-slate-700 dark:text-slate-300 mt-1 capitalize">{latestProcessedDetails.transportMode}</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+              )}
 
-              {/* 6-month sick chart */}
+              {/* 6-month all-absence chart */}
               <div>
-                <p className="text-sm font-semibold mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-muted-foreground" /> Sick Days (6 months)</p>
-                <ResponsiveContainer width="100%" height={100}>
-                  <BarChart data={sickHistoryData} barSize={18}>
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                    <Tooltip formatter={(v: number) => [v, 'Sick days']} />
-                    <Bar dataKey="days" radius={[3, 3, 0, 0]}>
-                      {sickHistoryData.map((_, i) => <Cell key={i} fill={i === sickHistoryData.length - 1 ? '#f59e0b' : '#fde68a'} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <p className="text-sm font-semibold mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-muted-foreground" /> Leave & Absence (6 months)</p>
+                {leaveChartKeys.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No leave or absence recorded in the last 6 months</p>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <BarChart data={leaveChartData} barSize={16}>
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                        <Tooltip />
+                        {leaveChartKeys.map(status => {
+                          const cfg = getStatusConfig(status);
+                          const colorMap: Record<string, string> = {
+                            'bg-gray-900': '#111827', 'bg-gray-600': '#4b5563',
+                            'bg-green-700': '#15803d', 'bg-sky-700': '#0369a1',
+                            'bg-purple-700': '#7e22ce', 'bg-red-800': '#991b1b',
+                            'bg-yellow-600': '#ca8a04', 'bg-orange-800': '#9a3412',
+                            'bg-slate-600': '#475569', 'bg-pink-700': '#be185d',
+                            'bg-teal-700': '#0f766e', 'bg-indigo-600': '#4f46e5',
+                            'bg-orange-600': '#ea580c',
+                          };
+                          const fill = colorMap[cfg.bgClass] ?? '#6b7280';
+                          return <Bar key={status} dataKey={status} stackId="a" fill={fill} radius={[0, 0, 0, 0]} />;
+                        })}
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {leaveChartKeys.map(status => {
+                        const cfg = getStatusConfig(status);
+                        return (
+                          <div key={status} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <div className={`w-2 h-2 rounded-sm shrink-0 ${cfg.bgClass}`} />
+                            {status}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* History list */}
