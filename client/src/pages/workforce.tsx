@@ -341,12 +341,6 @@ export default function WorkforcePage() {
             <p className="text-sm text-muted-foreground mt-0.5">Employee availability calendar & absence management</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5">
-              <Download className="w-3.5 h-3.5" /> Export
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh
-            </Button>
             {canEdit && (
               <Button size="sm" onClick={() => openCreate()} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
                 <Plus className="w-3.5 h-3.5" /> Add Leave Entry
