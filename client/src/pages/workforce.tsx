@@ -96,6 +96,16 @@ export default function WorkforcePage() {
     staleTime: 30_000,
   });
 
+  const prevMonthYear = month === 1 ? year - 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevCalendarKey = ['/api/hr/calendar', selectedBranchId, prevMonthYear, prevMonth];
+  const { data: prevRecords = [] } = useQuery<HrCalendar[]>({
+    queryKey: prevCalendarKey,
+    queryFn: () => apiFetch(`/api/hr/calendar?branchId=${selectedBranchId}&year=${prevMonthYear}&month=${prevMonth}`),
+    enabled: !!selectedBranchId,
+    staleTime: 60_000,
+  });
+
   const { data: historyRecords = [] } = useQuery<HrCalendar[]>({
     queryKey: ['/api/hr/employee', selectedBranchId, detailEmployee?.key],
     queryFn: () => apiFetch(`/api/hr/employee/${encodeURIComponent(detailEmployee!.key)}?branchId=${selectedBranchId}`),
@@ -117,6 +127,14 @@ export default function WorkforcePage() {
     return m;
   }, [records]);
 
+  const prevDays = useMemo(() => getDaysInMonth(prevMonthYear, prevMonth), [prevMonthYear, prevMonth]);
+
+  const prevByKeyDate = useMemo(() => {
+    const m = new Map<string, HrCalendar>();
+    for (const r of prevRecords) m.set(`${r.employeeKey}|${r.date}`, r);
+    return m;
+  }, [prevRecords]);
+
   const kpis = useMemo(() => {
     const workingDays = days.filter(d => !isWeekend(d));
     let sickDays = 0, leaveDays = 0, totalWorking = 0;
@@ -129,9 +147,25 @@ export default function WorkforcePage() {
         if (isLeave(r.status)) leaveDays++;
       }
     }
-    const absenceRate = totalWorking > 0 ? Math.round(((sickDays) / totalWorking) * 1000) / 10 : 0;
-    return { totalEmployees: employees.length, absenceRate, sickDays, leaveDays };
-  }, [employees, days, byKeyDate]);
+    const absenceRate = totalWorking > 0 ? Math.round((sickDays / totalWorking) * 1000) / 10 : 0;
+
+    // Previous month absence rate for delta
+    const prevWorkingDays = prevDays.filter(d => !isWeekend(d));
+    const prevEmployeeKeys = new Set(prevRecords.map(r => r.employeeKey));
+    let prevSick = 0, prevTotal = 0;
+    for (const key of prevEmployeeKeys) {
+      for (const d of prevWorkingDays) {
+        const r = prevByKeyDate.get(`${key}|${d}`);
+        if (!r) continue;
+        prevTotal++;
+        if (['Sick', 'Long-term Sick', 'Partial Sick', 'AWOL'].includes(r.status)) prevSick++;
+      }
+    }
+    const prevAbsenceRate = prevTotal > 0 ? Math.round((prevSick / prevTotal) * 1000) / 10 : null;
+    const absenceDelta = prevAbsenceRate !== null ? Math.round((absenceRate - prevAbsenceRate) * 10) / 10 : null;
+
+    return { totalEmployees: employees.length, absenceRate, absenceDelta, sickDays, leaveDays };
+  }, [employees, days, byKeyDate, prevDays, prevByKeyDate, prevRecords]);
 
   const alerts = useMemo(() => {
     const consecutiveSick: Array<{ key: string; name: string; days: number; from: string }> = [];
@@ -227,6 +261,17 @@ export default function WorkforcePage() {
     return historyRecords.filter(r => r.source === 'manual' && r.date.startsWith(yearStr)).length;
   }, [detailEmployee, historyRecords, year]);
 
+  const latestProcessedDetails = useMemo(() => {
+    if (!detailEmployee) return null;
+    // Find the most recent processed record with non-null contractedHours or transportMode
+    const sorted = [...historyRecords].sort((a, b) => b.date.localeCompare(a.date));
+    const withHours = sorted.find(r => r.source === 'processed' && r.contractedHours != null);
+    const withTransport = sorted.find(r => r.source === 'processed' && r.transportMode != null);
+    const contractedHours = withHours?.contractedHours ?? null;
+    const transportMode = withTransport?.transportMode ?? null;
+    return { contractedHours, transportMode };
+  }, [detailEmployee, historyRecords]);
+
   const createMutation = useMutation({
     mutationFn: (body: object) => apiFetch('/api/hr/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: 'Leave entry saved' }); setForm(emptyForm()); setDateFrom(''); setDateTo(''); },
@@ -251,10 +296,10 @@ export default function WorkforcePage() {
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to delete', description: e.message }),
   });
 
-  function prevMonth() {
+  function goToPrevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
   }
-  function nextMonth() {
+  function goToNextMonth() {
     if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1);
   }
 
@@ -355,11 +400,11 @@ export default function WorkforcePage() {
 
         {/* Month nav */}
         <div className="flex items-center gap-3 mt-3">
-          <button onClick={prevMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          <button onClick={goToPrevMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-lg font-semibold min-w-[180px] text-center">{formatMonthYear(year, month)}</span>
-          <button onClick={nextMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          <button onClick={goToNextMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
           <button onClick={() => { setYear(now.getFullYear()); setMonth(now.getMonth() + 1); }}
@@ -374,19 +419,30 @@ export default function WorkforcePage() {
         {/* ── KPI Banner ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
           {[
-            { icon: Users, label: 'Active Employees', value: String(kpis.totalEmployees), color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
-            { icon: TrendingDown, label: 'Absence Rate', value: `${kpis.absenceRate}%`, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-            { icon: AlertTriangle, label: 'Sick Days', value: String(kpis.sickDays), color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/30' },
-            { icon: Calendar, label: 'Leave Days', value: String(kpis.leaveDays), color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-950/30' },
-          ].map(({ icon: Icon, label, value, color, bg }) => (
+            { icon: Users, label: 'Active Employees', value: String(kpis.totalEmployees), color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30', delta: null },
+            { icon: TrendingDown, label: 'Absence Rate', value: `${kpis.absenceRate}%`, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30', delta: kpis.absenceDelta },
+            { icon: AlertTriangle, label: 'Sick Days', value: String(kpis.sickDays), color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/30', delta: null },
+            { icon: Calendar, label: 'Leave Days', value: String(kpis.leaveDays), color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-950/30', delta: null },
+          ].map(({ icon: Icon, label, value, color, bg, delta }) => (
             <Card key={label} className={`${bg} border-0 shadow-sm`}>
               <CardContent className="p-4 flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
                   <Icon className={`w-4.5 h-4.5 ${color}`} />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground leading-none">{label}</p>
-                  <p className={`text-xl font-bold mt-0.5 ${color}`}>{value}</p>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <p className={`text-xl font-bold ${color}`}>{value}</p>
+                    {delta !== null && (
+                      <span className={`text-xs font-semibold flex items-center gap-0.5 ${delta > 0 ? 'text-red-600' : delta < 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {delta > 0 ? <TrendingUp className="w-3 h-3" /> : delta < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+                        {delta > 0 ? `+${delta}%` : delta < 0 ? `${delta}%` : '—'}
+                      </span>
+                    )}
+                  </div>
+                  {delta !== null && (
+                    <p className="text-[10px] text-muted-foreground leading-none mt-0.5">vs last month</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -726,6 +782,22 @@ export default function WorkforcePage() {
                     </p>
                   </CardContent>
                 </Card>
+                {latestProcessedDetails?.contractedHours != null && (
+                  <Card className="bg-blue-50 dark:bg-blue-950/30 border-0">
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground">Contracted Hours/Day</p>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{latestProcessedDetails.contractedHours}h</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {latestProcessedDetails?.transportMode && (
+                  <Card className="bg-slate-50 dark:bg-slate-800/30 border-0">
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground">Transport Mode</p>
+                      <p className="text-base font-bold text-slate-700 dark:text-slate-300 mt-1 capitalize">{latestProcessedDetails.transportMode}</p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {/* 6-month sick chart */}

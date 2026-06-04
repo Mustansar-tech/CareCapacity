@@ -10,6 +10,12 @@ function monthBounds(year: number, month: number): { start: string; end: string 
   return { start, end };
 }
 
+function dayOffset(dateStr: string, offset: number): string {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + offset);
+  return d.toISOString().split('T')[0];
+}
+
 export async function upsertProcessedRecords(records: InsertHrCalendar[]): Promise<void> {
   if (records.length === 0) return;
 
@@ -38,14 +44,17 @@ export async function upsertProcessedRecords(records: InsertHrCalendar[]): Promi
 
 export async function getCalendarMonth(branchId: string, year: number, month: number): Promise<HrCalendar[]> {
   const { start, end } = monthBounds(year, month);
+  // Include one day before and after for boundary display (leave continuations)
+  const queryStart = dayOffset(start, -1);
+  const queryEnd = dayOffset(end, 1);
   return db
     .select()
     .from(employeeHrCalendar)
     .where(
       and(
         eq(employeeHrCalendar.branchId, branchId),
-        gte(employeeHrCalendar.date, start),
-        lte(employeeHrCalendar.date, end),
+        gte(employeeHrCalendar.date, queryStart),
+        lte(employeeHrCalendar.date, queryEnd),
       ),
     )
     .orderBy(employeeHrCalendar.employeeName, employeeHrCalendar.date);
@@ -139,5 +148,5 @@ export async function getEmployeeHistory(branchId: string, employeeKey: string):
       ),
     )
     .orderBy(desc(employeeHrCalendar.date))
-    .limit(200);
+    .limit(50);
 }

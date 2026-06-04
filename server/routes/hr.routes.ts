@@ -159,15 +159,17 @@ export function registerHrRoutes(app: Express): void {
       return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     });
 
-    const employeeNames = Array.from(new Set(records.map(r => r.employeeName))).sort();
+    // Build key→name map (unique by employeeKey to avoid name-collision bugs)
+    const employeeMap = new Map<string, string>(); // employeeKey → employeeName
+    for (const r of records) employeeMap.set(r.employeeKey, r.employeeName);
+    const sortedEmployees = Array.from(employeeMap.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]));
+
     const byKey = new Map<string, Map<string, { status: string; source: string; notes: string | null }>>();
     for (const r of records) {
       if (!byKey.has(r.employeeKey)) byKey.set(r.employeeKey, new Map());
       byKey.get(r.employeeKey)!.set(r.date, { status: r.status, source: r.source, notes: r.notes ?? null });
     }
-
-    const keyForName = (name: string) =>
-      records.find(r => r.employeeName === name)?.employeeKey ?? name.toLowerCase();
 
     const calSheet = wb.addWorksheet('Calendar');
     calSheet.addRow(['Employee', ...days.map(d => {
@@ -180,10 +182,9 @@ export function registerHrRoutes(app: Express): void {
       calSheet.getColumn(col).width = 10;
     }
 
-    for (const name of employeeNames) {
-      const key = keyForName(name);
-      const dayMap = byKey.get(key);
-      const row = [name, ...days.map(d => dayMap?.get(d)?.status ?? '')];
+    for (const [empKey, empName] of sortedEmployees) {
+      const dayMap = byKey.get(empKey);
+      const row = [empName, ...days.map(d => dayMap?.get(d)?.status ?? '')];
       calSheet.addRow(row);
     }
 
