@@ -733,15 +733,6 @@ export default function WorkforcePage() {
           </SheetHeader>
           {detailEmployee && (
             <div className="space-y-5 mt-5">
-              {contractedHours != null && (
-                <Card className="bg-blue-50 dark:bg-blue-950/30 border-0">
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">Contracted Hours/Day</p>
-                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{contractedHours}h</p>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* 6-month all-absence chart */}
               <div>
                 <p className="text-sm font-semibold mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-muted-foreground" /> Leave & Absence (6 months)</p>
