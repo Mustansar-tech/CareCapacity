@@ -207,9 +207,9 @@ export async function getEmployeeSummary(
   contractedHours: number | null;
   transportMode: string | null;
 }> {
-  // Compute 12-month window: the 12 months ending with the viewed month
+  // Compute 6-month window: the 6 months ending with the viewed month
   const windowStart = (() => {
-    const d = new Date(Date.UTC(year, month - 12, 1));
+    const d = new Date(Date.UTC(year, month - 6, 1));
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
   })();
   const yearStart = `${year}-01-01`;
@@ -246,9 +246,9 @@ export async function getEmployeeSummary(
       .limit(30),
   ]);
 
-  // Build 12-month sick-by-month array
+  // Build 6-month sick-by-month array
   const sickByMonth: Array<{ year: number; month: number; days: number }> = [];
-  for (let i = 11; i >= 0; i--) {
+  for (let i = 5; i >= 0; i--) {
     const d = new Date(Date.UTC(year, month - 1 - i, 1));
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth() + 1;
