@@ -600,7 +600,7 @@ export default function WorkforcePage() {
 
       {/* ── Manual Entry Sheet ── */}
       <Sheet open={form.open} onOpenChange={open => { if (!open) { setForm(emptyForm()); setDateFrom(''); setDateTo(''); } }}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto border-l-[8px]">
           <SheetHeader>
             <SheetTitle>{form.mode === 'edit' ? 'Edit Leave Entry' : 'Add Leave Entry'}</SheetTitle>
           </SheetHeader>
