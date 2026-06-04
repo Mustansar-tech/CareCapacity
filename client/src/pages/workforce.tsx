@@ -523,13 +523,13 @@ export default function WorkforcePage() {
                           const cfg = rec ? getStatusConfig(rec.status) : null;
 
                           return (
-                            <td key={d} style={{ width: '36px', padding: '0' }}
+                            <td key={d} style={{ width: '36px', padding: '0', position: 'relative', minHeight: '28px' }}
                               className={`border-b border-r border-border ${weekend ? 'bg-muted/40 dark:bg-gray-900/30' : ''} ${today ? 'ring-1 ring-inset ring-violet-400' : ''}`}>
                               {rec && cfg ? (
                                 <Popover open={openCellId === cellId} onOpenChange={open => setOpenCellId(open ? cellId : null)}>
                                   <PopoverTrigger asChild>
                                     <button
-                                      className={`w-full h-7 text-[9px] font-bold truncate leading-none flex items-center justify-center relative transition-opacity hover:opacity-80 ${cfg.bgClass} ${cfg.textClass}`}
+                                      className={`absolute inset-0 text-[9px] font-bold leading-none flex items-center justify-center transition-opacity hover:opacity-80 ${cfg.bgClass} ${cfg.textClass}`}
                                       title={rec.status}
                                     >
                                       {cfg.label.slice(0, 4)}
@@ -579,10 +579,8 @@ export default function WorkforcePage() {
                               ) : (
                                 canEdit ? (
                                   <button onClick={() => { openCreate(emp); setDateFrom(d); setDateTo(d); }}
-                                    className="w-full h-7 hover:bg-muted/60 transition-all" />
-                                ) : (
-                                  <div className="w-full h-7" />
-                                )
+                                    className="absolute inset-0 hover:bg-muted/60 transition-all" />
+                                ) : null
                               )}
                             </td>
                           );
