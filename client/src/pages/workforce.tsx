@@ -20,8 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChevronLeft, ChevronRight, Download, Plus, Search, X, AlertTriangle,
-  ChevronDown, Pencil, Trash2, User, BarChart3, RefreshCw, Users,
-  TrendingDown, TrendingUp, Calendar, Filter,
+  ChevronDown, Pencil, Trash2, User, BarChart3, RefreshCw, Filter,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { HrCalendar } from "@shared/schema";
@@ -99,16 +98,6 @@ export default function WorkforcePage() {
     staleTime: 30_000,
   });
 
-  const prevMonthYear = month === 1 ? year - 1 : year;
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevCalendarKey = ['/api/hr/calendar', selectedBranchId, prevMonthYear, prevMonth];
-  const { data: prevRecords = [] } = useQuery<HrCalendar[]>({
-    queryKey: prevCalendarKey,
-    queryFn: () => apiFetch(`/api/hr/calendar?branchId=${selectedBranchId}&year=${prevMonthYear}&month=${prevMonth}`),
-    enabled: !!selectedBranchId,
-    staleTime: 60_000,
-  });
-
   const { data: historyData } = useQuery<{ records: HrCalendar[]; total: number }>({
     queryKey: ['/api/hr/employee', selectedBranchId, detailEmployee?.key, historyPage],
     queryFn: () => apiFetch(`/api/hr/employee/${encodeURIComponent(detailEmployee!.key)}?branchId=${selectedBranchId}&offset=${historyPage * HISTORY_PAGE_SIZE}&limit=${HISTORY_PAGE_SIZE}`),
@@ -144,46 +133,6 @@ export default function WorkforcePage() {
     for (const r of records) m.set(`${r.employeeKey}|${r.date}`, r);
     return m;
   }, [records]);
-
-  const prevDays = useMemo(() => getDaysInMonth(prevMonthYear, prevMonth), [prevMonthYear, prevMonth]);
-
-  const prevByKeyDate = useMemo(() => {
-    const m = new Map<string, HrCalendar>();
-    for (const r of prevRecords) m.set(`${r.employeeKey}|${r.date}`, r);
-    return m;
-  }, [prevRecords]);
-
-  const kpis = useMemo(() => {
-    const workingDays = days.filter(d => !isWeekend(d));
-    let sickDays = 0, leaveDays = 0, totalWorking = 0;
-    for (const emp of employees) {
-      for (const d of workingDays) {
-        const r = byKeyDate.get(`${emp.key}|${d}`);
-        if (!r) continue;
-        totalWorking++;
-        if (['Sick', 'Long-term Sick', 'Partial Sick', 'AWOL'].includes(r.status)) sickDays++;
-        if (isLeave(r.status)) leaveDays++;
-      }
-    }
-    const absenceRate = totalWorking > 0 ? Math.round((sickDays / totalWorking) * 1000) / 10 : 0;
-
-    // Previous month absence rate for delta
-    const prevWorkingDays = prevDays.filter(d => !isWeekend(d));
-    const prevEmployeeKeys = new Set(prevRecords.map(r => r.employeeKey));
-    let prevSick = 0, prevTotal = 0;
-    for (const key of prevEmployeeKeys) {
-      for (const d of prevWorkingDays) {
-        const r = prevByKeyDate.get(`${key}|${d}`);
-        if (!r) continue;
-        prevTotal++;
-        if (['Sick', 'Long-term Sick', 'Partial Sick', 'AWOL'].includes(r.status)) prevSick++;
-      }
-    }
-    const prevAbsenceRate = prevTotal > 0 ? Math.round((prevSick / prevTotal) * 1000) / 10 : null;
-    const absenceDelta = prevAbsenceRate !== null ? Math.round((absenceRate - prevAbsenceRate) * 10) / 10 : null;
-
-    return { totalEmployees: employees.length, absenceRate, absenceDelta, sickDays, leaveDays };
-  }, [employees, days, byKeyDate, prevDays, prevByKeyDate, prevRecords]);
 
   const alerts = useMemo(() => {
     const consecutiveSick: Array<{ key: string; name: string; days: number; from: string }> = [];
@@ -422,40 +371,7 @@ export default function WorkforcePage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
-
-        {/* ── KPI Banner ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-          {[
-            { icon: Users, label: 'Active Employees', value: String(kpis.totalEmployees), color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30', delta: null },
-            { icon: TrendingDown, label: 'Absence Rate', value: `${kpis.absenceRate}%`, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30', delta: kpis.absenceDelta },
-            { icon: AlertTriangle, label: 'Sick Days', value: String(kpis.sickDays), color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/30', delta: null },
-            { icon: Calendar, label: 'Leave Days', value: String(kpis.leaveDays), color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-950/30', delta: null },
-          ].map(({ icon: Icon, label, value, color, bg, delta }) => (
-            <Card key={label} className={`${bg} border-0 shadow-sm`}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
-                  <Icon className={`w-4.5 h-4.5 ${color}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground leading-none">{label}</p>
-                  <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <p className={`text-xl font-bold ${color}`}>{value}</p>
-                    {delta !== null && (
-                      <span className={`text-xs font-semibold flex items-center gap-0.5 ${delta > 0 ? 'text-red-600' : delta < 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        {delta > 0 ? <TrendingUp className="w-3 h-3" /> : delta < 0 ? <TrendingDown className="w-3 h-3" /> : null}
-                        {delta > 0 ? `+${delta}%` : delta < 0 ? `${delta}%` : '—'}
-                      </span>
-                    )}
-                  </div>
-                  {delta !== null && (
-                    <p className="text-[10px] text-muted-foreground leading-none mt-0.5">vs last month</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-6">
 
         {/* ── Alerts ── */}
         {alerts.total > 0 && (
@@ -562,17 +478,17 @@ export default function WorkforcePage() {
         ) : (
           <div ref={gridRef} className="mt-3 rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="border-collapse" style={{ tableLayout: 'fixed', minWidth: `${180 + days.length * 34}px` }}>
+              <table className="border-collapse w-full" style={{ tableLayout: 'fixed', minWidth: `${200 + days.length * 36}px` }}>
                 <thead>
                   <tr className="bg-muted/60 dark:bg-muted/30">
-                    <th className="sticky left-0 z-20 bg-muted/60 dark:bg-gray-800 w-[180px] min-w-[180px] px-3 py-2 text-left text-xs font-semibold text-muted-foreground border-b border-r border-border">
+                    <th className="sticky left-0 z-20 bg-muted/60 dark:bg-gray-800 px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground border-b border-r border-border" style={{ width: '220px', minWidth: '200px' }}>
                       Employee
                     </th>
                     {days.map(d => {
                       const weekend = isWeekend(d);
                       const today = isToday(d);
                       return (
-                        <th key={d} style={{ width: '34px', minWidth: '34px' }}
+                        <th key={d} style={{ width: '36px', minWidth: '36px' }}
                           className={`px-0 py-1 text-center text-[10px] font-medium border-b border-border ${weekend ? 'bg-muted/80 dark:bg-gray-900/60 text-muted-foreground/50' : 'text-muted-foreground'} ${today ? 'border-b-2 border-b-violet-500' : ''}`}>
                           <div>{dayLabel(d)}</div>
                           <div className="text-[9px] opacity-60">{dayWeekday(d)}</div>
@@ -587,9 +503,9 @@ export default function WorkforcePage() {
                     return (
                       <tr key={emp.key} data-empkey={emp.key}
                         className={`${rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/20 dark:bg-muted/10'} hover:bg-violet-50/30 dark:hover:bg-violet-900/10 transition-colors`}>
-                        <td className="sticky left-0 z-10 bg-inherit px-3 py-1 border-b border-r border-border">
+                        <td className="sticky left-0 z-10 bg-inherit px-3 py-1.5 border-b border-r border-border" style={{ width: '220px', minWidth: '200px' }}>
                           <button onClick={() => { setDetailEmployee(emp); setHistoryPage(0); }} className="flex items-center gap-1.5 text-left w-full group">
-                            <span className="text-xs font-medium truncate group-hover:text-violet-700 dark:group-hover:text-violet-400 transition-colors max-w-[130px]">
+                            <span className="text-xs font-medium truncate group-hover:text-violet-700 dark:group-hover:text-violet-400 transition-colors max-w-[165px]">
                               {emp.name}
                             </span>
                             {isLongTerm && (
@@ -607,7 +523,7 @@ export default function WorkforcePage() {
                           const cfg = rec ? getStatusConfig(rec.status) : null;
 
                           return (
-                            <td key={d} style={{ width: '34px', padding: '2px' }}
+                            <td key={d} style={{ width: '36px', padding: '2px' }}
                               className={`border-b border-border text-center ${weekend ? 'bg-muted/40 dark:bg-gray-900/30' : ''} ${today ? 'ring-1 ring-inset ring-violet-400' : ''}`}>
                               {rec && cfg ? (
                                 <Popover open={openCellId === cellId} onOpenChange={open => setOpenCellId(open ? cellId : null)}>
