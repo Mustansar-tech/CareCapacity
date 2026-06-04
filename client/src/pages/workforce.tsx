@@ -523,18 +523,18 @@ export default function WorkforcePage() {
                           const cfg = rec ? getStatusConfig(rec.status) : null;
 
                           return (
-                            <td key={d} style={{ width: '36px', padding: '2px' }}
-                              className={`border-b border-border text-center ${weekend ? 'bg-muted/40 dark:bg-gray-900/30' : ''} ${today ? 'ring-1 ring-inset ring-violet-400' : ''}`}>
+                            <td key={d} style={{ width: '36px', padding: '0' }}
+                              className={`border-b border-r border-border ${weekend ? 'bg-muted/40 dark:bg-gray-900/30' : ''} ${today ? 'ring-1 ring-inset ring-violet-400' : ''}`}>
                               {rec && cfg ? (
                                 <Popover open={openCellId === cellId} onOpenChange={open => setOpenCellId(open ? cellId : null)}>
                                   <PopoverTrigger asChild>
                                     <button
-                                      className={`w-7 h-6 rounded text-[9px] font-bold truncate leading-none flex items-center justify-center relative transition-opacity hover:opacity-80 ${cfg.bgClass} ${cfg.textClass}`}
+                                      className={`w-full h-7 text-[9px] font-bold truncate leading-none flex items-center justify-center relative transition-opacity hover:opacity-80 ${cfg.bgClass} ${cfg.textClass}`}
                                       title={rec.status}
                                     >
                                       {cfg.label.slice(0, 4)}
                                       {rec.source === 'manual' && (
-                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-gray-400" />
+                                        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-gray-400" />
                                       )}
                                     </button>
                                   </PopoverTrigger>
@@ -579,9 +579,9 @@ export default function WorkforcePage() {
                               ) : (
                                 canEdit ? (
                                   <button onClick={() => { openCreate(emp); setDateFrom(d); setDateTo(d); }}
-                                    className="w-7 h-6 rounded border border-border/40 hover:bg-muted/60 transition-all" />
+                                    className="w-full h-7 hover:bg-muted/60 transition-all" />
                                 ) : (
-                                  <div className="w-7 h-6" />
+                                  <div className="w-full h-7" />
                                 )
                               )}
                             </td>
