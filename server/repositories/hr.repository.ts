@@ -137,6 +137,63 @@ export async function createBulkManualEntries(records: InsertHrCalendar[]): Prom
   return total;
 }
 
+// ─── Shared helper ─────────────────────────────────────────────────────────────
+// Called from both process.controller.ts and automation-routes.ts so every
+// pipeline path (manual upload + PP automation single/multi-week) writes HR data.
+export async function syncHrCalendarFromResult(
+  branchId: string,
+  result: {
+    dailySummary?: Array<{ date: string }>;
+    employeesByDate?: Record<string, Array<{
+      employeeName: string;
+      status: string;
+      notes?: string | null;
+      contractedDailyHours?: number | null;
+    }>>;
+    employeeSummaryByDate?: Record<string, Array<{ employeeName: string; transportMode?: string }>>;
+    employeeLocations?: Array<{ employeeName: string; transportMode?: string }>;
+  },
+): Promise<void> {
+  const weekDates = result.dailySummary?.map(d => d.date) ?? [];
+  if (weekDates.length === 0 || !result.employeesByDate) return;
+
+  const transportModeByName = new Map<string, string>();
+  for (const loc of result.employeeLocations ?? []) {
+    if (loc.transportMode) transportModeByName.set(loc.employeeName.toLowerCase(), loc.transportMode);
+  }
+  for (const summaries of Object.values(result.employeeSummaryByDate ?? {})) {
+    for (const s of summaries) {
+      if (s.transportMode) transportModeByName.set(s.employeeName.toLowerCase(), s.transportMode);
+    }
+  }
+
+  const hrRows: InsertHrCalendar[] = [];
+  for (const [date, employees] of Object.entries(result.employeesByDate)) {
+    if (!weekDates.includes(date)) continue;
+    for (const emp of employees) {
+      const key = emp.employeeName
+        .toLowerCase()
+        .replace(/\b(mr|mrs|ms|miss|dr|prof)\b\.?\s*/gi, '')
+        .trim()
+        .split(/\s+/)
+        .sort()
+        .join(' ');
+      hrRows.push({
+        branchId,
+        employeeKey: key,
+        employeeName: emp.employeeName,
+        date,
+        status: emp.status,
+        source: 'processed',
+        notes: emp.notes || null,
+        contractedHours: emp.contractedDailyHours ?? null,
+        transportMode: transportModeByName.get(emp.employeeName.toLowerCase()) ?? null,
+      });
+    }
+  }
+  if (hrRows.length > 0) await upsertProcessedRecords(hrRows);
+}
+
 const SICK_STATUSES = ['Sick', 'Long-term Sick', 'Partial Sick', 'AWOL'];
 
 export async function getEmployeeSummary(

@@ -5,6 +5,7 @@ import path from "path";
 import { requireAuth, requireRoleAtLeast } from "../../features/auth/auth";
 import { storage } from "../../storage";
 import { logger } from "../../infrastructure/logger";
+import * as hrRepo from "../../repositories/hr.repository";
 import { parseExcelFiles, processCapacityData, generateExcelExport } from "../../pipeline";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
 import {
@@ -1339,6 +1340,13 @@ async function runPipelineSession(
       logger.warn("Failed to persist GH client visits (non-fatal)", { err: clientErr });
     }
 
+    try {
+      await hrRepo.syncHrCalendarFromResult(branchId, result);
+      logger.info("HR calendar records upserted (automation)", { branchId });
+    } catch (hrErr) {
+      logger.warn("Failed to upsert HR calendar records (non-fatal)", { err: hrErr });
+    }
+
     if (result.dailySummary && result.dailySummary.length > 0) {
       const { weekStart, weekEnd } = getCanonicalWeekBoundaries(result.dailySummary[0].date);
       await storage.saveCapacityAnalysis({
@@ -1574,6 +1582,13 @@ async function runMultiWeekPipelineSession(
           }
         } catch (clientErr) {
           logger.warn("Failed to persist GH client visits (non-fatal)", { weekStartDate, err: clientErr });
+        }
+
+        try {
+          await hrRepo.syncHrCalendarFromResult(branchId, result);
+          logger.info("HR calendar records upserted (multi-week automation)", { branchId, weekStartDate });
+        } catch (hrErr) {
+          logger.warn("Failed to upsert HR calendar records (non-fatal)", { weekStartDate, err: hrErr });
         }
 
         if (result.dailySummary && result.dailySummary.length > 0) {

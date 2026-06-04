@@ -240,51 +240,9 @@ export async function processCapacity(req: Request, res: Response): Promise<void
   }
 
   try {
-    const weekDates = result.dailySummary?.map(d => d.date) ?? [];
-    if (weekDates.length > 0 && result.employeesByDate) {
-      const hrRows: InsertHrCalendar[] = [];
-      // Build transport-mode lookup from employeeLocations (name → mode)
-      const transportModeByName = new Map<string, string>();
-      if (result.employeeLocations) {
-        for (const loc of result.employeeLocations) {
-          if (loc.transportMode) transportModeByName.set(loc.employeeName.toLowerCase(), loc.transportMode);
-        }
-      }
-      // Also check employeeSummaryByDate for transportMode field
-      for (const [, summaries] of Object.entries(result.employeeSummaryByDate ?? {})) {
-        for (const s of summaries) {
-          if (s.transportMode) transportModeByName.set(s.employeeName.toLowerCase(), s.transportMode);
-        }
-      }
-
-      for (const [date, employees] of Object.entries(result.employeesByDate)) {
-        if (!weekDates.includes(date)) continue;
-        for (const emp of employees) {
-          const key = emp.employeeName
-            .toLowerCase()
-            .replace(/\b(mr|mrs|ms|miss|dr|prof)\b\.?\s*/gi, '')
-            .trim()
-            .split(/\s+/)
-            .sort()
-            .join(' ');
-          hrRows.push({
-            branchId: requestedBranchId,
-            employeeKey: key,
-            employeeName: emp.employeeName,
-            date,
-            status: emp.status,
-            source: 'processed',
-            notes: emp.notes || null,
-            contractedHours: emp.contractedDailyHours ?? null,
-            transportMode: transportModeByName.get(emp.employeeName.toLowerCase()) ?? null,
-          });
-        }
-      }
-      if (hrRows.length > 0) {
-        await hrRepo.upsertProcessedRecords(hrRows);
-        logger.info('HR calendar records upserted', { branchId: requestedBranchId, count: hrRows.length });
-      }
-    }
+    await hrRepo.syncHrCalendarFromResult(requestedBranchId, result);
+    const count = result.dailySummary?.length ?? 0;
+    if (count > 0) logger.info('HR calendar records upserted', { branchId: requestedBranchId });
   } catch (hrErr) {
     logger.warn('Failed to upsert HR calendar records (non-fatal):', hrErr);
   }

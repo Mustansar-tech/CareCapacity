@@ -316,7 +316,7 @@ export default function WorkforcePage() {
 
   function openEdit(rec: HrCalendar) {
     setOpenCellId(null);
-    setForm({ open: true, mode: 'edit', id: rec.id, employeeKey: rec.employeeKey, employeeName: rec.employeeName, dates: [rec.date], status: rec.status, notes: rec.notes ?? '', bulkKeys: [] });
+    setForm({ open: true, mode: 'edit', id: rec.id, employeeKey: rec.employeeKey, employeeName: rec.employeeName, dates: [rec.date], status: rec.status, notes: rec.notes ?? '', repeating: false, bulkKeys: [] });
     setDateFrom(rec.date);
     setDateTo(rec.date);
   }
