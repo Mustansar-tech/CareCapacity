@@ -44,8 +44,10 @@ export function registerHrRoutes(app: Express): void {
   app.get('/api/hr/employee/:employeeKey', requireAuth, asyncHandler(async (req, res) => {
     const branchId = await resolveBranch(req);
     const { employeeKey } = req.params;
-    const records = await hrRepo.getEmployeeHistory(branchId, decodeURIComponent(employeeKey));
-    res.json(records);
+    const offset = Math.max(0, parseInt((req.query.offset as string) || '0', 10));
+    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '50', 10)));
+    const result = await hrRepo.getEmployeeHistory(branchId, decodeURIComponent(employeeKey), offset, limit);
+    res.json(result);
   }));
 
   app.post('/api/hr/manual', requireAuth, requireRoleAtLeast('scheduler'), asyncHandler(async (req, res) => {
@@ -194,7 +196,10 @@ export function registerHrRoutes(app: Express): void {
     rawSheet.columns = [
       { width: 30 }, { width: 25 }, { width: 14 }, { width: 22 }, { width: 12 }, { width: 40 },
     ];
-    for (const r of records.sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.date.localeCompare(b.date))) {
+    // Filter strictly to this month's dates (exclude ±1 day boundary records)
+    const { start: monthStart, end: monthEnd } = { start: days[0], end: days[days.length - 1] };
+    const monthRecords = records.filter(r => r.date >= monthStart && r.date <= monthEnd);
+    for (const r of monthRecords.sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.date.localeCompare(b.date))) {
       rawSheet.addRow([r.employeeName, r.employeeKey, r.date, r.status, r.source, r.notes ?? '']);
     }
 

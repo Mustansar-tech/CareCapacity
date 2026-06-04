@@ -243,6 +243,20 @@ export async function processCapacity(req: Request, res: Response): Promise<void
     const weekDates = result.dailySummary?.map(d => d.date) ?? [];
     if (weekDates.length > 0 && result.employeesByDate) {
       const hrRows: InsertHrCalendar[] = [];
+      // Build transport-mode lookup from employeeLocations (name → mode)
+      const transportModeByName = new Map<string, string>();
+      if (result.employeeLocations) {
+        for (const loc of result.employeeLocations) {
+          if (loc.transportMode) transportModeByName.set(loc.employeeName.toLowerCase(), loc.transportMode);
+        }
+      }
+      // Also check employeeSummaryByDate for transportMode field
+      for (const [, summaries] of Object.entries(result.employeeSummaryByDate ?? {})) {
+        for (const s of summaries) {
+          if (s.transportMode) transportModeByName.set(s.employeeName.toLowerCase(), s.transportMode);
+        }
+      }
+
       for (const [date, employees] of Object.entries(result.employeesByDate)) {
         if (!weekDates.includes(date)) continue;
         for (const emp of employees) {
@@ -262,7 +276,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
             source: 'processed',
             notes: emp.notes || null,
             contractedHours: emp.contractedDailyHours ?? null,
-            transportMode: null,
+            transportMode: transportModeByName.get(emp.employeeName.toLowerCase()) ?? null,
           });
         }
       }

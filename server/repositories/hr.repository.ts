@@ -137,16 +137,34 @@ export async function createBulkManualEntries(records: InsertHrCalendar[]): Prom
   return total;
 }
 
-export async function getEmployeeHistory(branchId: string, employeeKey: string): Promise<HrCalendar[]> {
-  return db
-    .select()
-    .from(employeeHrCalendar)
-    .where(
-      and(
-        eq(employeeHrCalendar.branchId, branchId),
-        eq(employeeHrCalendar.employeeKey, employeeKey),
+export async function getEmployeeHistory(
+  branchId: string,
+  employeeKey: string,
+  offset = 0,
+  limit = 50,
+): Promise<{ records: HrCalendar[]; total: number }> {
+  const [records, countResult] = await Promise.all([
+    db
+      .select()
+      .from(employeeHrCalendar)
+      .where(
+        and(
+          eq(employeeHrCalendar.branchId, branchId),
+          eq(employeeHrCalendar.employeeKey, employeeKey),
+        ),
+      )
+      .orderBy(desc(employeeHrCalendar.date))
+      .offset(offset)
+      .limit(limit),
+    db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(employeeHrCalendar)
+      .where(
+        and(
+          eq(employeeHrCalendar.branchId, branchId),
+          eq(employeeHrCalendar.employeeKey, employeeKey),
+        ),
       ),
-    )
-    .orderBy(desc(employeeHrCalendar.date))
-    .limit(50);
+  ]);
+  return { records, total: countResult[0]?.count ?? 0 };
 }

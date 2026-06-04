@@ -81,11 +81,13 @@ export default function WorkforcePage() {
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [form, setForm] = useState<ManualFormState>(emptyForm());
   const [detailEmployee, setDetailEmployee] = useState<{ key: string; name: string } | null>(null);
+  const [historyPage, setHistoryPage] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
   const [openCellId, setOpenCellId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const gridRef = useRef<HTMLDivElement>(null);
+  const HISTORY_PAGE_SIZE = 50;
 
   const calendarKey = ['/api/hr/calendar', selectedBranchId, year, month];
 
@@ -106,12 +108,15 @@ export default function WorkforcePage() {
     staleTime: 60_000,
   });
 
-  const { data: historyRecords = [] } = useQuery<HrCalendar[]>({
-    queryKey: ['/api/hr/employee', selectedBranchId, detailEmployee?.key],
-    queryFn: () => apiFetch(`/api/hr/employee/${encodeURIComponent(detailEmployee!.key)}?branchId=${selectedBranchId}`),
+  const { data: historyData } = useQuery<{ records: HrCalendar[]; total: number }>({
+    queryKey: ['/api/hr/employee', selectedBranchId, detailEmployee?.key, historyPage],
+    queryFn: () => apiFetch(`/api/hr/employee/${encodeURIComponent(detailEmployee!.key)}?branchId=${selectedBranchId}&offset=${historyPage * HISTORY_PAGE_SIZE}&limit=${HISTORY_PAGE_SIZE}`),
     enabled: !!selectedBranchId && !!detailEmployee,
     staleTime: 30_000,
   });
+  const historyRecords = historyData?.records ?? [];
+  const historyTotal = historyData?.total ?? 0;
+  const historyPageCount = Math.ceil(historyTotal / HISTORY_PAGE_SIZE);
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
 
@@ -561,7 +566,7 @@ export default function WorkforcePage() {
                       <tr key={emp.key} data-empkey={emp.key}
                         className={`${rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/20 dark:bg-muted/10'} hover:bg-violet-50/30 dark:hover:bg-violet-900/10 transition-colors`}>
                         <td className="sticky left-0 z-10 bg-inherit px-3 py-1 border-b border-r border-border">
-                          <button onClick={() => setDetailEmployee(emp)} className="flex items-center gap-1.5 text-left w-full group">
+                          <button onClick={() => { setDetailEmployee(emp); setHistoryPage(0); }} className="flex items-center gap-1.5 text-left w-full group">
                             <span className="text-xs font-medium truncate group-hover:text-violet-700 dark:group-hover:text-violet-400 transition-colors max-w-[130px]">
                               {emp.name}
                             </span>
@@ -757,7 +762,7 @@ export default function WorkforcePage() {
       </Sheet>
 
       {/* ── Employee Detail Panel ── */}
-      <Sheet open={!!detailEmployee} onOpenChange={open => { if (!open) setDetailEmployee(null); }}>
+      <Sheet open={!!detailEmployee} onOpenChange={open => { if (!open) { setDetailEmployee(null); setHistoryPage(0); } }}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -817,8 +822,13 @@ export default function WorkforcePage() {
 
               {/* History list */}
               <div>
-                <p className="text-sm font-semibold mb-2">Leave & Absence History</p>
-                <div className="rounded-lg border border-border overflow-hidden max-h-72 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold">Leave & Absence History</p>
+                  {historyTotal > 0 && (
+                    <span className="text-xs text-muted-foreground">{historyTotal} total</span>
+                  )}
+                </div>
+                <div className="rounded-lg border border-border overflow-hidden">
                   {historyRecords.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-6">No records found</p>
                   ) : (
@@ -836,6 +846,23 @@ export default function WorkforcePage() {
                     })
                   )}
                 </div>
+                {historyPageCount > 1 && (
+                  <div className="flex items-center justify-between mt-2">
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                      disabled={historyPage === 0}
+                      onClick={() => setHistoryPage(p => p - 1)}>
+                      <ChevronLeft className="w-3 h-3" /> Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {historyPage + 1} of {historyPageCount}
+                    </span>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                      disabled={historyPage >= historyPageCount - 1}
+                      onClick={() => setHistoryPage(p => p + 1)}>
+                      Next <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {canEdit && (
