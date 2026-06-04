@@ -41,6 +41,15 @@ export function registerHrRoutes(app: Express): void {
     res.json(records);
   }));
 
+  app.get('/api/hr/employee/:employeeKey/summary', requireAuth, asyncHandler(async (req, res) => {
+    const branchId = await resolveBranch(req);
+    const { employeeKey } = req.params;
+    const year = parseInt((req.query.year as string) || String(new Date().getFullYear()), 10);
+    const month = parseInt((req.query.month as string) || String(new Date().getMonth() + 1), 10);
+    const summary = await hrRepo.getEmployeeSummary(branchId, decodeURIComponent(employeeKey), year, month);
+    res.json(summary);
+  }));
+
   app.get('/api/hr/employee/:employeeKey', requireAuth, asyncHandler(async (req, res) => {
     const branchId = await resolveBranch(req);
     const { employeeKey } = req.params;

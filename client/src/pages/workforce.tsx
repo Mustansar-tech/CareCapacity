@@ -58,11 +58,12 @@ interface ManualFormState {
   dates: string[];
   status: string;
   notes: string;
+  repeating: boolean;
   bulkKeys: Array<{ key: string; name: string }>;
 }
 
 function emptyForm(): ManualFormState {
-  return { open: false, mode: 'create', employeeKey: '', employeeName: '', dates: [], status: 'Holiday', notes: '', bulkKeys: [] };
+  return { open: false, mode: 'create', employeeKey: '', employeeName: '', dates: [], status: 'Holiday', notes: '', repeating: false, bulkKeys: [] };
 }
 
 export default function WorkforcePage() {
@@ -76,7 +77,7 @@ export default function WorkforcePage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [form, setForm] = useState<ManualFormState>(emptyForm());
@@ -117,6 +118,18 @@ export default function WorkforcePage() {
   const historyRecords = historyData?.records ?? [];
   const historyTotal = historyData?.total ?? 0;
   const historyPageCount = Math.ceil(historyTotal / HISTORY_PAGE_SIZE);
+
+  const { data: employeeSummary } = useQuery<{
+    ytdManualDays: number;
+    sickByMonth: Array<{ year: number; month: number; days: number }>;
+    contractedHours: number | null;
+    transportMode: string | null;
+  }>({
+    queryKey: ['/api/hr/employee', selectedBranchId, detailEmployee?.key, 'summary', year, month],
+    queryFn: () => apiFetch(`/api/hr/employee/${encodeURIComponent(detailEmployee!.key)}/summary?branchId=${selectedBranchId}&year=${year}&month=${month}`),
+    enabled: !!selectedBranchId && !!detailEmployee,
+    staleTime: 30_000,
+  });
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
 
@@ -224,8 +237,11 @@ export default function WorkforcePage() {
       const q = search.toLowerCase();
       list = list.filter(e => e.name.toLowerCase().includes(q));
     }
-    if (statusFilter !== 'all') {
-      list = list.filter(e => days.some(d => byKeyDate.get(`${e.key}|${d}`)?.status === statusFilter));
+    if (statusFilters.length > 0) {
+      list = list.filter(e => days.some(d => {
+        const s = byKeyDate.get(`${e.key}|${d}`)?.status;
+        return s !== undefined && statusFilters.includes(s);
+      }));
     }
     if (flaggedOnly) {
       const flagged = new Set([
@@ -235,7 +251,7 @@ export default function WorkforcePage() {
       list = list.filter(e => flagged.has(e.key));
     }
     return list;
-  }, [employees, search, statusFilter, flaggedOnly, days, byKeyDate, alerts]);
+  }, [employees, search, statusFilters, flaggedOnly, days, byKeyDate, alerts]);
 
   const allStatuses = useMemo(() => {
     const s = new Set<string>();
@@ -243,39 +259,23 @@ export default function WorkforcePage() {
     return Array.from(s).sort();
   }, [records]);
 
+  // Detail panel metrics are sourced from the server-side summary (full history, not paginated)
   const sickHistoryData = useMemo(() => {
-    if (!detailEmployee) return [];
-    const months: Array<{ month: string; days: number }> = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(Date.UTC(year, month - 1 - i, 1));
-      const y = d.getUTCFullYear();
-      const m = d.getUTCMonth() + 1;
-      const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-      const daysInM = getDaysInMonth(y, m);
-      const sickCount = historyRecords.filter(r =>
-        daysInM.includes(r.date) && ['Sick', 'Long-term Sick', 'AWOL', 'Partial Sick'].includes(r.status),
-      ).length;
-      months.push({ month: label, days: sickCount });
-    }
-    return months;
-  }, [detailEmployee, historyRecords, year, month]);
+    if (!employeeSummary) return [];
+    return employeeSummary.sickByMonth.map(s => {
+      const d = new Date(Date.UTC(s.year, s.month - 1, 1));
+      return {
+        month: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
+        days: s.days,
+      };
+    });
+  }, [employeeSummary]);
 
-  const ytdManualDays = useMemo(() => {
-    if (!detailEmployee) return 0;
-    const yearStr = String(year);
-    return historyRecords.filter(r => r.source === 'manual' && r.date.startsWith(yearStr)).length;
-  }, [detailEmployee, historyRecords, year]);
+  const ytdManualDays = employeeSummary?.ytdManualDays ?? 0;
 
-  const latestProcessedDetails = useMemo(() => {
-    if (!detailEmployee) return null;
-    // Find the most recent processed record with non-null contractedHours or transportMode
-    const sorted = [...historyRecords].sort((a, b) => b.date.localeCompare(a.date));
-    const withHours = sorted.find(r => r.source === 'processed' && r.contractedHours != null);
-    const withTransport = sorted.find(r => r.source === 'processed' && r.transportMode != null);
-    const contractedHours = withHours?.contractedHours ?? null;
-    const transportMode = withTransport?.transportMode ?? null;
-    return { contractedHours, transportMode };
-  }, [detailEmployee, historyRecords]);
+  const latestProcessedDetails = employeeSummary
+    ? { contractedHours: employeeSummary.contractedHours, transportMode: employeeSummary.transportMode }
+    : null;
 
   const createMutation = useMutation({
     mutationFn: (body: object) => apiFetch('/api/hr/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
@@ -327,8 +327,11 @@ export default function WorkforcePage() {
     const to = dateTo ? new Date(dateTo + 'T00:00:00Z') : from;
     const result: string[] = [];
     const cursor = new Date(from);
+    const startDow = from.getUTCDay(); // 0=Sun … 6=Sat
     while (cursor <= to) {
-      result.push(cursor.toISOString().split('T')[0]);
+      if (!form.repeating || cursor.getUTCDay() === startDow) {
+        result.push(cursor.toISOString().split('T')[0]);
+      }
       cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     return result;
@@ -494,16 +497,35 @@ export default function WorkforcePage() {
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search employees…" className="pl-8 h-8 w-52 text-sm" />
             {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>}
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-8 w-44 text-sm">
-              <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {allStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-sm font-normal">
+                <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                {statusFilters.length === 0 ? 'All statuses' : `${statusFilters.length} status${statusFilters.length > 1 ? 'es' : ''}`}
+                {statusFilters.length > 0 && (
+                  <button onClick={e => { e.stopPropagation(); setStatusFilters([]); }} className="ml-0.5 text-muted-foreground hover:text-foreground">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-52 p-2" align="start">
+              <p className="text-xs font-medium text-muted-foreground px-1 mb-1.5">Filter by status</p>
+              {allStatuses.map(s => {
+                const checked = statusFilters.includes(s);
+                const cfg = getStatusConfig(s);
+                return (
+                  <button key={s} onClick={() => setStatusFilters(prev => checked ? prev.filter(x => x !== s) : [...prev, s])}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors text-left ${checked ? 'bg-violet-100 dark:bg-violet-900/40' : 'hover:bg-muted'}`}>
+                    <div className={`w-2.5 h-2.5 rounded-sm shrink-0 ${cfg.bgClass}`} />
+                    <span className="flex-1">{s}</span>
+                    {checked && <span className="text-violet-600 dark:text-violet-400 text-[10px] font-bold">✓</span>}
+                  </button>
+                );
+              })}
+              {allStatuses.length === 0 && <p className="text-xs text-muted-foreground px-1 py-2">No data this month</p>}
+            </PopoverContent>
+          </Popover>
           {alerts.total > 0 && (
             <button
               onClick={() => setFlaggedOnly(f => !f)}
@@ -713,18 +735,42 @@ export default function WorkforcePage() {
                 <p className="text-sm font-medium py-1">{form.employeeName}</p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            {form.mode === 'create' ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="date-from">From</Label>
+                    <Input id="date-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-9" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="date-to">To</Label>
+                    <Input id="date-to" type="date" value={dateTo} min={dateFrom} onChange={e => setDateTo(e.target.value)} className="h-9" />
+                  </div>
+                </div>
+                {dateFrom && (
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
+                      <input type="checkbox" checked={form.repeating} onChange={e => setForm(f => ({ ...f, repeating: e.target.checked }))}
+                        className="w-4 h-4 accent-violet-600 rounded" />
+                      Repeat weekly
+                    </label>
+                    {dateFrom && (
+                      <p className="text-xs text-muted-foreground">
+                        {buildDateRange().length} day{buildDateRange().length !== 1 ? 's' : ''} selected
+                        {form.repeating && dateTo && dateTo > dateFrom ? ' (weekly)' : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="date-from">From</Label>
-                <Input id="date-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-9" />
+                <Label>Date</Label>
+                <p className="text-sm text-muted-foreground py-1 border border-border rounded-md px-3 bg-muted/30">
+                  {dateFrom || '—'}
+                  <span className="ml-2 text-xs text-muted-foreground/60">(read-only — delete & recreate to change date)</span>
+                </p>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="date-to">To</Label>
-                <Input id="date-to" type="date" value={dateTo} min={dateFrom} onChange={e => setDateTo(e.target.value)} className="h-9" />
-              </div>
-            </div>
-            {dateFrom && dateTo && dateTo > dateFrom && (
-              <p className="text-xs text-muted-foreground">{buildDateRange().length} days selected</p>
             )}
             <div className="space-y-1.5">
               <Label>Status</Label>

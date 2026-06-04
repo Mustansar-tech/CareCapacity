@@ -137,6 +137,80 @@ export async function createBulkManualEntries(records: InsertHrCalendar[]): Prom
   return total;
 }
 
+const SICK_STATUSES = ['Sick', 'Long-term Sick', 'Partial Sick', 'AWOL'];
+
+export async function getEmployeeSummary(
+  branchId: string,
+  employeeKey: string,
+  year: number,
+  month: number,
+): Promise<{
+  ytdManualDays: number;
+  sickByMonth: Array<{ year: number; month: number; days: number }>;
+  contractedHours: number | null;
+  transportMode: string | null;
+}> {
+  // Compute 6-month window: the 6 months ending with the viewed month
+  const windowStart = (() => {
+    const d = new Date(Date.UTC(year, month - 6, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  })();
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+
+  const [windowRows, ytdCount, processedRows] = await Promise.all([
+    // Rows in the 6-month sick window
+    db.select({ date: employeeHrCalendar.date, status: employeeHrCalendar.status })
+      .from(employeeHrCalendar)
+      .where(and(
+        eq(employeeHrCalendar.branchId, branchId),
+        eq(employeeHrCalendar.employeeKey, employeeKey),
+        gte(employeeHrCalendar.date, windowStart),
+      )),
+    // Count of manual entries this year
+    db.select({ count: sql<number>`cast(count(*) as int)` })
+      .from(employeeHrCalendar)
+      .where(and(
+        eq(employeeHrCalendar.branchId, branchId),
+        eq(employeeHrCalendar.employeeKey, employeeKey),
+        eq(employeeHrCalendar.source, 'manual'),
+        gte(employeeHrCalendar.date, yearStart),
+        lte(employeeHrCalendar.date, yearEnd),
+      )),
+    // Latest processed records for contractedHours / transportMode
+    db.select({ date: employeeHrCalendar.date, contractedHours: employeeHrCalendar.contractedHours, transportMode: employeeHrCalendar.transportMode })
+      .from(employeeHrCalendar)
+      .where(and(
+        eq(employeeHrCalendar.branchId, branchId),
+        eq(employeeHrCalendar.employeeKey, employeeKey),
+        eq(employeeHrCalendar.source, 'processed'),
+      ))
+      .orderBy(desc(employeeHrCalendar.date))
+      .limit(30),
+  ]);
+
+  // Build 6-month sick-by-month array
+  const sickByMonth: Array<{ year: number; month: number; days: number }> = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(Date.UTC(year, month - 1 - i, 1));
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() + 1;
+    const prefix = `${y}-${String(m).padStart(2, '0')}-`;
+    const days = windowRows.filter(r => r.date.startsWith(prefix) && SICK_STATUSES.includes(r.status)).length;
+    sickByMonth.push({ year: y, month: m, days });
+  }
+
+  const contractedHours = processedRows.find(r => r.contractedHours != null)?.contractedHours ?? null;
+  const transportMode = processedRows.find(r => r.transportMode != null)?.transportMode ?? null;
+
+  return {
+    ytdManualDays: ytdCount[0]?.count ?? 0,
+    sickByMonth,
+    contractedHours,
+    transportMode,
+  };
+}
+
 export async function getEmployeeHistory(
   branchId: string,
   employeeKey: string,
