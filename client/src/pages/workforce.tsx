@@ -250,6 +250,15 @@ export default function WorkforcePage() {
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to delete', description: e.message }),
   });
 
+  const backfillMutation = useMutation({
+    mutationFn: () => apiFetch(`/api/hr/backfill?branchId=${encodeURIComponent(selectedBranchId ?? '')}`, { method: 'POST' }),
+    onSuccess: (d: { weeks: number; rows: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hr/calendar'] });
+      toast({ title: `Backfill complete`, description: `${d.weeks} week${d.weeks !== 1 ? 's' : ''} of history imported (${d.rows} records)` });
+    },
+    onError: (e: Error) => toast({ variant: 'destructive', title: 'Backfill failed', description: e.message }),
+  });
+
   function goToPrevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
   }
@@ -351,9 +360,16 @@ export default function WorkforcePage() {
             </button>
           </div>
           {canEdit && (
-            <Button size="sm" onClick={() => openCreate()} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white shrink-0">
-              <Plus className="w-3.5 h-3.5" /> Add Leave Entry
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={() => backfillMutation.mutate()} disabled={backfillMutation.isPending || !selectedBranchId}
+                className="gap-1.5 text-xs" title="Fill in Workforce calendar from all previously processed weeks">
+                {backfillMutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Fill from history
+              </Button>
+              <Button size="sm" onClick={() => openCreate()} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+                <Plus className="w-3.5 h-3.5" /> Add Leave Entry
+              </Button>
+            </div>
           )}
         </div>
       </div>

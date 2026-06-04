@@ -5,6 +5,7 @@ import { asyncHandler, createAppError } from '../middleware/error-handler';
 import { z } from 'zod';
 import ExcelJS from 'exceljs';
 import * as hrRepo from '../repositories/hr.repository';
+import * as capacityRepo from '../repositories/capacity.repository';
 
 const manualEntrySchema = z.object({
   branchId: z.string().min(1),
@@ -147,6 +148,37 @@ export function registerHrRoutes(app: Express): void {
       `${records.length} entries — ${parsed.data.status}`,
     );
     res.status(201).json({ created: count });
+  }));
+
+  // Backfill workforce calendar from all saved capacity analyses
+  app.post('/api/hr/backfill', requireAuth, requireRoleAtLeast('scheduler'), asyncHandler(async (req, res) => {
+    const branchId = await resolveBranch(req);
+    const analyses = await capacityRepo.getAllCapacityAnalyses(branchId);
+    if (analyses.length === 0) {
+      return res.json({ weeks: 0, rows: 0 });
+    }
+    let totalRows = 0;
+    for (const analysis of analyses) {
+      const before = totalRows;
+      await hrRepo.syncHrCalendarFromResult(branchId, {
+        dailySummary: analysis.dailySummary as Array<{ date: string }>,
+        employeesByDate: analysis.employeesByDate as Record<string, Array<{
+          employeeName: string; status: string; notes?: string | null; contractedDailyHours?: number | null;
+        }>>,
+        employeeSummaryByDate: analysis.employeeSummaryByDate as Record<string, Array<{ employeeName: string; transportMode?: string }>>,
+      });
+      // count rows added (approximate — just sum daily employee counts)
+      const ebd = analysis.employeesByDate as Record<string, unknown[]>;
+      totalRows += Object.values(ebd).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+    }
+    await auditLog(
+      req.session?.userId ?? null,
+      req.session?.userEmail ?? null,
+      branchId,
+      'hr_backfill',
+      `${analyses.length} weeks backfilled`,
+    );
+    res.json({ weeks: analyses.length, rows: totalRows });
   }));
 
   app.get('/api/hr/export', requireAuth, asyncHandler(async (req, res) => {
