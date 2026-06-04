@@ -579,9 +579,7 @@ export default function WorkforcePage() {
                               ) : (
                                 canEdit ? (
                                   <button onClick={() => { openCreate(emp); setDateFrom(d); setDateTo(d); }}
-                                    className="w-7 h-6 rounded border border-dashed border-border/0 hover:border-border text-muted-foreground/20 hover:text-muted-foreground text-[10px] transition-all">
-                                    +
-                                  </button>
+                                    className="w-7 h-6 rounded hover:bg-muted/60 transition-all" />
                                 ) : (
                                   <div className="w-7 h-6" />
                                 )
