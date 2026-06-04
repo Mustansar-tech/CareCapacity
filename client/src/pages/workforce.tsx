@@ -334,34 +334,27 @@ export default function WorkforcePage() {
   return (
     <div className="h-full w-full flex flex-col bg-background overflow-hidden">
       {/* ── Header ── */}
-      <div className="shrink-0 px-6 pt-5 pb-3 border-b border-border bg-gradient-to-r from-violet-50/50 to-indigo-50/50 dark:from-violet-950/20 dark:to-indigo-950/20">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-700 to-indigo-600 bg-clip-text text-transparent">Workforce</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Employee availability calendar & absence management</p>
+      <div className="shrink-0 px-6 py-3 border-b border-border bg-gradient-to-r from-violet-50/50 to-indigo-50/50 dark:from-violet-950/20 dark:to-indigo-950/20">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-violet-700 to-indigo-600 bg-clip-text text-transparent shrink-0">Workforce</h1>
+          <div className="flex items-center gap-1 mx-auto">
+            <button onClick={goToPrevMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-base font-semibold min-w-[160px] text-center">{formatMonthYear(year, month)}</span>
+            <button onClick={goToNextMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button onClick={() => { setYear(now.getFullYear()); setMonth(now.getMonth() + 1); }}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-border hover:bg-muted transition-colors ml-1">
+              Today
+            </button>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {canEdit && (
-              <Button size="sm" onClick={() => openCreate()} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
-                <Plus className="w-3.5 h-3.5" /> Add Leave Entry
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Month nav */}
-        <div className="flex items-center gap-3 mt-3">
-          <button onClick={goToPrevMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-lg font-semibold min-w-[180px] text-center">{formatMonthYear(year, month)}</span>
-          <button onClick={goToNextMonth} className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button onClick={() => { setYear(now.getFullYear()); setMonth(now.getMonth() + 1); }}
-            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-border hover:bg-muted transition-colors ml-1">
-            Today
-          </button>
+          {canEdit && (
+            <Button size="sm" onClick={() => openCreate()} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white shrink-0">
+              <Plus className="w-3.5 h-3.5" /> Add Leave Entry
+            </Button>
+          )}
         </div>
       </div>
 
