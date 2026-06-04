@@ -17,7 +17,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { HelpPanel } from "@/components/HelpPanel";
 import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, BookOpen, TrendingUp } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, BookOpen, TrendingUp, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,6 +50,7 @@ const CapacityOutlookModule = lazy(() => import("@/pages/capacity-outlook"));
 const ScheduleModule = lazy(() => import("@/pages/schedule"));
 const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
 const DocsModule = lazy(() => import("@/pages/docs"));
+const WorkforceModule = lazy(() => import("@/pages/workforce"));
 
 // ─── Shared utilities ─────────────────────────────────────────────────────────
 
@@ -251,6 +252,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "BD Matrix",        path: "/app/bd-matrix",                         icon: Users      },
   { label: "Schedule",         path: "/app/schedule",                          icon: Calendar   },
   { label: "Capacity Outlook", path: "/app/capacity-outlook",                  icon: TrendingUp },
+  { label: "Workforce",        path: "/app/workforce",                         icon: UserCheck  },
 ];
 
 function Navigation() {
@@ -547,6 +549,9 @@ function Router() {
             </Route>
             <Route path="/app/capacity-outlook">
               <AppLayout><PageSuspense><CapacityOutlookModule /></PageSuspense></AppLayout>
+            </Route>
+            <Route path="/app/workforce">
+              <AppLayout><PageSuspense><WorkforceModule /></PageSuspense></AppLayout>
             </Route>
             <Route path="/app/docs">
               <PageSuspense><DocsModule /></PageSuspense>

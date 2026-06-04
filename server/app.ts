@@ -16,6 +16,7 @@ import { registerEnquiriesRoutes } from './routes/enquiries';
 import { registerDebugRoutes } from './routes/debug';
 import { registerCapacityOutlookRoutes } from './routes/capacity-outlook';
 import { registerLeaverReportRoutes } from './routes/leaver-report';
+import { registerHrRoutes } from './routes/hr.routes';
 
 const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync'];
 
@@ -82,6 +83,7 @@ export async function configureApp(app: Express): Promise<Server> {
   registerDebugRoutes(app);
   registerCapacityOutlookRoutes(app);
   registerLeaverReportRoutes(app);
+  registerHrRoutes(app);
 
   return createServer(app);
 }

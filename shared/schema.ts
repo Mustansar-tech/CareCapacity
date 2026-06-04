@@ -921,6 +921,40 @@ export interface OutlookDetail {
   joiners: Joiner[];
 }
 
+// ── HR Calendar — per-employee daily status log ───────────────────────────────
+
+export const hrCalendarSources = ['processed', 'manual'] as const;
+export type HrCalendarSource = typeof hrCalendarSources[number];
+
+export const employeeHrCalendar = pgTable("employee_hr_calendar", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  employeeKey: text("employee_key").notNull(),
+  employeeName: text("employee_name").notNull(),
+  date: text("date").notNull(),
+  status: text("status").notNull(),
+  source: text("source", { enum: ["processed", "manual"] }).notNull().default("processed"),
+  notes: text("notes"),
+  contractedHours: real("contracted_hours"),
+  transportMode: text("transport_mode"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueHrCalEntry: unique("unique_hr_cal_entry").on(table.branchId, table.employeeKey, table.date),
+  hrCalBranchIdx: index("hr_cal_branch_idx").on(table.branchId),
+  hrCalDateIdx: index("hr_cal_date_idx").on(table.date),
+  hrCalBranchDateIdx: index("hr_cal_branch_date_idx").on(table.branchId, table.date),
+}));
+
+export const insertHrCalendarSchema = createInsertSchema(employeeHrCalendar).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertHrCalendar = z.infer<typeof insertHrCalendarSchema>;
+export type HrCalendar = typeof employeeHrCalendar.$inferSelect;
+
 // ── Leaver Report Recipients ──────────────────────────────────────────────────
 
 export const leaverReportRecipients = pgTable("leaver_report_recipients", {

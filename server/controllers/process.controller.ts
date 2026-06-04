@@ -10,7 +10,8 @@ import * as branchRepo from '../repositories/branch.repository';
 import * as capacityRepo from '../repositories/capacity.repository';
 import * as geoRepo from '../repositories/geo.repository';
 import * as scheduleRepo from '../repositories/schedule.repository';
-import type { InsertCpScheduledVisit } from '@shared/schema';
+import * as hrRepo from '../repositories/hr.repository';
+import type { InsertCpScheduledVisit, InsertHrCalendar } from '@shared/schema';
 
 export async function processCapacity(req: Request, res: Response): Promise<void> {
   logger.info('New file upload request received');
@@ -236,6 +237,42 @@ export async function processCapacity(req: Request, res: Response): Promise<void
     }
   } catch (persistError) {
     logger.error('Failed to persist analysis to database', persistError);
+  }
+
+  try {
+    const weekDates = result.dailySummary?.map(d => d.date) ?? [];
+    if (weekDates.length > 0 && result.employeesByDate) {
+      const hrRows: InsertHrCalendar[] = [];
+      for (const [date, employees] of Object.entries(result.employeesByDate)) {
+        if (!weekDates.includes(date)) continue;
+        for (const emp of employees) {
+          const key = emp.employeeName
+            .toLowerCase()
+            .replace(/\b(mr|mrs|ms|miss|dr|prof)\b\.?\s*/gi, '')
+            .trim()
+            .split(/\s+/)
+            .sort()
+            .join(' ');
+          hrRows.push({
+            branchId: requestedBranchId,
+            employeeKey: key,
+            employeeName: emp.employeeName,
+            date,
+            status: emp.status,
+            source: 'processed',
+            notes: emp.notes || null,
+            contractedHours: emp.contractedDailyHours ?? null,
+            transportMode: null,
+          });
+        }
+      }
+      if (hrRows.length > 0) {
+        await hrRepo.upsertProcessedRecords(hrRows);
+        logger.info('HR calendar records upserted', { branchId: requestedBranchId, count: hrRows.length });
+      }
+    }
+  } catch (hrErr) {
+    logger.warn('Failed to upsert HR calendar records (non-fatal):', hrErr);
   }
 
   logger.info('Pipeline complete', { branchId: requestedBranchId });
