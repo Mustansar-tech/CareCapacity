@@ -459,7 +459,7 @@ export default function WorkforcePage() {
 
         {/* ── Legend ── */}
         <div className="flex flex-wrap gap-2 mt-2">
-          {[['Available','bg-green-500'],['Sick','bg-amber-500'],['Holiday','bg-sky-500'],['Maternity/Paternity','bg-purple-500'],['AWOL','bg-red-600'],['Partial Availability','bg-yellow-400'],['Long-term Sick','bg-orange-600'],['Other Unavailable','bg-slate-400']].map(([label, bg]) => (
+          {[['Available','bg-green-700'],['Sick','bg-gray-900'],['Holiday','bg-sky-700'],['Maternity/Paternity','bg-purple-700'],['AWOL','bg-red-800'],['Partial Availability','bg-yellow-600'],['Long-term Sick','bg-orange-800'],['Other Unavailable','bg-slate-600']].map(([label, bg]) => (
             <div key={label} className="flex items-center gap-1 text-xs text-muted-foreground">
               <div className={`w-2.5 h-2.5 rounded-sm ${bg}`} />
               {label}
