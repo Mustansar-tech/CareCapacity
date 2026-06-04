@@ -290,13 +290,13 @@ export default function WorkforcePage() {
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: string; status?: string; notes?: string }) => apiFetch(`/api/hr/manual/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    mutationFn: ({ id, ...body }: { id: string; status?: string; notes?: string }) => apiFetch(`/api/hr/manual/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, branchId: selectedBranchId }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: 'Entry updated' }); setForm(emptyForm()); },
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to update', description: e.message }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/hr/manual/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiFetch(`/api/hr/manual/${id}?branchId=${encodeURIComponent(selectedBranchId ?? '')}`, { method: 'DELETE' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: 'Entry deleted' }); setDeleteTarget(null); setOpenCellId(null); },
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to delete', description: e.message }),
   });
