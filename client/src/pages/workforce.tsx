@@ -459,7 +459,7 @@ export default function WorkforcePage() {
 
         {/* ── Legend ── */}
         <div className="flex flex-wrap gap-2 mt-2">
-          {[['Available','bg-green-700'],['Sick','bg-gray-900'],['Holiday','bg-sky-700'],['Maternity/Paternity','bg-purple-700'],['AWOL','bg-red-800'],['Partial Availability','bg-yellow-600'],['Long-term Sick','bg-orange-800'],['Other Unavailable','bg-slate-600']].map(([label, bg]) => (
+          {[['Available','bg-green-600'],['Sick','bg-gray-800'],['Holiday','bg-sky-600'],['Maternity/Paternity','bg-purple-600'],['AWOL','bg-red-700'],['Partial Availability','bg-yellow-500'],['Long-term Sick','bg-orange-700'],['Other Unavailable','bg-slate-500']].map(([label, bg]) => (
             <div key={label} className="flex items-center gap-1 text-xs text-muted-foreground">
               <div className={`w-2.5 h-2.5 rounded-sm ${bg}`} />
               {label}
@@ -768,14 +768,14 @@ export default function WorkforcePage() {
 
               {/* 6-month sick chart */}
               <div>
-                <p className="text-sm font-semibold mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-muted-foreground" /> Sick Days (6 months)</p>
-                <ResponsiveContainer width="100%" height={100}>
-                  <BarChart data={sickHistoryData} barSize={18}>
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                <p className="text-sm font-semibold mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-muted-foreground" /> Sick Days (12 months)</p>
+                <ResponsiveContainer width="100%" height={120}>
+                  <BarChart data={sickHistoryData} barSize={12}>
+                    <XAxis dataKey="month" tick={{ fontSize: 9 }} />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={20} />
                     <Tooltip formatter={(v: number) => [v, 'Sick days']} />
                     <Bar dataKey="days" radius={[3, 3, 0, 0]}>
-                      {sickHistoryData.map((_, i) => <Cell key={i} fill={i === sickHistoryData.length - 1 ? '#f59e0b' : '#fde68a'} />)}
+                      {sickHistoryData.map((_, i) => <Cell key={i} fill={i === sickHistoryData.length - 1 ? '#1f2937' : '#6b7280'} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
