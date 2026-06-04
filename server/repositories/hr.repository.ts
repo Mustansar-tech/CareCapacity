@@ -1,7 +1,7 @@
 import { db } from '../infrastructure/db';
 import { employeeHrCalendar } from '@shared/schema';
 import type { HrCalendar, InsertHrCalendar } from '@shared/schema';
-import { and, eq, gte, lte, desc, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, desc, sql, notInArray } from 'drizzle-orm';
 
 function monthBounds(year: number, month: number): { start: string; end: string } {
   const start = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -268,34 +268,32 @@ export async function getEmployeeSummary(
   };
 }
 
+const AVAILABILITY_STATUSES = ['Available', 'Ad-hoc', 'Partial Availability'];
+
 export async function getEmployeeHistory(
   branchId: string,
   employeeKey: string,
   offset = 0,
   limit = 50,
 ): Promise<{ records: HrCalendar[]; total: number }> {
+  const baseWhere = and(
+    eq(employeeHrCalendar.branchId, branchId),
+    eq(employeeHrCalendar.employeeKey, employeeKey),
+    notInArray(employeeHrCalendar.status, AVAILABILITY_STATUSES),
+  );
+
   const [records, countResult] = await Promise.all([
     db
       .select()
       .from(employeeHrCalendar)
-      .where(
-        and(
-          eq(employeeHrCalendar.branchId, branchId),
-          eq(employeeHrCalendar.employeeKey, employeeKey),
-        ),
-      )
+      .where(baseWhere)
       .orderBy(desc(employeeHrCalendar.date))
       .offset(offset)
       .limit(limit),
     db
       .select({ count: sql<number>`cast(count(*) as int)` })
       .from(employeeHrCalendar)
-      .where(
-        and(
-          eq(employeeHrCalendar.branchId, branchId),
-          eq(employeeHrCalendar.employeeKey, employeeKey),
-        ),
-      ),
+      .where(baseWhere),
   ]);
   return { records, total: countResult[0]?.count ?? 0 };
 }
