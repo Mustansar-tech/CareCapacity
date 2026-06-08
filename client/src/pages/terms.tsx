@@ -330,7 +330,7 @@ export default function Terms() {
 
         <footer className="mt-16 pt-8 border-t text-center text-sm text-muted-foreground space-y-2">
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <Link href="/privacy-policy" className="hover:text-foreground hover:underline">Privacy Policy</Link>
+            <Link href="/privacy" className="hover:text-foreground hover:underline">Privacy Policy</Link>
             <span>&middot;</span>
             <Link href="/terms" className="font-medium text-foreground">Terms &amp; Conditions</Link>
             <span>&middot;</span>

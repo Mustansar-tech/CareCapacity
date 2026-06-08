@@ -48,7 +48,7 @@ export function LegalConsentModal({ open }: LegalConsentModalProps) {
 
         <div className="space-y-2 my-2">
           <a
-            href="/privacy-policy"
+            href="/privacy"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"

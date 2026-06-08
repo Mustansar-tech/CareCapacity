@@ -23,7 +23,7 @@ export default function CookiePolicy() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
             <p className="text-sm">This Cookie Policy explains how the Care Capacity Dashboard (the &ldquo;Service&rdquo;), operated by SUR Group, uses cookies and similar technologies when you access the platform. This policy should be read alongside our{" "}
-              <Link href="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>.
+              <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
             </p>
             <p className="mt-2 text-sm">This policy complies with the Privacy and Electronic Communications Regulations 2003 (PECR) and the UK General Data Protection Regulation (UK GDPR).</p>
           </section>
@@ -153,7 +153,7 @@ export default function CookiePolicy() {
 
         <footer className="mt-16 pt-8 border-t text-center text-sm text-muted-foreground space-y-2">
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <Link href="/privacy-policy" className="hover:text-foreground hover:underline">Privacy Policy</Link>
+            <Link href="/privacy" className="hover:text-foreground hover:underline">Privacy Policy</Link>
             <span>&middot;</span>
             <Link href="/terms" className="hover:text-foreground hover:underline">Terms &amp; Conditions</Link>
             <span>&middot;</span>

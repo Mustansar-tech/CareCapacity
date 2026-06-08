@@ -389,7 +389,7 @@ export default function PrivacyPolicy() {
 
         <footer className="mt-16 pt-8 border-t text-center text-sm text-muted-foreground space-y-2">
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <Link href="/privacy-policy" className="font-medium text-foreground">Privacy Policy</Link>
+            <Link href="/privacy" className="font-medium text-foreground">Privacy Policy</Link>
             <span>&middot;</span>
             <Link href="/terms" className="hover:text-foreground hover:underline">Terms &amp; Conditions</Link>
             <span>&middot;</span>
