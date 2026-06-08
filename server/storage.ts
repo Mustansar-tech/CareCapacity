@@ -270,7 +270,7 @@ export class MemStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> { return Array.from(this.users.values()).find(u => u.email === username); }
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, username: insertUser.username ?? null, supabaseUserId: insertUser.supabaseUserId ?? null, id, createdAt: new Date() };
+    const user: User = { ...insertUser, username: insertUser.username ?? null, supabaseUserId: insertUser.supabaseUserId ?? null, legalConsentVersion: null, legalConsentAt: null, id, createdAt: new Date() };
     this.users.set(id, user);
     return user;
   }
@@ -280,6 +280,9 @@ export class MemStorage implements IStorage {
     const updated = { ...user, ...updates };
     this.users.set(id, updated);
     return updated;
+  }
+  async updateUserLegalConsent(userId: string, version: string): Promise<User> {
+    return this.updateUser(userId, { legalConsentVersion: version, legalConsentAt: new Date() });
   }
   async getAllUsers(): Promise<User[]> { return Array.from(this.users.values()); }
   async getUserBranches(userId: string): Promise<Branch[]> { return []; }

@@ -155,7 +155,7 @@ export function registerHrRoutes(app: Express): void {
     const branchId = await resolveBranch(req);
     const analyses = await capacityRepo.getAllCapacityAnalyses(branchId);
     if (analyses.length === 0) {
-      return res.json({ weeks: 0, rows: 0 });
+      return void res.json({ weeks: 0, rows: 0 });
     }
     let totalRows = 0;
     for (const analysis of analyses) {
