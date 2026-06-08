@@ -412,7 +412,7 @@ export default function LoginPage() {
                     <span>Enterprise authentication · Data encrypted in transit</span>
                   </div>
                   <div className="flex items-center justify-center gap-3 text-xs text-gray-400 dark:text-gray-600">
-                    <Link href="/privacy" className="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
+                    <Link href="/privacy-policy" className="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
                       Privacy Policy
                     </Link>
                     <span aria-hidden="true">·</span>

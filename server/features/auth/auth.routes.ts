@@ -144,6 +144,7 @@ export function registerAuthRoutes(app: Express) {
             displayName: user.displayName,
             role: user.role,
             branches,
+            legalConsentVersion: user.legalConsentVersion ?? null,
           });
           resolve(undefined);
         });
@@ -195,17 +196,14 @@ export function registerAuthRoutes(app: Express) {
   // ─── Accept legal documents ──────────────────────────────────────────────────
 
   app.post('/api/auth/accept-legal', requireAuth, async (req: Request, res: Response) => {
-    const parsed = z.object({ version: z.string().min(1) }).safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: 'Version is required' });
-
     try {
-      const user = await storage.updateUserLegalConsent(req.session.userId!, parsed.data.version);
+      const user = await storage.updateUserLegalConsent(req.session.userId!, CURRENT_LEGAL_VERSION);
       await auditLog(
         req.session.userId ?? null,
         req.session.userEmail ?? null,
         null,
         'LEGAL_CONSENT_ACCEPTED',
-        `Accepted legal documents version ${parsed.data.version}`
+        `Accepted legal documents version ${CURRENT_LEGAL_VERSION} at ${new Date().toISOString()}`
       );
       return res.json({ ok: true, legalConsentVersion: user.legalConsentVersion });
     } catch (err) {

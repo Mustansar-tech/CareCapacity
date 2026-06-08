@@ -596,7 +596,7 @@ function App() {
               <Toaster />
               <CookieBanner />
               <Switch>
-                <Route path="/privacy" component={PrivacyPolicy} />
+                <Route path="/privacy-policy" component={PrivacyPolicy} />
                 <Route path="/terms" component={Terms} />
                 <Route path="/cookies" component={CookiePolicy} />
                 <Route path="/docs"><Redirect to="/app/docs" /></Route>
