@@ -203,7 +203,7 @@ export function registerAuthRoutes(app: Express) {
         req.session.userEmail ?? null,
         null,
         'LEGAL_CONSENT_ACCEPTED',
-        `Accepted legal documents version ${CURRENT_LEGAL_VERSION} at ${new Date().toISOString()}`
+        `Privacy Policy, Terms of Service and Cookie Policy v${CURRENT_LEGAL_VERSION} accepted`
       );
       return res.json({ ok: true, legalConsentVersion: user.legalConsentVersion });
     } catch (err) {

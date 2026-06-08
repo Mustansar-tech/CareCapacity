@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
         </div>
 
         <div className="bg-muted/40 border rounded-lg p-4 mb-8 text-sm text-muted-foreground">
-          <strong>Effective Date:</strong> 8 June 2026 &nbsp;|&nbsp; <strong>Last Updated:</strong> 8 June 2026 &nbsp;|&nbsp; <strong>Version:</strong> 3.0 (Final)
+          <strong>Effective Date:</strong> 8 June 2026 &nbsp;|&nbsp; <strong>Last Updated:</strong> 8 June 2026 &nbsp;|&nbsp; <strong>Version:</strong> v1.0 &middot; 8 June 2026
         </div>
 
         <div className="prose prose-sm dark:prose-invert max-w-none space-y-8">

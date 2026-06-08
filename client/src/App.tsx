@@ -11,6 +11,7 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import CookiePolicy from "@/pages/cookie-policy";
 import { LegalConsentModal } from "@/components/LegalConsentModal";
+import { CURRENT_LEGAL_VERSION } from "@shared/schema";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { WeekProvider, useWeek } from "@/contexts/WeekContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -477,7 +478,7 @@ function LoginRoute() {
 // ─── Protected Route ──────────────────────────────────────────────────────────
 // Guards all /app/* routes. Redirects unauthenticated users to /login.
 
-const CURRENT_LEGAL_VERSION = "1.0";
+
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth();

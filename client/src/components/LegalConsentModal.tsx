@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Shield, FileText, Cookie, CheckSquare, Square, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
-
-const CURRENT_LEGAL_VERSION = "1.0";
+import { CURRENT_LEGAL_VERSION } from "@shared/schema";
 
 interface LegalConsentModalProps {
   open: boolean;
@@ -50,7 +48,7 @@ export function LegalConsentModal({ open }: LegalConsentModalProps) {
 
         <div className="space-y-2 my-2">
           <a
-            href="/privacy"
+            href="/privacy-policy"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
