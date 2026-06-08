@@ -50,6 +50,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User>;
+  updateUserLegalConsent(userId: string, version: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
 
   // User-Branch assignments
@@ -163,6 +164,7 @@ export class DatabaseStorage implements IStorage {
   getUserByUsername(username: string) { return userRepo.getUserByEmail(username); }
   createUser(insertUser: InsertUser) { return userRepo.createUser(insertUser); }
   updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>) { return userRepo.updateUser(id, updates); }
+  updateUserLegalConsent(userId: string, version: string) { return userRepo.updateUserLegalConsent(userId, version); }
   getAllUsers() { return userRepo.getAllUsers(); }
 
   // ─── User-Branch assignments ─────────────────────────────────────────────────

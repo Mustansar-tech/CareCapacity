@@ -10,6 +10,7 @@ export interface AuthUser {
   displayName: string;
   role: UserRole;
   branches: Array<{ id: string; name: string; displayName: string }>;
+  legalConsentVersion: string | null;
 }
 
 interface AuthContextType {

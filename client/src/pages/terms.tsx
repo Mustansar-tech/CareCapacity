@@ -1,46 +1,38 @@
 import { Link } from "wouter";
 import { FileText, ArrowLeft } from "lucide-react";
 
-const COMPANY_NAME = "[Company Name — e.g. Home Instead Ltd]";
-const SUPPORT_EMAIL = "[support@yourdomain.com]";
-const LAST_UPDATED = "April 2026";
+const COMPANY_NAME = "SUR Group (Scotland) Ltd t/a Home Instead";
+const SUPPORT_EMAIL = "operations@sur-group.co.uk";
+const EFFECTIVE_DATE = "8 June 2026";
+const VERSION = "1.0";
 
 export default function Terms() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <div className="max-w-3xl mx-auto px-6 py-12">
-        {/* Back link */}
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 group">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
           Back to dashboard
         </Link>
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-lg">
             <FileText className="h-5 w-5 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Terms &amp; Conditions</h1>
-            <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
+            <p className="text-sm text-muted-foreground">Version {VERSION} · Effective {EFFECTIVE_DATE}</p>
           </div>
         </div>
 
         <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-8">
 
-          {/* Notice */}
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-xs text-amber-800 dark:text-amber-300">
-            <strong>Note for deployment:</strong> Fields in [brackets] are placeholders. Replace them with your organisation's actual details before publishing.
-          </div>
-
-          {/* Intro */}
           <p>
             These Terms &amp; Conditions ("Terms") govern your use of the Care Capacity Dashboard
-            ("the System"), operated by <strong>{COMPANY_NAME}</strong> ("we", "us", "our").
-            By accessing or using the System, you agree to be bound by these Terms.
+            ("the System"), operated by <strong>{COMPANY_NAME}</strong> ("we", "us", "our"), a company
+            registered in Scotland. By accessing or using the System, you agree to be bound by these Terms.
           </p>
 
-          {/* 1 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">1. Permitted use</h2>
             <p>
@@ -59,7 +51,6 @@ export default function Terms() {
             </ul>
           </section>
 
-          {/* 2 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">2. Scheduling outputs and disclaimer of warranty</h2>
             <p>
@@ -84,7 +75,6 @@ export default function Terms() {
             </p>
           </section>
 
-          {/* 3 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">3. Data responsibility</h2>
             <p>
@@ -103,7 +93,6 @@ export default function Terms() {
             </p>
           </section>
 
-          {/* 4 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">4. Access and account management</h2>
             <p>
@@ -116,11 +105,12 @@ export default function Terms() {
             </p>
             <p className="mt-2">
               You are responsible for keeping your password secure. If you suspect your account has been compromised,
-              contact an administrator or {SUPPORT_EMAIL} immediately.
+              contact an administrator or{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-600 dark:text-blue-400 hover:underline">{SUPPORT_EMAIL}</a>{" "}
+              immediately.
             </p>
           </section>
 
-          {/* 5 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">5. Limitation of liability</h2>
             <p>
@@ -134,55 +124,54 @@ export default function Terms() {
             </p>
           </section>
 
-          {/* 6 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">6. Intellectual property</h2>
             <p>
-              The System and all associated software, documentation, and content are the intellectual property of
+              The System and all associated software, documentation, and content are the intellectual property of{" "}
               {COMPANY_NAME} or its licensors. You are granted a limited, non-exclusive, non-transferable licence
               to use the System solely for the purposes described in these Terms.
             </p>
           </section>
 
-          {/* 7 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">7. Audit and monitoring</h2>
             <p>
-              For security and compliance purposes, the System logs all login events, data uploads, and administrative
-              actions. These logs may be reviewed by authorised administrators and may be used in any investigation of
-              suspected misuse or breach. Use of the System constitutes consent to this monitoring.
+              For security and compliance purposes, the System logs all login events, legal consent acceptances,
+              data uploads, and administrative actions. These logs may be reviewed by authorised administrators
+              and may be used in any investigation of suspected misuse or breach. Use of the System constitutes
+              consent to this monitoring.
             </p>
           </section>
 
-          {/* 8 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">8. Changes to these Terms</h2>
             <p>
-              We may update these Terms from time to time. Material changes will be communicated via in-app notice.
-              Continued use of the System after changes take effect constitutes acceptance of the revised Terms.
+              We may update these Terms from time to time. Material changes will be communicated via in-app notice
+              requiring re-acceptance before continued use. The version number and effective date at the top of this
+              page indicate when the Terms were last revised.
             </p>
           </section>
 
-          {/* 9 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">9. Governing law</h2>
             <p>
-              These Terms are governed by the laws of England and Wales. Any disputes arising under these Terms shall
-              be subject to the exclusive jurisdiction of the courts of England and Wales.
+              These Terms are governed by the laws of Scotland. Any disputes arising under these Terms shall
+              be subject to the exclusive jurisdiction of the Scottish courts.
             </p>
           </section>
 
-          {/* 10 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">10. Contact</h2>
             <p>
-              Questions about these Terms should be directed to <strong>{SUPPORT_EMAIL}</strong> or your branch administrator.
+              Questions about these Terms should be directed to{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-600 dark:text-blue-400 hover:underline">{SUPPORT_EMAIL}</a>{" "}
+              or your branch administrator.
             </p>
           </section>
 
-          {/* Footer links */}
           <div className="pt-8 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 text-xs text-muted-foreground">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link href="/cookies" className="hover:text-foreground transition-colors">Cookie Policy</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Back to dashboard</Link>
           </div>
         </div>

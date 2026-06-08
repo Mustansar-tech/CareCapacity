@@ -6,6 +6,8 @@ import { z } from "zod";
 export const userRoles = ['admin', 'scheduler', 'viewer'] as const;
 export type UserRole = typeof userRoles[number];
 
+export const CURRENT_LEGAL_VERSION = "1.0";
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
@@ -15,6 +17,8 @@ export const users = pgTable("users", {
   role: text("role").notNull().default('viewer'),
   isActive: integer("is_active").notNull().default(1), // 1=active, 0=inactive
   supabaseUserId: text("supabase_user_id"),            // Supabase Auth UUID
+  legalConsentVersion: text("legal_consent_version"),  // e.g. "1.0"
+  legalConsentAt: timestamp("legal_consent_at"),       // when they accepted
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

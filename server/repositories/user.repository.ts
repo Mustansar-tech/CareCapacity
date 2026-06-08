@@ -67,3 +67,13 @@ export async function getAuditLogs(opts?: { branchId?: string; limit?: number })
   const limit = opts?.limit ?? 200;
   return db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).limit(limit);
 }
+
+export async function updateUserLegalConsent(userId: string, version: string): Promise<User> {
+  const [user] = await db
+    .update(users)
+    .set({ legalConsentVersion: version, legalConsentAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  if (!user) throw new Error(`User ${userId} not found`);
+  return user;
+}

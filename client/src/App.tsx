@@ -9,6 +9,8 @@ import LoginPage from "@/pages/login";
 import ResetPasswordPage from "@/pages/reset-password";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
+import CookiePolicy from "@/pages/cookie-policy";
+import { LegalConsentModal } from "@/components/LegalConsentModal";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { WeekProvider, useWeek } from "@/contexts/WeekContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -475,9 +477,12 @@ function LoginRoute() {
 // ─── Protected Route ──────────────────────────────────────────────────────────
 // Guards all /app/* routes. Redirects unauthenticated users to /login.
 
+const CURRENT_LEGAL_VERSION = "1.0";
+
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [, navigate] = useLocation();
+  const needsConsent = isAuthenticated && user && user.legalConsentVersion !== CURRENT_LEGAL_VERSION;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -500,8 +505,9 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <LegalConsentModal open={!!needsConsent} />
       <SessionTimeoutManager />
-      {children}
+      {!needsConsent && children}
     </>
   );
 }
@@ -592,6 +598,7 @@ function App() {
               <Switch>
                 <Route path="/privacy" component={PrivacyPolicy} />
                 <Route path="/terms" component={Terms} />
+                <Route path="/cookies" component={CookiePolicy} />
                 <Route path="/docs"><Redirect to="/app/docs" /></Route>
                 <Route path="/login" component={LoginRoute} />
                 <Route path="/reset-password" component={ResetPasswordPage} />

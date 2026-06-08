@@ -4,7 +4,7 @@ import { requireAuth, requireRole, auditLog } from './auth';
 import { supabaseAdmin, supabaseAnon } from '../../infrastructure/supabase';
 import { logger } from '../../infrastructure/logger';
 import { z } from 'zod';
-import { userRoles } from '@shared/schema';
+import { userRoles, CURRENT_LEGAL_VERSION } from '@shared/schema';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -184,9 +184,32 @@ export function registerAuthRoutes(app: Express) {
         displayName: user.displayName,
         role: user.role,
         branches,
+        legalConsentVersion: user.legalConsentVersion ?? null,
       });
     } catch (err) {
       logger.error('/api/auth/me error', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // ─── Accept legal documents ──────────────────────────────────────────────────
+
+  app.post('/api/auth/accept-legal', requireAuth, async (req: Request, res: Response) => {
+    const parsed = z.object({ version: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Version is required' });
+
+    try {
+      const user = await storage.updateUserLegalConsent(req.session.userId!, parsed.data.version);
+      await auditLog(
+        req.session.userId ?? null,
+        req.session.userEmail ?? null,
+        null,
+        'LEGAL_CONSENT_ACCEPTED',
+        `Accepted legal documents version ${parsed.data.version}`
+      );
+      return res.json({ ok: true, legalConsentVersion: user.legalConsentVersion });
+    } catch (err) {
+      logger.error('Accept legal error', err);
       return res.status(500).json({ message: 'Internal server error' });
     }
   });

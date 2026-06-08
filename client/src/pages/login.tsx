@@ -419,6 +419,10 @@ export default function LoginPage() {
                     <Link href="/terms" className="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
                       Terms &amp; Conditions
                     </Link>
+                    <span aria-hidden="true">·</span>
+                    <Link href="/cookies" className="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
+                      Cookie Policy
+                    </Link>
                   </div>
                 </div>
               </motion.div>

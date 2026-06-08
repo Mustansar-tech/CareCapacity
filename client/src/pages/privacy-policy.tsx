@@ -1,11 +1,12 @@
 import { Link } from "wouter";
 import { Shield, ArrowLeft, ExternalLink } from "lucide-react";
 
-const COMPANY_NAME = "[Company Name — e.g. Home Instead Ltd]";
-const ICO_REG = "[ICO Registration Number — e.g. ZA123456]";
-const DPO_EMAIL = "[data-protection@yourdomain.com]";
-const SUPPORT_EMAIL = "[support@yourdomain.com]";
-const LAST_UPDATED = "April 2026";
+const COMPANY_NAME = "SUR Group (Scotland) Ltd t/a Home Instead";
+const ICO_REG = "ZA278994";
+const DPO_EMAIL = "operations@sur-group.co.uk";
+const SUPPORT_EMAIL = "operations@sur-group.co.uk";
+const EFFECTIVE_DATE = "8 June 2026";
+const VERSION = "1.0";
 
 export default function PrivacyPolicy() {
   return (
@@ -24,36 +25,31 @@ export default function PrivacyPolicy() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
-            <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
+            <p className="text-sm text-muted-foreground">Version {VERSION} · Effective {EFFECTIVE_DATE}</p>
           </div>
         </div>
 
-        <div className="prose prose-gray dark:prose-invert max-w-none space-y-8 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-8">
 
-          {/* Notice banner */}
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-xs text-amber-800 dark:text-amber-300 not-prose">
-            <strong>Note for deployment:</strong> Fields in [brackets] are placeholders. Replace them with your organisation's actual details before publishing.
-          </div>
-
-          {/* 1 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">1. Who we are</h2>
             <p>
-              This Care Capacity Dashboard ("the System") is operated by <strong>{COMPANY_NAME}</strong> ("we", "us", "our").
-              We are registered with the Information Commissioner's Office (ICO) under registration number <strong>{ICO_REG}</strong>.
+              This Care Capacity Dashboard ("the System") is operated by <strong>{COMPANY_NAME}</strong> ("we", "us", "our"),
+              a company registered in Scotland. We are registered with the Information Commissioner's Office (ICO)
+              under registration number <strong>{ICO_REG}</strong>.
             </p>
             <p className="mt-2">
               For privacy-related enquiries, contact our Data Protection Lead at{" "}
-              <strong>{DPO_EMAIL}</strong> or write to us at the address held in your employment or service agreement.
+              <a href={`mailto:${DPO_EMAIL}`} className="text-blue-600 dark:text-blue-400 hover:underline">{DPO_EMAIL}</a>{" "}
+              or write to us at the address held in your employment or service agreement.
             </p>
           </section>
 
-          {/* 2 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">2. What this System does</h2>
             <p>
               The System is an internal workforce management tool used by authorised staff to plan and analyse weekly care
-              delivery schedules. It processes Excel exports from the care management platform and produces capacity
+              delivery schedules. It processes exports from our care management platform and produces capacity
               analytics, route optimisation, and scheduling recommendations for Care Professionals (Care Pros) and
               care clients.
             </p>
@@ -62,7 +58,6 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
-          {/* 3 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">3. Personal data we process</h2>
             <p>We process the following categories of personal data:</p>
@@ -91,10 +86,10 @@ export default function PrivacyPolicy() {
               <li>Display name</li>
               <li>Role and branch access assignments</li>
               <li>Login and logout timestamps (audit log)</li>
+              <li>Legal document acceptance records (version and timestamp)</li>
             </ul>
           </section>
 
-          {/* 4 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">4. Lawful basis for processing</h2>
             <p>We rely on the following lawful bases under UK GDPR Article 6:</p>
@@ -121,7 +116,6 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
-          {/* 5 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">5. Third-party data processors</h2>
             <p>
@@ -131,7 +125,7 @@ export default function PrivacyPolicy() {
             </p>
 
             <div className="mt-4 space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 not-prose">
+              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white text-sm">OpenRouteService (ORS)</p>
@@ -148,7 +142,24 @@ export default function PrivacyPolicy() {
                 </p>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 not-prose">
+              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">TravelTime Platform</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">iGeolise Ltd, United Kingdom</p>
+                  </div>
+                  <a href="https://traveltime.com/privacy-policy" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
+                    Privacy policy <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  Used to calculate walking and public transport travel times for Care Pros without a car.
+                  Data transmitted: coordinate pairs only. No names or personal identifiers are sent.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white text-sm">postcodes.io</p>
@@ -160,37 +171,32 @@ export default function PrivacyPolicy() {
                   </a>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                  Used to resolve UK postcodes to geographic coordinates (latitude/longitude) for Care Pros and clients.
-                  Terminated postcodes are handled via the API's built-in terminated postcode data.
+                  Used to resolve UK postcodes to geographic coordinates (latitude/longitude).
                   Data transmitted: postcode strings only. No names, addresses, or personal identifiers are sent.
                 </p>
               </div>
             </div>
 
             <p className="mt-4">
-              All other data processing (analytics, scheduling, storage) occurs within the System's own infrastructure.
+              All other data processing (analytics, scheduling, storage) occurs within the System's own infrastructure
+              hosted on Neon (PostgreSQL) and Replit, both of which process data in line with UK GDPR requirements.
               No personal data is shared with third parties for marketing or advertising purposes.
             </p>
           </section>
 
-          {/* 6 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">6. Data retention</h2>
             <p>We retain personal data for the following periods:</p>
             <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
-              <li>Weekly capacity analyses and employee availability: <strong>12 months</strong> from the upload date, then reviewed for deletion.</li>
-              <li>Employee and client location records: retained while the individual is active and for <strong>6 months</strong> after departure/discharge.</li>
-              <li>Uploaded Excel files (raw data): retained for <strong>90 days</strong>, then purged.</li>
+              <li>Weekly capacity analyses and employee availability: <strong>12 months</strong> from the upload date.</li>
+              <li>Employee and client location records: retained while active and for <strong>6 months</strong> after departure/discharge.</li>
+              <li>Uploaded data files (raw): retained for <strong>90 days</strong>, then purged.</li>
               <li>Audit logs: retained for <strong>24 months</strong> to meet regulatory requirements.</li>
-              <li>User accounts: retained while employed; deactivated immediately on departure; deleted after <strong>12 months</strong>.</li>
+              <li>User accounts: deactivated immediately on departure; deleted after <strong>12 months</strong>.</li>
+              <li>Legal consent records: retained for the lifetime of the user account.</li>
             </ul>
-            <p className="mt-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-              <strong>Note for deployment:</strong> Automated data purge processes for these retention periods are planned
-              but not yet implemented. Retention must currently be managed manually until automated deletion is added to the system.
-            </p>
           </section>
 
-          {/* 7 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">7. Your rights under UK GDPR</h2>
             <p>Where you are the subject of personal data processed by this System, you have the following rights:</p>
@@ -202,8 +208,9 @@ export default function PrivacyPolicy() {
               <li><strong>Right to object (Article 21):</strong> object to processing based on legitimate interests.</li>
             </ul>
             <p className="mt-3">
-              To exercise any of these rights, contact us at <strong>{DPO_EMAIL}</strong>. We will respond within 30 days.
-              You also have the right to lodge a complaint with the ICO at{" "}
+              To exercise any of these rights, contact us at{" "}
+              <a href={`mailto:${DPO_EMAIL}`} className="text-blue-600 dark:text-blue-400 hover:underline">{DPO_EMAIL}</a>.
+              We will respond within 30 days. You also have the right to lodge a complaint with the ICO at{" "}
               <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer"
                 className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
                 ico.org.uk <ExternalLink className="h-3 w-3" />
@@ -211,12 +218,9 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
-          {/* 8 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">8. Security</h2>
-            <p>
-              We implement appropriate technical and organisational measures to protect personal data, including:
-            </p>
+            <p>We implement appropriate technical and organisational measures to protect personal data, including:</p>
             <ul className="list-disc list-inside space-y-1 pl-2 mt-2">
               <li>Password management via Supabase Auth with secure credential storage</li>
               <li>Session management with 30-minute inactivity timeout and secure, HTTP-only cookies</li>
@@ -227,44 +231,42 @@ export default function PrivacyPolicy() {
             </ul>
           </section>
 
-          {/* 9 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">9. Cookies</h2>
             <p>
               This System uses only a single session cookie (<code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs font-mono">connect.sid</code>)
-              to maintain your authenticated session. This cookie is essential for the System to function and does not
+              to maintain your authenticated session. This cookie is strictly necessary for the System to function and does not
               track behaviour, serve advertising, or share data with analytics providers.
             </p>
             <p className="mt-2">
-              The cookie expires after 30 minutes of inactivity and is removed when you sign out.
+              For full details, see our{" "}
+              <Link href="/cookies" className="text-blue-600 dark:text-blue-400 hover:underline">Cookie Policy</Link>.
             </p>
           </section>
 
-          {/* 10 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">10. Changes to this policy</h2>
             <p>
               We may update this Privacy Policy from time to time. Material changes will be communicated to users
-              via in-app notice. The date at the top of this page indicates when the policy was last revised.
+              via in-app notice requiring re-acceptance. The version number and effective date at the top of this page
+              indicate when the policy was last revised.
             </p>
           </section>
 
-          {/* 11 */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">11. Contact us</h2>
-            <p>
-              For any questions about this Privacy Policy or how we handle your data, contact:
-            </p>
+            <p>For any questions about this Privacy Policy or how we handle your data, contact:</p>
             <ul className="list-none mt-2 space-y-1 pl-2">
-              <li><strong>Data Protection Lead:</strong> {DPO_EMAIL}</li>
-              <li><strong>General support:</strong> {SUPPORT_EMAIL}</li>
+              <li><strong>Data Protection Lead:</strong>{" "}<a href={`mailto:${DPO_EMAIL}`} className="text-blue-600 dark:text-blue-400 hover:underline">{DPO_EMAIL}</a></li>
+              <li><strong>General support:</strong>{" "}<a href={`mailto:${SUPPORT_EMAIL}`} className="text-blue-600 dark:text-blue-400 hover:underline">{SUPPORT_EMAIL}</a></li>
               <li><strong>Organisation:</strong> {COMPANY_NAME}</li>
+              <li><strong>ICO registration:</strong> {ICO_REG}</li>
             </ul>
           </section>
 
-          {/* Footer */}
-          <div className="pt-8 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 text-xs text-muted-foreground not-prose">
+          <div className="pt-8 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 text-xs text-muted-foreground">
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms &amp; Conditions</Link>
+            <Link href="/cookies" className="hover:text-foreground transition-colors">Cookie Policy</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Back to dashboard</Link>
           </div>
         </div>
