@@ -1,38 +1,23 @@
-import { useState, useMemo, useRef, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, toAbsoluteUrl } from "@/lib/queryClient";
+import { useState, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { toAbsoluteUrl } from "@/lib/queryClient";
 import { useBranch } from "@/contexts/BranchContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  ChevronLeft, ChevronRight, Download, Plus, Search, X,
-  ChevronDown, Pencil, Trash2, User, BarChart3, RefreshCw, Filter,
+  ChevronLeft, ChevronRight, Search, X,
+  User, BarChart3, RefreshCw, Filter,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { HrCalendar } from "@shared/schema";
 import {
-  getStatusConfig, MANUAL_STATUSES, LONG_TERM_STATUSES, formatMonthYear,
+  getStatusConfig, LONG_TERM_STATUSES, formatMonthYear,
   getDaysInMonth, isWeekend, isToday, dayLabel, dayWeekday,
-  normalizeEmployeeKey,
 } from "@/utils/hr-utils";
-
-const TODAY_STR = (() => {
-  const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-})();
 
 function apiUrl(path: string) {
   return toAbsoluteUrl(path);
@@ -47,48 +32,24 @@ async function apiFetch(url: string, opts?: RequestInit) {
   return res.json();
 }
 
-interface ManualFormState {
-  open: boolean;
-  mode: 'create' | 'edit';
-  id?: string;
-  employeeKey: string;
-  employeeName: string;
-  dates: string[];
-  status: string;
-  notes: string;
-  repeating: boolean;
-  bulkKeys: Array<{ key: string; name: string }>;
-}
-
-function emptyForm(): ManualFormState {
-  return { open: false, mode: 'create', employeeKey: '', employeeName: '', dates: [], status: 'Holiday', notes: '', repeating: false, bulkKeys: [] };
-}
-
 export default function WorkforcePage() {
   const { selectedBranchId } = useBranch();
-  const { user } = useAuth();
   const { toast } = useToast();
-
-  const canEdit = user?.role === 'admin' || user?.role === 'scheduler';
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [search, setSearch] = useState('');
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
-  const [form, setForm] = useState<ManualFormState>(emptyForm());
   const [detailEmployee, setDetailEmployee] = useState<{ key: string; name: string } | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
   const [openCellId, setOpenCellId] = useState<string | null>(null);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const gridRef = useRef<HTMLDivElement>(null);
   const HISTORY_PAGE_SIZE = 50;
 
   const calendarKey = ['/api/hr/calendar', selectedBranchId, year, month];
 
-  const { data: records = [], isLoading, refetch } = useQuery<HrCalendar[]>({
+  const { data: records = [], isLoading } = useQuery<HrCalendar[]>({
     queryKey: calendarKey,
     queryFn: () => apiFetch(`/api/hr/calendar?branchId=${selectedBranchId}&year=${year}&month=${month}`),
     enabled: !!selectedBranchId,
@@ -132,7 +93,7 @@ export default function WorkforcePage() {
   const longTermMap = useMemo(() => {
     const m = new Set<string>();
     for (const r of records) {
-      if (r.source === 'manual' && LONG_TERM_STATUSES.has(r.status)) m.add(r.employeeKey);
+      if (LONG_TERM_STATUSES.has(r.status)) m.add(r.employeeKey);
     }
     return m;
   }, [records]);
@@ -158,7 +119,6 @@ export default function WorkforcePage() {
     return Array.from(s).sort();
   }, [records]);
 
-  // Build chart data: 6 months × all leave/absence types
   const { leaveChartData, leaveChartKeys } = useMemo(() => {
     if (!employeeSummary?.leaveByMonth) return { leaveChartData: [], leaveChartKeys: [] };
     const allKeys = new Set<string>();
@@ -176,111 +136,11 @@ export default function WorkforcePage() {
     return { leaveChartData: data, leaveChartKeys: Array.from(allKeys) };
   }, [employeeSummary]);
 
-  const contractedHours = employeeSummary?.contractedHours ?? null;
-
-  const createMutation = useMutation({
-    mutationFn: (body: object) => apiFetch('/api/hr/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: 'Leave entry saved' }); setForm(emptyForm()); setDateFrom(''); setDateTo(''); },
-    onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to save', description: e.message }),
-  });
-
-  const bulkMutation = useMutation({
-    mutationFn: (body: object) => apiFetch('/api/hr/manual/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-    onSuccess: (d: { created: number }) => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: `${d.created} entries saved` }); setForm(emptyForm()); setDateFrom(''); setDateTo(''); },
-    onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to save', description: e.message }),
-  });
-
-  const editMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: string; status?: string; notes?: string }) => apiFetch(`/api/hr/manual/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, branchId: selectedBranchId }) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: 'Entry updated' }); setForm(emptyForm()); },
-    onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to update', description: e.message }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/hr/manual/${id}?branchId=${encodeURIComponent(selectedBranchId ?? '')}`, { method: 'DELETE' }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: calendarKey }); toast({ title: 'Entry deleted' }); setDeleteTarget(null); setOpenCellId(null); },
-    onError: (e: Error) => toast({ variant: 'destructive', title: 'Failed to delete', description: e.message }),
-  });
-
-  const backfillMutation = useMutation({
-    mutationFn: () => apiFetch(`/api/hr/backfill?branchId=${encodeURIComponent(selectedBranchId ?? '')}`, { method: 'POST' }),
-    onSuccess: (d: { weeks: number; rows: number }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/hr/calendar'] });
-      toast({ title: `Backfill complete`, description: `${d.weeks} week${d.weeks !== 1 ? 's' : ''} of history imported (${d.rows} records)` });
-    },
-    onError: (e: Error) => toast({ variant: 'destructive', title: 'Backfill failed', description: e.message }),
-  });
-
   function goToPrevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
   }
   function goToNextMonth() {
     if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1);
-  }
-
-  function openCreate(emp?: { key: string; name: string }) {
-    setForm({ ...emptyForm(), open: true, mode: 'create', employeeKey: emp?.key ?? '', employeeName: emp?.name ?? '' });
-    setDateFrom('');
-    setDateTo('');
-  }
-
-  function openEdit(rec: HrCalendar) {
-    setOpenCellId(null);
-    setForm({ open: true, mode: 'edit', id: rec.id, employeeKey: rec.employeeKey, employeeName: rec.employeeName, dates: [rec.date], status: rec.status, notes: rec.notes ?? '', repeating: false, bulkKeys: [] });
-    setDateFrom(rec.date);
-    setDateTo(rec.date);
-  }
-
-  function buildDateRange(): string[] {
-    if (!dateFrom) return [];
-    const from = new Date(dateFrom + 'T00:00:00Z');
-    const to = dateTo ? new Date(dateTo + 'T00:00:00Z') : from;
-    const result: string[] = [];
-    const cursor = new Date(from);
-    const startDow = from.getUTCDay(); // 0=Sun … 6=Sat
-    while (cursor <= to) {
-      if (!form.repeating || cursor.getUTCDay() === startDow) {
-        result.push(cursor.toISOString().split('T')[0]);
-      }
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-    return result;
-  }
-
-  function submitForm() {
-    const dates = buildDateRange();
-    if (!dates.length) { toast({ variant: 'destructive', title: 'Select at least one date' }); return; }
-    if (!form.status) { toast({ variant: 'destructive', title: 'Select a status' }); return; }
-
-    if (form.mode === 'edit' && form.id) {
-      editMutation.mutate({ id: form.id, status: form.status, notes: form.notes || undefined });
-      return;
-    }
-
-    if (form.bulkKeys.length > 0) {
-      bulkMutation.mutate({
-        branchId: selectedBranchId,
-        employeeKeys: form.bulkKeys.map(e => ({ employeeKey: e.key, employeeName: e.name })),
-        dates,
-        status: form.status,
-        notes: form.notes || undefined,
-      });
-      return;
-    }
-
-    if (!form.employeeKey) { toast({ variant: 'destructive', title: 'Select an employee' }); return; }
-
-    if (dates.length === 1) {
-      createMutation.mutate({ branchId: selectedBranchId, employeeKey: form.employeeKey, employeeName: form.employeeName, date: dates[0], status: form.status, notes: form.notes || undefined });
-    } else {
-      bulkMutation.mutate({
-        branchId: selectedBranchId,
-        employeeKeys: [{ employeeKey: form.employeeKey, employeeName: form.employeeName }],
-        dates,
-        status: form.status,
-        notes: form.notes || undefined,
-      });
-    }
   }
 
   function handleExport() {
@@ -306,18 +166,6 @@ export default function WorkforcePage() {
               Today
             </button>
           </div>
-          {canEdit && (
-            <div className="flex items-center gap-2 shrink-0">
-              <Button size="sm" variant="outline" onClick={() => backfillMutation.mutate()} disabled={backfillMutation.isPending || !selectedBranchId}
-                className="gap-1.5 text-xs" title="Fill in Workforce calendar from all previously processed weeks">
-                {backfillMutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Fill from history
-              </Button>
-              <Button size="sm" onClick={() => openCreate()} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
-                <Plus className="w-3.5 h-3.5" /> Add Leave Entry
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -441,55 +289,24 @@ export default function WorkforcePage() {
                                       title={rec.status}
                                     >
                                       {cfg.label.slice(0, 4)}
-                                      {rec.source === 'manual' && (
-                                        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-gray-400" />
-                                      )}
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="top" className="w-64 p-3">
+                                  <PopoverContent side="top" className="w-56 p-3">
                                     <div className="space-y-2">
                                       <div className="flex items-center justify-between">
                                         <span className="text-sm font-semibold">{emp.name}</span>
                                         <Badge variant="outline" className="text-[10px]">{d}</Badge>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <div className={`px-2 py-0.5 rounded text-xs font-medium ${cfg.bgClass} ${cfg.textClass}`}>{rec.status}</div>
-                                        <Badge variant={rec.source === 'manual' ? 'secondary' : 'outline'} className="text-[10px]">
-                                          {rec.source === 'manual' ? '✏ Manual' : '⚙ Auto'}
-                                        </Badge>
-                                      </div>
+                                      <div className={`px-2 py-0.5 rounded text-xs font-medium w-fit ${cfg.bgClass} ${cfg.textClass}`}>{rec.status}</div>
                                       {rec.notes && <p className="text-xs text-muted-foreground italic">"{rec.notes}"</p>}
                                       <p className="text-xs text-muted-foreground">{cfg.description}</p>
                                       {rec.contractedHours != null && (
                                         <p className="text-xs text-muted-foreground">Contracted: {rec.contractedHours}h</p>
                                       )}
-                                      {canEdit && (
-                                        <div className="flex gap-1.5 pt-1 border-t border-border">
-                                          {rec.source === 'manual' ? (
-                                            <>
-                                              <Button size="sm" variant="outline" className="h-7 text-xs flex-1 gap-1" onClick={() => openEdit(rec)}>
-                                                <Pencil className="w-3 h-3" /> Edit
-                                              </Button>
-                                              <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 gap-1" onClick={() => setDeleteTarget({ id: rec.id, label: `${emp.name} — ${d}` })}>
-                                                <Trash2 className="w-3 h-3" />
-                                              </Button>
-                                            </>
-                                          ) : (
-                                            <Button size="sm" variant="outline" className="h-7 text-xs w-full gap-1" onClick={() => { setOpenCellId(null); openCreate(emp); setDateFrom(d); setDateTo(d); }}>
-                                              <Pencil className="w-3 h-3" /> Override as manual
-                                            </Button>
-                                          )}
-                                        </div>
-                                      )}
                                     </div>
                                   </PopoverContent>
                                 </Popover>
-                              ) : (
-                                canEdit ? (
-                                  <button onClick={() => { openCreate(emp); setDateFrom(d); setDateTo(d); }}
-                                    className="absolute inset-0 hover:bg-muted/60 transition-all" />
-                                ) : null
-                              )}
+                              ) : null}
                             </td>
                           );
                         })}
@@ -502,130 +319,6 @@ export default function WorkforcePage() {
           </div>
         )}
       </div>
-
-      {/* ── Manual Entry Sheet ── */}
-      <Sheet open={form.open} onOpenChange={open => { if (!open) { setForm(emptyForm()); setDateFrom(''); setDateTo(''); } }}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto border-l-[8px]">
-          <SheetHeader>
-            <SheetTitle>{form.mode === 'edit' ? 'Edit Leave Entry' : 'Add Leave Entry'}</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 mt-6">
-            {form.mode === 'create' && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>Employee</Label>
-                  <Select value={form.employeeKey}
-                    onValueChange={v => {
-                      const emp = employees.find(e => e.key === v);
-                      setForm(f => ({ ...f, employeeKey: v, employeeName: emp?.name ?? '', bulkKeys: [] }));
-                    }}>
-                    <SelectTrigger><SelectValue placeholder="Select employee…" /></SelectTrigger>
-                    <SelectContent className="max-h-52">
-                      {employees.map(e => <SelectItem key={e.key} value={e.key}>{e.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Bulk — apply to multiple employees</Label>
-                  <div className="max-h-40 overflow-y-auto border border-border rounded-md divide-y divide-border">
-                    {employees.map(e => {
-                      const selected = form.bulkKeys.some(b => b.key === e.key);
-                      return (
-                        <button key={e.key}
-                          className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${selected ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300' : 'hover:bg-muted'}`}
-                          onClick={() => setForm(f => ({
-                            ...f,
-                            bulkKeys: selected ? f.bulkKeys.filter(b => b.key !== e.key) : [...f.bulkKeys, { key: e.key, name: e.name }],
-                            employeeKey: selected ? f.employeeKey : '',
-                          }))}>
-                          {selected ? '✓ ' : ''}{e.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {form.bulkKeys.length > 0 && (
-                    <p className="text-xs text-violet-600 dark:text-violet-400">{form.bulkKeys.length} employees selected</p>
-                  )}
-                </div>
-              </>
-            )}
-            {form.mode === 'edit' && (
-              <div className="space-y-1.5">
-                <Label>Employee</Label>
-                <p className="text-sm font-medium py-1">{form.employeeName}</p>
-              </div>
-            )}
-            {form.mode === 'create' ? (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="date-from">From</Label>
-                    <Input id="date-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="date-to">To</Label>
-                    <Input id="date-to" type="date" value={dateTo} min={dateFrom} onChange={e => setDateTo(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-                {dateFrom && (
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
-                      <input type="checkbox" checked={form.repeating} onChange={e => setForm(f => ({ ...f, repeating: e.target.checked }))}
-                        className="w-4 h-4 accent-violet-600 rounded" />
-                      Repeat weekly
-                    </label>
-                    {dateFrom && (
-                      <p className="text-xs text-muted-foreground">
-                        {buildDateRange().length} day{buildDateRange().length !== 1 ? 's' : ''} selected
-                        {form.repeating && dateTo && dateTo > dateFrom ? ' (weekly)' : ''}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="space-y-1.5">
-                <Label>Date</Label>
-                <p className="text-sm text-muted-foreground py-1 border border-border rounded-md px-3 bg-muted/30">
-                  {dateFrom || '—'}
-                  <span className="ml-2 text-xs text-muted-foreground/60">(read-only — delete & recreate to change date)</span>
-                </p>
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent className="max-h-56">
-                  {MANUAL_STATUSES.map(s => {
-                    const cfg = getStatusConfig(s);
-                    return (
-                      <SelectItem key={s} value={s}>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2.5 h-2.5 rounded-sm shrink-0 ${cfg.bgClass}`} />
-                          {s}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="notes-input">Notes (optional)</Label>
-              <Textarea id="notes-input" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="e.g. Expected return date, doctor's note received…" className="resize-none h-20 text-sm" />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button className="flex-1 bg-violet-600 hover:bg-violet-700 text-white"
-                disabled={createMutation.isPending || bulkMutation.isPending || editMutation.isPending}
-                onClick={submitForm}>
-                {(createMutation.isPending || bulkMutation.isPending || editMutation.isPending) ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Save'}
-              </Button>
-              <Button variant="outline" onClick={() => { setForm(emptyForm()); setDateFrom(''); setDateTo(''); }}>Cancel</Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* ── Employee Detail Panel ── */}
       <Sheet open={!!detailEmployee} onOpenChange={open => { if (!open) { setDetailEmployee(null); setHistoryPage(0); } }}>
@@ -700,7 +393,6 @@ export default function WorkforcePage() {
                           <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.bgClass}`} />
                           <span className="text-muted-foreground w-24 shrink-0">{r.date}</span>
                           <span className="font-medium flex-1">{r.status}</span>
-                          <Badge variant="outline" className="text-[9px] shrink-0">{r.source === 'manual' ? '✏' : '⚙'}</Badge>
                           {r.notes && <span className="text-muted-foreground italic truncate max-w-[100px]">{r.notes}</span>}
                         </div>
                       );
@@ -725,32 +417,10 @@ export default function WorkforcePage() {
                   </div>
                 )}
               </div>
-
-              {canEdit && (
-                <Button className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white" onClick={() => { setDetailEmployee(null); openCreate(detailEmployee); }}>
-                  <Plus className="w-4 h-4" /> Add Leave Entry
-                </Button>
-              )}
             </div>
           )}
         </SheetContent>
       </Sheet>
-
-      {/* ── Delete Confirm ── */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this entry?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove the manual leave entry for <strong>{deleteTarget?.label}</strong>. This cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
