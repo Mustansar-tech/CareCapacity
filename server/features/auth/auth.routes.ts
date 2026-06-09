@@ -252,7 +252,7 @@ export function registerAuthRoutes(app: Express) {
 
       if (authError) {
         logger.error('Supabase create user error', authError);
-        return res.status(500).json({ message: authError.message || 'Failed to create auth user' });
+        return res.status(500).json({ message: 'Failed to create user. Please try again.' });
       }
 
       // Create local profile record

@@ -19,7 +19,8 @@ export function registerLeaverReportRoutes(app: Express): void {
         const rows = await db.select().from(leaverReportRecipients).orderBy(leaverReportRecipients.addedAt);
         res.json(rows);
       } catch (err) {
-        res.status(500).json({ message: err instanceof Error ? err.message : 'Failed to fetch recipients' });
+        logger.error('Failed to fetch leaver report recipients', err instanceof Error ? err : undefined);
+        res.status(500).json({ message: 'Failed to fetch recipients. Please try again.' });
       }
     },
   );
@@ -50,7 +51,8 @@ export function registerLeaverReportRoutes(app: Express): void {
         logger.info('Leaver report recipient added', { email: parsed.data.email });
         res.status(201).json(row);
       } catch (err) {
-        res.status(500).json({ message: err instanceof Error ? err.message : 'Failed to add recipient' });
+        logger.error('Failed to add leaver report recipient', err instanceof Error ? err : undefined);
+        res.status(500).json({ message: 'Failed to add recipient. Please try again.' });
       }
     },
   );
@@ -68,7 +70,8 @@ export function registerLeaverReportRoutes(app: Express): void {
         logger.info('Leaver report recipient removed', { id: req.params.id });
         res.json({ ok: true });
       } catch (err) {
-        res.status(500).json({ message: err instanceof Error ? err.message : 'Failed to remove recipient' });
+        logger.error('Failed to remove leaver report recipient', err instanceof Error ? err : undefined);
+        res.status(500).json({ message: 'Failed to remove recipient. Please try again.' });
       }
     },
   );
@@ -93,7 +96,7 @@ export function registerLeaverReportRoutes(app: Express): void {
         res.json({ ok: true, ...result });
       } catch (err) {
         logger.error('Leaver report manual trigger failed', err instanceof Error ? err : undefined);
-        res.status(500).json({ ok: false, message: err instanceof Error ? err.message : 'Failed to send report' });
+        res.status(500).json({ ok: false, message: 'Failed to send report. Please try again.' });
       }
     },
   );
