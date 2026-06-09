@@ -79,6 +79,9 @@ const sessionPool = new pg.Pool({
   max: Number(process.env.SESSION_POOL_MAX || 3),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
