@@ -78,25 +78,27 @@ export default function WorkforcePage() {
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
 
+  const visibleRecords = useMemo(() => records.filter(r => r.status !== 'Ad-hoc'), [records]);
+
   const employees = useMemo(() => {
     const map = new Map<string, string>();
-    for (const r of records) map.set(r.employeeKey, r.employeeName);
+    for (const r of visibleRecords) map.set(r.employeeKey, r.employeeName);
     return Array.from(map.entries()).map(([key, name]) => ({ key, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [records]);
+  }, [visibleRecords]);
 
   const byKeyDate = useMemo(() => {
     const m = new Map<string, HrCalendar>();
-    for (const r of records) m.set(`${r.employeeKey}|${r.date}`, r);
+    for (const r of visibleRecords) m.set(`${r.employeeKey}|${r.date}`, r);
     return m;
-  }, [records]);
+  }, [visibleRecords]);
 
   const longTermMap = useMemo(() => {
     const m = new Set<string>();
-    for (const r of records) {
+    for (const r of visibleRecords) {
       if (LONG_TERM_STATUSES.has(r.status)) m.add(r.employeeKey);
     }
     return m;
-  }, [records]);
+  }, [visibleRecords]);
 
   const filteredEmployees = useMemo(() => {
     let list = employees;
@@ -115,9 +117,9 @@ export default function WorkforcePage() {
 
   const allStatuses = useMemo(() => {
     const s = new Set<string>();
-    for (const r of records) s.add(r.status);
+    for (const r of visibleRecords) s.add(r.status);
     return Array.from(s).sort();
-  }, [records]);
+  }, [visibleRecords]);
 
   const { leaveChartData, leaveChartKeys } = useMemo(() => {
     if (!employeeSummary?.leaveByMonth) return { leaveChartData: [], leaveChartKeys: [] };
