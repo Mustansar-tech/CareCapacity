@@ -26,6 +26,9 @@ export const pool = new Pool({
   max: _poolMax,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 pool.on('error', (err) => {
