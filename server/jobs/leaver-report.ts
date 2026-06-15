@@ -15,7 +15,7 @@ import { leavers, branches, leaverReportRecipients } from '@shared/schema';
 import { eq, and, gte, lt } from 'drizzle-orm';
 import { logger } from '../infrastructure/logger';
 
-const FROM_ADDRESS = 'noreply@mail.sur-group.co.uk';
+const FROM_ADDRESS = 'Care Capacity <noreply@mail.sur-group.co.uk>';
 
 async function getRecipients(): Promise<string[]> {
   try {
