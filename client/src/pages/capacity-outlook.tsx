@@ -660,6 +660,8 @@ export default function CapacityOutlookPage() {
   const [editingLeaver, setEditingLeaver] = useState<Leaver | null>(null);
   const [editingJoiner, setEditingJoiner] = useState<Joiner | null>(null);
   const [deletingLeaverId, setDeletingLeaverId] = useState<string | null>(null);
+  const [hardDeletingLeaverId, setHardDeletingLeaverId] = useState<string | null>(null);
+  const [hardDeletingJoinerId, setHardDeletingJoinerId] = useState<string | null>(null);
   const [deletingJoinerId, setDeletingJoinerId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'leavers' | 'pipeline'>('pipeline');
   const [monthlyViewOpen, setMonthlyViewOpen] = useState(false);
@@ -789,6 +791,43 @@ export default function CapacityOutlookPage() {
       toast({ title: "Joiner removed" });
     },
     onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to remove joiner" }),
+  });
+
+  const hardDeleteLeaverMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/leavers/${id}?branchId=${branchId}&hard=true`),
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to permanently delete');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/leavers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/cumulative-kpi'] });
+      setHardDeletingLeaverId(null);
+      toast({ title: "Leaver permanently deleted" });
+    },
+    onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to permanently delete leaver" }),
+  });
+
+  const hardDeleteJoinerMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/joiners/${id}?branchId=${branchId}&hard=true`),
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to permanently delete');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/monthly'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/cumulative-kpi'] });
+      setHardDeletingJoinerId(null);
+      toast({ title: "Joiner permanently deleted" });
+    },
+    onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to permanently delete joiner" }),
   });
 
   const outlook = outlookQuery.data;
@@ -1379,7 +1418,7 @@ export default function CapacityOutlookPage() {
                                                 <Pencil className="w-3.5 h-3.5" />
                                               </Button>
                                               <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                                onClick={() => setDeletingLeaverId(l.id)}>
+                                                onClick={() => setHardDeletingLeaverId(l.id)}>
                                                 <Trash2 className="w-3.5 h-3.5" />
                                               </Button>
                                             </div>
@@ -1607,7 +1646,7 @@ export default function CapacityOutlookPage() {
                                                 <Pencil className="w-3.5 h-3.5" />
                                               </Button>
                                               <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                                onClick={() => setDeletingJoinerId(j.id)}>
+                                                onClick={() => setHardDeletingJoinerId(j.id)}>
                                                 <Trash2 className="w-3.5 h-3.5" />
                                               </Button>
                                             </div>
@@ -1689,6 +1728,48 @@ export default function CapacityOutlookPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Hard delete leaver confirm (admin only — past records) */}
+      <AlertDialog open={!!hardDeletingLeaverId} onOpenChange={v => { if (!v) setHardDeletingLeaverId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete this leaver record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will <strong>permanently remove</strong> the record from the database. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => hardDeletingLeaverId && hardDeleteLeaverMutation.mutate(hardDeletingLeaverId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Hard delete joiner confirm (admin only — past records) */}
+      <AlertDialog open={!!hardDeletingJoinerId} onOpenChange={v => { if (!v) setHardDeletingJoinerId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently delete this joiner record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will <strong>permanently remove</strong> the record from the database. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => hardDeletingJoinerId && hardDeleteJoinerMutation.mutate(hardDeletingJoinerId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

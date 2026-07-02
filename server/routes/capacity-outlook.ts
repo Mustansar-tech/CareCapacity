@@ -11,9 +11,11 @@ import {
   createLeaver,
   updateLeaver,
   deleteLeaver,
+  hardDeleteLeaver,
   createJoiner,
   updateJoiner,
   deleteJoiner,
+  hardDeleteJoiner,
   getOutlookDetail,
   getMonthlySnapshots,
   getCurrentMonthLive,
@@ -225,22 +227,39 @@ export function registerCapacityOutlookRoutes(app: Express): void {
   );
 
   // DELETE /api/capacity-outlook/leavers/:id
+  // ?hard=true requires admin and permanently removes the record
   app.delete(
     '/api/capacity-outlook/leavers/:id',
     requireRoleAtLeast('scheduler'),
     asyncHandler(async (req, res) => {
       const branchId = await resolveBranch(req);
       const { id } = req.params;
-      const ok = await deleteLeaver(id, branchId);
-      if (!ok) throw createAppError('Leaver not found or access denied', 404);
+      const hard = req.query.hard === 'true';
 
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'LEAVER_DELETED',
-        `Leaver soft-deleted: ${id}`,
-      );
+      if (hard) {
+        if (req.session?.userRole !== 'admin') {
+          throw createAppError('Admin role required for permanent deletion', 403);
+        }
+        const ok = await hardDeleteLeaver(id, branchId);
+        if (!ok) throw createAppError('Leaver not found or access denied', 404);
+        await auditLog(
+          req.session?.userId ?? null,
+          req.session?.userEmail ?? null,
+          branchId,
+          'LEAVER_DELETED',
+          `Leaver permanently deleted: ${id}`,
+        );
+      } else {
+        const ok = await deleteLeaver(id, branchId);
+        if (!ok) throw createAppError('Leaver not found or access denied', 404);
+        await auditLog(
+          req.session?.userId ?? null,
+          req.session?.userEmail ?? null,
+          branchId,
+          'LEAVER_DELETED',
+          `Leaver soft-deleted: ${id}`,
+        );
+      }
 
       res.json({ success: true });
     }),
@@ -332,22 +351,39 @@ export function registerCapacityOutlookRoutes(app: Express): void {
   );
 
   // DELETE /api/capacity-outlook/joiners/:id
+  // ?hard=true requires admin and permanently removes the record
   app.delete(
     '/api/capacity-outlook/joiners/:id',
     requireRoleAtLeast('scheduler'),
     asyncHandler(async (req, res) => {
       const branchId = await resolveBranch(req);
       const { id } = req.params;
-      const ok = await deleteJoiner(id, branchId);
-      if (!ok) throw createAppError('Joiner not found or access denied', 404);
+      const hard = req.query.hard === 'true';
 
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'JOINER_DELETED',
-        `Joiner soft-deleted: ${id}`,
-      );
+      if (hard) {
+        if (req.session?.userRole !== 'admin') {
+          throw createAppError('Admin role required for permanent deletion', 403);
+        }
+        const ok = await hardDeleteJoiner(id, branchId);
+        if (!ok) throw createAppError('Joiner not found or access denied', 404);
+        await auditLog(
+          req.session?.userId ?? null,
+          req.session?.userEmail ?? null,
+          branchId,
+          'JOINER_DELETED',
+          `Joiner permanently deleted: ${id}`,
+        );
+      } else {
+        const ok = await deleteJoiner(id, branchId);
+        if (!ok) throw createAppError('Joiner not found or access denied', 404);
+        await auditLog(
+          req.session?.userId ?? null,
+          req.session?.userEmail ?? null,
+          branchId,
+          'JOINER_DELETED',
+          `Joiner soft-deleted: ${id}`,
+        );
+      }
 
       res.json({ success: true });
     }),

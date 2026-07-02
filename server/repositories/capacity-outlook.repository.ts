@@ -159,6 +159,13 @@ export async function deleteLeaver(id: string, branchId: string): Promise<boolea
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function hardDeleteLeaver(id: string, branchId: string): Promise<boolean> {
+  const result = await db
+    .delete(leavers)
+    .where(and(eq(leavers.id, id), eq(leavers.branchId, branchId)));
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function createJoiner(data: Omit<InsertJoiner, 'stage'> & { stage: string; confidenceWeight: number }): Promise<Joiner> {
   const [row] = await db
     .insert(joiners)
@@ -184,6 +191,13 @@ export async function deleteJoiner(id: string, branchId: string): Promise<boolea
   const result = await db
     .update(joiners)
     .set({ status: 'dropped', updatedAt: new Date() })
+    .where(and(eq(joiners.id, id), eq(joiners.branchId, branchId)));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function hardDeleteJoiner(id: string, branchId: string): Promise<boolean> {
+  const result = await db
+    .delete(joiners)
     .where(and(eq(joiners.id, id), eq(joiners.branchId, branchId)));
   return (result.rowCount ?? 0) > 0;
 }
