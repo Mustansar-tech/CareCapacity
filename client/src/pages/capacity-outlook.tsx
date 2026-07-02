@@ -652,6 +652,7 @@ export default function CapacityOutlookPage() {
   const { toast } = useToast();
 
   const isScheduler = user?.role === 'scheduler' || user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
 
   const [horizonWeeks] = useState(4);
   const [leaverModalOpen, setLeaverModalOpen] = useState(false);
@@ -1355,11 +1356,12 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Contracted Hrs</TableHead>
                                       <TableHead>Termination Day</TableHead>
                                       <TableHead>Notes</TableHead>
+                                      {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
                                     {rows.map(l => (
-                                      <TableRow key={l.id} className="opacity-60">
+                                      <TableRow key={l.id} className="opacity-60 hover:opacity-100 transition-opacity">
                                         <TableCell className="font-medium">{l.employeeName}</TableCell>
                                         <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                                         <TableCell>
@@ -1369,6 +1371,20 @@ export default function CapacityOutlookPage() {
                                         <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
+                                        {isAdmin && (
+                                          <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                                onClick={() => { setEditingLeaver(l); setLeaverModalOpen(true); }}>
+                                                <Pencil className="w-3.5 h-3.5" />
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                                onClick={() => setDeletingLeaverId(l.id)}>
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </Button>
+                                            </div>
+                                          </TableCell>
+                                        )}
                                       </TableRow>
                                     ))}
                                   </TableBody>
@@ -1566,11 +1582,12 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Contracted Hrs</TableHead>
                                       <TableHead>Hired</TableHead>
                                       <TableHead>Notes</TableHead>
+                                      {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
                                     {rows.map(j => (
-                                      <TableRow key={j.id} className="opacity-60">
+                                      <TableRow key={j.id} className="opacity-60 hover:opacity-100 transition-opacity">
                                         <TableCell className="font-medium">{j.candidateName}</TableCell>
                                         <TableCell>
                                           <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
@@ -1582,6 +1599,20 @@ export default function CapacityOutlookPage() {
                                         <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(j.hiredAt)}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
+                                        {isAdmin && (
+                                          <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                                <Pencil className="w-3.5 h-3.5" />
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                                onClick={() => setDeletingJoinerId(j.id)}>
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </Button>
+                                            </div>
+                                          </TableCell>
+                                        )}
                                       </TableRow>
                                     ))}
                                   </TableBody>
