@@ -98,6 +98,7 @@ export interface IStorage {
   getClientLocationById(id: string): Promise<ClientLocation | undefined>;
   getAllClientLocations(branchId: string): Promise<ClientLocation[]>;
   clearClientLocations(branchId: string): Promise<number>; // Delete all for branch (called before fresh upload)
+  deleteClientLocationsNotIn(branchId: string, activeClientNames: string[]): Promise<number>; // Remove clients no longer in current export (e.g. terminated)
 
   saveVisit(visit: InsertVisit): Promise<Visit>;
   getVisitById(id: string): Promise<Visit | undefined>;
@@ -209,6 +210,7 @@ export class DatabaseStorage implements IStorage {
   getClientLocationById(id: string) { return geoRepo.getClientLocationById(id); }
   getAllClientLocations(branchId: string) { return geoRepo.getAllClientLocations(branchId); }
   clearClientLocations(branchId: string) { return geoRepo.clearClientLocations(branchId); }
+  deleteClientLocationsNotIn(branchId: string, activeClientNames: string[]) { return geoRepo.deleteClientLocationsNotIn(branchId, activeClientNames); }
   saveVisit(visit: InsertVisit) { return geoRepo.saveVisit(visit); }
   getVisitById(id: string) { return geoRepo.getVisitById(id); }
   getVisitsByDate(branchId: string, date: string) { return geoRepo.getVisitsByDate(branchId, date); }
@@ -361,6 +363,15 @@ export class MemStorage implements IStorage {
   async clearClientLocations(branchId: string): Promise<number> {
     let count = 0;
     Array.from(this.clientLocations.entries()).forEach(([id, l]) => { if (l.branchId === branchId) { this.clientLocations.delete(id); count++; } });
+    return count;
+  }
+  async deleteClientLocationsNotIn(branchId: string, activeClientNames: string[]): Promise<number> {
+    if (activeClientNames.length === 0) return 0;
+    const activeSet = new Set(activeClientNames);
+    let count = 0;
+    Array.from(this.clientLocations.entries()).forEach(([id, l]) => {
+      if (l.branchId === branchId && !activeSet.has(l.clientName)) { this.clientLocations.delete(id); count++; }
+    });
     return count;
   }
 

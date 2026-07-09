@@ -231,6 +231,18 @@ export async function extractAndStoreGeographicalData(
       await storage.upsertClientLocation(locationData);
     }
 
+    if (clientLocationsMap.size > 0) {
+      try {
+        const activeClientNames = Array.from(clientLocationsMap.keys());
+        const removed = await storage.deleteClientLocationsNotIn(branchId, activeClientNames);
+        if (removed > 0) {
+          logger.info(`Removed ${removed} client location(s) no longer present in the latest export (e.g. terminated clients)`);
+        }
+      } catch (err) {
+        logger.warn(`Failed to prune stale client locations (non-fatal)`, err);
+      }
+    }
+
     logger.debug(`Starting enhanced batch geocoding for locations...`);
 
     // Employee second-pass geocoding

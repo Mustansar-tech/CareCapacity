@@ -95,6 +95,19 @@ export async function clearClientLocations(branchId: string): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+export async function deleteClientLocationsNotIn(branchId: string, activeClientNames: string[]): Promise<number> {
+  if (activeClientNames.length === 0) return 0;
+  const result = await db
+    .delete(clientLocations)
+    .where(
+      and(
+        eq(clientLocations.branchId, branchId),
+        sql`${clientLocations.clientName} NOT IN ${activeClientNames}`,
+      ),
+    );
+  return result.rowCount ?? 0;
+}
+
 export async function saveVisit(visit: InsertVisit): Promise<Visit> {
   const [result] = await db.insert(visits).values(visit).returning();
   return result;
