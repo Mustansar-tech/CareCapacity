@@ -55,6 +55,19 @@ export async function clearEmployeeLocations(branchId: string): Promise<number> 
   return result.rowCount ?? 0;
 }
 
+export async function deleteEmployeeLocationsNotIn(branchId: string, activeEmployeeNames: string[]): Promise<number> {
+  if (activeEmployeeNames.length === 0) return 0;
+  const result = await db
+    .delete(employeeLocations)
+    .where(
+      and(
+        eq(employeeLocations.branchId, branchId),
+        sql`${employeeLocations.employeeName} NOT IN ${activeEmployeeNames}`,
+      ),
+    );
+  return result.rowCount ?? 0;
+}
+
 export async function upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation> {
   const [result] = await db
     .insert(clientLocations)

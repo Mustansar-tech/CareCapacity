@@ -28,12 +28,15 @@ export async function extractAndStoreGeographicalData(
 
   try {
     const employeeLocationsMap = new Map<string, any>();
+    const allEmployeeNamesInExport = new Set<string>();
 
     logger.debug(`Starting to iterate through ${cgData.length} CG Data rows...`);
     for (const row of cgData) {
       const employeeName = row["CAREGiver Name"];
       const postcode = row["PostCode"];
       const transportMode = row["TransportModeDescription"]?.toLowerCase();
+
+      if (employeeName) allEmployeeNamesInExport.add(employeeName);
 
       const title = pickCol(row, ["Title", "Employee Title", "Title Description"]) || "";
       const titleLower = title.toLowerCase().trim();
@@ -72,6 +75,18 @@ export async function extractAndStoreGeographicalData(
 
     for (const locationData of Array.from(employeeLocationsMap.values())) {
       await storage.upsertEmployeeLocation(locationData);
+    }
+
+    if (allEmployeeNamesInExport.size > 0) {
+      try {
+        const activeEmployeeNames = Array.from(allEmployeeNamesInExport);
+        const removedEmp = await storage.deleteEmployeeLocationsNotIn(branchId, activeEmployeeNames);
+        if (removedEmp > 0) {
+          logger.info(`Removed ${removedEmp} care pro location(s) no longer present in the latest export (e.g. terminated care pros)`);
+        }
+      } catch (err) {
+        logger.warn(`Failed to prune stale care pro locations (non-fatal)`, err);
+      }
     }
 
     logger.debug(`Extracting client locations from raw GH Excel workbook`);

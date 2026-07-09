@@ -91,7 +91,8 @@ export interface IStorage {
   getEmployeeLocationByName(branchId: string, employeeName: string): Promise<EmployeeLocation | undefined>;
   getEmployeeLocationById(id: string): Promise<EmployeeLocation | undefined>;
   getAllEmployeeLocations(branchId: string): Promise<EmployeeLocation[]>;
-  clearEmployeeLocations(branchId: string): Promise<number>; // Delete all for branch (called before fresh upload)
+  clearEmployeeLocations(branchId: string): Promise<number>;
+  deleteEmployeeLocationsNotIn(branchId: string, activeEmployeeNames: string[]): Promise<number>; // Remove care pros no longer in current export (e.g. terminated)
 
   upsertClientLocation(location: InsertClientLocation): Promise<ClientLocation>;
   getClientLocationByName(branchId: string, clientName: string): Promise<ClientLocation | undefined>;
@@ -205,6 +206,7 @@ export class DatabaseStorage implements IStorage {
   getEmployeeLocationById(id: string) { return geoRepo.getEmployeeLocationById(id); }
   getAllEmployeeLocations(branchId: string) { return geoRepo.getAllEmployeeLocations(branchId); }
   clearEmployeeLocations(branchId: string) { return geoRepo.clearEmployeeLocations(branchId); }
+  deleteEmployeeLocationsNotIn(branchId: string, activeEmployeeNames: string[]) { return geoRepo.deleteEmployeeLocationsNotIn(branchId, activeEmployeeNames); }
   upsertClientLocation(location: InsertClientLocation) { return geoRepo.upsertClientLocation(location); }
   getClientLocationByName(branchId: string, clientName: string) { return geoRepo.getClientLocationByName(branchId, clientName); }
   getClientLocationById(id: string) { return geoRepo.getClientLocationById(id); }
@@ -346,6 +348,15 @@ export class MemStorage implements IStorage {
   async clearEmployeeLocations(branchId: string): Promise<number> {
     let count = 0;
     Array.from(this.employeeLocations.entries()).forEach(([id, l]) => { if (l.branchId === branchId) { this.employeeLocations.delete(id); count++; } });
+    return count;
+  }
+  async deleteEmployeeLocationsNotIn(branchId: string, activeEmployeeNames: string[]): Promise<number> {
+    if (activeEmployeeNames.length === 0) return 0;
+    const activeSet = new Set(activeEmployeeNames);
+    let count = 0;
+    Array.from(this.employeeLocations.entries()).forEach(([id, l]) => {
+      if (l.branchId === branchId && !activeSet.has(l.employeeName)) { this.employeeLocations.delete(id); count++; }
+    });
     return count;
   }
 
