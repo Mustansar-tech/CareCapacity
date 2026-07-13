@@ -1315,6 +1315,28 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               />
                             ))}
 
+                            {/* Home → First Visit travel strip */}
+                            {visits.length > 0 && visits[0].travelTimeBefore > 0 && (() => {
+                              const firstStart = timeToMinutes(visits[0].startTime);
+                              const homeDepart = firstStart - visits[0].travelTimeBefore;
+                              const startPx = minsToPx(Math.max(0, homeDepart));
+                              const endPx = minsToPx(firstStart);
+                              const w = endPx - startPx;
+                              if (w < 1) return null;
+                              return (
+                                <div
+                                  key="home-out"
+                                  className="absolute pointer-events-none z-10 flex items-center"
+                                  style={{ left: startPx, width: w, top: '50%', transform: 'translateY(-50%)', height: 20 }}
+                                >
+                                  <div className="w-full h-full rounded-sm bg-sky-100 dark:bg-sky-900/40 border border-sky-300 dark:border-sky-700 flex items-center justify-center gap-0.5 overflow-hidden">
+                                    <Home className="h-2.5 w-2.5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
+                                    {w >= 28 && <span className="text-[9px] font-medium text-sky-700 dark:text-sky-300 whitespace-nowrap">{visits[0].travelTimeBefore}m</span>}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {/* Travel connectors between visits */}
                             {visits.map((visit, i) => {
                               if (i === visits.length - 1) return null;
@@ -1322,20 +1344,50 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               const gapStartPx = minsToPx(timeToMinutes(visit.endTime));
                               const gapEndPx = minsToPx(timeToMinutes(next.startTime));
                               const gapW = gapEndPx - gapStartPx;
-                              if (gapW < 32 || !next.travelTimeBefore) return null;
+                              if (gapW < 4) return null;
                               return (
                                 <div
                                   key={`conn-${i}`}
                                   className="absolute flex items-center justify-center pointer-events-none z-10"
-                                  style={{ left: gapStartPx + 2, width: gapW - 4, top: '50%', transform: 'translateY(-50%)', height: 18 }}
+                                  style={{ left: gapStartPx + 1, width: gapW - 2, top: '50%', transform: 'translateY(-50%)', height: 20 }}
                                 >
-                                  <div className="flex items-center gap-0.5 text-[9px] text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-gray-900/90 px-1 rounded border border-gray-200 dark:border-gray-700 shadow-sm">
-                                    <span>{next.travelTimeBefore}m</span>
-                                    <ArrowRight className="h-2.5 w-2.5" />
+                                  <div className="w-full h-full rounded-sm bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 flex items-center justify-center gap-0.5 overflow-hidden">
+                                    {gapW >= 20 && next.travelTimeBefore > 0 && <span className="text-[9px] font-medium text-orange-700 dark:text-orange-300 whitespace-nowrap">{next.travelTimeBefore}m</span>}
+                                    {gapW >= 32 && <ArrowRight className="h-2.5 w-2.5 text-orange-500 dark:text-orange-400" />}
                                   </div>
                                 </div>
                               );
                             })}
+
+                            {/* Last Visit → Home travel strip */}
+                            {visits.length > 0 && (() => {
+                              const lastVisit = visits[visits.length - 1];
+                              if (!lastVisit?.lat || !lastVisit?.lng) return null;
+                              const empHome = employeeLocationMap.get(empName);
+                              if (!empHome?.homeLat || !empHome?.homeLng) return null;
+                              const mode = ((empHome.transportMode || 'car') as 'car' | 'walking' | 'public');
+                              const returnMins = Math.round(getTravelMinutes(
+                                { lat: Number(lastVisit.lat), lng: Number(lastVisit.lng) },
+                                { lat: Number(empHome.homeLat), lng: Number(empHome.homeLng) },
+                                mode,
+                              ));
+                              if (returnMins <= 0) return null;
+                              const startPx = minsToPx(timeToMinutes(lastVisit.endTime));
+                              const w = Math.min(minsToPx(returnMins), TIMELINE_WIDTH - startPx);
+                              if (w < 1) return null;
+                              return (
+                                <div
+                                  key="home-return"
+                                  className="absolute pointer-events-none z-10 flex items-center"
+                                  style={{ left: startPx, width: w, top: '50%', transform: 'translateY(-50%)', height: 20 }}
+                                >
+                                  <div className="w-full h-full rounded-sm bg-sky-100 dark:bg-sky-900/40 border border-sky-300 dark:border-sky-700 flex items-center justify-center gap-0.5 overflow-hidden">
+                                    {w >= 28 && <span className="text-[9px] font-medium text-sky-700 dark:text-sky-300 whitespace-nowrap">{returnMins}m</span>}
+                                    <Home className="h-2.5 w-2.5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Visit blocks (draggable) */}
                             {visits.map((visit, i) => {
