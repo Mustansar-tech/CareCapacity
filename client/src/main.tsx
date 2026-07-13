@@ -11,17 +11,6 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from './App';
 import "./index.css";
 
-// Apply theme before first paint — defaults to dark, respects user preference
-(function () {
-  const stored = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  if (stored === 'light') {
-    document.documentElement.classList.remove('dark');
-  } else {
-    document.documentElement.classList.add('dark');
-  }
-})();
-
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   environment: import.meta.env.VITE_APP_ENV || import.meta.env.MODE,
