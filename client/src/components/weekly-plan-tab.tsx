@@ -1392,22 +1392,43 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               const xLeft  = timeToX(breakStartStr);
                               const breakW = Math.max(40, durationToW(breakStartStr, breakEndStr));
 
+                              const xVisitEnd = timeToX(visit.endTime);
+
                               return (
-                                <div
-                                  style={{
-                                    position: 'absolute', top: 12, left: xLeft, width: breakW, height: 52,
-                                    borderRadius: 8, padding: '4px 6px',
-                                    background: 'rgba(251,146,60,.12)',
-                                    border: '1.5px dashed #F97316',
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                    zIndex: 3, overflow: 'hidden', pointerEvents: 'none',
-                                  }}
-                                  title={`Break at home · ${breakTime}min rest after ${travelToHome}min travel`}
-                                >
-                                  <span style={{ fontSize: 13, lineHeight: 1 }}>🏠</span>
-                                  <span style={{ fontSize: 8, fontWeight: 700, color: '#9A3412', lineHeight: 1.3, marginTop: 1 }}>Break</span>
-                                  <span style={{ fontSize: 8, fontWeight: 600, color: '#C2410C', lineHeight: 1.2 }}>{breakTime}m</span>
-                                </div>
+                                <>
+                                  {/* Travel pill: last visit → home */}
+                                  {travelToHome > 0 && (
+                                    <div style={{
+                                      position: 'absolute', top: 40, left: xVisitEnd + 4, height: 20, padding: '0 6px',
+                                      borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
+                                      fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                                      background: travelToHome > 30 ? '#FEF2F2' : travelToHome > 20 ? '#FFFBEB' : '#ECFDF5',
+                                      color:      travelToHome > 30 ? '#DC2626' : travelToHome > 20 ? '#B45309' : '#047857',
+                                      border: `1px solid ${travelToHome > 30 ? '#FCA5A5' : travelToHome > 20 ? '#FCD34D' : '#A7F3D0'}`,
+                                      boxShadow: '0 2px 6px rgba(15,23,42,.08)',
+                                      pointerEvents: 'none',
+                                    }}>
+                                      {isWalker ? '🚶' : '🚗'} {travelToHome}m
+                                    </div>
+                                  )}
+
+                                  {/* Break block */}
+                                  <div
+                                    style={{
+                                      position: 'absolute', top: 12, left: xLeft, width: breakW, height: 52,
+                                      borderRadius: 8, padding: '4px 6px',
+                                      background: 'rgba(251,146,60,.12)',
+                                      border: '1.5px dashed #F97316',
+                                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                      zIndex: 3, overflow: 'hidden', pointerEvents: 'none',
+                                    }}
+                                    title={`Break at home · ${breakTime}min rest · ${travelToHome}min to home + ${travelFromHome}min to next visit`}
+                                  >
+                                    <span style={{ fontSize: 13, lineHeight: 1 }}>🏠</span>
+                                    <span style={{ fontSize: 8, fontWeight: 700, color: '#9A3412', lineHeight: 1.3, marginTop: 1 }}>Break</span>
+                                    <span style={{ fontSize: 8, fontWeight: 600, color: '#C2410C', lineHeight: 1.2 }}>{breakTime}m</span>
+                                  </div>
+                                </>
                               );
                             })()}
                           </div>
