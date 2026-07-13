@@ -875,11 +875,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return 'linear-gradient(135deg,#10B981,#059669)';
   };
 
-  // ── Travel pill colour helpers (0-10m green, 11-20m blue, 21-30m amber, 30m+ red) ──
-  const travelPillBg     = (t: number) => t > 30 ? '#FEF2F2' : t > 20 ? '#FFFBEB' : t > 10 ? '#EFF6FF' : '#ECFDF5';
-  const travelPillColor  = (t: number) => t > 30 ? '#DC2626' : t > 20 ? '#B45309' : t > 10 ? '#1D4ED8' : '#047857';
-  const travelPillBorder = (t: number) => t > 30 ? '#FCA5A5' : t > 20 ? '#FCD34D' : t > 10 ? '#BFDBFE' : '#A7F3D0';
-
   const timeToX = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     return Math.max(0, ((h + m / 60) - TIMELINE_START) * HOUR_WIDTH);
@@ -1133,29 +1128,27 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     key={`${visit.id}-${idx}`}
                     onClick={() => setSelectedVisit(isSelected ? null : visit)}
                     style={{
-                      background: 'white', border: `1px solid ${isSelected ? '#93C5FD' : '#F1F5F9'}`,
-                      borderLeft: `3px solid ${priColor}`, borderRadius: 10,
-                      padding: '8px 10px', marginBottom: 6, cursor: 'pointer', transition: 'all .15s',
-                      boxShadow: isSelected ? '0 4px 14px rgba(37,99,235,.10)' : '0 1px 3px rgba(15,23,42,.04)',
+                      background: 'white', border: `1px solid ${isSelected ? '#93C5FD' : '#E5E9F2'}`,
+                      borderLeft: `4px solid ${priColor}`, borderRadius: 12,
+                      padding: 12, marginBottom: 10, cursor: 'pointer', transition: 'all .15s',
+                      boxShadow: isSelected ? '0 6px 18px rgba(37,99,235,.12)' : 'none',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                      <span style={{ fontWeight: 700, fontSize: 12, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{visit.clientName}</span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#2563EB', background: '#EFF6FF', padding: '1px 6px', borderRadius: 5, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 4 }}>
-                        {visit.startTime}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{visit.clientName}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', background: '#EFF6FF', padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', marginLeft: 6 }}>
+                        {visit.startTime}–{visit.endTime}
                       </span>
                     </div>
-                    <div style={{ fontSize: 10, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span>{svcType}</span>
-                      <span style={{ color: '#E2E8F0' }}>·</span>
-                      <span>{visit.durationMinutes}min</span>
-                      {visit.unallocatedReason && <>
-                        <span style={{ color: '#E2E8F0' }}>·</span>
-                        <span style={{ color: '#EF4444', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {visit.unallocatedReason.slice(0, 30)}{visit.unallocatedReason.length > 30 ? '…' : ''}
-                        </span>
-                      </>}
+                    <div style={{ fontSize: 11, color: '#64748B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <MapPin style={{ width: 11, height: 11 }} />
+                      {svcType} · {visit.durationMinutes}min
                     </div>
+                    {visit.unallocatedReason && (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 6, background: '#FEF2F2', color: '#DC2626', display: 'inline-block' }}>
+                        {visit.unallocatedReason.slice(0, 45)}{visit.unallocatedReason.length > 45 ? '…' : ''}
+                      </span>
+                    )}
                   </div>
                 );
               })
@@ -1258,59 +1251,42 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 78, position: 'relative' }}
                   >
                     {/* Carer info cell — sticky left */}
-                    {(() => {
-                      const totalTravelMs = visits.reduce((s, v) => s + (v.travelTimeBefore > 0 && v.travelTimeBefore < 999 ? v.travelTimeBefore : 0), 0);
-                      const avgTrvl = visits.length > 0 ? totalTravelMs / visits.length : 0;
-                      const routeScore = visits.length > 0 ? Math.max(0, Math.min(100, Math.round(100 - avgTrvl * 1.6))) : null;
-                      const scoreColor = routeScore === null ? '#94A3B8' : routeScore >= 85 ? '#059669' : routeScore >= 70 ? '#B45309' : '#DC2626';
-                      const totalVisitMins = visits.reduce((s, v) => s + v.durationMinutes, 0);
-                      const availWindows = parseTimeWindows(timeWindows);
-                      const availMins = availWindows.reduce((s, w) => s + (w.end - w.start), 0);
-                      const freeMins = Math.max(0, availMins - totalVisitMins - Math.round(avgTrvl * visits.length));
-                      return (
-                        <div
-                          style={{ padding: '10px 10px', background: '#F8FAFC', borderRight: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer' }}
-                          onClick={() => { setSelectedEmployee(empName); setViewMode('week'); }}
-                          title="Click to view weekly run"
-                        >
-                          {/* Transport icon */}
-                          <div style={{ width: 30, height: 30, borderRadius: 8, background: isWalker ? '#ECFDF5' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${isWalker ? '#D1FAE5' : '#DBEAFE'}` }}>
-                            {isWalker
-                              ? <User style={{ width: 13, height: 13, color: '#059669' }} />
-                              : <Car style={{ width: 13, height: 13, color: '#2563EB' }} />}
-                          </div>
-                          {/* Name + stats */}
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: genderColor(empName), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName}</div>
-                            <div style={{ fontSize: 10, color: '#64748B', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span>{weeklyHours.toFixed(0)}h/wk</span>
-                              {hasVisits && <><span style={{ color: '#CBD5E1' }}>·</span><span>{visits.length} {visits.length === 1 ? 'visit' : 'visits'}</span></>}
-                            </div>
-                            {freeMins > 0 && hasVisits && (
-                              <div style={{ fontSize: 9, color: '#059669', marginTop: 1, fontWeight: 600 }}>+{freeMins}m free</div>
-                            )}
-                            {!hasVisits && timeWindows && (
-                              <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{timeWindows}</div>
-                            )}
-                          </div>
-                          {/* Route score badge (replaces donut) */}
-                          {routeScore !== null ? (
-                            <div style={{ flexShrink: 0, textAlign: 'center', background: 'white', borderRadius: 8, padding: '3px 6px', border: `1px solid ${scoreColor}22` }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: scoreColor, lineHeight: 1 }}>{routeScore}</div>
-                              <div style={{ fontSize: 7, color: '#94A3B8', fontWeight: 600, marginTop: 1, textTransform: 'uppercase', letterSpacing: '.02em' }}>route</div>
-                            </div>
-                          ) : (
-                            <div style={{ flexShrink: 0, width: 32 }} />
-                          )}
+                    <div
+                      style={{ padding: '8px 10px', background: '#F8FAFC', borderRight: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer' }}
+                      onClick={() => { setSelectedEmployee(empName); setViewMode('week'); }}
+                      title="Click to view weekly run"
+                    >
+                      {/* Transport icon chip replaces avatar */}
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: isWalker ? '#ECFDF5' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${isWalker ? '#A7F3D0' : '#BFDBFE'}` }}>
+                        {isWalker
+                          ? <User style={{ width: 15, height: 15, color: '#059669' }} />
+                          : <Car style={{ width: 15, height: 15, color: '#2563EB' }} />}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: genderColor(empName), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName}</div>
+                        <div style={{ fontSize: 10, color: '#64748B', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {weeklyHours.toFixed(0)}h/wk
+                          {hasVisits && <span style={{ color: '#94A3B8' }}>· {visits.length}v</span>}
                         </div>
-                      );
-                    })()}
+                        {timeWindows && (
+                          <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 2, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{timeWindows}</div>
+                        )}
+                      </div>
+                      {/* Circular utilisation % donut */}
+                      <svg width="34" height="34" viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
+                        <circle cx="18" cy="18" r="13" fill="none" stroke="#E2E8F0" strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="13" fill="none" stroke={utilColor} strokeWidth="3.5"
+                          strokeDasharray={`${2 * Math.PI * 13 * utilPct / 100} ${2 * Math.PI * 13}`}
+                          strokeLinecap="round" transform="rotate(-90 18 18)" />
+                        <text x="18" y="22" textAnchor="middle" fontSize="8" fontWeight="800" fill={utilColor}>{Math.round(utilPct)}%</text>
+                      </svg>
+                    </div>
 
                     {/* Hour grid cells */}
                     {TIMELINE_HOURS.map(h => {
                       const isNowH = h === new Date().getHours() && dayDate === new Date().toISOString().split('T')[0];
                       return (
-                        <div key={h} style={{ borderLeft: `1px solid ${isNowH ? 'rgba(37,99,235,.12)' : 'rgba(241,245,249,0.7)'}`, background: isNowH ? 'rgba(37,99,235,.015)' : 'transparent' }} />
+                        <div key={h} style={{ borderLeft: '1px solid #F1F5F9', background: isNowH ? 'rgba(37,99,235,.02)' : 'transparent' }} />
                       );
                     })}
 
@@ -1341,32 +1317,28 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const showTravel = travel > 0 && travel < 999;
                         const travelIcon = vi === 0 ? '🏠' : isWalker ? '🚶' : '🚗';
                         const isSelected = selectedTimelineVisit?.empName === empName && selectedTimelineVisit?.visit.id === visit.id;
-                        // Available gap indicator: gap 15–89min to next visit
-                        const nextVisit = visits[vi + 1];
-                        const gapToNext = nextVisit ? timeToMinutes(nextVisit.startTime) - timeToMinutes(visit.endTime) : 0;
-                        const showGapIndicator = nextVisit && gapToNext >= 15 && gapToNext < 90;
                         return (
                           <div key={vi} style={{ pointerEvents: 'auto' }}>
                             {showTravel && (
                               <div style={{
-                                position: 'absolute', top: 40, left: Math.max(2, xLeft - (vi === 0 ? 44 : 34)), height: 18, padding: '0 6px',
-                                borderRadius: 999, display: 'flex', alignItems: 'center',
-                                fontSize: 10, fontWeight: 700, zIndex: 6, whiteSpace: 'nowrap',
-                                background: travelPillBg(travel),
-                                color: travelPillColor(travel),
-                                border: `1px solid ${travelPillBorder(travel)}`,
-                                boxShadow: '0 1px 4px rgba(15,23,42,.06)',
+                                position: 'absolute', top: 40, left: Math.max(2, xLeft - (vi === 0 ? 48 : 38)), height: 20, padding: '0 6px',
+                                borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
+                                fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                                background: travel > 30 ? '#FEF2F2' : travel > 20 ? '#FFFBEB' : '#ECFDF5',
+                                color:      travel > 30 ? '#DC2626' : travel > 20 ? '#B45309' : '#047857',
+                                border: `1px solid ${travel > 30 ? '#FCA5A5' : travel > 20 ? '#FCD34D' : '#A7F3D0'}`,
+                                boxShadow: '0 2px 6px rgba(15,23,42,.08)',
                               }}>
-                                {travel}m
+                                {travelIcon} {travel}m
                               </div>
                             )}
                             <div
                               onClick={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               style={{
                                 position: 'absolute', top: 12, left: xLeft, width: Math.max(28, wPx - 3), height: 52,
-                                borderRadius: 12, padding: '5px 7px', background: grad, color: 'white',
+                                borderRadius: 8, padding: '5px 7px', background: grad, color: 'white',
                                 cursor: 'pointer', overflow: 'hidden',
-                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.10)',
+                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 3px 8px rgba(15,23,42,.14)',
                                 zIndex: isSelected ? 5 : 3, fontSize: 10, fontWeight: 600,
                                 transition: 'transform .12s, box-shadow .12s',
                               }}
@@ -1385,22 +1357,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 </button>
                               )}
                             </div>
-
-                            {/* Available gap indicator: 15–89 min gap to next visit */}
-                            {showGapIndicator && (() => {
-                              const gapX = timeToX(visit.endTime) + 3;
-                              return (
-                                <div style={{
-                                  position: 'absolute', top: 8, left: gapX, height: 14, padding: '0 6px',
-                                  borderRadius: 999, display: 'flex', alignItems: 'center',
-                                  fontSize: 9, fontWeight: 700, zIndex: 4, whiteSpace: 'nowrap',
-                                  background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
-                                  pointerEvents: 'none',
-                                }}>
-                                  +{gapToNext}m
-                                </div>
-                              );
-                            })()}
 
                             {/* Break block — shown when gap to next visit is ≥ 90 min (carer goes home) */}
                             {vi < visits.length - 1 && (() => {
@@ -1443,16 +1399,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {/* Travel pill: last visit → home */}
                                   {travelToHome > 0 && (
                                     <div style={{
-                                      position: 'absolute', top: 40, left: xVisitEnd + 4, height: 18, padding: '0 6px',
-                                      borderRadius: 999, display: 'flex', alignItems: 'center',
-                                      fontSize: 10, fontWeight: 700, zIndex: 6, whiteSpace: 'nowrap',
-                                      background: travelPillBg(travelToHome),
-                                      color: travelPillColor(travelToHome),
-                                      border: `1px solid ${travelPillBorder(travelToHome)}`,
-                                      boxShadow: '0 1px 4px rgba(15,23,42,.06)',
+                                      position: 'absolute', top: 40, left: xVisitEnd + 4, height: 20, padding: '0 6px',
+                                      borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
+                                      fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                                      background: travelToHome > 30 ? '#FEF2F2' : travelToHome > 20 ? '#FFFBEB' : '#ECFDF5',
+                                      color:      travelToHome > 30 ? '#DC2626' : travelToHome > 20 ? '#B45309' : '#047857',
+                                      border: `1px solid ${travelToHome > 30 ? '#FCA5A5' : travelToHome > 20 ? '#FCD34D' : '#A7F3D0'}`,
+                                      boxShadow: '0 2px 6px rgba(15,23,42,.08)',
                                       pointerEvents: 'none',
                                     }}>
-                                      {travelToHome}m
+                                      {isWalker ? '🚶' : '🚗'} {travelToHome}m
                                     </div>
                                   )}
 
@@ -1460,15 +1416,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   <div
                                     style={{
                                       position: 'absolute', top: 12, left: xLeft, width: breakW, height: 52,
-                                      borderRadius: 10, padding: '4px 6px',
-                                      background: 'rgba(251,146,60,.08)',
-                                      border: '1.5px dashed rgba(249,115,22,.5)',
+                                      borderRadius: 8, padding: '4px 6px',
+                                      background: 'rgba(251,146,60,.12)',
+                                      border: '1.5px dashed #F97316',
                                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                       zIndex: 3, overflow: 'hidden', pointerEvents: 'none',
                                     }}
                                     title={`Break at home · ${breakTime}min rest · ${travelToHome}min to home + ${travelFromHome}min to next visit`}
                                   >
-                                    <span style={{ fontSize: 11, lineHeight: 1 }}>🏠</span>
+                                    <span style={{ fontSize: 13, lineHeight: 1 }}>🏠</span>
                                     <span style={{ fontSize: 8, fontWeight: 700, color: '#9A3412', lineHeight: 1.3, marginTop: 1 }}>Break</span>
                                     <span style={{ fontSize: 8, fontWeight: 600, color: '#C2410C', lineHeight: 1.2 }}>{breakTime}m</span>
                                   </div>
@@ -1493,14 +1449,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const xEnd = timeToX(lastV.endTime);
                         return (
                           <div style={{
-                            position: 'absolute', top: 40, left: xEnd + 4, height: 18, padding: '0 6px',
-                            borderRadius: 999, display: 'flex', alignItems: 'center',
-                            fontSize: 10, fontWeight: 700, zIndex: 6, whiteSpace: 'nowrap',
-                            background: travelPillBg(travelHome), color: travelPillColor(travelHome),
-                            border: `1px solid ${travelPillBorder(travelHome)}`,
-                            boxShadow: '0 1px 4px rgba(15,23,42,.06)',
+                            position: 'absolute', top: 40, left: xEnd + 4, height: 20, padding: '0 6px',
+                            borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
+                            fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                            background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
+                            boxShadow: '0 2px 6px rgba(15,23,42,.08)',
                           }}>
-                            {travelHome}m
+                            🏠 {travelHome}m
                           </div>
                         );
                       })()}
