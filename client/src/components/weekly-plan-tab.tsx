@@ -1278,7 +1278,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         <circle cx="18" cy="18" r="13" fill="none" stroke={utilColor} strokeWidth="3.5"
                           strokeDasharray={`${2 * Math.PI * 13 * utilPct / 100} ${2 * Math.PI * 13}`}
                           strokeLinecap="round" transform="rotate(-90 18 18)" />
-                        <text x="18" y="22" textAnchor="middle" fontSize="8" fontWeight="800" fill={utilColor}>{utilPct}%</text>
+                        <text x="18" y="22" textAnchor="middle" fontSize="8" fontWeight="800" fill={utilColor}>{Math.round(utilPct)}%</text>
                       </svg>
                     </div>
 
