@@ -1317,6 +1317,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const showTravel = travel > 0 && travel < 999;
                         const travelIcon = vi === 0 ? '🏠' : isWalker ? '🚶' : '🚗';
                         const isSelected = selectedTimelineVisit?.empName === empName && selectedTimelineVisit?.visit.id === visit.id;
+
+                        // Break block between this visit and the next
+                        const nextVisit = visits[vi + 1];
+                        const gapMin = nextVisit
+                          ? timeToMinutes(nextVisit.startTime) - timeToMinutes(visit.endTime)
+                          : 0;
+                        const isHomeBreak = gapMin >= 90;
+                        const showBreak = gapMin >= 20;
+                        const breakXLeft = timeToX(visit.endTime);
+                        const breakWidth = nextVisit ? Math.max(0, timeToX(nextVisit.startTime) - breakXLeft - 2) : 0;
+
                         return (
                           <div key={vi} style={{ pointerEvents: 'auto' }}>
                             {showTravel && (
@@ -1357,6 +1368,26 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 </button>
                               )}
                             </div>
+
+                            {/* Break block between this visit and the next */}
+                            {showBreak && breakWidth > 6 && (
+                              <div style={{
+                                position: 'absolute', top: 12, left: breakXLeft + 2, width: breakWidth, height: 52,
+                                borderRadius: 8, padding: '5px 7px',
+                                background: isHomeBreak
+                                  ? 'linear-gradient(135deg,#FED7AA,#FDBA74)'
+                                  : 'linear-gradient(135deg,#FEF3C7,#FDE68A)',
+                                border: `1.5px dashed ${isHomeBreak ? '#F97316' : '#FBBF24'}`,
+                                zIndex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                              }}
+                              title={`Break ${gapMin}min${isHomeBreak ? ' — home break' : ''}`}
+                              >
+                                <span style={{ fontSize: 13 }}>{isHomeBreak ? '🏠' : '☕'}</span>
+                                <span style={{ fontSize: 9, fontWeight: 800, color: isHomeBreak ? '#C2410C' : '#92400E', whiteSpace: 'nowrap' }}>
+                                  {gapMin}m
+                                </span>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
