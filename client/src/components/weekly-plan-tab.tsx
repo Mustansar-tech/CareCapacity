@@ -1248,7 +1248,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 return (
                   <div
                     key={empName}
-                    style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 96, position: 'relative' }}
+                    style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 78, position: 'relative' }}
                   >
                     {/* Carer info cell — sticky left */}
                     <div
@@ -1317,55 +1317,41 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const showTravel = travel > 0 && travel < 999;
                         const travelIcon = vi === 0 ? '🏠' : isWalker ? '🚶' : '🚗';
                         const isSelected = selectedTimelineVisit?.empName === empName && selectedTimelineVisit?.visit.id === visit.id;
-                        const blockW = Math.max(32, wPx - 3);
-                        const isNarrow = blockW < 80;
                         return (
                           <div key={vi} style={{ pointerEvents: 'auto' }}>
+                            {showTravel && (
+                              <div style={{
+                                position: 'absolute', top: 40, left: Math.max(2, xLeft - (vi === 0 ? 48 : 38)), height: 20, padding: '0 6px',
+                                borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
+                                fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                                background: travel > 30 ? '#FEF2F2' : travel > 20 ? '#FFFBEB' : '#ECFDF5',
+                                color:      travel > 30 ? '#DC2626' : travel > 20 ? '#B45309' : '#047857',
+                                border: `1px solid ${travel > 30 ? '#FCA5A5' : travel > 20 ? '#FCD34D' : '#A7F3D0'}`,
+                                boxShadow: '0 2px 6px rgba(15,23,42,.08)',
+                              }}>
+                                {travelIcon} {travel}m
+                              </div>
+                            )}
                             <div
                               onClick={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               style={{
-                                position: 'absolute', top: 8, left: xLeft, width: blockW, height: 74,
-                                borderRadius: 8, background: grad, color: 'white',
-                                cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 3px 10px rgba(15,23,42,.18)',
-                                zIndex: isSelected ? 5 : 3,
+                                position: 'absolute', top: 12, left: xLeft, width: Math.max(28, wPx - 3), height: 52,
+                                borderRadius: 8, padding: '5px 7px', background: grad, color: 'white',
+                                cursor: 'pointer', overflow: 'hidden',
+                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 3px 8px rgba(15,23,42,.14)',
+                                zIndex: isSelected ? 5 : 3, fontSize: 10, fontWeight: 600,
                                 transition: 'transform .12s, box-shadow .12s',
                               }}
                               title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
                             >
-                              {/* Main body */}
-                              <div style={{ flex: 1, padding: isNarrow ? '4px 5px 2px' : '5px 7px 2px', overflow: 'hidden', minHeight: 0 }}>
-                                {/* Client name */}
-                                <div style={{ fontSize: isNarrow ? 9 : 11, fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>
-                                  {isNarrow ? visit.clientName.split(',')[0].split(' ').slice(-1)[0] : visit.clientName}
-                                </div>
-                                {/* Time range */}
-                                {!isNarrow && (
-                                  <div style={{ fontSize: 9.5, opacity: .9, fontWeight: 600, lineHeight: 1.2, marginBottom: 1 }}>
-                                    {visit.startTime}–{visit.endTime}
-                                  </div>
-                                )}
-                                {/* Service type */}
-                                {!isNarrow && visit.serviceType && (
-                                  <div style={{ fontSize: 9, opacity: .82, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {visit.serviceType}
-                                  </div>
-                                )}
+                              <div style={{ fontSize: 9, opacity: .85, marginBottom: 2 }}>{visit.startTime}–{visit.endTime}</div>
+                              <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {visit.clientName.split(',')[0].split(' ').slice(-1)[0]}
                               </div>
-                              {/* Travel time footer strip */}
-                              {showTravel && !isNarrow && (
-                                <div style={{
-                                  background: 'rgba(0,0,0,.18)', padding: '2px 7px',
-                                  fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
-                                  display: 'flex', alignItems: 'center', gap: 3,
-                                }}>
-                                  {travelIcon} Travel time: {travel}min
-                                </div>
-                              )}
                               {isSelected && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); unallocateVisit(empName, visit); }}
-                                  style={{ position: 'absolute', bottom: showTravel && !isNarrow ? 20 : 4, right: 4, background: 'rgba(255,255,255,.28)', border: 'none', borderRadius: 4, color: 'white', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap', zIndex: 10 }}
+                                  style={{ position: 'absolute', bottom: 4, right: 4, background: 'rgba(255,255,255,.25)', border: 'none', borderRadius: 4, color: 'white', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                                 >
                                   ↩ unallocate
                                 </button>
