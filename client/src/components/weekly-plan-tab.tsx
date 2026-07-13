@@ -1134,11 +1134,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       boxShadow: isSelected ? '0 6px 18px rgba(37,99,235,.12)' : 'none',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{visit.clientName}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', background: '#EFF6FF', padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', marginLeft: 6 }}>
-                        {visit.startTime}–{visit.endTime}
-                      </span>
+                    <div style={{ marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', marginBottom: 3 }}>{visit.clientName}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#2563EB' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {visit.startTime} – {visit.endTime}
+                      </div>
                     </div>
                     <div style={{ fontSize: 11, color: '#64748B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <MapPin style={{ width: 11, height: 11 }} />
@@ -1344,10 +1345,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               }}
                               title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
                             >
-                              <div style={{ fontSize: 9, opacity: .85, marginBottom: 2 }}>{visit.startTime}–{visit.endTime}</div>
-                              <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
                                 {visit.clientName.split(',')[0].split(' ').slice(-1)[0]}
                               </div>
+                              <div style={{ fontSize: 9, opacity: .85 }}>{visit.startTime}–{visit.endTime}</div>
                               {isSelected && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); unallocateVisit(empName, visit); }}
