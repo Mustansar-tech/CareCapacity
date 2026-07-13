@@ -1576,29 +1576,89 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             ) : weeklySchedule ? (
               /* ── Summary panel ── */
               <>
-                <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#F5F3FF)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 10 }}>Week Summary</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {[
-                      { label: 'Assigned', value: totalAssigned, color: '#059669' },
-                      { label: 'Unallocated', value: totalUnalloc, color: totalUnalloc > 0 ? '#DC2626' : '#059669' },
-                      { label: 'Avg Travel', value: `${avgTravel}m`, color: '#2563EB' },
-                      { label: 'Carers used', value: empsUsed, color: '#7C3AED' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} style={{ background: 'white', borderRadius: 8, padding: '10px 12px' }}>
-                        <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, marginBottom: 2 }}>{label}</div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color }}>{value}</div>
-                      </div>
-                    ))}
-                  </div>
+                {/* Day tabs */}
+                <div style={{ display: 'flex', gap: 3, marginBottom: 14 }}>
+                  {weekDates.map((date, di) => {
+                    const dAssigned = Object.values(weeklySchedule.assignments[date] || {}).reduce((s, v) => s + v.length, 0);
+                    const isActive = selectedDayIndex === di;
+                    const [, mm, dd] = date.split('-');
+                    const dateLabel = `${dd}/${mm}`;
+                    return (
+                      <button
+                        key={date}
+                        onClick={() => setSelectedDayIndex(di)}
+                        style={{
+                          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                          padding: '6px 2px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                          background: isActive ? '#2563EB' : '#F1F5F9',
+                          color: isActive ? 'white' : '#64748B',
+                          transition: 'all .15s',
+                        }}
+                      >
+                        <span style={{ fontSize: 10, fontWeight: 700, lineHeight: 1.3 }}>{dayNames[di].slice(0, 3)}</span>
+                        <span style={{ fontSize: 9, opacity: .8, lineHeight: 1.2 }}>{dateLabel}</span>
+                        <span style={{ fontSize: 10, fontWeight: 800, marginTop: 2, lineHeight: 1.2 }}>{dAssigned}v</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
+                {/* Week summary table */}
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Week Summary</div>
+                <div style={{ border: '1px solid #E5E9F2', borderRadius: 10, overflow: 'hidden', marginBottom: 14 }}>
+                  {/* Table header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 52px', background: '#F8FAFC', borderBottom: '1px solid #E5E9F2' }}>
+                    {['Date', 'Unallocated', 'Allocated', 'Total'].map(h => (
+                      <div key={h} style={{ padding: '6px 8px', fontSize: 10, fontWeight: 700, color: '#64748B', textAlign: h === 'Date' ? 'left' : 'center' }}>{h}</div>
+                    ))}
+                  </div>
+                  {/* Table rows */}
+                  {weekDates.map((date, di) => {
+                    const assigned = Object.values(weeklySchedule.assignments[date] || {}).reduce((s, v) => s + v.length, 0);
+                    const unalloc  = weeklySchedule.unallocated.filter(v => v.date === date).length;
+                    const total    = assigned + unalloc;
+                    const isActive = selectedDayIndex === di;
+                    const [, mm, dd] = date.split('-');
+                    const dateLabel = `${dd}/${mm}`;
+                    const dayShort  = dayNames[di].slice(0, 3);
+                    return (
+                      <div
+                        key={date}
+                        onClick={() => setSelectedDayIndex(di)}
+                        style={{
+                          display: 'grid', gridTemplateColumns: '1fr 72px 72px 52px',
+                          borderBottom: di < weekDates.length - 1 ? '1px solid #F1F5F9' : 'none',
+                          borderLeft: `3px solid ${isActive ? '#F59E0B' : 'transparent'}`,
+                          background: isActive ? '#FFFBEB' : 'white',
+                          cursor: 'pointer', transition: 'background .1s',
+                        }}
+                      >
+                        <div style={{ padding: '8px 6px 8px 8px', fontSize: 11, fontWeight: isActive ? 700 : 500, color: '#0F172A', lineHeight: 1.3 }}>
+                          {isActive && <span style={{ color: '#92400E', fontSize: 9, fontWeight: 800 }}>(WS)</span>}
+                          {dateLabel} – {dayShort}
+                        </div>
+                        <div style={{
+                          padding: '8px 4px', textAlign: 'center', fontSize: 11, fontWeight: 700,
+                          background: unalloc > 0 ? '#FEE2E2' : '#DCFCE7',
+                          color: unalloc > 0 ? '#DC2626' : '#15803D',
+                        }}>{unalloc}</div>
+                        <div style={{
+                          padding: '8px 4px', textAlign: 'center', fontSize: 11, fontWeight: 700,
+                          background: '#DCFCE7', color: '#15803D',
+                        }}>{assigned}</div>
+                        <div style={{ padding: '8px 4px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#0F172A' }}>{total}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Today stats */}
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 8 }}>Today · {dayLabel}</div>
                 {(() => {
                   const todayAss  = Object.values(dayAssign).reduce((s, v) => s + v.length, 0);
                   const todayEmps = Object.keys(dayAssign).length;
                   return (
-                    <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+                    <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '12px 14px' }}>
                       {[
                         { label: 'Visits', value: todayAss },
                         { label: 'Carers active', value: todayEmps },
@@ -1621,13 +1681,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     </div>
                   );
                 })()}
-
-                <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7C3AED', marginBottom: 4 }}>💡 Tip</div>
-                  <div style={{ fontSize: 11, color: '#5B21B6', lineHeight: 1.5 }}>
-                    Click a carer row to view their full weekly run. Click an unallocated visit (left panel) to see available carers.
-                  </div>
-                </div>
               </>
             ) : (
               /* ── No schedule yet ── */
