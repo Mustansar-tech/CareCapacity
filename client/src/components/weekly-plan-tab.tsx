@@ -41,6 +41,7 @@ interface AssignedVisit {
   travelTimeBefore: number;
   travelTimeAfter?: number;
   score: number;
+  serviceType?: string;
 }
 
 interface WeeklyScheduleData {
@@ -805,7 +806,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const filteredUnallocated = todayUnallocated.filter(v => {
     const ms = leftSearch === '' || v.clientName.toLowerCase().includes(leftSearch.toLowerCase());
     const mf = leftFilter === 'all' ||
-      (leftFilter === 'urgent'   && v.priority === 'high') ||
+      (leftFilter === 'urgent'   && (v.priority != null && v.priority >= 3)) ||
       (leftFilter === 'morning'  && v.startTime < '12:00') ||
       (leftFilter === 'complex'  && (v.serviceType || '').toLowerCase().includes('complex')) ||
       (leftFilter === 'double'   && (v.serviceType || '').toLowerCase().includes('double'));
@@ -872,10 +873,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#F4F6FB' }}>
+    <div className="bg-[#F4F6FB] dark:bg-gray-900" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
       {/* ── Action bar ─────────────────────────────────────────────────── */}
-      <div style={{ height: 56, background: 'white', borderBottom: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0, boxShadow: '0 1px 3px rgba(15,23,42,.03)' }}>
+      <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 56, borderBottom: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0, boxShadow: '0 1px 3px rgba(15,23,42,.03)' }}>
 
         {/* Day tabs */}
         <div style={{ display: 'flex', gap: 2, background: '#F1F5F9', padding: 4, borderRadius: 10, flexShrink: 0 }}>
@@ -948,7 +949,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 300px', flex: 1, overflow: 'hidden', minHeight: 0 }}>
 
         {/* ── LEFT: Unallocated visits ──────────────────────────────── */}
-        <div style={{ background: 'white', borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #E5E9F2', flexShrink: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -999,7 +1000,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             ) : (
               filteredUnallocated.map((visit, idx) => {
                 const isSelected = selectedVisit?.id === visit.id;
-                const priColor = visit.priority === 'high' ? '#EF4444' : visit.priority === 'medium' ? '#F59E0B' : '#06B6D4';
+                const svcLower = (visit.serviceType || '').toLowerCase();
+                const priColor = (visit.priority != null && visit.priority >= 3) ? '#EF4444'
+                  : svcLower.includes('complex') || svcLower.includes('dementia') || svcLower.includes('medic') ? '#8B5CF6'
+                  : svcLower.includes('double') ? '#F59E0B'
+                  : '#06B6D4';
                 const svcType = (visit.serviceType || 'Personal care').split('/')[0].trim();
                 return (
                   <div
@@ -1061,7 +1066,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
 
         {/* ── CENTER: Timeline ──────────────────────────────────────── */}
-        <div style={{ background: 'white', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #E5E9F2' }}>
+        <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #E5E9F2' }}>
           {/* Timeline sub-header */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid #E5E9F2', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
@@ -1214,7 +1219,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
 
         {/* ── RIGHT: Info panel ─────────────────────────────────────── */}
-        <div style={{ background: 'white', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="bg-white dark:bg-gray-800" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E9F2', flexShrink: 0 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Zap style={{ width: 14, height: 14, color: '#F59E0B' }} /> Schedule Info
@@ -1351,7 +1356,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </div>
 
       {/* ── Bottom metrics bar ───────────────────────────────────────── */}
-      <div style={{ height: 44, background: 'white', borderTop: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 24, fontSize: 12, flexShrink: 0, color: '#64748B' }}>
+      <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 44, borderTop: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 24, fontSize: 12, flexShrink: 0, color: '#64748B' }}>
         {[
           { label: 'Allocated: ', value: `${totalAssigned}/${totalVisitsW}`, dot: allocPct >= 90 ? '#10B981' : '#F59E0B' },
           { label: 'Unallocated: ', value: totalUnalloc, dot: totalUnalloc > 0 ? '#EF4444' : '#10B981' },
