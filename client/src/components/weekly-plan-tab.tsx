@@ -1361,35 +1361,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         );
                       })}
 
-                      {/* Break blocks — 90+ min gap means worker goes home */}
-                      {visits.slice(0, -1).map((visit, vi) => {
-                        const nextVisit = visits[vi + 1];
-                        const gapMinutes = timeToMinutes(nextVisit.startTime) - timeToMinutes(visit.endTime);
-                        if (gapMinutes < 90) return null;
-                        const xStart = timeToX(visit.endTime);
-                        const xEnd   = timeToX(nextVisit.startTime);
-                        const breakW = xEnd - xStart;
-                        if (breakW < 4) return null;
-                        let travelToHome   = visit.travelTimeAfter   ?? 0;
-                        let travelFromHome = nextVisit.travelTimeBefore ?? 0;
-                        if (travelToHome   >= 999) travelToHome   = 0;
-                        if (travelFromHome >= 999) travelFromHome = 0;
-                        const breakTime = Math.max(0, gapMinutes - travelToHome - travelFromHome);
-                        return (
-                          <div key={`break-${vi}`} style={{
-                            position: 'absolute', top: 12, left: xStart + 2, width: Math.max(0, breakW - 4), height: 52,
-                            borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(251,191,36,.13)', border: '1.5px dashed #F59E0B',
-                            color: '#B45309', fontSize: 9, fontWeight: 700, overflow: 'hidden', zIndex: 2, gap: 1,
-                            pointerEvents: 'none',
-                          }}>
-                            <Home style={{ width: 12, height: 12, flexShrink: 0 }} />
-                            <span>Break</span>
-                            {breakTime > 0 && <span style={{ fontWeight: 600 }}>{breakTime}m</span>}
-                          </div>
-                        );
-                      })}
-
                       {/* Back-home travel pill after the last visit */}
                       {visits.length > 0 && (() => {
                         const lastV = visits[visits.length - 1];
