@@ -1252,14 +1252,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             data-testid={`select-employee-${empName}`}
                             title={acceptance?.reason}
                           >
-                            {/* Avatar */}
-                            <div
-                              className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white select-none shadow-sm
-                                ${isFemale ? 'bg-pink-500' : isMale ? 'bg-blue-500' : 'bg-gray-400'}`}
-                            >
-                              {initials}
-                            </div>
-
                             {/* Info */}
                             <div className="flex-1 min-w-0">
                               {/* Name row with transport icon */}
@@ -1405,9 +1397,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 className="sticky left-0 z-10 flex items-center gap-2 px-2.5 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0"
                                 style={{ width: LEFT_PANEL_W, minWidth: LEFT_PANEL_W, height: ROW_HEIGHT }}
                               >
-                                <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-                                  {getInitials(emp.name)}
-                                </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1">
                                     <TransportIcon mode={loc?.transportMode} />
