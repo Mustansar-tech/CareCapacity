@@ -1048,14 +1048,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </div>
 
       {/* ── Main 3-column layout ─────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: `${leftPanelOpen ? '280px' : '44px'} 1fr ${rightPanelOpen ? '300px' : '44px'}`, flex: 1, overflow: 'hidden', minHeight: 0, transition: 'grid-template-columns .2s' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `${rightPanelOpen ? '300px' : '44px'} 1fr ${leftPanelOpen ? '280px' : '44px'}`, flex: 1, overflow: 'hidden', minHeight: 0, transition: 'grid-template-columns .2s' }}>
 
-        {/* ── LEFT: Unallocated visits ──────────────────────────────── */}
-        <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* ── RIGHT: Unallocated visits ──────────────────────────────── */}
+        <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ order: 3, borderLeft: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {!leftPanelOpen ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 10, flex: 1 }}>
               <button onClick={() => setLeftPanelOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }} title="Show unallocated">
-                <ChevronRight style={{ width: 16, height: 16 }} />
+                <ChevronLeft style={{ width: 16, height: 16 }} />
               </button>
               {todayUnallocated.length > 0 && (
                 <span style={{ background: '#EF4444', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 8 }}>
@@ -1075,7 +1075,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 )}
               </h3>
               <button onClick={() => setLeftPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6 }} title="Hide panel">
-                <ChevronLeft style={{ width: 14, height: 14 }} />
+                <ChevronRight style={{ width: 14, height: 14 }} />
               </button>
             </div>
             <div style={{ background: '#F8FAFC', border: '1px solid #E5E9F2', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1183,7 +1183,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </div>
 
         {/* ── CENTER: Timeline ──────────────────────────────────────── */}
-        <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #E5E9F2' }}>
+        <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ order: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #E5E9F2' }}>
           {/* Timeline sub-header */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid #E5E9F2', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
@@ -1467,12 +1467,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </div>
         </div>
 
-        {/* ── RIGHT: Info panel ─────────────────────────────────────── */}
-        <div className="bg-white dark:bg-gray-800" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* ── LEFT: Info panel ──────────────────────────────────────── */}
+        <div className="bg-white dark:bg-gray-800" style={{ order: 1, borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {!rightPanelOpen ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 10, flex: 1 }}>
               <button onClick={() => setRightPanelOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }} title="Show schedule info">
-                <ChevronLeft style={{ width: 16, height: 16 }} />
+                <ChevronRight style={{ width: 16, height: 16 }} />
               </button>
               <Zap style={{ width: 14, height: 14, color: '#F59E0B' }} />
             </div>
@@ -1482,7 +1482,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               <Zap style={{ width: 14, height: 14, color: '#F59E0B' }} /> Schedule Info
             </h3>
             <button onClick={() => setRightPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6 }} title="Hide panel">
-              <ChevronRight style={{ width: 14, height: 14 }} />
+              <ChevronLeft style={{ width: 14, height: 14 }} />
             </button>
           </div>
 
