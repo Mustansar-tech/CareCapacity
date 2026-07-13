@@ -980,40 +980,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       {/* ── Action bar ─────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 56, borderBottom: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0, boxShadow: '0 1px 3px rgba(15,23,42,.03)' }}>
 
-        {/* Day tabs */}
-        <div style={{ display: 'flex', gap: 2, background: '#F1F5F9', padding: 4, borderRadius: 10, flexShrink: 0 }}>
-          {weekDates.map((date, idx) => {
-            const dCount = weeklySchedule
-              ? Object.values(weeklySchedule.assignments[date] || {}).reduce((s, v) => s + v.length, 0) : 0;
-            const isToday = date === new Date().toISOString().split('T')[0];
-            const active = selectedDayIndex === idx;
-            return (
-              <button
-                key={date}
-                onClick={() => setSelectedDayIndex(idx)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                  minWidth: 52, transition: 'all .15s',
-                  background: active ? 'white' : 'transparent',
-                  color: active ? '#2563EB' : '#64748B',
-                  boxShadow: active ? '0 2px 5px rgba(0,0,0,.06)' : 'none',
-                  outline: isToday && !active ? '2px solid #BFDBFE' : 'none',
-                  outlineOffset: 1,
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1 }}>{dayNames[idx].slice(0, 3)}</span>
-                <span style={{ fontSize: 10, opacity: .75, marginTop: 2 }}>{date.split('-').slice(1).reverse().join('/')}</span>
-                {dCount > 0 && (
-                  <span style={{ fontSize: 9, marginTop: 2, padding: '1px 5px', borderRadius: 10, fontWeight: 700, background: active ? 'rgba(37,99,235,.12)' : '#DBEAFE', color: '#1D4ED8' }}>
-                    {dCount}v
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
         {/* Employee search */}
         <div style={{ position: 'relative', width: 170, flexShrink: 0 }}>
           <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#94A3B8' }} />
