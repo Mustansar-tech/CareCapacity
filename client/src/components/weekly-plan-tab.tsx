@@ -891,11 +891,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         {/* ── Header bar ──────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Schedule</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Schedule</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
               {weekStart} → {weekEnd}
               {lastGeneratedAt && (
-                <span className="ml-2 text-xs">
+                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
                   · Last generated {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
@@ -903,19 +903,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search caregivers…"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="pl-9 w-48 h-9"
+                className="pl-9 w-44 h-9 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg text-sm placeholder:text-gray-400"
               />
             </div>
             <Button
               onClick={() => generateMutation.mutate()}
               disabled={isPending || allWeekVisits.length === 0 || !canGenerate}
               title={!canGenerate ? "Only Schedulers and Admins can generate schedules" : ""}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 h-9"
+              className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white h-9 rounded-lg font-semibold shadow-sm"
               data-testid="button-generate-weekly"
             >
               {generateMutation.isPending ? (
@@ -931,23 +931,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         {/* ── Metrics strip ───────────────────────────────────────────────── */}
         {weeklySchedule && (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {[
-              { label: 'Assigned', value: weeklySchedule.metrics.totalVisitsAssigned, color: 'text-green-600', border: 'border-green-200 dark:border-green-800' },
-              { label: 'Unallocated', value: weeklySchedule.metrics.totalVisitsUnallocated, color: 'text-red-600', border: 'border-red-200 dark:border-red-800' },
-              { label: 'Avg Travel', value: `${weeklySchedule.metrics.averageTravelTimePerVisit}m`, color: 'text-blue-600', border: 'border-blue-200 dark:border-blue-800' },
-              { label: 'Staff Used', value: weeklySchedule.metrics.employeesUtilized, color: 'text-purple-600', border: 'border-purple-200 dark:border-purple-800' },
+              { label: 'Assigned', value: weeklySchedule.metrics.totalVisitsAssigned, accent: 'bg-emerald-500', num: 'text-emerald-600 dark:text-emerald-400', sub: 'text-emerald-500/70' },
+              { label: 'Unallocated', value: weeklySchedule.metrics.totalVisitsUnallocated, accent: 'bg-rose-500', num: 'text-rose-600 dark:text-rose-400', sub: 'text-rose-500/70' },
+              { label: 'Avg Travel', value: `${weeklySchedule.metrics.averageTravelTimePerVisit}m`, accent: 'bg-sky-500', num: 'text-sky-600 dark:text-sky-400', sub: 'text-sky-500/70' },
+              { label: 'Staff Used', value: weeklySchedule.metrics.employeesUtilized, accent: 'bg-violet-500', num: 'text-violet-600 dark:text-violet-400', sub: 'text-violet-500/70' },
             ].map(m => (
-              <div key={m.label} className={`bg-white dark:bg-gray-800 rounded-lg p-3 border ${m.border}`}>
-                <p className="text-xs text-muted-foreground">{m.label}</p>
-                <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+              <div key={m.label} className="relative bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 px-4 py-3 overflow-hidden shadow-sm">
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${m.accent} rounded-l-xl`} />
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">{m.label}</p>
+                <p className={`text-2xl font-bold tabular-nums ${m.num}`}>{m.value}</p>
               </div>
             ))}
           </div>
         )}
 
         {/* ── Gantt / Schedule block ───────────────────────────────────────── */}
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
+        <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
 
           {selectedEmployee ? (
             /* ══════════════════════════════════════════════════════════════
@@ -1147,36 +1148,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                ══════════════════════════════════════════════════════════════ */
             <>
               {/* Day tab selector */}
-              <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-x-auto">
+              <div className="flex items-center gap-1 px-3 py-2.5 border-b border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 overflow-x-auto">
                 {weekDates.map(date => (
                   <button
                     key={date}
                     onClick={() => { setGanttViewDate(date); setSelectedUnallocatedId(null); setAcceptanceMap(null); }}
-                    className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150
                       ${ganttViewDate === date
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-700'
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200'
                       }`}
                   >
                     {fmtDayTab(date)}
-                    {date === todayStr && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />}
+                    {date === todayStr && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block align-middle" />}
                   </button>
                 ))}
-                <div className="ml-auto pl-3 text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                <div className="ml-auto pl-4 text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   {fmtFullDate(ganttViewDate || weekDates[0])}
                 </div>
               </div>
 
               {/* Hint bar when unallocated visit is selected */}
               {selectedUnallocatedId && (
-                <div className="flex items-center justify-between px-4 py-2 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-700 text-xs text-yellow-800 dark:text-yellow-300">
-                  <span>
-                    <strong>Availability mode:</strong> green rows can accept this visit — click a row or drag the card to assign
+                <div className="flex items-center justify-between px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700/60 text-xs text-amber-800 dark:text-amber-300">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block flex-shrink-0" />
+                    <strong>Availability mode</strong> — green rows can accept this visit. Click a row or drag the card to assign.
                   </span>
                   <button
                     onClick={() => { setSelectedUnallocatedId(null); setAcceptanceMap(null); }}
-                    className="ml-3 p-0.5 rounded hover:bg-yellow-200 dark:hover:bg-yellow-800 transition-colors"
-                  ><X className="h-3.5 w-3.5" /></button>
+                    className="ml-3 p-1 rounded-full hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
+                  ><X className="h-3 w-3" /></button>
                 </div>
               )}
 
@@ -1185,18 +1187,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 <div style={{ minWidth: LEFT_PANEL_W + TIMELINE_WIDTH }}>
 
                   {/* Sticky hour labels */}
-                  <div className="flex sticky top-0 z-20 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                  <div className="flex sticky top-0 z-20 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
                     <div
-                      className="flex-shrink-0 sticky left-0 z-30 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex items-end px-3 pb-1 h-9"
+                      className="flex-shrink-0 sticky left-0 z-30 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm border-r border-gray-200 dark:border-gray-800 flex items-end px-3 pb-1.5 h-9"
                       style={{ width: LEFT_PANEL_W }}
                     >
-                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">CAREGivers</span>
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Caregivers</span>
                     </div>
-                    <div className="relative h-9 bg-gray-50 dark:bg-gray-800" style={{ width: TIMELINE_WIDTH }}>
+                    <div className="relative h-9 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm" style={{ width: TIMELINE_WIDTH }}>
                       {Array.from({ length: 24 }, (_, h) => (
                         <div key={h} className="absolute top-0 bottom-0 flex flex-col" style={{ left: minsToPx(h * 60) }}>
-                          <span className="text-[10px] text-muted-foreground pl-1 leading-none mt-1.5">{h.toString().padStart(2, '0')}:00</span>
-                          <div className="flex-1 border-l border-gray-200 dark:border-gray-700 mt-px" />
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 pl-1.5 leading-none mt-2 font-medium">{h.toString().padStart(2, '0')}:00</span>
+                          <div className="flex-1 border-l border-gray-200 dark:border-gray-700/60 mt-px" />
                         </div>
                       ))}
                     </div>
@@ -1236,12 +1238,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       return (
                         <div
                           key={empName}
-                          className="flex border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50/30 dark:hover:bg-gray-800/20 transition-colors"
+                          className="flex border-t border-gray-100 dark:border-gray-800/60 hover:bg-gray-50/40 dark:hover:bg-gray-800/20 transition-colors"
                         >
                           {/* Left panel */}
                           <div
-                            className={`sticky left-0 z-10 flex items-center gap-2 px-2.5 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0
-                              ${canClickAssign ? 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20 ring-2 ring-inset ring-green-500' : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                            className={`sticky left-0 z-10 flex items-center gap-2 px-2.5 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0 transition-colors
+                              ${canClickAssign ? 'cursor-pointer bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 ring-2 ring-inset ring-emerald-500' : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60'}`}
                             style={{ width: LEFT_PANEL_W, minWidth: LEFT_PANEL_W, height: ROW_HEIGHT }}
                             onClick={() => {
                               if (canClickAssign) { handleClickAssign(empName); }
@@ -1252,7 +1254,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           >
                             {/* Avatar */}
                             <div
-                              className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white select-none
+                              className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white select-none shadow-sm
                                 ${isFemale ? 'bg-pink-500' : isMale ? 'bg-blue-500' : 'bg-gray-400'}`}
                             >
                               {initials}
@@ -1264,34 +1266,34 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               <div className="flex items-center gap-1">
                                 <TransportIcon mode={loc?.transportMode} />
                                 <span
-                                  className={`text-xs font-semibold truncate leading-tight ${getGenderColorClass(gender)}`}
+                                  className={`text-[11px] font-semibold truncate leading-tight ${getGenderColorClass(gender)}`}
                                   title={empName}
                                 >{empName}</span>
                                 {!canClickAssign && !selectedUnallocatedId && (
-                                  <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0 ml-auto" />
+                                  <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 flex-shrink-0 ml-auto" />
                                 )}
                                 {canClickAssign && (
-                                  <span className="ml-auto text-[9px] font-bold text-green-600 dark:text-green-400 whitespace-nowrap">✓ Assign</span>
+                                  <span className="ml-auto text-[9px] font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.5 rounded">✓ Assign</span>
                                 )}
                               </div>
                               {/* Hours */}
-                              <div className="text-[10px] text-muted-foreground leading-tight">
+                              <div className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight mt-0.5">
                                 {fmtHh(ghMinutes)} / week
                               </div>
                               {/* Badges */}
-                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
                                 {holidayDays > 0 && (
-                                  <span className="text-[9px] px-1 py-0 rounded border border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 font-medium leading-4">
+                                  <span className="text-[9px] px-1.5 py-0 rounded-full border border-amber-300 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 font-medium leading-4">
                                     {holidayDays}d holiday
                                   </span>
                                 )}
                                 {dayVisitHours > 0 && (
-                                  <span className="text-[9px] px-1 py-0 rounded bg-green-600 text-white font-medium leading-4">
-                                    {dayVisitHours.toFixed(1)}h visits
+                                  <span className="text-[9px] px-1.5 py-0 rounded-full bg-emerald-600 text-white font-medium leading-4">
+                                    {dayVisitHours.toFixed(1)}h
                                   </span>
                                 )}
                                 {acceptance?.accepts === false && (
-                                  <span className="text-[9px] px-1 py-0 rounded border border-red-300 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 leading-4 truncate max-w-[140px]" title={acceptance.reason}>
+                                  <span className="text-[9px] px-1 py-0 rounded-full border border-red-200 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 leading-4 truncate max-w-[130px]" title={acceptance.reason}>
                                     {acceptance.reason}
                                   </span>
                                 )}
@@ -1356,18 +1358,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   dragId={`${ganttViewDate}-${empName}-${i}`}
                                   dragData={{ type: 'assignedVisit', empName, visitDate: ganttViewDate, visitIndex: i, visit }}
                                   disabled={isPending}
-                                  style={{ position: 'absolute', left: leftPx, width: widthPx, top: 6, bottom: 6 }}
-                                  className={`rounded overflow-hidden text-white select-none z-10
-                                    ${training ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}
+                                  style={{ position: 'absolute', left: leftPx, width: widthPx, top: 8, bottom: 8 }}
+                                  className={`rounded-md overflow-hidden text-white select-none z-10
+                                    ${training ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-600 hover:bg-emerald-500'}
                                     transition-colors shadow-sm`}
                                 >
-                                  <div className="px-1.5 py-1 h-full flex flex-col justify-center overflow-hidden">
+                                  <div className="px-2 py-1 h-full flex flex-col justify-center overflow-hidden">
                                     <div className="text-[10px] font-semibold truncate leading-tight">{visit.clientName}</div>
                                     {widthPx > 80 && (
-                                      <div className="text-[9px] opacity-85 truncate leading-tight">{visit.startTime}–{visit.endTime}</div>
+                                      <div className="text-[9px] opacity-80 truncate leading-tight">{visit.startTime}–{visit.endTime}</div>
                                     )}
                                     {widthPx > 150 && visit.serviceType && (
-                                      <div className="text-[9px] opacity-70 truncate leading-tight">{visit.serviceType}</div>
+                                      <div className="text-[9px] opacity-65 truncate leading-tight">{visit.serviceType}</div>
                                     )}
                                   </div>
                                 </DraggableVisitItem>
@@ -1438,34 +1440,43 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         {/* ── Unallocated Visits ───────────────────────────────────────────── */}
         {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
-          <DroppableUnallocatedPanel className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-red-700 dark:text-red-400 text-sm">
-                  Unallocated Visits ({weeklySchedule.unallocated.length})
+          <DroppableUnallocatedPanel className="rounded-xl overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                    Unallocated Visits
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400">
+                  {weeklySchedule.unallocated.length} · {((weeklySchedule.unallocated.length / (weeklySchedule.metrics.totalVisitsAssigned + weeklySchedule.unallocated.length)) * 100).toFixed(1)}%
                 </span>
-                <Badge variant="destructive" className="text-xs">
-                  {((weeklySchedule.unallocated.length / (weeklySchedule.metrics.totalVisitsAssigned + weeklySchedule.unallocated.length)) * 100).toFixed(1)}% unallocated
-                </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
-                Click a visit to see who's available · drag to assign
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 hidden sm:block">
+                Click a visit to highlight available caregivers · drag to assign
               </p>
             </div>
+
             <div className="p-4 max-h-[400px] overflow-y-auto">
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {weekDates.map((date, dayIndex) => {
                   const dayUnalloc = weeklySchedule.unallocated.filter(v => v.date === date);
                   if (!dayUnalloc.length) return null;
                   return (
-                    <div key={date} className="border border-red-200 dark:border-red-700 rounded-lg p-3 bg-red-50/50 dark:bg-red-950/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-red-700 dark:text-red-400 text-sm flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          {dayNames[dayIndex]} — {date.split('-').slice(1).join('/')}
-                        </h3>
-                        <Badge variant="destructive" className="text-xs">{dayUnalloc.length}</Badge>
+                    <div key={date}>
+                      {/* Day label */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                          {dayNames[dayIndex]} · {date.split('-').slice(1).join('/')}
+                        </span>
+                        <span className="text-[10px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded-full">
+                          {dayUnalloc.length}
+                        </span>
                       </div>
+
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                         {dayUnalloc.map((visit, idx) => {
                           const isSelected = selectedUnallocatedId === visit.id;
@@ -1475,29 +1486,34 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               dragId={`unalloc-${visit.id}-${idx}`}
                               dragData={{ type: 'unallocatedVisit', visit }}
                               disabled={isPending}
-                              className={`rounded-lg border p-2 transition-all select-none
+                              className={`rounded-lg border transition-all select-none
                                 ${isSelected
-                                  ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30 ring-2 ring-yellow-400 shadow-md'
-                                  : 'border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-red-400'
+                                  ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 ring-2 ring-amber-400 shadow-md'
+                                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-sm'
                                 }`}
                             >
-                              <div onClick={() => handleSelectUnallocated(visit)} className="cursor-pointer">
-                                <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate">{visit.clientName}</p>
-                                <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                                  <Clock className="h-3 w-3" />{visit.startTime}–{visit.endTime}
+                              <div onClick={() => handleSelectUnallocated(visit)} className="cursor-pointer p-2.5">
+                                {/* Left accent + name */}
+                                <div className={`-mx-2.5 -mt-2.5 mb-2 px-2.5 pt-2 pb-1.5 rounded-t-lg ${isSelected ? 'bg-amber-100/60 dark:bg-amber-900/20' : 'bg-white dark:bg-gray-900'}`}>
+                                  <p className="font-semibold text-[11px] text-gray-900 dark:text-gray-100 truncate leading-tight">{visit.clientName}</p>
                                 </div>
-                                <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                  {visit.durationMinutes}m duration
+                                <div className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                  <Clock className="h-3 w-3 flex-shrink-0" />
+                                  <span className="font-medium">{visit.startTime}–{visit.endTime}</span>
                                 </div>
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] text-red-700 dark:text-red-400 border-red-300 bg-red-50 dark:bg-red-950 mt-1 max-w-full whitespace-normal leading-tight"
-                                >
+                                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                                  {visit.durationMinutes}m
+                                </div>
+                                <div className={`text-[9px] mt-1.5 px-1.5 py-0.5 rounded-full inline-block font-medium
+                                  ${isSelected
+                                    ? 'bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300'
+                                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+                                  }`}>
                                   {visit.unallocatedReason || "Not optimal"}
-                                </Badge>
+                                </div>
                                 {isSelected && (
-                                  <div className="text-[9px] text-yellow-700 dark:text-yellow-400 mt-1 font-medium">
-                                    ▲ Showing availability above
+                                  <div className="text-[9px] text-amber-700 dark:text-amber-400 mt-1.5 font-semibold flex items-center gap-1">
+                                    <span>↑</span> Showing availability
                                   </div>
                                 )}
                               </div>
