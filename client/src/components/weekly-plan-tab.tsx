@@ -1346,7 +1346,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
                             >
                               <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-                                {visit.clientName.split(',')[0].split(' ').slice(-1)[0]}
+                                {visit.clientName}
                               </div>
                               <div style={{ fontSize: 9, opacity: .85 }}>{visit.startTime}–{visit.endTime}</div>
                               {isSelected && (
