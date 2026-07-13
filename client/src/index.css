@@ -41,7 +41,7 @@
   
   /* Neutral tones */
   --muted: hsl(210 6% 94%);
-  --muted-foreground: hsl(210 6% 40%);
+  --muted-foreground: hsl(210 10% 30%);
   --border: hsl(210 12% 89%);
   --input: hsl(210 6% 97%);
   --ring: hsl(214 100% 59%);
@@ -140,7 +140,7 @@
   
   /* Neutral tones */
   --muted: hsl(210 11% 17%);
-  --muted-foreground: hsl(210 6% 63%);
+  --muted-foreground: hsl(210 8% 72%);
   --border: hsl(210 11% 17%);
   --input: hsl(210 11% 14%);
   --ring: hsl(214 100% 70%);
@@ -177,10 +177,12 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+    font-weight: 400;
+    text-rendering: optimizeLegibility;
   }
 
   /* Enhanced focus styles */
