@@ -176,17 +176,30 @@ function DraggableVisitItem({
 }
 
 function DroppableTimelineRow({
-  dropId, dropData, style, className, children,
+  dropId, dropData, style, className, children, dragAcceptance,
 }: {
   dropId: string; dropData: DropTarget;
   style?: React.CSSProperties; className?: string; children: React.ReactNode;
+  dragAcceptance?: { accepts: boolean } | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId, data: dropData });
+  let hoverCls: string;
+  if (dragAcceptance != null) {
+    if (dragAcceptance.accepts) {
+      hoverCls = isOver
+        ? 'bg-green-100 dark:bg-green-900/50'
+        : 'bg-green-50/40 dark:bg-green-900/20';
+    } else {
+      hoverCls = 'bg-red-50/30 dark:bg-red-900/15';
+    }
+  } else {
+    hoverCls = isOver ? 'bg-blue-50 dark:bg-blue-900/25' : '';
+  }
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`${className || ''} transition-colors duration-100 ${isOver ? 'bg-blue-50 dark:bg-blue-900/25' : ''}`}
+      className={`${className || ''} transition-colors duration-100 ${hoverCls}`}
     >
       {children}
     </div>
@@ -271,7 +284,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedUnallocatedId, setSelectedUnallocatedId] = useState<string | null>(null);
   const [acceptanceMap, setAcceptanceMap] = useState<Map<string, { accepts: boolean; reason: string }> | null>(null);
   const [activeDragItem, setActiveDragItem] = useState<DragItem | null>(null);
+  const [dragValidationMap, setDragValidationMap] = useState<Map<string, { accepts: boolean; reason: string }> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const ganttWrapperRef = useRef<HTMLDivElement>(null);
 
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
@@ -324,6 +339,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
+  }, [selectedUnallocatedId]);
+
+  // Clear unallocated selection when clicking outside the schedule panel
+  useEffect(() => {
+    if (!selectedUnallocatedId) return;
+    const handler = (e: MouseEvent) => {
+      if (ganttWrapperRef.current && !ganttWrapperRef.current.contains(e.target as Node)) {
+        setSelectedUnallocatedId(null);
+        setAcceptanceMap(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [selectedUnallocatedId]);
 
   // ── Queries ────────────────────────────────────────────────────────────────
@@ -629,6 +657,23 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const prevEmployee = currentEmpIndex > 0 ? filteredEmployees[currentEmpIndex - 1] : null;
   const nextEmployee = currentEmpIndex < filteredEmployees.length - 1 ? filteredEmployees[currentEmpIndex + 1] : null;
 
+  /** Recalculate travelTimeBefore for every visit in an employee's day after a manual move */
+  function recalcTravelForDay(empName: string, visits: AssignedVisit[]): AssignedVisit[] {
+    const empLoc = employeeLocationMap.get(empName);
+    if (!empLoc?.homeLat || !empLoc?.homeLng) return visits;
+    const mode = ((empLoc.transportMode || 'car') as 'car' | 'walking' | 'public');
+    const hLat = Number(empLoc.homeLat), hLng = Number(empLoc.homeLng);
+    return visits.map((v, i) => {
+      if (!v.lat || !v.lng) return v;
+      const prev = visits[i - 1];
+      const gapFromPrev = prev ? timeToMinutes(v.startTime) - timeToMinutes(prev.endTime) : Infinity;
+      const fromLoc = (i === 0 || !prev?.lat || !prev?.lng || gapFromPrev >= 90)
+        ? { lat: hLat, lng: hLng }
+        : { lat: Number(prev.lat), lng: Number(prev.lng) };
+      return { ...v, travelTimeBefore: Math.round(getTravelMinutes(fromLoc, { lat: Number(v.lat), lng: Number(v.lng) }, mode)) };
+    });
+  }
+
   /** Recompute schedule metrics after a manual move */
   function recomputeMetrics(
     assignments: Record<string, Record<string, AssignedVisit[]>>,
@@ -717,11 +762,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // ── DnD handlers ───────────────────────────────────────────────────────────
 
   function handleDragStart(event: DragStartEvent) {
-    setActiveDragItem((event.active.data.current as DragItem) || null);
+    const item = (event.active.data.current as DragItem) || null;
+    setActiveDragItem(item);
+    if (!item) return;
+    const map = new Map<string, { accepts: boolean; reason: string }>();
+    if (item.type === 'unallocatedVisit') {
+      filteredEmployees.forEach(n => map.set(n, computeEmpAcceptance(item.visit, n, item.visit.date)));
+    } else if (item.type === 'assignedVisit') {
+      filteredEmployees.forEach(n => map.set(n, computeEmpAcceptance(item.visit, n, item.visitDate)));
+    }
+    setDragValidationMap(map.size ? map : null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDragItem(null);
+    setDragValidationMap(null);
     const { active, over } = event;
     if (!over || !weeklySchedule) return;
     const drag = active.data.current as DragItem;
@@ -738,10 +793,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       }
       const newA = JSON.parse(JSON.stringify(weeklySchedule.assignments)) as typeof weeklySchedule.assignments;
       newA[visitDate][fromEmp].splice(visitIndex, 1);
+      newA[visitDate][fromEmp] = recalcTravelForDay(fromEmp, newA[visitDate][fromEmp]);
       if (!newA[visitDate]) newA[visitDate] = {};
       if (!newA[visitDate][toEmp]) newA[visitDate][toEmp] = [];
-      newA[visitDate][toEmp] = [...newA[visitDate][toEmp], visit]
-        .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      newA[visitDate][toEmp] = recalcTravelForDay(toEmp,
+        [...newA[visitDate][toEmp], visit].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
+      );
       const newSched = { ...weeklySchedule, assignments: newA, metrics: recomputeMetrics(newA, weeklySchedule.unallocated) };
       setWeeklySchedule(newSched);
       saveScheduleMutation.mutate(newSched);
@@ -752,6 +809,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       const { empName, visitDate, visitIndex, visit } = drag;
       const newA = JSON.parse(JSON.stringify(weeklySchedule.assignments)) as typeof weeklySchedule.assignments;
       newA[visitDate][empName].splice(visitIndex, 1);
+      newA[visitDate][empName] = recalcTravelForDay(empName, newA[visitDate][empName]);
       const unallocated: ClientVisit & { unallocatedReason: string } = {
         id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
         durationMinutes: visit.durationMinutes, date: visitDate, lat: visit.lat, lng: visit.lng,
@@ -772,7 +830,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         toast({ title: "Can't assign", description: acceptance.reason, variant: "destructive" });
         return;
       }
-      const assignedVisit: AssignedVisit = {
+      const seedVisit: AssignedVisit = {
         id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
         durationMinutes: visit.durationMinutes, lat: visit.lat, lng: visit.lng,
         travelTimeBefore: 0, score: 0, serviceType: visit.serviceType,
@@ -780,8 +838,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       const newA = JSON.parse(JSON.stringify(weeklySchedule.assignments)) as typeof weeklySchedule.assignments;
       if (!newA[visit.date]) newA[visit.date] = {};
       if (!newA[visit.date][empName]) newA[visit.date][empName] = [];
-      newA[visit.date][empName] = [...newA[visit.date][empName], assignedVisit]
-        .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      newA[visit.date][empName] = recalcTravelForDay(empName,
+        [...newA[visit.date][empName], seedVisit].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
+      );
       const newUnalloc = weeklySchedule.unallocated.filter(u => u.id !== visit.id);
       const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc, metrics: recomputeMetrics(newA, newUnalloc) };
       setWeeklySchedule(newSched);
@@ -802,7 +861,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       toast({ title: "Can't assign", description: acceptance.reason, variant: "destructive" });
       return;
     }
-    const assignedVisit: AssignedVisit = {
+    const seedVisit: AssignedVisit = {
       id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
       durationMinutes: visit.durationMinutes, lat: visit.lat, lng: visit.lng,
       travelTimeBefore: 0, score: 0, serviceType: visit.serviceType,
@@ -810,8 +869,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     const newA = JSON.parse(JSON.stringify(weeklySchedule.assignments)) as typeof weeklySchedule.assignments;
     if (!newA[visit.date]) newA[visit.date] = {};
     if (!newA[visit.date][empName]) newA[visit.date][empName] = [];
-    newA[visit.date][empName] = [...newA[visit.date][empName], assignedVisit]
-      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    newA[visit.date][empName] = recalcTravelForDay(empName,
+      [...newA[visit.date][empName], seedVisit].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
+    );
     const newUnalloc = weeklySchedule.unallocated.filter(u => u.id !== visit.id);
     const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc, metrics: recomputeMetrics(newA, newUnalloc) };
     setWeeklySchedule(newSched);
@@ -826,7 +886,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col gap-4">
+      <div ref={ganttWrapperRef} className="flex flex-col gap-4">
 
         {/* ── Header bar ──────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1245,6 +1305,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             dropData={{ type: 'empRow', empName }}
                             style={{ width: TIMELINE_WIDTH, height: ROW_HEIGHT }}
                             className={`relative flex-shrink-0 ${acceptanceClass}`}
+                            dragAcceptance={activeDragItem ? (dragValidationMap?.get(empName) ?? null) : null}
                           >
                             {/* Hour grid lines */}
                             {Array.from({ length: 24 }, (_, h) => (
@@ -1424,6 +1485,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate">{visit.clientName}</p>
                                 <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                                   <Clock className="h-3 w-3" />{visit.startTime}–{visit.endTime}
+                                </div>
+                                <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {visit.durationMinutes}m duration
                                 </div>
                                 <Badge
                                   variant="outline"
