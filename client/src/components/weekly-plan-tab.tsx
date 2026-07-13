@@ -1357,6 +1357,59 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 </button>
                               )}
                             </div>
+
+                            {/* Break block — shown when gap to next visit is ≥ 90 min (carer goes home) */}
+                            {vi < visits.length - 1 && (() => {
+                              const nextV = visits[vi + 1];
+                              const currentEndMin = timeToMinutes(visit.endTime);
+                              const nextStartMin  = timeToMinutes(nextV.startTime);
+                              const gapMinutes    = nextStartMin - currentEndMin;
+                              if (gapMinutes < 90) return null;
+
+                              const empLoc = employeeLocationMap.get(empName);
+                              let travelToHome   = 0;
+                              let travelFromHome = (nextV.travelTimeBefore != null && nextV.travelTimeBefore < 999) ? nextV.travelTimeBefore : 0;
+
+                              if (empLoc?.homeLat && empLoc?.homeLng) {
+                                if (visit.travelTimeAfter != null && visit.travelTimeAfter < 999) {
+                                  travelToHome = visit.travelTimeAfter;
+                                } else if (visit.lat && visit.lng) {
+                                  const mode: 'car' | 'walking' = isWalker ? 'walking' : 'car';
+                                  const dist = haversineDistance(
+                                    { lat: visit.lat, lng: visit.lng },
+                                    { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }
+                                  );
+                                  travelToHome = calculateTravelTime(dist, mode);
+                                }
+                              }
+
+                              const breakTime = Math.max(0, gapMinutes - travelToHome - travelFromHome);
+
+                              const breakStartMin = currentEndMin + travelToHome;
+                              const breakEndMin   = nextStartMin  - travelFromHome;
+                              const breakStartStr = minutesToTime(breakStartMin);
+                              const breakEndStr   = minutesToTime(breakEndMin);
+                              const xLeft  = timeToX(breakStartStr);
+                              const breakW = Math.max(40, durationToW(breakStartStr, breakEndStr));
+
+                              return (
+                                <div
+                                  style={{
+                                    position: 'absolute', top: 12, left: xLeft, width: breakW, height: 52,
+                                    borderRadius: 8, padding: '4px 6px',
+                                    background: 'rgba(251,146,60,.12)',
+                                    border: '1.5px dashed #F97316',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    zIndex: 3, overflow: 'hidden', pointerEvents: 'none',
+                                  }}
+                                  title={`Break at home · ${breakTime}min rest after ${travelToHome}min travel`}
+                                >
+                                  <span style={{ fontSize: 13, lineHeight: 1 }}>🏠</span>
+                                  <span style={{ fontSize: 8, fontWeight: 700, color: '#9A3412', lineHeight: 1.3, marginTop: 1 }}>Break</span>
+                                  <span style={{ fontSize: 8, fontWeight: 600, color: '#C2410C', lineHeight: 1.2 }}>{breakTime}m</span>
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       })}
