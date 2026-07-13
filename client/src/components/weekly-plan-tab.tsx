@@ -861,6 +861,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const avatarInitials = (name: string) =>
     name.trim().split(/\s+/).map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
+  const genderColor = (name: string) => {
+    const g = (employeeGenderMap.get(name) || '').toLowerCase();
+    return g === 'female' ? '#DB2777' : g === 'male' ? '#2563EB' : '#0F172A';
+  };
+
   const visitGradient = (visit: AssignedVisit) => {
     const s = (visit.serviceType || '').toLowerCase();
     if (s.includes('complex') || s.includes('dementia') || s.includes('medic'))
@@ -1247,27 +1252,34 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   >
                     {/* Carer info cell — sticky left */}
                     <div
-                      style={{ padding: '10px 12px', background: '#F8FAFC', borderRight: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer' }}
+                      style={{ padding: '8px 10px', background: '#F8FAFC', borderRight: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer' }}
                       onClick={() => { setSelectedEmployee(empName); setViewMode('week'); }}
                       title="Click to view weekly run"
                     >
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: avatarGradient(empName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
-                        {avatarInitials(empName)}
+                      {/* Transport icon chip replaces avatar */}
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: isWalker ? '#ECFDF5' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${isWalker ? '#A7F3D0' : '#BFDBFE'}` }}>
+                        {isWalker
+                          ? <User style={{ width: 15, height: 15, color: '#059669' }} />
+                          : <Car style={{ width: 15, height: 15, color: '#2563EB' }} />}
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName}</div>
-                        <div style={{ fontSize: 10, color: '#64748B', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          {isWalker ? <User style={{ width: 9, height: 9 }} /> : <Car style={{ width: 9, height: 9 }} />}
+                        <div style={{ fontSize: 12, fontWeight: 700, color: genderColor(empName), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName}</div>
+                        <div style={{ fontSize: 10, color: '#64748B', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {weeklyHours.toFixed(0)}h/wk
                           {hasVisits && <span style={{ color: '#94A3B8' }}>· {visits.length}v</span>}
                         </div>
-                        <div style={{ width: 80, height: 4, background: '#E2E8F0', borderRadius: 2, marginTop: 5, overflow: 'hidden' }}>
-                          <div style={{ width: `${utilPct}%`, height: '100%', borderRadius: 2, background: utilColor }} />
-                        </div>
                         {timeWindows && (
-                          <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 3, fontWeight: 600 }}>{timeWindows}</div>
+                          <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 2, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{timeWindows}</div>
                         )}
                       </div>
+                      {/* Circular utilisation % donut */}
+                      <svg width="34" height="34" viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
+                        <circle cx="18" cy="18" r="13" fill="none" stroke="#E2E8F0" strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="13" fill="none" stroke={utilColor} strokeWidth="3.5"
+                          strokeDasharray={`${2 * Math.PI * 13 * utilPct / 100} ${2 * Math.PI * 13}`}
+                          strokeLinecap="round" transform="rotate(-90 18 18)" />
+                        <text x="18" y="22" textAnchor="middle" fontSize="8" fontWeight="800" fill={utilColor}>{utilPct}%</text>
+                      </svg>
                     </div>
 
                     {/* Hour grid cells */}
@@ -1278,8 +1290,25 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       );
                     })}
 
-                    {/* Overlay: visit blocks + travel labels */}
+                    {/* Overlay: availability band + visit blocks + travel labels */}
                     <div style={{ position: 'absolute', top: 0, left: INFO_WIDTH, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 3 }}>
+
+                      {/* Availability window bands — thin strip at bottom of row */}
+                      {parseTimeWindows(timeWindows).map((w, wi) => {
+                        const xL = Math.max(0, (w.start / 60 - TIMELINE_START) * HOUR_WIDTH);
+                        const xR = Math.min((TIMELINE_END - TIMELINE_START) * HOUR_WIDTH, (w.end / 60 - TIMELINE_START) * HOUR_WIDTH);
+                        const barW = Math.max(0, xR - xL);
+                        if (barW <= 0) return null;
+                        return (
+                          <div key={wi} style={{
+                            position: 'absolute', bottom: 5, left: xL, width: barW, height: 5,
+                            borderRadius: 3,
+                            background: isWalker ? 'rgba(16,185,129,.22)' : 'rgba(37,99,235,.18)',
+                            border: `1px solid ${isWalker ? 'rgba(16,185,129,.45)' : 'rgba(37,99,235,.38)'}`,
+                          }} />
+                        );
+                      })}
+
                       {visits.map((visit, vi) => {
                         const xLeft  = timeToX(visit.startTime);
                         const wPx    = durationToW(visit.startTime, visit.endTime);
@@ -1331,6 +1360,31 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           </div>
                         );
                       })}
+
+                      {/* Back-home travel pill after the last visit */}
+                      {visits.length > 0 && (() => {
+                        const lastV = visits[visits.length - 1];
+                        const empLoc = employeeLocationMap.get(empName);
+                        let travelHome = lastV.travelTimeAfter;
+                        if ((travelHome === undefined || travelHome >= 999) && empLoc?.homeLat && empLoc?.homeLng && lastV.lat && lastV.lng) {
+                          const mode: 'car' | 'walking' = isWalker ? 'walking' : 'car';
+                          const dist = haversineDistance({ lat: lastV.lat, lng: lastV.lng }, { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) });
+                          travelHome = calculateTravelTime(dist, mode);
+                        }
+                        if (!travelHome || travelHome >= 999) return null;
+                        const xEnd = timeToX(lastV.endTime);
+                        return (
+                          <div style={{
+                            position: 'absolute', top: 40, left: xEnd + 4, height: 20, padding: '0 6px',
+                            borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
+                            fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                            background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
+                            boxShadow: '0 2px 6px rgba(15,23,42,.08)',
+                          }}>
+                            🏠 {travelHome}m
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
