@@ -1237,10 +1237,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const empForDay = data?.employeesByDate[dayDate]?.find(e => e.employeeName === empName);
                 const timeWindows = empForDay?.timeWindows || '';
                 const hasVisits = visits.length > 0;
-                const scheduledMinutes = visits.reduce((sum, v) => sum + (v.durationMinutes || 0), 0);
-                const contractedMinutesToday = (empForDay?.contractedDailyHours || 0) * 60;
-                const utilPct = Math.min(100, contractedMinutesToday > 0 ? Math.round(scheduledMinutes / contractedMinutesToday * 100) : 0);
-                const utilColor = utilPct >= 80 ? '#EF4444' : utilPct >= 60 ? '#F59E0B' : '#10B981';
+                const utilPct = Math.min(100, (visits.length / Math.max(1, Math.ceil(weeklyHours / 5 / 1.5))) * 100);
+                const utilColor = utilPct >= 80 ? '#EF4444' : utilPct >= 50 ? '#F59E0B' : '#10B981';
 
                 // Now-line position for today
                 const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
@@ -1319,46 +1317,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const showTravel = travel > 0 && travel < 999;
                         const travelIcon = vi === 0 ? '🏠' : isWalker ? '🚶' : '🚗';
                         const isSelected = selectedTimelineVisit?.empName === empName && selectedTimelineVisit?.visit.id === visit.id;
-
-                        // Home-break detection: gap ≥ 90 min to next visit
-                        const nextV = visits[vi + 1];
-                        let breakBlock = null;
-                        if (nextV) {
-                          const gapMin = timeToMinutes(nextV.startTime) - timeToMinutes(visit.endTime);
-                          if (gapMin >= 90) {
-                            const empLoc = employeeLocationMap.get(empName);
-                            let travelToHome = visit.travelTimeAfter ?? 0;
-                            if ((!travelToHome || travelToHome >= 999) && empLoc?.homeLat && empLoc?.homeLng && visit.lat && visit.lng) {
-                              const mode2: 'car' | 'walking' = isWalker ? 'walking' : 'car';
-                              const dist2 = haversineDistance({ lat: visit.lat, lng: visit.lng }, { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) });
-                              travelToHome = calculateTravelTime(dist2, mode2);
-                            }
-                            const travelFromHome = (nextV.travelTimeBefore && nextV.travelTimeBefore < 999) ? nextV.travelTimeBefore : 0;
-                            const breakMin = Math.max(0, gapMin - travelToHome - travelFromHome);
-                            const gapStartX = timeToX(visit.endTime);
-                            const gapEndX   = timeToX(nextV.startTime);
-                            const cx = (gapStartX + gapEndX) / 2;
-                            breakBlock = (
-                              <div style={{
-                                position: 'absolute', top: 10, left: cx - 32, width: 64, height: 56,
-                                borderRadius: 9, background: '#FFF7ED', border: '1.5px dashed #F97316',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
-                                zIndex: 4, pointerEvents: 'none',
-                              }}>
-                                <span style={{ fontSize: 14, lineHeight: 1 }}>🏠</span>
-                                <span style={{ fontSize: 8, fontWeight: 700, color: '#EA580C', marginTop: 1 }}>Break</span>
-                                <span style={{ fontSize: 9, fontWeight: 700, color: '#C2410C' }}>{breakMin}m</span>
-                                {travelToHome > 0 && (
-                                  <span style={{ fontSize: 7, color: '#9A3412', opacity: .75 }}>←{travelToHome}m {travelFromHome}m→</span>
-                                )}
-                              </div>
-                            );
-                          }
-                        }
-
                         return (
                           <div key={vi} style={{ pointerEvents: 'auto' }}>
-                            {breakBlock}
                             {showTravel && (
                               <div style={{
                                 position: 'absolute', top: 40, left: Math.max(2, xLeft - (vi === 0 ? 48 : 38)), height: 20, padding: '0 6px',
