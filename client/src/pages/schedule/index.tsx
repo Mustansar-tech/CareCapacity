@@ -17,7 +17,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="w-full px-6 py-4">
+    <div className="w-full h-full overflow-hidden">
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-64">

@@ -19,7 +19,7 @@ export function BranchSelector() {
 
   if (isLoadingBranches) {
     return (
-      <div className="flex items-center gap-1.5 text-sm" style={{ color: '#64748B' }}>
+      <div className="flex items-center gap-1.5 text-white/40 text-sm">
         <MapPin className="w-3.5 h-3.5 shrink-0" />
         <span>Loading…</span>
       </div>
@@ -34,16 +34,15 @@ export function BranchSelector() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer outline-none"
-          style={{ color: '#334155', background: 'transparent', border: 'none', fontWeight: 600, fontSize: 12 }}
+          className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors cursor-pointer outline-none"
           data-testid="branch-selector"
           aria-label="Switch branch"
         >
-          <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: '#64748B' }} />
-          <span className="whitespace-nowrap max-w-[160px] truncate">
+          <MapPin className="w-3.5 h-3.5 text-white/40 shrink-0" />
+          <span className="whitespace-nowrap max-w-[180px] truncate">
             {selectedBranch?.displayName ?? 'Select branch…'}
           </span>
-          <ChevronDown className="w-3.5 h-3.5 shrink-0" style={{ color: '#94A3B8' }} />
+          <ChevronDown className="w-3.5 h-3.5 text-white/40 shrink-0" />
         </button>
       </DropdownMenuTrigger>
 

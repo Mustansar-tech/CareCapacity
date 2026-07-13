@@ -3,99 +3,88 @@
 @tailwind utilities;
 
 :root {
-  /* ── Premium SaaS Design System ────────────────── */
-  --brand: #2c4f26;
-  --saas-bg: #F4F6FB;
-  --saas-panel: #FFFFFF;
-  --saas-ink: #0F172A;
-  --saas-ink-2: #334155;
-  --saas-muted: #64748B;
-  --saas-border: #E5E9F2;
-  --shadow: 0 10px 30px rgba(15,23,42,.06);
-  --shadow-lg: 0 20px 45px rgba(15,23,42,.12);
-
-  /* ── Base Color Tokens ──────────────────────────── */
-  --background: hsl(220 22% 97%);
-  --foreground: hsl(222 47% 11%);
-  --surface: hsl(0 0% 100%);
-  --surface-container: hsl(220 14% 96%);
-  --surface-container-high: hsl(220 14% 94%);
-  --surface-container-highest: hsl(220 14% 91%);
-
-  /* Cards */
+  /* Google Material Design 3.0 Inspired Color System */
+  --background: hsl(0 0% 99%);
+  --foreground: hsl(210 9% 9%);
+  --surface: hsl(0 0% 98%);
+  --surface-container: hsl(210 6% 96%);
+  --surface-container-high: hsl(210 8% 94%);
+  --surface-container-highest: hsl(210 12% 92%);
+  
+  /* Cards with subtle depth */
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222 47% 11%);
-  --card-border: hsl(220 18% 91%);
-
-  /* Interactive */
+  --card-foreground: hsl(210 9% 9%);
+  --card-border: hsl(210 12% 89%);
+  
+  /* Interactive elements */
   --primary: hsl(214 100% 44%);
   --primary-container: hsl(214 100% 95%);
   --primary-foreground: hsl(0 0% 100%);
   --on-primary-container: hsl(214 100% 20%);
-
+  
   --secondary: hsl(147 100% 37%);
   --secondary-container: hsl(147 100% 93%);
   --secondary-foreground: hsl(0 0% 100%);
   --on-secondary-container: hsl(147 100% 12%);
-
+  
   --tertiary: hsl(266 85% 58%);
   --tertiary-container: hsl(266 85% 94%);
   --tertiary-foreground: hsl(0 0% 100%);
-
-  /* Semantic */
+  
+  /* Semantic colors */
   --success: hsl(142 76% 36%);
   --success-container: hsl(142 76% 94%);
   --warning: hsl(45 93% 47%);
   --warning-container: hsl(45 93% 95%);
   --error: hsl(358 75% 59%);
   --error-container: hsl(358 75% 95%);
-
-  /* Neutral */
-  --muted: hsl(220 14% 93%);
-  --muted-foreground: hsl(220 9% 42%);
-  --border: hsl(220 18% 90%);
-  --input: hsl(220 14% 97%);
+  
+  /* Neutral tones */
+  --muted: hsl(210 6% 94%);
+  --muted-foreground: hsl(210 6% 40%);
+  --border: hsl(210 12% 89%);
+  --input: hsl(210 6% 97%);
   --ring: hsl(214 100% 59%);
-
-  /* Surfaces */
+  
+  /* Surface variants */
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(222 47% 11%);
+  --popover-foreground: hsl(210 9% 9%);
   --accent: hsl(214 100% 95%);
   --accent-foreground: hsl(214 100% 20%);
-
-  /* Legacy */
+  
+  /* Legacy compatibility */
   --destructive: hsl(358 75% 59%);
   --destructive-foreground: hsl(0 0% 100%);
-
-  /* Chart */
-  --chart-1: hsl(214 100% 55%);
+  
+  /* Enhanced chart colors */
+  --chart-1: hsl(214 100% 59%);
   --chart-2: hsl(147 100% 37%);
   --chart-3: hsl(45 93% 47%);
   --chart-4: hsl(266 85% 58%);
   --chart-5: hsl(358 75% 59%);
   --chart-6: hsl(195 100% 42%);
-
-  /* Typography */
+  
+  /* Typography system */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
   --font-display: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-
-  /* Radius */
+  
+  /* Border radius scale */
   --radius: 12px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-2xl: 24px;
-
-  /* Elevation */
-  --elevation-1: 0px 1px 2px rgba(15,23,42,.04), 0px 1px 3px rgba(15,23,42,.06);
-  --elevation-2: 0px 1px 2px rgba(15,23,42,.04), 0px 2px 6px rgba(15,23,42,.08);
-  --elevation-3: 0px 1px 3px rgba(15,23,42,.05), 0px 4px 8px rgba(15,23,42,.10);
-  --elevation-4: 0px 2px 4px rgba(15,23,42,.05), 0px 8px 12px rgba(15,23,42,.10);
-  --elevation-5: 0px 4px 6px rgba(15,23,42,.05), 0px 12px 16px rgba(15,23,42,.10);
-
-  /* Spacing */
+  
+  /* Elevation system (Google Material Design) */
+  --elevation-1: 0px 1px 2px rgba(0, 0, 0, 0.03), 0px 1px 3px rgba(0, 0, 0, 0.1);
+  --elevation-2: 0px 1px 2px rgba(0, 0, 0, 0.03), 0px 2px 6px rgba(0, 0, 0, 0.1);
+  --elevation-3: 0px 1px 3px rgba(0, 0, 0, 0.04), 0px 4px 8px rgba(0, 0, 0, 0.12);
+  --elevation-4: 0px 2px 4px rgba(0, 0, 0, 0.04), 0px 8px 12px rgba(0, 0, 0, 0.12);
+  --elevation-5: 0px 4px 6px rgba(0, 0, 0, 0.04), 0px 12px 16px rgba(0, 0, 0, 0.12);
+  
+  /* Spacing scale */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -103,8 +92,8 @@
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
   --spacing-3xl: 64px;
-
-  /* Animation */
+  
+  /* Animation timing */
   --duration-fast: 150ms;
   --duration-normal: 250ms;
   --duration-slow: 350ms;
@@ -113,64 +102,73 @@
 }
 
 .dark {
-  --background: hsl(222 47% 6%);
+  /* Google Material Design 3.0 Dark Theme */
+  --background: hsl(210 11% 6%);
   --foreground: hsl(210 6% 93%);
-  --surface: hsl(222 47% 8%);
-  --surface-container: hsl(222 47% 11%);
-  --surface-container-high: hsl(222 47% 14%);
-  --surface-container-highest: hsl(222 47% 17%);
-
-  --card: hsl(222 47% 11%);
+  --surface: hsl(210 11% 8%);
+  --surface-container: hsl(210 11% 11%);
+  --surface-container-high: hsl(210 11% 14%);
+  --surface-container-highest: hsl(210 11% 17%);
+  
+  /* Cards with subtle depth */
+  --card: hsl(210 11% 11%);
   --card-foreground: hsl(210 6% 93%);
-  --card-border: hsl(222 47% 18%);
-
-  --primary: hsl(214 100% 68%);
+  --card-border: hsl(210 11% 17%);
+  
+  /* Interactive elements */
+  --primary: hsl(214 100% 70%);
   --primary-container: hsl(214 100% 15%);
-  --primary-foreground: hsl(222 47% 6%);
+  --primary-foreground: hsl(210 11% 6%);
   --on-primary-container: hsl(214 100% 85%);
-
+  
   --secondary: hsl(147 100% 48%);
   --secondary-container: hsl(147 100% 12%);
-  --secondary-foreground: hsl(222 47% 6%);
+  --secondary-foreground: hsl(210 11% 6%);
   --on-secondary-container: hsl(147 100% 80%);
-
+  
   --tertiary: hsl(266 85% 68%);
   --tertiary-container: hsl(266 85% 18%);
-  --tertiary-foreground: hsl(222 47% 6%);
-
+  --tertiary-foreground: hsl(210 11% 6%);
+  
+  /* Semantic colors */
   --success: hsl(142 76% 48%);
   --success-container: hsl(142 76% 15%);
   --warning: hsl(45 93% 58%);
   --warning-container: hsl(45 93% 18%);
   --error: hsl(358 75% 68%);
   --error-container: hsl(358 75% 18%);
-
-  --muted: hsl(222 47% 17%);
-  --muted-foreground: hsl(210 6% 60%);
-  --border: hsl(222 47% 18%);
-  --input: hsl(222 47% 14%);
-  --ring: hsl(214 100% 68%);
-
-  --popover: hsl(222 47% 11%);
+  
+  /* Neutral tones */
+  --muted: hsl(210 11% 17%);
+  --muted-foreground: hsl(210 6% 63%);
+  --border: hsl(210 11% 17%);
+  --input: hsl(210 11% 14%);
+  --ring: hsl(214 100% 70%);
+  
+  /* Surface variants */
+  --popover: hsl(210 11% 11%);
   --popover-foreground: hsl(210 6% 93%);
   --accent: hsl(214 100% 15%);
   --accent-foreground: hsl(214 100% 85%);
-
+  
+  /* Legacy compatibility */
   --destructive: hsl(358 75% 68%);
-  --destructive-foreground: hsl(222 47% 6%);
-
-  --chart-1: hsl(214 100% 68%);
+  --destructive-foreground: hsl(210 11% 6%);
+  
+  /* Enhanced chart colors for dark mode */
+  --chart-1: hsl(214 100% 70%);
   --chart-2: hsl(147 100% 48%);
   --chart-3: hsl(45 93% 58%);
   --chart-4: hsl(266 85% 68%);
   --chart-5: hsl(358 75% 68%);
   --chart-6: hsl(195 100% 55%);
-
-  --elevation-1: 0px 1px 2px rgba(0,0,0,.20), 0px 1px 3px rgba(0,0,0,.28);
-  --elevation-2: 0px 1px 2px rgba(0,0,0,.20), 0px 2px 6px rgba(0,0,0,.28);
-  --elevation-3: 0px 1px 3px rgba(0,0,0,.24), 0px 4px 8px rgba(0,0,0,.32);
-  --elevation-4: 0px 2px 4px rgba(0,0,0,.24), 0px 8px 12px rgba(0,0,0,.32);
-  --elevation-5: 0px 4px 6px rgba(0,0,0,.24), 0px 12px 16px rgba(0,0,0,.32);
+  
+  /* Enhanced elevation for dark mode */
+  --elevation-1: 0px 1px 2px rgba(0, 0, 0, 0.2), 0px 1px 3px rgba(0, 0, 0, 0.3);
+  --elevation-2: 0px 1px 2px rgba(0, 0, 0, 0.2), 0px 2px 6px rgba(0, 0, 0, 0.3);
+  --elevation-3: 0px 1px 3px rgba(0, 0, 0, 0.25), 0px 4px 8px rgba(0, 0, 0, 0.35);
+  --elevation-4: 0px 2px 4px rgba(0, 0, 0, 0.25), 0px 8px 12px rgba(0, 0, 0, 0.35);
+  --elevation-5: 0px 4px 6px rgba(0, 0, 0, 0.25), 0px 12px 16px rgba(0, 0, 0, 0.35);
 }
 
 @layer base {
@@ -179,31 +177,26 @@
   }
 
   body {
-    @apply font-sans antialiased text-foreground;
+    @apply font-sans antialiased bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background:
-      radial-gradient(1200px 500px at -5% -5%, #EEF4FF 0%, transparent 60%),
-      radial-gradient(900px 500px at 105% 0%, #F5F0FF 0%, transparent 55%),
-      var(--background);
   }
 
-  .dark body {
-    background: var(--background);
-  }
-
+  /* Enhanced focus styles */
   *:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
 
+  /* Improved text selection */
   ::selection {
     background-color: var(--primary-container);
     color: var(--on-primary-container);
   }
 
+  /* Typography improvements */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     font-weight: 600;
@@ -215,6 +208,7 @@
     line-height: 1.6;
   }
 
+  /* Enhanced button baseline */
   button {
     font-family: var(--font-sans);
     font-weight: 500;
@@ -223,15 +217,32 @@
 }
 
 @layer utilities {
-  /* ── Elevation ────────────────────────────────── */
-  .elevation-0 { box-shadow: none; }
-  .elevation-1 { box-shadow: var(--elevation-1); }
-  .elevation-2 { box-shadow: var(--elevation-2); }
-  .elevation-3 { box-shadow: var(--elevation-3); }
-  .elevation-4 { box-shadow: var(--elevation-4); }
-  .elevation-5 { box-shadow: var(--elevation-5); }
+  /* Google Material Design 3.0 Elevation System */
+  .elevation-0 {
+    box-shadow: none;
+  }
+  
+  .elevation-1 {
+    box-shadow: var(--elevation-1);
+  }
+  
+  .elevation-2 {
+    box-shadow: var(--elevation-2);
+  }
+  
+  .elevation-3 {
+    box-shadow: var(--elevation-3);
+  }
+  
+  .elevation-4 {
+    box-shadow: var(--elevation-4);
+  }
+  
+  .elevation-5 {
+    box-shadow: var(--elevation-5);
+  }
 
-  /* ── Card variants ─────────────────────────────── */
+  /* Enhanced card styles */
   .material-card {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -240,155 +251,61 @@
   }
 
   .material-card:hover {
-    box-shadow: var(--shadow);
+    box-shadow: var(--elevation-3);
     transform: translateY(-1px);
   }
 
-  .glass-card {
-    background: rgba(255,255,255,.72);
-    backdrop-filter: blur(16px) saturate(1.8);
-    border: 1px solid rgba(255,255,255,.55);
-    box-shadow: var(--elevation-2);
-  }
-
-  .dark .glass-card {
-    background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.08);
-  }
-
+  /* Glass morphism effects - refined */
   .glass {
-    background: rgba(255,255,255,.08);
+    background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(16px) saturate(1.8);
-    border: 1px solid rgba(255,255,255,.12);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: var(--elevation-2);
   }
 
   .dark .glass {
-    background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  /* ── SaaS buttons ──────────────────────────────── */
-  .btn-saas-primary {
-    height: 38px;
-    padding: 0 16px;
-    background: linear-gradient(135deg, #2563EB, #4F46E5);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 6px 16px rgba(37,99,235,.32);
-    transition: all .15s;
+  /* Premium gradient backgrounds */
+  .gradient-bg {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
   }
 
-  .btn-saas-primary:hover {
-    box-shadow: 0 8px 22px rgba(37,99,235,.42);
-    transform: translateY(-1px);
+  .gradient-primary {
+    background: linear-gradient(135deg, var(--primary), var(--tertiary));
   }
 
-  .btn-saas-ai {
-    height: 38px;
-    padding: 0 16px;
-    background: linear-gradient(135deg, #8B5CF6, #EC4899);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 6px 16px rgba(139,92,246,.32);
-    transition: all .15s;
+  .gradient-success {
+    background: linear-gradient(135deg, var(--success), var(--secondary));
   }
 
-  .btn-saas-ai:hover {
-    box-shadow: 0 8px 22px rgba(139,92,246,.42);
-    transform: translateY(-1px);
+  /* Enhanced animations with Material Motion */
+  .animate-fade-in {
+    animation: fadeIn var(--duration-normal) var(--easing-standard);
   }
 
-  .btn-saas-filter {
-    height: 36px;
-    padding: 0 14px;
-    background: white;
-    border: 1px solid #E5E9F2;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #334155;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: all .15s;
+  .animate-slide-up {
+    animation: slideUp var(--duration-slow) var(--easing-emphasized);
   }
 
-  .btn-saas-filter:hover {
-    border-color: #93C5FD;
-    color: #2563EB;
+  .animate-scale-in {
+    animation: scaleIn var(--duration-fast) var(--easing-standard);
   }
 
-  /* ── SaaS chip ─────────────────────────────────── */
-  .saas-chip {
-    padding: 6px 12px;
-    background: #F1F5F9;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #334155;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: animate-gradient 3s ease-in-out infinite;
   }
 
-  .dark .saas-chip {
-    background: hsl(222 47% 17%);
-    color: hsl(210 6% 75%);
+  .animate-bounce-in {
+    animation: bounceIn var(--duration-slow) var(--easing-emphasized);
   }
 
-  /* ── Visit card (schedule planner) ─────────────── */
-  .saas-visit-card {
-    background: white;
-    border: 1px solid #E5E9F2;
-    border-radius: 12px;
-    padding: 12px;
-    cursor: grab;
-    transition: all .15s;
-    position: relative;
-    border-left: 4px solid #EF4444;
-  }
-
-  .saas-visit-card:hover {
-    border-color: #93C5FD;
-    box-shadow: var(--shadow);
-    transform: translateY(-1px);
-  }
-
-  .saas-visit-card.priority-med { border-left-color: #F59E0B; }
-  .saas-visit-card.priority-low { border-left-color: #06B6D4; }
-
-  /* ── Gradients ─────────────────────────────────── */
-  .gradient-bg { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
-  .gradient-primary { background: linear-gradient(135deg, var(--primary), var(--tertiary)); }
-  .gradient-success { background: linear-gradient(135deg, var(--success), var(--secondary)); }
-
-  /* ── Animations ────────────────────────────────── */
-  .animate-fade-in { animation: fadeIn var(--duration-normal) var(--easing-standard); }
-  .animate-slide-up { animation: slideUp var(--duration-slow) var(--easing-emphasized); }
-  .animate-scale-in { animation: scaleIn var(--duration-fast) var(--easing-standard); }
-  .animate-gradient { background-size: 200% 200%; animation: animate-gradient 3s ease-in-out infinite; }
-  .animate-bounce-in { animation: bounceIn var(--duration-slow) var(--easing-emphasized); }
-
-  /* ── Hover effects ─────────────────────────────── */
+  /* Sophisticated hover effects */
   .hover-lift {
-    transition: transform var(--duration-normal) var(--easing-standard),
+    transition: transform var(--duration-normal) var(--easing-standard), 
                 box-shadow var(--duration-normal) var(--easing-standard);
   }
 
@@ -401,9 +318,11 @@
     transition: transform var(--duration-fast) var(--easing-standard);
   }
 
-  .hover-scale:hover { transform: scale(1.02); }
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
 
-  /* ── Loading skeleton ──────────────────────────── */
+  /* Modern loading skeletons */
   .skeleton {
     background: linear-gradient(
       110deg,
@@ -415,8 +334,10 @@
     animation: shimmer 1.6s ease-in-out infinite;
   }
 
-  /* ── Status ────────────────────────────────────── */
-  .status-pulse { animation: statusPulse 2s ease-in-out infinite; }
+  /* Status indicators with improved accessibility */
+  .status-pulse {
+    animation: statusPulse 2s ease-in-out infinite;
+  }
 
   .status-success {
     background: var(--success-container);
@@ -436,7 +357,7 @@
     border: 1px solid var(--error);
   }
 
-  /* ── Interactive ripple ────────────────────────── */
+  /* Enhanced interactive elements */
   .interactive {
     transition: all var(--duration-normal) var(--easing-standard);
     cursor: pointer;
@@ -447,17 +368,25 @@
   .interactive::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: var(--primary);
     opacity: 0;
     transition: opacity var(--duration-fast) var(--easing-standard);
     border-radius: inherit;
   }
 
-  .interactive:hover::before { opacity: 0.04; }
-  .interactive:active::before { opacity: 0.08; }
+  .interactive:hover::before {
+    opacity: 0.04;
+  }
 
-  /* ── Tabs modern ───────────────────────────────── */
+  .interactive:active::before {
+    opacity: 0.08;
+  }
+
+  /* Premium tab styling */
   .tabs-modern [data-state=active] {
     background: var(--primary-container) !important;
     color: var(--on-primary-container) !important;
@@ -475,68 +404,154 @@
     transform: translateY(-1px);
   }
 
-  /* ── Scroll styling ─────────────────────────────── */
-  .scroll-modern {
-    scrollbar-width: thin;
-    scrollbar-color: #CBD5E1 transparent;
+  /* Enhanced progress indicators */
+  .progress-glow {
+    box-shadow: 0 0 12px var(--primary), 0 0 24px var(--primary);
   }
 
-  .scroll-modern::-webkit-scrollbar { width: 6px; height: 6px; }
-  .scroll-modern::-webkit-scrollbar-track { background: transparent; }
-  .scroll-modern::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
-  .scroll-modern::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+  /* Focus ring with modern styling */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(var(--ring), 0.12);
+  }
+
+  /* Modern scroll styling */
+  .scroll-modern {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) transparent;
+  }
+
+  .scroll-modern::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scroll-modern::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scroll-modern::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border-radius: 3px;
+  }
+
+  .scroll-modern::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
 }
 
-/* ── Keyframes ────────────────────────────────────── */
+/* Google Material Motion Keyframes */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { 
+    opacity: 0; 
+  }
+  to { 
+    opacity: 1; 
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(24px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from { 
+    opacity: 0; 
+    transform: scale(0.92); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
 }
 
 @keyframes bounceIn {
-  0% { opacity: 0; transform: scale(0.3); }
-  50% { opacity: 1; transform: scale(1.05); }
-  70% { transform: scale(0.9); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% { 
+    background-position: -200% 0; 
+  }
+  100% { 
+    background-position: 200% 0; 
+  }
 }
 
 @keyframes statusPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.7; 
+    transform: scale(1.05);
+  }
 }
 
 @keyframes slideInFromRight {
-  from { opacity: 0; transform: translateX(32px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes slideInFromLeft {
-  from { opacity: 0; transform: translateX(-32px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes ripple {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(4); opacity: 0; }
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
 }
 
 @keyframes animate-gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
