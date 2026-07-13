@@ -135,11 +135,20 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // Set initial gantt view date (today if in week, else Monday)
+  // Set initial gantt view date:
+  //   1. selectedDate (the date the user navigated to), if it falls in this week
+  //   2. today, if today falls in this week
+  //   3. Monday of the week otherwise
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
-    setGanttViewDate(weekDates.includes(today) ? today : (weekDates[0] || today));
-  }, [weekStart]);
+    if (selectedDate && weekDates.includes(selectedDate)) {
+      setGanttViewDate(selectedDate);
+    } else if (weekDates.includes(today)) {
+      setGanttViewDate(today);
+    } else {
+      setGanttViewDate(weekDates[0] || today);
+    }
+  }, [weekStart, selectedDate]);
 
   // Auto-scroll timeline to 07:00 on view change
   useEffect(() => {
