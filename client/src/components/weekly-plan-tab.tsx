@@ -629,8 +629,35 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const prevEmployee = currentEmpIndex > 0 ? filteredEmployees[currentEmpIndex - 1] : null;
   const nextEmployee = currentEmpIndex < filteredEmployees.length - 1 ? filteredEmployees[currentEmpIndex + 1] : null;
 
+  /** Recompute schedule metrics after a manual move */
+  function recomputeMetrics(
+    assignments: Record<string, Record<string, AssignedVisit[]>>,
+    unallocated: Array<ClientVisit & { unallocatedReason: string }>,
+  ): WeeklyScheduleData['metrics'] {
+    let totalAssigned = 0, totalTravel = 0;
+    const empsUsed = new Set<string>();
+    Object.values(assignments).forEach(dayMap =>
+      Object.entries(dayMap).forEach(([emp, visits]) => {
+        if (!visits.length) return;
+        empsUsed.add(emp);
+        totalAssigned += visits.length;
+        totalTravel += visits.reduce((s, v) => s + (v.travelTimeBefore || 0), 0);
+      })
+    );
+    return {
+      totalVisitsAssigned: totalAssigned,
+      totalVisitsUnallocated: unallocated.length,
+      averageTravelTimePerVisit: totalAssigned > 0 ? Math.round(totalTravel / totalAssigned) : 0,
+      employeesUtilized: empsUsed.size,
+    };
+  }
+
   /** Check if an employee can accept a visit on a given date */
-  function computeEmpAcceptance(visit: ClientVisit, empName: string, date: string): { accepts: boolean; reason: string } {
+  function computeEmpAcceptance(
+    visit: { startTime: string; endTime: string; durationMinutes: number; lat?: number | null; lng?: number | null },
+    empName: string,
+    date: string,
+  ): { accepts: boolean; reason: string } {
     const empDay = data?.employeesByDate[date]?.find(e => e.employeeName === empName);
     if (!empDay) return { accepts: false, reason: 'No availability data' };
     const windows = silentParseTimeWindows(empDay.timeWindows || '');
@@ -704,7 +731,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       const { empName: fromEmp, visitDate, visitIndex, visit } = drag;
       const toEmp = drop.empName;
       if (fromEmp === toEmp) return;
-      const acceptance = computeEmpAcceptance(visit as ClientVisit, toEmp, visitDate);
+      const acceptance = computeEmpAcceptance(visit, toEmp, visitDate);
       if (!acceptance.accepts) {
         toast({ title: "Can't reassign", description: acceptance.reason, variant: "destructive" });
         return;
@@ -715,7 +742,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       if (!newA[visitDate][toEmp]) newA[visitDate][toEmp] = [];
       newA[visitDate][toEmp] = [...newA[visitDate][toEmp], visit]
         .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-      const newSched = { ...weeklySchedule, assignments: newA };
+      const newSched = { ...weeklySchedule, assignments: newA, metrics: recomputeMetrics(newA, weeklySchedule.unallocated) };
       setWeeklySchedule(newSched);
       saveScheduleMutation.mutate(newSched);
       toast({ title: "Visit reassigned", description: `${visit.clientName} → ${toEmp}` });
@@ -730,7 +757,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         durationMinutes: visit.durationMinutes, date: visitDate, lat: visit.lat, lng: visit.lng,
         serviceType: visit.serviceType, unallocatedReason: 'Manually unallocated',
       };
-      const newSched = { ...weeklySchedule, assignments: newA, unallocated: [...weeklySchedule.unallocated, unallocated] };
+      const newUnalloc = [...weeklySchedule.unallocated, unallocated];
+      const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc, metrics: recomputeMetrics(newA, newUnalloc) };
       setWeeklySchedule(newSched);
       saveScheduleMutation.mutate(newSched);
       toast({ title: "Visit unallocated", description: `${visit.clientName} moved to unallocated` });
@@ -755,7 +783,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       newA[visit.date][empName] = [...newA[visit.date][empName], assignedVisit]
         .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
       const newUnalloc = weeklySchedule.unallocated.filter(u => u.id !== visit.id);
-      const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc };
+      const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc, metrics: recomputeMetrics(newA, newUnalloc) };
       setWeeklySchedule(newSched);
       saveScheduleMutation.mutate(newSched);
       setSelectedUnallocatedId(null);
@@ -785,7 +813,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     newA[visit.date][empName] = [...newA[visit.date][empName], assignedVisit]
       .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
     const newUnalloc = weeklySchedule.unallocated.filter(u => u.id !== visit.id);
-    const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc };
+    const newSched = { ...weeklySchedule, assignments: newA, unallocated: newUnalloc, metrics: recomputeMetrics(newA, newUnalloc) };
     setWeeklySchedule(newSched);
     saveScheduleMutation.mutate(newSched);
     setSelectedUnallocatedId(null);
