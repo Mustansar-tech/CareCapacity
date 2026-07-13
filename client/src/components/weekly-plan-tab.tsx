@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info, Lock } from "lucide-react";
+import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info, Lock, ChevronLeft } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache, haversineDistance, calculateTravelTime, parseTimeWindows } from "@/utils/scheduling-utils";
 import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation, WeeklySchedule, EmployeeDailyDetail } from "@shared/schema";
@@ -65,6 +65,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -93,6 +95,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       setLastGeneratedAt(stored ? new Date(stored) : null);
     } catch { setLastGeneratedAt(null); }
   }, [selectedBranchId, weekStart]);
+
+  // Default selected day to today if today is within the viewed week
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const idx = weekDates.indexOf(today);
+    setSelectedDayIndex(idx >= 0 ? idx : 0);
+    setViewMode('day');
+  }, [weekStart]);
 
   // Fetch locations
   const { data: locationsData } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
@@ -561,6 +571,173 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Get total visit count for selected employee
   const totalVisitCount = employeeWeeklyRun.reduce((sum, day) => sum + day.visits.length, 0);
 
+  // ── Shared run-flow renderer ────────────────────────────────────────────────
+  // Used in both the daily view (one row per employee) and the weekly view.
+  const renderRunFlow = (empNameParam: string, _dateParam: string, dayVisits: AssignedVisit[]) => {
+    if (dayVisits.length === 0) {
+      return (
+        <div className="text-center py-3 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+          No visits assigned for this day
+        </div>
+      );
+    }
+
+    const ttMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Home Start */}
+        <div className="flex flex-col items-center gap-1">
+          <Home className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Start</span>
+        </div>
+
+        {/* First arrow */}
+        {(() => {
+          const empLoc = employeeLocationMap.get(empNameParam);
+          const firstVisit = dayVisits[0];
+          let displayMin = firstVisit.travelTimeBefore;
+          if (displayMin >= 999 && empLoc?.homeLat && empLoc?.homeLng && firstVisit.lat && firstVisit.lng) {
+            const mode: 'car' | 'walking' | 'public' = (empLoc.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
+            const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: firstVisit.lat, lng: firstVisit.lng });
+            displayMin = calculateTravelTime(dist, mode);
+          }
+          return (
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{displayMin}min</span>
+              <ArrowRight className="h-5 w-5 text-gray-400" />
+            </div>
+          );
+        })()}
+
+        {/* Visits with inter-visit arrows */}
+        {dayVisits.map((visit, vIndex) => (
+          <div key={vIndex} className="flex items-center gap-2">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow">
+              <div className="space-y-1">
+                <p className="font-medium text-xs truncate max-w-[120px]" title={visit.clientName}>{visit.clientName}</p>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  {visit.startTime} - {visit.endTime}
+                </div>
+              </div>
+            </div>
+
+            {vIndex < dayVisits.length - 1 && (() => {
+              const currentVisit = dayVisits[vIndex];
+              const nextVisit = dayVisits[vIndex + 1];
+              const currentEndMin = ttMin(currentVisit.endTime);
+              const nextStartMin = ttMin(nextVisit.startTime);
+              const gapMinutes = nextStartMin - currentEndMin;
+
+              if (gapMinutes >= 90) {
+                const empLocation = employeeLocationMap.get(empNameParam);
+                let travelToHome = 0;
+                let travelFromHome = 0;
+
+                const displayTravelMinutes = (
+                  from: { lat: number; lng: number },
+                  to: { lat: number; lng: number },
+                  mode: 'car' | 'walking' | 'public',
+                  timeMin: number
+                ): number => {
+                  const api = getTravelMinutes(from, to, mode, timeMin);
+                  if (api >= 999) { const dist = haversineDistance(from, to); return calculateTravelTime(dist, mode, timeMin); }
+                  return api;
+                };
+
+                if (empLocation?.homeLat && empLocation?.homeLng) {
+                  const transportMode = empLocation.transportMode?.toLowerCase() || '';
+                  const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
+                  if (currentVisit.travelTimeAfter !== undefined) {
+                    travelToHome = currentVisit.travelTimeAfter;
+                  } else if (currentVisit.lat && currentVisit.lng) {
+                    travelToHome = displayTravelMinutes(
+                      { lat: currentVisit.lat, lng: currentVisit.lng },
+                      { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
+                      mode, currentEndMin
+                    );
+                  }
+                  travelFromHome = nextVisit.travelTimeBefore ?? 0;
+                }
+
+                const breakTime = Math.max(0, gapMinutes - travelToHome - travelFromHome);
+                return (
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{travelToHome}min</span>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <div className="flex flex-col items-center px-3 py-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-700">
+                      <Home className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-1" />
+                      <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">Break</span>
+                      <span className="text-xs text-orange-600 dark:text-orange-400">{breakTime}min</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{travelFromHome}min</span>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                );
+              }
+
+              let interDisplayMin = nextVisit.travelTimeBefore;
+              if (interDisplayMin >= 999 && currentVisit.lat && currentVisit.lng && nextVisit.lat && nextVisit.lng) {
+                const empLocInter = employeeLocationMap.get(empNameParam);
+                const modeInter: 'car' | 'walking' | 'public' = (empLocInter?.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
+                const distInter = haversineDistance({ lat: currentVisit.lat, lng: currentVisit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng });
+                interDisplayMin = calculateTravelTime(distInter, modeInter);
+              }
+              return (
+                <div className="flex flex-col items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{interDisplayMin}min</span>
+                  <ArrowRight className="h-5 w-5 text-gray-400" />
+                </div>
+              );
+            })()}
+          </div>
+        ))}
+
+        {/* Last arrow + Home End */}
+        {(() => {
+          const lastVisit = dayVisits[dayVisits.length - 1];
+          const empLocation = employeeLocationMap.get(empNameParam);
+          let travelToHome = 0;
+          if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
+            const transportMode = empLocation.transportMode?.toLowerCase() || '';
+            const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
+            const lastVisitEndMin = ttMin(lastVisit.endTime);
+            if (lastVisit.travelTimeAfter !== undefined) {
+              travelToHome = lastVisit.travelTimeAfter;
+            } else {
+              travelToHome = getTravelMinutes(
+                { lat: lastVisit.lat, lng: lastVisit.lng },
+                { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
+                mode, lastVisitEndMin
+              );
+              if (travelToHome >= 999) {
+                const dist = haversineDistance({ lat: lastVisit.lat, lng: lastVisit.lng }, { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) });
+                travelToHome = calculateTravelTime(dist, mode, lastVisitEndMin);
+              }
+            }
+          }
+          return (
+            <>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{travelToHome}min</span>
+                <ArrowRight className="h-5 w-5 text-gray-400" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Home className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">End</span>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header with Generate Button */}
@@ -633,447 +810,233 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         </Card>
       )}
 
-      {/* Main Layout: Employee Picker (Left) + Weekly Run (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Employee Picker - Narrower width, increased height */}
+      {/* ── Day Tab Strip (day mode only) ────────────────────────────────── */}
+      {viewMode === 'day' && (
+        <div className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700 pb-2">
+          {weekDates.map((date, idx) => {
+            const dayVisitCount = weeklySchedule
+              ? Object.values(weeklySchedule.assignments[date] || {}).reduce((s, v) => s + v.length, 0)
+              : 0;
+            const isToday = date === new Date().toISOString().split('T')[0];
+            return (
+              <button
+                key={date}
+                onClick={() => setSelectedDayIndex(idx)}
+                className={`flex flex-col items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors min-w-[80px] flex-shrink-0 ${
+                  selectedDayIndex === idx
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800'
+                } ${isToday ? 'ring-2 ring-offset-1 ring-blue-400 dark:ring-offset-gray-900' : ''}`}
+              >
+                <span className="font-semibold">{dayNames[idx].slice(0, 3)}</span>
+                <span className="text-xs opacity-75">{date.split('-').slice(1).reverse().join('/')}</span>
+                {dayVisitCount > 0 && (
+                  <span className={`text-[10px] mt-1 px-1.5 py-0.5 rounded-full font-medium ${
+                    selectedDayIndex === idx ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                  }`}>
+                    {dayVisitCount}v
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Weekly View (employee selected) ─────────────────────────────── */}
+      {viewMode === 'week' && selectedEmployee && weeklySchedule ? (
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Employee Picker
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="sm" onClick={() => setViewMode('day')} className="gap-1 text-blue-600 hover:text-blue-700">
+                  <ChevronLeft className="h-4 w-4" /> Day View
+                </Button>
+                <span>{selectedEmployee} — Weekly Run</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                Total: {totalVisitCount} visits
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="relative">
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-3">
+                {weekDates.map((date, index) => {
+                  const dayVisits = employeeWeeklyRun[index]?.visits || [];
+                  const dayName = dayNames[index];
+                  const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
+                  const timeWindows = employeeForDate?.timeWindows || '';
+                  const status = employeeForDate?.status || '';
+                  if (!timeWindows || timeWindows.trim() === '' || status === 'Ad-hoc') return null;
+                  return (
+                    <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-semibold">{dayName}</h3>
+                          <span className="text-sm text-muted-foreground">{date.split('-').slice(1).reverse().join('/')}</span>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {timeWindows}
+                          </div>
+                        </div>
+                        <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
+                          {dayVisits.length} visits
+                        </Badge>
+                      </div>
+                      {renderRunFlow(selectedEmployee, date, dayVisits)}
+                    </div>
+                  );
+                }).filter(Boolean)}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+      ) : viewMode === 'day' ? (
+        <Card className="glass-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                <span>
+                  {dayNames[selectedDayIndex]},{' '}
+                  {weekDates[selectedDayIndex]?.split('-').slice(1).reverse().join('/')}
+                </span>
+              </div>
+              <div className="relative w-56">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search employees..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-9 h-8 text-sm"
                   data-testid="input-search-employee"
                 />
               </div>
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-2">
-                  {filteredEmployees.length > 0 ? (
-                    filteredEmployees.map(empName => {
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ScrollArea className="h-[600px]">
+              {(() => {
+                const dayDate = weekDates[selectedDayIndex];
+
+                const assignedEmps: [string, AssignedVisit[]][] = weeklySchedule
+                  ? Object.entries(weeklySchedule.assignments[dayDate] || {})
+                      .filter(([n]) => n.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .sort(([a], [b]) => a.localeCompare(b)) as [string, AssignedVisit[]][]
+                  : [];
+
+                const assignedSet = new Set(assignedEmps.map(([n]) => n));
+                const availableToday = (data?.employeesByDate[dayDate] || []).filter(emp =>
+                  emp.timeWindows && emp.timeWindows.trim() !== '' &&
+                  emp.status !== 'Ad-hoc' &&
+                  (employeeWeeklyHoursMap.get(emp.employeeName) || 0) > 0 &&
+                  !assignedSet.has(emp.employeeName) &&
+                  emp.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+                if (assignedEmps.length === 0 && availableToday.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-48 text-center text-muted-foreground">
+                      <div>
+                        <Calendar className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                        <p className="font-medium">No employees scheduled</p>
+                        <p className="text-sm mt-1">
+                          {weeklySchedule ? 'No assignments for this day' : 'Generate a schedule to see daily assignments'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3 py-1">
+                    {assignedEmps.map(([empName, visits]) => {
                       const location = employeeLocationMap.get(empName);
-
-                      // Determine transport mode icon
-                      const transportMode = location?.transportMode?.toLowerCase() || '';
-                      const isWalker = !transportMode.includes('car');
-                      const TransportIcon = isWalker ? User : Car;
-
-                      // Get gender from employee gender map
                       const gender = employeeGenderMap.get(empName) || '';
-
-                      // Calculate total visit hours across all days
-                      const totalVisitHours = weeklySchedule 
-                        ? Object.values(weeklySchedule.assignments).reduce((sum, dateAssignments) => {
-                            const empVisits = dateAssignments[empName] || [];
-                            const dayHours = empVisits.reduce((daySum, visit) => 
-                              daySum + (visit.durationMinutes / 60), 0);
-                            return sum + dayHours;
-                          }, 0)
-                        : 0;
-
-                      // Get weekly hours (GH) and holidays/unavailability
+                      const isWalker = !(location?.transportMode?.toLowerCase() || '').includes('car');
+                      const TransportIcon = isWalker ? User : Car;
+                      const empForDate = data?.employeesByDate[dayDate]?.find(e => e.employeeName === empName);
+                      const timeWindows = empForDate?.timeWindows || '';
                       const weeklyHours = employeeWeeklyHoursMap.get(empName) || 0;
-                      const holidayDays = employeeHolidaysMap.get(empName) || 0;
-                      const unavailDays = employeeUnavailabilityMap.get(empName) || 0;
-
-                      const isSelected = selectedEmployee === empName;
-
                       return (
-                        <div
-                          key={empName}
-                          onClick={() => setSelectedEmployee(empName)}
-                          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'bg-blue-100 dark:bg-blue-900/20 border-2 border-blue-500' 
-                              : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
-                          }`}
-                          data-testid={`select-employee-${empName}`}
-                        >
-                          <TransportIcon className="h-4 w-4 flex-shrink-0" />
-                          <div className="flex flex-col min-w-0 flex-1">
-                            <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={empName}>
-                              {empName}
-                            </span>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {weeklyHours > 0 && (
-                                <span className="text-xs text-muted-foreground">
-                                  {weeklyHours.toFixed(1)}h / week
-                                </span>
-                              )}
-                              {holidayDays > 0 && (
-                                <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
-                                  {holidayDays}d holiday
-                                </Badge>
-                              )}
-                              {unavailDays > 0 && (
-                                <Badge variant="outline" className="text-xs text-red-600 border-red-400">
-                                  {unavailDays}d off
-                                </Badge>
-                              )}
-                              {totalVisitHours > 0 && (
-                                <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
-                                  {totalVisitHours.toFixed(1)}h visits
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-4 text-sm text-muted-foreground">
-                      No employees found matching "{searchTerm}"
-                    </div>
-                  )}
-
-                  {/* Absent GH employees — greyed out, non-clickable */}
-                  {absentGhEmployees.filter(e =>
-                    e.name.toLowerCase().includes(searchTerm.toLowerCase())
-                  ).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-dashed border-muted-foreground/30">
-                      <p className="text-xs text-muted-foreground mb-2 px-1 font-medium uppercase tracking-wide">
-                        Absent this week
-                      </p>
-                      {absentGhEmployees
-                        .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                        .map(emp => {
-                          const gender = employeeGenderMap.get(emp.name) || '';
-                          const isHoliday = emp.status.toLowerCase().includes('holiday') || emp.status.toLowerCase().includes('annual');
-                          const isSick = emp.status.toLowerCase().includes('sick');
-                          const badgeClass = isHoliday
-                            ? 'text-amber-600 border-amber-400'
-                            : isSick
-                              ? 'text-red-600 border-red-400'
-                              : 'text-orange-600 border-orange-400';
-                          const badgeLabel = isHoliday ? 'Holiday' : isSick ? 'Sick' : 'Unavailable';
-                          return (
-                            <div
-                              key={emp.name}
-                              className="flex items-center gap-2 p-3 rounded-lg opacity-50 bg-gray-50 dark:bg-gray-800 border-2 border-transparent cursor-default"
+                        <div key={empName} className="border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-b border-blue-100 dark:border-blue-800/50">
+                            <TransportIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            <button
+                              onClick={() => { setSelectedEmployee(empName); setViewMode('week'); }}
+                              className={`${getGenderColorClass(gender)} font-semibold text-sm hover:underline text-left`}
+                              title="Click to see weekly run"
                             >
-                              <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <span className={`${getGenderColorClass(gender)} font-medium text-sm truncate`} title={emp.name}>
-                                  {emp.name}
-                                </span>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs text-muted-foreground">
-                                    {emp.gh.toFixed(1)}h / week
-                                  </span>
-                                  <Badge variant="outline" className={`text-xs ${badgeClass}`}>
-                                    {badgeLabel}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Weekly Run View - Increased width */}
-        <div className="lg:col-span-3">
-          {selectedEmployee && weeklySchedule ? (
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{selectedEmployee} - Weekly Run</span>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    Total: {totalVisitCount} visits
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px]">
-                  <div className="space-y-3">
-                    {weekDates.map((date, index) => {
-                      const dayVisits = employeeWeeklyRun[index]?.visits || [];
-                      const dayName = dayNames[index];
-
-                      // Get employee availability windows for this day
-                      const employeeForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
-                      const timeWindows = employeeForDate?.timeWindows || '';
-                      const status = employeeForDate?.status || '';
-
-                      // Only show days with real availability (has time windows and not ad-hoc)
-                      if (!timeWindows || timeWindows.trim() === '' || status === 'Ad-hoc') {
-                        return null;
-                      }
-
-                      return (
-                        <div key={date} className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                          {/* Day Header */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <h3 className="text-lg font-semibold">{dayName}</h3>
-                              <span className="text-sm text-muted-foreground">{date.split('-').slice(1).reverse().join('/')}</span>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              {empName}
+                            </button>
+                            {weeklyHours > 0 && (
+                              <span className="text-xs text-muted-foreground">{weeklyHours.toFixed(1)}h/wk</span>
+                            )}
+                            {timeWindows && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
                                 <Clock className="h-3 w-3" />
                                 {timeWindows}
                               </div>
-                            </div>
-                            <Badge variant={dayVisits.length > 0 ? "default" : "outline"} className="text-sm">
-                              {dayVisits.length} visits
+                            )}
+                            <Badge variant="default" className="text-xs ml-2 flex-shrink-0">
+                              {visits.length} {visits.length === 1 ? 'visit' : 'visits'}
                             </Badge>
                           </div>
-
-                          {/* Visits Flow - Linear Layout with Arrows */}
-                          {dayVisits.length > 0 ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              {/* Home Start Icon (Blue) */}
-                              <div className="flex flex-col items-center gap-1">
-                                <Home className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Start</span>
-                              </div>
-
-                              {/* First Arrow with Travel Time */}
-                              {dayVisits.length > 0 && (() => {
-                                const empLoc = employeeLocationMap.get(selectedEmployee || '');
-                                const firstVisit = dayVisits[0];
-                                let displayMin = firstVisit.travelTimeBefore;
-                                if (displayMin >= 999 && empLoc?.homeLat && empLoc?.homeLng && firstVisit.lat && firstVisit.lng) {
-                                  const mode: 'car' | 'walking' | 'public' = (empLoc.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
-                                  const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: firstVisit.lat, lng: firstVisit.lng });
-                                  displayMin = calculateTravelTime(dist, mode);
-                                }
-                                return (
-                                  <div className="flex flex-col items-center">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                      {displayMin}min
-                                    </span>
-                                    <ArrowRight className="h-5 w-5 text-gray-400" />
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Visits with Arrows */}
-                              {dayVisits.map((visit, vIndex) => (
-                                <div key={vIndex} className="flex items-center gap-2">
-                                  {/* Visit Card - Compact Size */}
-                                  <div 
-                                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
-                                    data-testid={`card-visit-${date}-${vIndex}`}
-                                  >
-                                    <div className="space-y-1">
-                                      <p className="font-medium text-xs truncate max-w-[120px]" title={visit.clientName}>
-                                        {visit.clientName}
-                                      </p>
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                        <Clock className="h-3 w-3" />
-                                        {visit.startTime} - {visit.endTime}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Arrow with Travel Time (if not last visit) */}
-                                  {vIndex < dayVisits.length - 1 && (() => {
-                                    const currentVisit = dayVisits[vIndex];
-                                    const nextVisit = dayVisits[vIndex + 1];
-
-                                    // Calculate gap between visits
-                                    const timeToMinutes = (timeStr: string) => {
-                                      const [hours, minutes] = timeStr.split(':').map(Number);
-                                      return hours * 60 + minutes;
-                                    };
-
-                                    const currentEndMin = timeToMinutes(currentVisit.endTime);
-                                    const nextStartMin = timeToMinutes(nextVisit.startTime);
-                                    const gapMinutes = nextStartMin - currentEndMin;
-
-                                    // If gap is 90 minutes or more, show home break
-                                    if (gapMinutes >= 90) {
-                                      const empLocation = employeeLocationMap.get(selectedEmployee || '');
-
-                                      let travelToHome = 0;
-                                      let travelFromHome = 0;
-
-                                      // Display-level helper: try API cache first, fall back to haversine for display only
-                                      const displayTravelMinutes = (
-                                        from: { lat: number; lng: number },
-                                        to: { lat: number; lng: number },
-                                        mode: 'car' | 'walking' | 'public',
-                                        timeMin: number
-                                      ): number => {
-                                        const api = getTravelMinutes(from, to, mode, timeMin);
-                                        if (api >= 999) {
-                                          const dist = haversineDistance(from, to);
-                                          return calculateTravelTime(dist, mode, timeMin);
-                                        }
-                                        return api;
-                                      };
-
-                                      if (empLocation?.homeLat && empLocation?.homeLng) {
-                                        const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                        // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
-                                        const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
-                                        const currentEndMin = timeToMinutes(currentVisit.endTime);
-                                        const nextStartMin = timeToMinutes(nextVisit.startTime);
-
-                                        // Travel from current visit to home.
-                                        // Prefer the per-date refined value stored on the visit object —
-                                        // it is date-specific so Tuesday and Saturday show different times.
-                                        if (currentVisit.travelTimeAfter !== undefined) {
-                                          travelToHome = currentVisit.travelTimeAfter;
-                                        } else if (currentVisit.lat && currentVisit.lng) {
-                                          travelToHome = displayTravelMinutes(
-                                            { lat: currentVisit.lat, lng: currentVisit.lng },
-                                            { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
-                                            mode,
-                                            currentEndMin
-                                          );
-                                        }
-
-                                        // Travel from home to next visit — use the TravelTime-refined
-                                        // travelTimeBefore already stored on the next visit object.
-                                        // This is always set by the walker refinement phase (Home→nextVisit pair).
-                                        travelFromHome = nextVisit.travelTimeBefore ?? 0;
-                                      }
-
-                                      const breakTime = Math.max(0, gapMinutes - travelToHome - travelFromHome);
-
-                                      return (
-                                        <div className="flex items-center gap-2">
-                                          {/* Travel to home */}
-                                          <div className="flex flex-col items-center">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                              {travelToHome}min
-                                            </span>
-                                            <ArrowRight className="h-5 w-5 text-gray-400" />
-                                          </div>
-
-                                          {/* Home break */}
-                                          <div className="flex flex-col items-center px-3 py-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-300 dark:border-orange-700">
-                                            <Home className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-1" />
-                                            <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                                              Break
-                                            </span>
-                                            <span className="text-xs text-orange-600 dark:text-orange-400">
-                                              {breakTime}min
-                                            </span>
-                                          </div>
-
-                                          {/* Travel from home */}
-                                          <div className="flex flex-col items-center">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                              {travelFromHome}min
-                                            </span>
-                                            <ArrowRight className="h-5 w-5 text-gray-400" />
-                                          </div>
-                                        </div>
-                                      );
-                                    }
-
-                                    // Normal travel between visits (gap < 90 minutes)
-                                    let interDisplayMin = nextVisit.travelTimeBefore;
-                                    if (interDisplayMin >= 999 && currentVisit.lat && currentVisit.lng && nextVisit.lat && nextVisit.lng) {
-                                      const empLocInter = employeeLocationMap.get(selectedEmployee || '');
-                                      const modeInter: 'car' | 'walking' | 'public' = (empLocInter?.transportMode?.toLowerCase() || '').includes('car') ? 'car' : 'walking';
-                                      const distInter = haversineDistance({ lat: currentVisit.lat, lng: currentVisit.lng }, { lat: nextVisit.lat, lng: nextVisit.lng });
-                                      interDisplayMin = calculateTravelTime(distInter, modeInter);
-                                    }
-                                    return (
-                                      <div className="flex flex-col items-center">
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                          {interDisplayMin}min
-                                        </span>
-                                        <ArrowRight className="h-5 w-5 text-gray-400" />
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              ))}
-
-                              {/* Last Arrow with Travel Time to Home */}
-                              {dayVisits.length > 0 && (() => {
-                                const lastVisit = dayVisits[dayVisits.length - 1];
-                                const empLocation = employeeLocationMap.get(selectedEmployee);
-
-                                // Calculate travel time from last visit to home
-                                let travelToHome = 0;
-                                if (empLocation?.homeLat && empLocation?.homeLng && lastVisit.lat && lastVisit.lng) {
-                                  const transportMode = empLocation.transportMode?.toLowerCase() || '';
-                                  // Use 'walking' for non-drivers (no peak time rules), 'car' for drivers
-                                  const mode: 'car' | 'walking' | 'public' = transportMode.includes('car') ? 'car' : 'walking';
-                                  const lastVisitEndMin = timeToMinutes(lastVisit.endTime);
-
-                                  // Prefer the per-date refined value — avoids the date-less cache
-                                  // where Saturday and Sunday would overwrite each other.
-                                  if (lastVisit.travelTimeAfter !== undefined) {
-                                    travelToHome = lastVisit.travelTimeAfter;
-                                  } else {
-                                    travelToHome = getTravelMinutes(
-                                      { lat: lastVisit.lat, lng: lastVisit.lng },
-                                      { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) },
-                                      mode,
-                                      lastVisitEndMin
-                                    );
-                                    // Fallback to haversine for display if API cache is empty
-                                    if (travelToHome >= 999) {
-                                      const dist = haversineDistance({ lat: lastVisit.lat, lng: lastVisit.lng }, { lat: Number(empLocation.homeLat), lng: Number(empLocation.homeLng) });
-                                      travelToHome = calculateTravelTime(dist, mode, lastVisitEndMin);
-                                    }
-                                  }
-                                }
-
-                                return (
-                                  <>
-                                    <div className="flex flex-col items-center">
-                                      <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                        {travelToHome}min
-                                      </span>
-                                      <ArrowRight className="h-5 w-5 text-gray-400" />
-                                    </div>
-
-                                    {/* Home End Icon (Green) */}
-                                    <div className="flex flex-col items-center gap-1">
-                                      <Home className="h-6 w-6 text-green-600 dark:text-green-400" />
-                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">End</span>
-                                    </div>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                              No visits assigned for this day
-                            </div>
-                          )}
+                          <div className="px-4 py-3 overflow-x-auto">
+                            {renderRunFlow(empName, dayDate, visits)}
+                          </div>
                         </div>
                       );
-                    }).filter(Boolean)}
+                    })}
+
+                    {availableToday.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-dashed border-muted-foreground/30">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide px-1 mb-2">
+                          Available — no visits assigned
+                        </p>
+                        <div className="space-y-1">
+                          {availableToday.map(emp => {
+                            const location = employeeLocationMap.get(emp.employeeName);
+                            const gender = employeeGenderMap.get(emp.employeeName) || '';
+                            const isWalker = !(location?.transportMode?.toLowerCase() || '').includes('car');
+                            const TransportIcon = isWalker ? User : Car;
+                            const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+                            return (
+                              <div key={emp.employeeName} className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                <TransportIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                <button
+                                  onClick={() => { setSelectedEmployee(emp.employeeName); setViewMode('week'); }}
+                                  className={`${getGenderColorClass(gender)} font-medium text-sm hover:underline text-left`}
+                                  title="Click to see weekly run"
+                                >
+                                  {emp.employeeName}
+                                </button>
+                                {weeklyHours > 0 && (
+                                  <span className="text-xs text-muted-foreground">{weeklyHours.toFixed(1)}h/wk</span>
+                                )}
+                                {emp.timeWindows && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
+                                    <Clock className="h-3 w-3" />
+                                    {emp.timeWindows}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="glass-card">
-              <CardContent className="flex items-center justify-center h-[600px]">
-                <div className="text-center">
-                  <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500 font-medium">Select an employee to view their weekly run</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Choose from the employee list on the left
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+                );
+              })()}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      ) : null}
+
 
       {/* Unallocated Visits - Organized by Day */}
       {weeklySchedule && weeklySchedule.unallocated.length > 0 && (
