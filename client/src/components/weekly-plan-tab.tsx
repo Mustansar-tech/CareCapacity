@@ -382,14 +382,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         localStorage.setItem(`scheduleLastGenerated_${selectedBranchId}_${weekStart}`, now.toISOString());
       } catch { /* ignore */ }
 
-      // Phase 2: Walker refinement pairs (kept for backend refinement call)
+      // ── Phase 2: Walker/public route pair collection ──────────────────────
+      // Pairs are deduplicated by {visitDate}-{from}-{to}-{mode}-{timeTag} so
+      // different days (and different departure times on the same day) are kept
+      // separate. Walker Haversine estimates remain in effect — the TravelTime
+      // API refinement endpoint is not yet active.
       const walkerPairMap = new Map<string, { fromLat: number; fromLng: number; toLat: number; toLng: number; mode: string; arrivalTimeMinutes?: number; departureTimeMinutes?: number; visitDate: string }>();
       Object.entries(correctedResult.assignments).forEach(([date, dayAssignments]) => {
         Object.entries(dayAssignments).forEach(([empName, visits]) => {
           const empLoc = employeeLocationMap.get(empName);
           if (!empLoc?.homeLat || !empLoc?.homeLng) return;
           const rawMode = (empLoc.transportMode || 'car').toLowerCase();
-          if (rawMode === 'car') return;
+          if (rawMode === 'car') return; // walkers/public handled here
           const mode = rawMode === 'public' ? 'public' : 'walking';
           const homeLat = Number(empLoc.homeLat);
           const homeLng = Number(empLoc.homeLng);
@@ -404,6 +408,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             if (vIdx < visits.length - 1) {
               const next = (visits as AssignedVisit[])[vIdx + 1];
               if (next.lat && next.lng) {
+                // 90+ min gap → worker returns home during break
                 const gapMin = timeToMinutes(next.startTime) - timeToMinutes(visit.endTime);
                 const fromLat = gapMin >= 90 ? homeLat : visit.lat;
                 const fromLng = gapMin >= 90 ? homeLng : visit.lng;
@@ -415,16 +420,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           });
         });
       });
+      clientLogger.log(`🚶 Walker pairs collected: ${walkerPairMap.size} unique route segments`);
+
+      // finalResult = correctedResult (car post-break fix applied above;
+      // walker routes use Haversine estimates already baked in by the engine)
+      const finalResult = correctedResult;
 
       try {
         await apiRequest('POST', '/api/weekly-schedule/save', {
           weekStartDate: weekStart, weekEndDate: weekEnd,
-          scheduleData: correctedResult.assignments,
-          unallocatedVisits: correctedResult.unallocated,
-          metrics: correctedResult.metrics,
+          scheduleData: finalResult.assignments,
+          unallocatedVisits: finalResult.unallocated,
+          metrics: finalResult.metrics,
         });
         queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
-        toast({ title: "Schedule Generated & Saved", description: `Assigned ${correctedResult.metrics.totalVisitsAssigned} visits across ${correctedResult.metrics.employeesUtilized} employees` });
+        toast({ title: "Schedule Generated & Saved", description: `Assigned ${finalResult.metrics.totalVisitsAssigned} visits across ${finalResult.metrics.employeesUtilized} employees` });
       } catch (error) {
         clientLogger.error('Failed to save schedule:', error);
         toast({ title: "Schedule Generated", description: `Assigned ${correctedResult.metrics.totalVisitsAssigned} visits (save failed)`, variant: "destructive" });
