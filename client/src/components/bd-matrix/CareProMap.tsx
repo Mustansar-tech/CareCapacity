@@ -187,7 +187,7 @@ export function CareProMap({
   const showClients = layer === 'both' || layer === 'clients';
 
   const LayerToggle = () => (
-    <div className="flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+    <div className="flex items-center bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
       {(['carePros', 'both', 'clients'] as MapLayer[]).map((l, i) => {
         const labels: Record<MapLayer, string> = { carePros: 'Care Pros', both: 'Both', clients: 'Clients' };
         const active = layer === l;
@@ -303,7 +303,7 @@ export function CareProMap({
               <Search className="w-4 h-4 text-yellow-500" />
             </Button>
           ) : (
-            <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-100 px-3 h-10">
+            <div className="flex items-center gap-1.5 bg-white rounded-xl shadow-2xl border border-gray-100 px-3 h-10">
               <Search className="w-4 h-4 text-yellow-500 flex-shrink-0" />
               <Input
                 ref={inputRef}
@@ -329,7 +329,7 @@ export function CareProMap({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-1.5 z-[1000] min-w-[170px]">
+      <div className="absolute bottom-6 left-6 bg-white p-4 rounded-2xl shadow-2xl border border-gray-100 flex flex-col gap-1.5 z-[1000] min-w-[170px]">
         <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2 mb-0.5">Legend</h5>
         {showCPs && (
           <>

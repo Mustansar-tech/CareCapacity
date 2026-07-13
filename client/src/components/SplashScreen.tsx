@@ -74,8 +74,8 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative"
           >
-            <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl scale-110" />
-            <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center justify-center w-96 h-48">
+            <div className="absolute inset-0 bg-white/20 rounded-2xl scale-110" />
+            <div className="relative bg-white/20 border border-white/30 rounded-2xl p-4 shadow-2xl flex items-center justify-center w-96 h-48">
               <img
                 src={splashLogo}
                 alt="Care Capacity Dashboard"
@@ -106,7 +106,7 @@ export function SplashScreen({ onComplete, minimumDisplayTime = 2000 }: SplashSc
             transition={{ duration: 0.6, delay: 0.4, ease: "easeOut" }}
             className="w-64 md:w-80"
           >
-            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-blue-400 via-emerald-400 to-blue-400 rounded-full"
                 initial={{ width: 0 }}

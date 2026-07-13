@@ -119,7 +119,7 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
   return (
     <div className="h-full flex flex-col gap-4 p-4">
       {/* Header */}
-      <Card className="backdrop-blur-sm bg-white/70 dark:bg-gray-900/70 border-0 shadow-xl shrink-0">
+      <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm shrink-0">
         <CardHeader className="bg-[#f8f9ff] dark:bg-gray-900/50 rounded-t-lg pt-[8px] pb-[8px]">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-semibold text-[#5d51d5] flex items-center gap-3">
@@ -189,7 +189,7 @@ function MapDialogWrapper({
               <X className="w-5 h-5 text-gray-900 dark:text-white" />
             </button>
           </DialogClose>
-          <div className="absolute top-8 left-8 z-[1000] p-6 rounded-2xl bg-gradient-to-br from-white/95 to-white/90 dark:from-gray-900/95 dark:to-gray-950/95 backdrop-blur-lg border border-gray-200/50 dark:border-gray-800/70 shadow-2xl pointer-events-auto">
+          <div className="absolute top-8 left-8 z-[1000] p-6 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl pointer-events-auto">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-gradient-to-br from-[#5d51d5] to-indigo-600 rounded-xl">
                 <MapPin className="w-5 h-5 text-white" />

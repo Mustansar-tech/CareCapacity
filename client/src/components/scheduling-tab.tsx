@@ -258,7 +258,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+            <Badge variant="outline" className="text-xs bg-white dark:bg-gray-800">
               <Calendar className="w-3 h-3 mr-1" />
               {optimizationDate}
             </Badge>

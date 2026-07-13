@@ -3,54 +3,54 @@
 @tailwind utilities;
 
 :root {
-  /* Google Material Design 3.0 Inspired Color System */
-  --background: hsl(0 0% 99%);
-  --foreground: hsl(210 9% 9%);
-  --surface: hsl(0 0% 98%);
-  --surface-container: hsl(210 6% 96%);
-  --surface-container-high: hsl(210 8% 94%);
-  --surface-container-highest: hsl(210 12% 92%);
+  /* Vibrant, solid color system */
+  --background: hsl(220 20% 97%);
+  --foreground: hsl(220 20% 10%);
+  --surface: hsl(220 20% 98%);
+  --surface-container: hsl(220 15% 94%);
+  --surface-container-high: hsl(220 15% 91%);
+  --surface-container-highest: hsl(220 15% 88%);
   
-  /* Cards with subtle depth */
+  /* Cards — pure white with clear border */
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(210 9% 9%);
-  --card-border: hsl(210 12% 89%);
+  --card-foreground: hsl(220 20% 10%);
+  --card-border: hsl(220 15% 88%);
   
-  /* Interactive elements */
-  --primary: hsl(214 100% 44%);
-  --primary-container: hsl(214 100% 95%);
+  /* Interactive elements — vivid blue */
+  --primary: hsl(214 100% 46%);
+  --primary-container: hsl(214 100% 92%);
   --primary-foreground: hsl(0 0% 100%);
-  --on-primary-container: hsl(214 100% 20%);
+  --on-primary-container: hsl(214 100% 22%);
   
-  --secondary: hsl(147 100% 37%);
-  --secondary-container: hsl(147 100% 93%);
+  --secondary: hsl(147 72% 34%);
+  --secondary-container: hsl(147 72% 90%);
   --secondary-foreground: hsl(0 0% 100%);
-  --on-secondary-container: hsl(147 100% 12%);
+  --on-secondary-container: hsl(147 72% 14%);
   
-  --tertiary: hsl(266 85% 58%);
-  --tertiary-container: hsl(266 85% 94%);
+  --tertiary: hsl(266 85% 55%);
+  --tertiary-container: hsl(266 85% 92%);
   --tertiary-foreground: hsl(0 0% 100%);
   
-  /* Semantic colors */
-  --success: hsl(142 76% 36%);
-  --success-container: hsl(142 76% 94%);
-  --warning: hsl(45 93% 47%);
-  --warning-container: hsl(45 93% 95%);
-  --error: hsl(358 75% 59%);
-  --error-container: hsl(358 75% 95%);
+  /* Semantic colors — solid, vivid */
+  --success: hsl(142 70% 32%);
+  --success-container: hsl(142 70% 90%);
+  --warning: hsl(38 95% 44%);
+  --warning-container: hsl(38 95% 92%);
+  --error: hsl(0 80% 52%);
+  --error-container: hsl(0 80% 92%);
   
-  /* Neutral tones */
-  --muted: hsl(210 6% 94%);
-  --muted-foreground: hsl(210 6% 40%);
-  --border: hsl(210 12% 89%);
-  --input: hsl(210 6% 97%);
-  --ring: hsl(214 100% 59%);
+  /* Neutral tones — less grey, more blue-tinted */
+  --muted: hsl(220 15% 91%);
+  --muted-foreground: hsl(220 10% 38%);
+  --border: hsl(220 15% 85%);
+  --input: hsl(220 20% 98%);
+  --ring: hsl(214 100% 46%);
   
   /* Surface variants */
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(210 9% 9%);
-  --accent: hsl(214 100% 95%);
-  --accent-foreground: hsl(214 100% 20%);
+  --popover-foreground: hsl(220 20% 10%);
+  --accent: hsl(214 100% 92%);
+  --accent-foreground: hsl(214 100% 22%);
   
   /* Legacy compatibility */
   --destructive: hsl(358 75% 59%);
@@ -255,17 +255,28 @@
     transform: translateY(-1px);
   }
 
-  /* Glass morphism effects - refined */
+  /* Solid card style — no blur */
   .glass {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(16px) saturate(1.8);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
     box-shadow: var(--elevation-2);
   }
 
   .dark .glass {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* Solid button/badge card style */
+  .glass-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--elevation-1);
+  }
+
+  .dark .glass-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
   }
 
   /* Premium gradient backgrounds */

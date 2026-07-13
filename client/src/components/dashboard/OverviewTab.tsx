@@ -464,7 +464,7 @@ export function OverviewTab({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white dark:bg-gray-800">
                   <Clock className="w-4 h-4" />
                   <span className="font-medium">{data?.dailySummary.length || 0} days</span>
                 </Badge>

@@ -72,7 +72,7 @@ export function DailyCapacityTab({
               Daily Capacity Summary
             </span>
           </div>
-          <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+          <Badge variant="outline" className="text-xs bg-white dark:bg-gray-800">
             {(() => {
               if (!data?.dailySummary || data.dailySummary.length === 0) return 'No data';
               const startDate = new Date(data.dailySummary[0].date);

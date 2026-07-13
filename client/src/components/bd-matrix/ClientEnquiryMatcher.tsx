@@ -283,7 +283,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setMultiResults(null); setShowHistory(false); setViewingHistoryResult(null); } }}>
         <DialogTrigger asChild>
           <Button className="bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white shadow-xl shadow-purple-500/20 font-black gap-3 h-auto rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 pl-[24px] pr-[24px] pt-[8.5px] pb-[8.5px]">
-            <div className="p-1.5 bg-white/20 rounded-xl backdrop-blur-sm">
+            <div className="p-1.5 bg-white/30 rounded-xl">
               <UserCheck className="w-5 h-5" />
             </div>
             <div className="text-left">
@@ -298,7 +298,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-4">
-                  <div className="p-3.5 bg-white dark:bg-gray-800/60 rounded-2xl shadow-sm border border-gray-100/50 dark:border-gray-700/50 backdrop-blur-sm">
+                  <div className="p-3.5 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <UserCheck className="w-6 h-6 text-[#5d51d5]" />
                   </div>
                   <div>
@@ -666,7 +666,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                     )}
                   </div>
 
-                  <div className="bg-white/90 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl border border-gray-200/70 dark:border-gray-800/50 shadow-lg shadow-purple-500/5 overflow-hidden">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden">
                     <Tabs value={activeVisitTab} onValueChange={setActiveVisitTab}>
                       <div className="px-5 pt-4 border-b border-gray-100/60 dark:border-gray-800/60 bg-gray-50/30 dark:bg-gray-900/30">
                         <TabsList className="bg-transparent p-0 h-auto flex-wrap gap-2 pb-px">
