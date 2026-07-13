@@ -1215,8 +1215,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               {TIMELINE_HOURS.map(h => {
                 const isNow = h === new Date().getHours() && dayDate === new Date().toISOString().split('T')[0];
                 return (
-                  <div key={h} style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, color: isNow ? '#2563EB' : '#94A3B8', textAlign: 'center', borderLeft: '1px solid #F1F5F9', background: isNow ? '#EFF6FF' : 'white' }}>
-                    {String(h).padStart(2, '0')}
+                  <div key={h} style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, color: isNow ? '#2563EB' : '#64748B', textAlign: 'center', borderLeft: '1px solid #E5E9F2', background: isNow ? '#EFF6FF' : '#F8FAFC' }}>
+                    {String(h).padStart(2, '0')}:00
                   </div>
                 );
               })}
@@ -1345,10 +1345,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               }}
                               title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
                             >
-                              <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-                                {visit.clientName}
-                              </div>
-                              <div style={{ fontSize: 9, opacity: .85 }}>{visit.startTime}–{visit.endTime}</div>
+                              {wPx >= 38 && (
+                                <div style={{ fontSize: wPx < 60 ? 9 : wPx < 90 ? 10 : 11, fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>
+                                  {visit.clientName}
+                                </div>
+                              )}
+                              {wPx >= 50 && (
+                                <div style={{ fontSize: wPx < 90 ? 8 : 9, opacity: .9 }}>{visit.startTime}–{visit.endTime}</div>
+                              )}
                               {isSelected && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); unallocateVisit(empName, visit); }}
