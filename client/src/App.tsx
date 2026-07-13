@@ -186,14 +186,25 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded group">
-          <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white text-[11px] font-semibold shrink-0 group-hover:bg-white/30 transition-colors">
+        <button
+          className="flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-xl transition-colors group"
+          style={{ padding: '3px 5px' }}
+        >
+          <div
+            className="flex items-center justify-center shrink-0 text-white"
+            style={{
+              height: 34, width: 34, borderRadius: 10,
+              background: 'linear-gradient(135deg,#2563EB,#4F46E5)',
+              fontSize: 12, fontWeight: 700,
+              boxShadow: '0 4px 10px rgba(37,99,235,.28)',
+            }}
+          >
             {initials}
           </div>
-          <span className="hidden sm:block text-sm text-white/85 whitespace-nowrap group-hover:text-white transition-colors">
+          <span className="hidden sm:block whitespace-nowrap" style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
             {user.displayName}
           </span>
-          <ChevronDown className="h-3 w-3 text-white/40 hidden sm:block" />
+          <ChevronDown className="h-3 w-3 hidden sm:block" style={{ color: '#94A3B8' }} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 mt-1">
@@ -277,7 +288,6 @@ function Navigation() {
       }
       return true;
     }
-    // "Home" tab is active on /app/dashboard when NOT showing view=daily
     if (item.path === "/app/dashboard") return params.get("view") !== "daily";
     return true;
   }
@@ -285,65 +295,60 @@ function Navigation() {
   return (
     <>
       <header
-        className="z-50 flex flex-col shrink-0"
         data-testid="main-navigation"
+        className="shrink-0 dark:bg-gray-900 dark:border-gray-700"
+        style={{
+          height: 64,
+          background: '#FFFFFF',
+          borderBottom: '1px solid #E5E9F2',
+          boxShadow: '0 1px 3px rgba(15,23,42,.04)',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 20px',
+          gap: 18,
+          position: 'relative',
+          zIndex: 50,
+        }}
       >
-        {/* ── Row 1: dark green utility bar — 48px ── */}
-        <div
-          className="flex items-center px-6 gap-6"
-          style={{ height: "48px", background: "#2c4f26" }}
+        {/* Brand: logo mark + wordmark */}
+        <button
+          className="flex items-center gap-2.5 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-lg"
+          onClick={() => navigate("/app/dashboard")}
+          aria-label="Go to dashboard"
         >
-          {/* Brand: logo + product name */}
-          <button
-            className="flex items-center gap-2.5 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
-            onClick={() => navigate("/app/dashboard")}
-            aria-label="Go to dashboard"
+          <div
+            style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: 'linear-gradient(135deg,#2c4f26,#4F46E5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 6px 14px rgba(44,79,38,.28)',
+              flexShrink: 0,
+            }}
           >
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className="h-6 w-auto rounded object-contain opacity-85 group-hover:opacity-100 transition-opacity"
+              style={{ height: 20, width: 'auto', objectFit: 'contain', opacity: 0.92 }}
             />
-            <span className="hidden md:block text-sm font-semibold text-white/90 whitespace-nowrap group-hover:text-white transition-colors">
-              Care Capacity
-            </span>
-          </button>
-
-          {/* Soft rule */}
-          <div className="h-4 w-px bg-white/10 shrink-0" />
-
-          {/* Location selector */}
-          <BranchSelector />
-
-          {/* Spacer — pushes right group to far right */}
-          <div className="flex-1" />
-
-          {/* Right icon cluster */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setHelpOpen(true)}
-              aria-label="Help and Support"
-              title="Help & Support"
-              className="p-1.5 text-white/65 hover:text-white transition-colors"
-            >
-              <HelpCircle className="h-4 w-4" />
-            </button>
           </div>
+          <span
+            className="hidden md:block"
+            style={{ fontWeight: 800, fontSize: 15, color: '#0F172A', whiteSpace: 'nowrap' }}
+          >
+            Care Capacity
+          </span>
+        </button>
 
-          {/* Soft rule */}
-          <div className="h-4 w-px bg-white/10 shrink-0" />
-
-          {/* User */}
-          <UserMenu />
-        </div>
-
-        {/* ── Row 2: workspace tabs — 38px ── */}
-        <div
-          className="flex items-end px-4 gap-0 dark:bg-gray-800 dark:border-gray-700"
+        {/* Pill navigation tabs */}
+        <nav
+          aria-label="Main navigation"
           style={{
-            height: "38px",
-            background: "#f5f6f7",
-            borderBottom: "1px solid #e5e7eb",
+            display: 'flex',
+            gap: 2,
+            background: '#F1F5F9',
+            padding: 4,
+            borderRadius: 12,
+            flexShrink: 0,
           }}
         >
           {visibleItems.map((item) => {
@@ -353,25 +358,74 @@ function Navigation() {
               <Link
                 key={item.label}
                 href={href}
-                className={[
-                  "flex items-center gap-2 px-12 h-[34px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
-                  active
-                    ? "text-slate-700 dark:text-white"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
-                ].join(" ")}
-                style={active ? {
-                  background: "#f8f8f8",
-                  border: "1px solid #e5e7eb",
-                  borderBottom: "1px solid #f8f8f8",
-                  borderTop: "2px solid #2c4f26",
-                } : {}}
+                style={{
+                  padding: '7px 12px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  transition: 'all .15s',
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  outline: 'none',
+                  ...(active
+                    ? { background: 'white', color: '#2c4f26', boxShadow: '0 2px 6px rgba(0,0,0,.07)' }
+                    : { background: 'transparent', color: '#64748B' }),
+                }}
+                className="focus-visible:ring-2 focus-visible:ring-blue-300"
               >
-                <item.icon className="w-3.5 h-3.5 flex-shrink-0 opacity-75" />
+                <item.icon
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  style={{ opacity: active ? 1 : 0.6 }}
+                />
                 {item.label}
               </Link>
             );
           })}
+        </nav>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Live chip */}
+        <div
+          className="saas-chip shrink-0 hidden sm:flex"
+        >
+          <span
+            style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: '#10B981',
+              boxShadow: '0 0 8px #10B981',
+              display: 'inline-block', flexShrink: 0,
+            }}
+          />
+          Live
         </div>
+
+        {/* Branch chip */}
+        <div className="saas-chip shrink-0">
+          <BranchSelector />
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: '#E5E9F2', flexShrink: 0 }} className="hidden sm:block" />
+
+        {/* Help */}
+        <button
+          onClick={() => setHelpOpen(true)}
+          aria-label="Help and Support"
+          title="Help & Support"
+          className="shrink-0 hidden sm:flex items-center justify-center rounded-lg transition-colors hover:bg-slate-100"
+          style={{ width: 34, height: 34, color: '#64748B', border: 'none', background: 'transparent', cursor: 'pointer' }}
+        >
+          <HelpCircle className="h-4 w-4" />
+        </button>
+
+        {/* User menu */}
+        <UserMenu />
       </header>
       <HelpPanel open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
