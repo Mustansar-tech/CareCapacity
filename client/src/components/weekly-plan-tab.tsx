@@ -1044,82 +1044,85 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             {hasAvail ? 'No visits scheduled' : 'Not working this day'}
                           </div>
                         ) : (
-                          <div className="flex items-center gap-0 overflow-x-auto pb-2">
-                            {/* Home start */}
-                            <div className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-2">
-                              <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/50 border-2 border-blue-300 dark:border-blue-600 flex items-center justify-center">
-                                <Home className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <div className="flex items-center gap-0 overflow-x-auto pb-1 pt-1">
+
+                            {/* ── Home Start node ── */}
+                            <div className="flex-shrink-0 flex flex-col items-center gap-0.5 mr-1">
+                              <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center shadow-sm">
+                                <Home className="h-4 w-4 text-white" />
                               </div>
-                              <div className="text-[9px] text-blue-600 dark:text-blue-400 font-medium">Start</div>
+                              <span className="text-[9px] font-semibold text-sky-600 dark:text-sky-400">Start</span>
                             </div>
 
-                            {/* First travel arrow */}
-                            {visits[0].travelTimeBefore > 0 && (
-                              <div className="flex-shrink-0 flex flex-col items-center justify-center px-1 min-w-[36px]">
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">{visits[0].travelTimeBefore}m</span>
-                                <ArrowRight className="h-3.5 w-3.5 text-gray-400" />
-                              </div>
-                            )}
-                            {visits[0].travelTimeBefore === 0 && (
-                              <div className="flex-shrink-0 px-1">
-                                <ArrowRight className="h-3.5 w-3.5 text-gray-300" />
-                              </div>
-                            )}
+                            {/* ── First travel connector ── */}
+                            <div className="flex-shrink-0 flex items-center gap-1 px-2">
+                              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {visits[0].travelTimeBefore > 0 ? `${visits[0].travelTimeBefore}min` : '—'}
+                              </span>
+                              <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                            </div>
 
-                            {/* Visit blocks with travel + break connectors */}
+                            {/* ── Visits with connectors ── */}
                             {visits.map((visit, i) => {
                               const nextVisit = i < visits.length - 1 ? visits[i + 1] : null;
                               const gapMins = nextVisit
                                 ? timeToMinutes(nextVisit.startTime) - timeToMinutes(visit.endTime)
                                 : 0;
-                              const breakMins = nextVisit ? Math.max(0, gapMins - (nextVisit.travelTimeBefore || 0)) : 0;
+                              const travelToNext = nextVisit?.travelTimeBefore || 0;
+                              const breakMins = nextVisit ? Math.max(0, gapMins - travelToNext) : 0;
                               const isTraining = isTrainingBlock(visit.serviceType, visit.clientName);
                               return (
                                 <div key={i} className="flex items-center flex-shrink-0">
-                                  {/* Visit block */}
-                                  <div className={`flex-shrink-0 rounded-xl border shadow-sm px-3 py-2 min-w-[110px] max-w-[160px]
+                                  {/* Visit card */}
+                                  <div className={`flex-shrink-0 rounded-xl border-2 shadow-sm px-3 py-2 min-w-[120px] max-w-[170px] bg-white dark:bg-gray-800
                                     ${isTraining
-                                      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700'
-                                      : 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700'
+                                      ? 'border-amber-400 dark:border-amber-600'
+                                      : 'border-emerald-400 dark:border-emerald-600'
                                     }`}>
-                                    <div className={`flex items-center gap-1 font-semibold text-xs truncate
-                                      ${isTraining ? 'text-amber-800 dark:text-amber-300' : 'text-green-800 dark:text-green-300'}`}>
+                                    <div className="font-semibold text-[11px] text-gray-900 dark:text-gray-100 truncate leading-tight">
+                                      {visit.clientName}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                                       <Clock className="h-3 w-3 flex-shrink-0" />
-                                      <span className="truncate">{visit.clientName}</span>
+                                      <span>{visit.startTime} - {visit.endTime}</span>
                                     </div>
-                                    <div className={`text-[10px] mt-0.5 ${isTraining ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>
-                                      {visit.startTime}–{visit.endTime}
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground">{visit.durationMinutes}min</div>
+                                    {visit.serviceType && (
+                                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{visit.serviceType}</div>
+                                    )}
                                   </div>
 
                                   {/* After-visit connector */}
                                   {nextVisit && (
                                     <>
-                                      {breakMins >= 15 ? (
-                                        /* Big gap: travel → break → travel */
+                                      {/* Travel pill */}
+                                      {travelToNext > 0 && (
+                                        <div className="flex-shrink-0 flex items-center gap-1 px-2">
+                                          <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">{travelToNext}min</span>
+                                          <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                        </div>
+                                      )}
+                                      {travelToNext === 0 && (
+                                        <div className="flex-shrink-0 px-1.5">
+                                          <ArrowRight className="h-3 w-3 text-gray-300" />
+                                        </div>
+                                      )}
+
+                                      {/* Break card (only if gap ≥ 15 min) */}
+                                      {breakMins >= 15 && (
                                         <>
-                                          <div className="flex-shrink-0 flex flex-col items-center justify-center px-1 min-w-[32px]">
-                                            <span className="text-[10px] text-gray-500 whitespace-nowrap">{nextVisit.travelTimeBefore}m</span>
-                                            <ArrowRight className="h-3 w-3 text-gray-400" />
-                                          </div>
-                                          <div className="flex-shrink-0 rounded-xl border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/30 px-3 py-2 min-w-[80px] shadow-sm">
+                                          <div className="flex-shrink-0 rounded-xl border-2 border-orange-400 dark:border-orange-600 bg-orange-50 dark:bg-orange-950/40 px-3 py-2 min-w-[80px] shadow-sm">
                                             <div className="flex flex-col items-center gap-0.5">
-                                              <Coffee className="h-4 w-4 text-orange-500 dark:text-orange-400" />
-                                              <div className="text-[10px] font-semibold text-orange-700 dark:text-orange-300">Break</div>
-                                              <div className="text-[10px] text-orange-600 dark:text-orange-400">{breakMins}min</div>
+                                              <div className="flex items-center gap-1">
+                                                <Coffee className="h-3 w-3 text-orange-500" />
+                                                <span className="text-[10px] font-bold text-orange-700 dark:text-orange-300">Break</span>
+                                              </div>
+                                              <span className="text-[11px] font-bold text-orange-800 dark:text-orange-200">{breakMins}min</span>
                                             </div>
                                           </div>
-                                          <div className="flex-shrink-0 flex flex-col items-center justify-center px-1 min-w-[32px]">
+                                          <div className="flex-shrink-0 px-1.5">
                                             <ArrowRight className="h-3 w-3 text-gray-400" />
                                           </div>
                                         </>
-                                      ) : (
-                                        /* Small gap: just travel arrow */
-                                        <div className="flex-shrink-0 flex flex-col items-center justify-center px-1 min-w-[36px]">
-                                          <span className="text-[10px] text-gray-500 whitespace-nowrap font-medium">{nextVisit.travelTimeBefore}m</span>
-                                          <ArrowRight className="h-3.5 w-3.5 text-gray-400" />
-                                        </div>
                                       )}
                                     </>
                                   )}
@@ -1127,13 +1130,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               );
                             })}
 
-                            {/* Home end */}
-                            <div className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-2">
-                              <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/50 border-2 border-green-300 dark:border-green-600 flex items-center justify-center">
-                                <Home className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            {/* ── Return home travel connector ── */}
+                            {(() => {
+                              const lastVisit = visits[visits.length - 1];
+                              const empHome = employeeLocationMap.get(selectedEmployee!);
+                              let returnMins = 0;
+                              if (lastVisit?.lat && lastVisit?.lng && empHome?.homeLat && empHome?.homeLng) {
+                                const mode = ((empHome.transportMode || 'car') as 'car' | 'walking' | 'public');
+                                returnMins = Math.round(getTravelMinutes(
+                                  { lat: Number(lastVisit.lat), lng: Number(lastVisit.lng) },
+                                  { lat: Number(empHome.homeLat), lng: Number(empHome.homeLng) },
+                                  mode,
+                                ));
+                              }
+                              return (
+                                <div className="flex-shrink-0 flex items-center gap-1 px-2">
+                                  <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                    {returnMins > 0 ? `${returnMins}min` : '—'}
+                                  </span>
+                                  <ArrowRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                </div>
+                              );
+                            })()}
+
+                            {/* ── Home End node ── */}
+                            <div className="flex-shrink-0 flex flex-col items-center gap-0.5 ml-1">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-sm">
+                                <Home className="h-4 w-4 text-white" />
                               </div>
-                              <div className="text-[9px] text-green-600 dark:text-green-400 font-medium">End</div>
+                              <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">End</span>
                             </div>
+
                           </div>
                         )}
                       </div>
