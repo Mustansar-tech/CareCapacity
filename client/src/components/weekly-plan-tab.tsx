@@ -913,12 +913,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     !assignedEmpSet.has(e.employeeName) &&
     e.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const timelineEmpNames = [
-    ...assignedEmpNames.filter(n => n.toLowerCase().includes(searchTerm.toLowerCase())),
-    ...availableTodayNoVisit.map(e => e.employeeName),
-    ...absentTodayEmployees.map(e => e.employeeName),
-  ];
-
   const ABSENCE_STATUSES = ['holiday', 'annual leave', 'sick', 'sickness', 'absent', 'unavailable', 'partial', 'meeting', 'training'];
 
   // Employees who are absent/holiday/sick today — shown in timeline with coloured overlay
@@ -934,6 +928,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       e.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+
+  const timelineEmpNames = [
+    ...assignedEmpNames.filter(n => n.toLowerCase().includes(searchTerm.toLowerCase())),
+    ...availableTodayNoVisit.map(e => e.employeeName),
+    ...absentTodayEmployees.map(e => e.employeeName),
+  ];
 
   const todayUnallocated = (weeklySchedule?.unallocated || []).filter(v => v.date === dayDate);
   const filteredUnallocated = todayUnallocated.filter(v => {
