@@ -781,7 +781,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     },
   });
 
-  // Lightweight save mutation for drag-drop auto-save
+  // Lightweight save mutation for drag-drop / manual assign auto-save
   const saveScheduleMutation = useMutation({
     mutationFn: async (schedule: WeeklyScheduleData) => {
       await apiRequest('POST', '/api/weekly-schedule/save', {
@@ -793,7 +793,29 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
     },
+    onError: () => toast({ title: 'Could not save change', description: 'Your edit is shown locally but was not persisted.', variant: 'destructive' }),
   });
+
+  // Undo stack — stores previous WeeklyScheduleData snapshots (max 20)
+  const [undoStack, setUndoStack] = useState<WeeklyScheduleData[]>([]);
+
+  // Apply a manual schedule change: push current to undo stack, update state, persist
+  const applyAndSave = (next: WeeklyScheduleData) => {
+    setWeeklySchedule(prev => {
+      if (prev) setUndoStack(stack => [...stack.slice(-19), prev]);
+      return next;
+    });
+    saveScheduleMutation.mutate(next);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setUndoStack(s => s.slice(0, -1));
+    setWeeklySchedule(prev);
+    saveScheduleMutation.mutate(prev);
+    toast({ title: 'Undone', description: 'Last manual change reversed' });
+  };
 
   // Load schedule for the current week being viewed
   const { data: savedSchedule, isFetching: isFetchingSchedule } = useQuery<WeeklySchedule | null>({
@@ -812,6 +834,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     if (savedSchedule?.scheduleData) {
       // Reconstruct weekly schedule from saved data for this specific week
       clientLogger.log(`📅 Loading saved schedule for week ${weekStart} to ${weekEnd}`);
+      setUndoStack([]); // fresh load — clear manual-change history
       setWeeklySchedule({
         assignments: savedSchedule.scheduleData as Record<string, Record<string, AssignedVisit[]>>,
         unallocated: (savedSchedule.unallocatedVisits as (ClientVisit & { unallocatedReason: string })[]) || [],
@@ -1101,26 +1124,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     }
     const empVisits = [...((weeklySchedule.assignments[visit.date]?.[empName] || []) as AssignedVisit[])];
     const newVisit: AssignedVisit = {
-      id: visit.id,
-      clientName: visit.clientName,
-      startTime: visit.startTime,
-      endTime: visit.endTime,
-      durationMinutes: visit.durationMinutes,
-      lat: visit.lat,
-      lng: visit.lng,
-      travelTimeBefore: 0,
-      score: 0,
-      serviceType: visit.serviceType,
+      id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
+      durationMinutes: visit.durationMinutes, lat: visit.lat, lng: visit.lng,
+      travelTimeBefore: 0, score: 0, serviceType: visit.serviceType,
     };
     const insertIdx = empVisits.findIndex(v => v.startTime > visit.startTime);
-    if (insertIdx === -1) empVisits.push(newVisit);
-    else empVisits.splice(insertIdx, 0, newVisit);
-    setWeeklySchedule(prev => prev ? {
-      ...prev,
-      assignments: { ...prev.assignments, [visit.date]: { ...(prev.assignments[visit.date] || {}), [empName]: empVisits } },
-      unallocated: prev.unallocated.filter(v => !(v.id === visit.id && v.date === visit.date)),
-      metrics: { ...prev.metrics, totalVisitsAssigned: prev.metrics.totalVisitsAssigned + 1, totalVisitsUnallocated: prev.metrics.totalVisitsUnallocated - 1 },
-    } : prev);
+    if (insertIdx === -1) empVisits.push(newVisit); else empVisits.splice(insertIdx, 0, newVisit);
+    const next: WeeklyScheduleData = {
+      ...weeklySchedule,
+      assignments: { ...weeklySchedule.assignments, [visit.date]: { ...(weeklySchedule.assignments[visit.date] || {}), [empName]: empVisits } },
+      unallocated: weeklySchedule.unallocated.filter(v => !(v.id === visit.id && v.date === visit.date)),
+      metrics: { ...weeklySchedule.metrics, totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned + 1, totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated - 1 },
+    };
+    applyAndSave(next);
     setSelectedVisit(null);
     toast({ title: '✓ Assigned', description: `${visit.clientName} → ${empName}` });
   };
@@ -1135,12 +1151,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       durationMinutes: visit.durationMinutes, date: dayDate, lat: visit.lat, lng: visit.lng,
       serviceType: visit.serviceType, unallocatedReason: 'Manually unallocated',
     } as ClientVisit & { unallocatedReason: string };
-    setWeeklySchedule(prev => prev ? {
-      ...prev,
-      assignments: { ...prev.assignments, [dayDate]: newDayAssignments },
-      unallocated: [...prev.unallocated, unallocEntry],
-      metrics: { ...prev.metrics, totalVisitsAssigned: prev.metrics.totalVisitsAssigned - 1, totalVisitsUnallocated: prev.metrics.totalVisitsUnallocated + 1 },
-    } : prev);
+    const next: WeeklyScheduleData = {
+      ...weeklySchedule,
+      assignments: { ...weeklySchedule.assignments, [dayDate]: newDayAssignments },
+      unallocated: [...weeklySchedule.unallocated, unallocEntry],
+      metrics: { ...weeklySchedule.metrics, totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned - 1, totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated + 1 },
+    };
+    applyAndSave(next);
     setSelectedTimelineVisit(null);
     toast({ title: 'Visit unallocated', description: `${visit.clientName} moved to unallocated` });
   };
@@ -1279,7 +1296,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     if (idx === -1) dstVisits.push(visit); else dstVisits.splice(idx, 0, visit);
     const nd: Record<string, AssignedVisit[]> = { ...(weeklySchedule.assignments[dayDate] || {}), [fromEmp]: srcVisits, [toEmp]: dstVisits };
     if (srcVisits.length === 0) delete nd[fromEmp];
-    setWeeklySchedule(prev => prev ? { ...prev, assignments: { ...prev.assignments, [dayDate]: nd } } : prev);
+    const next: WeeklyScheduleData = { ...weeklySchedule, assignments: { ...weeklySchedule.assignments, [dayDate]: nd } };
+    applyAndSave(next);
     setSelectedTimelineVisit(null);
     toast({ title: '✓ Reassigned', description: `${visit.clientName} → ${toEmp.split(' ')[0]}` });
   };
@@ -1456,10 +1474,26 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         <div style={{ flex: 1 }} />
 
-        {lastGeneratedAt && (
-          <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            Auto-saved · {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+        {saveScheduleMutation.isPending && (
+          <span style={{ fontSize: 11, color: '#64748B', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} /> Saving…
           </span>
+        )}
+        {!saveScheduleMutation.isPending && lastGeneratedAt && (
+          <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            Saved · {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+
+        {undoStack.length > 0 && (
+          <button
+            onClick={handleUndo}
+            disabled={saveScheduleMutation.isPending}
+            style={{ height: 36, padding: '0 12px', background: 'white', color: '#334155', border: '1px solid #E2E8F0', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: saveScheduleMutation.isPending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, opacity: saveScheduleMutation.isPending ? .6 : 1 }}
+            title={`Undo last change (${undoStack.length} available)`}
+          >
+            ↩ Undo
+          </button>
         )}
 
         <Button
