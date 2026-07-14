@@ -633,6 +633,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     }
   }, [savedSchedule, weekStart, weekEnd, isFetchingSchedule]);
 
+  // ── Drag-and-drop state (must be before any early returns) ───────────────
+  const [activeDragData, setActiveDragData] = useState<{
+    type: 'unallocated' | 'assigned';
+    visit: any;
+    fromEmp?: string;
+  } | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   if (!data) {
     return (
@@ -931,14 +938,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     toast({ title: 'Visit unallocated', description: `${visit.clientName} moved to unallocated` });
   };
 
-  // ── Drag-and-drop state ───────────────────────────────────────────────────
-  const [activeDragData, setActiveDragData] = useState<{
-    type: 'unallocated' | 'assigned';
-    visit: any;
-    fromEmp?: string;
-  } | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-
   // ── Timeline layout constants ─────────────────────────────────────────────
   const TIMELINE_START = 6;
   const TIMELINE_END   = 22;
@@ -1058,9 +1057,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return { valid: true, reason: '' };
   };
 
-  // Pre-compute valid/invalid targets for all rows while a drag is in progress
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const validDropEmps = useMemo(() => {
+  // Pre-compute valid/invalid targets for all rows while a drag is in progress (plain value, not a hook)
+  const validDropEmps = (() => {
     if (!activeDragData) return null;
     const { visit, type, fromEmp } = activeDragData;
     const excludeId = type === 'assigned' ? (visit as AssignedVisit).id : undefined;
@@ -1069,8 +1067,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       map.set(name, type === 'assigned' && name === fromEmp ? false : validateDrop(visit, name, excludeId).valid);
     });
     return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDragData, timelineEmpNames, dayDate, data, weeklySchedule]);
+  })();
 
   const reassignVisit = (visit: AssignedVisit, fromEmp: string, toEmp: string) => {
     if (!weeklySchedule) return;
