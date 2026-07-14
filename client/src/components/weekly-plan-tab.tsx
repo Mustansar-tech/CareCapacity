@@ -842,8 +842,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // ── Timeline layout constants ─────────────────────────────────────────────
   const TIMELINE_START = 6;
   const TIMELINE_END   = 22;
-  const HOUR_WIDTH     = 60;
-  const INFO_WIDTH     = 220;
+  const HOUR_WIDTH     = 100;
+  const INFO_WIDTH     = 230;
   const TIMELINE_HOURS = Array.from({ length: TIMELINE_END - TIMELINE_START }, (_, i) => TIMELINE_START + i);
 
   const AVATAR_GRADIENTS = [
@@ -882,7 +882,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const durationToW = (start: string, end: string) => {
     const [sh, sm] = start.split(':').map(Number);
     const [eh, em] = end.split(':').map(Number);
-    return Math.max(30, ((eh + em / 60) - (sh + sm / 60)) * HOUR_WIDTH);
+    return Math.max(48, ((eh + em / 60) - (sh + sm / 60)) * HOUR_WIDTH);
   };
 
   // ── Absence colour helper ─────────────────────────────────────────────────
@@ -1318,7 +1318,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 return (
                   <div
                     key={empName}
-                    style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 78, position: 'relative' }}
+                    style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 96, position: 'relative' }}
                   >
                     {/* Carer info cell — sticky left */}
                     <div
@@ -1391,7 +1391,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           <div key={vi} style={{ pointerEvents: 'auto' }}>
                             {showTravel && (
                               <div style={{
-                                position: 'absolute', top: 40, left: Math.max(2, xLeft - (vi === 0 ? 48 : 38)), height: 20, padding: '0 6px',
+                                position: 'absolute', top: 80, left: Math.max(2, xLeft - (vi === 0 ? 52 : 42)), height: 20, padding: '0 6px',
                                 borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
                                 fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
                                 background: travel > 30 ? '#FEF2F2' : travel > 20 ? '#FFFBEB' : '#ECFDF5',
@@ -1405,22 +1405,25 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             <div
                               onClick={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               style={{
-                                position: 'absolute', top: 12, left: xLeft, width: Math.max(28, wPx - 3), height: 52,
-                                borderRadius: 8, padding: '5px 7px', background: grad, color: 'white',
+                                position: 'absolute', top: 10, left: xLeft, width: Math.max(44, wPx - 3), height: 68,
+                                borderRadius: 9, padding: '6px 9px', background: grad, color: 'white',
                                 cursor: 'pointer', overflow: 'hidden',
-                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 3px 8px rgba(15,23,42,.14)',
-                                zIndex: isSelected ? 5 : 3, fontSize: 10, fontWeight: 600,
+                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 3px 10px rgba(15,23,42,.16)',
+                                zIndex: isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
                                 transition: 'transform .12s, box-shadow .12s',
                               }}
                               title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
                             >
-                              {wPx >= 38 && (
-                                <div style={{ fontSize: wPx < 60 ? 9 : wPx < 90 ? 10 : 11, fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>
+                              {wPx >= 44 && (
+                                <div style={{ fontSize: wPx < 70 ? 10 : 12, fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
                                   {visit.clientName}
                                 </div>
                               )}
-                              {wPx >= 50 && (
-                                <div style={{ fontSize: wPx < 90 ? 8 : 9, opacity: .9 }}>{visit.startTime}–{visit.endTime}</div>
+                              {wPx >= 54 && (
+                                <div style={{ fontSize: wPx < 80 ? 9 : 10, opacity: .92, fontWeight: 500 }}>{visit.startTime}–{visit.endTime}</div>
+                              )}
+                              {wPx >= 90 && visit.durationMinutes && (
+                                <div style={{ fontSize: 9, opacity: .75, marginTop: 1 }}>{visit.durationMinutes}min</div>
                               )}
                               {isSelected && (
                                 <button
@@ -1473,7 +1476,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {/* Travel pill: last visit → home */}
                                   {travelToHome > 0 && (
                                     <div style={{
-                                      position: 'absolute', top: 40, left: xVisitEnd + 4, height: 20, padding: '0 6px',
+                                      position: 'absolute', top: 80, left: xVisitEnd + 4, height: 20, padding: '0 6px',
                                       borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
                                       fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
                                       background: travelToHome > 30 ? '#FEF2F2' : travelToHome > 20 ? '#FFFBEB' : '#ECFDF5',
@@ -1489,7 +1492,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {/* Break block */}
                                   <div
                                     style={{
-                                      position: 'absolute', top: 12, left: xLeft, width: breakW, height: 52,
+                                      position: 'absolute', top: 10, left: xLeft, width: breakW, height: 68,
                                       borderRadius: 8, padding: '4px 6px',
                                       background: 'rgba(251,146,60,.12)',
                                       border: '1.5px dashed #F97316',
@@ -1523,7 +1526,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const xEnd = timeToX(lastV.endTime);
                         return (
                           <div style={{
-                            position: 'absolute', top: 40, left: xEnd + 4, height: 20, padding: '0 6px',
+                            position: 'absolute', top: 80, left: xEnd + 4, height: 20, padding: '0 6px',
                             borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
                             fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
                             background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
