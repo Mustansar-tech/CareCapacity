@@ -133,8 +133,9 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, 
     >
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
-      {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2, color: '#0F172A' }}>{visit.clientName}</div>}
-      {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+      {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1, color: '#0F172A' }}>{visit.clientName}</div>}
+      {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, color: '#1E293B', marginBottom: 1 }}>{visit.startTime}–{visit.endTime}</div>}
+      {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75 }}>{visit.serviceType}</div>}
       {isSelected && (
         <button onClick={e => { e.stopPropagation(); onUnallocate(); }} style={{ position: 'absolute', bottom: 3, right: 4, background: 'rgba(0,0,0,.15)', border: 'none', borderRadius: 4, color: '#0F172A', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           ↩ unallocate
@@ -1501,13 +1502,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const empForDay = data?.employeesByDate[dayDate]?.find(e => e.employeeName === empName);
                 const timeWindows = empForDay?.timeWindows || '';
                 const hasVisits = visits.length > 0;
+                const totalVisitMins = visits.reduce((sum, v) => {
+                  const [sh, sm] = v.startTime.split(':').map(Number);
+                  const [eh, em] = v.endTime.split(':').map(Number);
+                  return sum + Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+                }, 0);
+                const totalVisitHrs = totalVisitMins > 0
+                  ? (totalVisitMins % 60 === 0 ? `${totalVisitMins / 60}h` : `${(totalVisitMins / 60).toFixed(1)}h`)
+                  : null;
                 const utilPct = Math.min(100, (visits.length / Math.max(1, Math.ceil(weeklyHours / 5 / 1.5))) * 100);
                 const utilColor = utilPct >= 80 ? '#EF4444' : utilPct >= 50 ? '#F59E0B' : '#10B981';
 
                 // Absence detection for this employee
                 const empStatusLower = (empForDay?.status || '').toLowerCase();
                 const empHasAbsence = ABSENCE_STATUSES.some(s => empStatusLower.includes(s));
-                const absStyle = empHasAbsence ? getAbsenceStyle(empForDay?.status) : null;
+                const absStyle = empHasAbsence ? getAbsenceStyle(empForDay?.status ?? '') : null;
                 const isFullAbsence = absStyle !== null && (!timeWindows || timeWindows.trim() === '');
                 const isPartialAbsence = absStyle !== null && timeWindows && timeWindows.trim() !== '';
 
@@ -1544,7 +1553,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         <div style={{ fontSize: 12, fontWeight: 700, color: isFullAbsence ? '#334155' : genderColor(empName), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName}</div>
                         <div style={{ fontSize: 10, color: isFullAbsence ? absStyle!.text : '#64748B', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, fontWeight: isFullAbsence ? 600 : 400 }}>
                           {isFullAbsence ? absStyle!.label : `${weeklyHours.toFixed(0)}h/wk`}
-                          {!isFullAbsence && hasVisits && <span style={{ color: '#94A3B8' }}>· {visits.length}v</span>}
+                          {!isFullAbsence && totalVisitHrs && <span style={{ color: '#94A3B8' }}>· {totalVisitHrs}</span>}
                           {isPartialAbsence && <span style={{ color: absStyle!.text, fontWeight: 600 }}>· {absStyle!.label}</span>}
                         </div>
                         {!isFullAbsence && timeWindows && (
