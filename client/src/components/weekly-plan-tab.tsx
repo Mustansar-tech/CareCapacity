@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,98 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+import type { ReactNode } from 'react';
+import {
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  useDraggable, useDroppable, closestCenter,
+} from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+
+// ── Drop zone: wraps one employee row ─────────────────────────────────────
+function DroppableEmpRow({ empName, validDrop, children }: { empName: string; validDrop: boolean | null; children: ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({ id: `emp-row-${empName}` });
+  return (
+    <div ref={setNodeRef} style={{ position: 'relative' }}>
+      {isOver && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none',
+          border: `2px dashed ${validDrop === false ? '#EF4444' : '#22C55E'}`,
+          background: validDrop === false ? 'rgba(239,68,68,.06)' : 'rgba(34,197,94,.06)',
+          borderRadius: 3,
+        }} />
+      )}
+      {children}
+    </div>
+  );
+}
+
+// ── Draggable: unallocated visit card in the side panel ───────────────────
+function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }: {
+  visit: any; isSelected: boolean; priColor: string; onClick: () => void; children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `unalloc-${visit.id}-${visit.date}`,
+    data: { type: 'unallocated', visit },
+  });
+  return (
+    <div
+      ref={setNodeRef} onClick={onClick} {...attributes}
+      style={{
+        background: 'white', border: `1px solid ${isSelected ? '#93C5FD' : '#E5E9F2'}`,
+        borderLeft: `4px solid ${priColor}`, borderRadius: 12, padding: 12, marginBottom: 10,
+        cursor: isDragging ? 'grabbing' : 'pointer', transition: isDragging ? 'none' : 'all .15s',
+        opacity: isDragging ? 0.45 : 1, boxShadow: isSelected ? '0 6px 18px rgba(37,99,235,.12)' : 'none',
+        position: 'relative',
+      }}
+    >
+      <div
+        {...listeners} onClick={e => e.stopPropagation()}
+        title="Drag onto a carer row to assign"
+        style={{ position: 'absolute', top: 10, right: 10, width: 18, height: 18, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35, fontSize: 14, touchAction: 'none', userSelect: 'none' }}
+      >⠿</div>
+      {children}
+    </div>
+  );
+}
+
+// ── Draggable: visit card already placed on the timeline ──────────────────
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate }: {
+  visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
+  empName: string; xLeft: number; wPx: number; grad: string;
+  isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `assigned-${empName}-${visit.id}`,
+    data: { type: 'assigned', visit, fromEmp: empName },
+  });
+  const cW = Math.max(44, wPx - 3);
+  return (
+    <div
+      ref={setNodeRef} onClick={onSelect} {...attributes}
+      style={{
+        position: 'absolute', top: 12, left: xLeft, width: cW, height: 50,
+        borderRadius: 8, padding: '5px 8px 5px 18px', background: grad, color: '#0F172A',
+        cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'hidden',
+        boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
+        zIndex: isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
+        opacity: isDragging ? 0.3 : 1, filter: 'brightness(1.05)',
+        transition: isDragging ? 'none' : 'transform .12s, box-shadow .12s',
+      }}
+      title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — drag to reassign`}
+    >
+      {/* Grip handle */}
+      <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
+      {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2, color: '#0F172A' }}>{visit.clientName}</div>}
+      {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+      {isSelected && (
+        <button onClick={e => { e.stopPropagation(); onUnallocate(); }} style={{ position: 'absolute', bottom: 3, right: 4, background: 'rgba(0,0,0,.15)', border: 'none', borderRadius: 4, color: '#0F172A', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          ↩ unallocate
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface WeeklyPlanTabProps {
   data: ProcessingResult | null;
@@ -839,6 +931,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     toast({ title: 'Visit unallocated', description: `${visit.clientName} moved to unallocated` });
   };
 
+  // ── Drag-and-drop state ───────────────────────────────────────────────────
+  const [activeDragData, setActiveDragData] = useState<{
+    type: 'unallocated' | 'assigned';
+    visit: any;
+    fromEmp?: string;
+  } | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
   // ── Timeline layout constants ─────────────────────────────────────────────
   const TIMELINE_START = 6;
   const TIMELINE_END   = 22;
@@ -934,6 +1034,79 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     ...availableTodayNoVisit.map(e => e.employeeName),
     ...absentTodayEmployees.map(e => e.employeeName),
   ];
+
+  // ── DnD: validate whether a visit can be dropped on an employee row ────────
+  const validateDrop = (
+    visit: { startTime: string; endTime: string; id?: string },
+    empName: string,
+    excludeVisitId?: string
+  ): { valid: boolean; reason: string } => {
+    const empForDay = data?.employeesByDate[dayDate]?.find(e => e.employeeName === empName);
+    if (!empForDay?.timeWindows || empForDay.timeWindows.trim() === '')
+      return { valid: false, reason: 'No availability today' };
+    const windows = parseTimeWindows(empForDay.timeWindows);
+    const visitStart = timeToMinutes(visit.startTime);
+    const visitEnd   = timeToMinutes(visit.endTime);
+    if (!windows.some(w => visitStart >= w.start && visitEnd <= w.end))
+      return { valid: false, reason: 'Outside availability window' };
+    const existing = ((weeklySchedule?.assignments[dayDate]?.[empName] || []) as AssignedVisit[])
+      .filter(v => excludeVisitId ? v.id !== excludeVisitId : true);
+    if (existing.some(ev => {
+      const es = timeToMinutes(ev.startTime); const ee = timeToMinutes(ev.endTime);
+      return !(visitEnd + 5 <= es || visitStart >= ee + 5);
+    })) return { valid: false, reason: 'Time conflict with existing visit' };
+    return { valid: true, reason: '' };
+  };
+
+  // Pre-compute valid/invalid targets for all rows while a drag is in progress
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const validDropEmps = useMemo(() => {
+    if (!activeDragData) return null;
+    const { visit, type, fromEmp } = activeDragData;
+    const excludeId = type === 'assigned' ? (visit as AssignedVisit).id : undefined;
+    const map = new Map<string, boolean>();
+    timelineEmpNames.forEach(name => {
+      map.set(name, type === 'assigned' && name === fromEmp ? false : validateDrop(visit, name, excludeId).valid);
+    });
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDragData, timelineEmpNames, dayDate, data, weeklySchedule]);
+
+  const reassignVisit = (visit: AssignedVisit, fromEmp: string, toEmp: string) => {
+    if (!weeklySchedule) return;
+    const srcVisits = ((weeklySchedule.assignments[dayDate]?.[fromEmp] || []) as AssignedVisit[]).filter(v => v.id !== visit.id);
+    const dstVisits = [...((weeklySchedule.assignments[dayDate]?.[toEmp] || []) as AssignedVisit[])];
+    const idx = dstVisits.findIndex(v => v.startTime > visit.startTime);
+    if (idx === -1) dstVisits.push(visit); else dstVisits.splice(idx, 0, visit);
+    const nd: Record<string, AssignedVisit[]> = { ...(weeklySchedule.assignments[dayDate] || {}), [fromEmp]: srcVisits, [toEmp]: dstVisits };
+    if (srcVisits.length === 0) delete nd[fromEmp];
+    setWeeklySchedule(prev => prev ? { ...prev, assignments: { ...prev.assignments, [dayDate]: nd } } : prev);
+    setSelectedTimelineVisit(null);
+    toast({ title: '✓ Reassigned', description: `${visit.clientName} → ${toEmp.split(' ')[0]}` });
+  };
+
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    setActiveDragData(active.data.current as any);
+  };
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveDragData(null);
+    if (!over) return;
+    const toEmp = over.id.toString().replace('emp-row-', '');
+    const dd = active.data.current as { type: 'unallocated' | 'assigned'; visit: any; fromEmp?: string };
+    if (!dd) return;
+    const excludeId = dd.type === 'assigned' ? dd.visit.id : undefined;
+    const { valid, reason } = validateDrop(dd.visit, toEmp, excludeId);
+    if (!valid) {
+      toast({ title: 'Cannot assign here', description: reason, variant: 'destructive' });
+      return;
+    }
+    if (dd.type === 'unallocated') {
+      assignVisit(dd.visit, toEmp);
+    } else if (dd.type === 'assigned' && dd.fromEmp !== toEmp) {
+      reassignVisit(dd.visit, dd.fromEmp!, toEmp);
+    }
+  };
 
   const todayUnallocated = (weeklySchedule?.unallocated || []).filter(v => v.date === dayDate);
   const filteredUnallocated = todayUnallocated.filter(v => {
@@ -1104,6 +1277,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </div>
 
       {/* ── Main 3-column layout ─────────────────────────────────────── */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div style={{ display: 'grid', gridTemplateColumns: `${rightPanelOpen ? '300px' : '44px'} 1fr ${leftPanelOpen ? '280px' : '44px'}`, flex: 1, overflow: 'hidden', minHeight: 0, transition: 'grid-template-columns .2s' }}>
 
         {/* ── RIGHT: Unallocated visits ──────────────────────────────── */}
@@ -1180,15 +1354,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   : '#06B6D4';
                 const svcType = (visit.serviceType || 'Personal care').split('/')[0].trim();
                 return (
-                  <div
+                  <DraggableUnallocCard
                     key={`${visit.id}-${idx}`}
+                    visit={visit}
+                    isSelected={isSelected}
+                    priColor={priColor}
                     onClick={() => setSelectedVisit(isSelected ? null : visit)}
-                    style={{
-                      background: 'white', border: `1px solid ${isSelected ? '#93C5FD' : '#E5E9F2'}`,
-                      borderLeft: `4px solid ${priColor}`, borderRadius: 12,
-                      padding: 12, marginBottom: 10, cursor: 'pointer', transition: 'all .15s',
-                      boxShadow: isSelected ? '0 6px 18px rgba(37,99,235,.12)' : 'none',
-                    }}
                   >
                     <div style={{ marginBottom: 4 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', marginBottom: 3 }}>{visit.clientName}</div>
@@ -1206,7 +1377,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         {visit.unallocatedReason.slice(0, 45)}{visit.unallocatedReason.length > 45 ? '…' : ''}
                       </span>
                     )}
-                  </div>
+                  </DraggableUnallocCard>
                 );
               })
             )}
@@ -1322,8 +1493,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const showNow = dayDate === new Date().toISOString().split('T')[0] && nowX >= 0 && nowX <= (TIMELINE_END - TIMELINE_START) * HOUR_WIDTH;
 
                 return (
+                  <DroppableEmpRow key={empName} empName={empName} validDrop={validDropEmps?.get(empName) ?? null}>
                   <div
-                    key={empName}
                     style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: `1px solid ${isFullAbsence ? absStyle!.border + '30' : '#F1F5F9'}`, minHeight: 96, position: 'relative', background: isFullAbsence ? absStyle!.bg : 'transparent' }}
                   >
                     {/* Carer info cell — sticky left */}
@@ -1451,36 +1622,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 {travelIcon} {travel}m
                               </div>
                             )}
-                            <div
-                              onClick={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
-                              style={{
-                                position: 'absolute', top: 12, left: xLeft, width: Math.max(44, wPx - 3), height: 50,
-                                borderRadius: 8, padding: '5px 8px', background: grad, color: '#0F172A',
-                                cursor: 'pointer', overflow: 'hidden',
-                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
-                                zIndex: isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
-                                transition: 'transform .12s, box-shadow .12s',
-                                filter: 'brightness(1.05)',
-                              }}
-                              title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
-                            >
-                              {wPx >= 44 && (
-                                <div style={{ fontSize: wPx < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2, color: '#0F172A' }}>
-                                  {visit.clientName}
-                                </div>
-                              )}
-                              {wPx >= 54 && (
-                                <div style={{ fontSize: wPx < 80 ? 9 : 10, fontWeight: 600, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>
-                              )}
-                              {isSelected && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); unallocateVisit(empName, visit); }}
-                                  style={{ position: 'absolute', bottom: 3, right: 4, background: 'rgba(0,0,0,.15)', border: 'none', borderRadius: 4, color: '#0F172A', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                >
-                                  ↩ unallocate
-                                </button>
-                              )}
-                            </div>
+                            <DraggableTimelineVisit
+                              visit={visit}
+                              empName={empName}
+                              xLeft={xLeft}
+                              wPx={wPx}
+                              grad={grad}
+                              isSelected={isSelected}
+                              onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
+                              onUnallocate={() => unallocateVisit(empName, visit)}
+                            />
 
                             {/* Break block — shown when gap to next visit is ≥ 90 min (carer goes home) */}
                             {vi < visits.length - 1 && (() => {
@@ -1585,6 +1736,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       })()}
                     </div>
                   </div>
+                  </DroppableEmpRow>
                 );
               })
             )}
@@ -1766,6 +1918,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </>)}
         </div>
       </div>
+      <DragOverlay dropAnimation={null}>
+        {activeDragData ? (
+          <div style={{ background: 'white', border: '2px solid #2563EB', borderRadius: 10, padding: '8px 12px', boxShadow: '0 8px 24px rgba(37,99,235,.25)', fontSize: 12, fontWeight: 700, color: '#0F172A', minWidth: 100, maxWidth: 180, pointerEvents: 'none' }}>
+            <div style={{ marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeDragData.visit.clientName}</div>
+            <div style={{ fontSize: 10, opacity: 0.7 }}>{activeDragData.visit.startTime}–{activeDragData.visit.endTime}</div>
+            {activeDragData.type === 'assigned' && activeDragData.fromEmp && (
+              <div style={{ fontSize: 9, opacity: 0.5, marginTop: 1 }}>from {activeDragData.fromEmp.split(' ')[0]}</div>
+            )}
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
 
       {/* ── Bottom metrics bar ───────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 44, borderTop: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 24, fontSize: 12, flexShrink: 0, color: '#64748B' }}>
