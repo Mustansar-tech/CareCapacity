@@ -133,9 +133,9 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, 
     >
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
-      {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1, color: '#0F172A' }}>{visit.clientName}</div>}
-      {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, color: '#1E293B', marginBottom: 1 }}>{visit.startTime}–{visit.endTime}</div>}
-      {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75 }}>{visit.serviceType}</div>}
+      {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
+      {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+      {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
       {isSelected && (
         <button onClick={e => { e.stopPropagation(); onUnallocate(); }} style={{ position: 'absolute', bottom: 3, right: 4, background: 'rgba(0,0,0,.15)', border: 'none', borderRadius: 4, color: '#0F172A', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           ↩ unallocate
