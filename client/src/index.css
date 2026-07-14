@@ -41,7 +41,7 @@
   
   /* Neutral tones — less grey, more blue-tinted */
   --muted: hsl(220 15% 91%);
-  --muted-foreground: hsl(220 10% 38%);
+  --muted-foreground: hsl(220 12% 28%);
   --border: hsl(220 15% 85%);
   --input: hsl(220 20% 98%);
   --ring: hsl(214 100% 46%);

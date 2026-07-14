@@ -1165,7 +1165,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#0F172A' }}>{selectedEmployee}</div>
-            <div style={{ fontSize: 11, color: '#64748B' }}>Weekly Run · {totalVCnt} visits</div>
+            <div style={{ fontSize: 11, color: '#334155' }}>Weekly Run · {totalVCnt} visits</div>
           </div>
         </div>
         <div style={{ padding: '16px 20px' }} className="space-y-3">
@@ -1183,7 +1183,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   <div style={{ borderBottom: `1px solid ${absStyle.border}20`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{dayNames[index]}</span>
-                      <span style={{ fontSize: 12, color: '#64748B' }}>{date.split('-').slice(1).reverse().join('/')}</span>
+                      <span style={{ fontSize: 12, color: '#334155' }}>{date.split('-').slice(1).reverse().join('/')}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, color: absStyle.text }}>{absStyle.icon} {absStyle.label}</span>
                     </div>
                     <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${absStyle.border}18`, color: absStyle.text }}>
@@ -1203,8 +1203,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E5E9F2', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{dayNames[index]}</span>
-                    <span style={{ fontSize: 12, color: '#64748B' }}>{date.split('-').slice(1).reverse().join('/')}</span>
-                    <span style={{ fontSize: 11, color: '#64748B' }}><Clock className="h-3 w-3 inline mr-1" />{empForDate.timeWindows}</span>
+                    <span style={{ fontSize: 12, color: '#334155' }}>{date.split('-').slice(1).reverse().join('/')}</span>
+                    <span style={{ fontSize: 11, color: '#334155' }}><Clock className="h-3 w-3 inline mr-1" />{empForDate.timeWindows}</span>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: dv.length > 0 ? '#DBEAFE' : '#F1F5F9', color: dv.length > 0 ? '#1D4ED8' : '#64748B' }}>
                     {dv.length} visits
@@ -1263,7 +1263,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         {/* Employee search */}
         <div style={{ position: 'relative', width: 170, flexShrink: 0 }}>
-          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#94A3B8' }} />
+          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#475569' }} />
           <input
             placeholder="Search carers..."
             value={searchTerm}
@@ -1276,7 +1276,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         <div style={{ flex: 1 }} />
 
         {lastGeneratedAt && (
-          <span style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
             Auto-saved · {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
@@ -1302,7 +1302,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ order: 3, borderLeft: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {!leftPanelOpen ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 10, flex: 1 }}>
-              <button onClick={() => setLeftPanelOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }} title="Show unallocated">
+              <button onClick={() => setLeftPanelOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#334155', padding: 4 }} title="Show unallocated">
                 <ChevronLeft style={{ width: 16, height: 16 }} />
               </button>
               {todayUnallocated.length > 0 && (
@@ -1322,12 +1322,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   </span>
                 )}
               </h3>
-              <button onClick={() => setLeftPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6 }} title="Hide panel">
+              <button onClick={() => setLeftPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 4, borderRadius: 6 }} title="Hide panel">
                 <ChevronRight style={{ width: 14, height: 14 }} />
               </button>
             </div>
             <div style={{ background: '#F8FAFC', border: '1px solid #E5E9F2', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Search style={{ width: 13, height: 13, color: '#94A3B8', flexShrink: 0 }} />
+              <Search style={{ width: 13, height: 13, color: '#475569', flexShrink: 0 }} />
               <input
                 placeholder="Search client, care type..."
                 value={leftSearch}
@@ -1339,9 +1339,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
           <div style={{ flex: 1, overflowY: 'auto', padding: 12, scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
             {filteredUnallocated.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '36px 16px', color: '#94A3B8' }}>
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: '#475569' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>✓</div>
-                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#64748B' }}>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#334155' }}>
                   {weeklySchedule ? 'All visits allocated today' : 'Generate a schedule to see unallocated visits'}
                 </p>
               </div>
@@ -1369,7 +1369,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         {visit.startTime} – {visit.endTime}
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ fontSize: 11, color: '#334155', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <MapPin style={{ width: 11, height: 11 }} />
                       {svcType} · {visit.durationMinutes}min
                     </div>
@@ -1386,7 +1386,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             {/* Other-day unallocated summary */}
             {weeklySchedule && weeklySchedule.unallocated.filter(v => v.date !== dayDate).length > 0 && (
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #E2E8F0' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>
                   Other days · {weeklySchedule.unallocated.filter(v => v.date !== dayDate).length} visits
                 </p>
                 {weekDates.map((d, di) => {
@@ -1394,11 +1394,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   if (dv.length === 0) return null;
                   return (
                     <div key={d} style={{ marginBottom: 8 }}>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 4 }}>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                         {dayNames[di].slice(0, 3)} · {dv.length} unallocated
                       </p>
                       {dv.map((v, i) => (
-                        <div key={i} style={{ fontSize: 11, color: '#94A3B8', padding: '3px 8px', background: '#F8FAFC', borderRadius: 6, marginBottom: 2 }}>
+                        <div key={i} style={{ fontSize: 11, color: '#475569', padding: '3px 8px', background: '#F8FAFC', borderRadius: 6, marginBottom: 2 }}>
                           {v.clientName} · {v.startTime}
                         </div>
                       ))}
@@ -1418,12 +1418,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
               Carer Schedule — {dayLabel}
             </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#64748B', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#334155', flexWrap: 'wrap' }}>
               {[
                 { color: '#A855F7', label: 'Holiday' },
                 { color: '#EF4444', label: 'Sick' },
                 { color: '#F59E0B', label: 'Partial' },
-                { color: '#94A3B8', label: 'Absent' },
+                { color: '#475569', label: 'Absent' },
               ].map(({ color, label }) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 10, height: 10, borderRadius: 3, background: color, opacity: 0.55, display: 'inline-block' }} />
@@ -1451,7 +1451,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             </div>
 
             {timelineEmpNames.length === 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#94A3B8', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#475569', flexDirection: 'column', gap: 8 }}>
                 <Calendar style={{ width: 32, height: 32, opacity: .35 }} />
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>
                   {weeklySchedule ? 'No employees available today' : 'Generate a schedule to see assignments'}
@@ -1535,7 +1535,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         </svg>
                       )}
                       {isFullAbsence && (
-                        <div style={{ fontSize: 9, color: '#94A3B8', textAlign: 'right', flexShrink: 0 }}>{weeklyHours.toFixed(0)}h/wk</div>
+                        <div style={{ fontSize: 9, color: '#475569', textAlign: 'right', flexShrink: 0 }}>{weeklyHours.toFixed(0)}h/wk</div>
                       )}
                     </div>
 
@@ -1750,7 +1750,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         <div className="bg-white dark:bg-gray-800" style={{ order: 1, borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {!rightPanelOpen ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 10, flex: 1 }}>
-              <button onClick={() => setRightPanelOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 4 }} title="Show schedule info">
+              <button onClick={() => setRightPanelOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#334155', padding: 4 }} title="Show schedule info">
                 <ChevronRight style={{ width: 16, height: 16 }} />
               </button>
               <Zap style={{ width: 14, height: 14, color: '#F59E0B' }} />
@@ -1760,7 +1760,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Zap style={{ width: 14, height: 14, color: '#F59E0B' }} /> Schedule Info
             </h3>
-            <button onClick={() => setRightPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6 }} title="Hide panel">
+            <button onClick={() => setRightPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: 4, borderRadius: 6 }} title="Hide panel">
               <ChevronLeft style={{ width: 14, height: 14 }} />
             </button>
           </div>
@@ -1847,7 +1847,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                 <button
                   onClick={() => setSelectedVisit(null)}
-                  style={{ width: '100%', marginTop: 14, padding: '8px', borderRadius: 8, border: '1px solid #E5E9F2', background: 'white', fontSize: 12, fontWeight: 600, color: '#64748B', cursor: 'pointer' }}
+                  style={{ width: '100%', marginTop: 14, padding: '8px', borderRadius: 8, border: '1px solid #E5E9F2', background: 'white', fontSize: 12, fontWeight: 600, color: '#334155', cursor: 'pointer' }}
                 >
                   Clear selection
                 </button>
@@ -1856,7 +1856,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               /* ── Summary panel ── */
               <>
                 <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#F5F3FF)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 10 }}>Week Summary</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 10 }}>Week Summary</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {[
                       { label: 'Assigned', value: totalAssigned, color: '#059669' },
@@ -1865,7 +1865,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       { label: 'Carers used', value: empsUsed, color: '#7C3AED' },
                     ].map(({ label, value, color }) => (
                       <div key={label} style={{ background: 'white', borderRadius: 8, padding: '10px 12px' }}>
-                        <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 10, color: '#475569', fontWeight: 600, marginBottom: 2 }}>{label}</div>
                         <div style={{ fontSize: 20, fontWeight: 800, color }}>{value}</div>
                       </div>
                     ))}
@@ -1884,14 +1884,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         { label: 'Unallocated today', value: todayUnallocated.length, color: todayUnallocated.length > 0 ? '#DC2626' : '#059669' },
                       ].map(({ label, value, color }) => (
                         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <span style={{ fontSize: 12, color: '#64748B' }}>{label}</span>
+                          <span style={{ fontSize: 12, color: '#334155' }}>{label}</span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: color || '#0F172A' }}>{value}</span>
                         </div>
                       ))}
                       <div style={{ marginTop: 10 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600 }}>Allocation rate</span>
-                          <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600 }}>{allocPct}%</span>
+                          <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>Allocation rate</span>
+                          <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>{allocPct}%</span>
                         </div>
                         <div style={{ height: 6, background: '#E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
                           <div style={{ width: `${allocPct}%`, height: '100%', background: allocPct >= 90 ? '#10B981' : allocPct >= 70 ? '#F59E0B' : '#EF4444', borderRadius: 3, transition: 'width .5s' }} />
@@ -1910,9 +1910,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               </>
             ) : (
               /* ── No schedule yet ── */
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94A3B8' }}>
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#475569' }}>
                 <Zap style={{ width: 32, height: 32, margin: '0 auto 12px', opacity: .28 }} />
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#64748B' }}>No schedule generated</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#334155' }}>No schedule generated</p>
                 <p style={{ margin: '6px 0 0', fontSize: 11, lineHeight: 1.5 }}>Click Generate Schedule to optimise visit assignments using VRPTW</p>
               </div>
             )}
@@ -1934,7 +1934,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       </DndContext>
 
       {/* ── Bottom metrics bar ───────────────────────────────────────── */}
-      <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 44, borderTop: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 24, fontSize: 12, flexShrink: 0, color: '#64748B' }}>
+      <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 44, borderTop: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 24, fontSize: 12, flexShrink: 0, color: '#334155' }}>
         {[
           { label: 'Allocated: ', value: `${totalAssigned}/${totalVisitsW}`, dot: allocPct >= 90 ? '#10B981' : '#F59E0B' },
           { label: 'Unallocated: ', value: totalUnalloc, dot: totalUnalloc > 0 ? '#EF4444' : '#10B981' },
@@ -1948,7 +1948,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         ))}
         <div style={{ flex: 1 }} />
         {lastGeneratedAt && (
-          <span style={{ color: '#94A3B8' }}>
+          <span style={{ color: '#475569' }}>
             Auto-saved · {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
