@@ -1342,23 +1342,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontSize: 12, color: '#334155' }}
               />
             </div>
-            <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'urgent', label: '🔴 Urgent' },
-                { key: 'morning', label: '🌅 Morning' },
-                { key: 'complex', label: '💊 Complex' },
-                { key: 'double', label: '👥 Double' },
-              ].map(f => (
-                <button
-                  key={f.key}
-                  onClick={() => setLeftFilter(f.key)}
-                  style={{ padding: '3px 9px', background: leftFilter === f.key ? '#DBEAFE' : '#F1F5F9', borderRadius: 20, fontSize: 11, fontWeight: 600, color: leftFilter === f.key ? '#1D4ED8' : '#64748B', cursor: 'pointer', border: 'none' }}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: 12, scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
