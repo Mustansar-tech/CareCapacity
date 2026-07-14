@@ -1515,13 +1515,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: isFullAbsence ? '#334155' : genderColor(empName), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName}</div>
-                        <div style={{ fontSize: 10, color: isFullAbsence ? absStyle!.text : '#64748B', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, fontWeight: isFullAbsence ? 600 : 400 }}>
+                        <div style={{ fontSize: 10, color: isFullAbsence ? absStyle!.text : '#334155', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, fontWeight: isFullAbsence ? 600 : 500 }}>
                           {isFullAbsence ? absStyle!.label : `${weeklyHours.toFixed(0)}h/wk`}
-                          {!isFullAbsence && totalVisitHrs && <span style={{ color: '#94A3B8' }}>· {totalVisitHrs}</span>}
+                          {!isFullAbsence && totalVisitHrs && <span style={{ color: '#475569' }}>· {totalVisitHrs}</span>}
                           {isPartialAbsence && <span style={{ color: absStyle!.text, fontWeight: 600 }}>· {absStyle!.label}</span>}
                         </div>
                         {!isFullAbsence && timeWindows && (
-                          <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 2, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{timeWindows}</div>
+                          <div style={{ fontSize: 9, color: '#475569', marginTop: 2, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{timeWindows}</div>
                         )}
                       </div>
                       {/* Donut — hide for fully absent employees */}
