@@ -918,15 +918,23 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     ...availableTodayNoVisit.map(e => e.employeeName),
   ];
 
-  // Employees who are absent/holiday/sick today (have a record but no timeWindows, GH > 0, not ad-hoc)
+  // Employees who are absent/holiday/sick today — they MUST have a record for this day
+  // (i.e. they normally work this day) but have no timeWindows due to an absence status.
+  // Employees with no record at all simply don't work this day and are excluded.
   const absentTodaySet = new Set(timelineEmpNames);
-  const absentTodayEmployees = (data?.employeesByDate[dayDate] || []).filter(e =>
-    (employeeWeeklyHoursMap.get(e.employeeName) || 0) > 0 &&
-    e.status !== 'Ad-hoc' &&
-    (!e.timeWindows || e.timeWindows.trim() === '') &&
-    !absentTodaySet.has(e.employeeName) &&
-    e.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  const ABSENCE_STATUSES = ['holiday', 'annual leave', 'sick', 'sickness', 'absent', 'unavailable', 'partial', 'meeting', 'training'];
+  const absentTodayEmployees = (data?.employeesByDate[dayDate] || []).filter(e => {
+    const statusLower = (e.status || '').toLowerCase();
+    const hasAbsenceStatus = ABSENCE_STATUSES.some(s => statusLower.includes(s));
+    return (
+      (employeeWeeklyHoursMap.get(e.employeeName) || 0) > 0 &&
+      e.status !== 'Ad-hoc' &&
+      (!e.timeWindows || e.timeWindows.trim() === '') &&
+      hasAbsenceStatus &&
+      !absentTodaySet.has(e.employeeName) &&
+      e.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 
   const todayUnallocated = (weeklySchedule?.unallocated || []).filter(v => v.date === dayDate);
   const filteredUnallocated = todayUnallocated.filter(v => {
@@ -974,9 +982,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           {weekDates.map((date, index) => {
             const dv = (weeklySchedule.assignments[date]?.[selectedEmployee] || []) as AssignedVisit[];
             const empForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
-            if (empForDate?.status === 'Ad-hoc') return null;
-            // Show absent/holiday/sick days with a coloured indicator instead of skipping them
-            if (!empForDate?.timeWindows || empForDate.timeWindows.trim() === '') {
+            // No record at all = carer doesn't work this day → skip
+            if (!empForDate) return null;
+            if (empForDate.status === 'Ad-hoc') return null;
+            // Show absent/holiday/sick days with a coloured indicator (only if there IS a record but no timeWindows)
+            if (!empForDate.timeWindows || empForDate.timeWindows.trim() === '') {
               const absStyle = getAbsenceStyle(empForDate?.status || 'Unavailable');
               return (
                 <div key={date} style={{ background: absStyle.bg, border: `1px solid ${absStyle.border}`, borderRadius: 12, overflow: 'hidden', opacity: 0.85 }}>
