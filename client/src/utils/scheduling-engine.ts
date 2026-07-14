@@ -438,6 +438,25 @@ function getClientGenderPreference(clientName: string): string | null {
   return null; // No preference
 }
 
+// ============================================================================
+// BAD MATCH EXCLUSIONS (hard rule)
+// ============================================================================
+// Client + care pro pairs flagged as bad matches are NEVER scheduled together.
+// Set via setBadMatches() before generating a schedule.
+// ============================================================================
+let badMatchSet = new Set<string>();
+
+export function setBadMatches(pairs: Array<{ clientName: string; employeeName: string }>): void {
+  badMatchSet = new Set(
+    pairs.map(p => `${p.employeeName.toLowerCase().trim()}|${p.clientName.toLowerCase().trim()}`)
+  );
+}
+
+export function isBadMatch(employeeName: string, clientName: string): boolean {
+  if (badMatchSet.size === 0) return false;
+  return badMatchSet.has(`${employeeName.toLowerCase().trim()}|${clientName.toLowerCase().trim()}`);
+}
+
 // Check if employee gender matches client preference
 function isGenderMatch(employeeGender: string | undefined, clientName: string): boolean {
   const preference = getClientGenderPreference(clientName);
@@ -622,6 +641,9 @@ function tryAssignVisitToWalker(
 
     // Check gender preference match
     if (!isGenderMatch(schedule.gender, visit.clientName)) continue;
+
+    // Bad match exclusion (hard rule): never pair flagged client + care pro
+    if (isBadMatch(schedule.employeeName, visit.clientName)) continue;
 
     // Check capacity constraints
     const newDailyCare = schedule.usedCapacityMinutes + visit.durationMinutes;
@@ -863,6 +885,10 @@ function assignVisitToBestEmployee(
   
   for (const schedule of employeeSchedules) {
     // Check gender preference match
+    if (isBadMatch(schedule.employeeName, originalVisit.clientName)) {
+      rejectionReasons.set(schedule.employeeName, 'Flagged as bad match for this client');
+      continue;
+    }
     if (!isGenderMatch(schedule.gender, originalVisit.clientName)) {
       rejectionReasons.set(schedule.employeeName, 'Gender preference not met');
       clientLogger.log(`⚠️ Gender mismatch: ${schedule.employeeName} (${schedule.gender || 'unknown'}) cannot serve ${originalVisit.clientName}`);
@@ -1875,6 +1901,9 @@ export function generateWeeklySchedule(
         
         // Check gender match
         if (!isGenderMatch(s.gender, visit.clientName)) return false;
+
+        // Bad match exclusion (hard rule)
+        if (isBadMatch(s.employeeName, visit.clientName)) return false;
         
         // Check if has time window that even partially overlaps
         const visitStart = timeToMinutes(visit.startTime);
@@ -1937,7 +1966,7 @@ export function generateWeeklySchedule(
       const employeeSchedules = (schedulesByDate[visit.date] || []).filter(s => {
          const visitKey = `${visit.clientName}-${visit.date}-${visit.startTime}-${visit.endTime}`;
          const alreadyAssigned = visitEmployeeAssignments.get(visitKey) || new Set<string>();
-         return !alreadyAssigned.has(s.employeeName) && isGenderMatch(s.gender, visit.clientName);
+         return !alreadyAssigned.has(s.employeeName) && isGenderMatch(s.gender, visit.clientName) && !isBadMatch(s.employeeName, visit.clientName);
       });
       
       const relaxedVisit = { ...visit, _relaxedPass: true } as any;

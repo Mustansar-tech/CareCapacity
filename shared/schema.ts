@@ -538,6 +538,18 @@ export const weeklySchedules = pgTable("weekly_schedules", {
   generatedAtIdx: index("weekly_schedule_generated_idx").on(table.generatedAt),
 }));
 
+// Bad matches: client + care pro pairs that must never be scheduled together
+export const badMatches = pgTable("bad_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  clientName: text("client_name").notNull(),
+  employeeName: text("employee_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueBadMatchPerBranch: unique("unique_bad_match_per_branch").on(table.branchId, table.clientName, table.employeeName),
+  branchIdx: index("bad_match_branch_idx").on(table.branchId),
+}));
+
 // Insert schemas for geographical data
 export const insertEmployeeLocationSchema = createInsertSchema(employeeLocations).omit({
   id: true,
@@ -597,6 +609,13 @@ export type InsertGeocode = z.infer<typeof insertGeocodeSchema>;
 export type GeocodeCache = typeof geocodeCache.$inferSelect;
 
 export type InsertWeeklySchedule = z.infer<typeof insertWeeklyScheduleSchema>;
+
+export const insertBadMatchSchema = createInsertSchema(badMatches).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBadMatch = z.infer<typeof insertBadMatchSchema>;
+export type BadMatch = typeof badMatches.$inferSelect;
 export type WeeklySchedule = typeof weeklySchedules.$inferSelect;
 
 // Travel time cache - stores ORS API results for faster lookups

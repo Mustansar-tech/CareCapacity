@@ -70,6 +70,15 @@ Enterprise auth via express-session + bcrypt. Roles: `admin > manager > supervis
 
 ---
 
+## Bad Match Exclusions
+
+Users can flag a care pro as a "bad match" for a client so the pair is never scheduled together:
+
+- `shared/schema.ts`: `badMatches` table (branch-scoped, unique per branch+client+employee)
+- `server/routes/bad-matches.ts`: GET/POST/DELETE `/api/bad-matches` (requireAuth + scheduler role + resolveBranch); repository in `server/repositories/bad-match.repository.ts`
+- Engine: `setBadMatches()` / `isBadMatch()` in `scheduling-engine.ts` — hard exclusion in walker, car, relaxed, and final passes (case-insensitive name matching). Bad matches are fetched fresh before each generation run.
+- UI: selected unallocated visit panel in `weekly-plan-tab.tsx` — add/remove bad-match care pros per client; suggested carers filtered; manual Assign, drag-drop, and reassign all blocked with a toast/reason.
+
 ## Drag-Drop Unallocated Visit Assignment
 
 Implemented with @dnd-kit/core in `weekly-plan-tab.tsx`:

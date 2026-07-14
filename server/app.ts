@@ -10,6 +10,7 @@ import { registerHistoryRoutes } from './routes/history';
 import { registerVisitsRoutes } from './routes/visits';
 import { registerScheduleRoutes } from './routes/schedule';
 import { registerGeoRoutes } from './routes/geo';
+import { registerBadMatchRoutes } from './routes/bad-matches';
 import { registerTravelTimesRoutes } from './routes/travel-times';
 import { registerBdMatcherRoutes } from './routes/bd-matcher';
 import { registerEnquiriesRoutes } from './routes/enquiries';
@@ -77,6 +78,7 @@ export async function configureApp(app: Express): Promise<Server> {
   registerVisitsRoutes(app);
   registerScheduleRoutes(app);
   registerGeoRoutes(app);
+  registerBadMatchRoutes(app);
   registerTravelTimesRoutes(app);
   registerBdMatcherRoutes(app);
   registerEnquiriesRoutes(app);

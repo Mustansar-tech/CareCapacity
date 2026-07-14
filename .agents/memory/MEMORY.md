@@ -1,0 +1,1 @@
+- [Drizzle push vs Supabase](drizzle-push-supabase.md) — `npm run db:push` fails against the Supabase pooler; use SSL env overrides or create tables via direct SQL.

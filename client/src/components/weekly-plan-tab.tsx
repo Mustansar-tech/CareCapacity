@@ -12,11 +12,11 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar, Zap, Loader2, Car, User, MapPin, Clock, Search, Plus, Home, ArrowRight, Info, Lock, ChevronLeft, ChevronRight, X, Star } from "lucide-react";
 import { getGenderColorClass } from "@/utils/gender-colors";
 import { minutesToTime, timeToMinutes, getTravelMinutes, seedTravelCache, clearTravelCache, haversineDistance, calculateTravelTime, parseTimeWindows } from "@/utils/scheduling-utils";
-import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation, WeeklySchedule, EmployeeDailyDetail } from "@shared/schema";
+import type { ProcessingResult, ClientVisit, EmployeeLocation, ClientLocation, WeeklySchedule, EmployeeDailyDetail, BadMatch } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
-import { generateWeeklySchedule } from "@/utils/scheduling-engine";
+import { generateWeeklySchedule, setBadMatches } from "@/utils/scheduling-engine";
 import {
   Dialog,
   DialogContent,
@@ -194,6 +194,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [leftPanelOpen, setLeftPanelOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedTimelineVisit, setSelectedTimelineVisit] = useState<{empName: string; visit: AssignedVisit} | null>(null);
+  const [badMatchName, setBadMatchName] = useState<string>('');
+
+  // Bad matches: client + care pro pairs never scheduled together
+  const { data: badMatchesData } = useQuery<BadMatch[]>({
+    queryKey: ['/api/bad-matches'],
+  });
+
+  const addBadMatchMutation = useMutation({
+    mutationFn: async (payload: { clientName: string; employeeName: string }) => {
+      const res = await apiRequest('POST', '/api/bad-matches', payload);
+      return res.json();
+    },
+    onSuccess: (_d, payload) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bad-matches'] });
+      setBadMatchName('');
+      toast({ title: 'Bad match saved', description: `${payload.employeeName} will never be scheduled for ${payload.clientName}. Applies from the next schedule generation.` });
+    },
+    onError: () => toast({ title: 'Could not save bad match', variant: 'destructive' }),
+  });
+
+  const removeBadMatchMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('DELETE', `/api/bad-matches/${id}?branchId=${encodeURIComponent(selectedBranchId || '')}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bad-matches'] });
+      toast({ title: 'Bad match removed' });
+    },
+    onError: () => toast({ title: 'Could not remove bad match', variant: 'destructive' }),
+  });
 
   // Get week boundaries - default to current week if no date selected
   const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
@@ -459,6 +490,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         }
       } catch (travelError) {
         clientLogger.warn('⚠️ Real road travel pre-fetch failed - using Haversine fallback:', travelError);
+      }
+
+      // Load bad matches fresh so flagged client + care pro pairs are hard-excluded
+      try {
+        const bmRes = await apiRequest('GET', '/api/bad-matches');
+        const bmList: BadMatch[] = await bmRes.json();
+        setBadMatches(bmList);
+        clientLogger.log(`🚫 Loaded ${bmList.length} bad-match exclusions`);
+      } catch {
+        setBadMatches(badMatchesData || []);
+        clientLogger.warn('⚠️ Could not refresh bad matches - using cached list');
       }
 
       const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
@@ -918,8 +960,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return results.sort((a, b) => b.score - a.score).slice(0, 3);
   };
 
+  // True when this care pro is flagged as a bad match for this client
+  const isBadMatchPair = (empName: string, clientName: string) =>
+    (badMatchesData || []).some(bm =>
+      bm.employeeName.toLowerCase().trim() === empName.toLowerCase().trim() &&
+      bm.clientName.toLowerCase().trim() === clientName.toLowerCase().trim()
+    );
+
   const assignVisit = (visit: ClientVisit & { unallocatedReason: string }, empName: string) => {
     if (!weeklySchedule) return;
+    if (isBadMatchPair(empName, visit.clientName)) {
+      toast({ title: 'Bad match', description: `${empName} is flagged as a bad match for ${visit.clientName}.`, variant: 'destructive' });
+      return;
+    }
     const empVisits = [...((weeklySchedule.assignments[visit.date]?.[empName] || []) as AssignedVisit[])];
     const newVisit: AssignedVisit = {
       id: visit.id,
@@ -1057,10 +1110,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // ── DnD: validate whether a visit can be dropped on an employee row ────────
   const validateDrop = (
-    visit: { startTime: string; endTime: string; id?: string },
+    visit: { startTime: string; endTime: string; id?: string; clientName?: string },
     empName: string,
     excludeVisitId?: string
   ): { valid: boolean; reason: string } => {
+    if (visit.clientName && isBadMatchPair(empName, visit.clientName))
+      return { valid: false, reason: 'Flagged as bad match for this client' };
     const empForDay = data?.employeesByDate[dayDate]?.find(e => e.employeeName === empName);
     if (!empForDay?.timeWindows || empForDay.timeWindows.trim() === '')
       return { valid: false, reason: 'No availability today' };
@@ -1794,9 +1849,72 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   <div style={{ fontSize: 12, color: '#7F1D1D' }}>{selectedVisit.unallocatedReason || 'Not optimal for this run'}</div>
                 </div>
 
+                {/* Bad match management for this client */}
+                {(() => {
+                  const clientBadMatches = (badMatchesData || []).filter(
+                    bm => bm.clientName.toLowerCase().trim() === selectedVisit.clientName.toLowerCase().trim()
+                  );
+                  const flaggedNames = new Set(clientBadMatches.map(bm => bm.employeeName));
+                  const eligibleNames = availableEmployees
+                    .map(e => e.employeeName)
+                    .filter(n => !flaggedNames.has(n))
+                    .sort();
+                  return (
+                    <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '10px 12px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#B45309', marginBottom: 6 }}>Bad match care pros</div>
+                      <div style={{ fontSize: 11, color: '#92400E', marginBottom: 8 }}>
+                        These care pros will never be scheduled for {selectedVisit.clientName}.
+                      </div>
+                      {clientBadMatches.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                          {clientBadMatches.map(bm => (
+                            <span key={bm.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#7C2D12', background: '#FFEDD5', border: '1px solid #FDBA74', borderRadius: 999, padding: '3px 8px' }}>
+                              {bm.employeeName}
+                              <button
+                                onClick={() => removeBadMatchMutation.mutate(bm.id)}
+                                disabled={removeBadMatchMutation.isPending}
+                                title="Remove bad match"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9A3412', padding: 0, display: 'flex' }}
+                              >
+                                <X style={{ width: 12, height: 12 }} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <select
+                          value={badMatchName}
+                          onChange={e => setBadMatchName(e.target.value)}
+                          style={{ flex: 1, minWidth: 0, fontSize: 12, padding: '6px 8px', borderRadius: 8, border: '1px solid #FDBA74', background: 'white', color: '#0F172A' }}
+                        >
+                          <option value="">Select care pro…</option>
+                          {eligibleNames.map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => badMatchName && addBadMatchMutation.mutate({ clientName: selectedVisit.clientName, employeeName: badMatchName })}
+                          disabled={!badMatchName || addBadMatchMutation.isPending}
+                          style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: badMatchName ? 'linear-gradient(135deg,#EA580C,#C2410C)' : '#E5E7EB', color: badMatchName ? 'white' : '#9CA3AF', fontSize: 12, fontWeight: 700, cursor: badMatchName ? 'pointer' : 'default' }}
+                        >
+                          {addBadMatchMutation.isPending ? 'Saving…' : 'Add'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Suggested carers with assign */}
                 {(() => {
-                  const suggested = scoreSuggestedCarers(selectedVisit);
+                  const flaggedForClient = new Set(
+                    (badMatchesData || [])
+                      .filter(bm => bm.clientName.toLowerCase().trim() === selectedVisit.clientName.toLowerCase().trim())
+                      .map(bm => bm.employeeName.toLowerCase().trim())
+                  );
+                  const suggested = scoreSuggestedCarers(selectedVisit).filter(
+                    s => !flaggedForClient.has(s.empName.toLowerCase().trim())
+                  );
                   return (
                     <>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.04em' }}>
