@@ -1391,7 +1391,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           <div key={vi} style={{ pointerEvents: 'auto' }}>
                             {showTravel && (
                               <div style={{
-                                position: 'absolute', top: 80, left: Math.max(2, xLeft - (vi === 0 ? 52 : 42)), height: 20, padding: '0 6px',
+                                position: 'absolute', top: 64, left: Math.max(2, xLeft - (vi === 0 ? 52 : 42)), height: 20, padding: '0 6px',
                                 borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
                                 fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
                                 background: travel > 30 ? '#FEF2F2' : travel > 20 ? '#FFFBEB' : '#ECFDF5',
@@ -1405,30 +1405,28 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             <div
                               onClick={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               style={{
-                                position: 'absolute', top: 10, left: xLeft, width: Math.max(44, wPx - 3), height: 68,
-                                borderRadius: 9, padding: '6px 9px', background: grad, color: 'white',
+                                position: 'absolute', top: 12, left: xLeft, width: Math.max(44, wPx - 3), height: 50,
+                                borderRadius: 8, padding: '5px 8px', background: grad, color: '#0F172A',
                                 cursor: 'pointer', overflow: 'hidden',
-                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 3px 10px rgba(15,23,42,.16)',
+                                boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
                                 zIndex: isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
                                 transition: 'transform .12s, box-shadow .12s',
+                                filter: 'brightness(1.05)',
                               }}
                               title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — click to unallocate`}
                             >
                               {wPx >= 44 && (
-                                <div style={{ fontSize: wPx < 70 ? 10 : 12, fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+                                <div style={{ fontSize: wPx < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2, color: '#0F172A' }}>
                                   {visit.clientName}
                                 </div>
                               )}
                               {wPx >= 54 && (
-                                <div style={{ fontSize: wPx < 80 ? 9 : 10, opacity: .92, fontWeight: 500 }}>{visit.startTime}–{visit.endTime}</div>
-                              )}
-                              {wPx >= 90 && visit.durationMinutes && (
-                                <div style={{ fontSize: 9, opacity: .75, marginTop: 1 }}>{visit.durationMinutes}min</div>
+                                <div style={{ fontSize: wPx < 80 ? 9 : 10, fontWeight: 600, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>
                               )}
                               {isSelected && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); unallocateVisit(empName, visit); }}
-                                  style={{ position: 'absolute', bottom: 4, right: 4, background: 'rgba(255,255,255,.25)', border: 'none', borderRadius: 4, color: 'white', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  style={{ position: 'absolute', bottom: 3, right: 4, background: 'rgba(0,0,0,.15)', border: 'none', borderRadius: 4, color: '#0F172A', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                                 >
                                   ↩ unallocate
                                 </button>
@@ -1476,7 +1474,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {/* Travel pill: last visit → home */}
                                   {travelToHome > 0 && (
                                     <div style={{
-                                      position: 'absolute', top: 80, left: xVisitEnd + 4, height: 20, padding: '0 6px',
+                                      position: 'absolute', top: 64, left: xVisitEnd + 4, height: 20, padding: '0 6px',
                                       borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
                                       fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
                                       background: travelToHome > 30 ? '#FEF2F2' : travelToHome > 20 ? '#FFFBEB' : '#ECFDF5',
@@ -1492,7 +1490,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   {/* Break block */}
                                   <div
                                     style={{
-                                      position: 'absolute', top: 10, left: xLeft, width: breakW, height: 68,
+                                      position: 'absolute', top: 12, left: xLeft, width: breakW, height: 50,
                                       borderRadius: 8, padding: '4px 6px',
                                       background: 'rgba(251,146,60,.12)',
                                       border: '1.5px dashed #F97316',
@@ -1526,7 +1524,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const xEnd = timeToX(lastV.endTime);
                         return (
                           <div style={{
-                            position: 'absolute', top: 80, left: xEnd + 4, height: 20, padding: '0 6px',
+                            position: 'absolute', top: 64, left: xEnd + 4, height: 20, padding: '0 6px',
                             borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3,
                             fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
                             background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
