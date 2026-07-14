@@ -107,39 +107,85 @@ function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }
 }
 
 // ── Draggable: visit card already placed on the timeline ──────────────────
-function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate }: {
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate, onBadMatch }: {
   visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
   empName: string; xLeft: number; wPx: number; grad: string;
-  isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
+  isSelected: boolean; onSelect: () => void; onUnallocate: () => void; onBadMatch: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `assigned-${empName}-${visit.id}`,
     data: { type: 'assigned', visit, fromEmp: empName },
   });
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const cW = Math.max(44, wPx - 3);
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setMenuOpen(v => !v);
+  };
+
   return (
     <div
-      ref={setNodeRef} onClick={onSelect} {...attributes}
+      ref={setNodeRef} onClick={onSelect} onDoubleClick={handleDoubleClick} {...attributes}
       style={{
         position: 'absolute', top: 12, left: xLeft, width: cW, height: 50,
         borderRadius: 8, padding: '5px 8px 5px 18px', background: grad, color: '#0F172A',
-        cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'hidden',
+        cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'visible',
         boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
-        zIndex: isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
+        zIndex: menuOpen ? 20 : isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
         opacity: isDragging ? 0.3 : 1, filter: 'brightness(1.05)',
         transition: isDragging ? 'none' : 'transform .12s, box-shadow .12s',
       }}
-      title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — drag to reassign`}
+      title={`${visit.clientName} · ${visit.startTime}–${visit.endTime}${visit.serviceType ? ' · ' + visit.serviceType : ''} — double-click for options`}
     >
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
-      {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
-      {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
-      {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
-      {isSelected && (
-        <button onClick={e => { e.stopPropagation(); onUnallocate(); }} style={{ position: 'absolute', bottom: 3, right: 4, background: 'rgba(0,0,0,.15)', border: 'none', borderRadius: 4, color: '#0F172A', fontSize: 9, fontWeight: 700, padding: '1px 5px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          ↩ unallocate
-        </button>
+      <div style={{ overflow: 'hidden', height: '100%' }}>
+        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
+        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
+      </div>
+
+      {/* Double-click context menu */}
+      {menuOpen && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)',
+            background: 'white', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,.18)', border: '1px solid #E2E8F0',
+            minWidth: 170, zIndex: 30, overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: '1px solid #F1F5F9' }}>
+            {visit.clientName}
+          </div>
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(false); onUnallocate(); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#334155', textAlign: 'left' }}
+            onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')}
+            onMouseOut={e => (e.currentTarget.style.background = 'none')}
+          >
+            <span style={{ fontSize: 14 }}>↩</span> Unallocate
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(false); onBadMatch(); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderTop: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#B45309', textAlign: 'left' }}
+            onMouseOver={e => (e.currentTarget.style.background = '#FFF7ED')}
+            onMouseOut={e => (e.currentTarget.style.background = 'none')}
+          >
+            <span style={{ fontSize: 14 }}>🚫</span> Flag bad match
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(false); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: 'none', border: 'none', borderTop: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 11, color: '#94A3B8', textAlign: 'left' }}
+            onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')}
+            onMouseOut={e => (e.currentTarget.style.background = 'none')}
+          >
+            Cancel
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1688,6 +1734,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               isSelected={isSelected}
                               onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               onUnallocate={() => unallocateVisit(empName, visit)}
+                              onBadMatch={() => addBadMatchMutation.mutate({ clientName: visit.clientName, employeeName: empName })}
                             />
 
                             {/* Break block — shown when gap to next visit is ≥ 90 min (carer goes home) */}
