@@ -125,6 +125,7 @@ interface AssignedVisit {
   lng?: number;
   travelTimeBefore: number;
   score: number;
+  serviceType?: string;
 }
 
 interface WeeklyScheduleResult {
@@ -684,6 +685,7 @@ function tryAssignVisitToWalker(
     lng: visit.lng,
     travelTimeBefore: actualWalkTime,
     score: best.score,
+    serviceType: visit.serviceType,
   };
 
   // Insert in chronological order
@@ -1164,6 +1166,7 @@ function assignVisitToBestEmployee(
     lng: best.adjustedVisit.lng,
     travelTimeBefore: actualTravelTimeBefore,
     score: best.score,
+    serviceType: best.adjustedVisit.serviceType,
   };
 
   // CRITICAL: Verify chronological order before insertion
