@@ -885,6 +885,20 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return Math.max(30, ((eh + em / 60) - (sh + sm / 60)) * HOUR_WIDTH);
   };
 
+  // ── Absence colour helper ─────────────────────────────────────────────────
+  const getAbsenceStyle = (status: string): { bg: string; border: string; text: string; label: string; icon: string } => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('holiday') || s.includes('annual leave'))
+      return { bg: '#FAF5FF', border: '#A855F7', text: '#7E22CE', label: 'Holiday', icon: '🏖️' };
+    if (s.includes('sick') || s.includes('sickness'))
+      return { bg: '#FFF5F5', border: '#EF4444', text: '#B91C1C', label: 'Sickness', icon: '🤒' };
+    if (s.includes('absent') || s.includes('unavailable'))
+      return { bg: '#F8FAFC', border: '#94A3B8', text: '#475569', label: 'Absent', icon: '🚫' };
+    if (s.includes('partial') || s.includes('meeting') || s.includes('training'))
+      return { bg: '#FFFBEB', border: '#F59E0B', text: '#B45309', label: 'Partial', icon: '⚠️' };
+    return { bg: '#F8FAFC', border: '#CBD5E1', text: '#64748B', label: status || 'Unavailable', icon: '⭕' };
+  };
+
   // ── Current day data ─────────────────────────────────────────────────────
   const dayDate   = weekDates[selectedDayIndex];
   const dayLabel  = `${dayNames[selectedDayIndex]}${dayDate ? ', ' + dayDate.split('-').slice(1).reverse().join('/') : ''}`;
@@ -903,6 +917,16 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     ...assignedEmpNames.filter(n => n.toLowerCase().includes(searchTerm.toLowerCase())),
     ...availableTodayNoVisit.map(e => e.employeeName),
   ];
+
+  // Employees who are absent/holiday/sick today (have a record but no timeWindows, GH > 0, not ad-hoc)
+  const absentTodaySet = new Set(timelineEmpNames);
+  const absentTodayEmployees = (data?.employeesByDate[dayDate] || []).filter(e =>
+    (employeeWeeklyHoursMap.get(e.employeeName) || 0) > 0 &&
+    e.status !== 'Ad-hoc' &&
+    (!e.timeWindows || e.timeWindows.trim() === '') &&
+    !absentTodaySet.has(e.employeeName) &&
+    e.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+  ).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 
   const todayUnallocated = (weeklySchedule?.unallocated || []).filter(v => v.date === dayDate);
   const filteredUnallocated = todayUnallocated.filter(v => {
@@ -950,7 +974,30 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           {weekDates.map((date, index) => {
             const dv = (weeklySchedule.assignments[date]?.[selectedEmployee] || []) as AssignedVisit[];
             const empForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
-            if (!empForDate?.timeWindows || empForDate.status === 'Ad-hoc') return null;
+            if (empForDate?.status === 'Ad-hoc') return null;
+            // Show absent/holiday/sick days with a coloured indicator instead of skipping them
+            if (!empForDate?.timeWindows || empForDate.timeWindows.trim() === '') {
+              const absStyle = getAbsenceStyle(empForDate?.status || 'Unavailable');
+              return (
+                <div key={date} style={{ background: absStyle.bg, border: `1px solid ${absStyle.border}`, borderRadius: 12, overflow: 'hidden', opacity: 0.85 }}>
+                  <div style={{ borderBottom: `1px solid ${absStyle.border}20`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{dayNames[index]}</span>
+                      <span style={{ fontSize: 12, color: '#64748B' }}>{date.split('-').slice(1).reverse().join('/')}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: absStyle.text }}>{absStyle.icon} {absStyle.label}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${absStyle.border}18`, color: absStyle.text }}>
+                      Not available
+                    </span>
+                  </div>
+                  <div style={{ padding: '10px 16px' }}>
+                    <span style={{ fontSize: 12, color: absStyle.text, fontStyle: 'italic' }}>
+                      {empForDate?.status ? `Status: ${empForDate.status}` : 'No availability recorded for this day'}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={date} style={{ background: 'white', border: '1px solid #E5E9F2', borderRadius: 12, overflow: 'hidden' }}>
                 <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E5E9F2', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1190,7 +1237,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
               Carer Schedule — {dayLabel}
             </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#64748B' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#64748B', flexWrap: 'wrap' }}>
               {[
                 { color: '#10B981', label: 'Standard' },
                 { color: '#2563EB', label: 'Companion' },
@@ -1199,6 +1246,18 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               ].map(({ color, label }) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 10, height: 10, borderRadius: 3, background: color, display: 'inline-block' }} />
+                  {label}
+                </div>
+              ))}
+              <div style={{ width: 1, height: 14, background: '#E5E9F2', margin: '0 2px' }} />
+              {[
+                { color: '#A855F7', label: 'Holiday' },
+                { color: '#EF4444', label: 'Sick' },
+                { color: '#F59E0B', label: 'Partial' },
+                { color: '#94A3B8', label: 'Absent' },
+              ].map(({ color, label }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: color, opacity: 0.55, display: 'inline-block' }} />
                   {label}
                 </div>
               ))}
@@ -1468,6 +1527,60 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   </div>
                 );
               })
+            )}
+
+            {/* ── Absent / Holiday / Sick employees section ── */}
+            {absentTodayEmployees.length > 0 && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px 1fr`, background: '#F1F5F9', borderTop: '2px solid #E2E8F0', borderBottom: '1px solid #E2E8F0', padding: '6px 12px', position: 'sticky', left: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.05em', gridColumn: '1 / -1' }}>
+                    Not Available Today · {absentTodayEmployees.length} {absentTodayEmployees.length === 1 ? 'carer' : 'carers'}
+                  </div>
+                </div>
+                {absentTodayEmployees.map((emp) => {
+                  const absStyle = getAbsenceStyle(emp.status || 'Unavailable');
+                  const weeklyHours = employeeWeeklyHoursMap.get(emp.employeeName) || 0;
+                  return (
+                    <div
+                      key={emp.employeeName}
+                      style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: `1px solid ${absStyle.border}22`, minHeight: 54, position: 'relative', background: absStyle.bg }}
+                    >
+                      {/* Carer info cell */}
+                      <div
+                        style={{ padding: '8px 10px', borderRight: `2px solid ${absStyle.border}`, display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer', background: absStyle.bg }}
+                        onClick={() => { setSelectedEmployee(emp.employeeName); setViewMode('week'); }}
+                        title="Click to view weekly run"
+                      >
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: `${absStyle.border}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1.5px solid ${absStyle.border}55`, fontSize: 14 }}>
+                          {absStyle.icon}
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.employeeName}</div>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: absStyle.text, marginTop: 1 }}>{absStyle.label}</div>
+                        </div>
+                        <div style={{ fontSize: 9, color: '#94A3B8', textAlign: 'right', flexShrink: 0 }}>{weeklyHours.toFixed(0)}h/wk</div>
+                      </div>
+
+                      {/* Hour grid cells with coloured overlay */}
+                      {TIMELINE_HOURS.map(h => (
+                        <div key={h} style={{ borderLeft: `1px solid ${absStyle.border}18`, background: 'transparent' }} />
+                      ))}
+
+                      {/* Full-width status banner overlay */}
+                      <div style={{ position: 'absolute', top: 0, left: INFO_WIDTH, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 1 }}>
+                        <div style={{
+                          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                          fontSize: 11, fontWeight: 700, color: absStyle.text, letterSpacing: '.02em',
+                          background: `${absStyle.border}18`, padding: '3px 14px', borderRadius: 99,
+                          border: `1px solid ${absStyle.border}40`, whiteSpace: 'nowrap',
+                        }}>
+                          {absStyle.icon} {emp.status || absStyle.label}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
         </div>
