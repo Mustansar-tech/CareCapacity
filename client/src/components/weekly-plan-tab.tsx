@@ -107,34 +107,43 @@ function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }
 }
 
 // ── Draggable: visit card already placed on the timeline ──────────────────
-function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate, onBadMatch }: {
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate,
+  badMatchesForClient, allEmployeeNames, onAddBadMatch, onRemoveBadMatch }: {
   visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
   empName: string; xLeft: number; wPx: number; grad: string;
-  isSelected: boolean; onSelect: () => void; onUnallocate: () => void; onBadMatch: () => void;
+  isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
+  badMatchesForClient: { id: string; employeeName: string }[];
+  allEmployeeNames: string[];
+  onAddBadMatch: (name: string) => void;
+  onRemoveBadMatch: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `assigned-${empName}-${visit.id}`,
     data: { type: 'assigned', visit, fromEmp: empName },
   });
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [view, setView] = useState<'closed' | 'menu' | 'badmatch'>('closed');
+  const [bmSearch, setBmSearch] = useState('');
 
   const cW = Math.max(44, wPx - 3);
+  const open = view !== 'closed';
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setMenuOpen(v => !v);
-  };
+  const close = () => { setView('closed'); setBmSearch(''); };
+
+  const flaggedSet = new Map(badMatchesForClient.map(bm => [bm.employeeName.toLowerCase().trim(), bm.id]));
+
+  const filteredNames = allEmployeeNames.filter(n =>
+    bmSearch === '' || n.toLowerCase().includes(bmSearch.toLowerCase())
+  );
 
   return (
     <div
-      ref={setNodeRef} onClick={onSelect} onDoubleClick={handleDoubleClick} {...attributes}
+      ref={setNodeRef} onClick={onSelect} onDoubleClick={e => { e.stopPropagation(); setView(v => v === 'closed' ? 'menu' : 'closed'); }} {...attributes}
       style={{
         position: 'absolute', top: 12, left: xLeft, width: cW, height: 50,
         borderRadius: 8, padding: '5px 8px 5px 18px', background: grad, color: '#0F172A',
         cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'visible',
         boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
-        zIndex: menuOpen ? 20 : isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
+        zIndex: open ? 20 : isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
         opacity: isDragging ? 0.3 : 1, filter: 'brightness(1.05)',
         transition: isDragging ? 'none' : 'transform .12s, box-shadow .12s',
       }}
@@ -148,43 +157,114 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, 
         {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
       </div>
 
-      {/* Double-click context menu */}
-      {menuOpen && (
-        <div
-          onClick={e => e.stopPropagation()}
-          style={{
-            position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)',
-            background: 'white', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,.18)', border: '1px solid #E2E8F0',
-            minWidth: 170, zIndex: 30, overflow: 'hidden',
-          }}
-        >
-          <div style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.04em', borderBottom: '1px solid #F1F5F9' }}>
-            {visit.clientName}
+      {/* ── Main context menu ── */}
+      {view === 'menu' && (
+        <div onClick={e => e.stopPropagation()} style={{
+          position: 'absolute', bottom: 'calc(100% + 8px)', left: 0,
+          background: 'white', borderRadius: 12, boxShadow: '0 8px 30px rgba(15,23,42,.2)', border: '1px solid #E2E8F0',
+          minWidth: 200, zIndex: 30, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '8px 12px 6px', borderBottom: '1px solid #F1F5F9' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+              {visit.clientName}
+            </div>
+            <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>{visit.startTime}–{visit.endTime}</div>
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(false); onUnallocate(); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#334155', textAlign: 'left' }}
-            onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')}
-            onMouseOut={e => (e.currentTarget.style.background = 'none')}
-          >
-            <span style={{ fontSize: 14 }}>↩</span> Unallocate
+          <button onClick={e => { e.stopPropagation(); close(); onUnallocate(); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#334155' }}
+            onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')} onMouseOut={e => (e.currentTarget.style.background = 'none')}>
+            <span style={{ fontSize: 15 }}>↩</span> Unallocate
           </button>
-          <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(false); onBadMatch(); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderTop: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#B45309', textAlign: 'left' }}
-            onMouseOver={e => (e.currentTarget.style.background = '#FFF7ED')}
-            onMouseOut={e => (e.currentTarget.style.background = 'none')}
-          >
-            <span style={{ fontSize: 14 }}>🚫</span> Flag bad match
+          <button onClick={e => { e.stopPropagation(); setView('badmatch'); setBmSearch(''); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderTop: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#B45309' }}
+            onMouseOver={e => (e.currentTarget.style.background = '#FFF7ED')} onMouseOut={e => (e.currentTarget.style.background = 'none')}>
+            <span style={{ fontSize: 15 }}>🚫</span> Bad matches
+            {badMatchesForClient.length > 0 && (
+              <span style={{ marginLeft: 'auto', fontSize: 11, background: '#FED7AA', color: '#92400E', borderRadius: 999, padding: '1px 7px', fontWeight: 700 }}>{badMatchesForClient.length}</span>
+            )}
           </button>
-          <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(false); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px', background: 'none', border: 'none', borderTop: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 11, color: '#94A3B8', textAlign: 'left' }}
-            onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')}
-            onMouseOut={e => (e.currentTarget.style.background = 'none')}
-          >
+          <button onClick={e => { e.stopPropagation(); close(); }}
+            style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '8px 14px', background: 'none', border: 'none', borderTop: '1px solid #F1F5F9', cursor: 'pointer', fontSize: 12, color: '#94A3B8' }}
+            onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')} onMouseOut={e => (e.currentTarget.style.background = 'none')}>
             Cancel
           </button>
+        </div>
+      )}
+
+      {/* ── Bad match picker ── */}
+      {view === 'badmatch' && (
+        <div onClick={e => e.stopPropagation()} style={{
+          position: 'absolute', bottom: 'calc(100% + 8px)', left: 0,
+          background: 'white', borderRadius: 12, boxShadow: '0 8px 30px rgba(15,23,42,.2)', border: '1px solid #E2E8F0',
+          width: 240, zIndex: 30, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+        }}>
+          {/* Header */}
+          <div style={{ padding: '8px 12px 8px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={e => { e.stopPropagation(); setView('menu'); setBmSearch(''); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: 0, display: 'flex', alignItems: 'center', fontSize: 14, flexShrink: 0 }}>
+              ‹
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '.05em' }}>Bad matches</div>
+              <div style={{ fontSize: 11, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.clientName}</div>
+            </div>
+            <button onClick={e => { e.stopPropagation(); close(); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 0, fontSize: 16, lineHeight: 1, flexShrink: 0 }}>×</button>
+          </div>
+
+          {/* Instruction */}
+          <div style={{ padding: '6px 12px 4px', fontSize: 11, color: '#64748B' }}>
+            Select care pros to flag — they'll never be scheduled for {visit.clientName}.
+          </div>
+
+          {/* Search */}
+          <div style={{ padding: '4px 10px 6px' }}>
+            <input
+              value={bmSearch} onChange={e => setBmSearch(e.target.value)}
+              placeholder="Search care pros…"
+              onClick={e => e.stopPropagation()}
+              style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 7, border: '1px solid #E2E8F0', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* List */}
+          <div style={{ maxHeight: 200, overflowY: 'auto', borderTop: '1px solid #F1F5F9' }}>
+            {filteredNames.length === 0 ? (
+              <div style={{ padding: '10px 12px', fontSize: 12, color: '#94A3B8' }}>No matches</div>
+            ) : filteredNames.map(name => {
+              const badMatchId = flaggedSet.get(name.toLowerCase().trim());
+              const isFlagged = badMatchId != null;
+              return (
+                <button key={name}
+                  onClick={e => { e.stopPropagation(); isFlagged ? onRemoveBadMatch(badMatchId!) : onAddBadMatch(name); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '8px 12px', background: isFlagged ? '#FFF7ED' : 'none',
+                    border: 'none', borderBottom: '1px solid #F8FAFC', cursor: 'pointer',
+                    fontSize: 12, fontWeight: isFlagged ? 700 : 500,
+                    color: isFlagged ? '#92400E' : '#334155', textAlign: 'left',
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.background = isFlagged ? '#FED7AA' : '#F8FAFC')}
+                  onMouseOut={e => (e.currentTarget.style.background = isFlagged ? '#FFF7ED' : 'none')}
+                >
+                  <span style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${isFlagged ? '#EA580C' : '#CBD5E1'}`, background: isFlagged ? '#EA580C' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, color: 'white', fontWeight: 900 }}>
+                    {isFlagged ? '✓' : ''}
+                  </span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                  {isFlagged && <span style={{ fontSize: 10, color: '#EA580C', opacity: .7 }}>flagged</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Footer summary */}
+          <div style={{ padding: '6px 12px', borderTop: '1px solid #F1F5F9', fontSize: 11, color: '#64748B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{badMatchesForClient.length} flagged</span>
+            <button onClick={e => { e.stopPropagation(); close(); }}
+              style={{ background: 'linear-gradient(135deg,#EA580C,#C2410C)', border: 'none', borderRadius: 6, color: 'white', fontSize: 11, fontWeight: 700, padding: '4px 12px', cursor: 'pointer' }}>
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -1734,7 +1814,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               isSelected={isSelected}
                               onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               onUnallocate={() => unallocateVisit(empName, visit)}
-                              onBadMatch={() => addBadMatchMutation.mutate({ clientName: visit.clientName, employeeName: empName })}
+                              badMatchesForClient={(badMatchesData || []).filter(
+                                bm => bm.clientName.toLowerCase().trim() === visit.clientName.toLowerCase().trim()
+                              )}
+                              allEmployeeNames={availableEmployees.map(e => e.employeeName).sort()}
+                              onAddBadMatch={name => addBadMatchMutation.mutate({ clientName: visit.clientName, employeeName: name })}
+                              onRemoveBadMatch={id => removeBadMatchMutation.mutate(id)}
                             />
 
                             {/* Break block — shown when gap to next visit is ≥ 90 min (carer goes home) */}
