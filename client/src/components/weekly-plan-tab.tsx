@@ -993,7 +993,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return g === 'female' ? '#DB2777' : g === 'male' ? '#2563EB' : '#0F172A';
   };
 
-  const visitGradient = (_visit: AssignedVisit) => 'linear-gradient(135deg,#EA580C,#C2410C)';
+  const visitGradient = (_visit: AssignedVisit) => 'linear-gradient(135deg,#F59E0B,#D97706)';
 
   const timeToX = (t: string) => {
     const [h, m] = t.split(':').map(Number);
