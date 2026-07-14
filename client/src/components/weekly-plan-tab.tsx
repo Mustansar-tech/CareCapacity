@@ -33,16 +33,43 @@ import {
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 
 // ── Drop zone: wraps one employee row ─────────────────────────────────────
-function DroppableEmpRow({ empName, validDrop, children }: { empName: string; validDrop: boolean | null; children: ReactNode }) {
+function DroppableEmpRow({ empName, validDrop, ghostBlock, children }: {
+  empName: string;
+  validDrop: boolean | null;
+  ghostBlock?: { xLeft: number; width: number; infoWidth: number } | null;
+  children: ReactNode;
+}) {
   const { isOver, setNodeRef } = useDroppable({ id: `emp-row-${empName}` });
+  const ghostColor = validDrop === false
+    ? { bg: 'rgba(239,68,68,.20)', border: '#EF4444' }
+    : validDrop === true
+      ? { bg: 'rgba(34,197,94,.20)', border: '#22C55E' }
+      : { bg: 'rgba(37,99,235,.14)', border: '#2563EB' };
   return (
     <div ref={setNodeRef} style={{ position: 'relative' }}>
+      {/* Row-border hover overlay */}
       {isOver && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none',
           border: `2px dashed ${validDrop === false ? '#EF4444' : '#22C55E'}`,
           background: validDrop === false ? 'rgba(239,68,68,.06)' : 'rgba(34,197,94,.06)',
           borderRadius: 3,
+        }} />
+      )}
+      {/* Time-position ghost: shows the visit's time slot on this row while dragging */}
+      {ghostBlock && (
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          left: ghostBlock.infoWidth + ghostBlock.xLeft,
+          width: ghostBlock.width,
+          bottom: 10,
+          zIndex: 11,
+          pointerEvents: 'none',
+          borderRadius: 7,
+          background: ghostColor.bg,
+          border: `1.5px dashed ${ghostColor.border}`,
+          transition: 'background .12s, border-color .12s',
         }} />
       )}
       {children}
@@ -1489,8 +1516,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 const nowX = ((nowMinutes / 60) - TIMELINE_START) * HOUR_WIDTH;
                 const showNow = dayDate === new Date().toISOString().split('T')[0] && nowX >= 0 && nowX <= (TIMELINE_END - TIMELINE_START) * HOUR_WIDTH;
 
+                const ghostBlock = activeDragData ? {
+                  xLeft: timeToX(activeDragData.visit.startTime),
+                  width: durationToW(activeDragData.visit.startTime, activeDragData.visit.endTime),
+                  infoWidth: INFO_WIDTH,
+                } : null;
                 return (
-                  <DroppableEmpRow key={empName} empName={empName} validDrop={validDropEmps?.get(empName) ?? null}>
+                  <DroppableEmpRow key={empName} empName={empName} validDrop={validDropEmps?.get(empName) ?? null} ghostBlock={ghostBlock}>
                   <div
                     style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: `1px solid ${isFullAbsence ? absStyle!.border + '30' : '#F1F5F9'}`, minHeight: 96, position: 'relative', background: isFullAbsence ? absStyle!.bg : 'transparent' }}
                   >
