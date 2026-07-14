@@ -993,14 +993,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return g === 'female' ? '#DB2777' : g === 'male' ? '#2563EB' : '#0F172A';
   };
 
-  const visitGradient = (visit: AssignedVisit) => {
-    const s = (visit.serviceType || '').toLowerCase();
-    if (s.includes('complex') || s.includes('dementia') || s.includes('medic'))
-      return 'linear-gradient(135deg,#8B5CF6,#7C3AED)';
-    if (s.includes('companion')) return 'linear-gradient(135deg,#2563EB,#1D4ED8)';
-    if (s.includes('double'))    return 'linear-gradient(135deg,#F59E0B,#D97706)';
-    return 'linear-gradient(135deg,#10B981,#059669)';
-  };
+  const visitGradient = (_visit: AssignedVisit) => 'linear-gradient(135deg,#2563EB,#1D4ED8)';
 
   const timeToX = (t: string) => {
     const [h, m] = t.split(':').map(Number);
@@ -1426,18 +1419,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               Carer Schedule — {dayLabel}
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#64748B', flexWrap: 'wrap' }}>
-              {[
-                { color: '#10B981', label: 'Standard' },
-                { color: '#2563EB', label: 'Companion' },
-                { color: '#8B5CF6', label: 'Complex' },
-                { color: '#F59E0B', label: 'Double-up' },
-              ].map(({ color, label }) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: color, display: 'inline-block' }} />
-                  {label}
-                </div>
-              ))}
-              <div style={{ width: 1, height: 14, background: '#E5E9F2', margin: '0 2px' }} />
               {[
                 { color: '#A855F7', label: 'Holiday' },
                 { color: '#EF4444', label: 'Sick' },
