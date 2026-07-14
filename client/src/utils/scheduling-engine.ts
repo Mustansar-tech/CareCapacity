@@ -502,14 +502,16 @@ export function getTimeOfDaySlot(startMin: number): string {
   return 'evening';
 }
 
-// Returns a score adjustment (can be negative) for continuity
-function getContinuityAdjustment(
+// Continuity evaluation: tier drives HARD priority (existing carers always beat
+// new faces among feasible candidates); adj is a soft score tweak within a tier.
+// Tiers: 2 = same carer + same time slot, 1 = same carer (any slot), 0 = new face
+function evaluateContinuity(
   continuity: ContinuityData | undefined,
   employeeName: string,
   clientName: string,
   visitStartMin: number
-): number {
-  if (!continuity) return 0;
+): { tier: number; adj: number } {
+  if (!continuity) return { tier: 0, adj: 0 };
   const clientKey = normalizeClientKey(clientName);
   const slot = getTimeOfDaySlot(visitStartMin);
 
@@ -517,10 +519,10 @@ function getContinuityAdjustment(
   const slotCarers = continuity.clientSlotCarers.get(`${clientKey}|${slot}`);
 
   if (slotCarers?.has(employeeName)) {
-    return CONTINUITY_SAME_SLOT_BONUS;
+    return { tier: 2, adj: CONTINUITY_SAME_SLOT_BONUS };
   }
   if (existingCarers?.has(employeeName)) {
-    return CONTINUITY_SAME_CLIENT_BONUS;
+    return { tier: 1, adj: CONTINUITY_SAME_CLIENT_BONUS };
   }
 
   // Fuzzy name match (handles slight name formatting differences)
@@ -528,16 +530,16 @@ function getContinuityAdjustment(
   if (empClients) {
     for (const c of Array.from(empClients)) {
       if (clientKey.includes(c) || c.includes(clientKey)) {
-        return CONTINUITY_FUZZY_BONUS;
+        return { tier: 1, adj: CONTINUITY_FUZZY_BONUS };
       }
     }
   }
 
   // Client already has an established care team — discourage adding a new face
   if (existingCarers && existingCarers.size > 0) {
-    return -CONTINUITY_NEW_FACE_PENALTY;
+    return { tier: 0, adj: -CONTINUITY_NEW_FACE_PENALTY };
   }
-  return 0;
+  return { tier: 0, adj: 0 };
 }
 
 function recordContinuity(
@@ -610,6 +612,7 @@ function tryAssignVisitToWalker(
   const candidates: Array<{
     schedule: EmployeeDaySchedule;
     score: number;
+    continuityTier: number;
     distanceKm: number;
   }> = [];
 
@@ -653,14 +656,15 @@ function tryAssignVisitToWalker(
     let score = scoreWalkerMatch(walkerCandidate, walkerVisit);
     if (score <= 0) continue;
 
-    // Care continuity adjustment (same carer for same client / same slot)
+    // Care continuity: tier gives existing carers hard priority; adj tweaks score
     const continuityData = (visit as any)._continuityData as ContinuityData | undefined;
-    score += getContinuityAdjustment(
+    const continuityEval = evaluateContinuity(
       continuityData,
       schedule.employeeName,
       visit.clientName,
       timeToMinutes(visit.startTime)
     );
+    score += continuityEval.adj;
 
     const distanceKm = haversineDistance(
       schedule.homeLat,
@@ -669,15 +673,18 @@ function tryAssignVisitToWalker(
       walkerVisit.lng
     );
 
-    candidates.push({ schedule, score, distanceKm });
+    candidates.push({ schedule, score, continuityTier: continuityEval.tier, distanceKm });
   }
 
   if (candidates.length === 0) {
     return { success: false, reason: 'No walkers within proximity' };
   }
 
-  // Sort by score descending (closest/best matches first)
-  candidates.sort((a, b) => b.score - a.score);
+  // CONTINUITY FIRST: existing carers beat new faces; score decides within a tier
+  candidates.sort((a, b) => {
+    if (b.continuityTier !== a.continuityTier) return b.continuityTier - a.continuityTier;
+    return b.score - a.score;
+  });
   const best = candidates[0];
 
   // Check chronological order if walker already has visits
@@ -839,6 +846,7 @@ function assignVisitToBestEmployee(
   const candidates: Array<{
     employeeName: string;
     score: number;
+    continuityTier: number;
     insertionIndex: number;
     travelFromPrev: number;
     travelToNext: number;
@@ -1049,19 +1057,19 @@ function assignVisitToBestEmployee(
       clientLogger.log(`🌙 EVENING GH BONUS: ${schedule.employeeName} gets +${GH_EVENING_BONUS} for evening visit ${adjustedVisit.clientName}`);
     }
 
-    // Care continuity: strongly prefer same employee-client pairings across days,
-    // especially for the same time-of-day slot; penalise new faces for established clients
+    // Care continuity: existing carers get a hard priority tier over new faces
+    // (tier is applied at candidate selection); adj is a soft score tweak
     const continuityData = (originalVisit as any)._continuityData as ContinuityData | undefined;
-    const continuityAdj = getContinuityAdjustment(
+    const continuityEval = evaluateContinuity(
       continuityData,
       schedule.employeeName,
       adjustedVisit.clientName,
       visitStartMinInternal
     );
-    if (continuityAdj !== 0) {
-      finalScore += continuityAdj;
-      if (continuityAdj > 0) {
-        clientLogger.log(`🔄 CONTINUITY BONUS: ${schedule.employeeName} +${(continuityAdj * 100).toFixed(0)}% for returning client ${adjustedVisit.clientName}`);
+    if (continuityEval.adj !== 0) {
+      finalScore += continuityEval.adj;
+      if (continuityEval.tier > 0) {
+        clientLogger.log(`🔄 CONTINUITY: ${schedule.employeeName} tier ${continuityEval.tier} for returning client ${adjustedVisit.clientName}`);
       }
     }
 
@@ -1161,6 +1169,7 @@ function assignVisitToBestEmployee(
     candidates.push({
       employeeName: schedule.employeeName,
       score: finalScore,
+      continuityTier: continuityEval.tier,
       insertionIndex: (matchScore as any).insertionIndex,
       travelFromPrev: matchScore.travelFromPrev,
       travelToNext: matchScore.travelToNext,
@@ -1190,8 +1199,12 @@ function assignVisitToBestEmployee(
     return { success: false, reason: topReason };
   }
 
-  // Sort by score descending and pick the best
-  candidates.sort((a, b) => b.score - a.score);
+  // CONTINUITY FIRST: existing carers (same slot > same client) always beat new
+  // faces; travel/score only decides between candidates in the same tier
+  candidates.sort((a, b) => {
+    if (b.continuityTier !== a.continuityTier) return b.continuityTier - a.continuityTier;
+    return b.score - a.score;
+  });
   const best = candidates[0];
 
   // Find the employee schedule
