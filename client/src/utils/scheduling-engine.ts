@@ -467,6 +467,97 @@ function isGenderMatch(employeeGender: string | undefined, clientName: string): 
 }
 
 // ============================================================================
+// CARE CONTINUITY
+// ============================================================================
+// Tracks which carers already serve each client (and at which time-of-day
+// slot) as the week is scheduled. Scoring strongly prefers keeping the same
+// carer with the same client — especially for the same slot (morning carer
+// stays the morning carer) — and penalises introducing a new face to a
+// client who already has an established care team.
+// ============================================================================
+
+export interface ContinuityData {
+  // employee -> set of client keys served so far this week
+  empClients: Map<string, Set<string>>;
+  // client key -> set of employees serving them so far this week
+  clientCarers: Map<string, Set<string>>;
+  // `${clientKey}|${slot}` -> set of employees covering that slot for the client
+  clientSlotCarers: Map<string, Set<string>>;
+}
+
+const CONTINUITY_SAME_SLOT_BONUS = 0.45;   // same carer, same time-of-day slot
+const CONTINUITY_SAME_CLIENT_BONUS = 0.30; // same carer, different slot
+const CONTINUITY_FUZZY_BONUS = 0.20;       // fuzzy client-name match
+const CONTINUITY_NEW_FACE_PENALTY = 0.20;  // new carer for an established client
+
+function normalizeClientKey(name: string): string {
+  return name.toLowerCase().trim();
+}
+
+// Time-of-day slots: morning (<12:00), lunch (12:00-14:59), tea (15:00-17:59), evening (18:00+)
+export function getTimeOfDaySlot(startMin: number): string {
+  if (startMin < 720) return 'morning';
+  if (startMin < 900) return 'lunch';
+  if (startMin < 1080) return 'tea';
+  return 'evening';
+}
+
+// Returns a score adjustment (can be negative) for continuity
+function getContinuityAdjustment(
+  continuity: ContinuityData | undefined,
+  employeeName: string,
+  clientName: string,
+  visitStartMin: number
+): number {
+  if (!continuity) return 0;
+  const clientKey = normalizeClientKey(clientName);
+  const slot = getTimeOfDaySlot(visitStartMin);
+
+  const existingCarers = continuity.clientCarers.get(clientKey);
+  const slotCarers = continuity.clientSlotCarers.get(`${clientKey}|${slot}`);
+
+  if (slotCarers?.has(employeeName)) {
+    return CONTINUITY_SAME_SLOT_BONUS;
+  }
+  if (existingCarers?.has(employeeName)) {
+    return CONTINUITY_SAME_CLIENT_BONUS;
+  }
+
+  // Fuzzy name match (handles slight name formatting differences)
+  const empClients = continuity.empClients.get(employeeName);
+  if (empClients) {
+    for (const c of Array.from(empClients)) {
+      if (clientKey.includes(c) || c.includes(clientKey)) {
+        return CONTINUITY_FUZZY_BONUS;
+      }
+    }
+  }
+
+  // Client already has an established care team — discourage adding a new face
+  if (existingCarers && existingCarers.size > 0) {
+    return -CONTINUITY_NEW_FACE_PENALTY;
+  }
+  return 0;
+}
+
+function recordContinuity(
+  continuity: ContinuityData,
+  employeeName: string,
+  clientName: string,
+  visitStartMin: number
+): void {
+  const clientKey = normalizeClientKey(clientName);
+  const slot = getTimeOfDaySlot(visitStartMin);
+  if (!continuity.empClients.has(employeeName)) continuity.empClients.set(employeeName, new Set());
+  continuity.empClients.get(employeeName)!.add(clientKey);
+  if (!continuity.clientCarers.has(clientKey)) continuity.clientCarers.set(clientKey, new Set());
+  continuity.clientCarers.get(clientKey)!.add(employeeName);
+  const slotKey = `${clientKey}|${slot}`;
+  if (!continuity.clientSlotCarers.has(slotKey)) continuity.clientSlotCarers.set(slotKey, new Set());
+  continuity.clientSlotCarers.get(slotKey)!.add(employeeName);
+}
+
+// ============================================================================
 // WALKER-FIRST PROXIMITY-BASED ASSIGNMENT
 // ============================================================================
 // Walking employees use PROXIMITY RULES instead of travel time calculations.
@@ -559,8 +650,17 @@ function tryAssignVisitToWalker(
     if (!isWithinWalkingProximity(walkerCandidate, walkerVisit)) continue;
 
     // Score the match
-    const score = scoreWalkerMatch(walkerCandidate, walkerVisit);
+    let score = scoreWalkerMatch(walkerCandidate, walkerVisit);
     if (score <= 0) continue;
+
+    // Care continuity adjustment (same carer for same client / same slot)
+    const continuityData = (visit as any)._continuityData as ContinuityData | undefined;
+    score += getContinuityAdjustment(
+      continuityData,
+      schedule.employeeName,
+      visit.clientName,
+      timeToMinutes(visit.startTime)
+    );
 
     const distanceKm = haversineDistance(
       schedule.homeLat,
@@ -702,6 +802,12 @@ function tryAssignVisitToWalker(
   best.schedule.weeklyUsedMinutes += visit.durationMinutes;
   weeklyUsedMap.set(best.schedule.employeeName, best.schedule.weeklyUsedMinutes);
   assignedVisitIds.add(visit.id);
+
+  // Update continuity state immediately so subsequent assignments (same day and later passes) see this pairing
+  const walkerContinuity = (visit as any)._continuityData as ContinuityData | undefined;
+  if (walkerContinuity) {
+    recordContinuity(walkerContinuity, best.schedule.employeeName, visit.clientName, visitStartMin);
+  }
 
   // Track for multiple care
   if (!visitEmployeeAssignments.has(visitKey)) {
@@ -943,22 +1049,19 @@ function assignVisitToBestEmployee(
       clientLogger.log(`🌙 EVENING GH BONUS: ${schedule.employeeName} gets +${GH_EVENING_BONUS} for evening visit ${adjustedVisit.clientName}`);
     }
 
-    // Care continuity bonus: prefer same employee-client pairings across days
-    const continuityMap = (originalVisit as any)._continuityMap as Map<string, Set<string>> | undefined;
-    if (continuityMap) {
-      const clientSet = continuityMap.get(schedule.employeeName);
-      if (clientSet) {
-        const normalizedClient = adjustedVisit.clientName.toLowerCase().trim();
-        if (clientSet.has(normalizedClient)) {
-          finalScore += 0.15;
-          clientLogger.log(`🔄 CONTINUITY BONUS: ${schedule.employeeName} +15% for returning client ${adjustedVisit.clientName}`);
-        } else {
-          const clientArray = Array.from(clientSet);
-          const fuzzyMatch = clientArray.find(c => normalizedClient.includes(c) || c.includes(normalizedClient));
-          if (fuzzyMatch) {
-            finalScore += 0.10;
-          }
-        }
+    // Care continuity: strongly prefer same employee-client pairings across days,
+    // especially for the same time-of-day slot; penalise new faces for established clients
+    const continuityData = (originalVisit as any)._continuityData as ContinuityData | undefined;
+    const continuityAdj = getContinuityAdjustment(
+      continuityData,
+      schedule.employeeName,
+      adjustedVisit.clientName,
+      visitStartMinInternal
+    );
+    if (continuityAdj !== 0) {
+      finalScore += continuityAdj;
+      if (continuityAdj > 0) {
+        clientLogger.log(`🔄 CONTINUITY BONUS: ${schedule.employeeName} +${(continuityAdj * 100).toFixed(0)}% for returning client ${adjustedVisit.clientName}`);
       }
     }
 
@@ -1263,6 +1366,12 @@ function assignVisitToBestEmployee(
   // Mark as assigned
   assignedVisitIds.add(originalVisit.id);
 
+  // Update continuity state immediately so subsequent assignments (same day and later passes) see this pairing
+  const assignedContinuity = (originalVisit as any)._continuityData as ContinuityData | undefined;
+  if (assignedContinuity) {
+    recordContinuity(assignedContinuity, best.employeeName, originalVisit.clientName, timeToMinutes(originalVisit.startTime));
+  }
+
   return { success: true, employeeName: best.employeeName };
 }
 
@@ -1455,9 +1564,13 @@ export function generateWeeklySchedule(
   // Track which employees are assigned to each time slot (for multiple care)
   const visitEmployeeAssignments = new Map<string, Set<string>>(); // key -> Set of employee names
 
-  // Build care continuity map: employee -> Set of client names they served on previous days
-  // This enables continuity scoring (same employee serves same client across days)
-  const continuityMap = new Map<string, Set<string>>();
+  // Build care continuity data: tracks employee↔client pairings and time-of-day
+  // slot coverage so the same carer keeps the same client (and slot) across days
+  const continuityData: ContinuityData = {
+    empClients: new Map(),
+    clientCarers: new Map(),
+    clientSlotCarers: new Map(),
+  };
 
   // CRITICAL: Sort visits STRICTLY by start time (chronological order)
   // This ensures we assign visits in the order they occur during the day
@@ -1498,9 +1611,9 @@ export function generateWeeklySchedule(
   for (const date of weekDates) {
     const dayVisits = sortedVisits.filter(v => v.date === date);
     
-    // Tag visits with the current continuity map (built from previous days)
+    // Tag visits with the continuity data (built up as days are scheduled)
     for (const visit of dayVisits) {
-      (visit as any)._continuityMap = continuityMap;
+      (visit as any)._continuityData = continuityData;
     }
 
     // First pass: Assign each visit — GH first (all modes), then non-GH (all modes)
@@ -1598,18 +1711,15 @@ export function generateWeeklySchedule(
       }
 
       for (const av of schedule.assignedVisits) {
-        const empName = schedule.employeeName;
-        if (!continuityMap.has(empName)) {
-          continuityMap.set(empName, new Set());
-        }
-        continuityMap.get(empName)!.add(av.clientName.toLowerCase().trim());
+        if (av.serviceType === 'break') continue;
+        recordContinuity(continuityData, schedule.employeeName, av.clientName, timeToMinutes(av.startTime));
       }
     }
   }
 
   // Second pass: Try to allocate remaining visits by sorting them differently
   // Sort by visit duration (shorter visits first - easier to fit)
-  clientLogger.log(`🔄 Care continuity map: ${continuityMap.size} employees with client pairings across ${weekDates.length} days`);
+  clientLogger.log(`🔄 Care continuity map: ${continuityData.empClients.size} employees with client pairings across ${weekDates.length} days`);
 
   clientLogger.log(`\n🔄 SECOND PASS: Attempting to allocate ${unallocated.length} unallocated visits (sorted by duration)`);
   
