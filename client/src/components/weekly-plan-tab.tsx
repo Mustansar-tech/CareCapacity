@@ -1345,26 +1345,73 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // ── Weekly run view (early return) ───────────────────────────────────────
   if (viewMode === 'week' && selectedEmployee && weeklySchedule) {
-    const totalVCnt = weekDates.reduce(
-      (s, d) => s + (weeklySchedule.assignments[d]?.[selectedEmployee]?.length || 0), 0
-    );
+    // Sorted list of all employees with assignments this week — for Prev/Next nav
+    const allWeekEmpNames = Array.from(
+      new Set(weekDates.flatMap(d => Object.keys(weeklySchedule.assignments[d] || {})))
+    ).sort();
+    const empIdx  = allWeekEmpNames.indexOf(selectedEmployee);
+    const prevEmp = empIdx > 0 ? allWeekEmpNames[empIdx - 1] : null;
+    const nextEmp = empIdx < allWeekEmpNames.length - 1 ? allWeekEmpNames[empIdx + 1] : null;
+
+    // Contracted hours (from weekly map, already in hours)
+    const contractedMins = Math.round((employeeWeeklyHoursMap.get(selectedEmployee) || 0) * 60);
+
+    // Scheduled minutes = sum of all visit durations this week
+    const scheduledMins = weekDates.reduce((sum, d) => {
+      const visits = (weeklySchedule.assignments[d]?.[selectedEmployee] || []) as AssignedVisit[];
+      return sum + visits.reduce((s, v) => {
+        const [sh, sm] = v.startTime.split(':').map(Number);
+        const [eh, em] = v.endTime.split(':').map(Number);
+        return s + Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+      }, 0);
+    }, 0);
+
+    const fmtHM = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}h ${String(m % 60).padStart(2, '0')}m`;
+    const fmtDate = (iso: string) => { const [y, mo, d] = iso.split('-'); return `${d}/${mo}/${y}`; };
+    const weekRangeLabel = `Monday ${fmtDate(weekStart)} to Sunday ${fmtDate(weekEnd)}`;
+    const scheduledOver = scheduledMins > contractedMins;
+
     return (
       <div style={{ background: '#F4F6FB', height: '100%', overflow: 'auto' }}>
-        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, position: 'sticky', top: 0, zIndex: 10 }}>
-          <button
-            onClick={() => setViewMode('day')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 8 }}
-            className="hover:bg-blue-50 transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" /> Day View
-          </button>
-          <div style={{ width: 1, height: 20, background: '#E5E9F2' }} />
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: avatarGradient(selectedEmployee), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
-            {avatarInitials(selectedEmployee)}
+        {/* ── Weekly view header ── */}
+        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, minHeight: 52 }}>
+
+          {/* Left: employee name + Prev | All | Next */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginRight: 16 }}>{selectedEmployee}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontSize: 13, fontWeight: 600 }}>
+              <button
+                onClick={() => prevEmp && setSelectedEmployee(prevEmp)}
+                disabled={!prevEmp}
+                style={{ background: 'none', border: 'none', cursor: prevEmp ? 'pointer' : 'default', color: prevEmp ? '#2563EB' : '#CBD5E1', padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: 13 }}
+                title={prevEmp || ''}
+              >Prev</button>
+              <span style={{ color: '#CBD5E1', userSelect: 'none' }}>|</span>
+              <button
+                onClick={() => setViewMode('day')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: 13 }}
+              >All</button>
+              <span style={{ color: '#CBD5E1', userSelect: 'none' }}>|</span>
+              <button
+                onClick={() => nextEmp && setSelectedEmployee(nextEmp)}
+                disabled={!nextEmp}
+                style={{ background: 'none', border: 'none', cursor: nextEmp ? 'pointer' : 'default', color: nextEmp ? '#2563EB' : '#CBD5E1', padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: 13 }}
+                title={nextEmp || ''}
+              >Next</button>
+            </div>
           </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#0F172A' }}>{selectedEmployee}</div>
-            <div style={{ fontSize: 11, color: '#334155' }}>Weekly Run · {totalVCnt} visits</div>
+
+          {/* Right: date range + hours */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>{weekRangeLabel}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12 }}>
+              <span style={{ color: '#475569' }}>
+                CAREGiver Hours: <strong style={{ color: '#0F172A' }}>{fmtHM(contractedMins)}</strong>
+              </span>
+              <span style={{ color: '#475569' }}>
+                Scheduled Hours: <strong style={{ color: scheduledOver ? '#DC2626' : scheduledMins > 0 ? '#0F172A' : '#DC2626' }}>{fmtHM(scheduledMins)}</strong>
+              </span>
+            </div>
           </div>
         </div>
         <div style={{ padding: '16px 20px' }} className="space-y-3">
