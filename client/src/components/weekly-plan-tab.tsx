@@ -1374,44 +1374,49 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return (
       <div style={{ background: '#F4F6FB', height: '100%', overflow: 'auto' }}>
         {/* ── Weekly view header ── */}
-        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10, minHeight: 52 }}>
+        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '10px 20px 8px', position: 'sticky', top: 0, zIndex: 10 }}>
 
-          {/* Left: employee name + Prev | All | Next */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginRight: 16 }}>{selectedEmployee}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontSize: 13, fontWeight: 600 }}>
+          {/* Row 1: employee name — same colour as timeline */}
+          <div style={{ fontSize: 15, fontWeight: 700, color: genderColor(selectedEmployee), marginBottom: 6 }}>
+            {selectedEmployee}
+          </div>
+
+          {/* Row 2: Prev | All | Next (left) + date range & hours (centre) */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+
+            {/* Nav */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
               <button
                 onClick={() => prevEmp && setSelectedEmployee(prevEmp)}
                 disabled={!prevEmp}
-                style={{ background: 'none', border: 'none', cursor: prevEmp ? 'pointer' : 'default', color: prevEmp ? '#2563EB' : '#CBD5E1', padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: 13 }}
+                style={{ background: 'none', border: 'none', cursor: prevEmp ? 'pointer' : 'default', color: prevEmp ? '#2563EB' : '#CBD5E1', padding: '2px 8px 2px 0', fontWeight: 600, fontSize: 13 }}
                 title={prevEmp || ''}
               >Prev</button>
-              <span style={{ color: '#CBD5E1', userSelect: 'none' }}>|</span>
+              <span style={{ color: '#CBD5E1', fontSize: 13, userSelect: 'none' }}>|</span>
               <button
                 onClick={() => setViewMode('day')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: 13 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '2px 8px', fontWeight: 600, fontSize: 13 }}
               >All</button>
-              <span style={{ color: '#CBD5E1', userSelect: 'none' }}>|</span>
+              <span style={{ color: '#CBD5E1', fontSize: 13, userSelect: 'none' }}>|</span>
               <button
                 onClick={() => nextEmp && setSelectedEmployee(nextEmp)}
                 disabled={!nextEmp}
-                style={{ background: 'none', border: 'none', cursor: nextEmp ? 'pointer' : 'default', color: nextEmp ? '#2563EB' : '#CBD5E1', padding: '4px 8px', borderRadius: 6, fontWeight: 600, fontSize: 13 }}
+                style={{ background: 'none', border: 'none', cursor: nextEmp ? 'pointer' : 'default', color: nextEmp ? '#2563EB' : '#CBD5E1', padding: '2px 0 2px 8px', fontWeight: 600, fontSize: 13 }}
                 title={nextEmp || ''}
               >Next</button>
             </div>
-          </div>
 
-          {/* Right: date range + hours */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>{weekRangeLabel}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12 }}>
-              <span style={{ color: '#475569' }}>
+            {/* Centre: date range + hours */}
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>{weekRangeLabel}</span>
+              <span style={{ fontSize: 12, color: '#475569' }}>
                 CAREGiver Hours: <strong style={{ color: '#0F172A' }}>{fmtHM(contractedMins)}</strong>
               </span>
-              <span style={{ color: '#475569' }}>
+              <span style={{ fontSize: 12, color: '#475569' }}>
                 Scheduled Hours: <strong style={{ color: scheduledOver ? '#DC2626' : scheduledMins > 0 ? '#0F172A' : '#DC2626' }}>{fmtHM(scheduledMins)}</strong>
               </span>
             </div>
+
           </div>
         </div>
         <div style={{ padding: '16px 20px' }} className="space-y-3">
