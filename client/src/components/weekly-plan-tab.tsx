@@ -1406,15 +1406,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               >Next</button>
             </div>
 
-            {/* Centre: date range + hours */}
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+            {/* Centre: date range on row 1, hours on row 2 */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>{weekRangeLabel}</span>
-              <span style={{ fontSize: 12, color: '#475569' }}>
-                CAREGiver Hours: <strong style={{ color: '#0F172A' }}>{fmtHM(contractedMins)}</strong>
-              </span>
-              <span style={{ fontSize: 12, color: '#475569' }}>
-                Scheduled Hours: <strong style={{ color: scheduledOver ? '#DC2626' : scheduledMins > 0 ? '#0F172A' : '#DC2626' }}>{fmtHM(scheduledMins)}</strong>
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12 }}>
+                <span style={{ color: '#475569' }}>
+                  CAREGiver Hours: <strong style={{ color: '#DC2626' }}>{fmtHM(contractedMins)}</strong>
+                </span>
+                <span style={{ color: '#475569' }}>
+                  Scheduled Hours: <strong style={{ color: scheduledOver ? '#DC2626' : scheduledMins > 0 ? '#0F172A' : '#DC2626' }}>{fmtHM(scheduledMins)}</strong>
+                </span>
+              </div>
             </div>
 
           </div>
