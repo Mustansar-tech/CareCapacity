@@ -521,6 +521,25 @@ export function getTimeOfDaySlot(startMin: number): string {
   return 'evening';
 }
 
+// Returns the primary slot plus any adjacent slot when the visit falls within
+// ±15 minutes of a slot boundary. Prevents false continuity breaks for visits
+// that hover near boundary times (e.g. 11:50 and 12:10 are the same "call").
+function getCandidateSlots(startMin: number): string[] {
+  const primary = getTimeOfDaySlot(startMin);
+  const TOLERANCE = 15;
+  const boundaries: Array<[number, string, string]> = [
+    [720, 'morning', 'lunch'],
+    [900, 'lunch',   'tea'],
+    [1080, 'tea',    'evening'],
+  ];
+  for (const [b, before, after] of boundaries) {
+    if (Math.abs(startMin - b) <= TOLERANCE) {
+      return [before, after]; // both sides of the boundary
+    }
+  }
+  return [primary];
+}
+
 // Continuity evaluation: tier drives HARD priority (existing carers always beat
 // new faces among feasible candidates); adj is a soft score tweak within a tier.
 // Tiers: 2 = same carer + same time slot, 1 = same carer (any slot), 0 = new face
@@ -532,12 +551,15 @@ function evaluateContinuity(
 ): { tier: number; adj: number } {
   if (!continuity) return { tier: 0, adj: 0 };
   const clientKey = normalizeClientKey(clientName);
-  const slot = getTimeOfDaySlot(visitStartMin);
 
   const existingCarers = continuity.clientCarers.get(clientKey);
-  const slotCarers = continuity.clientSlotCarers.get(`${clientKey}|${slot}`);
 
-  if (slotCarers?.has(employeeName)) {
+  // Slot match: check all candidate slots (handles ±15 min boundary tolerance)
+  const candidateSlots = getCandidateSlots(visitStartMin);
+  const hasSlotMatch = candidateSlots.some(
+    slot => continuity.clientSlotCarers.get(`${clientKey}|${slot}`)?.has(employeeName)
+  );
+  if (hasSlotMatch) {
     return { tier: 2, adj: CONTINUITY_SAME_SLOT_BONUS };
   }
   if (existingCarers?.has(employeeName)) {
@@ -554,9 +576,11 @@ function evaluateContinuity(
     }
   }
 
-  // Client already has an established care team — discourage adding a new face
+  // Client already has an established care team — scale penalty by team size:
+  // 1 carer → -0.20, 2 carers → -0.30, 3+ carers → -0.40
   if (existingCarers && existingCarers.size > 0) {
-    return { tier: 0, adj: -CONTINUITY_NEW_FACE_PENALTY };
+    const scaledPenalty = Math.min(0.40, 0.20 + (existingCarers.size - 1) * 0.10);
+    return { tier: 0, adj: -scaledPenalty };
   }
   return { tier: 0, adj: 0 };
 }
@@ -1427,7 +1451,10 @@ export function generateWeeklySchedule(
     weeklyContractedHours?: number;
     gender?: string;
   }>,
-  weekDates: string[]
+  weekDates: string[],
+  // Optional: pass the existing saved schedule to pre-seed continuity so
+  // re-generating respects established pairings from the current week
+  previousAssignments?: Record<string, Record<string, Array<{ clientName: string; startTime: string }>>>
 ): WeeklyScheduleResult {
   // Input validation
   if (!visits || !Array.isArray(visits)) {
@@ -1610,6 +1637,24 @@ export function generateWeeklySchedule(
     clientCarers: new Map(),
     clientSlotCarers: new Map(),
   };
+
+  // Pre-seed continuity from any existing saved schedule for this week.
+  // This means re-generating after manual edits or partial changes will still
+  // respect established pairings rather than starting from a blank slate.
+  if (previousAssignments) {
+    let seededPairs = 0;
+    for (const empMap of Object.values(previousAssignments)) {
+      for (const [empName, visits] of Object.entries(empMap)) {
+        for (const v of (visits as Array<{ clientName: string; startTime: string }>)) {
+          if (v.clientName && v.startTime) {
+            recordContinuity(continuityData, empName, v.clientName, timeToMinutes(v.startTime));
+            seededPairs++;
+          }
+        }
+      }
+    }
+    clientLogger.log(`📊 Pre-seeded continuity from saved schedule: ${seededPairs} carer↔client pairs`);
+  }
 
   // CRITICAL: Sort visits STRICTLY by start time (chronological order)
   // This ensures we assign visits in the order they occur during the day

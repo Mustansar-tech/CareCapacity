@@ -629,7 +629,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         clientLogger.warn('⚠️ Could not refresh bad matches - using cached list');
       }
 
-      const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates);
+      const result = generateWeeklySchedule(visitsWithLocations, employeesWithLocations, weekDates, weeklySchedule?.assignments);
 
       clientLogger.log(`✅ Generated schedule: ${result.metrics.totalVisitsAssigned} assigned, ${result.metrics.totalVisitsUnallocated} unallocated`);
 
