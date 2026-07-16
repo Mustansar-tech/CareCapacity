@@ -2143,8 +2143,29 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                   }, 0);
                   const clientLoc = locationsData?.clients.find(c => c.clientName === clientName);
 
+                  // ── Lane assignment: greedy stacking for double-up visits ──
+                  const DAY_BLOCK_H   = 58;
+                  const DAY_LANE_GAP  = 6;
+                  const DAY_LANE_STR  = DAY_BLOCK_H + DAY_LANE_GAP;
+                  const DAY_TOP_PAD   = 8;
+
+                  const laneEntries = entries
+                    .slice()
+                    .sort((a, b) => a.visit.startTime.localeCompare(b.visit.startTime))
+                    .map(e => ({ ...e, lane: 0 }));
+
+                  const dayLaneEnd: number[] = [];
+                  laneEntries.forEach(e => {
+                    const startMin = timeToMinutes(e.visit.startTime);
+                    const li = dayLaneEnd.findIndex(end => end <= startMin);
+                    e.lane = li === -1 ? dayLaneEnd.length : li;
+                    dayLaneEnd[e.lane] = timeToMinutes(e.visit.endTime);
+                  });
+                  const numDayLanes = Math.max(1, dayLaneEnd.length);
+                  const rowMinH     = DAY_TOP_PAD + numDayLanes * DAY_LANE_STR + 4;
+
                   return (
-                    <div key={clientName} style={{ position: 'relative', borderBottom: '1px solid #F1F5F9', minHeight: 76, display: 'flex' }}>
+                    <div key={clientName} style={{ position: 'relative', borderBottom: '1px solid #F1F5F9', minHeight: rowMinH, display: 'flex' }}>
                       {/* Info cell */}
                       <div
                         onClick={() => setSelectedClient(clientName)}
@@ -2159,6 +2180,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>
                             {entries.length} visit{entries.length !== 1 ? 's' : ''} · {totalMins >= 60 ? `${(totalMins / 60).toFixed(1)}h` : `${totalMins}m`}
                             {unallocCount > 0 && <span style={{ color: '#EF4444', fontWeight: 700, marginLeft: 4 }}>· {unallocCount} unalloc</span>}
+                            {numDayLanes > 1 && <span style={{ color: '#C2410C', fontWeight: 700, marginLeft: 4 }}>· double-up</span>}
                           </div>
                           {clientLoc?.addressLine && (
                             <div style={{ fontSize: 9, color: '#64748B', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientLoc.addressLine}</div>
@@ -2173,11 +2195,12 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         {TIMELINE_HOURS.map(h => (
                           <div key={h} style={{ borderLeft: '1px solid #F1F5F9', height: '100%' }} />
                         ))}
-                        {/* Visit blocks */}
-                        {entries.map((entry, ei) => {
-                          const xLeft = timeToX(entry.visit.startTime);
-                          const wPx   = durationToW(entry.visit.startTime, entry.visit.endTime);
-                          const col   = entry.isUnallocated
+                        {/* Visit blocks — lane-stacked */}
+                        {laneEntries.map((entry, ei) => {
+                          const xLeft   = timeToX(entry.visit.startTime);
+                          const wPx     = durationToW(entry.visit.startTime, entry.visit.endTime);
+                          const topPx   = DAY_TOP_PAD + entry.lane * DAY_LANE_STR;
+                          const col     = entry.isUnallocated
                             ? { bg: '#FEF2F2', border: '#EF4444', text: '#B91C1C' }
                             : empColorMap.get(entry.empName ?? '') ?? EMP_COLORS[0];
                           const shortName = entry.isUnallocated
@@ -2189,10 +2212,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               title={`${entry.isUnallocated ? 'Unallocated' : entry.empName} · ${entry.visit.startTime}–${entry.visit.endTime}`}
                               style={{
                                 position: 'absolute',
-                                top: 8,
+                                top: topPx,
                                 left: xLeft,
                                 width: Math.max(48, wPx),
-                                height: 58,
+                                height: DAY_BLOCK_H,
                                 borderRadius: 8,
                                 background: col.bg,
                                 border: `1.5px ${entry.isUnallocated ? 'dashed' : 'solid'} ${col.border}`,
