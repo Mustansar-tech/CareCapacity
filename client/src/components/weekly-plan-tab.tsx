@@ -409,6 +409,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const employeeLocationMap = new Map(
     (locationsData?.employees || []).map(emp => [emp.employeeName, emp])
   );
+  // Create a map of client locations (postcode, addressLine) for PP view
+  const clientLocationMap = new Map(
+    (locationsData?.clients || []).map(c => [c.clientName, c])
+  );
 
   // Fetch all visits for the week in a single DB query (replaces 7× /api/visits/:date)
   const { data: weekVisitsData, isLoading: isLoadingVisits } = useQuery<ClientVisit[]>({
@@ -1526,20 +1530,23 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#F1F5F9', borderRadius: 10, padding: '0 4px', height: 38, flexShrink: 0 }}>
               <button
-                onClick={() => setWeekOffset(o => o - 1)}
+                onClick={() => !isFetchingSchedule && setWeekOffset(o => o - 1)}
                 title="Previous week"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
-                onMouseOver={e => (e.currentTarget.style.background = 'rgba(37,99,235,.1)')}
+                disabled={isFetchingSchedule}
+                style={{ background: 'none', border: 'none', cursor: isFetchingSchedule ? 'default' : 'pointer', color: isFetchingSchedule ? '#CBD5E1' : '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => { if (!isFetchingSchedule) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >‹</button>
-              <span style={{ fontSize: 11, fontWeight: 700, color: weekOffset === 0 ? '#2563EB' : '#0F172A', whiteSpace: 'nowrap', padding: '0 2px', minWidth: 80, textAlign: 'center' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: weekOffset === 0 ? '#2563EB' : '#0F172A', whiteSpace: 'nowrap', padding: '0 2px', minWidth: 80, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                {isFetchingSchedule ? <span style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid #BFDBFE', borderTopColor: '#2563EB', borderRadius: 99, animation: 'spin 0.7s linear infinite' }} /> : null}
                 {weekOffset === 0 ? 'This week' : weekLabel}
               </span>
               <button
-                onClick={() => setWeekOffset(o => o + 1)}
+                onClick={() => !isFetchingSchedule && setWeekOffset(o => o + 1)}
                 title="Next week"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
-                onMouseOver={e => (e.currentTarget.style.background = 'rgba(37,99,235,.1)')}
+                disabled={isFetchingSchedule}
+                style={{ background: 'none', border: 'none', cursor: isFetchingSchedule ? 'default' : 'pointer', color: isFetchingSchedule ? '#CBD5E1' : '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => { if (!isFetchingSchedule) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >›</button>
             </div>
@@ -1787,19 +1794,30 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           <div style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
 
             {/* PP Summary header bar */}
-            {ppView && weeklySchedule && (
-              <div style={{ position: 'sticky', top: 0, zIndex: 8, background: '#1E293B', color: 'white', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, fontWeight: 600, borderBottom: '1px solid #334155' }}>
-                <span style={{ fontWeight: 700, fontSize: 12 }}>{dayLabel}</span>
-                <span style={{ opacity: .6 }}>·</span>
-                <span>Total: <strong>{fmtHM(todayTotalMins)}</strong></span>
-                <span style={{ opacity: .6 }}>·</span>
-                <span style={{ color: todayUnallocMins > 0 ? '#FCA5A5' : '#86EFAC' }}>
-                  Unallocated: <strong>{fmtHM(todayUnallocMins)}</strong>
-                </span>
-                <span style={{ opacity: .6 }}>·</span>
-                <span style={{ color: '#86EFAC' }}>Allocated: <strong>{fmtHM(todayAllocMins)}</strong></span>
-              </div>
-            )}
+            {ppView && weeklySchedule && (() => {
+              const allocatedVisitCount = Object.values(dayAssign).reduce((s, vs) => s + (vs as AssignedVisit[]).length, 0);
+              return (
+                <div style={{ position: 'sticky', top: 0, zIndex: 8, background: '#1E293B', color: 'white', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, fontWeight: 600, borderBottom: '1px solid #334155', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: 12 }}>{dayLabel}</span>
+                  <span style={{ opacity: .6 }}>·</span>
+                  <span>Total: <strong>{fmtHM(todayTotalMins)}</strong></span>
+                  <span style={{ opacity: .6 }}>·</span>
+                  <span style={{ color: '#86EFAC' }}>Allocated: <strong>{fmtHM(todayAllocMins)}</strong></span>
+                  <span style={{ background: 'rgba(134,239,172,.15)', border: '1px solid rgba(134,239,172,.3)', borderRadius: 6, padding: '1px 7px', color: '#86EFAC', fontSize: 10 }}>
+                    {allocatedVisitCount} visit{allocatedVisitCount !== 1 ? 's' : ''}
+                  </span>
+                  <span style={{ opacity: .6 }}>·</span>
+                  <span style={{ color: todayUnallocMins > 0 ? '#FCA5A5' : '#86EFAC' }}>
+                    Unallocated: <strong>{fmtHM(todayUnallocMins)}</strong>
+                    {todayUnallocated.length > 0 && (
+                      <span style={{ marginLeft: 5, background: 'rgba(252,165,165,.15)', border: '1px solid rgba(252,165,165,.3)', borderRadius: 6, padding: '1px 7px', fontSize: 10 }}>
+                        {todayUnallocated.length} visit{todayUnallocated.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Hours header */}
             <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, position: 'sticky', top: ppView && weeklySchedule ? 33 : 0, background: 'white', zIndex: 5, borderBottom: '1px solid #E5E9F2' }}>
@@ -1840,29 +1858,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                     return (
                       <div key={clientName} style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 72, position: 'relative', background: 'white' }}>
                         {/* Client info cell */}
-                        <div style={{ padding: '7px 10px', background: '#FAFAFA', borderRight: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer' }}
-                          onClick={() => {
-                            if (unallocEntries.length > 0) {
-                              const uv = unallocEntries[0].visit;
-                              const fullUv = todayUnallocated.find(v => v.id === uv.id || (v.clientName === uv.clientName && v.startTime === uv.startTime));
-                              if (fullUv) setSelectedVisit(fullUv);
-                            }
-                          }}
-                        >
-                          <div style={{ width: 30, height: 30, borderRadius: 8, background: avatarGradient(clientName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
-                            {avatarInitials(clientName)}
-                          </div>
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientName}</div>
-                            <div style={{ fontSize: 9, color: '#64748B', marginTop: 1 }}>
-                              {assignedEntries.length > 0 ? `${assignedEntries.length} visit${assignedEntries.length > 1 ? 's' : ''}` : ''}
-                              {unallocEntries.length > 0 ? ` · ${unallocEntries.length} unallocated` : ''}
+                        {(() => {
+                          const clientLoc = clientLocationMap.get(clientName);
+                          return (
+                            <div style={{ padding: '7px 10px', background: '#FAFAFA', borderRight: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: unallocEntries.length > 0 ? 'pointer' : 'default' }}
+                              onClick={() => {
+                                if (unallocEntries.length > 0) {
+                                  const uv = unallocEntries[0].visit;
+                                  const fullUv = todayUnallocated.find(v => v.id === uv.id || (v.clientName === uv.clientName && v.startTime === uv.startTime));
+                                  if (fullUv) { setSelectedVisit(fullUv); setRightPanelOpen(true); }
+                                }
+                              }}
+                            >
+                              <div style={{ width: 30, height: 30, borderRadius: 8, background: avatarGradient(clientName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                                {avatarInitials(clientName)}
+                              </div>
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientName}</div>
+                                <div style={{ fontSize: 9, color: '#64748B', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                  {clientLoc?.postcode && (
+                                    <span style={{ background: '#F1F5F9', borderRadius: 4, padding: '1px 4px', fontWeight: 600, color: '#475569', letterSpacing: .2 }}>{clientLoc.postcode}</span>
+                                  )}
+                                  {assignedEntries.length > 0 && <span style={{ color: '#059669' }}>{assignedEntries.length}×</span>}
+                                  {unallocEntries.length > 0 && <span style={{ color: '#DC2626' }}>{unallocEntries.length} unalloc</span>}
+                                </div>
+                              </div>
+                              {unallocEntries.length > 0 && (
+                                <span style={{ width: 7, height: 7, borderRadius: 99, background: '#EF4444', flexShrink: 0 }} title="Has unallocated visits" />
+                              )}
                             </div>
-                          </div>
-                          {unallocEntries.length > 0 && (
-                            <span style={{ width: 7, height: 7, borderRadius: 99, background: '#EF4444', flexShrink: 0 }} title="Has unallocated visits" />
-                          )}
-                        </div>
+                          );
+                        })()}
 
                         {/* Hour grid cells */}
                         {TIMELINE_HOURS.map(h => (
@@ -1876,33 +1902,54 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: nowX, width: 2, background: '#EF4444', zIndex: 10, opacity: .7 }} />
                           )}
 
-                          {/* Assigned visit blocks */}
+                          {/* Assigned visit blocks (with travel pill) */}
                           {assignedEntries.map(({ empName, visit }, vi) => {
                             const xLeft = timeToX(visit.startTime);
                             const wPx = Math.max(48, durationToW(visit.startTime, visit.endTime));
                             const cW = Math.max(44, wPx - 3);
+                            const travel = visit.travelTimeBefore;
+                            const showTravel = travel > 0 && travel < 999;
+                            const isSelTV = selectedTimelineVisit?.empName === empName && selectedTimelineVisit?.visit.id === visit.id;
                             return (
-                              <div
-                                key={vi}
-                                style={{
-                                  position: 'absolute', top: 10, left: xLeft, width: cW, height: 50,
-                                  borderRadius: 8, padding: '5px 8px',
-                                  background: 'linear-gradient(135deg,#10B981,#059669)',
-                                  color: 'white', fontSize: 10, fontWeight: 700,
-                                  boxShadow: '0 2px 8px rgba(16,185,129,.25)',
-                                  overflow: 'hidden', cursor: 'default',
-                                  pointerEvents: 'auto',
-                                }}
-                                title={`${visit.clientName} · ${visit.startTime}–${visit.endTime} · ${empName}`}
-                              >
-                                <div style={{ fontSize: cW < 70 ? 9 : 10, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{empName}</div>
-                                {cW >= 54 && <div style={{ fontSize: 9, opacity: .85, lineHeight: 1.1 }}>{visit.startTime}–{visit.endTime}</div>}
-                                {cW >= 80 && visit.serviceType && <div style={{ fontSize: 8, opacity: .75, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType}</div>}
+                              <div key={vi} style={{ pointerEvents: 'auto' }}>
+                                {/* Travel pill — positioned above the block */}
+                                {showTravel && (
+                                  <div style={{
+                                    position: 'absolute', top: 4, left: Math.max(2, xLeft - 38), height: 18, padding: '0 5px',
+                                    borderRadius: 999, display: 'flex', alignItems: 'center', gap: 2,
+                                    fontSize: 9, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap',
+                                    background: travel > 30 ? '#FEF2F2' : travel > 20 ? '#FFFBEB' : '#ECFDF5',
+                                    color: travel > 30 ? '#DC2626' : travel > 20 ? '#B45309' : '#047857',
+                                    border: `1px solid ${travel > 30 ? '#FCA5A5' : travel > 20 ? '#FCD34D' : '#A7F3D0'}`,
+                                    pointerEvents: 'none',
+                                  }}>
+                                    🚗 {travel}m
+                                  </div>
+                                )}
+                                <div
+                                  style={{
+                                    position: 'absolute', top: showTravel ? 26 : 10, left: xLeft, width: cW, height: showTravel ? 38 : 50,
+                                    borderRadius: 8, padding: '5px 8px',
+                                    background: isSelTV ? 'linear-gradient(135deg,#059669,#047857)' : 'linear-gradient(135deg,#10B981,#059669)',
+                                    color: 'white', fontSize: 10, fontWeight: 700,
+                                    boxShadow: isSelTV ? '0 0 0 2px #047857, 0 2px 8px rgba(16,185,129,.4)' : '0 2px 8px rgba(16,185,129,.25)',
+                                    overflow: 'hidden', cursor: 'pointer',
+                                  }}
+                                  title={`${visit.clientName} · ${visit.startTime}–${visit.endTime} · ${empName}`}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setSelectedTimelineVisit(isSelTV ? null : { empName: empName!, visit });
+                                  }}
+                                >
+                                  <div style={{ fontSize: cW < 70 ? 9 : 10, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{empName}</div>
+                                  {cW >= 54 && <div style={{ fontSize: 9, opacity: .85, lineHeight: 1.1 }}>{visit.startTime}–{visit.endTime}</div>}
+                                  {cW >= 80 && visit.serviceType && <div style={{ fontSize: 8, opacity: .75, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType}</div>}
+                                </div>
                               </div>
                             );
                           })}
 
-                          {/* Unallocated visit blocks — muted/striped */}
+                          {/* Unallocated visit blocks — muted/striped, opens right panel */}
                           {unallocEntries.map(({ visit }, vi) => {
                             const xLeft = timeToX(visit.startTime);
                             const wPx = Math.max(48, durationToW(visit.startTime, visit.endTime));
@@ -1921,7 +1968,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   pointerEvents: 'auto',
                                 }}
                                 title={`Unallocated · ${visit.startTime}–${visit.endTime}`}
-                                onClick={e => { e.stopPropagation(); if (uv) setSelectedVisit(uv); }}
+                                onClick={e => { e.stopPropagation(); if (uv) { setSelectedVisit(uv); setRightPanelOpen(true); } }}
                               >
                                 <div style={{ fontSize: cW < 70 ? 9 : 10, fontWeight: 800, lineHeight: 1.1 }}>Unallocated</div>
                                 {cW >= 54 && <div style={{ fontSize: 9, opacity: .85, lineHeight: 1.1 }}>{visit.startTime}–{visit.endTime}</div>}
