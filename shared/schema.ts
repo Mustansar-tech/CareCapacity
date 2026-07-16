@@ -817,7 +817,7 @@ export const insertLeaverSchema = createInsertSchema(leavers).omit({
   updatedAt: true,
 }).extend({
   employmentType: z.enum(["driver", "walker"]),
-  weeklyHours: z.number().positive(),
+  weeklyHours: z.number().nonnegative(),
   contractedHours: z.number().nonnegative().optional().nullable(),
   status: z.enum(["active", "processed"]).default("active"),
 });
@@ -867,7 +867,7 @@ export const insertJoinerSchema = createInsertSchema(joiners).omit({
   confidenceWeight: true,
 }).extend({
   employmentType: z.enum(["driver", "walker"]),
-  desiredWeeklyHours: z.number().positive(),
+  desiredWeeklyHours: z.number().nonnegative(),
   contractedHours: z.number().nonnegative().optional().nullable(),
   postcode: z.string().optional().nullable(),
   completedStages: z.array(z.string()).default([]),

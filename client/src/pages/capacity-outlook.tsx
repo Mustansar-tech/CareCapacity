@@ -122,7 +122,7 @@ const leaverFormSchema = z.object({
   employeeNo: z.string().optional(),
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  weeklyHours: z.coerce.number().nonnegative("Must be 0 or more"),
+  weeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
   contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
   postcode: z.string().optional(),
   firstDayOfNotice: z.string().optional(),
@@ -138,7 +138,7 @@ const joinerFormSchema = z.object({
   candidateName: z.string().min(1, "Name is required"),
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  desiredWeeklyHours: z.coerce.number().nonnegative("Must be 0 or more"),
+  desiredWeeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
   contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
   postcode: z.string().optional(),
   trainingDate: z.string().optional(),
@@ -306,29 +306,41 @@ function LeaverModal({
                   <FormItem>
                     <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <Input
-                          type="number" step="0.5" placeholder="e.g. 37.5"
-                          disabled={isBank}
-                          {...field}
-                          value={isBank ? "" : (field.value ?? "")}
-                          onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-                          style={isBank ? { opacity: 0.4 } : {}}
-                        />
+                      {isBank ? (
                         <button
                           type="button"
-                          onClick={() => field.onChange(isBank ? undefined : 0)}
+                          onClick={() => field.onChange(undefined)}
                           style={{
-                            padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
-                            border: `1px solid ${isBank ? '#6366F1' : '#E2E8F0'}`,
-                            background: isBank ? '#EEF2FF' : 'white',
-                            color: isBank ? '#4F46E5' : '#64748B',
-                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            width: '100%', height: 36, borderRadius: 6,
+                            border: '2px solid #6366F1', background: '#EEF2FF',
+                            color: '#4F46E5', fontSize: 13, fontWeight: 700,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', gap: 6,
                           }}
                         >
                           Bank
+                          <span style={{ fontSize: 10, fontWeight: 400, color: '#818CF8' }}>click to enter hours</span>
                         </button>
-                      </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Input
+                            type="number" step="0.5" placeholder="e.g. 37.5"
+                            value={field.value ?? ""}
+                            onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => field.onChange(0)}
+                            style={{
+                              padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
+                              border: '1px solid #E2E8F0', background: 'white',
+                              color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            }}
+                          >
+                            Bank
+                          </button>
+                        </div>
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -544,29 +556,41 @@ function JoinerModal({
                   <FormItem>
                     <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <Input
-                          type="number" step="0.5" placeholder="e.g. 35"
-                          disabled={isBank}
-                          {...field}
-                          value={isBank ? "" : (field.value || "")}
-                          onChange={e => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
-                          style={isBank ? { opacity: 0.4 } : {}}
-                        />
+                      {isBank ? (
                         <button
                           type="button"
-                          onClick={() => field.onChange(isBank ? undefined : 0)}
+                          onClick={() => field.onChange(undefined)}
                           style={{
-                            padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
-                            border: `1px solid ${isBank ? '#6366F1' : '#E2E8F0'}`,
-                            background: isBank ? '#EEF2FF' : 'white',
-                            color: isBank ? '#4F46E5' : '#64748B',
-                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            width: '100%', height: 36, borderRadius: 6,
+                            border: '2px solid #6366F1', background: '#EEF2FF',
+                            color: '#4F46E5', fontSize: 13, fontWeight: 700,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', gap: 6,
                           }}
                         >
                           Bank
+                          <span style={{ fontSize: 10, fontWeight: 400, color: '#818CF8' }}>click to enter hours</span>
                         </button>
-                      </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Input
+                            type="number" step="0.5" placeholder="e.g. 35"
+                            value={field.value || ""}
+                            onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => field.onChange(0)}
+                            style={{
+                              padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
+                              border: '1px solid #E2E8F0', background: 'white',
+                              color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            }}
+                          >
+                            Bank
+                          </button>
+                        </div>
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
