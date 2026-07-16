@@ -59,6 +59,8 @@ export interface MatchedSlot {
   forwardTravelWarning?: boolean;
   // Estimated travel time (minutes) from enquiry postcode to next visit (for display)
   forwardTravelMinutes?: number;
+  // Estimated travel time (minutes) from enquiry postcode back to the employee's home (for display)
+  returnHomeMins?: number;
 }
 
 export interface MatchResult {
@@ -746,6 +748,13 @@ function matchEmployeesForVisit(
         }
 
         if (bestSlotForDay) {
+          if (clientLocation && weeklyData.homeLat != null && weeklyData.homeLng != null) {
+            bestSlotForDay.returnHomeMins = travelTimeService.heuristicEstimate(
+              clientLocation,
+              { lat: weeklyData.homeLat, lng: weeklyData.homeLng },
+              weeklyData.transportMode
+            );
+          }
           matchedSlots.push(bestSlotForDay);
           totalScore += bestScoreForDay;
           if (bestSlotForDay.matchType === 'exact') exactDayMatches++;
@@ -820,6 +829,9 @@ function matchEmployeesForVisit(
             nextVisit: nextVisitForSlot2,
             forwardTravelWarning: altFwdWarning || undefined,
             forwardTravelMinutes: altFwdMins,
+            returnHomeMins: (clientLocation && weeklyData.homeLat != null && weeklyData.homeLng != null)
+              ? travelTimeService.heuristicEstimate(clientLocation, { lat: weeklyData.homeLat, lng: weeklyData.homeLng }, weeklyData.transportMode)
+              : undefined,
             ...depInfo,
           });
           alternativeDayMatches++;
@@ -868,6 +880,9 @@ function matchEmployeesForVisit(
               nextVisit: nextVisitForSlot3,
               forwardTravelWarning: altAdjFwdWarning || undefined,
               forwardTravelMinutes: altAdjFwdMins,
+              returnHomeMins: (clientLocation && weeklyData.homeLat != null && weeklyData.homeLng != null)
+                ? travelTimeService.heuristicEstimate(clientLocation, { lat: weeklyData.homeLat, lng: weeklyData.homeLng }, weeklyData.transportMode)
+                : undefined,
               ...depInfo,
             });
             alternativeDayMatches++;
