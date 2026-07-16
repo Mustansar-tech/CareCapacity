@@ -3,6 +3,7 @@ import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
+import { useWeek } from "@/contexts/WeekContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -307,6 +308,30 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const { toast } = useToast();
   const { canGenerate } = useAuth();
   const { selectedBranchId } = useBranch();
+  const { allHistoryData, selectedWeekId, handleWeekChange } = useWeek();
+
+  // Week prev / next helpers (sorted newest-first, same as the dropdown)
+  const sortedWeeks = useMemo(
+    () => (allHistoryData ?? []).slice().sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate)),
+    [allHistoryData],
+  );
+  const weekIdx = useMemo(() => {
+    if (selectedWeekId) return sortedWeeks.findIndex(w => w.id === selectedWeekId);
+    // If no explicit selection, match current calendar week
+    const now = new Date();
+    const dow = now.getUTCDay();
+    const mon = new Date(now);
+    mon.setUTCDate(now.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+    const mondayStr = mon.toISOString().split('T')[0];
+    const idx = sortedWeeks.findIndex(w => w.weekStartDate === mondayStr);
+    return idx === -1 ? 0 : idx;
+  }, [sortedWeeks, selectedWeekId]);
+  const canPrevWeek = weekIdx < sortedWeeks.length - 1; // older
+  const canNextWeek = weekIdx > 0;                       // newer
+  const goWeek = (delta: number) => {
+    const target = sortedWeeks[weekIdx + delta];
+    if (target) handleWeekChange(target.id);
+  };
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
@@ -1855,38 +1880,74 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       {/* ── Action bar ─────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 56, borderBottom: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0, boxShadow: '0 1px 3px rgba(15,23,42,.03)' }}>
 
-        {/* Day tabs */}
-        <div style={{ display: 'flex', gap: 2, background: '#F1F5F9', padding: 4, borderRadius: 10, flexShrink: 0 }}>
-          {weekDates.map((date, idx) => {
-            const dCount = weeklySchedule
-              ? Object.values(weeklySchedule.assignments[date] || {}).reduce((s, v) => s + v.length, 0) : 0;
-            const isToday = date === new Date().toISOString().split('T')[0];
-            const active = selectedDayIndex === idx;
-            return (
-              <button
-                key={date}
-                onClick={() => setSelectedDayIndex(idx)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                  minWidth: 52, transition: 'all .15s',
-                  background: active ? 'white' : 'transparent',
-                  color: active ? '#2563EB' : '#64748B',
-                  boxShadow: active ? '0 2px 5px rgba(0,0,0,.06)' : 'none',
-                  outline: isToday && !active ? '2px solid #BFDBFE' : 'none',
-                  outlineOffset: 1,
-                }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1 }}>{dayNames[idx].slice(0, 3)}</span>
-                <span style={{ fontSize: 10, opacity: .75, marginTop: 2 }}>{date.split('-').slice(1).reverse().join('/')}</span>
-                {dCount > 0 && (
-                  <span style={{ fontSize: 9, marginTop: 2, padding: '1px 5px', borderRadius: 10, fontWeight: 700, background: active ? 'rgba(37,99,235,.12)' : '#DBEAFE', color: '#1D4ED8' }}>
-                    {dCount}v
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Week prev/next + Day tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {/* ← older week */}
+          <button
+            onClick={() => goWeek(+1)}
+            disabled={!canPrevWeek}
+            title="Previous week"
+            style={{
+              width: 28, height: 28, borderRadius: 7, border: '1px solid #E2E8F0',
+              background: canPrevWeek ? 'white' : '#F8FAFC',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: canPrevWeek ? 'pointer' : 'not-allowed',
+              color: canPrevWeek ? '#334155' : '#CBD5E1', flexShrink: 0,
+              boxShadow: canPrevWeek ? '0 1px 3px rgba(0,0,0,.06)' : 'none',
+            }}
+          >
+            <ChevronLeft style={{ width: 14, height: 14 }} />
+          </button>
+
+          <div style={{ display: 'flex', gap: 2, background: '#F1F5F9', padding: 4, borderRadius: 10 }}>
+            {weekDates.map((date, idx) => {
+              const dCount = weeklySchedule
+                ? Object.values(weeklySchedule.assignments[date] || {}).reduce((s, v) => s + v.length, 0) : 0;
+              const isToday = date === new Date().toISOString().split('T')[0];
+              const active = selectedDayIndex === idx;
+              return (
+                <button
+                  key={date}
+                  onClick={() => setSelectedDayIndex(idx)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                    minWidth: 52, transition: 'all .15s',
+                    background: active ? 'white' : 'transparent',
+                    color: active ? '#2563EB' : '#64748B',
+                    boxShadow: active ? '0 2px 5px rgba(0,0,0,.06)' : 'none',
+                    outline: isToday && !active ? '2px solid #BFDBFE' : 'none',
+                    outlineOffset: 1,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1 }}>{dayNames[idx].slice(0, 3)}</span>
+                  <span style={{ fontSize: 10, opacity: .75, marginTop: 2 }}>{date.split('-').slice(1).reverse().join('/')}</span>
+                  {dCount > 0 && (
+                    <span style={{ fontSize: 9, marginTop: 2, padding: '1px 5px', borderRadius: 10, fontWeight: 700, background: active ? 'rgba(37,99,235,.12)' : '#DBEAFE', color: '#1D4ED8' }}>
+                      {dCount}v
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* → newer week */}
+          <button
+            onClick={() => goWeek(-1)}
+            disabled={!canNextWeek}
+            title="Next week"
+            style={{
+              width: 28, height: 28, borderRadius: 7, border: '1px solid #E2E8F0',
+              background: canNextWeek ? 'white' : '#F8FAFC',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: canNextWeek ? 'pointer' : 'not-allowed',
+              color: canNextWeek ? '#334155' : '#CBD5E1', flexShrink: 0,
+              boxShadow: canNextWeek ? '0 1px 3px rgba(0,0,0,.06)' : 'none',
+            }}
+          >
+            <ChevronRight style={{ width: 14, height: 14 }} />
+          </button>
         </div>
 
         {/* Employee search */}
