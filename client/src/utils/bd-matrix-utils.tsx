@@ -70,6 +70,7 @@ export interface MatchedSlot {
   nextVisit?: { startTime: string; endTime: string; postcode?: string } | null;
   forwardTravelWarning?: boolean;
   forwardTravelMinutes?: number;
+  returnHomeMins?: number;
 }
 
 export interface MatchedEmployee {
