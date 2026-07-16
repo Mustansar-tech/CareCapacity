@@ -3,7 +3,7 @@ import { resolveBranch } from '../utils/helpers';
 import { geocodeWithFallback } from '../pipeline';
 import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria, type MultiVisitCriteria } from '../features/bd-matrix/bdMatcher';
 import * as capacityRepo from '../repositories/capacity.repository';
-import { refineForwardTravelWithORS, buildScheduleMap } from '../services/bd-matcher.service';
+import { refineForwardTravelWithORS, refineReturnHomeTravelWithORS, buildScheduleMap } from '../services/bd-matcher.service';
 import { logger } from '../infrastructure/logger';
 
 export async function bdMatch(req: Request, res: Response): Promise<void> {
@@ -55,6 +55,7 @@ export async function bdMatch(req: Request, res: Response): Promise<void> {
         const clientCoords = { lat: parseFloat(geocoded.lat), lng: parseFloat(geocoded.lng) };
         await refineForwardTravelWithORS(result.matches, clientCoords, branchId);
         result.matches = result.matches.filter(m => m.matchedSlots.length > 0);
+        await refineReturnHomeTravelWithORS(result.matches, clientCoords);
       }
     } catch (refineErr) {
       logger.warn('BD Matcher: ORS forward-travel refinement failed (non-fatal)', { error: String(refineErr) });
@@ -121,6 +122,7 @@ export async function bdMatchMultiVisit(req: Request, res: Response): Promise<vo
         const allMatches = result.visitResults.flatMap(vr => vr.matches);
         await refineForwardTravelWithORS(allMatches, clientCoords, branchId);
         for (const vr of result.visitResults) vr.matches = vr.matches.filter(m => m.matchedSlots.length > 0);
+        await refineReturnHomeTravelWithORS(allMatches, clientCoords);
       }
     } catch (refineErr) {
       logger.warn('BD Multi-Visit Matcher: ORS forward-travel refinement failed (non-fatal)', { error: String(refineErr) });

@@ -33,6 +33,8 @@ export interface MatchedEmployee {
   gender?: string;
   transportMode?: string;
   homePostcode?: string;
+  homeLat?: number;
+  homeLng?: number;
   travelMinutes?: number;
   departureSource?: 'home' | 'last-client';
   departureSummary?: string;
@@ -965,6 +967,8 @@ function matchEmployeesForVisit(
       gender: weeklyData.gender,
       transportMode: weeklyData.transportMode,
       homePostcode: weeklyData.homePostcode,
+      homeLat: weeklyData.homeLat,
+      homeLng: weeklyData.homeLng,
       travelMinutes,
       departureSource: finalDepartureSource,
       departureSummary: finalDepartureSummary,

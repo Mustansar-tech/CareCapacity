@@ -116,6 +116,57 @@ export async function refineForwardTravelWithORS(
   }
 }
 
+export async function refineReturnHomeTravelWithORS(
+  matches: MatchedEmployee[],
+  clientCoords: { lat: number; lng: number },
+): Promise<void> {
+  type PendingSlot = {
+    slot: MatchedSlot;
+    homeCoords: { lat: number; lng: number };
+  };
+
+  const pending: PendingSlot[] = [];
+
+  for (const match of matches) {
+    const isCar = TravelTimeService.normalizeMode(match.transportMode) === 'car';
+    if (!isCar) continue;
+    if (!match.homeLat || !match.homeLng) continue;
+    const homeCoords = { lat: match.homeLat, lng: match.homeLng };
+
+    for (const slot of match.matchedSlots) {
+      if (slot.nextVisit) continue;
+      pending.push({ slot, homeCoords });
+    }
+  }
+
+  if (pending.length === 0) return;
+
+  logger.info(`[RTN-ORS] ${pending.length} slot(s) to refine — enquiry→home leg for car CPs`);
+
+  const orsQueue: PendingSlot[] = [];
+
+  for (const p of pending) {
+    const heuristicMins = travelTimeService.heuristicEstimate(clientCoords, p.homeCoords, 'car');
+    p.slot.returnHomeMins = heuristicMins;
+    orsQueue.push(p);
+  }
+
+  if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
+    const destinations = orsQueue.map(p => p.homeCoords);
+    try {
+      await travelTimeService.orsMatrixBatch([clientCoords], destinations);
+      for (const p of orsQueue) {
+        const cached = travelTimeService.getCachedTravelTime(clientCoords, p.homeCoords, 'car');
+        if (cached) {
+          p.slot.returnHomeMins = cached.durationMinutes;
+        }
+      }
+    } catch (e) {
+      logger.warn('[RTN-ORS] ORS Matrix batch failed — haversine values retained', { error: String(e) });
+    }
+  }
+}
+
 export async function buildScheduleMap(
   branchId: string,
   analysisDateKeys: string[],
