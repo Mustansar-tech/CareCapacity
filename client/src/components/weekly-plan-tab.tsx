@@ -3,6 +3,7 @@ import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
+import { useWeek } from "@/contexts/WeekContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -321,7 +322,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedTimelineVisit, setSelectedTimelineVisit] = useState<{empName: string; visit: AssignedVisit} | null>(null);
   const [badMatchName, setBadMatchName] = useState<string>('');
-  const [weekOffset, setWeekOffset] = useState(0);
   const [ppView, setPpView] = useState(false);
 
   // Bad matches: client + care pro pairs never scheduled together
@@ -354,17 +354,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     onError: () => toast({ title: 'Could not remove bad match', variant: 'destructive' }),
   });
 
-  // Reset weekOffset when the parent-selected date changes
-  useEffect(() => { setWeekOffset(0); }, [selectedDate]);
+  // Global week navigation — shared with home page
+  const { setSelectedDate } = useWeek();
 
-  // Get week boundaries — offset by weekOffset weeks from the selected (or current) date
-  const currentWeek = (() => {
-    const base = selectedDate || new Date().toISOString().split('T')[0];
-    if (weekOffset === 0) return base;
-    const d = new Date(base + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + weekOffset * 7);
-    return d.toISOString().split('T')[0];
-  })();
+  const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
 
   // Generate week dates array (Mon-Sun)
@@ -1528,33 +1521,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           // "Mon 14 Jul – Sun 20 Jul" format
           const fmtLong = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
           const weekLabel = `${fmtLong(weekStart)} – ${fmtLong(weekEnd)}`;
-          // When offset ≠ 0 and we've finished fetching with no data → navigated week has no schedule
-          const noData = weekOffset !== 0 && !isFetchingSchedule && !weeklySchedule;
-          const navDisabled = isFetchingSchedule;
-          const btnColor = navDisabled ? '#CBD5E1' : '#2563EB';
-          const labelColor = weekOffset === 0 ? '#2563EB' : noData ? '#DC2626' : '#0F172A';
+          // Shift global selectedDate by ±7 days — same week state as home page
+          const shiftWeek = (dir: -1 | 1) => {
+            if (isFetchingSchedule) return;
+            const d = new Date(weekStart + 'T00:00:00Z');
+            d.setUTCDate(d.getUTCDate() + dir * 7);
+            setSelectedDate(d.toISOString().split('T')[0]);
+          };
+          const noData = !isFetchingSchedule && !weeklySchedule;
+          const btnColor = isFetchingSchedule ? '#CBD5E1' : '#2563EB';
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#F1F5F9', borderRadius: 10, padding: '0 4px', height: 38, flexShrink: 0 }}>
               <button
-                onClick={() => !navDisabled && setWeekOffset(o => o - 1)}
+                onClick={() => shiftWeek(-1)}
                 title="Previous week"
-                disabled={navDisabled}
-                style={{ background: 'none', border: 'none', cursor: navDisabled ? 'default' : 'pointer', color: btnColor, padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
-                onMouseOver={e => { if (!navDisabled) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
+                disabled={isFetchingSchedule}
+                style={{ background: 'none', border: 'none', cursor: isFetchingSchedule ? 'default' : 'pointer', color: btnColor, padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => { if (!isFetchingSchedule) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >‹</button>
-              <span style={{ fontSize: 11, fontWeight: 700, color: labelColor, whiteSpace: 'nowrap', padding: '0 2px', minWidth: 90, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: noData ? '#DC2626' : '#2563EB', whiteSpace: 'nowrap', padding: '0 2px', minWidth: 90, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                 {isFetchingSchedule
                   ? <span style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid #BFDBFE', borderTopColor: '#2563EB', borderRadius: 99, animation: 'spin 0.7s linear infinite' }} />
-                  : noData ? '⚠ No schedule' : null}
-                {!isFetchingSchedule && (weekOffset === 0 ? 'This week' : noData ? weekLabel : weekLabel)}
+                  : noData ? '⚠ No data' : null}
+                {!isFetchingSchedule && weekLabel}
               </span>
               <button
-                onClick={() => !navDisabled && setWeekOffset(o => o + 1)}
+                onClick={() => shiftWeek(1)}
                 title="Next week"
-                disabled={navDisabled}
-                style={{ background: 'none', border: 'none', cursor: navDisabled ? 'default' : 'pointer', color: btnColor, padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
-                onMouseOver={e => { if (!navDisabled) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
+                disabled={isFetchingSchedule}
+                style={{ background: 'none', border: 'none', cursor: isFetchingSchedule ? 'default' : 'pointer', color: btnColor, padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => { if (!isFetchingSchedule) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >›</button>
             </div>
