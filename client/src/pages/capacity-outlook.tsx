@@ -122,7 +122,7 @@ const leaverFormSchema = z.object({
   employeeNo: z.string().optional(),
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  weeklyHours: z.coerce.number().positive("Must be greater than 0"),
+  weeklyHours: z.coerce.number().nonnegative("Must be 0 or more"),
   contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
   postcode: z.string().optional(),
   firstDayOfNotice: z.string().optional(),
@@ -138,7 +138,7 @@ const joinerFormSchema = z.object({
   candidateName: z.string().min(1, "Name is required"),
   gender: z.enum(["male", "female", "other"]).optional(),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  desiredWeeklyHours: z.coerce.number().positive("Must be > 0"),
+  desiredWeeklyHours: z.coerce.number().nonnegative("Must be 0 or more"),
   contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
   postcode: z.string().optional(),
   trainingDate: z.string().optional(),
@@ -300,13 +300,40 @@ function LeaverModal({
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="weeklyHours" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
-                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 37.5" {...field} value={field.value ?? ""} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField control={form.control} name="weeklyHours" render={({ field }) => {
+                const isBank = field.value === 0;
+                return (
+                  <FormItem>
+                    <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
+                    <FormControl>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <Input
+                          type="number" step="0.5" placeholder="e.g. 37.5"
+                          disabled={isBank}
+                          {...field}
+                          value={isBank ? "" : (field.value ?? "")}
+                          onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+                          style={isBank ? { opacity: 0.4 } : {}}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => field.onChange(isBank ? undefined : 0)}
+                          style={{
+                            padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
+                            border: `1px solid ${isBank ? '#6366F1' : '#E2E8F0'}`,
+                            background: isBank ? '#EEF2FF' : 'white',
+                            color: isBank ? '#4F46E5' : '#64748B',
+                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          }}
+                        >
+                          Bank
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -511,13 +538,40 @@ function JoinerModal({
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
-                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 35" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => {
+                const isBank = field.value === 0;
+                return (
+                  <FormItem>
+                    <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
+                    <FormControl>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <Input
+                          type="number" step="0.5" placeholder="e.g. 35"
+                          disabled={isBank}
+                          {...field}
+                          value={isBank ? "" : (field.value || "")}
+                          onChange={e => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                          style={isBank ? { opacity: 0.4 } : {}}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => field.onChange(isBank ? undefined : 0)}
+                          style={{
+                            padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
+                            border: `1px solid ${isBank ? '#6366F1' : '#E2E8F0'}`,
+                            background: isBank ? '#EEF2FF' : 'white',
+                            color: isBank ? '#4F46E5' : '#64748B',
+                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          }}
+                        >
+                          Bank
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1258,7 +1312,7 @@ export default function CapacityOutlookPage() {
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                             </TableCell>
-                            <TableCell>{l.weeklyHours}h</TableCell>
+                            <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                             <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                             <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
                             <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
@@ -1322,7 +1376,7 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                               </TableCell>
-                              <TableCell>{l.weeklyHours}h</TableCell>
+                              <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                               <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                               <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
                               <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
@@ -1406,7 +1460,7 @@ export default function CapacityOutlookPage() {
                                         <TableCell>
                                           <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                                         </TableCell>
-                                        <TableCell>{l.weeklyHours}h</TableCell>
+                                        <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                                         <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>
@@ -1471,7 +1525,7 @@ export default function CapacityOutlookPage() {
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                             </TableCell>
-                            <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                            <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
                             <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                             <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
                             <TableCell>
@@ -1550,7 +1604,7 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                               </TableCell>
-                              <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                              <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
                               <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                               <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
                               <TableCell>
@@ -1634,7 +1688,7 @@ export default function CapacityOutlookPage() {
                                         <TableCell>
                                           <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                                         </TableCell>
-                                        <TableCell>{j.desiredWeeklyHours}h</TableCell>
+                                        <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
                                         <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(j.hiredAt)}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
