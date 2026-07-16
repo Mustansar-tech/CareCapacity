@@ -59,6 +59,8 @@ export interface MatchedSlot {
   forwardTravelWarning?: boolean;
   // Estimated travel time (minutes) from enquiry postcode to next visit (for display)
   forwardTravelMinutes?: number;
+  // Estimated travel time (minutes) from enquiry postcode back to home (shown when no next visit)
+  returnHomeMins?: number;
 }
 
 export interface MatchResult {
@@ -746,6 +748,14 @@ function matchEmployeesForVisit(
         }
 
         if (bestSlotForDay) {
+          // Compute enquiry→home travel when no next visit, so the UI can show the correct return leg
+          if (!bestSlotForDay.nextVisit && clientLocation && weeklyData.homeLat && weeklyData.homeLng) {
+            bestSlotForDay.returnHomeMins = travelTimeService.heuristicEstimate(
+              clientLocation,
+              { lat: weeklyData.homeLat, lng: weeklyData.homeLng },
+              weeklyData.transportMode
+            );
+          }
           matchedSlots.push(bestSlotForDay);
           totalScore += bestScoreForDay;
           if (bestSlotForDay.matchType === 'exact') exactDayMatches++;
@@ -811,6 +821,9 @@ function matchEmployeesForVisit(
             }
           }
 
+          const altReturnHomeMins2 = !nextVisitForSlot2 && clientLocation && weeklyData.homeLat && weeklyData.homeLng
+            ? travelTimeService.heuristicEstimate(clientLocation, { lat: weeklyData.homeLat, lng: weeklyData.homeLng }, weeklyData.transportMode)
+            : undefined;
           matchedSlots.push({
             day: dateStr,
             dayLabel: getDayLabel(dateStr),
@@ -820,6 +833,7 @@ function matchEmployeesForVisit(
             nextVisit: nextVisitForSlot2,
             forwardTravelWarning: altFwdWarning || undefined,
             forwardTravelMinutes: altFwdMins,
+            returnHomeMins: altReturnHomeMins2,
             ...depInfo,
           });
           alternativeDayMatches++;
@@ -859,6 +873,9 @@ function matchEmployeesForVisit(
               }
             }
 
+            const altReturnHomeMins3 = !nextVisitForSlot3 && clientLocation && weeklyData.homeLat && weeklyData.homeLng
+              ? travelTimeService.heuristicEstimate(clientLocation, { lat: weeklyData.homeLat, lng: weeklyData.homeLng }, weeklyData.transportMode)
+              : undefined;
             matchedSlots.push({
               day: dateStr,
               dayLabel: getDayLabel(dateStr),
@@ -868,6 +885,7 @@ function matchEmployeesForVisit(
               nextVisit: nextVisitForSlot3,
               forwardTravelWarning: altAdjFwdWarning || undefined,
               forwardTravelMinutes: altAdjFwdMins,
+              returnHomeMins: altReturnHomeMins3,
               ...depInfo,
             });
             alternativeDayMatches++;

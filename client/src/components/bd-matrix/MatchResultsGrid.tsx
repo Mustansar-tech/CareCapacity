@@ -428,6 +428,7 @@ export function MatchResultsGrid({
                                         {(slotOnDay.nextVisit || slotOnDay.travelMinutes !== undefined || employeeMatch.travelMinutes !== undefined) && (() => {
                                           const displayMins = slotOnDay.travelMinutes ?? employeeMatch.travelMinutes;
                                           const forwardMins = slotOnDay.forwardTravelMinutes;
+                                          const returnHomeMins = slotOnDay.returnHomeMins;
                                           const nextVisit = slotOnDay.nextVisit;
                                           const departureSource = slotOnDay.departureSource;
                                           const departureSummary = slotOnDay.departureSummary;
@@ -496,7 +497,7 @@ export function MatchResultsGrid({
                                                 <>
                                                   <div className="flex flex-col items-center flex-shrink-0">
                                                     <span className="text-[10px] font-black text-gray-800 dark:text-gray-100 mb-1.5">
-                                                      {displayMins !== undefined ? `~${displayMins}m` : ''}
+                                                      {returnHomeMins !== undefined ? `~${returnHomeMins}m` : ''}
                                                     </span>
                                                     <ArrowRight className="w-6 h-6 text-gray-500 dark:text-gray-400" />
                                                   </div>
