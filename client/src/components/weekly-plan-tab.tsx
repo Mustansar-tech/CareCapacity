@@ -321,6 +321,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [selectedTimelineVisit, setSelectedTimelineVisit] = useState<{empName: string; visit: AssignedVisit} | null>(null);
   const [badMatchName, setBadMatchName] = useState<string>('');
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [ppView, setPpView] = useState(false);
 
   // Bad matches: client + care pro pairs never scheduled together
   const { data: badMatchesData } = useQuery<BadMatch[]>({
@@ -352,8 +354,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     onError: () => toast({ title: 'Could not remove bad match', variant: 'destructive' }),
   });
 
-  // Get week boundaries - default to current week if no date selected
-  const currentWeek = selectedDate || new Date().toISOString().split('T')[0];
+  // Reset weekOffset when the parent-selected date changes
+  useEffect(() => { setWeekOffset(0); }, [selectedDate]);
+
+  // Get week boundaries — offset by weekOffset weeks from the selected (or current) date
+  const currentWeek = (() => {
+    const base = selectedDate || new Date().toISOString().split('T')[0];
+    if (weekOffset === 0) return base;
+    const d = new Date(base + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + weekOffset * 7);
+    return d.toISOString().split('T')[0];
+  })();
   const { weekStart, weekEnd } = getCanonicalWeekBoundaries(currentWeek);
 
   // Generate week dates array (Mon-Sun)
@@ -1326,6 +1337,34 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   };
 
   const todayUnallocated = (weeklySchedule?.unallocated || []).filter(v => v.date === dayDate);
+
+  // ── Client rows for People Planner view ─────────────────────────────────
+  // Invert assignments: clientName → list of { empName, visit } (assigned) + empName=null (unallocated)
+  const clientRows: Map<string, { empName: string | null; visit: AssignedVisit }[]> = (() => {
+    const map = new Map<string, { empName: string | null; visit: AssignedVisit }[]>();
+    Object.entries(dayAssign).forEach(([empName, visits]) => {
+      (visits as AssignedVisit[]).forEach(visit => {
+        if (!map.has(visit.clientName)) map.set(visit.clientName, []);
+        map.get(visit.clientName)!.push({ empName, visit });
+      });
+    });
+    todayUnallocated.forEach(uv => {
+      if (!map.has(uv.clientName)) map.set(uv.clientName, []);
+      map.get(uv.clientName)!.push({ empName: null, visit: { ...uv, travelTimeBefore: 0, travelTimeAfter: 0, score: 0 } as AssignedVisit });
+    });
+    return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+  })();
+
+  // Summary stats for the PP header bar
+  const todayAllocMins = Object.values(dayAssign).flatMap(vs => vs as AssignedVisit[]).reduce((s, v) => {
+    const [sh, sm] = v.startTime.split(':').map(Number);
+    const [eh, em] = v.endTime.split(':').map(Number);
+    return s + Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+  }, 0);
+  const todayUnallocMins = todayUnallocated.reduce((s, v) => s + (v.durationMinutes || 0), 0);
+  const todayTotalMins = todayAllocMins + todayUnallocMins;
+  const fmtHM = (m: number) => `${Math.floor(m / 60)}hr ${String(m % 60).padStart(2, '0')}min`;
+
   const filteredUnallocated = todayUnallocated.filter(v => {
     const ms = leftSearch === '' || v.clientName.toLowerCase().includes(leftSearch.toLowerCase());
     const mf = leftFilter === 'all' ||
@@ -1480,6 +1519,33 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       {/* ── Action bar ─────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 dark:border-gray-700" style={{ height: 56, borderBottom: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, flexShrink: 0, boxShadow: '0 1px 3px rgba(15,23,42,.03)' }}>
 
+        {/* Week navigation */}
+        {(() => {
+          const fmtShort = (iso: string) => { const [, mo, d] = iso.split('-'); return `${d}/${mo}`; };
+          const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(weekEnd)}`;
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#F1F5F9', borderRadius: 10, padding: '0 4px', height: 38, flexShrink: 0 }}>
+              <button
+                onClick={() => setWeekOffset(o => o - 1)}
+                title="Previous week"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => (e.currentTarget.style.background = 'rgba(37,99,235,.1)')}
+                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              >‹</button>
+              <span style={{ fontSize: 11, fontWeight: 700, color: weekOffset === 0 ? '#2563EB' : '#0F172A', whiteSpace: 'nowrap', padding: '0 2px', minWidth: 80, textAlign: 'center' }}>
+                {weekOffset === 0 ? 'This week' : weekLabel}
+              </span>
+              <button
+                onClick={() => setWeekOffset(o => o + 1)}
+                title="Next week"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => (e.currentTarget.style.background = 'rgba(37,99,235,.1)')}
+                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              >›</button>
+            </div>
+          );
+        })()}
+
         {/* Day tabs */}
         <div style={{ display: 'flex', gap: 2, background: '#F1F5F9', padding: 4, borderRadius: 10, flexShrink: 0 }}>
           {weekDates.map((date, idx) => {
@@ -1525,6 +1591,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
             data-testid="input-search-employee"
           />
         </div>
+
+        {/* People Planner view toggle */}
+        <button
+          onClick={() => setPpView(v => !v)}
+          title={ppView ? 'Switch to Carer view' : 'Switch to People Planner split view (Clients + CAREGivers)'}
+          style={{
+            height: 34, padding: '0 12px', border: `1.5px solid ${ppView ? '#7C3AED' : '#E2E8F0'}`,
+            borderRadius: 9, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+            background: ppView ? 'linear-gradient(135deg,#7C3AED,#5B21B6)' : 'white',
+            color: ppView ? 'white' : '#475569',
+            boxShadow: ppView ? '0 2px 8px rgba(124,58,237,.25)' : 'none',
+          }}
+        >
+          <span style={{ fontSize: 13 }}>⊞</span> {ppView ? 'People Planner' : 'People Planner'}
+        </button>
 
         <div style={{ flex: 1 }} />
 
@@ -1704,10 +1785,26 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
           {/* Scrollable timeline */}
           <div style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
+
+            {/* PP Summary header bar */}
+            {ppView && weeklySchedule && (
+              <div style={{ position: 'sticky', top: 0, zIndex: 8, background: '#1E293B', color: 'white', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, fontWeight: 600, borderBottom: '1px solid #334155' }}>
+                <span style={{ fontWeight: 700, fontSize: 12 }}>{dayLabel}</span>
+                <span style={{ opacity: .6 }}>·</span>
+                <span>Total: <strong>{fmtHM(todayTotalMins)}</strong></span>
+                <span style={{ opacity: .6 }}>·</span>
+                <span style={{ color: todayUnallocMins > 0 ? '#FCA5A5' : '#86EFAC' }}>
+                  Unallocated: <strong>{fmtHM(todayUnallocMins)}</strong>
+                </span>
+                <span style={{ opacity: .6 }}>·</span>
+                <span style={{ color: '#86EFAC' }}>Allocated: <strong>{fmtHM(todayAllocMins)}</strong></span>
+              </div>
+            )}
+
             {/* Hours header */}
-            <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, position: 'sticky', top: 0, background: 'white', zIndex: 5, borderBottom: '1px solid #E5E9F2' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, position: 'sticky', top: ppView && weeklySchedule ? 33 : 0, background: 'white', zIndex: 5, borderBottom: '1px solid #E5E9F2' }}>
               <div style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#0F172A', background: '#F8FAFC', borderRight: '1px solid #E5E9F2' }}>
-                CAREGivers ({timelineEmpNames.length})
+                {ppView ? `Schedule (${dayLabel})` : `CAREGivers (${timelineEmpNames.length})`}
               </div>
               {TIMELINE_HOURS.map(h => {
                 const isNow = h === new Date().getHours() && dayDate === new Date().toISOString().split('T')[0];
@@ -1718,6 +1815,136 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 );
               })}
             </div>
+
+            {/* ── People Planner: Clients section ───────────────────── */}
+            {ppView && weeklySchedule && clientRows.size > 0 && (() => {
+              const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+              const nowX = ((nowMinutes / 60) - TIMELINE_START) * HOUR_WIDTH;
+              const showNow = dayDate === new Date().toISOString().split('T')[0] && nowX >= 0 && nowX <= (TIMELINE_END - TIMELINE_START) * HOUR_WIDTH;
+              return (
+                <>
+                  {/* Clients section label */}
+                  <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, background: '#F0FDF4', borderBottom: '1px solid #BBF7D0', position: 'sticky', top: ppView && weeklySchedule ? 66 : 33, zIndex: 4 }}>
+                    <div style={{ padding: '5px 14px', fontSize: 11, fontWeight: 800, color: '#047857', background: '#ECFDF5', borderRight: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span>👤</span> Clients ({clientRows.size})
+                    </div>
+                    {TIMELINE_HOURS.map(h => (
+                      <div key={h} style={{ borderLeft: '1px solid #D1FAE5', background: '#F0FDF4' }} />
+                    ))}
+                  </div>
+
+                  {/* Client rows */}
+                  {[...clientRows.entries()].map(([clientName, entries]) => {
+                    const assignedEntries = entries.filter(e => e.empName !== null);
+                    const unallocEntries = entries.filter(e => e.empName === null);
+                    return (
+                      <div key={clientName} style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: 72, position: 'relative', background: 'white' }}>
+                        {/* Client info cell */}
+                        <div style={{ padding: '7px 10px', background: '#FAFAFA', borderRight: '1px solid #E5E9F2', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', left: 0, zIndex: 2, cursor: 'pointer' }}
+                          onClick={() => {
+                            if (unallocEntries.length > 0) {
+                              const uv = unallocEntries[0].visit;
+                              const fullUv = todayUnallocated.find(v => v.id === uv.id || (v.clientName === uv.clientName && v.startTime === uv.startTime));
+                              if (fullUv) setSelectedVisit(fullUv);
+                            }
+                          }}
+                        >
+                          <div style={{ width: 30, height: 30, borderRadius: 8, background: avatarGradient(clientName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                            {avatarInitials(clientName)}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientName}</div>
+                            <div style={{ fontSize: 9, color: '#64748B', marginTop: 1 }}>
+                              {assignedEntries.length > 0 ? `${assignedEntries.length} visit${assignedEntries.length > 1 ? 's' : ''}` : ''}
+                              {unallocEntries.length > 0 ? ` · ${unallocEntries.length} unallocated` : ''}
+                            </div>
+                          </div>
+                          {unallocEntries.length > 0 && (
+                            <span style={{ width: 7, height: 7, borderRadius: 99, background: '#EF4444', flexShrink: 0 }} title="Has unallocated visits" />
+                          )}
+                        </div>
+
+                        {/* Hour grid cells */}
+                        {TIMELINE_HOURS.map(h => (
+                          <div key={h} style={{ borderLeft: '1px solid #F1F5F9' }} />
+                        ))}
+
+                        {/* Visit blocks overlay */}
+                        <div style={{ position: 'absolute', top: 0, left: INFO_WIDTH, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 3 }}>
+                          {/* Red now-line */}
+                          {showNow && (
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: nowX, width: 2, background: '#EF4444', zIndex: 10, opacity: .7 }} />
+                          )}
+
+                          {/* Assigned visit blocks */}
+                          {assignedEntries.map(({ empName, visit }, vi) => {
+                            const xLeft = timeToX(visit.startTime);
+                            const wPx = Math.max(48, durationToW(visit.startTime, visit.endTime));
+                            const cW = Math.max(44, wPx - 3);
+                            return (
+                              <div
+                                key={vi}
+                                style={{
+                                  position: 'absolute', top: 10, left: xLeft, width: cW, height: 50,
+                                  borderRadius: 8, padding: '5px 8px',
+                                  background: 'linear-gradient(135deg,#10B981,#059669)',
+                                  color: 'white', fontSize: 10, fontWeight: 700,
+                                  boxShadow: '0 2px 8px rgba(16,185,129,.25)',
+                                  overflow: 'hidden', cursor: 'default',
+                                  pointerEvents: 'auto',
+                                }}
+                                title={`${visit.clientName} · ${visit.startTime}–${visit.endTime} · ${empName}`}
+                              >
+                                <div style={{ fontSize: cW < 70 ? 9 : 10, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{empName}</div>
+                                {cW >= 54 && <div style={{ fontSize: 9, opacity: .85, lineHeight: 1.1 }}>{visit.startTime}–{visit.endTime}</div>}
+                                {cW >= 80 && visit.serviceType && <div style={{ fontSize: 8, opacity: .75, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType}</div>}
+                              </div>
+                            );
+                          })}
+
+                          {/* Unallocated visit blocks — muted/striped */}
+                          {unallocEntries.map(({ visit }, vi) => {
+                            const xLeft = timeToX(visit.startTime);
+                            const wPx = Math.max(48, durationToW(visit.startTime, visit.endTime));
+                            const cW = Math.max(44, wPx - 3);
+                            const uv = todayUnallocated.find(v => v.id === visit.id || (v.clientName === visit.clientName && v.startTime === visit.startTime));
+                            return (
+                              <div
+                                key={vi}
+                                style={{
+                                  position: 'absolute', top: 10, left: xLeft, width: cW, height: 50,
+                                  borderRadius: 8, padding: '5px 8px',
+                                  background: 'repeating-linear-gradient(45deg,#FEF2F2,#FEF2F2 5px,#FEE2E2 5px,#FEE2E2 10px)',
+                                  border: '1.5px dashed #FCA5A5',
+                                  color: '#DC2626', fontSize: 10, fontWeight: 700,
+                                  overflow: 'hidden', cursor: 'pointer',
+                                  pointerEvents: 'auto',
+                                }}
+                                title={`Unallocated · ${visit.startTime}–${visit.endTime}`}
+                                onClick={e => { e.stopPropagation(); if (uv) setSelectedVisit(uv); }}
+                              >
+                                <div style={{ fontSize: cW < 70 ? 9 : 10, fontWeight: 800, lineHeight: 1.1 }}>Unallocated</div>
+                                {cW >= 54 && <div style={{ fontSize: 9, opacity: .85, lineHeight: 1.1 }}>{visit.startTime}–{visit.endTime}</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* CAREGivers section label */}
+                  <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, background: '#EFF6FF', borderBottom: '1px solid #BFDBFE', borderTop: '2px solid #BFDBFE', position: 'sticky', top: ppView && weeklySchedule ? 66 : 33, zIndex: 4 }}>
+                    <div style={{ padding: '5px 14px', fontSize: 11, fontWeight: 800, color: '#1D4ED8', background: '#EFF6FF', borderRight: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span>🚗</span> CAREGivers ({timelineEmpNames.length})
+                    </div>
+                    {TIMELINE_HOURS.map(h => (
+                      <div key={h} style={{ borderLeft: '1px solid #DBEAFE', background: '#EFF6FF' }} />
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
 
             {timelineEmpNames.length === 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#475569', flexDirection: 'column', gap: 8 }}>
