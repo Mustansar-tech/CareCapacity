@@ -59,8 +59,6 @@ export interface MatchedSlot {
   forwardTravelWarning?: boolean;
   // Estimated travel time (minutes) from enquiry postcode to next visit (for display)
   forwardTravelMinutes?: number;
-  // Estimated travel time (minutes) from enquiry postcode back to the employee's home (for display)
-  returnHomeMins?: number;
 }
 
 export interface MatchResult {
@@ -512,26 +510,8 @@ function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqE
 }
 
 /**
- * Returns the estimated enquiry→home travel time for the card's right leg.
- * Car employees: reuse the ORS home→enquiry value (symmetric approximation, already computed).
- * Walker / public: haversine estimate.
+ * Helper to get departure info for a specific date
  */
-function getReturnHomeMins(
-  empName: string,
-  transportMode: string | undefined,
-  clientLocation: { lat: number; lng: number } | undefined,
-  homeCoords: { lat: number; lng: number } | undefined,
-  travelTimeMap: Map<string, TravelResult> | undefined
-): number | undefined {
-  if (!clientLocation || !homeCoords) return undefined;
-  const isCar = !transportMode || transportMode === 'car';
-  if (isCar) {
-    const travelResult = travelTimeMap?.get(empName);
-    if (travelResult?.travelMinutes != null) return travelResult.travelMinutes;
-  }
-  return travelTimeService.heuristicEstimate(clientLocation, homeCoords, transportMode);
-}
-
 function getSlotDepartureInfo(empName: string, dateStr: string, travelTimeMap?: Map<string, TravelResult>): { departureSummary?: string; departureSource?: 'home' | 'last-client'; travelMinutes?: number } {
   if (!travelTimeMap || !travelTimeMap.has(empName)) {
     return {};
@@ -766,13 +746,6 @@ function matchEmployeesForVisit(
         }
 
         if (bestSlotForDay) {
-          bestSlotForDay.returnHomeMins = getReturnHomeMins(
-            empName,
-            weeklyData.transportMode,
-            clientLocation,
-            weeklyData.homeLat != null && weeklyData.homeLng != null ? { lat: weeklyData.homeLat, lng: weeklyData.homeLng } : undefined,
-            travelTimeMap
-          );
           matchedSlots.push(bestSlotForDay);
           totalScore += bestScoreForDay;
           if (bestSlotForDay.matchType === 'exact') exactDayMatches++;
@@ -847,13 +820,6 @@ function matchEmployeesForVisit(
             nextVisit: nextVisitForSlot2,
             forwardTravelWarning: altFwdWarning || undefined,
             forwardTravelMinutes: altFwdMins,
-            returnHomeMins: getReturnHomeMins(
-              empName,
-              weeklyData.transportMode,
-              clientLocation,
-              weeklyData.homeLat != null && weeklyData.homeLng != null ? { lat: weeklyData.homeLat, lng: weeklyData.homeLng } : undefined,
-              travelTimeMap
-            ),
             ...depInfo,
           });
           alternativeDayMatches++;
@@ -902,13 +868,6 @@ function matchEmployeesForVisit(
               nextVisit: nextVisitForSlot3,
               forwardTravelWarning: altAdjFwdWarning || undefined,
               forwardTravelMinutes: altAdjFwdMins,
-              returnHomeMins: getReturnHomeMins(
-                empName,
-                weeklyData.transportMode,
-                clientLocation,
-                weeklyData.homeLat != null && weeklyData.homeLng != null ? { lat: weeklyData.homeLat, lng: weeklyData.homeLng } : undefined,
-                travelTimeMap
-              ),
               ...depInfo,
             });
             alternativeDayMatches++;

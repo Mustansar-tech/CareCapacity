@@ -496,7 +496,7 @@ export function MatchResultsGrid({
                                                 <>
                                                   <div className="flex flex-col items-center flex-shrink-0">
                                                     <span className="text-[10px] font-black text-gray-800 dark:text-gray-100 mb-1.5">
-                                                      {(slotOnDay.returnHomeMins ?? displayMins) !== undefined ? `~${slotOnDay.returnHomeMins ?? displayMins}m` : ''}
+                                                      {displayMins !== undefined ? `~${displayMins}m` : ''}
                                                     </span>
                                                     <ArrowRight className="w-6 h-6 text-gray-500 dark:text-gray-400" />
                                                   </div>
