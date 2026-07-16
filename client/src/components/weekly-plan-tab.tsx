@@ -1719,8 +1719,42 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               .filter(v => v.clientName === selectedClient && v.date === date);
             const isEmpty = dayAssigned.length === 0 && dayUnalloc.length === 0;
 
+            // ── Lane assignment: greedy stacking to avoid overlaps ──────────
+            const BLOCK_H  = 56;
+            const LANE_GAP = 6;
+            const LANE_STRIDE = BLOCK_H + LANE_GAP;
+            const TOP_PAD  = 8;
+
+            // Build a unified list of all blocks sorted by start time
+            type LanedBlock =
+              | { kind: 'assigned'; entry: typeof dayAssigned[number]; lane: number }
+              | { kind: 'unalloc';  visit: (typeof dayUnalloc)[number];  lane: number };
+
+            const allBlocks: LanedBlock[] = [
+              ...dayAssigned.map(e => ({ kind: 'assigned' as const, entry: e, lane: 0 })),
+              ...dayUnalloc.map(v  => ({ kind: 'unalloc'  as const, visit: v,  lane: 0 })),
+            ].sort((a, b) => {
+              const aStart = a.kind === 'assigned' ? a.entry.visit.startTime : a.visit.startTime;
+              const bStart = b.kind === 'assigned' ? b.entry.visit.startTime : b.visit.startTime;
+              return aStart.localeCompare(bStart);
+            });
+
+            // Greedy lane assignment: laneEnd[i] = end-time (minutes) of last block in lane i
+            const laneEnd: number[] = [];
+            allBlocks.forEach(block => {
+              const startMin = timeToMinutes(block.kind === 'assigned' ? block.entry.visit.startTime : block.visit.startTime);
+              const lane = laneEnd.findIndex(e => e <= startMin);
+              const assignedLane = lane === -1 ? laneEnd.length : lane;
+              block.lane = assignedLane;
+              const endMin = timeToMinutes(block.kind === 'assigned' ? block.entry.visit.endTime : block.visit.endTime);
+              laneEnd[assignedLane] = endMin;
+            });
+
+            const numLanes  = Math.max(1, laneEnd.length);
+            const rowMinH   = isEmpty ? 52 : TOP_PAD + numLanes * LANE_STRIDE + 4;
+
             return (
-              <div key={date} style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: isEmpty ? 52 : 80, position: 'relative', background: isEmpty ? '#FAFAFA' : 'transparent', opacity: isEmpty ? 0.6 : 1 }}>
+              <div key={date} style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: rowMinH, position: 'relative', background: isEmpty ? '#FAFAFA' : 'transparent', opacity: isEmpty ? 0.6 : 1 }}>
                 {/* Day info cell — sticky left */}
                 <div style={{ padding: '8px 12px', background: '#F8FAFC', borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, position: 'sticky', left: 0, zIndex: 2 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1741,6 +1775,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           {dayUnalloc.length} unalloc
                         </span>
                       )}
+                      {numLanes > 1 && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: '#FFF7ED', color: '#C2410C' }}>
+                          double-up
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1753,35 +1792,37 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                 {/* Visit block overlay */}
                 {!isEmpty && (
                   <div style={{ position: 'absolute', top: 0, left: INFO_WIDTH, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 3 }}>
-                    {/* Assigned visit blocks */}
-                    {dayAssigned.map((entry, ei) => {
-                      const xLeft = timeToX(entry.visit.startTime);
-                      const wPx   = durationToW(entry.visit.startTime, entry.visit.endTime);
-                      const col   = empColorMap.get(entry.empName) ?? EMP_COLORS[0];
-                      const shortEmp = entry.empName.split(' ').slice(0, 2).map((n, i) => i === 0 ? n : n[0] + '.').join(' ');
-                      return (
-                        <div key={ei} style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(52, wPx), height: 56, borderRadius: 8, background: col.bg, border: `1.5px solid ${col.border}`, display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: col.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{shortEmp}</div>
-                          <div style={{ fontSize: 9, fontWeight: 600, color: col.text, opacity: 0.8, lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
-                          {entry.visit.serviceType && (
-                            <div style={{ fontSize: 8, color: col.text, opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {/* Unallocated visit blocks */}
-                    {dayUnalloc.map((v, ui) => {
-                      const xLeft = timeToX(v.startTime);
-                      const wPx   = durationToW(v.startTime, v.endTime);
-                      return (
-                        <div key={ui} style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(52, wPx), height: 56, borderRadius: 8, background: '#FEF2F2', border: '1.5px dashed #EF4444', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(239,68,68,.1)' }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: '#DC2626', lineHeight: 1.2 }}>⚠️ Unalloc</div>
-                          <div style={{ fontSize: 9, fontWeight: 600, color: '#991B1B', opacity: 0.9, lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
-                          {v.serviceType && (
-                            <div style={{ fontSize: 8, color: '#991B1B', opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
-                          )}
-                        </div>
-                      );
+                    {allBlocks.map((block, bi) => {
+                      const topPx = TOP_PAD + block.lane * LANE_STRIDE;
+                      if (block.kind === 'assigned') {
+                        const { entry } = block;
+                        const xLeft = timeToX(entry.visit.startTime);
+                        const wPx   = durationToW(entry.visit.startTime, entry.visit.endTime);
+                        const col   = empColorMap.get(entry.empName) ?? EMP_COLORS[0];
+                        const shortEmp = entry.empName.split(' ').slice(0, 2).map((n, i) => i === 0 ? n : n[0] + '.').join(' ');
+                        return (
+                          <div key={`a-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: col.bg, border: `1.5px solid ${col.border}`, display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: col.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{shortEmp}</div>
+                            <div style={{ fontSize: 9, fontWeight: 600, color: col.text, opacity: 0.8, lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
+                            {entry.visit.serviceType && (
+                              <div style={{ fontSize: 8, color: col.text, opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        const { visit: v } = block;
+                        const xLeft = timeToX(v.startTime);
+                        const wPx   = durationToW(v.startTime, v.endTime);
+                        return (
+                          <div key={`u-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: '#FEF2F2', border: '1.5px dashed #EF4444', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(239,68,68,.1)' }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: '#DC2626', lineHeight: 1.2 }}>⚠️ Unalloc</div>
+                            <div style={{ fontSize: 9, fontWeight: 600, color: '#991B1B', opacity: 0.9, lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
+                            {v.serviceType && (
+                              <div style={{ fontSize: 8, color: '#991B1B', opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
+                            )}
+                          </div>
+                        );
+                      }
                     })}
                   </div>
                 )}
