@@ -13,6 +13,17 @@ router.post('/admin/re-geocode-clients', requireRole('admin'), asyncHandler(asyn
   res.json({ success: true, ...result });
 }));
 
+router.post('/admin/clear-map-locations', requireRole('admin'), asyncHandler(async (req, res) => {
+  const { resolveBranch } = await import('../utils/helpers');
+  const { clearEmployeeLocations, clearClientLocations } = await import('../repositories/geo.repository');
+  const branchId = await resolveBranch(req);
+  const [empCount, clientCount] = await Promise.all([
+    clearEmployeeLocations(branchId),
+    clearClientLocations(branchId),
+  ]);
+  res.json({ success: true, employeesRemoved: empCount, clientsRemoved: clientCount });
+}));
+
 export function registerDebugRoutes(app: { use: Function }): void {
   app.use('/api', router);
 }

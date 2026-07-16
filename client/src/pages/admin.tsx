@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
   Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft,
-  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail, Trash2
+  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail, Trash2, MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranch } from "@/contexts/BranchContext";
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   admin:      { label: 'Administrator', color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
@@ -540,6 +541,7 @@ function LeaverRecipientManager() {
 
 function AutomationTab() {
   const { toast } = useToast();
+  const { selectedBranchId } = useBranch();
   const [lastResult, setLastResult] = useState<WeeklySyncResult | null>(null);
   const [lastReportResult, setLastReportResult] = useState<LeaverReportResult | null>(null);
   const [selectedWeeks, setSelectedWeeks] = useState<Set<'previous' | 'current' | 'next'>>(
@@ -572,6 +574,26 @@ function AutomationTab() {
     },
     onError: (err: Error) => {
       toast({ title: 'Sync failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const clearMapMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/admin/clear-map-locations?branchId=${selectedBranchId}`, {});
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message ?? 'Unknown error');
+      }
+      return res.json() as Promise<{ employeesRemoved: number; clientsRemoved: number }>;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Map data cleared',
+        description: `Removed ${data.employeesRemoved} care pro${data.employeesRemoved !== 1 ? 's' : ''} and ${data.clientsRemoved} client${data.clientsRemoved !== 1 ? 's' : ''} from the map. They will reappear automatically after the next data upload.`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Clear failed', description: err.message, variant: 'destructive' });
     },
   });
 
@@ -783,6 +805,78 @@ function AutomationTab() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Map data maintenance card */}
+      <Card className="border-0 shadow-sm border-l-4 border-l-amber-400">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950">
+              <MapPin className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Workforce &amp; Client Map — Clear stale pins</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Removes terminated care pros and discharged clients that are still showing on the map for the selected branch
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            The map is refreshed automatically on every data upload. Use this if you see old or terminated people still
+            appearing — it wipes the map for the current branch and the pins will rebuild cleanly from your next upload.
+          </p>
+          <div className="flex items-center gap-3">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={!selectedBranchId || clearMapMutation.isPending}
+                  className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40"
+                >
+                  {clearMapMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {clearMapMutation.isPending ? 'Clearing…' : 'Clear map data for this branch'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Clear map data?</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  This will remove all care pro and client pins from the Workforce &amp; Client Map for the currently
+                  selected branch. The map will be empty until you process a new data upload.
+                </p>
+                <DialogFooter className="gap-2 mt-2">
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <DialogClose asChild>
+                    <Button
+                      variant="destructive"
+                      onClick={() => clearMapMutation.mutate()}
+                    >
+                      Yes, clear map
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            {clearMapMutation.isSuccess && !clearMapMutation.isPending && (
+              <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Done — map cleared</span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Going forward, terminated care pros and discharged clients are removed automatically whenever you upload new data.
+          </p>
         </CardContent>
       </Card>
     </div>

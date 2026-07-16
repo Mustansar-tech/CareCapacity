@@ -12,7 +12,7 @@ import type {
   RouteStop, InsertRouteStop,
   TravelTimeCache, InsertTravelTimeCache,
 } from '@shared/schema';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, sql, notInArray } from 'drizzle-orm';
 
 export async function upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation> {
   const [result] = await db
@@ -62,7 +62,7 @@ export async function deleteEmployeeLocationsNotIn(branchId: string, activeEmplo
     .where(
       and(
         eq(employeeLocations.branchId, branchId),
-        sql`${employeeLocations.employeeName} NOT IN ${activeEmployeeNames}`,
+        notInArray(employeeLocations.employeeName, activeEmployeeNames),
       ),
     );
   return result.rowCount ?? 0;
@@ -115,7 +115,7 @@ export async function deleteClientLocationsNotIn(branchId: string, activeClientN
     .where(
       and(
         eq(clientLocations.branchId, branchId),
-        sql`${clientLocations.clientName} NOT IN ${activeClientNames}`,
+        notInArray(clientLocations.clientName, activeClientNames),
       ),
     );
   return result.rowCount ?? 0;
