@@ -1410,9 +1410,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     const scheduledOver = scheduledMins > contractedMins;
 
     return (
-      <div style={{ background: '#F4F6FB', height: '100%', overflow: 'auto' }}>
+      <div style={{ background: '#F4F6FB', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* ── Weekly view header ── */}
-        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '10px 20px 8px', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '10px 20px 8px', flexShrink: 0, zIndex: 20 }}>
 
           {/* Row 1: employee name — same colour as timeline */}
           <div style={{ fontSize: 15, fontWeight: 700, color: genderColor(selectedEmployee), marginBottom: 6 }}>
@@ -1459,50 +1459,167 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
           </div>
         </div>
-        <div style={{ padding: '16px 20px' }} className="space-y-3">
+        {/* ── Gantt timeline body ── */}
+        <div style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
+          {/* Hours header — sticky to top of scroll container */}
+          <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, position: 'sticky', top: 0, background: 'white', zIndex: 5, borderBottom: '1px solid #E5E9F2' }}>
+            <div style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#0F172A', background: '#F8FAFC', borderRight: '1px solid #E5E9F2' }}>
+              Week · {weekDates.length} days
+            </div>
+            {TIMELINE_HOURS.map(h => (
+              <div key={h} style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, color: '#64748B', textAlign: 'center', borderLeft: '1px solid #E5E9F2', background: '#F8FAFC' }}>
+                {String(h).padStart(2, '0')}:00
+              </div>
+            ))}
+          </div>
+
+          {/* Day rows */}
           {weekDates.map((date, index) => {
             const dv = (weeklySchedule.assignments[date]?.[selectedEmployee] || []) as AssignedVisit[];
             const empForDate = data?.employeesByDate[date]?.find(e => e.employeeName === selectedEmployee);
-            // No record at all = carer doesn't work this day → skip
             if (!empForDate) return null;
             if (empForDate.status === 'Ad-hoc') return null;
-            // Show absent/holiday/sick days with a coloured indicator (only if there IS a record but no timeWindows)
-            if (!empForDate.timeWindows || empForDate.timeWindows.trim() === '') {
-              const absStyle = getAbsenceStyle(empForDate?.status || 'Unavailable');
-              return (
-                <div key={date} style={{ background: absStyle.bg, border: `1px solid ${absStyle.border}`, borderRadius: 12, overflow: 'hidden', opacity: 0.85 }}>
-                  <div style={{ borderBottom: `1px solid ${absStyle.border}20`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{dayNames[index]}</span>
-                      <span style={{ fontSize: 12, color: '#334155' }}>{date.split('-').slice(1).reverse().join('/')}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: absStyle.text }}>{absStyle.icon} {absStyle.label}</span>
-                    </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: `${absStyle.border}18`, color: absStyle.text }}>
-                      Not available
-                    </span>
-                  </div>
-                  <div style={{ padding: '10px 16px' }}>
-                    <span style={{ fontSize: 12, color: absStyle.text, fontStyle: 'italic' }}>
-                      {empForDate?.status ? `Status: ${empForDate.status}` : 'No availability recorded for this day'}
-                    </span>
-                  </div>
-                </div>
-              );
-            }
+
+            const isAbsent = !empForDate.timeWindows || empForDate.timeWindows.trim() === '';
+            const absStyle = isAbsent ? getAbsenceStyle(empForDate?.status || 'Unavailable') : null;
+            const empLoc = employeeLocationMap.get(selectedEmployee);
+            const isWalker = !(empLoc?.transportMode?.toLowerCase() || '').includes('car');
+
             return (
-              <div key={date} style={{ background: 'white', border: '1px solid #E5E9F2', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E5E9F2', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{dayNames[index]}</span>
-                    <span style={{ fontSize: 12, color: '#334155' }}>{date.split('-').slice(1).reverse().join('/')}</span>
-                    <span style={{ fontSize: 11, color: '#334155' }}><Clock className="h-3 w-3 inline mr-1" />{empForDate.timeWindows}</span>
+              <div key={date} style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: `1px solid ${isAbsent ? (absStyle!.border + '30') : '#F1F5F9'}`, minHeight: 88, position: 'relative', background: isAbsent ? absStyle!.bg : 'transparent' }}>
+                {/* Day info cell — sticky left */}
+                <div style={{ padding: '8px 12px', background: isAbsent ? absStyle!.bg : '#F8FAFC', borderRight: `${isAbsent ? '2px' : '1px'} solid ${isAbsent ? absStyle!.border : '#E5E9F2'}`, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, position: 'sticky', left: 0, zIndex: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{dayNames[index]}</span>
+                    <span style={{ fontSize: 11, color: '#64748B' }}>{date.split('-').slice(1).reverse().join('/')}</span>
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: dv.length > 0 ? '#DBEAFE' : '#F1F5F9', color: dv.length > 0 ? '#1D4ED8' : '#64748B' }}>
-                    {dv.length} visits
-                  </span>
+                  {isAbsent ? (
+                    <span style={{ fontSize: 11, fontWeight: 600, color: absStyle!.text }}>{absStyle!.icon} {absStyle!.label}</span>
+                  ) : (
+                    <>
+                      {empForDate.timeWindows && (
+                        <span style={{ fontSize: 10, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empForDate.timeWindows}</span>
+                      )}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: dv.length > 0 ? '#1D4ED8' : '#64748B', background: dv.length > 0 ? '#DBEAFE' : '#F1F5F9', padding: '1px 8px', borderRadius: 20, display: 'inline-block', width: 'fit-content' }}>
+                        {dv.length} visit{dv.length !== 1 ? 's' : ''}
+                      </span>
+                    </>
+                  )}
                 </div>
-                <div style={{ padding: '12px 16px', overflowX: 'auto' }}>
-                  {renderRunFlow(selectedEmployee, date, dv)}
+
+                {/* Hour grid cells */}
+                {TIMELINE_HOURS.map(h => (
+                  <div key={h} style={{ borderLeft: `1px solid ${isAbsent ? absStyle!.border + '20' : '#F1F5F9'}` }} />
+                ))}
+
+                {/* Overlay: absence + availability bands + visit blocks + travel pills */}
+                <div style={{ position: 'absolute', top: 0, left: INFO_WIDTH, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 3 }}>
+
+                  {/* Full absence shading */}
+                  {isAbsent && (
+                    <div style={{ position: 'absolute', inset: 0, background: `${absStyle!.border}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: absStyle!.text, background: `${absStyle!.border}25`, padding: '3px 14px', borderRadius: 99, border: `1px solid ${absStyle!.border}45`, whiteSpace: 'nowrap' }}>
+                        {absStyle!.icon} {empForDate?.status || absStyle!.label}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Availability window bands */}
+                  {!isAbsent && empForDate.timeWindows && parseTimeWindows(empForDate.timeWindows).map((w, wi) => {
+                    const xL = Math.max(0, (w.start / 60 - TIMELINE_START) * HOUR_WIDTH);
+                    const xR = Math.min((TIMELINE_END - TIMELINE_START) * HOUR_WIDTH, (w.end / 60 - TIMELINE_START) * HOUR_WIDTH);
+                    const barW = Math.max(0, xR - xL);
+                    if (barW <= 0) return null;
+                    return (
+                      <div key={wi} style={{ position: 'absolute', bottom: 5, left: xL, width: barW, height: 5, borderRadius: 3, background: isWalker ? 'rgba(16,185,129,.22)' : 'rgba(37,99,235,.18)', border: `1px solid ${isWalker ? 'rgba(16,185,129,.45)' : 'rgba(37,99,235,.38)'}` }} />
+                    );
+                  })}
+
+                  {/* Visit blocks + travel pills + break blocks */}
+                  {dv.map((visit, vi) => {
+                    const xLeft = timeToX(visit.startTime);
+                    const wPx   = durationToW(visit.startTime, visit.endTime);
+                    const travel = visit.travelTimeBefore;
+                    const showTravel = travel > 0 && travel < 999;
+                    const travelIcon = vi === 0 ? '🏠' : isWalker ? '🚶' : '🚗';
+
+                    return (
+                      <div key={vi}>
+                        {/* Travel pill before visit */}
+                        {showTravel && (
+                          <div style={{ position: 'absolute', top: 62, left: Math.max(2, xLeft - (vi === 0 ? 52 : 42)), height: 20, padding: '0 6px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap', background: travel > 30 ? '#FEF2F2' : travel > 20 ? '#FFFBEB' : '#ECFDF5', color: travel > 30 ? '#DC2626' : travel > 20 ? '#B45309' : '#047857', border: `1px solid ${travel > 30 ? '#FCA5A5' : travel > 20 ? '#FCD34D' : '#A7F3D0'}`, boxShadow: '0 2px 6px rgba(15,23,42,.08)' }}>
+                            {travelIcon} {travel}m
+                          </div>
+                        )}
+
+                        {/* Visit block */}
+                        <div style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(48, wPx), height: 50, borderRadius: 8, background: visitGradient(visit), border: '1.5px solid rgba(245,158,11,0.45)', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{visit.clientName}</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.85)', lineHeight: 1.3 }}>{visit.startTime}–{visit.endTime}</div>
+                          {visit.serviceType && (
+                            <div style={{ fontSize: 8, color: 'rgba(255,255,255,.7)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType.split('/')[0].trim()}</div>
+                          )}
+                        </div>
+
+                        {/* Break block for gaps ≥ 90 min */}
+                        {vi < dv.length - 1 && (() => {
+                          const nextV = dv[vi + 1];
+                          const currentEndMin = timeToMinutes(visit.endTime);
+                          const nextStartMin  = timeToMinutes(nextV.startTime);
+                          const gapMinutes    = nextStartMin - currentEndMin;
+                          if (gapMinutes < 90) return null;
+
+                          let travelToHome   = 0;
+                          let travelFromHome = (nextV.travelTimeBefore != null && nextV.travelTimeBefore < 999) ? nextV.travelTimeBefore : 0;
+                          if (empLoc?.homeLat && empLoc?.homeLng && visit.lat && visit.lng) {
+                            if (visit.travelTimeAfter != null && visit.travelTimeAfter < 999) {
+                              travelToHome = visit.travelTimeAfter;
+                            } else {
+                              const dist = haversineDistance({ lat: visit.lat, lng: visit.lng }, { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) });
+                              travelToHome = calculateTravelTime(dist, isWalker ? 'walking' : 'car');
+                            }
+                          }
+                          const breakTime     = Math.max(0, gapMinutes - travelToHome - travelFromHome);
+                          const breakStartStr = minutesToTime(currentEndMin + travelToHome);
+                          const breakEndStr   = minutesToTime(nextStartMin  - travelFromHome);
+                          const bxLeft        = timeToX(breakStartStr);
+                          const breakW        = Math.max(40, durationToW(breakStartStr, breakEndStr));
+                          const xVisitEnd     = timeToX(visit.endTime);
+                          return (
+                            <>
+                              {travelToHome > 0 && (
+                                <div style={{ position: 'absolute', top: 62, left: xVisitEnd + 4, height: 20, padding: '0 6px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap', background: '#FFF7ED', color: '#B45309', border: '1px solid #FCD34D', boxShadow: '0 2px 6px rgba(15,23,42,.08)' }}>
+                                  {isWalker ? '🚶' : '🚗'} {travelToHome}m
+                                </div>
+                              )}
+                              <div style={{ position: 'absolute', top: 12, left: bxLeft, width: breakW, height: 50, borderRadius: 8, padding: '4px 6px', background: 'rgba(251,146,60,.12)', border: '1.5px dashed #F97316', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 3, overflow: 'hidden' }}>
+                                <span style={{ fontSize: 13, lineHeight: 1 }}>🏠</span>
+                                <span style={{ fontSize: 8, fontWeight: 700, color: '#9A3412', lineHeight: 1.3, marginTop: 1 }}>Break</span>
+                                <span style={{ fontSize: 8, fontWeight: 600, color: '#C2410C', lineHeight: 1.2 }}>{breakTime}m</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+
+                  {/* Back-home travel pill after last visit */}
+                  {dv.length > 0 && (() => {
+                    const lastV = dv[dv.length - 1];
+                    let travelHome = lastV.travelTimeAfter;
+                    if ((travelHome === undefined || travelHome >= 999) && empLoc?.homeLat && empLoc?.homeLng && lastV.lat && lastV.lng) {
+                      const dist = haversineDistance({ lat: lastV.lat, lng: lastV.lng }, { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) });
+                      travelHome = calculateTravelTime(dist, isWalker ? 'walking' : 'car');
+                    }
+                    if (!travelHome || travelHome >= 999) return null;
+                    const xEnd = timeToX(lastV.endTime);
+                    return (
+                      <div style={{ position: 'absolute', top: 62, left: xEnd + 4, height: 20, padding: '0 6px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 800, zIndex: 6, whiteSpace: 'nowrap', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', boxShadow: '0 2px 6px rgba(15,23,42,.08)' }}>
+                        🏠 {travelHome}m
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -1538,9 +1655,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     const clientLoc = locationsData?.clients.find(c => c.clientName === selectedClient);
 
     return (
-      <div style={{ background: '#F4F6FB', height: '100%', overflow: 'auto' }}>
+      <div style={{ background: '#F4F6FB', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '10px 20px 8px', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ background: 'white', borderBottom: '1px solid #E5E9F2', padding: '10px 20px 8px', flexShrink: 0, zIndex: 20 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#059669', marginBottom: 6 }}>
             {selectedClient}
             {clientLoc?.addressLine && (
@@ -1575,8 +1692,21 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </div>
         </div>
 
-        {/* Day cards */}
-        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* ── Gantt timeline body ── */}
+        <div style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
+          {/* Hours header — sticky to top of scroll container */}
+          <div style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, position: 'sticky', top: 0, background: 'white', zIndex: 5, borderBottom: '1px solid #E5E9F2' }}>
+            <div style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#059669', background: '#F8FAFC', borderRight: '1px solid #E5E9F2' }}>
+              Week · {weekDates.length} days
+            </div>
+            {TIMELINE_HOURS.map(h => (
+              <div key={h} style={{ padding: '10px 4px', fontSize: 11, fontWeight: 600, color: '#64748B', textAlign: 'center', borderLeft: '1px solid #E5E9F2', background: '#F8FAFC' }}>
+                {String(h).padStart(2, '0')}:00
+              </div>
+            ))}
+          </div>
+
+          {/* Day rows */}
           {weekDates.map((date, index) => {
             const dayAssigned = Object.entries(weeklySchedule?.assignments[date] || {})
               .flatMap(([empName, visits]) =>
@@ -1587,79 +1717,74 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
               .sort((a, b) => a.visit.startTime.localeCompare(b.visit.startTime));
             const dayUnalloc = (weeklySchedule?.unallocated || [])
               .filter(v => v.clientName === selectedClient && v.date === date);
-
-            if (dayAssigned.length === 0 && dayUnalloc.length === 0) {
-              return (
-                <div key={date} style={{ background: '#F8FAFC', border: '1px dashed #E2E8F0', borderRadius: 12, padding: '10px 16px', opacity: 0.6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>{dayNames[index]}</span>
-                    <span style={{ fontSize: 11, color: '#94A3B8' }}>{date.split('-').slice(1).reverse().join('/')}</span>
-                    <span style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic' }}>No visits</span>
-                  </div>
-                </div>
-              );
-            }
+            const isEmpty = dayAssigned.length === 0 && dayUnalloc.length === 0;
 
             return (
-              <div key={date} style={{ background: 'white', border: '1px solid #E5E9F2', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ background: '#F8FAFC', borderBottom: '1px solid #E5E9F2', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{dayNames[index]}</span>
-                    <span style={{ fontSize: 12, color: '#334155' }}>{date.split('-').slice(1).reverse().join('/')}</span>
+              <div key={date} style={{ display: 'grid', gridTemplateColumns: `${INFO_WIDTH}px repeat(${TIMELINE_HOURS.length}, ${HOUR_WIDTH}px)`, borderBottom: '1px solid #F1F5F9', minHeight: isEmpty ? 52 : 80, position: 'relative', background: isEmpty ? '#FAFAFA' : 'transparent', opacity: isEmpty ? 0.6 : 1 }}>
+                {/* Day info cell — sticky left */}
+                <div style={{ padding: '8px 12px', background: '#F8FAFC', borderRight: '1px solid #E5E9F2', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, position: 'sticky', left: 0, zIndex: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{dayNames[index]}</span>
+                    <span style={{ fontSize: 11, color: '#64748B' }}>{date.split('-').slice(1).reverse().join('/')}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {dayAssigned.length > 0 && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#DBEAFE', color: '#1D4ED8' }}>
-                        {dayAssigned.length} assigned
-                      </span>
-                    )}
-                    {dayUnalloc.length > 0 && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#FEE2E2', color: '#DC2626' }}>
-                        {dayUnalloc.length} unallocated
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {dayAssigned.map((entry, ei) => {
-                    const col = empColorMap.get(entry.empName) ?? EMP_COLORS[0];
-                    const durationMins = timeToMinutes(entry.visit.endTime) - timeToMinutes(entry.visit.startTime);
-                    return (
-                      <div key={ei} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: col.bg, border: `1px solid ${col.border}` }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 9, background: avatarGradient(entry.empName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
-                          {avatarInitials(entry.empName)}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>{entry.empName}</div>
-                          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
-                            {entry.visit.startTime} – {entry.visit.endTime}
-                            <span style={{ marginLeft: 6 }}>{durationMins}min</span>
-                            {entry.visit.serviceType && (
-                              <span style={{ marginLeft: 8, fontStyle: 'italic', color: col.text }}>{entry.visit.serviceType.split('/')[0].trim()}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {dayUnalloc.map((v, ui) => (
-                    <div key={ui} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: '#FEF2F2', border: '1.5px dashed #EF4444' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 9, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                        ⚠️
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: '#DC2626' }}>Unallocated</div>
-                        <div style={{ fontSize: 11, color: '#991B1B', marginTop: 2 }}>
-                          {v.startTime} – {v.endTime} · {v.durationMinutes}min
-                          {v.serviceType && <span style={{ marginLeft: 8, fontStyle: 'italic' }}>{v.serviceType.split('/')[0].trim()}</span>}
-                        </div>
-                        {v.unallocatedReason && (
-                          <div style={{ fontSize: 10, color: '#7F1D1D', marginTop: 3 }}>{v.unallocatedReason}</div>
-                        )}
-                      </div>
+                  {isEmpty ? (
+                    <span style={{ fontSize: 10, color: '#94A3B8', fontStyle: 'italic' }}>No visits</span>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {dayAssigned.length > 0 && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: '#DBEAFE', color: '#1D4ED8' }}>
+                          {dayAssigned.length} assigned
+                        </span>
+                      )}
+                      {dayUnalloc.length > 0 && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: '#FEE2E2', color: '#DC2626' }}>
+                          {dayUnalloc.length} unalloc
+                        </span>
+                      )}
                     </div>
-                  ))}
+                  )}
                 </div>
+
+                {/* Hour grid cells */}
+                {TIMELINE_HOURS.map(h => (
+                  <div key={h} style={{ borderLeft: '1px solid #F1F5F9' }} />
+                ))}
+
+                {/* Visit block overlay */}
+                {!isEmpty && (
+                  <div style={{ position: 'absolute', top: 0, left: INFO_WIDTH, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 3 }}>
+                    {/* Assigned visit blocks */}
+                    {dayAssigned.map((entry, ei) => {
+                      const xLeft = timeToX(entry.visit.startTime);
+                      const wPx   = durationToW(entry.visit.startTime, entry.visit.endTime);
+                      const col   = empColorMap.get(entry.empName) ?? EMP_COLORS[0];
+                      const shortEmp = entry.empName.split(' ').slice(0, 2).map((n, i) => i === 0 ? n : n[0] + '.').join(' ');
+                      return (
+                        <div key={ei} style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(52, wPx), height: 56, borderRadius: 8, background: col.bg, border: `1.5px solid ${col.border}`, display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: col.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{shortEmp}</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, color: col.text, opacity: 0.8, lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
+                          {entry.visit.serviceType && (
+                            <div style={{ fontSize: 8, color: col.text, opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* Unallocated visit blocks */}
+                    {dayUnalloc.map((v, ui) => {
+                      const xLeft = timeToX(v.startTime);
+                      const wPx   = durationToW(v.startTime, v.endTime);
+                      return (
+                        <div key={ui} style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(52, wPx), height: 56, borderRadius: 8, background: '#FEF2F2', border: '1.5px dashed #EF4444', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(239,68,68,.1)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: '#DC2626', lineHeight: 1.2 }}>⚠️ Unalloc</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, color: '#991B1B', opacity: 0.9, lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
+                          {v.serviceType && (
+                            <div style={{ fontSize: 8, color: '#991B1B', opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
