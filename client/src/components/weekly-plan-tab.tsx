@@ -1525,28 +1525,36 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         {/* Week navigation */}
         {(() => {
-          const fmtShort = (iso: string) => { const [, mo, d] = iso.split('-'); return `${d}/${mo}`; };
-          const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(weekEnd)}`;
+          // "Mon 14 Jul – Sun 20 Jul" format
+          const fmtLong = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+          const weekLabel = `${fmtLong(weekStart)} – ${fmtLong(weekEnd)}`;
+          // When offset ≠ 0 and we've finished fetching with no data → navigated week has no schedule
+          const noData = weekOffset !== 0 && !isFetchingSchedule && !weeklySchedule;
+          const navDisabled = isFetchingSchedule;
+          const btnColor = navDisabled ? '#CBD5E1' : '#2563EB';
+          const labelColor = weekOffset === 0 ? '#2563EB' : noData ? '#DC2626' : '#0F172A';
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#F1F5F9', borderRadius: 10, padding: '0 4px', height: 38, flexShrink: 0 }}>
               <button
-                onClick={() => !isFetchingSchedule && setWeekOffset(o => o - 1)}
+                onClick={() => !navDisabled && setWeekOffset(o => o - 1)}
                 title="Previous week"
-                disabled={isFetchingSchedule}
-                style={{ background: 'none', border: 'none', cursor: isFetchingSchedule ? 'default' : 'pointer', color: isFetchingSchedule ? '#CBD5E1' : '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
-                onMouseOver={e => { if (!isFetchingSchedule) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
+                disabled={navDisabled}
+                style={{ background: 'none', border: 'none', cursor: navDisabled ? 'default' : 'pointer', color: btnColor, padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => { if (!navDisabled) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >‹</button>
-              <span style={{ fontSize: 11, fontWeight: 700, color: weekOffset === 0 ? '#2563EB' : '#0F172A', whiteSpace: 'nowrap', padding: '0 2px', minWidth: 80, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                {isFetchingSchedule ? <span style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid #BFDBFE', borderTopColor: '#2563EB', borderRadius: 99, animation: 'spin 0.7s linear infinite' }} /> : null}
-                {weekOffset === 0 ? 'This week' : weekLabel}
+              <span style={{ fontSize: 11, fontWeight: 700, color: labelColor, whiteSpace: 'nowrap', padding: '0 2px', minWidth: 90, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                {isFetchingSchedule
+                  ? <span style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid #BFDBFE', borderTopColor: '#2563EB', borderRadius: 99, animation: 'spin 0.7s linear infinite' }} />
+                  : noData ? '⚠ No schedule' : null}
+                {!isFetchingSchedule && (weekOffset === 0 ? 'This week' : noData ? weekLabel : weekLabel)}
               </span>
               <button
-                onClick={() => !isFetchingSchedule && setWeekOffset(o => o + 1)}
+                onClick={() => !navDisabled && setWeekOffset(o => o + 1)}
                 title="Next week"
-                disabled={isFetchingSchedule}
-                style={{ background: 'none', border: 'none', cursor: isFetchingSchedule ? 'default' : 'pointer', color: isFetchingSchedule ? '#CBD5E1' : '#2563EB', padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
-                onMouseOver={e => { if (!isFetchingSchedule) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
+                disabled={navDisabled}
+                style={{ background: 'none', border: 'none', cursor: navDisabled ? 'default' : 'pointer', color: btnColor, padding: '0 8px', height: '100%', borderRadius: 7, fontSize: 16, display: 'flex', alignItems: 'center', fontWeight: 700 }}
+                onMouseOver={e => { if (!navDisabled) e.currentTarget.style.background = 'rgba(37,99,235,.1)'; }}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >›</button>
             </div>
@@ -1938,7 +1946,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                   title={`${visit.clientName} · ${visit.startTime}–${visit.endTime} · ${empName}`}
                                   onClick={e => {
                                     e.stopPropagation();
-                                    setSelectedTimelineVisit(isSelTV ? null : { empName: empName!, visit });
+                                    // Open the right info panel with this visit's details
+                                    const pseudo = {
+                                      id: visit.id, clientName: visit.clientName, startTime: visit.startTime,
+                                      endTime: visit.endTime, durationMinutes: visit.durationMinutes,
+                                      date: dayDate, serviceType: visit.serviceType, lat: visit.lat, lng: visit.lng,
+                                      unallocatedReason: `Assigned to: ${empName}`,
+                                    } as ClientVisit & { unallocatedReason: string };
+                                    setSelectedVisit(pseudo);
+                                    setRightPanelOpen(true);
                                   }}
                                 >
                                   <div style={{ fontSize: cW < 70 ? 9 : 10, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{empName}</div>
