@@ -1361,6 +1361,22 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const empColorMap = new Map<string, { bg: string; border: string; text: string }>();
   employeeNames.forEach((name, idx) => empColorMap.set(name, EMP_COLORS[idx % EMP_COLORS.length]));
 
+  // Rich gradients for client-view blocks (white text, matches carer-timeline style)
+  const EMP_GRADIENTS = [
+    'linear-gradient(135deg,#3B82F6,#2563EB)',
+    'linear-gradient(135deg,#22C55E,#16A34A)',
+    'linear-gradient(135deg,#A855F7,#9333EA)',
+    'linear-gradient(135deg,#F97316,#EA580C)',
+    'linear-gradient(135deg,#10B981,#059669)',
+    'linear-gradient(135deg,#F43F5E,#E11D48)',
+    'linear-gradient(135deg,#0EA5E9,#0284C7)',
+    'linear-gradient(135deg,#EAB308,#CA8A04)',
+    'linear-gradient(135deg,#EC4899,#DB2777)',
+    'linear-gradient(135deg,#8B5CF6,#7C3AED)',
+  ] as const;
+  const empGradientMap = new Map<string, string>();
+  employeeNames.forEach((name, idx) => empGradientMap.set(name, EMP_GRADIENTS[idx % EMP_GRADIENTS.length]));
+
   // ── Client-day data (inverted from dayAssign + unallocated) ──────────────
   const clientDayMap = new Map<string, { empName: string | null; visit: AssignedVisit; isUnallocated: boolean }[]>();
   Object.entries(dayAssign).forEach(([empName, visits]) => {
@@ -1798,14 +1814,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const { entry } = block;
                         const xLeft = timeToX(entry.visit.startTime);
                         const wPx   = durationToW(entry.visit.startTime, entry.visit.endTime);
-                        const col   = empColorMap.get(entry.empName) ?? EMP_COLORS[0];
-                        const shortEmp = entry.empName.split(' ').slice(0, 2).map((n, i) => i === 0 ? n : n[0] + '.').join(' ');
+                        const grad  = empGradientMap.get(entry.empName) ?? EMP_GRADIENTS[0];
                         return (
-                          <div key={`a-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: col.bg, border: `1.5px solid ${col.border}`, display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: col.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{shortEmp}</div>
-                            <div style={{ fontSize: 9, fontWeight: 600, color: col.text, opacity: 0.8, lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
+                          <div key={`a-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: grad, border: '1.5px solid rgba(255,255,255,0.25)', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 2px 6px rgba(0,0,0,.15)' }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,.2)' }}>{entry.empName}</div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.9)', lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
                             {entry.visit.serviceType && (
-                              <div style={{ fontSize: 8, color: col.text, opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
+                              <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
                             )}
                           </div>
                         );
@@ -1814,11 +1829,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const xLeft = timeToX(v.startTime);
                         const wPx   = durationToW(v.startTime, v.endTime);
                         return (
-                          <div key={`u-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: '#FEF2F2', border: '1.5px dashed #EF4444', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(239,68,68,.1)' }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: '#DC2626', lineHeight: 1.2 }}>⚠️ Unalloc</div>
-                            <div style={{ fontSize: 9, fontWeight: 600, color: '#991B1B', opacity: 0.9, lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
+                          <div key={`u-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: 'linear-gradient(135deg,#EF4444,#DC2626)', border: '1.5px dashed rgba(255,255,255,0.4)', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 2px 6px rgba(239,68,68,.3)' }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: 'white', lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,.2)' }}>Unallocated</div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.9)', lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
                             {v.serviceType && (
-                              <div style={{ fontSize: 8, color: '#991B1B', opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
+                              <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
                             )}
                           </div>
                         );
@@ -2200,12 +2215,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                           const xLeft   = timeToX(entry.visit.startTime);
                           const wPx     = durationToW(entry.visit.startTime, entry.visit.endTime);
                           const topPx   = DAY_TOP_PAD + entry.lane * DAY_LANE_STR;
-                          const col     = entry.isUnallocated
-                            ? { bg: '#FEF2F2', border: '#EF4444', text: '#B91C1C' }
-                            : empColorMap.get(entry.empName ?? '') ?? EMP_COLORS[0];
-                          const shortName = entry.isUnallocated
-                            ? 'Unallocated'
-                            : (entry.empName ?? '').split(' ').slice(0, 2).map((n, i) => i === 0 ? n : n[0] + '.').join(' ');
+                          const grad    = entry.isUnallocated
+                            ? 'linear-gradient(135deg,#EF4444,#DC2626)'
+                            : (empGradientMap.get(entry.empName ?? '') ?? EMP_GRADIENTS[0]);
+                          const displayName = entry.isUnallocated ? 'Unallocated' : (entry.empName ?? '');
 
                           return (
                             <div key={ei}
@@ -2217,20 +2230,20 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 width: Math.max(48, wPx),
                                 height: DAY_BLOCK_H,
                                 borderRadius: 8,
-                                background: col.bg,
-                                border: `1.5px ${entry.isUnallocated ? 'dashed' : 'solid'} ${col.border}`,
+                                background: grad,
+                                border: entry.isUnallocated ? '1.5px dashed rgba(255,255,255,0.4)' : '1.5px solid rgba(255,255,255,0.25)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 padding: '5px 7px',
                                 overflow: 'hidden',
                                 zIndex: 4,
-                                boxShadow: '0 1px 4px rgba(0,0,0,.06)',
+                                boxShadow: entry.isUnallocated ? '0 2px 6px rgba(239,68,68,.3)' : '0 2px 6px rgba(0,0,0,.15)',
                               }}
                             >
-                              <div style={{ fontSize: 10, fontWeight: 800, color: col.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{shortName}</div>
-                              <div style={{ fontSize: 9, fontWeight: 600, color: col.text, opacity: 0.8, lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,.2)' }}>{displayName}</div>
+                              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.9)', lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
                               {entry.visit.serviceType && (
-                                <div style={{ fontSize: 8, color: col.text, opacity: 0.6, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
+                                <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
                               )}
                             </div>
                           );
