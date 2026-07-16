@@ -469,6 +469,7 @@ function JoinerModal({
 
   const watchedStages = form.watch("completedStages");
   const watchedStatus = form.watch("status");
+  const watchedDesiredHours = form.watch("desiredWeeklyHours");
   const isHired = watchedStages?.includes('Hired') || watchedStatus === 'hired';
   const liveConfidence = watchedStatus === 'dropped' ? 0 : isHired ? 1.0 : calcMilestoneConfidence(watchedStages ?? []);
 
@@ -553,7 +554,7 @@ function JoinerModal({
               )} />
 
               <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => {
-                const isBank = field.value === 0;
+                const isBank = watchedDesiredHours === 0;
                 return (
                   <FormItem>
                     <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
