@@ -814,7 +814,7 @@ export async function processCapacityData(
 
   // ── Extract geographical data ──
   if (branchId) {
-    await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer, weekStart);
+    await extractAndStoreGeographicalData(cgData, guaranteed, branchId, options?.ghWorkbookBuffer);
   } else {
     logger.debug(`WARNING: No branchId provided - skipping geographical data extraction`);
   }
