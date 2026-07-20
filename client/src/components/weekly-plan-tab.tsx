@@ -1144,27 +1144,41 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     );
 
   // Recalculate travelTimeBefore for the newly inserted visit and the one that now
-  // follows it — both are stale after any manual insertion. Uses client-side haversine
-  // (same formula as the scheduling engine's warm-up pass) since ORS is server-only.
+  // follows it — both are stale after any manual insertion.
+  // Priority: ORS-seeded client cache (getTravelMinutes) → haversine fallback for
+  // cache misses so the display always shows something sensible.
   const recalcNeighbourTravelTimes = (visits: AssignedVisit[], insertedIdx: number, empName: string): AssignedVisit[] => {
     const empLoc = employeeLocationMap.get(empName);
     const rawMode = (empLoc?.transportMode || 'car').toLowerCase();
     const mode: 'car' | 'walking' | 'public' = rawMode.includes('car') ? 'car' : rawMode === 'public' ? 'public' : 'walking';
     const result = visits.map(v => ({ ...v }));
 
+    // Use ORS cache; fall back to haversine if not cached (cache miss returns 9999)
+    const resolveMinutes = (from: { lat: number; lng: number }, to: { lat: number; lng: number }): number => {
+      const cached = getTravelMinutes(from, to, mode);
+      if (cached < 999) return cached;
+      // Cache miss — haversine fallback so the badge still renders
+      const dist = haversineDistance(from, to);
+      return calculateTravelTime(dist, mode);
+    };
+
     // travelTimeBefore for the newly inserted visit
     const inserted = result[insertedIdx];
     if (inserted.lat && inserted.lng) {
       if (insertedIdx === 0) {
         if (empLoc?.homeLat && empLoc?.homeLng) {
-          const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: inserted.lat, lng: inserted.lng });
-          result[insertedIdx].travelTimeBefore = calculateTravelTime(dist, mode);
+          result[insertedIdx].travelTimeBefore = resolveMinutes(
+            { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) },
+            { lat: inserted.lat, lng: inserted.lng },
+          );
         }
       } else {
         const prev = result[insertedIdx - 1];
         if (prev.lat && prev.lng) {
-          const dist = haversineDistance({ lat: prev.lat, lng: prev.lng }, { lat: inserted.lat, lng: inserted.lng });
-          result[insertedIdx].travelTimeBefore = calculateTravelTime(dist, mode);
+          result[insertedIdx].travelTimeBefore = resolveMinutes(
+            { lat: prev.lat, lng: prev.lng },
+            { lat: inserted.lat, lng: inserted.lng },
+          );
         }
       }
     }
@@ -1175,8 +1189,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       const nextV = result[nextIdx];
       const src = result[insertedIdx];
       if (src.lat && src.lng && nextV.lat && nextV.lng) {
-        const dist = haversineDistance({ lat: src.lat, lng: src.lng }, { lat: nextV.lat, lng: nextV.lng });
-        result[nextIdx].travelTimeBefore = calculateTravelTime(dist, mode);
+        result[nextIdx].travelTimeBefore = resolveMinutes(
+          { lat: src.lat, lng: src.lng },
+          { lat: nextV.lat, lng: nextV.lng },
+        );
       }
     }
 
