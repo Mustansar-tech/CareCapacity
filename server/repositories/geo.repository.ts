@@ -150,6 +150,11 @@ export async function clearAllVisits(branchId: string): Promise<any> {
   return db.delete(visits).where(eq(visits.branchId, branchId));
 }
 
+export async function clearAllRoutePlans(branchId: string): Promise<number> {
+  const result = await db.delete(routePlans).where(eq(routePlans.branchId, branchId));
+  return result.rowCount ?? 0;
+}
+
 export async function saveRoutePlan(plan: InsertRoutePlan): Promise<RoutePlan> {
   const [result] = await db.insert(routePlans).values(plan).returning();
   return result;

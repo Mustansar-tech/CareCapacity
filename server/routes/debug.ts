@@ -15,8 +15,19 @@ router.post('/admin/re-geocode-clients', requireRole('admin'), asyncHandler(asyn
 
 router.post('/admin/clear-map-locations', requireRole('admin'), asyncHandler(async (req, res) => {
   const { resolveBranch } = await import('../utils/helpers');
-  const { clearEmployeeLocations, clearClientLocations } = await import('../repositories/geo.repository');
+  const {
+    clearAllRoutePlans,
+    clearAllVisits,
+    clearEmployeeLocations,
+    clearClientLocations,
+  } = await import('../repositories/geo.repository');
   const branchId = await resolveBranch(req);
+
+  // Delete child rows first to satisfy FK constraints:
+  //   route_stops  → route_plans (cascade, handled automatically)
+  //   visits       → client_locations
+  //   route_plans  → employee_locations
+  await Promise.all([clearAllRoutePlans(branchId), clearAllVisits(branchId)]);
   const [empCount, clientCount] = await Promise.all([
     clearEmployeeLocations(branchId),
     clearClientLocations(branchId),
