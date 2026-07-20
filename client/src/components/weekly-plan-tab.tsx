@@ -108,11 +108,11 @@ function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }
 }
 
 // ── Draggable: visit card already placed on the timeline ──────────────────
-function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate,
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, isManual, onSelect, onUnallocate,
   badMatchesForClient, allEmployeeNames, onAddBadMatch, onRemoveBadMatch }: {
   visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
   empName: string; xLeft: number; wPx: number; grad: string;
-  isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
+  isSelected: boolean; isManual?: boolean; onSelect: () => void; onUnallocate: () => void;
   badMatchesForClient: { id: string; employeeName: string }[];
   allEmployeeNames: string[];
   onAddBadMatch: (name: string) => void;
@@ -153,9 +153,11 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, 
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
       <div style={{ overflow: 'hidden', height: '100%' }}>
-        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
-        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
-        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
+        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isManual ? 'white' : '#0F172A' }}>
+          {isManual && <span style={{ marginRight: 3, opacity: 0.85 }}>✎</span>}{visit.clientName}
+        </div>}
+        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: isManual ? 'rgba(255,255,255,.85)' : '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: isManual ? 'rgba(255,255,255,.7)' : '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
       </div>
 
       {/* ── Main context menu ── */}
@@ -289,6 +291,7 @@ interface AssignedVisit {
   travelTimeAfter?: number;
   score: number;
   serviceType?: string;
+  manuallyAssigned?: boolean;
 }
 
 interface WeeklyScheduleData {
@@ -1209,7 +1212,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     const newVisit: AssignedVisit = {
       id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
       durationMinutes: visit.durationMinutes, lat: visit.lat, lng: visit.lng,
-      travelTimeBefore: 0, score: 0, serviceType: visit.serviceType,
+      travelTimeBefore: 0, score: 0, serviceType: visit.serviceType, manuallyAssigned: true,
     };
     const rawIdx = empVisits.findIndex(v => v.startTime > visit.startTime);
     const insertedIdx = rawIdx === -1 ? empVisits.length : rawIdx;
@@ -1274,7 +1277,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return g === 'female' ? '#DB2777' : g === 'male' ? '#2563EB' : '#0F172A';
   };
 
-  const visitGradient = (_visit: AssignedVisit) => 'linear-gradient(135deg,#F59E0B,#D97706)';
+  const visitGradient = (visit: AssignedVisit) =>
+    visit.manuallyAssigned
+      ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)'
+      : 'linear-gradient(135deg,#F59E0B,#D97706)';
+  const visitBorder = (visit: AssignedVisit) =>
+    visit.manuallyAssigned
+      ? '1.5px solid rgba(139,92,246,0.55)'
+      : '1.5px solid rgba(245,158,11,0.45)';
 
   const timeToX = (t: string) => {
     const [h, m] = t.split(':').map(Number);
@@ -1379,7 +1389,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     const dstVisits = [...((weeklySchedule.assignments[dayDate]?.[toEmp] || []) as AssignedVisit[])];
     const rawIdx = dstVisits.findIndex(v => v.startTime > visit.startTime);
     const insertedIdx = rawIdx === -1 ? dstVisits.length : rawIdx;
-    if (rawIdx === -1) dstVisits.push(visit); else dstVisits.splice(rawIdx, 0, visit);
+    const markedVisit = { ...visit, manuallyAssigned: true };
+    if (rawIdx === -1) dstVisits.push(markedVisit); else dstVisits.splice(rawIdx, 0, markedVisit);
     const updatedDst = recalcNeighbourTravelTimes(dstVisits, insertedIdx, toEmp);
 
     // Also fix the visit that now follows the gap left in the source employee's list
@@ -1661,8 +1672,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         )}
 
                         {/* Visit block */}
-                        <div style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(48, wPx), height: 50, borderRadius: 8, background: visitGradient(visit), border: '1.5px solid rgba(245,158,11,0.45)', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{visit.clientName}</div>
+                        <div style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(48, wPx), height: 50, borderRadius: 8, background: visitGradient(visit), border: visitBorder(visit), display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+                            {visit.manuallyAssigned && <span style={{ marginRight: 3, opacity: 0.85 }}>✎</span>}{visit.clientName}
+                          </div>
                           <div style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.85)', lineHeight: 1.3 }}>{visit.startTime}–{visit.endTime}</div>
                           {visit.serviceType && (
                             <div style={{ fontSize: 8, color: 'rgba(255,255,255,.7)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType.split('/')[0].trim()}</div>
@@ -2564,6 +2577,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               wPx={wPx}
                               grad={grad}
                               isSelected={isSelected}
+                              isManual={!!(visit as AssignedVisit).manuallyAssigned}
                               onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               onUnallocate={() => unallocateVisit(empName, visit)}
                               badMatchesForClient={(badMatchesData || []).filter(
