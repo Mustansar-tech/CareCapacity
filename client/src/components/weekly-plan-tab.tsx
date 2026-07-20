@@ -1275,13 +1275,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return g === 'female' ? '#DB2777' : g === 'male' ? '#2563EB' : '#0F172A';
   };
 
-  const visitGradient = (visit: AssignedVisit) =>
-    visit.manuallyAssigned
-      ? 'linear-gradient(135deg,#8B5CF6,#6D28D9)'
-      : 'linear-gradient(135deg,#F59E0B,#D97706)';
+  const visitGradient = (_visit: AssignedVisit) => 'linear-gradient(135deg,#F59E0B,#D97706)';
   const visitBorder = (visit: AssignedVisit) =>
     visit.manuallyAssigned
-      ? '1.5px solid rgba(139,92,246,0.55)'
+      ? '2px solid rgba(139,92,246,0.75)'
       : '1.5px solid rgba(245,158,11,0.45)';
 
   const timeToX = (t: string) => {
