@@ -21,6 +21,7 @@ export async function extractAndStoreGeographicalData(
   guaranteed: any[],
   branchId: string,
   ghWorkbookBuffer?: Buffer,
+  weekStartDate?: string,
 ): Promise<void> {
   logger.debug(`EXTRACTING GEOGRAPHICAL DATA FOR SCHEDULING OPTIMIZATION...`);
   logger.debug(`CG Data rows to process: ${cgData.length}`);
@@ -74,7 +75,25 @@ export async function extractAndStoreGeographicalData(
       await storage.upsertEmployeeLocation(locationData);
     }
 
-    if (employeeLocationsMap.size > 0) {
+    // Only prune stale locations when this upload is for the latest (or a newer) week.
+    // If an older week is re-uploaded after a newer one exists, skip pruning so the
+    // map continues to reflect the most recently processed week.
+    let shouldPrune = true;
+    if (weekStartDate) {
+      try {
+        const [latestAnalysis] = await storage.getLatestWeeksAnalyses(branchId, 1);
+        if (latestAnalysis && latestAnalysis.weekStartDate > weekStartDate) {
+          shouldPrune = false;
+          logger.info(
+            `Skipping stale-location pruning: uploading week ${weekStartDate} but latest stored week is ${latestAnalysis.weekStartDate}`,
+          );
+        }
+      } catch {
+        // If we can't determine the latest week, default to pruning (safe fallback)
+      }
+    }
+
+    if (shouldPrune && employeeLocationsMap.size > 0) {
       try {
         const activeEmployeeNames = Array.from(employeeLocationsMap.keys());
         const removedEmp = await storage.deleteEmployeeLocationsNotIn(branchId, activeEmployeeNames);
@@ -243,7 +262,7 @@ export async function extractAndStoreGeographicalData(
       await storage.upsertClientLocation(locationData);
     }
 
-    if (clientLocationsMap.size > 0) {
+    if (shouldPrune && clientLocationsMap.size > 0) {
       try {
         const activeClientNames = Array.from(clientLocationsMap.keys());
         const removed = await storage.deleteClientLocationsNotIn(branchId, activeClientNames);
