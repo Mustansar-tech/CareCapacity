@@ -1143,6 +1143,46 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       bm.clientName.toLowerCase().trim() === clientName.toLowerCase().trim()
     );
 
+  // Recalculate travelTimeBefore for the newly inserted visit and the one that now
+  // follows it — both are stale after any manual insertion. Uses client-side haversine
+  // (same formula as the scheduling engine's warm-up pass) since ORS is server-only.
+  const recalcNeighbourTravelTimes = (visits: AssignedVisit[], insertedIdx: number, empName: string): AssignedVisit[] => {
+    const empLoc = employeeLocationMap.get(empName);
+    const rawMode = (empLoc?.transportMode || 'car').toLowerCase();
+    const mode: 'car' | 'walking' | 'public' = rawMode.includes('car') ? 'car' : rawMode === 'public' ? 'public' : 'walking';
+    const result = visits.map(v => ({ ...v }));
+
+    // travelTimeBefore for the newly inserted visit
+    const inserted = result[insertedIdx];
+    if (inserted.lat && inserted.lng) {
+      if (insertedIdx === 0) {
+        if (empLoc?.homeLat && empLoc?.homeLng) {
+          const dist = haversineDistance({ lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) }, { lat: inserted.lat, lng: inserted.lng });
+          result[insertedIdx].travelTimeBefore = calculateTravelTime(dist, mode);
+        }
+      } else {
+        const prev = result[insertedIdx - 1];
+        if (prev.lat && prev.lng) {
+          const dist = haversineDistance({ lat: prev.lat, lng: prev.lng }, { lat: inserted.lat, lng: inserted.lng });
+          result[insertedIdx].travelTimeBefore = calculateTravelTime(dist, mode);
+        }
+      }
+    }
+
+    // travelTimeBefore for the visit that now immediately follows the inserted one
+    const nextIdx = insertedIdx + 1;
+    if (nextIdx < result.length) {
+      const nextV = result[nextIdx];
+      const src = result[insertedIdx];
+      if (src.lat && src.lng && nextV.lat && nextV.lng) {
+        const dist = haversineDistance({ lat: src.lat, lng: src.lng }, { lat: nextV.lat, lng: nextV.lng });
+        result[nextIdx].travelTimeBefore = calculateTravelTime(dist, mode);
+      }
+    }
+
+    return result;
+  };
+
   const assignVisit = (visit: ClientVisit & { unallocatedReason: string }, empName: string) => {
     if (!weeklySchedule) return;
     if (isBadMatchPair(empName, visit.clientName)) {
@@ -1155,11 +1195,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       durationMinutes: visit.durationMinutes, lat: visit.lat, lng: visit.lng,
       travelTimeBefore: 0, score: 0, serviceType: visit.serviceType,
     };
-    const insertIdx = empVisits.findIndex(v => v.startTime > visit.startTime);
-    if (insertIdx === -1) empVisits.push(newVisit); else empVisits.splice(insertIdx, 0, newVisit);
+    const rawIdx = empVisits.findIndex(v => v.startTime > visit.startTime);
+    const insertedIdx = rawIdx === -1 ? empVisits.length : rawIdx;
+    if (rawIdx === -1) empVisits.push(newVisit); else empVisits.splice(rawIdx, 0, newVisit);
+    const updatedVisits = recalcNeighbourTravelTimes(empVisits, insertedIdx, empName);
     const next: WeeklyScheduleData = {
       ...weeklySchedule,
-      assignments: { ...weeklySchedule.assignments, [visit.date]: { ...(weeklySchedule.assignments[visit.date] || {}), [empName]: empVisits } },
+      assignments: { ...weeklySchedule.assignments, [visit.date]: { ...(weeklySchedule.assignments[visit.date] || {}), [empName]: updatedVisits } },
       unallocated: weeklySchedule.unallocated.filter(v => !(v.id === visit.id && v.date === visit.date)),
       metrics: { ...weeklySchedule.metrics, totalVisitsAssigned: weeklySchedule.metrics.totalVisitsAssigned + 1, totalVisitsUnallocated: weeklySchedule.metrics.totalVisitsUnallocated - 1 },
     };
@@ -1319,10 +1361,19 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     if (!weeklySchedule) return;
     const srcVisits = ((weeklySchedule.assignments[dayDate]?.[fromEmp] || []) as AssignedVisit[]).filter(v => v.id !== visit.id);
     const dstVisits = [...((weeklySchedule.assignments[dayDate]?.[toEmp] || []) as AssignedVisit[])];
-    const idx = dstVisits.findIndex(v => v.startTime > visit.startTime);
-    if (idx === -1) dstVisits.push(visit); else dstVisits.splice(idx, 0, visit);
-    const nd: Record<string, AssignedVisit[]> = { ...(weeklySchedule.assignments[dayDate] || {}), [fromEmp]: srcVisits, [toEmp]: dstVisits };
-    if (srcVisits.length === 0) delete nd[fromEmp];
+    const rawIdx = dstVisits.findIndex(v => v.startTime > visit.startTime);
+    const insertedIdx = rawIdx === -1 ? dstVisits.length : rawIdx;
+    if (rawIdx === -1) dstVisits.push(visit); else dstVisits.splice(rawIdx, 0, visit);
+    const updatedDst = recalcNeighbourTravelTimes(dstVisits, insertedIdx, toEmp);
+
+    // Also fix the visit that now follows the gap left in the source employee's list
+    const removedIdx = ((weeklySchedule.assignments[dayDate]?.[fromEmp] || []) as AssignedVisit[]).findIndex(v => v.id === visit.id);
+    const updatedSrc = removedIdx >= 0 && removedIdx < srcVisits.length
+      ? recalcNeighbourTravelTimes(srcVisits, removedIdx, fromEmp)
+      : srcVisits;
+
+    const nd: Record<string, AssignedVisit[]> = { ...(weeklySchedule.assignments[dayDate] || {}), [fromEmp]: updatedSrc, [toEmp]: updatedDst };
+    if (updatedSrc.length === 0) delete nd[fromEmp];
     const next: WeeklyScheduleData = { ...weeklySchedule, assignments: { ...weeklySchedule.assignments, [dayDate]: nd } };
     applyAndSave(next);
     setSelectedTimelineVisit(null);
