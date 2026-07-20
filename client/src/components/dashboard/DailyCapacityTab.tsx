@@ -294,6 +294,7 @@ export function DailyCapacityTab({
                   );
                   return (
                     <TableRow className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/60 font-bold">
+                      <TableCell />
                       <TableCell className="font-bold text-gray-700 dark:text-gray-200 text-sm">Weekly Total</TableCell>
                       <TableCell className="text-right">
                         <Badge className="bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300 border border-green-200 dark:border-green-700 font-bold">
