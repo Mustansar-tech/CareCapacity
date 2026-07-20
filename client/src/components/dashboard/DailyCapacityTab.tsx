@@ -177,6 +177,87 @@ export function DailyCapacityTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {data?.dailySummary && data.dailySummary.length > 0 && (() => {
+                  const totals = data.dailySummary.reduce(
+                    (acc, day) => {
+                      const employees = data?.employeesByDate[day.date] || [];
+                      const cas = employees.reduce((s, emp) => {
+                        const val = emp.netCapacity - emp.scheduledHours;
+                        return s + (val >= 1 ? Math.floor(val) : 0);
+                      }, 0);
+                      return {
+                        availableHours: acc.availableHours + (day.availableHours ?? 0),
+                        unavailability: acc.unavailability + (day.unavailability ?? 0),
+                        sickness: acc.sickness + (day.sickness ?? 0),
+                        holidays: acc.holidays + (day.holidays ?? 0),
+                        netCapacity: acc.netCapacity + day.netCapacity,
+                        clientRequired: acc.clientRequired + day.clientRequired,
+                        clientScheduledHours: acc.clientScheduledHours + day.clientScheduledHours,
+                        otherScheduledHours: acc.otherScheduledHours + (day.otherScheduledHours ?? 0),
+                        capacityAfterScheduling: acc.capacityAfterScheduling + cas,
+                      };
+                    },
+                    { availableHours: 0, unavailability: 0, sickness: 0, holidays: 0, netCapacity: 0, clientRequired: 0, clientScheduledHours: 0, otherScheduledHours: 0, capacityAfterScheduling: 0 }
+                  );
+                  return (
+                    <TableRow className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/60 font-bold sticky bottom-0 z-10">
+                      <TableCell className="font-bold text-gray-700 dark:text-gray-200 text-sm">Weekly Total</TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300 border border-green-200 dark:border-green-700 font-bold">
+                          {fmtH(totals.availableHours)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300 border border-red-200 dark:border-red-700 font-bold">
+                          {fmtH(totals.unavailability)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-bold">
+                          {fmtH(totals.sickness)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-purple-100 text-purple-900 dark:bg-purple-900/60 dark:text-purple-300 border border-purple-200 dark:border-purple-700 font-bold">
+                          {fmtH(totals.holidays)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-200 dark:border-amber-700 font-bold">
+                          {fmtH(totals.netCapacity)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 font-bold">
+                          {fmtH(totals.clientRequired)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 border border-teal-200 dark:border-teal-700 font-bold">
+                          {fmtH(totals.clientScheduledHours)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className="bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 font-bold">
+                          {fmtH(totals.otherScheduledHours)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          className={
+                            totals.capacityAfterScheduling === 0
+                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300 border border-orange-200 dark:border-orange-700 font-bold"
+                              : totals.capacityAfterScheduling > 0
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300 border border-green-200 dark:border-green-700 font-bold"
+                                : "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300 border border-red-200 dark:border-red-700 font-bold"
+                          }
+                        >
+                          {fmtH(totals.capacityAfterScheduling)}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })()}
                 {data?.dailySummary?.map((day, index) => (
                   <TableRow
                     key={day.date}
