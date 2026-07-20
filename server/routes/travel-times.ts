@@ -4,6 +4,7 @@ import * as travelTimesController from '../controllers/travel-times.controller';
 
 const router = Router();
 
+router.post('/travel-times/pairs', asyncHandler(travelTimesController.pairsTravelTimes));
 router.post('/travel-times/batch', asyncHandler(travelTimesController.batchTravelTimes));
 router.post('/travel-times/debug-single', asyncHandler(travelTimesController.debugSingleTravelTime));
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,10 +108,10 @@ function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }
 }
 
 // ── Draggable: visit card already placed on the timeline ──────────────────
-function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate,
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor, isSelected, onSelect, onUnallocate,
   badMatchesForClient, allEmployeeNames, onAddBadMatch, onRemoveBadMatch }: {
   visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
-  empName: string; xLeft: number; wPx: number; grad: string;
+  empName: string; xLeft: number; wPx: number; grad: string; borderColor?: string;
   isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
   badMatchesForClient: { id: string; employeeName: string }[];
   allEmployeeNames: string[];
@@ -142,6 +142,7 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, 
       style={{
         position: 'absolute', top: 12, left: xLeft, width: cW, height: 50,
         borderRadius: 8, padding: '5px 8px 5px 18px', background: grad, color: '#0F172A',
+        border: borderColor || undefined,
         cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'visible',
         boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
         zIndex: open ? 20 : isSelected ? 5 : 3, fontSize: 11, fontWeight: 600,
@@ -303,6 +304,12 @@ interface WeeklyScheduleData {
   };
 }
 
+interface OrsSegment {
+  fromLat: number; fromLng: number; toLat: number; toLng: number;
+  mode: string; visitDate: string; startTimeMinutes?: number;
+  patchId: string; patchEmp: string;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
@@ -336,6 +343,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
+  const weeklyScheduleRef = useRef<WeeklyScheduleData | null>(null);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
@@ -829,6 +837,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   // Apply a manual schedule change: push current to undo stack, update state, persist
   const applyAndSave = (next: WeeklyScheduleData) => {
+    weeklyScheduleRef.current = next;
     setWeeklySchedule(prev => {
       if (prev) setUndoStack(stack => [...stack.slice(-19), prev]);
       return next;
@@ -1200,20 +1209,73 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return result;
   };
 
+  // Async ORS refinement: fires after the optimistic save to get precise travel times
+  const orsRefine = (segments: OrsSegment[]) => {
+    const valid = segments.filter(s => s.fromLat && s.fromLng && s.toLat && s.toLng);
+    if (!valid.length) return;
+    apiRequest('POST', '/api/travel-times/pairs', {
+      pairs: valid.map(s => ({
+        fromLat: s.fromLat, fromLng: s.fromLng,
+        toLat: s.toLat, toLng: s.toLng,
+        mode: s.mode, visitDate: s.visitDate, startTimeMinutes: s.startTimeMinutes,
+      })),
+    }).then(async res => {
+      if (!res.ok) return;
+      const data: { results: { durationMinutes: number | null }[] } = await res.json();
+      let current = weeklyScheduleRef.current;
+      if (!current) return;
+      let changed = false;
+      valid.forEach((seg, i) => {
+        const mins = data.results[i]?.durationMinutes;
+        if (mins == null || mins >= 999) return;
+        const dayData = current!.assignments[seg.visitDate];
+        if (!dayData) return;
+        const empVisits = dayData[seg.patchEmp];
+        if (!empVisits) return;
+        const vIdx = empVisits.findIndex(v => v.id === seg.patchId);
+        if (vIdx < 0 || empVisits[vIdx].travelTimeBefore === mins) return;
+        current = {
+          ...current!,
+          assignments: {
+            ...current!.assignments,
+            [seg.visitDate]: {
+              ...current!.assignments[seg.visitDate],
+              [seg.patchEmp]: empVisits.map((v, j) => j === vIdx ? { ...v, travelTimeBefore: mins } : v),
+            },
+          },
+        };
+        changed = true;
+      });
+      if (!changed || !current) return;
+      weeklyScheduleRef.current = current;
+      setWeeklySchedule(current);
+      saveScheduleMutation.mutate(current);
+    }).catch(() => {});
+  };
+
   const assignVisit = (visit: ClientVisit & { unallocatedReason: string }, empName: string) => {
     if (!weeklySchedule) return;
     if (isBadMatchPair(empName, visit.clientName)) {
       toast({ title: 'Bad match', description: `${empName} is flagged as a bad match for ${visit.clientName}.`, variant: 'destructive' });
       return;
     }
-    const empVisits = [...((weeklySchedule.assignments[visit.date]?.[empName] || []) as AssignedVisit[])];
+    const empLoc = employeeLocationMap.get(empName);
+    const rawMode = (empLoc?.transportMode || 'car').toLowerCase();
+    const mode: 'car' | 'walking' | 'public' = rawMode.includes('car') ? 'car' : rawMode === 'public' ? 'public' : 'walking';
+
+    // Snapshot BEFORE insertion to identify prev/next visits
+    const empVisitsBefore = [...((weeklySchedule.assignments[visit.date]?.[empName] || []) as AssignedVisit[])];
     const newVisit: AssignedVisit = {
       id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
       durationMinutes: visit.durationMinutes, lat: visit.lat, lng: visit.lng,
       travelTimeBefore: 0, score: 0, serviceType: visit.serviceType, manuallyAssigned: true,
     };
-    const rawIdx = empVisits.findIndex(v => v.startTime > visit.startTime);
-    const insertedIdx = rawIdx === -1 ? empVisits.length : rawIdx;
+    const rawIdx = empVisitsBefore.findIndex(v => v.startTime > visit.startTime);
+    const insertedIdx = rawIdx === -1 ? empVisitsBefore.length : rawIdx;
+    const prevVisit = insertedIdx > 0 ? empVisitsBefore[insertedIdx - 1] : null;
+    const nextVisit = empVisitsBefore[insertedIdx] ?? null;
+
+    const empVisits = [...empVisitsBefore];
     if (rawIdx === -1) empVisits.push(newVisit); else empVisits.splice(rawIdx, 0, newVisit);
     const updatedVisits = recalcNeighbourTravelTimes(empVisits, insertedIdx, empName);
     const next: WeeklyScheduleData = {
@@ -1225,13 +1287,41 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     applyAndSave(next);
     setSelectedVisit(null);
     toast({ title: '✓ Assigned', description: `${visit.clientName} → ${empName}` });
+
+    // Async ORS refinement for precise travel times
+    if (newVisit.lat && newVisit.lng) {
+      const segs: OrsSegment[] = [];
+      const fromLoc = prevVisit?.lat && prevVisit?.lng
+        ? { lat: prevVisit.lat, lng: prevVisit.lng }
+        : (empLoc?.homeLat && empLoc?.homeLng ? { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) } : null);
+      if (fromLoc) {
+        segs.push({ fromLat: fromLoc.lat, fromLng: fromLoc.lng, toLat: newVisit.lat, toLng: newVisit.lng, mode, visitDate: visit.date, startTimeMinutes: timeToMinutes(newVisit.startTime), patchId: newVisit.id, patchEmp: empName });
+      }
+      if (nextVisit?.lat && nextVisit?.lng) {
+        segs.push({ fromLat: newVisit.lat, fromLng: newVisit.lng, toLat: nextVisit.lat, toLng: nextVisit.lng, mode, visitDate: visit.date, startTimeMinutes: timeToMinutes(nextVisit.startTime), patchId: nextVisit.id, patchEmp: empName });
+      }
+      if (segs.length) orsRefine(segs);
+    }
   };
 
   const unallocateVisit = (empName: string, visit: AssignedVisit) => {
     if (!weeklySchedule) return;
-    const empVisits = ((weeklySchedule.assignments[dayDate]?.[empName] || []) as AssignedVisit[]).filter(v => v.id !== visit.id);
-    const newDayAssignments = { ...(weeklySchedule.assignments[dayDate] || {}), [empName]: empVisits };
-    if (empVisits.length === 0) delete newDayAssignments[empName];
+    const empLoc = employeeLocationMap.get(empName);
+    const rawMode = (empLoc?.transportMode || 'car').toLowerCase();
+    const mode: 'car' | 'walking' | 'public' = rawMode.includes('car') ? 'car' : rawMode === 'public' ? 'public' : 'walking';
+
+    const allEmpVisits = (weeklySchedule.assignments[dayDate]?.[empName] || []) as AssignedVisit[];
+    const removedIdx = allEmpVisits.findIndex(v => v.id === visit.id);
+    const empVisitsAfter = allEmpVisits.filter(v => v.id !== visit.id);
+
+    // Fix travelTimeBefore for the visit that now fills the gap (haversine immediately)
+    const gapVisit = removedIdx >= 0 && removedIdx < empVisitsAfter.length ? empVisitsAfter[removedIdx] : null;
+    const finalEmpVisits = gapVisit
+      ? recalcNeighbourTravelTimes(empVisitsAfter, removedIdx, empName)
+      : empVisitsAfter;
+
+    const newDayAssignments = { ...(weeklySchedule.assignments[dayDate] || {}), [empName]: finalEmpVisits };
+    if (finalEmpVisits.length === 0) delete newDayAssignments[empName];
     const unallocEntry = {
       id: visit.id, clientName: visit.clientName, startTime: visit.startTime, endTime: visit.endTime,
       durationMinutes: visit.durationMinutes, date: dayDate, lat: visit.lat, lng: visit.lng,
@@ -1246,6 +1336,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     applyAndSave(next);
     setSelectedTimelineVisit(null);
     toast({ title: 'Visit unallocated', description: `${visit.clientName} moved to unallocated` });
+
+    // Async ORS refinement for the gap
+    if (gapVisit?.lat && gapVisit?.lng && removedIdx >= 0) {
+      const prevOfGap = removedIdx > 0 ? empVisitsAfter[removedIdx - 1] : null;
+      const fromLoc = prevOfGap?.lat && prevOfGap?.lng
+        ? { lat: prevOfGap.lat, lng: prevOfGap.lng }
+        : (empLoc?.homeLat && empLoc?.homeLng ? { lat: Number(empLoc.homeLat), lng: Number(empLoc.homeLng) } : null);
+      if (fromLoc) {
+        orsRefine([{ fromLat: fromLoc.lat, fromLng: fromLoc.lng, toLat: gapVisit.lat!, toLng: gapVisit.lng!, mode, visitDate: dayDate, startTimeMinutes: timeToMinutes(gapVisit.startTime), patchId: gapVisit.id, patchEmp: empName }]);
+      }
+    }
   };
 
   // ── Timeline layout constants ─────────────────────────────────────────────
@@ -1380,15 +1481,24 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   const reassignVisit = (visit: AssignedVisit, fromEmp: string, toEmp: string) => {
     if (!weeklySchedule) return;
+    const fromEmpLoc = employeeLocationMap.get(fromEmp);
+    const fromRawMode = (fromEmpLoc?.transportMode || 'car').toLowerCase();
+    const fromMode: 'car' | 'walking' | 'public' = fromRawMode.includes('car') ? 'car' : fromRawMode === 'public' ? 'public' : 'walking';
+    const toEmpLoc = employeeLocationMap.get(toEmp);
+    const toRawMode = (toEmpLoc?.transportMode || 'car').toLowerCase();
+    const toMode: 'car' | 'walking' | 'public' = toRawMode.includes('car') ? 'car' : toRawMode === 'public' ? 'public' : 'walking';
+
     const srcVisits = ((weeklySchedule.assignments[dayDate]?.[fromEmp] || []) as AssignedVisit[]).filter(v => v.id !== visit.id);
-    const dstVisits = [...((weeklySchedule.assignments[dayDate]?.[toEmp] || []) as AssignedVisit[])];
-    const rawIdx = dstVisits.findIndex(v => v.startTime > visit.startTime);
-    const insertedIdx = rawIdx === -1 ? dstVisits.length : rawIdx;
+    const dstVisitsBefore = [...((weeklySchedule.assignments[dayDate]?.[toEmp] || []) as AssignedVisit[])];
+    const rawIdx = dstVisitsBefore.findIndex(v => v.startTime > visit.startTime);
+    const insertedIdx = rawIdx === -1 ? dstVisitsBefore.length : rawIdx;
+    const prevDstVisit = insertedIdx > 0 ? dstVisitsBefore[insertedIdx - 1] : null;
+    const nextDstVisit = dstVisitsBefore[insertedIdx] ?? null;
     const markedVisit = { ...visit, manuallyAssigned: true };
+    const dstVisits = [...dstVisitsBefore];
     if (rawIdx === -1) dstVisits.push(markedVisit); else dstVisits.splice(rawIdx, 0, markedVisit);
     const updatedDst = recalcNeighbourTravelTimes(dstVisits, insertedIdx, toEmp);
 
-    // Also fix the visit that now follows the gap left in the source employee's list
     const removedIdx = ((weeklySchedule.assignments[dayDate]?.[fromEmp] || []) as AssignedVisit[]).findIndex(v => v.id === visit.id);
     const updatedSrc = removedIdx >= 0 && removedIdx < srcVisits.length
       ? recalcNeighbourTravelTimes(srcVisits, removedIdx, fromEmp)
@@ -1400,6 +1510,35 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     applyAndSave(next);
     setSelectedTimelineVisit(null);
     toast({ title: '✓ Reassigned', description: `${visit.clientName} → ${toEmp.split(' ')[0]}` });
+
+    // Async ORS refinement — destination slots
+    if (markedVisit.lat && markedVisit.lng) {
+      const dstSegs: OrsSegment[] = [];
+      const dstFrom = prevDstVisit?.lat && prevDstVisit?.lng
+        ? { lat: prevDstVisit.lat, lng: prevDstVisit.lng }
+        : (toEmpLoc?.homeLat && toEmpLoc?.homeLng ? { lat: Number(toEmpLoc.homeLat), lng: Number(toEmpLoc.homeLng) } : null);
+      if (dstFrom) {
+        dstSegs.push({ fromLat: dstFrom.lat, fromLng: dstFrom.lng, toLat: markedVisit.lat, toLng: markedVisit.lng, mode: toMode, visitDate: dayDate, startTimeMinutes: timeToMinutes(markedVisit.startTime), patchId: markedVisit.id, patchEmp: toEmp });
+      }
+      if (nextDstVisit?.lat && nextDstVisit?.lng) {
+        dstSegs.push({ fromLat: markedVisit.lat, fromLng: markedVisit.lng, toLat: nextDstVisit.lat, toLng: nextDstVisit.lng, mode: toMode, visitDate: dayDate, startTimeMinutes: timeToMinutes(nextDstVisit.startTime), patchId: nextDstVisit.id, patchEmp: toEmp });
+      }
+      if (dstSegs.length) orsRefine(dstSegs);
+    }
+
+    // Async ORS refinement — source gap
+    if (removedIdx >= 0 && removedIdx < srcVisits.length) {
+      const gapVisit = srcVisits[removedIdx];
+      if (gapVisit?.lat && gapVisit?.lng) {
+        const prevOfGap = removedIdx > 0 ? srcVisits[removedIdx - 1] : null;
+        const srcFrom = prevOfGap?.lat && prevOfGap?.lng
+          ? { lat: prevOfGap.lat, lng: prevOfGap.lng }
+          : (fromEmpLoc?.homeLat && fromEmpLoc?.homeLng ? { lat: Number(fromEmpLoc.homeLat), lng: Number(fromEmpLoc.homeLng) } : null);
+        if (srcFrom) {
+          orsRefine([{ fromLat: srcFrom.lat, fromLng: srcFrom.lng, toLat: gapVisit.lat!, toLng: gapVisit.lng!, mode: fromMode, visitDate: dayDate, startTimeMinutes: timeToMinutes(gapVisit.startTime), patchId: gapVisit.id, patchEmp: fromEmp }]);
+        }
+      }
+    }
   };
 
   const handleDragStart = ({ active }: DragStartEvent) => {
@@ -2569,6 +2708,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               xLeft={xLeft}
                               wPx={wPx}
                               grad={grad}
+                              borderColor={visitBorder(visit as AssignedVisit)}
                               isSelected={isSelected}
                               onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               onUnallocate={() => unallocateVisit(empName, visit)}

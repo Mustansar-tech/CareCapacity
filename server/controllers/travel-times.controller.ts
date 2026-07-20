@@ -3,6 +3,41 @@ import { resolveBranch, isUkBst, ukScheduleTimeToUtc } from '../utils/helpers';
 import { TravelTimeService, travelTimeService } from '../features/travel/travel-time-service';
 import { logger } from '../infrastructure/logger';
 
+export async function pairsTravelTimes(req: Request, res: Response): Promise<void> {
+  const branchId = await resolveBranch(req);
+  const { pairs } = req.body as {
+    pairs: Array<{
+      fromLat: number; fromLng: number; toLat: number; toLng: number;
+      mode: string; visitDate?: string; startTimeMinutes?: number;
+    }>;
+  };
+  if (!Array.isArray(pairs) || pairs.length === 0) {
+    res.json({ results: [] });
+    return;
+  }
+  const results = await Promise.all(pairs.map(async p => {
+    try {
+      const mode = TravelTimeService.normalizeMode(p.mode);
+      let arrivalTime: Date | undefined;
+      if (p.startTimeMinutes !== undefined && p.visitDate) {
+        arrivalTime = ukScheduleTimeToUtc(p.visitDate, p.startTimeMinutes);
+      }
+      const result = await travelTimeService.calculateTravelTime(
+        branchId,
+        { lat: p.fromLat, lng: p.fromLng },
+        { lat: p.toLat, lng: p.toLng },
+        mode,
+        arrivalTime,
+      );
+      return { durationMinutes: result?.travelTimeMinutes ?? null, source: result?.source ?? null };
+    } catch (err) {
+      logger.warn(`pairsTravelTimes: failed for pair ${p.fromLat},${p.fromLng}→${p.toLat},${p.toLng}: ${err}`);
+      return { durationMinutes: null, source: 'error' };
+    }
+  }));
+  res.json({ results });
+}
+
 export async function batchTravelTimes(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);
   const { employees, clients, weekStart, earliestStartTime } = req.body as {
