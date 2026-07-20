@@ -93,7 +93,6 @@ export function DailyCapacityTab({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead data-testid="header-date" className="w-[120px]">
                     <TooltipProvider>
                       <Tooltip>
