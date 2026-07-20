@@ -108,10 +108,10 @@ function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }
 }
 
 // ── Draggable: visit card already placed on the timeline ──────────────────
-function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor, isSelected, onSelect, onUnallocate,
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor, lightText, isSelected, onSelect, onUnallocate,
   badMatchesForClient, allEmployeeNames, onAddBadMatch, onRemoveBadMatch }: {
   visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
-  empName: string; xLeft: number; wPx: number; grad: string; borderColor?: string;
+  empName: string; xLeft: number; wPx: number; grad: string; borderColor?: string; lightText?: boolean;
   isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
   badMatchesForClient: { id: string; employeeName: string }[];
   allEmployeeNames: string[];
@@ -141,7 +141,8 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor,
       ref={setNodeRef} onClick={onSelect} onDoubleClick={e => { e.stopPropagation(); setView(v => v === 'closed' ? 'menu' : 'closed'); }} {...attributes}
       style={{
         position: 'absolute', top: 12, left: xLeft, width: cW, height: 50,
-        borderRadius: 8, padding: '5px 8px 5px 18px', background: grad, color: '#0F172A',
+        borderRadius: 8, padding: '5px 8px 5px 18px', background: grad,
+        color: lightText ? '#fff' : '#0F172A',
         border: borderColor || undefined,
         cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'visible',
         boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
@@ -154,9 +155,9 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor,
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
       <div style={{ overflow: 'hidden', height: '100%' }}>
-        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
-        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
-        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
+        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: lightText ? '#fff' : '#0F172A' }}>{visit.clientName}</div>}
+        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: lightText ? 'rgba(255,255,255,0.85)' : '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: lightText ? 'rgba(255,255,255,0.7)' : '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
       </div>
 
       {/* ── Main context menu ── */}
@@ -1376,10 +1377,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     return g === 'female' ? '#DB2777' : g === 'male' ? '#2563EB' : '#0F172A';
   };
 
-  const visitGradient = (_visit: AssignedVisit) => 'linear-gradient(135deg,#F59E0B,#D97706)';
+  const visitGradient = (visit: AssignedVisit) =>
+    visit.manuallyAssigned
+      ? 'linear-gradient(135deg,#7C3AED,#6D28D9)'
+      : 'linear-gradient(135deg,#F59E0B,#D97706)';
   const visitBorder = (visit: AssignedVisit) =>
     visit.manuallyAssigned
-      ? '2px solid rgba(139,92,246,0.75)'
+      ? '2px solid rgba(167,139,250,0.6)'
       : '1.5px solid rgba(245,158,11,0.45)';
 
   const timeToX = (t: string) => {
@@ -2709,6 +2713,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               wPx={wPx}
                               grad={grad}
                               borderColor={visitBorder(visit as AssignedVisit)}
+                              lightText={(visit as AssignedVisit).manuallyAssigned}
                               isSelected={isSelected}
                               onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               onUnallocate={() => unallocateVisit(empName, visit)}
