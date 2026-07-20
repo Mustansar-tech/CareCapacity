@@ -90,7 +90,7 @@ export function DailyCapacityTab({
           <TableSkeleton rows={7} />
         ) : (
           <div className="w-full overflow-x-auto scroll-modern">
-            <Table>
+            <Table className="table-fixed min-w-[1195px]">
               <colgroup>
                 <col style={{width: "110px"}} />
                 <col style={{width: "120px"}} />
