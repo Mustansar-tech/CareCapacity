@@ -12,7 +12,7 @@ import type {
   RouteStop, InsertRouteStop,
   TravelTimeCache, InsertTravelTimeCache,
 } from '@shared/schema';
-import { eq, and, gte, lte, desc, sql, notInArray } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, sql, notInArray, inArray } from 'drizzle-orm';
 
 export async function upsertEmployeeLocation(location: InsertEmployeeLocation): Promise<EmployeeLocation> {
   const [result] = await db
@@ -57,14 +57,30 @@ export async function clearEmployeeLocations(branchId: string): Promise<number> 
 
 export async function deleteEmployeeLocationsNotIn(branchId: string, activeEmployeeNames: string[]): Promise<number> {
   if (activeEmployeeNames.length === 0) return 0;
-  const result = await db
-    .delete(employeeLocations)
+
+  // Find the IDs of stale employee location rows first
+  const stale = await db
+    .select({ id: employeeLocations.id })
+    .from(employeeLocations)
     .where(
       and(
         eq(employeeLocations.branchId, branchId),
         notInArray(employeeLocations.employeeName, activeEmployeeNames),
       ),
     );
+
+  if (stale.length === 0) return 0;
+
+  const staleIds = stale.map(r => r.id);
+
+  // route_plans.employee_id → employee_locations.id (ON DELETE no action)
+  // route_stops cascade from route_plans automatically
+  await db.delete(routePlans).where(inArray(routePlans.employeeId, staleIds));
+
+  const result = await db
+    .delete(employeeLocations)
+    .where(inArray(employeeLocations.id, staleIds));
+
   return result.rowCount ?? 0;
 }
 
@@ -110,14 +126,29 @@ export async function clearClientLocations(branchId: string): Promise<number> {
 
 export async function deleteClientLocationsNotIn(branchId: string, activeClientNames: string[]): Promise<number> {
   if (activeClientNames.length === 0) return 0;
-  const result = await db
-    .delete(clientLocations)
+
+  // Find the IDs of stale client location rows first
+  const stale = await db
+    .select({ id: clientLocations.id })
+    .from(clientLocations)
     .where(
       and(
         eq(clientLocations.branchId, branchId),
         notInArray(clientLocations.clientName, activeClientNames),
       ),
     );
+
+  if (stale.length === 0) return 0;
+
+  const staleIds = stale.map(r => r.id);
+
+  // visits.client_id → client_locations.id (ON DELETE no action)
+  await db.delete(visits).where(inArray(visits.clientId, staleIds));
+
+  const result = await db
+    .delete(clientLocations)
+    .where(inArray(clientLocations.id, staleIds));
+
   return result.rowCount ?? 0;
 }
 
