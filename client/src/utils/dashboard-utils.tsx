@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Zap } from "lucide-react";
 
-export const fmtH = (hours: number): string => `${hours}h`;
-export const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${hours}h`;
+export const fmtH = (hours: number): string => `${Math.round(hours * 100) / 100}h`;
+export const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${Math.round(hours * 100) / 100}h`;
 
 export const GH_REGEX = /(\d+(?:\.\d+)?)\s*GH/i;
 
