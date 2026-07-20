@@ -91,6 +91,18 @@ export function DailyCapacityTab({
         ) : (
           <div className="w-full overflow-x-auto scroll-modern">
             <Table>
+              <colgroup>
+                <col style={{width: "110px"}} />
+                <col style={{width: "120px"}} />
+                <col style={{width: "115px"}} />
+                <col style={{width: "100px"}} />
+                <col style={{width: "100px"}} />
+                <col style={{width: "115px"}} />
+                <col style={{width: "125px"}} />
+                <col style={{width: "125px"}} />
+                <col style={{width: "125px"}} />
+                <col style={{width: "160px"}} />
+              </colgroup>
               <TableHeader>
                 <TableRow>
                   <TableHead data-testid="header-date" className="min-w-[100px]">
