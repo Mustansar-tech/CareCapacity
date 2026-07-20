@@ -326,15 +326,20 @@ export function DailyCapacityTab({
                           {fmtH(totals.clientRequired)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 border border-teal-200 dark:border-teal-700 font-bold">
-                          {fmtH(totals.clientScheduledHours)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge className="bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 font-bold">
-                          {fmtH(totals.otherScheduledHours)}
-                        </Badge>
+                      <TableCell className="text-right" colSpan={2}>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 border border-teal-200 dark:border-teal-700 font-bold">
+                            {fmtH(totals.clientScheduledHours)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">+</span>
+                          <Badge className="bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 font-bold">
+                            {fmtH(totals.otherScheduledHours)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">=</span>
+                          <Badge className="bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 font-bold">
+                            {fmtH(totals.clientScheduledHours + totals.otherScheduledHours)}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge
