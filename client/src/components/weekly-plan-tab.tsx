@@ -108,11 +108,11 @@ function DraggableUnallocCard({ visit, isSelected, priColor, onClick, children }
 }
 
 // ── Draggable: visit card already placed on the timeline ──────────────────
-function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, isManual, onSelect, onUnallocate,
+function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, onSelect, onUnallocate,
   badMatchesForClient, allEmployeeNames, onAddBadMatch, onRemoveBadMatch }: {
   visit: { id: string; clientName: string; startTime: string; endTime: string; serviceType?: string };
   empName: string; xLeft: number; wPx: number; grad: string;
-  isSelected: boolean; isManual?: boolean; onSelect: () => void; onUnallocate: () => void;
+  isSelected: boolean; onSelect: () => void; onUnallocate: () => void;
   badMatchesForClient: { id: string; employeeName: string }[];
   allEmployeeNames: string[];
   onAddBadMatch: (name: string) => void;
@@ -153,11 +153,9 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, isSelected, 
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
       <div style={{ overflow: 'hidden', height: '100%' }}>
-        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isManual ? 'white' : '#0F172A' }}>
-          {isManual && <span style={{ marginRight: 3, opacity: 0.85 }}>✎</span>}{visit.clientName}
-        </div>}
-        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: isManual ? 'rgba(255,255,255,.85)' : '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
-        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: isManual ? 'rgba(255,255,255,.7)' : '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
+        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
+        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
       </div>
 
       {/* ── Main context menu ── */}
@@ -1673,9 +1671,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                         {/* Visit block */}
                         <div style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(48, wPx), height: 50, borderRadius: 8, background: visitGradient(visit), border: visitBorder(visit), display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
-                            {visit.manuallyAssigned && <span style={{ marginRight: 3, opacity: 0.85 }}>✎</span>}{visit.clientName}
-                          </div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{visit.clientName}</div>
                           <div style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.85)', lineHeight: 1.3 }}>{visit.startTime}–{visit.endTime}</div>
                           {visit.serviceType && (
                             <div style={{ fontSize: 8, color: 'rgba(255,255,255,.7)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType.split('/')[0].trim()}</div>
@@ -2577,7 +2573,6 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                               wPx={wPx}
                               grad={grad}
                               isSelected={isSelected}
-                              isManual={!!(visit as AssignedVisit).manuallyAssigned}
                               onSelect={() => setSelectedTimelineVisit(isSelected ? null : { empName, visit })}
                               onUnallocate={() => unallocateVisit(empName, visit)}
                               badMatchesForClient={(badMatchesData || []).filter(
