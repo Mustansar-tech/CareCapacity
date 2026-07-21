@@ -144,6 +144,8 @@ const joinerFormSchema = z.object({
   completedStages: z.array(z.string()).default([]),
   status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   hiredAt: z.string().optional(),
+  availability: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 type JoinerFormData = z.infer<typeof joinerFormSchema>;
@@ -428,6 +430,8 @@ function JoinerModal({
       trainingDate: "",
       completedStages: ['Onboarding'],
       status: "active",
+      availability: "",
+      notes: "",
     },
   });
 
@@ -445,6 +449,8 @@ function JoinerModal({
           completedStages: getInitialCompletedStages(editing),
           status: (editing.status as "active" | "dropped" | "hired" | "hired_archived") ?? "active",
           hiredAt: editing.hiredAt ?? "",
+          availability: editing.availability ?? "",
+          notes: editing.notes ?? "",
         });
       } else {
         form.reset({
@@ -457,6 +463,8 @@ function JoinerModal({
           completedStages: ['Onboarding'],
           status: "active",
           hiredAt: "",
+          availability: "",
+          notes: "",
         });
       }
     }
@@ -693,10 +701,58 @@ function JoinerModal({
               </div>
             </FormItem>
 
-            <FormField control={form.control} name="trainingDate" render={({ field }) => (
+            <FormField control={form.control} name="trainingDate" render={({ field }) => {
+              const selected = (field.value ?? '').split(',').map(s => s.trim()).filter(Boolean);
+              return (
+                <FormItem>
+                  <FormLabel>Training Attended</FormLabel>
+                  <FormControl>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4].map(day => {
+                        const isOn = selected.includes(String(day));
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => {
+                              const next = isOn
+                                ? selected.filter(d => d !== String(day))
+                                : [...selected, String(day)].sort((a, b) => Number(a) - Number(b));
+                              field.onChange(next.join(','));
+                            }}
+                            className={[
+                              "w-9 h-9 rounded-full border-2 text-sm font-bold transition-colors focus:outline-none",
+                              isOn
+                                ? "bg-violet-500 border-violet-500 text-white"
+                                : "border-border text-muted-foreground hover:border-violet-400 hover:text-violet-600",
+                            ].join(' ')}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                      {selected.length > 0 && (
+                        <span className="text-xs text-muted-foreground ml-1">Day{selected.length > 1 ? 's' : ''} {selected.join(', ')} selected</span>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }} />
+
+            <FormField control={form.control} name="availability" render={({ field }) => (
               <FormItem>
-                <FormLabel>Training Attended</FormLabel>
-                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormLabel>Availability</FormLabel>
+                <FormControl><Textarea placeholder="e.g. Mon–Fri mornings, weekends available…" rows={2} className="resize-none" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="notes" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl><Textarea placeholder="Optional notes…" rows={2} className="resize-none" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -719,7 +775,6 @@ function JoinerModal({
 function AvailabilityNotesPopup({
   open,
   joiner,
-  branchId,
   onClose,
 }: {
   open: boolean;
@@ -727,47 +782,9 @@ function AvailabilityNotesPopup({
   branchId: string;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
-  const [availability, setAvailability] = useState("");
-  const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    if (open && joiner) {
-      setAvailability(joiner.availability ?? "");
-      setNotes(joiner.notes ?? "");
-    }
-  }, [open, joiner?.id]);
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!joiner) return;
-      const res = await fetch(
-        toAbsoluteUrl(`/api/capacity-outlook/joiners/${joiner.id}?branchId=${branchId}`),
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ availability, notes }),
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to save');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
-      toast({ title: "Saved", description: "Availability and notes updated." });
-      onClose();
-    },
-    onError: (err: Error) => {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    },
-  });
-
   if (!joiner) return null;
+
+  const trainingDays = (joiner.trainingDate ?? '').split(',').map(s => s.trim()).filter(Boolean);
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -785,37 +802,46 @@ function AvailabilityNotesPopup({
         </DialogHeader>
 
         <div className="space-y-4 py-1">
+          {trainingDays.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Training Attended</p>
+              <div className="flex items-center gap-2">
+                {[1,2,3,4].map(d => (
+                  <span
+                    key={d}
+                    className={[
+                      "w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold",
+                      trainingDays.includes(String(d))
+                        ? "bg-violet-500 border-violet-500 text-white"
+                        : "border-border text-muted-foreground/40",
+                    ].join(' ')}
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Availability</label>
-            <Textarea
-              placeholder="e.g. Mon–Fri mornings, weekends available…"
-              rows={3}
-              value={availability}
-              onChange={e => setAvailability(e.target.value)}
-              className="resize-none"
-            />
+            <p className="text-sm font-medium">Availability</p>
+            {joiner.availability ? (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted/40 p-3">{joiner.availability}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground/50 italic">No availability recorded</p>
+            )}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Notes</label>
-            <Textarea
-              placeholder="Optional notes…"
-              rows={3}
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="resize-none"
-            />
+            <p className="text-sm font-medium">Notes</p>
+            {joiner.notes ? (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted/40 p-3">{joiner.notes}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground/50 italic">No notes recorded</p>
+            )}
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
-            className="bg-violet-600 hover:bg-violet-700 text-white"
-          >
-            {mutation.isPending ? "Saving…" : "Save"}
-          </Button>
+          <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1631,6 +1657,17 @@ export default function CapacityOutlookPage() {
                                       : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
                                   ].join(' ')}>{m}</Badge>
                                 ))}
+                                {j.trainingDate && (() => {
+                                  const days = j.trainingDate.split(',').map(s => s.trim()).filter(Boolean);
+                                  if (days.length === 0) return null;
+                                  return (
+                                    <span className="flex items-center gap-0.5 ml-0.5" title={`Training: day${days.length > 1 ? 's' : ''} ${days.join(', ')} of 4`}>
+                                      {[1,2,3,4].map(d => (
+                                        <span key={d} className={`w-2 h-2 rounded-full ${days.includes(String(d)) ? 'bg-violet-500' : 'bg-muted-foreground/25'}`} />
+                                      ))}
+                                    </span>
+                                  );
+                                })()}
                                 {isStale14Days(j) && (
                                   <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
                                     <AlertTriangle className="w-3 h-3" /> Stale
